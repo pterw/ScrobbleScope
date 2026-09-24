@@ -9,6 +9,71 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The release-window rule gets one owner
+
+Side task, no batch tag: fixes F-B23-5, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 12 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/domain.py` gains `release_window(release_scope, year,
+  decade=None, release_year=None)`, which returns the inclusive `(first,
+  last)` years a scope accepts, `None` when every year qualifies, and raises
+  `ValueError` when a companion parameter is present but unparseable.
+  `domain._matches_release_criteria` (the album filter) and
+  `release_checks._window_end` (the correction worker) both derive from it
+  now instead of each restating the same scope table; neither's name,
+  signature or import path changed, so every test that used them passed
+  unmodified.
+- **The two divergences named in the finding are kept, per owner ruling
+  2026-09-23 (KEEP PARITY).** An unparseable `decade` (the route does not
+  validate it) still makes `_matches_release_criteria` return `False` and
+  `_window_end` return `None`; the only change is that the warning now
+  names the bad decade instead of the release date. `_window_end` still
+  accepts `year` as a string; the filter is still only ever called with an
+  `int`.
+- **Parity tests pin both consumers' outputs first.**
+  `tests/services/test_orchestrator_helpers.py` gains
+  `test_matches_release_criteria_parity_before_release_window`, a
+  parametrized test covering the four bounded scopes plus every divergence
+  the finding names; `tests/services/test_release_checks.py` gains
+  `test_window_end_parity_before_release_window`, the same coverage for
+  `_window_end`. Both were checked against the pre-refactor functions (the
+  finding's own known-bad decade warning reproduced) before the refactor
+  landed, and both still pass against the derived code -- the net held.
+  `test_window_end_per_release_scope` and
+  `test_window_end_returns_none_on_unusable_inputs` pass unmodified.
+- **Direct coverage for `release_window`** also lands in
+  `tests/services/test_orchestrator_helpers.py`:
+  `test_release_window_per_scope` (the four bounded scopes),
+  `test_release_window_unbounded_returns_none` (`"all"`, an unrecognized
+  scope, and a falsy companion) and
+  `test_release_window_unparseable_decade_raises` (the adversarial case).
+- **Deviation from the brief.** The brief's Files list names only
+  `tests/services/test_orchestrator_helpers.py` and
+  `tests/services/test_release_checks.py` as test files to touch, append
+  only, and does not mention `tests/test_domain.py`. `release_window`'s own
+  tests (Step 2) are therefore appended to
+  `tests/services/test_orchestrator_helpers.py` -- the file that already
+  hosts `_matches_release_criteria`'s adversarial coverage -- rather than
+  added to a new or different test module.
+- **Documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py`
+  summary line now lists all five module-level functions:
+  `normalize_name, format_album_key, normalize_track_name,
+  _matches_release_criteria, release_window`.
+  `docs/architecture/runtime-system.md`'s runtime-system prose named
+  `_matches_release_criteria` as what the worker and the album filter both
+  read from `domain.py`; it now names `release_window`, since that is the
+  rule's one owner. A sweep for `_window_end` and "release window" across
+  live prose found nothing else naming the old, two-copy shape.
+- **F-B23-5 is resolved.** `domain.release_window` is the rule's one
+  owner; the album filter and the worker's window end both derive from it.
+- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
+  Task 10.
+
+Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The export contracts are made consistent
 
 Side task, no batch tag: a definition edit within Batch 23, made before

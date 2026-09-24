@@ -6,13 +6,14 @@
 of the three exits the definition allows -- fixed, confirmed already fixed, or ruled out by the owner --
 so the Spotify export feature starts on a repository with no stale record and no open P0 or P1 defect.
 
-**Architecture:** Three stages, in this order:
+**Architecture:** Four stages, in this order:
 
 - **Stage 1 -- records.** Close what is already fixed, with evidence. This needs no ruling.
 - **Stage 2 -- pipeline fixes.** These are the findings Batch 23's own code will sit on: F-SWE-5,
   F-SWE-6, F-B22-7, F-B21-6 and F-LOAD-1. They are written in full, for the recommended answer to each
   question they depend on.
 - **Stage 3 -- the owner's rulings, written into the findings.**
+- **Stage 4 -- provider call logging (F-B23-6).** Added by the owner on 2026-09-24, after Stage 3.
 
 The control-plane and frontend clusters get their own plans once the rulings are in, one per subsystem
 (the writing-plans skill's scope rule). "After this plan" says what each covers and in what order.
@@ -100,6 +101,8 @@ Every task's requirements include this section.
    Q1 and Q2. If the owner picks differently, rewrite the affected task before dispatching it.
 3. **Stage 3**, once the answers are in.
 4. **The foundation plan's Tasks 4-10**, which are Part B's control-plane work.
+   **Stage 4** (Task 13) was added by the owner on 2026-09-24 and runs between the foundation plan's
+   Tasks 4 and 5.
 5. **The three follow-on plans** listed under "After this plan".
 6. **WP-0 close-out**: one tagged `(Batch 23 WP-0)` entry, once Parts A, B and C each meet their
    acceptance.
@@ -145,7 +148,8 @@ answer.
     disclosure, from `GET /api/release_checks`, or from `original_release_cache`'s row count
     (`docs/history/reports/HANDOFF_2026-09-23.md` section 6).
   - The worker needs start and finish log lines with counts, plus a line for the silent contact skip.
-    Add them to the test-infrastructure plan, not as a new finding.
+    Add them to the test-infrastructure plan, not as a new finding. Superseded 2026-09-24: the owner
+    widened this to every provider call, filed as F-B23-6, and moved it into Task 13.
 - **Q10: b.** The UI stays as it is. F-B21-53 becomes no action: cards are delineated by their
   border, and `docs/design/README.md` stops calling them elevated. Task 10 records it.
 - **Q11: a**, since no icon asset was supplied.
@@ -221,6 +225,7 @@ Every ID the definition lists, plus the P2s Q1 and Q2 would add. "Verified" is t
 | F-LOAD-1 | real; an occupancy count would always read full | fixed | Task 9 |
 | F-B22-8 (P2, owner-added) | real, local development only | fixed | Task 11 |
 | F-B23-5 (P2, owner-added) | real; the two copies already differ at the edges | fixed | Task 12 |
+| F-B23-6 (P2, owner-added 2026-09-24) | real; MusicBrainz and Deezer log nothing, the worker is silent on success | fixed | Task 13 |
 | F-B21-15, F-B21-48, F-B18-11, F-STYLE-1, F-STYLE-2, F-WORKTREE-4, F-B21-24 | ruling-only | ruled out, as Q16 | Task 10 |
 | F-B21-4 | items 1, 2 and 4 fixed; item 3 open | item 3 per Q13 | Task 10 |
 | F-B21-19 | real | per Q12 | Task 10 (override) or the frontend plan |
@@ -1605,6 +1610,93 @@ git commit -m "docs(findings): Record the owner's WP-0 rulings"
 
 ---
 
+## Stage 4 -- provider call logging (owner-added 2026-09-24)
+
+### Task 13: Log every provider call and the release checks (F-B23-6)
+
+Added by the owner on 2026-09-24, after Stage 3. Testing Batch 22's MusicBrainz corrections, the owner
+could not see from the log whether any MusicBrainz call was made, or how it ended. The release-check
+worker logs nothing on success, `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is
+unset, and `musicbrainz.py` and `deezer.py` contain no log call at all. Last.fm and Spotify log some
+failures, each in its own words. A 429, a 404 or a timeout should read the same whichever provider
+returned it.
+
+**Owner rulings, 2026-09-24:**
+- Scope: all four providers (Last.fm, Spotify, Deezer, MusicBrainz), plus the three release-worker
+  lines this plan's "After this plan" section used to carry.
+- Levels: a call that ends in a 429 or a 5xx logs at WARNING, with its `Retry-After` value when the
+  response has one. Any other non-2xx status (404 and the rest) logs at INFO. A timeout or connection
+  error logs at WARNING. A 2xx call logs at DEBUG, so a default run shows it only in the summary.
+  Each session logs one INFO summary per provider it called when it closes.
+
+**Files:**
+- Create: `scrobblescope/api_logging.py` -- a leaf module (standard library plus `aiohttp`): the
+  host-to-provider map, the `aiohttp.TraceConfig` callbacks, the per-session tally and the summary.
+- Modify: `scrobblescope/utils.py` -- `create_optimized_session` attaches the trace config and emits
+  the summary when the session closes. Every provider already builds its session here, so no
+  provider module changes for the per-call lines.
+- Modify: `scrobblescope/release_checks.py` -- the three worker lines.
+- Modify: `.claude/SESSION_CONTEXT.md` Section 3 (the new module) and Section 4 (the new
+  `utils -> api_logging` edge; `AGENTS.md` Anti-Pattern 2).
+- Test: create `tests/services/test_api_logging.py`; append to `tests/services/test_release_checks.py`.
+
+**Interfaces:** `create_optimized_session()` keeps its name, signature and return type (an
+`aiohttp.ClientSession`, used as `async with`), so every caller and every existing test is unchanged.
+Existing tests mock `session.get`, so the hook never fires in them.
+
+**What a line contains, and what it must never contain.**
+- Contains: the provider name (from the request host: `ws.audioscrobbler.com` -> Last.fm,
+  `api.spotify.com` and `accounts.spotify.com` -> Spotify, `api.deezer.com` -> Deezer,
+  `musicbrainz.org` -> MusicBrainz; any other host is named by its hostname), the HTTP method, the URL
+  path, the status or the exception class, and the elapsed milliseconds.
+- Never contains the query string. It carries Last.fm's `api_key`, and the artist and album search
+  terms, which `BATCH23_DEFINITION.md`'s Data handling section forbids in logs once they come from an
+  upload. The one exception is Last.fm's `method` parameter (for example `user.getrecenttracks`),
+  because the path alone (`/2.0/`) does not say which call it was. Never log request or response
+  bodies or headers, except the response's `Retry-After`.
+- Summary line, for example: `Spotify: 142 calls in 18.2s -- 138x200, 4x404`. Exceptions count
+  under their class name.
+
+**The release-worker lines** (INFO, no artist or album names, counts only):
+- one when `_run_release_checks` starts, with its candidate count;
+- one when it finishes, with the counts checked and corrected;
+- one at `enqueue_release_check`'s skip when MusicBrainz is disabled or `MUSICBRAINZ_CONTACT` is
+  unset, naming which of the two.
+
+- [ ] **Step 1: Failing tests.** In `tests/services/test_api_logging.py`, drive a real session from
+  `create_optimized_session()` against `aiohttp.test_utils.TestServer` (part of `aiohttp`; no new
+  dependency). Assert through `caplog`:
+  - a 200 logs one DEBUG line with method, path, status and elapsed time, and nothing at INFO;
+  - a 404 logs at INFO, a 503 at WARNING, and a 429 with `Retry-After: 2` at WARNING naming the `2`;
+  - a request that times out, or cannot connect, logs at WARNING with the exception class, and the
+    exception still reaches the caller unchanged;
+  - adversarial: a request whose query holds `api_key=SECRET-KEY` and `artist=Radiohead` logs neither
+    value; one holding `method=user.getrecenttracks` for the Last.fm host logs the method;
+  - closing the session logs one INFO summary per provider, with the right counts;
+  - the host map names all four providers, and names an unknown host by its hostname.
+  In `tests/services/test_release_checks.py`, the three worker lines, each with its counts, and the
+  skip line naming the missing setting. Run them: they fail.
+- [ ] **Step 2: Implement `api_logging.py`** and wire it into `create_optimized_session`. A logging
+  failure must never fail a request: the callbacks catch their own errors.
+- [ ] **Step 3: Add the three worker lines.** Existing log lines in `lastfm.py`, `spotify.py` and
+  `release_checks.py` stay as they are; they say what the pipeline decided, which the hook cannot know.
+- [ ] **Step 4: Run everything.** The new tests, then the full suite. No existing test changes.
+- [ ] **Step 5: The owner's live check, after the commit.** Real provider calls need the owner's
+  username and live API quota, so the implementer does not make them. The owner runs one top-albums
+  job with `DEBUG_MODE=1` and one without, and confirms the summaries, the problem lines and the
+  worker lines appear, and that no query value does. The controller records the outcome in PLAYBOOK
+  Section 3.
+- [ ] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Sections 3 and 4.
+- [ ] **Step 7: Resolve F-B23-6 and commit.** The reason line: "every provider call is logged by
+  `api_logging` through `create_optimized_session`, and the release worker logs its start, finish and
+  skip". The frontend gate does not run: no template or asset change. Then:
+
+```bash
+git commit -m "feat(logging): Log every provider call and the release checks"
+```
+
+---
+
 ## After this plan
 
 Each of these is its own plan, written once the rulings are in, so its code matches the answers.
@@ -1632,10 +1724,7 @@ Each of these is its own plan, written once the rulings are in, so its code matc
    - **F-B21-3's remainder** (Q6), with a live `pip-audit` recount.
    - While there, add `requirements-dev.txt` to the CI audit's inputs. Triage C noticed it is never
      audited.
-   - Give the release-check worker `logging.info` lines (from the Q0 answer):
-     - one when `_run_release_checks` starts, with its candidate count;
-     - one when it finishes, with its checked and corrected counts;
-     - one at `enqueue_release_check`'s silent skip when `MUSICBRAINZ_CONTACT` is unset.
+   - The release-check worker's log lines (from the Q0 answer) moved to Task 13 on 2026-09-24.
 
 WP-0 closes when Parts A, B and C each meet their acceptance in `BATCH23_DEFINITION.md`. One tagged
 `(Batch 23 WP-0)` Section 4 entry then records it.

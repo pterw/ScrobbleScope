@@ -191,7 +191,9 @@ See FINDINGS F-DOCSYNC-3.
      plan's Tasks 4-10.
   3. The foundation plan's Tasks 4-10. Task 4 (the archive page target gets
      a reader, DOC024, and the cold rule's documentation is corrected) is
-     done, 2026-09-23.
+     done, 2026-09-23. Next is the reconcile plan's Task 13, which the owner
+     added on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call
+     and the release checks). It runs before the foundation plan's Task 5.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -399,6 +401,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - Provider call logging joins the reconcile plan as its Task 13
+
+Side task, no batch tag: files F-B23-6 and writes the task that fixes it,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Why.** Testing Batch 22's MusicBrainz corrections, the owner still saw
+  no MusicBrainz line in the log. At source: the release-check worker logs
+  nothing on success, `enqueue_release_check` skips silently without
+  `MUSICBRAINZ_CONTACT`, and `musicbrainz.py` and `deezer.py` have no log
+  call at all.
+- **Owner rulings, 2026-09-24.** Scope: all four providers, plus the three
+  release-worker lines the plan's "After this plan" section held (moved into
+  the task, with a pointer left behind). Levels: 429 and 5xx at WARNING with
+  `Retry-After`, other non-2xx at INFO, timeouts and connection errors at
+  WARNING, 2xx at DEBUG, and one INFO summary per provider per session.
+- **Recorded:** F-B23-6 (P2, owner-added) in `FINDINGS.md`; a Part C bullet
+  in `BATCH23_DEFINITION.md`; the reconcile plan's disposition row, its
+  Stage 4 and Task 13, and its stage count and order list; PLAYBOOK Section
+  3's order list, which runs Task 13 before the foundation plan's Task 5.
+- **Design constraint carried into the task:** no query string in any log
+  line, because it carries Last.fm's API key and the search terms the
+  definition's Data handling section keeps out of logs. The one exception
+  is Last.fm's `method` value.
+- Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-23 - The DOC024 wiring gets a test, and its severity gets stated truly
 
 Side task, no batch tag: fix round 1 on the archive page target task --
@@ -540,68 +569,3 @@ Forward guidance: the reconcile plan's Stage 3 Task 10 (Part B) has landed,
 completing every task in
 `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The
 next step is the foundation plan's Tasks 4-10, per Section 3's order list.
-
-### 2026-09-23 - The release-window rule gets one owner
-
-Side task, no batch tag: fixes F-B23-5, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 12 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/domain.py` gains `release_window(release_scope, year,
-  decade=None, release_year=None)`, which returns the inclusive `(first,
-  last)` years a scope accepts, `None` when every year qualifies, and raises
-  `ValueError` when a companion parameter is present but unparseable.
-  `domain._matches_release_criteria` (the album filter) and
-  `release_checks._window_end` (the correction worker) both derive from it
-  now instead of each restating the same scope table; neither's name,
-  signature or import path changed, so every test that used them passed
-  unmodified.
-- **The two divergences named in the finding are kept, per owner ruling
-  2026-09-23 (KEEP PARITY).** An unparseable `decade` (the route does not
-  validate it) still makes `_matches_release_criteria` return `False` and
-  `_window_end` return `None`; the only change is that the warning now
-  names the bad decade instead of the release date. `_window_end` still
-  accepts `year` as a string; the filter is still only ever called with an
-  `int`.
-- **Parity tests pin both consumers' outputs first.**
-  `tests/services/test_orchestrator_helpers.py` gains
-  `test_matches_release_criteria_parity_before_release_window`, a
-  parametrized test covering the four bounded scopes plus every divergence
-  the finding names; `tests/services/test_release_checks.py` gains
-  `test_window_end_parity_before_release_window`, the same coverage for
-  `_window_end`. Both were checked against the pre-refactor functions (the
-  finding's own known-bad decade warning reproduced) before the refactor
-  landed, and both still pass against the derived code -- the net held.
-  `test_window_end_per_release_scope` and
-  `test_window_end_returns_none_on_unusable_inputs` pass unmodified.
-- **Direct coverage for `release_window`** also lands in
-  `tests/services/test_orchestrator_helpers.py`:
-  `test_release_window_per_scope` (the four bounded scopes),
-  `test_release_window_unbounded_returns_none` (`"all"`, an unrecognized
-  scope, and a falsy companion) and
-  `test_release_window_unparseable_decade_raises` (the adversarial case).
-- **Deviation from the brief.** The brief's Files list names only
-  `tests/services/test_orchestrator_helpers.py` and
-  `tests/services/test_release_checks.py` as test files to touch, append
-  only, and does not mention `tests/test_domain.py`. `release_window`'s own
-  tests (Step 2) are therefore appended to
-  `tests/services/test_orchestrator_helpers.py` -- the file that already
-  hosts `_matches_release_criteria`'s adversarial coverage -- rather than
-  added to a new or different test module.
-- **Documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py`
-  summary line now lists all five module-level functions:
-  `normalize_name, format_album_key, normalize_track_name,
-  _matches_release_criteria, release_window`.
-  `docs/architecture/runtime-system.md`'s runtime-system prose named
-  `_matches_release_criteria` as what the worker and the album filter both
-  read from `domain.py`; it now names `release_window`, since that is the
-  rule's one owner. A sweep for `_window_end` and "release window" across
-  live prose found nothing else naming the old, two-copy shape.
-- **F-B23-5 is resolved.** `domain.release_window` is the rule's one
-  owner; the album filter and the worker's window end both derive from it.
-- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
-  Task 10.
-
-Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.

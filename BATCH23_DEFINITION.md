@@ -318,6 +318,12 @@ Later the same day the owner added a fourth P2:
   filter and once for the correction worker. It gets one owner in
   `domain.py`.
 
+On 2026-09-24 the owner added a fifth P2:
+
+- **F-B23-6:** provider calls leave no trace in the log. Every provider call
+  is to log its status in one format, with no query string, and the release
+  worker is to log its start, finish and skip.
+
 - **Acceptance:**
   - Each ID in the set is checked, member by member, and has left it in one of
     the three ways.

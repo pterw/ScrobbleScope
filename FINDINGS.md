@@ -895,6 +895,26 @@ Batch 23 WP-0 reconcile Task 7 (2026-09-23). Its logs are in a git-ignored
 SDD workspace on the owner's machine; the failure lines above are quoted
 from them.
 
+### F-B23-6: provider calls leave no trace in the log
+
+Testing Batch 22's MusicBrainz corrections, the owner could not tell from the
+log whether any MusicBrainz call was made, or how it ended. The release-check
+worker logs nothing on success, and `enqueue_release_check` skips silently
+when MusicBrainz is disabled or `MUSICBRAINZ_CONTACT` is unset.
+`musicbrainz.py` and `deezer.py` contain no log call at all. Last.fm and
+Spotify log some failures, each in its own words, so a 429, a 404 or a
+timeout reads differently depending on which provider returned it.
+
+Every provider builds its HTTP session in `utils.create_optimized_session`,
+so one `aiohttp` trace hook there can log every call in one format. It must
+not log query strings: they carry Last.fm's API key, and the artist and album
+search terms that `BATCH23_DEFINITION.md`'s Data handling section keeps out
+of logs.
+
+Status: open (P2). The owner added it to Batch 23 WP-0 Part C on 2026-09-24
+and ruled its scope and log levels; reconcile plan Task 13 fixes it.
+Source: owner testing report, 2026-09-24.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
