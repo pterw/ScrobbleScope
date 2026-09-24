@@ -192,7 +192,7 @@ something that will run in a repository that is not this one:
 
 **What is already extractable, and what is not.** `scripts/docsync/` is close:
 its integrity checks are generic apart from the document names in
-`_LIVE_DOCUMENT_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
+`LIVE_DOCUMENT_RELATIVE_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
 -- serve, drive a browser, run checks per device profile -- and specific in
 its checks, which is the right split. The batch and work-package vocabulary in
 `AGENTS.md` is portable. What is not portable: `.docsync.toml`, the design

@@ -9,6 +9,52 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - AGENTS.md points at the full docsync CLI and records the installer decision
+
+Side task, no batch tag: `AGENTS.md` pointers and the installer decision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Step 1:** `AGENTS.md` "Doc Sync Rules" -> "How to run" now points at
+  `docs/architecture/documentation-tooling.md` "CLI surface added by the
+  close-out and bounded-archives plan" for `--close-batch`,
+  `--paginate-archives` and `--cold-storage`, without restating the modes.
+- **Step 2:** `AGENTS.md` "Agent skills" gained a "Global rules" pointer to
+  `docs/agents/global-rules.md`, in the same shape as its three siblings.
+- **Step 3:** `AGENT_NOTES.md` "Architectural Constraints" records the
+  installer decision: no live `--install --yes` has run in this repository,
+  and either install order fails loudly rather than silently. Wrapper
+  first, then `pre-commit install`, moves the wrapper to `pre-commit.legacy`
+  and re-enters it through `hook_impl.py`'s `_run_legacy`; the wrapper's own
+  non-recursive delegation to `python -m pre_commit hook-impl` then
+  inherits `PRE_COMMIT_RUNNING_LEGACY` and hits pre-commit's own "installed
+  in migration mode" `SystemExit` on every future commit -- confirmed
+  against `install_uninstall.py` and `hook_impl.py` in the installed
+  `pre_commit` package, matching the plan's "Errors in the earlier draft".
+  `pre-commit install` first, then the wrapper, fails the other way:
+  pre-commit's own generated hook file carries no `GENERATED_MARKER`, so
+  `install_docsync_hook.py`'s `classify_existing_hook` reads it as
+  `"unknown"` and `install()` refuses to overwrite it (exit 2). The wired
+  path already runs the checker without the wrapper: `doc-state-sync-check`
+  is first in `.pre-commit-config.yaml`, and CI's own explicit preflight
+  step backs it up.
+- **Step 4:** `AGENTS.md` measures **487** lines (`wc -l AGENTS.md`),
+  under the 500-line limit.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
+**Follow-up (2026-09-24, owner change).** The owner added one line to the
+top of `.github/copilot-instructions.md` and asked for it to be committed:
+GitHub's coding agents are to follow `AGENTS.md` and its bootstrap, not
+duplicate its rules, and use the existing Graphify guidance for
+architecture questions. It is the agent-facing counterpart of this entry's
+pointers. The same line, with its curly apostrophe straightened (`AGENTS.md`
+Markdown Authoring Rules: ASCII only), is also on PR #242
+(`chore/repo-assist-workflow`); the two copies are byte-identical, so the
+branches merge cleanly. Docs only.
+
 ### 2026-09-24 - The frontend gate selects checks from a manifest
 
 Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend

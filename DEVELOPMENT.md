@@ -212,7 +212,9 @@ edit them out or misplace them.
    guess at semantic repairs.
 
 The script runs as a pre-commit hook (`doc-state-sync-check` in
-`.pre-commit-config.yaml`) in `--check` mode. This means any commit that
+`.pre-commit-config.yaml`) in `--check` mode, through
+`scripts/dev/docsync_preflight.py --worktree`, which also refuses a commit
+that stages the docsync control plane itself. This means any commit that
 leaves deterministic drift or a proven live-document contradiction is rejected
 at the gate, before it reaches CI.
 
@@ -511,14 +513,14 @@ and the difference matters to anyone planning to lift them.
 
 **1. The documentation control plane (`scripts/docsync/`).** The most portable
 of the three, and the closest to finished. Its integrity checks are generic
-apart from the document names in `_LIVE_DOCUMENT_PATHS`, and its facts live in
+apart from the document names in `LIVE_DOCUMENT_RELATIVE_PATHS`, and its facts live in
 `.docsync.toml` rather than in the code -- `declarations.py` carries no
 ScrobbleScope value at all. It publishes atomically, diagnoses with typed codes
 and a remediation, and runs from a pre-commit hook and from CI.
 
 **2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** Structurally
 complete: a public facade (`worktree_guard.py`), a thin CLI entry point, and
-the checks spread across seven modules by concern -- inspection, lineage,
+the checks spread across six modules by concern -- inspection, lineage,
 diagnostics, runner, venv, types. It reports `WT000`-`WT014`, each code naming
 its own remediation. It runs as an advisory pre-commit hook rather than a gate,
 and deliberately so: `WT003` fires for any branch the active batch does not
@@ -564,7 +566,7 @@ to say and hard to act on:
 | Section anchors | `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"` | PLAYBOOK and its section names are this workflow's vocabulary |
 | Batch vocabulary | `[closeout] admit_from_batch = 22` | Batching is the portable idea; *which* batch is the local fact |
 | Design tokens | the `[[value]]` entries for the page background and muted text | These are ScrobbleScope's visual system, and one of them straddles source CSS, a legacy shell bridge and exact tests |
-| Live-document list | `_LIVE_DOCUMENT_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
+| Live-document list | `LIVE_DOCUMENT_RELATIVE_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
 
 The pattern is consistent: **the mechanism is generic and the facts are
 local**, which is the intended end state. The unfinished half is that those
