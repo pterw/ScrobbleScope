@@ -531,6 +531,11 @@ nothing else in the plan changed.
 
 - Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched).
 
+**Fix round 3 (2026-09-24, re-review).** `DEVELOPMENT.md:559`'s portability
+ties table still quoted the pre-fix `allow_after` marker literal as a
+worked example; corrected to the real heading text, the only change in
+that row.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading
