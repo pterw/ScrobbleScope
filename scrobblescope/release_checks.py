@@ -346,6 +346,9 @@ async def run_release_checks(job_id):
 
     params = context.get("params") or {}
     candidates = _select_candidates(context)
+    logging.info(
+        f"Release checks starting for job {job_id}: {len(candidates)} candidates"
+    )
     _mark_unchecked(job_id, candidates)
 
     if not MUSICBRAINZ_ENABLED:
@@ -379,6 +382,10 @@ async def run_release_checks(job_id):
     except Exception:
         logging.exception(f"Release checks failed for job {job_id}")
     finally:
+        logging.info(
+            f"Release checks finished for job {job_id}: "
+            f"{state['checked']} checked, {state['moved_out']} corrected"
+        )
         state["status"] = STATUS_DONE
         set_job_release_check(job_id, state)
         if conn:
@@ -436,6 +443,12 @@ def enqueue_release_check(job_id):
     if not job_id:
         return False
     if not (MUSICBRAINZ_ENABLED and MUSICBRAINZ_CONTACT):
+        missing = (
+            "MusicBrainz is disabled"
+            if not MUSICBRAINZ_ENABLED
+            else "MUSICBRAINZ_CONTACT is unset"
+        )
+        logging.info(f"Release checks skipped for job {job_id}: {missing}")
         set_job_release_check(job_id, _state(STATUS_SKIPPED))
         return False
     _ensure_worker_started()

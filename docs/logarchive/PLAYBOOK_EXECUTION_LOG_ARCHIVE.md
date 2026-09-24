@@ -9,6 +9,57 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The owner's rulings land in their findings
+
+Side task, no batch tag: write the owner's 2026-09-23 WP-0 rulings into
+FINDINGS.md and docs/design/RECONCILIATION.md, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the reconcile plan's Stage 3 Task 10.** Step 1b recorded
+  `F-B21-53` no action (Q10 = b): the light card is delineated by its border,
+  not lifted by its fill. `docs/design/README.md` was not edited -- it
+  already reads "borders do the work" (line ~107) and "Edge, not elevation"
+  (line ~254), and a sweep found no other live elevation claim about cards;
+  `static/css/shell.css:566`'s "elevated paper pill" is the theme toggle, not
+  a card, and was left alone.
+- **Step 2 wrote six no-action records**, each replacing its free-prose
+  `Status:` line with the canonical `- [x] **Status:** no action` /
+  `**Completed:** 2026-09-23` / reason form: `F-B21-15` (no scheduled
+  `GET /heatmap/<username>` route), `F-STYLE-1` and `F-STYLE-2` (guidance
+  that cannot become a gate; the docstring convention stays undecided),
+  `F-WORKTREE-4` (the owner's 2026-09-21 ruling, written in canonical form),
+  `F-B21-24` (Tasks 2-5 shipped; Task 6 runs as Batch 23 WP-7's audit) and
+  `F-MAS-2` (absorbed into `F-B21-18`; a pointer line was added under
+  "Deferred / future-batch candidates" so the old id stays resolvable).
+- **Step 3 re-graded `F-B21-48` and `F-B18-11`** to P2 -- a persistent
+  scrobble cache is a feature, not a defect -- and moved both under "P2 --
+  Scaling roadmap". The Codex/Copilot session-entry-point item, F-B21-25's
+  third "Remaining" item, was filed as the new finding `F-B21-63` (the next
+  free `F-B21-` number) under P2; F-B21-25's own "Remaining" paragraph now
+  points at it instead of restating it.
+- **Step 4 split the partly-ruled findings.** `F-B21-4` closes no action:
+  items 1, 2 and 4 are settled (citing `templates/index.html` `.index-grid`,
+  RECONCILIATION's loading-signal override, and RECONCILIATION section 16),
+  and item 3 folds into Batch 23 WP-6 (Q13 = a). `F-B21-19` closes no
+  action per Q12 = a: `docs/design/RECONCILIATION.md` section 1 gained an
+  owner-approved override row for the width-driven mobile heatmap grid, and
+  day detail (hover reveals what was played) is named a future feature since
+  the payload holds only `daily_counts`. `F-DOCSYNC-6` and `F-WORKTREE-3`
+  each gained a dated line: the boundary/ancestry items are no action, the
+  mechanical bugs stay open for the control-plane plan. RECONCILIATION
+  section 9's `F-B21-4` bullet and section 7's lead-in were reworded so
+  neither sibling claim still reads as pending.
+- **No test changed.** The task is documentation only; the test count stays
+  at the baseline.
+
+Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+Forward guidance: the reconcile plan's Stage 3 Task 10 (Part B) has landed,
+completing every task in
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The
+next step is the foundation plan's Tasks 4-10, per Section 3's order list.
+
 ### 2026-09-23 - The release-window rule gets one owner
 
 Side task, no batch tag: fixes F-B23-5, part of Batch 23 WP-0 Part C.

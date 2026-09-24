@@ -9,6 +9,28 @@ Newest rotation first.
 
 ---
 
+### F-B23-6: provider calls leave no trace in the log -- RESOLVED
+
+Testing Batch 22's MusicBrainz corrections, the owner could not tell from the
+log whether any MusicBrainz call was made, or how it ended. The release-check
+worker logs nothing on success, and `enqueue_release_check` skips silently
+when MusicBrainz is disabled or `MUSICBRAINZ_CONTACT` is unset.
+`musicbrainz.py` and `deezer.py` contain no log call at all. Last.fm and
+Spotify log some failures, each in its own words, so a 429, a 404 or a
+timeout reads differently depending on which provider returned it.
+
+Every provider builds its HTTP session in `utils.create_optimized_session`,
+so one `aiohttp` trace hook there can log every call in one format. It must
+not log query strings: they carry Last.fm's API key, and the artist and album
+search terms that `BATCH23_DEFINITION.md`'s Data handling section keeps out
+of logs.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-24
+Every provider call is logged by `api_logging` through
+`create_optimized_session`, and the release worker logs its start, finish
+and skip.
+
 ### F-STYLE-1: repository prose is denser than it needs to be -- NO ACTION
 
 The goal is writing that is easier to read, not conformance to a standard.

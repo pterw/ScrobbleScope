@@ -840,3 +840,93 @@ def test_ensure_worker_started_starts_exactly_one_live_thread():
         assert release_checks._worker_thread is live_thread
     finally:
         release_checks._worker_thread = original
+
+
+# --- Task 13: the three worker log lines (F-B23-6) --------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_logs_its_start_with_the_candidate_count(caplog):
+    """
+    GIVEN a job with two results
+    WHEN the worker starts
+    THEN it logs the candidate count at INFO before any lookup, naming no
+    artist or album.
+    """
+    job_id = _job_with(
+        results=[
+            _result("Radiohead", "OK Computer"),
+            _result("Pulp", "Different Class"),
+        ]
+    )
+    lookup = AsyncMock(return_value=(None, None))
+    with caplog.at_level(logging.INFO), _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    start_lines = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert len(start_lines) == 1
+    assert start_lines[0].levelno == logging.INFO
+    message = start_lines[0].getMessage()
+    assert "2 candidates" in message
+    assert "Radiohead" not in message
+    assert "OK Computer" not in message
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_logs_its_finish_with_checked_and_corrected_counts(
+    caplog,
+):
+    """
+    GIVEN a job whose single candidate moves out of the window
+    WHEN the worker finishes
+    THEN it logs the checked and corrected counts at INFO, naming no artist
+    or album.
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(return_value=("mbid-okc", "1990-01-01"))
+    with caplog.at_level(logging.INFO), _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    finish_lines = [r for r in caplog.records if "finished" in r.getMessage()]
+    assert len(finish_lines) == 1
+    assert finish_lines[0].levelno == logging.INFO
+    message = finish_lines[0].getMessage()
+    assert "1 checked" in message
+    assert "1 corrected" in message
+    assert "Radiohead" not in message
+    assert "OK Computer" not in message
+
+
+def test_enqueue_release_check_names_musicbrainz_disabled_in_the_skip_line(caplog):
+    """
+    GIVEN MusicBrainz is disabled
+    WHEN a job is handed to the worker
+    THEN the skip line names MusicBrainz as disabled, not the contact.
+    """
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    with (
+        caplog.at_level(logging.INFO),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", False),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_CONTACT", "a@b.c"),
+    ):
+        assert enqueue_release_check(job_id) is False
+
+    assert "MusicBrainz is disabled" in caplog.text
+    assert "MUSICBRAINZ_CONTACT" not in caplog.text
+
+
+def test_enqueue_release_check_names_the_missing_contact_in_the_skip_line(caplog):
+    """
+    GIVEN MusicBrainz is enabled but MUSICBRAINZ_CONTACT is unset
+    WHEN a job is handed to the worker
+    THEN the skip line names the missing contact setting, not "disabled".
+    """
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    with (
+        caplog.at_level(logging.INFO),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_CONTACT", None),
+    ):
+        assert enqueue_release_check(job_id) is False
+
+    assert "MUSICBRAINZ_CONTACT is unset" in caplog.text

@@ -191,9 +191,10 @@ See FINDINGS F-DOCSYNC-3.
      plan's Tasks 4-10.
   3. The foundation plan's Tasks 4-10. Task 4 (the archive page target gets
      a reader, DOC024, and the cold rule's documentation is corrected) is
-     done, 2026-09-23. Next is the reconcile plan's Task 13, which the owner
-     added on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call
-     and the release checks). It runs before the foundation plan's Task 5.
+     done, 2026-09-23. The reconcile plan's Task 13, which the owner added
+     on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call and the
+     release checks), is done, 2026-09-24. Next is the foundation plan's
+     Task 5.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -401,6 +402,83 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - Every provider call is logged, and the release worker says what it did
+
+Side task, no batch tag: implements the reconcile plan's Task 13 (F-B23-6),
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **New module `scrobblescope/api_logging.py`** (leaf: standard library plus
+  `aiohttp`): a host-to-provider map (`ws.audioscrobbler.com` -> Last.fm,
+  `api.spotify.com`/`accounts.spotify.com` -> Spotify, `api.deezer.com` ->
+  Deezer, `musicbrainz.org` -> MusicBrainz; any other host is named by its
+  hostname), the `aiohttp.TraceConfig` callbacks that log every call, and a
+  per-session tally that logs one INFO summary per called provider on
+  close (for example `Spotify: 3 calls in 0.2s -- 2x200, 1x404`). Levels
+  per the owner's ruling: 429/5xx at WARNING (naming `Retry-After` when the
+  response has one), other non-2xx at INFO, a timeout or connection error
+  at WARNING (naming the exception class), 2xx at DEBUG. A line never
+  carries the query string -- only the path -- except Last.fm's `method`
+  value, named because the bare path (`/2.0/`) does not say which call it
+  was. Every callback catches its own errors so a logging failure can never
+  fail the request it describes.
+- **`utils.create_optimized_session`** attaches a fresh trace config (one
+  per session: `aiohttp.ClientSession` freezes whatever `TraceConfig` it is
+  given at construction, so a shared module-level one could not accept new
+  sessions' callbacks) and wraps the returned session's `close()` so the
+  summary logs the first time it closes. Not a `ClientSession` subclass:
+  aiohttp 3.14 fires a `DeprecationWarning` at class-definition time for
+  any subclass of it (`__init_subclass__` in `aiohttp.client`), which would
+  have shown up as a warning on every test that imports this module.
+  Rebinding `close` on the session instance reaches the same one place --
+  `__aexit__` and every explicit `await session.close()` both call
+  `session.close()` -- without subclassing. The function's name, signature
+  and return type (an `aiohttp.ClientSession`, used as `async with`) are
+  unchanged, so no caller and no existing test needed touching; every
+  existing provider test mocks `session.get`, so the hook never fires in
+  them.
+- **`release_checks.py`'s three worker lines** (INFO, counts only, no
+  artist or album names): `run_release_checks` logs its candidate count
+  when it starts and, in its `finally` block, the checked and corrected
+  counts when it finishes; `enqueue_release_check` logs which setting is
+  missing -- `MUSICBRAINZ_ENABLED` or `MUSICBRAINZ_CONTACT` -- when it
+  skips.
+- **Reading "corrected"** (not defined further by the brief): the finish
+  line reports `state["moved_out"]`, the count of results the worker
+  actually rewrote in place, not `moved_out + moved_in` -- a moved-in
+  candidate is only tallied on the job's stats, never applied to a result
+  (`_check_candidate`'s own comment: "move-ins are counted on the job's
+  stats, not inserted"). Flagged here in case the owner intended the wider
+  count.
+- **Privacy proof.** The adversarial test (a query holding
+  `api_key=SECRET-KEY` and `artist=Radiohead`) was run red first: with
+  `_call_outcome_line` temporarily logging the full URL instead of
+  `url.path`, both the pure-function test and the end-to-end
+  `TestServer`-backed test failed on the planted leak, then passed again
+  once reverted. `tests/services/test_api_logging.py` drives a real
+  session from `create_optimized_session()` against a local
+  `aiohttp.test_utils.TestServer` (part of `aiohttp`; no new dependency)
+  for the end-to-end cases, and tests the host map and the Last.fm
+  `method` exception as pure functions of a `yarl.URL` -- the TestServer's
+  host is always `127.0.0.1`, which only exercises the unknown-host
+  fallback branch. `tests/services/test_release_checks.py` gained four
+  tests for the three worker lines and the two skip reasons.
+- **Docs.** `.claude/SESSION_CONTEXT.md` Section 3 lists the new module;
+  Section 4 gains the `utils -> api_logging` edge (`AGENTS.md`
+  Anti-Pattern 2). `FINDINGS.md` resolves F-B23-6 (rotated to
+  `docs/history/findings/FINDINGS_ARCHIVE.md` by `--fix`).
+- **Not run:** Step 5, the owner's live check with a real Last.fm run under
+  `DEBUG_MODE=1` and without it -- it needs the owner's username and API
+  quota. Left unticked in the reconcile plan; the owner records the outcome
+  here when it runs.
+
+Validation: `pytest -q` -- **1820 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+Forward guidance: the reconcile plan's Task 13 (its whole Stage 4) is done.
+Next is the foundation plan's Task 5, per Section 3's order list -- Step 5
+above is still owed from the owner.
+
 ### 2026-09-24 - Provider call logging joins the reconcile plan as its Task 13
 
 Side task, no batch tag: files F-B23-6 and writes the task that fixes it,
@@ -518,54 +596,3 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 Validation: `pytest -q` -- **1798 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The owner's rulings land in their findings
-
-Side task, no batch tag: write the owner's 2026-09-23 WP-0 rulings into
-FINDINGS.md and docs/design/RECONCILIATION.md, part of Batch 23 WP-0 Part B.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Scope: the reconcile plan's Stage 3 Task 10.** Step 1b recorded
-  `F-B21-53` no action (Q10 = b): the light card is delineated by its border,
-  not lifted by its fill. `docs/design/README.md` was not edited -- it
-  already reads "borders do the work" (line ~107) and "Edge, not elevation"
-  (line ~254), and a sweep found no other live elevation claim about cards;
-  `static/css/shell.css:566`'s "elevated paper pill" is the theme toggle, not
-  a card, and was left alone.
-- **Step 2 wrote six no-action records**, each replacing its free-prose
-  `Status:` line with the canonical `- [x] **Status:** no action` /
-  `**Completed:** 2026-09-23` / reason form: `F-B21-15` (no scheduled
-  `GET /heatmap/<username>` route), `F-STYLE-1` and `F-STYLE-2` (guidance
-  that cannot become a gate; the docstring convention stays undecided),
-  `F-WORKTREE-4` (the owner's 2026-09-21 ruling, written in canonical form),
-  `F-B21-24` (Tasks 2-5 shipped; Task 6 runs as Batch 23 WP-7's audit) and
-  `F-MAS-2` (absorbed into `F-B21-18`; a pointer line was added under
-  "Deferred / future-batch candidates" so the old id stays resolvable).
-- **Step 3 re-graded `F-B21-48` and `F-B18-11`** to P2 -- a persistent
-  scrobble cache is a feature, not a defect -- and moved both under "P2 --
-  Scaling roadmap". The Codex/Copilot session-entry-point item, F-B21-25's
-  third "Remaining" item, was filed as the new finding `F-B21-63` (the next
-  free `F-B21-` number) under P2; F-B21-25's own "Remaining" paragraph now
-  points at it instead of restating it.
-- **Step 4 split the partly-ruled findings.** `F-B21-4` closes no action:
-  items 1, 2 and 4 are settled (citing `templates/index.html` `.index-grid`,
-  RECONCILIATION's loading-signal override, and RECONCILIATION section 16),
-  and item 3 folds into Batch 23 WP-6 (Q13 = a). `F-B21-19` closes no
-  action per Q12 = a: `docs/design/RECONCILIATION.md` section 1 gained an
-  owner-approved override row for the width-driven mobile heatmap grid, and
-  day detail (hover reveals what was played) is named a future feature since
-  the payload holds only `daily_counts`. `F-DOCSYNC-6` and `F-WORKTREE-3`
-  each gained a dated line: the boundary/ancestry items are no action, the
-  mechanical bugs stay open for the control-plane plan. RECONCILIATION
-  section 9's `F-B21-4` bullet and section 7's lead-in were reworded so
-  neither sibling claim still reads as pending.
-- **No test changed.** The task is documentation only; the test count stays
-  at the baseline.
-
-Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-Forward guidance: the reconcile plan's Stage 3 Task 10 (Part B) has landed,
-completing every task in
-`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The
-next step is the foundation plan's Tasks 4-10, per Section 3's order list.

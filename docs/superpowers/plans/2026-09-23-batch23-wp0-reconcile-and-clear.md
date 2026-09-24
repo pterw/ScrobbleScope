@@ -1663,7 +1663,7 @@ Existing tests mock `session.get`, so the hook never fires in them.
 - one at `enqueue_release_check`'s skip when MusicBrainz is disabled or `MUSICBRAINZ_CONTACT` is
   unset, naming which of the two.
 
-- [ ] **Step 1: Failing tests.** In `tests/services/test_api_logging.py`, drive a real session from
+- [x] **Step 1: Failing tests.** In `tests/services/test_api_logging.py`, drive a real session from
   `create_optimized_session()` against `aiohttp.test_utils.TestServer` (part of `aiohttp`; no new
   dependency). Assert through `caplog`:
   - a 200 logs one DEBUG line with method, path, status and elapsed time, and nothing at INFO;
@@ -1676,18 +1676,18 @@ Existing tests mock `session.get`, so the hook never fires in them.
   - the host map names all four providers, and names an unknown host by its hostname.
   In `tests/services/test_release_checks.py`, the three worker lines, each with its counts, and the
   skip line naming the missing setting. Run them: they fail.
-- [ ] **Step 2: Implement `api_logging.py`** and wire it into `create_optimized_session`. A logging
+- [x] **Step 2: Implement `api_logging.py`** and wire it into `create_optimized_session`. A logging
   failure must never fail a request: the callbacks catch their own errors.
-- [ ] **Step 3: Add the three worker lines.** Existing log lines in `lastfm.py`, `spotify.py` and
+- [x] **Step 3: Add the three worker lines.** Existing log lines in `lastfm.py`, `spotify.py` and
   `release_checks.py` stay as they are; they say what the pipeline decided, which the hook cannot know.
-- [ ] **Step 4: Run everything.** The new tests, then the full suite. No existing test changes.
+- [x] **Step 4: Run everything.** The new tests, then the full suite. No existing test changes.
 - [ ] **Step 5: The owner's live check, after the commit.** Real provider calls need the owner's
   username and live API quota, so the implementer does not make them. The owner runs one top-albums
   job with `DEBUG_MODE=1` and one without, and confirms the summaries, the problem lines and the
   worker lines appear, and that no query value does. The controller records the outcome in PLAYBOOK
   Section 3.
-- [ ] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Sections 3 and 4.
-- [ ] **Step 7: Resolve F-B23-6 and commit.** The reason line: "every provider call is logged by
+- [x] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Sections 3 and 4.
+- [x] **Step 7: Resolve F-B23-6 and commit.** The reason line: "every provider call is logged by
   `api_logging` through `create_optimized_session`, and the release worker logs its start, finish and
   skip". The frontend gate does not run: no template or asset change. Then:
 

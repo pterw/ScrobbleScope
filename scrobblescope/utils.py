@@ -8,6 +8,7 @@ from weakref import WeakKeyDictionary
 import aiohttp
 from aiolimiter import AsyncLimiter
 
+from scrobblescope.api_logging import attach_summary_on_close, build_trace_config
 from scrobblescope.config import (
     APP_USER_AGENT,
     DEEZER_REQUESTS_PER_SECOND,
@@ -234,6 +235,11 @@ def create_optimized_session():
     requests and warns that an anonymous client risks suspension, and the
     other providers' guidelines want attribution too. MusicBrainz is the one
     caller that overrides it, with the contact-bearing form its API requires.
+
+    Every request this session makes is also logged, in one format shared by
+    every provider: ``scrobblescope.api_logging`` attaches an
+    ``aiohttp.TraceConfig`` and wraps ``close()`` so the session's
+    per-provider call summary logs when it closes (F-B23-6, Task 13).
     """
     connector = aiohttp.TCPConnector(
         limit=40,  # Max total connections across all hosts
@@ -252,12 +258,14 @@ def create_optimized_session():
         sock_read=20,  # Socket read timeout
     )
 
-    return aiohttp.ClientSession(
+    session = aiohttp.ClientSession(
         connector=connector,
         timeout=timeout,
         raise_for_status=False,  # Manual status handling
         headers={"User-Agent": APP_USER_AGENT},
+        trace_configs=[build_trace_config()],
     )
+    return attach_summary_on_close(session)
 
 
 # Request caching helper functions
