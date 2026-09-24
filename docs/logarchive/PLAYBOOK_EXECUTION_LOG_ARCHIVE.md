@@ -9,6 +9,43 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - main is merged in before the root cleanup
+
+Side task, no batch tag: Task 0 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** A normal merge commit brings `origin/main` (`707eed6`, PR #242)
+  into this branch before any file moves, so the Repo Assist workflow and
+  its Section 4 entry move with the documents. Arrived cleanly:
+  `.github/workflows/repo-assist.md`, `.github/workflows/repo-assist.lock.yml`,
+  `.github/aw/actions-lock.json` and `.gitattributes`.
+  `.github/copilot-instructions.md` needed nothing: its one line was already
+  byte-identical on both sides.
+- **Conflicts.** `git merge-tree` named exactly the two files the plan
+  predicted, `PLAYBOOK.md` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. `main` changed only
+  Section 4 in both: it added the Repo Assist entry and rotated "The
+  release-check finish line names both corrections" into the archive. This
+  branch had already rotated that entry, byte-identical, so the archive
+  resolves to this branch's side. In Section 4 every entry from both sides
+  survives, text unchanged: the Repo Assist entry went in by commit time,
+  between "The root-cleanup plan is drafted and the handoff readied for a
+  cloud session" and "The architecture diagrams are re-verified against
+  source". `--fix` then rotated those last two into the archive, where each
+  appears once.
+- **Section 3.** Item 3 records the owner's approval ("follow active
+  plans", 2026-09-24) and Task 0 done. The plan's own status paragraph still
+  reads "awaiting review and owner approval" until Task 1 deletes it, as
+  that task specifies. Task 0's plan checkboxes are ticked, and
+  `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 5 now says
+  the plan is approved and Task 0 done.
+- **Deviations:** Task 0 Step 3 says to append its sentence to item 3. Item
+  3's last sentence said the plan awaited approval, so that sentence is
+  replaced rather than left to contradict the new one.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - README and DEVELOPMENT.md catch up with the code
 
 Side task, no batch tag: the owner found `README.md` and `DEVELOPMENT.md`

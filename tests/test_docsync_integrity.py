@@ -1958,8 +1958,23 @@ def test_resolved_live_document_paths_honours_an_override():
 def test_collect_integrity_issues_scans_under_an_overridden_playbook_path(
     tmp_path: Path,
 ):
-    """DOC001 must scan the document docsync is told to scan, not the default name,
-    or a moved document silently drops out of the scan (a wrong green).
+    """DOC001's scan set honours `document_paths`, not the default literal.
+
+    Proves only the `documents_to_scan = set(document_paths)` substitution
+    (`scripts/docsync/integrity.py`): with `document_paths=("docs/agents/
+    PLAYBOOK.md",)`, a dead reference living under that path is found even
+    though it is not named in the default `LIVE_DOCUMENT_RELATIVE_PATHS`
+    tuple at all -- so a moved document does not silently drop out of the
+    scan. It does NOT exercise either `path == playbook_relative_path`
+    comparison in the same function: in this fixture
+    `_playbook_lines_without_entry_blocks` returns `playbook_lines`
+    byte-for-byte unchanged (no dated Section 4 entry exists to blank) and
+    `definition_line` is `None` (Section 3 declares no active batch), so
+    both sites are inert here regardless of which side of the comparison
+    wins -- confirmed by scratch-copy mutation (see the fix-round-1 report
+    section). `test_playbook_entry_block_reference_is_blanked_under_an_
+    overridden_playbook_path` and `test_definition_line_skip_is_honoured_
+    under_an_overridden_playbook_path` below cover those two comparisons.
 
     Deviation from the brief's literal snippet (sdd-implementer precedence
     rule "brief and reality disagree"): `collect_integrity_issues` scans the
@@ -2001,3 +2016,105 @@ def test_collect_integrity_issues_scans_under_an_overridden_playbook_path(
         issue.code == "DOC001" and issue.path == "docs/agents/PLAYBOOK.md"
         for issue in issues
     )
+
+
+def test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """The `path == playbook_relative_path` scan-source comparison is load-bearing.
+
+    Mirrors `test_playbook_reference_after_dated_entry_keeps_original_line_number`
+    (dated Section 4 history is skipped for DOC001) and
+    `test_definition_label_outside_section_3_is_not_exempt` (only the
+    resolved declaration is exempt, not other sections), but at an
+    overridden `playbook_relative_path` instead of the default literal.
+
+    A dead reference inside a dated Section 4 entry must NOT be reported
+    (entry-block history is point-in-time and blanked before the scan, the
+    same as it is at the default path); the same dead reference outside any
+    entry block, in Section 3, MUST be reported at the overridden path.
+    `live_documents[playbook_relative_path]` is set to the raw,
+    still-entry-block-bearing `playbook_lines` (not the pre-blanked form),
+    so the two behave identically only when `collect_integrity_issues`
+    itself selects `_playbook_lines_without_entry_blocks(playbook_lines)`
+    for this path -- if the `path == playbook_relative_path` comparison
+    that makes that selection were reverted to the hardcoded `"PLAYBOOK.md"`
+    literal, `scan_lines` would instead be this raw, unblanked
+    `live_documents` entry and the entry-block reference would also be
+    reported, changing one DOC001 into two. Proven by scratch-copy mutation
+    (see the fix-round-1 report section).
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    playbook_lines = [
+        "## 3. Active batch",  # 1
+        "",  # 2
+        "See `NOWHERE.md` for detail.",  # 3 -- outside any entry block: reported
+        "",  # 4
+        "## 4. Execution log",  # 5
+        "",  # 6
+        "### 2026-09-24 - Some heading",  # 7 -- dated entry starts
+        "",  # 8
+        "See `NOWHERE.md` too.",  # 9 -- inside the entry block: blanked, not reported
+        "",  # 10
+    ]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        # Raw, unblanked copy: only correct if collect_integrity_issues itself
+        # re-derives the blanked form from `playbook_lines` for this path.
+        live_documents={"docs/agents/PLAYBOOK.md": playbook_lines},
+        playbook_lines=playbook_lines,
+        archive_lines=list(SIDE_ARCHIVE_PREFIX),
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=frozenset({"AGENTS.md"}),
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC001", "docs/agents/PLAYBOOK.md", 3)
+    ]
+
+
+def test_definition_line_skip_is_honoured_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """The `path == playbook_relative_path` definition-line skip is load-bearing.
+
+    Mirrors `test_untracked_active_definition_is_blocking`: an untracked
+    active-batch definition reference is reported as DOC002 (its own
+    diagnostic), and the same reference must NOT *also* be reported as a
+    generic DOC001 dead reference -- that double-report is exactly what the
+    `path == playbook_relative_path and line == definition_line and
+    reference == definition_path` skip exists to prevent. This is the same
+    fixture as that test, with the playbook moved to an overridden
+    `playbook_relative_path`/`document_paths` instead of the default. If the
+    skip's path comparison were reverted to the hardcoded `"PLAYBOOK.md"`
+    literal, it would never match this fixture's real (overridden) path, the
+    skip would never fire, and the untracked definition reference would be
+    reported twice (DOC002 and DOC001) instead of once. Proven by
+    scratch-copy mutation (see the fix-round-1 report section).
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    inputs = _valid_inputs(tmp_path)
+    playbook_lines = inputs["playbook_lines"]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        live_documents={
+            "docs/agents/PLAYBOOK.md": playbook_lines,
+            "BATCH21_DEFINITION.md": inputs["live_documents"]["BATCH21_DEFINITION.md"],
+        },
+        playbook_lines=playbook_lines,
+        archive_lines=inputs["archive_lines"],
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=inputs["tracked_paths"] - {"BATCH21_DEFINITION.md"},
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
