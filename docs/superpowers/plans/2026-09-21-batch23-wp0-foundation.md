@@ -482,14 +482,14 @@ derive `PLANNED_RUNS`, print the selection); `docs/architecture/documentation-to
 
 **Files:** `AGENTS.md`, `AGENT_NOTES.md` (Architectural Constraints), `docs/architecture/documentation-tooling.md`.
 
-- [ ] **Step 1:** In "How to run", point at the CLI section of `documentation-tooling.md` for
+- [x] **Step 1:** In "How to run", point at the CLI section of `documentation-tooling.md` for
   `--close-batch`, `--paginate-archives` and `--cold-storage`. Don't restate them.
-- [ ] **Step 2:** In "Agent skills", add `docs/agents/global-rules.md` as a pointer.
-- [ ] **Step 3:** Record the installer decision in `AGENT_NOTES.md`, with the corrected evidence (see
+- [x] **Step 2:** In "Agent skills", add `docs/agents/global-rules.md` as a pointer.
+- [x] **Step 3:** Record the installer decision in `AGENT_NOTES.md`, with the corrected evidence (see
   "Errors in the earlier draft"): installing the wrapper alongside pre-commit's own hook would fail
   loudly in migration mode. The wired path, `doc-state-sync-check` first in pre-commit plus CI's explicit
   preflight, already runs the checker. The wrapper stays for repositories without pre-commit.
-- [ ] **Step 4:** Check the length with `(Get-Content AGENTS.md).Count`: it must stay under 500. Commit:
+- [x] **Step 4:** Check the length with `(Get-Content AGENTS.md).Count`: it must stay under 500. Commit:
   `docs(agents): Point at the full docsync CLI and record the installer decision`.
 
 ### Task 10: Re-verify the diagrams against source

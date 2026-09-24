@@ -45,6 +45,11 @@ document. See `docs/agents/domain.md`.
 Units, touch targets, keyboard access, motion and computed-style rules for
 templates and static assets. See `docs/agents/ui-accessibility.md`.
 
+### Global rules
+
+The binding architectural invariants every code change must hold. See
+`docs/agents/global-rules.md`.
+
 ---
 
 ## Session Bootstrap (in order)
@@ -279,6 +284,11 @@ per-batch log files). Exit codes: 0 clean; 1 drift or an integrity error;
 control-plane code is refused; the one escape is
 `SKIP=doc-state-sync-check git commit`, never `--no-verify` -- see
 `docs/architecture/documentation-tooling.md`.
+
+Three further operator modes -- `--close-batch`, `--paginate-archives` and
+`--cold-storage` -- are documented in `docs/architecture/documentation-tooling.md`
+under "CLI surface added by the close-out and bounded-archives plan"; see
+that heading for what each does.
 
 ### Integrity diagnostics
 

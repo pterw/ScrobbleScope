@@ -139,6 +139,27 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   the daily average divides by that. `HEATMAP_WINDOW_DAYS` in
   `scrobblescope/heatmap.py` is the source; every prose copy is declared in
   `.docsync.toml` and DOC009 fails if they stop agreeing.
+- **The docsync hook installer is not live in this repository (decision
+  record, 2026-09-24).** No `--install --yes` has run here; see
+  `docs/architecture/documentation-tooling.md` "The commit preflight and the
+  opt-in hook installer" for what it would do. Either install order fails
+  loudly rather than silently, so the two are never layered by hand: wrapper
+  first, then `pre-commit install`, moves the wrapper to `pre-commit.legacy`
+  (`install_uninstall.py`'s `_install_hook_script`, since `is_our_script`
+  reads it as foreign) and re-enters it through `hook_impl.py`'s
+  `_run_legacy`; the wrapper's own non-recursive delegation to
+  `python -m pre_commit hook-impl` then inherits `PRE_COMMIT_RUNNING_LEGACY`
+  and hits `_run_legacy`'s own `SystemExit` -- pre-commit's "installed in
+  migration mode" bug message -- on every future commit. `pre-commit
+  install` first, then the wrapper, fails the other way: pre-commit's own
+  generated hook file carries no `GENERATED_MARKER`, so
+  `install_docsync_hook.py`'s `classify_existing_hook` reads it as
+  `"unknown"` and `install()` refuses to overwrite it (exit 2) rather than
+  clobbering it. Neither loud failure is a defect to fix; it is why the
+  wired path does not need the wrapper at all -- `doc-state-sync-check` runs
+  first in `.pre-commit-config.yaml`, and CI's own explicit preflight step
+  backs it up. The wrapper stays for a repository with no pre-commit
+  installed; making it live here is an owner action, not a task's.
 
 ---
 

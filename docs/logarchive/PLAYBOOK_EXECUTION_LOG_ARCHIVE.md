@@ -9,6 +9,61 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The provider summary states its span and its time in calls
+
+Side task, no batch tag: the provider summary log line states its span
+alongside its time in calls, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands. It follows up
+F-B23-6's provider-call logging (Task 13); ruled by the owner 2026-09-24,
+source `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 1.
+
+- **Scope.** `scrobblescope/api_logging.py`'s per-session summary read
+  `MusicBrainz: 17 calls in 2.6s -- 16x200, 1x503`; the `2.6s` is the sum of
+  per-call durations, not how long the provider was being called. Read
+  naively it says MusicBrainz ran faster than its 1 request per second,
+  which the owner did. MusicBrainz is compliant: the global throttle in
+  `scrobblescope/utils.py` spaces request starts one second apart, and the
+  owner's log timestamps confirm it. The line now states both:
+  `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`.
+  `_record` gains the earliest call start and latest call end seen per
+  provider (`span_start`, `span_end`); `_on_request_end` and
+  `_on_request_exception` each read `time.monotonic()` once per end event
+  and pass that one reading to both the per-call line and the tally, so the
+  per-call milliseconds and the summary's figures never drift apart. Counts
+  and outcomes are unchanged; the line still never carries a query string,
+  a name, a body or a header.
+- **Two existing tests changed** (`tests/services/test_api_logging.py`):
+  `test_closing_the_session_logs_one_summary_per_provider`'s
+  `message.startswith(...)` assertion moved from `"127.0.0.1: 3 calls in"`
+  to `"127.0.0.1: 3 calls over"`, plus a new regex asserting the full shape
+  (span, in-calls, outcomes); `test_a_session_that_made_no_calls_logs_no_summary`'s
+  filter string moved from `"calls in"` to `"calls over"`, since every
+  summary line now carries the new wording and the old filter would have
+  passed vacuously.
+- **New tests:** span is not the sum of per-call durations (the owner's
+  case, driven deterministically through `_record`/`_emit_summaries` against
+  a stand-in session object); overlapping calls make time-in-calls exceed
+  the span; an exception ending after the last success extends the span and
+  is counted under its class name; and one end-to-end test against the real
+  session and trace hook, asserting only a lower bound on the span (no
+  upper bound -- timing-based upper bounds flake).
+- **Deviations:** none.
+- Validation: `pytest -q` -- **1825 passed**.
+- **Next:** the foundation plan's Task 6.
+
+**Fix round 1 (2026-09-24, review finding).** The review's one Important
+issue: `docs/history/reports/HANDOFF_2026-09-24.md` section 2's setup
+block still read `# expect 1821 passed`, a second copy of the test count
+inside the very file this task's commit had already updated, contradicting
+section 1's `**1825 passed**` two screens above it. Fixed by removing the
+second copy rather than restating it: the comment now reads `# expect the
+count section 1 records`, so there is exactly one number in the file to
+keep current. Grepped the whole file again for `1821`/`1825`: the only
+remaining hit is section 1's own count. No test changes; no other count
+site affected.
+
+- Validation: `pytest -q` -- **1825 passed**.
+
 ### 2026-09-24 - The handoff schedules a truer provider summary line
 
 Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.

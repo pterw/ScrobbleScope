@@ -221,8 +221,10 @@ See FINDINGS F-DOCSYNC-3.
      the still-true ones filed as F-DOCSYNC-20) is done, 2026-09-24. Task 8
      (`frontend_gate_checks.toml`: the frontend gate selects checks from a
      manifest by name, refusing an unknown name or a disabled required check
-     before a browser launches) is done, 2026-09-24. Next is the foundation
-     plan's Task 9.
+     before a browser launches) is done, 2026-09-24. Task 9 (`AGENTS.md`
+     points at the full docsync CLI surface and the `docs/agents/global-rules.md`
+     skill pointer, and `AGENT_NOTES.md` records the installer decision) is
+     done, 2026-09-24. Next is the foundation plan's Task 10.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -430,6 +432,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - AGENTS.md points at the full docsync CLI and records the installer decision
+
+Side task, no batch tag: `AGENTS.md` pointers and the installer decision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Step 1:** `AGENTS.md` "Doc Sync Rules" -> "How to run" now points at
+  `docs/architecture/documentation-tooling.md` "CLI surface added by the
+  close-out and bounded-archives plan" for `--close-batch`,
+  `--paginate-archives` and `--cold-storage`, without restating the modes.
+- **Step 2:** `AGENTS.md` "Agent skills" gained a "Global rules" pointer to
+  `docs/agents/global-rules.md`, in the same shape as its three siblings.
+- **Step 3:** `AGENT_NOTES.md` "Architectural Constraints" records the
+  installer decision: no live `--install --yes` has run in this repository,
+  and either install order fails loudly rather than silently. Wrapper
+  first, then `pre-commit install`, moves the wrapper to `pre-commit.legacy`
+  and re-enters it through `hook_impl.py`'s `_run_legacy`; the wrapper's own
+  non-recursive delegation to `python -m pre_commit hook-impl` then
+  inherits `PRE_COMMIT_RUNNING_LEGACY` and hits pre-commit's own "installed
+  in migration mode" `SystemExit` on every future commit -- confirmed
+  against `install_uninstall.py` and `hook_impl.py` in the installed
+  `pre_commit` package, matching the plan's "Errors in the earlier draft".
+  `pre-commit install` first, then the wrapper, fails the other way:
+  pre-commit's own generated hook file carries no `GENERATED_MARKER`, so
+  `install_docsync_hook.py`'s `classify_existing_hook` reads it as
+  `"unknown"` and `install()` refuses to overwrite it (exit 2). The wired
+  path already runs the checker without the wrapper: `doc-state-sync-check`
+  is first in `.pre-commit-config.yaml`, and CI's own explicit preflight
+  step backs it up.
+- **Step 4:** `AGENTS.md` measures **487** lines (`wc -l AGENTS.md`),
+  under the 500-line limit.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - The frontend gate selects checks from a manifest
 
 Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
@@ -606,58 +644,3 @@ changes, so the three R3 count sites are unaffected.
 **Correction (2026-09-24).** The task review reproduced the broader sweep
 above as 95-98 hits in 12 files, not 100 in 14; the categorization of what
 was left as point-in-time is unchanged.
-
-### 2026-09-24 - The provider summary states its span and its time in calls
-
-Side task, no batch tag: the provider summary log line states its span
-alongside its time in calls, part of Batch 23 WP-0 Part C. Untagged by
-owner ruling 2026-09-23 until the whole of WP-0 lands. It follows up
-F-B23-6's provider-call logging (Task 13); ruled by the owner 2026-09-24,
-source `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 1.
-
-- **Scope.** `scrobblescope/api_logging.py`'s per-session summary read
-  `MusicBrainz: 17 calls in 2.6s -- 16x200, 1x503`; the `2.6s` is the sum of
-  per-call durations, not how long the provider was being called. Read
-  naively it says MusicBrainz ran faster than its 1 request per second,
-  which the owner did. MusicBrainz is compliant: the global throttle in
-  `scrobblescope/utils.py` spaces request starts one second apart, and the
-  owner's log timestamps confirm it. The line now states both:
-  `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`.
-  `_record` gains the earliest call start and latest call end seen per
-  provider (`span_start`, `span_end`); `_on_request_end` and
-  `_on_request_exception` each read `time.monotonic()` once per end event
-  and pass that one reading to both the per-call line and the tally, so the
-  per-call milliseconds and the summary's figures never drift apart. Counts
-  and outcomes are unchanged; the line still never carries a query string,
-  a name, a body or a header.
-- **Two existing tests changed** (`tests/services/test_api_logging.py`):
-  `test_closing_the_session_logs_one_summary_per_provider`'s
-  `message.startswith(...)` assertion moved from `"127.0.0.1: 3 calls in"`
-  to `"127.0.0.1: 3 calls over"`, plus a new regex asserting the full shape
-  (span, in-calls, outcomes); `test_a_session_that_made_no_calls_logs_no_summary`'s
-  filter string moved from `"calls in"` to `"calls over"`, since every
-  summary line now carries the new wording and the old filter would have
-  passed vacuously.
-- **New tests:** span is not the sum of per-call durations (the owner's
-  case, driven deterministically through `_record`/`_emit_summaries` against
-  a stand-in session object); overlapping calls make time-in-calls exceed
-  the span; an exception ending after the last success extends the span and
-  is counted under its class name; and one end-to-end test against the real
-  session and trace hook, asserting only a lower bound on the span (no
-  upper bound -- timing-based upper bounds flake).
-- **Deviations:** none.
-- Validation: `pytest -q` -- **1825 passed**.
-- **Next:** the foundation plan's Task 6.
-
-**Fix round 1 (2026-09-24, review finding).** The review's one Important
-issue: `docs/history/reports/HANDOFF_2026-09-24.md` section 2's setup
-block still read `# expect 1821 passed`, a second copy of the test count
-inside the very file this task's commit had already updated, contradicting
-section 1's `**1825 passed**` two screens above it. Fixed by removing the
-second copy rather than restating it: the comment now reads `# expect the
-count section 1 records`, so there is exactly one number in the file to
-keep current. Grepped the whole file again for `1821`/`1825`: the only
-remaining hit is section 1's own count. No test changes; no other count
-site affected.
-
-- Validation: `pytest -q` -- **1825 passed**.
