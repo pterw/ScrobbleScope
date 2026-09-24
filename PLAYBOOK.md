@@ -150,7 +150,7 @@ See FINDINGS F-DOCSYNC-3.
 - **`MUSICBRAINZ_CONTACT` is set on Fly.io** (2026-09-21, the project's
   GitHub URL), as well as in the local `.env`.
 - **Side task complete: the frontend gate split (F-B21-51).** The facade
-  measures 535 lines, under the plan's 700-line threshold. Plan of record:
+  stays under the plan's 700-line threshold. Plan of record:
   `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
@@ -474,6 +474,28 @@ not match `frontend_gate.py`, so it is not implied by other changed paths):
 tokens canary on firefox); profiles: desktop, mobile, wide touch`.
 
 Validation: `pytest -q` -- **1833 passed**.
+
+**Fix round 1 (2026-09-24, review finding).** `DEVELOPMENT.md` still stated
+the exact fact Step 4 reversed: "the `frontend_gate_checks.toml` registry
+stays a deferred candidate" (line 539), next to a stale facade line count
+("535 lines", line 532; actual 619 at `a25d187`) -- a live architecture
+document, not a dated log, so it is not point-in-time and it directly
+contradicted the sentence this same commit wrote into
+`documentation-tooling.md`. Fixed: `DEVELOPMENT.md` now says the manifest
+landed too, in the same words `documentation-tooling.md` uses, and states
+the facade's size only as "under the decomposition plan's 700-line
+threshold" rather than restating an exact count -- a second copy of a
+number is exactly what went stale here. A second copy of the same stale
+count turned up on re-sweep: this Section 3's own "Side task complete: the
+frontend gate split (F-B21-51)" bullet also said "measures 535 lines";
+fixed the same way. Re-swept the whole tree for both claims, every spelling
+(`git grep -n "deferred candidate"`, `git grep -n "535 lines"`,
+`git grep -n "frontend_gate_checks.toml"`): every remaining hit is inside a
+dated log entry, an archived finding, or the decomposition plan's own dated
+worked example -- point-in-time and exempted, consistent with the review's
+own sweep.
+
+Validation: `pytest -q` -- **1833 passed**; no test added, docs only.
 
 ### 2026-09-24 - The docsync close-out plan's Progress block is closed
 
