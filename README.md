@@ -664,9 +664,10 @@ Instead, Spotify listeners will upload the **Extended Streaming History**
 export they can request from their account's privacy page: a zip of JSON,
 one row per stream since the account opened. The design is already settled:
 
-- **No login, and nothing stored.** The upload is parsed in memory and
-  discarded. IP address, user agent, username and country are dropped at
-  parse time, and nothing is written to disk or to PostgreSQL.
+- **No login; listening history stays transient.** Upload handling and the
+  permitted catalog metadata cache follow the
+  [Batch 23 data-handling contract](BATCH23_DEFINITION.md#data-handling).
+  The feature does not persist the listener's uploaded history.
 - **One switch on the existing form**, with a separate page explaining how to
   request the export. Both album rankings and the heatmap work from either
   source.

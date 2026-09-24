@@ -339,15 +339,15 @@ See FINDINGS F-DOCSYNC-3.
   move; the frontend gate keeps its own accessibility checks running
   meanwhile.
 
-- **Queued after Batch 22 -- Batch 23, Spotify export import:** approved by the
-  owner on 2026-09-13 and not started. Spotify listeners upload the Extended
-  Streaming History zip; there is no Spotify login, because Spotify caps apps
-  without extended access at 5 allowlisted users. The plan is
-  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`.
-  Neither batch starts on `test`: each opens on its own branch, named here
-  first, or the worktree guard raises WT003. F-B21-59 records the Spotify API
-  risk they raise, and F-B21-60 the artwork rules Batch 22's provider work
-  must satisfy.
+- **Batch 23, Spotify export import**, approved by the owner on 2026-09-13,
+  is now the active batch (see its bullet above). Spotify listeners upload
+  the Extended Streaming History zip; there is no Spotify login, because
+  Spotify caps apps without extended access at 5 allowlisted users.
+  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` is
+  its cross-WP export outline; each work package gets its own SDD plan, as
+  the definition's "Planning authority" paragraph says. F-B21-59 records
+  the Spotify API risk, and F-B21-60 the artwork rules Batch 22's provider
+  work had to satisfy.
 
 - **Owed before Phase 2:** none. Every commit this bullet previously named has
   landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
@@ -392,6 +392,42 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-23 - The export contracts are made consistent
+
+Side task, no batch tag: a definition edit within Batch 23, made before
+WP-1. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Author.** Codex (GPT-6) made these edits at the owner's request, after
+  a read-only review of `BATCH23_DEFINITION.md` and the current execution
+  path. The definition's header lists all seven changes and why.
+- **The definition** gains a "Data handling" section as the one owner of
+  the privacy contract. It separates listening history, which stays in
+  memory, from reusable catalog metadata, which the existing enrichment
+  cache may keep. It also makes these changes:
+  - It separates failures refused before a job exists from content
+    failures that end a running job.
+  - WP-2 now hands WP-3 a pre-threshold album mapping, and WP-3
+    partitions it once.
+  - The memory acceptance measures the whole process, not only admitted
+    buffers.
+  - WP-6 must settle a statistics contract before it is implemented.
+  - Each WP gets its own SDD plan, and that plan owns the task order.
+- **The export outline**
+  (`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`)
+  and `README.md` now point at the definition instead of repeating the
+  older privacy and aggregation wording. The outline's stale
+  `routes.py` and `orchestrator.py` paths are updated.
+- **Also corrected:** Section 3 still called Batch 23 "queued" and "not
+  started", and named the outline as its plan. That bullet now says the
+  batch is active and calls the file its cross-WP outline. A sweep found no
+  other copy of the replaced wording outside dated history.
+- **No effect on WP-0.** The WP-0 plans, their order and the next action
+  (reconcile Task 12) are unchanged.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
 
 ### 2026-09-23 - The release-window rule gets a task of its own
 
@@ -490,32 +526,4 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   run without the cache DB).
 
 Validation: `pytest -q` -- **1745 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The year gate reads the UTC calendar
-
-Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 8 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/routes/__init__.py` gains `_current_year()`, which
-  returns `datetime.now(timezone.utc).year`; `inject_current_year` now
-  returns `{"current_year": _current_year()}` instead of reading the host's
-  local clock. `scrobblescope/routes/album_flow.py`'s two `datetime.now().year`
-  sites -- the results-page year fallback and the submit-path validation
-  gate -- now read `_routes._current_year()` through the existing `_routes`
-  module reference, and the file's now-unused `datetime` import is removed.
-  Two new tests in `tests/test_routes.py` cover it:
-  `test_current_year_reads_the_utc_calendar` (the helper itself, against a
-  clock stub whose local and UTC readings disagree) and
-  `test_results_loading_year_gate_uses_the_utc_year` (the submit-path gate's
-  upper bound comes from `routes._current_year()`).
-- **F-B21-6 is resolved.** Every year gate reads `routes._current_year()`,
-  which uses `datetime.now(timezone.utc)`, so the gate and the orchestrator's
-  UTC-built fetch window can no longer disagree around New Year.
-- **Forward guidance:** next is reconcile Task 9 (F-LOAD-1, the capacity
-  refusal states the configured cap).
-
-Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

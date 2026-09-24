@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The year gate reads the UTC calendar
+
+Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 8 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_current_year()`, which
+  returns `datetime.now(timezone.utc).year`; `inject_current_year` now
+  returns `{"current_year": _current_year()}` instead of reading the host's
+  local clock. `scrobblescope/routes/album_flow.py`'s two `datetime.now().year`
+  sites -- the results-page year fallback and the submit-path validation
+  gate -- now read `_routes._current_year()` through the existing `_routes`
+  module reference, and the file's now-unused `datetime` import is removed.
+  Two new tests in `tests/test_routes.py` cover it:
+  `test_current_year_reads_the_utc_calendar` (the helper itself, against a
+  clock stub whose local and UTC readings disagree) and
+  `test_results_loading_year_gate_uses_the_utc_year` (the submit-path gate's
+  upper bound comes from `routes._current_year()`).
+- **F-B21-6 is resolved.** Every year gate reads `routes._current_year()`,
+  which uses `datetime.now(timezone.utc)`, so the gate and the orchestrator's
+  UTC-built fetch window can no longer disagree around New Year.
+- **Forward guidance:** next is reconcile Task 9 (F-LOAD-1, the capacity
+  refusal states the configured cap).
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
 
 Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by

@@ -1,12 +1,12 @@
-# Batch 23 (queued): Spotify listeners import the Extended Streaming History export
+# Batch 23 export outline: Spotify listeners import Extended Streaming History
 
-Status: approved by the owner on 2026-09-13, **not started**. Build begins
-after Batch 22 (enrichment providers,
-`docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`), on its
-own branch; PLAYBOOK Section 3 must name that branch first, or the worktree
-guard raises WT003. Promote this file to a root `BATCH23_DEFINITION.md` when
-the batch opens. Batch 22 comes first by owner ruling on 2026-09-13: this
-batch then builds on the provider interface and on corrected release years.
+Approved by the owner on 2026-09-13. This is the cross-WP design outline;
+`BATCH23_DEFINITION.md` owns current scope, shared contracts and acceptance,
+and PLAYBOOK Section 3 owns current status and execution order. Each WP
+gets a specialized plan implemented through SDD. Those plans refine this
+outline within the definition's contracts; its phase numbers are not WP
+execution order. The definition's editorial revision records the
+2026-09-23 consistency edits by Codex (GPT-6).
 
 ## Context
 
@@ -33,8 +33,8 @@ the enrichment step already uses app-only credentials. A live probe on
 - Entry: `/` stays the form, with a per-form "Last.fm | Spotify file" switch.
   A separate `/spotify` page explains the export.
 - Both modes: album results and heatmap.
-- Process and discard: nothing is written to disk or Postgres, and IP address,
-  user agent, username and country are dropped at parse time.
+- Process and discard under `BATCH23_DEFINITION.md` "Data handling", the
+  single owner of transient-history, catalog-cache and diagnostic rules.
 - A play is `ms_played >= 30000`, music only, and not in a private session.
 - The upload is the zip exactly as Spotify sends it.
 
@@ -77,14 +77,16 @@ the enrichment step already uses app-only credentials. A live probe on
   - it applies the play rule and skips podcast episodes and audiobooks
   - it keeps skip counters
   - the private fields are never copied
-- **`aggregate_albums(plays, year)`** builds exactly the dict that
-  `fetch_top_albums_async` in `scrobblescope/orchestrator.py` builds:
+- **`aggregate_albums(plays, year)`** builds the pre-threshold album mapping
+  in `BATCH23_DEFINITION.md` WP-2, not the full return tuple of
+  `fetch_top_albums_async`:
   - key: `normalize_name` from `scrobblescope/domain.py`
   - values: `play_count`, `track_counts` keyed by `normalize_track_name`,
     `original_artist`, `original_album`
-  - it also returns stats with the same keys as the Last.fm stats
-    (`total_scrobbles`, `unique_albums`), plus `rows_read` and the skip
-    counters
+  - aggregation stats accompany the mapping; the specialized plan follows
+    WP-2's distinction between row/skip counts and accepted plays
+  - the job hand-off applies threshold partitioning once and records the
+    resulting eligible/excluded counters
 - **`aggregate_daily_counts_from_plays(plays, today)`** is a sibling of
   `_aggregate_daily_counts`, not a reuse of it:
   - it anchors the window at `min(today, last play)`, because an export can
@@ -106,7 +108,7 @@ the enrichment step already uses app-only credentials. A live probe on
 
 Mutation-check every limit.
 
-## Phase 2: Hand-off to the worker; the Last.fm path unchanged
+## Phase 2: Hand-off to the worker; preserve existing Last.fm behaviour
 
 - **Pure extractions**, landed in Batch 23 WP-0 Part A (2026-09-23), with no
   test changed:
@@ -125,7 +127,8 @@ Mutation-check every limit.
   - `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
     aggregation onward, with `source: "spotify_export"` and
     `username: None`.
-  - A `BoundedSemaphore(2)` around parsing caps peak memory.
+  - A `BoundedSemaphore(2)` limits concurrent parsing; whole-process memory
+    acceptance is owned by `BATCH23_DEFINITION.md` "Batch acceptance".
 - **Tests** go in `tests/services/test_export_jobs.py`:
   - `process_albums` receives the aggregate
   - `fetch_all_recent_tracks_async` is never called (patch it to raise)
@@ -137,11 +140,15 @@ Mutation-check every limit.
   `mode`, plus the existing album fields, which go through the existing
   validators.
   - It runs `open_export` synchronously. That only reads the zip directory, so
-    structural errors come back immediately as 400 JSON.
-  - It then calls `acquire_job_slot` and
-    `create_job({"source": "spotify_export", "username": None, ...})`.
-  - It starts `start_job_thread(export_*_task, (job_id, upload, ...))`, handing
-    over the request's own buffer, and returns 202 `{job_id, redirect}`.
+    directory-detectable errors come back immediately as 400 JSON.
+    Content failures discovered during streaming terminate the created job,
+    as required by `BATCH23_DEFINITION.md` "Runtime model".
+  - It then uses WP-4's shared admission module to reserve capacity, create
+    the job with `source: "spotify_export"` and `username: None`, and start
+    the task, with rollback on failure.
+  - Admission uses `start_job_thread(export_*_task, (job_id, upload, ...))`,
+    handing over the request's own buffer. The route returns 202
+    `{job_id, redirect}` after that succeeds.
     (Amended 2026-09-23: this read `BytesIO(data)`, which copies the upload
     and holds it twice. See "Upload ownership and the waiting bound" below.)
 - **`UploadAwareRequest`**, set in `app.py` `create_app`, applies only when the
@@ -179,7 +186,9 @@ rule for WP-2 to WP-4, not a new module or framework.
     an invalid directory, admission refused, or a failed thread start.
   - From a successful start on, the export task owns it and closes it on every path, success and
     failure alike.
-  - Nothing else holds a reference to it.
+  - Request teardown must no longer close a successfully transferred
+    buffer. References needed for hand-off do not confer cleanup ownership;
+    the WP-3/WP-4 plans specify the transfer without copying the buffer.
 - **The lifecycle lives in `spotify_export.py`**, as one small type that owns the buffer, the
   directory inspection, the streamed read and `close()`, usable as a context manager. It knows nothing
   of Flask or jobs. Job admission stays in WP-4's admission module, and parse concurrency stays with
@@ -189,15 +198,18 @@ rule for WP-2 to WP-4, not a new module or framework.
   512 MB machine. So admission also caps export jobs in flight -- admitted, with the buffer not yet
   closed -- at `EXPORT_MAX_IN_FLIGHT`, and refuses the next export upload with 429.
   - Last.fm jobs never count against it.
-  - Peak upload memory is then at most `EXPORT_MAX_IN_FLIGHT` times `EXPORT_MAX_UPLOAD_BYTES`, plus
-    the parse working set.
+  - This bounds admitted upload buffers only. Receiving multipart requests
+    and retained results also use memory; follow the whole-process
+    measurement required by `BATCH23_DEFINITION.md` "Batch acceptance".
   - Verification step 3 sets the in-flight cap, the upload cap and the semaphore together, from
     the same measurement.
 - **Tests (WP-3 and WP-4):**
   - the buffer is closed after each refusal path, after a parser failure and after success;
   - with `EXPORT_MAX_IN_FLIGHT` export jobs in flight, the next export upload gets a 429 and no job
-    is created, while a Last.fm job is still admitted;
-  - no second copy of the upload exists: the task receives the request's own buffer object.
+    is created, while a Last.fm job is still admitted if shared capacity remains;
+  - no second copy of the upload exists: the task receives the request's own buffer object;
+  - a delayed task still reads the transferred buffer after response and
+    request teardown, then closes it on completion.
 
 ## Phase 4: UI (`templates/index.html`, `templates/partials/_heatmap_form.html`, `static/js/index.js`, `static/js/heatmap.js`)
 
@@ -208,7 +220,7 @@ rule for WP-2 to WP-4, not a new module or framework.
     every visit and break `/?mode=` links.
   - There is no third mode tab: source and mode are independent choices.
 - **`GET /spotify` explainer** (new `templates/spotify_export.html`, a route in
-  `scrobblescope/routes.py`) covers:
+  the `scrobblescope/routes/` package) covers:
   - what the export is, and why there is no Spotify login
   - how to request it: Account, Privacy settings, "Extended streaming history"
     (not "Account data"), then an email that can take up to 30 days
@@ -229,8 +241,8 @@ rule for WP-2 to WP-4, not a new module or framework.
     - a `.zip` file input, labelled "Your Spotify data file"
     - a short "Don't have it yet? How to get your Spotify data" link to
       `/spotify`
-    - a privacy line: the file is read once and never saved; private sessions,
-      podcasts and plays under 30 seconds are left out
+    - privacy copy follows `BATCH23_DEFINITION.md` "Data handling";
+      private sessions, podcasts and plays under 30 seconds are left out
   - The "Listening year" hint reads `2008–{{ current_year }}` for Spotify, since
     there is no join-year lookup.
 - **One file for both modes:** page JS keeps a single `File` reference, so a
@@ -281,7 +293,7 @@ This ships after Phases 1-5. Every stat is computed from data the pipeline
 already holds, so Last.fm and Spotify users get the same thing.
 
 - **Per album**, added to each result in `_build_results`
-  (`scrobblescope/orchestrator.py`):
+  (`scrobblescope/orchestrator/_results.py`):
   - **Completion ("9 of 12 tracks"):** the tracks in `track_counts` that are
     also in the cached `track_durations`, over `len(track_durations)`.
   - **Most-played track:** the largest value in `track_counts`, shown with its
@@ -289,11 +301,15 @@ already holds, so Last.fm and Spotify users get the same thing.
     normalised key, in both the Last.fm and the export aggregator.
   - **First listen that year:** aggregation keeps the earliest timestamp per
     album, alongside `play_count`.
-- **Year summary**, computed once after `_build_results`:
+- **Year summary:** WP-6's specialized plan settles the population and
+  calculation point under the definition's Statistics contract; do not
+  infer whole-year coverage from an already filtered or sliced result list.
   - **Age of the music:** plays weighted by listening year minus release year,
     as a decade breakdown ("62% of plays were albums from before 2010"). Use
     `release_date` and its precision.
-  - **Hours listened:** the sum of `play_time_seconds`, already computed.
+  - **Hours listened:** the plan specifies the duration basis and coverage.
+    Existing `play_time_seconds` is a catalog-duration estimate; do not
+    silently present it as measured listening time from the export.
 - **Heatmap extras** in `scrobblescope/heatmap.py`, from the same timestamps:
   - longest streak of days with any listening, and the current streak
   - busiest weekday and busiest hour (UTC; say so in the UI)
@@ -317,10 +333,10 @@ already holds, so Last.fm and Spotify users get the same thing.
    of 15k rows, with podcasts, private-session rows and a nested folder),
    uploaded through the browser in both modes. Check the results, unmatched
    and heatmap pages.
-3. **Memory:** measure `tracemalloc` peak and VmHWM parsing the owner's real
-   export, locally and on Fly (`fly ssh console`). Then run 3 uploads at once
-   and watch for OOM. Set `EXPORT_MAX_UPLOAD_BYTES`, the parse semaphore and
-   `EXPORT_MAX_IN_FLIGHT` from those numbers; the fallback is scaling to 1 GB.
+3. **Memory:** execute `BATCH23_DEFINITION.md` "Batch acceptance"'s
+   whole-process measurement and overload checks. Set the request cap,
+   parse semaphore and export in-flight cap from that evidence. Any hosting
+   capacity increase remains an owner decision.
 4. **Cross-check:** the owner's Spotify export against their Last.fm results
    for one year. Expect small differences, because `ts` is the stream end time
    and offline plays carry sync time.
@@ -348,9 +364,7 @@ already holds, so Last.fm and Spotify users get the same thing.
   Deezer behind Spotify before this batch opens.
   Never create a new Spotify Client ID for this work: a new one gets the
   removals at once.
-- **Privacy:**
-  - uploads stay in memory, and a test enforces it
-  - never log file names, rows or IPs
-  - aggregates expire with the 2-hour job TTL
+- **Privacy:** `BATCH23_DEFINITION.md` "Data handling" owns the contract
+  and the required end-to-end checks. Shared provider code is in scope.
 - **Data quirks:** duplicate rows across files are counted, not deduplicated,
   in v1.

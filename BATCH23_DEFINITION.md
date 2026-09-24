@@ -1,5 +1,22 @@
 # BATCH23: Spotify listeners import the Extended Streaming History export
 
+**Editorial revision -- 2026-09-23, Codex (GPT-6).** Edited at the owner's
+request after the read-only sensibility review. Changes and reasons:
+
+1. Separate pre-job rejection from background failure, so streamed content
+   checks do not contradict the synchronous validation promise.
+2. Clarify Last.fm compatibility, so additive statistics and shared admission
+   can land without weakening existing regression coverage.
+3. Define transient listening data versus reusable catalog metadata, so the
+   privacy promise agrees with the existing enrichment cache.
+4. Clarify the aggregation hand-off, so WP-2 and WP-3 do not partition twice.
+5. Strengthen upload lifetime and memory acceptance, so request teardown and
+   incoming buffers are covered as well as admitted jobs.
+6. Record specialized SDD plans as each WP's implementation authority, with
+   statistics semantics settled before WP-6 implementation.
+7. Align the linked export outline and README, so older wording does not
+   contradict this definition. No runtime code or WP completion changed.
+
 **Status:** Active since 2026-09-21; **WP-0 is next.** Approved 2026-09-13.
 The next-package claim must stay on this line: DOC007 reads it here only.
 Batch 22 is complete and had to come first: this batch builds on its
@@ -10,20 +27,25 @@ declared in PLAYBOOK Section 3; not `test`.
 at Batch 22's close. Both are the measurement at batch open, not a standing
 claim; the latest of each lives in the newest Section 4 entry.
 **Scope amended 2026-09-23:** the owner widened WP-0 into three parts
-(below). The other work packages are unchanged.
-**Plan of record:**
-`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` carries
-every task, its tests and its exact commands for WP-1 to WP-7. WP-0 has its
-own plans: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+(below). Later owner-approved clarifications are recorded in the affected
+work packages and the editorial revision above; no work package is added.
+**Planning authority:** this definition owns batch scope, shared contracts
+and acceptance. Each WP gets a specialized plan before implementation,
+executed through subagent-driven development (SDD). Its approved plan owns
+task order, implementation detail and verification commands. Record its
+path in the WP when approved; a plan that changes a shared contract or
+scope must amend this definition first.
+`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` is the
+cross-WP export outline, not a substitute for those specialized plans.
+WP-0 has its own plans: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
 covers Part A and most of Part B, and
 `docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md` covers
 Part A's loop protocol. The rest of Part B and all of Part C run from
 `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. It
 holds the owner questions, one disposition per finding, and the tasks. Its
 control-plane and frontend clusters get follow-on plans once the rulings
-are in. This
-file carries the scope, the intended outcome, the work packages and their
-acceptance criteria.
+are in. This file carries the scope, the intended outcome, the work
+packages and their acceptance criteria.
 
 ---
 
@@ -43,9 +65,10 @@ stream since the account opened. So the feature is an upload, not a login.
 **What makes it feasible without a second pipeline:** everything after
 aggregation -- `partition_albums_by_threshold`, `process_albums`, the
 metadata cache, the results page and the unmatched report -- reads only
-normalized `(artist, album)` keys and has no Last.fm dependency. An export
-aggregator that produces the same shape as `fetch_top_albums_async` reaches
-the same machinery unchanged.
+normalized `(artist, album)` keys and has no Last.fm dependency. WP-2
+produces the pre-threshold album mapping consumed by
+`partition_albums_by_threshold`; WP-3 partitions it and hands eligible
+albums to the existing machinery.
 
 **Owner rulings, 2026-09-23.** WP-0 prepares the repository for a large
 structural feature. It has three parts. Part A is the behaviour-neutral
@@ -65,10 +88,10 @@ wrong green.
 no play counts, the last 50 plays, and at most five allowlisted users, and it
 was rejected. The entry point stays `/`, with a per-form source switch rather
 than a landing page or a third mode tab. Both modes work from either source.
-The upload is processed and discarded: nothing is written to disk or
-Postgres, and IP address, user agent, username and country are dropped at
-parse time. A play counts when `ms_played >= 30000`, is music rather than a
-podcast or audiobook, and is not from a private session.
+The upload is processed and discarded under the Data handling contract
+below, which distinguishes listening history from reusable catalog metadata.
+A play counts when `ms_played >= 30000`, is music rather than a podcast or
+audiobook, and is not from a private session.
 
 ---
 
@@ -78,34 +101,66 @@ Batch 23 is complete only when all of these product outcomes hold:
 
 - A Spotify listener can upload their export and get the same album rankings
   and heatmap a Last.fm user gets, with no account and no login.
-- Nothing from the upload reaches disk, the database or the logs. The parsed
-  aggregate expires with the two-hour job TTL like every other result.
-- A malformed, hostile or wrong-kind file is refused with a message that says
-  what to do next, before any job is created.
-- The export feature leaves the Last.fm path untouched. Its routes, its
-  validation, its upload limits and its tests behave exactly as they did
-  before. The only changes to that path are WP-0 Part C's finding fixes, each
-  in its own commit (owner ruling, 2026-09-23).
+- The upload and derived listening facts obey the Data handling contract
+  below, including disposal, cache restrictions and safe diagnostics.
+- Request and zip-directory failures are rejected before a job is created.
+  Failures discovered only while reading content terminate the created job
+  with a classified error and cleanup; neither path reports success.
+- Existing Last.fm request validation, counting, filtering, ranking and
+  upload-limit behaviour remains compatible, except for the approved WP-0
+  Part C fixes. The shared admission refactor and WP-6's additive statistics,
+  aggregation fields and presentation are permitted. Existing Last.fm tests
+  remain unmodified except for the documented Part C fixes; new tests cover
+  the additions.
 - Both sources gain the same new statistics, computed from data the pipeline
   already holds, with no additional API calls.
 - The interface reads correctly for both sources: "plays" rather than
   "scrobbles" where the source is an export, and no field that asks a Spotify
   user for a Last.fm username.
 
+## Data handling
+
+This section owns the batch's privacy and persistence contract. The export
+outline, specialized WP plans and user-facing copy must follow it.
+
+- The uploaded archive, raw rows and listener-linked facts (play counts,
+  listening timestamps, durations actually played and derived aggregates)
+  stay in server memory. Do not write them to server disk, a database or
+  logs. User-requested CSV/JPEG downloads remain allowed without retained
+  server copies. Discard the buffer after parsing or rejection. Parsed
+  aggregates and results expire
+  under the two-hour job retention policy; polling must not renew it.
+- Drop IP address, user agent, username, country and other identifying
+  export fields at parse time. Do not retain them in native play records.
+- Existing enrichment may query providers using artist and album names and
+  cache provider-returned catalog metadata or original-release findings
+  under normalized artist/album keys. These shared cache rows must contain
+  no listening facts and no link to a listener, upload, session or job.
+  This permission does not extend to caching the listener's history.
+- Logs may contain error codes and aggregate operational counters, but not
+  upload names, row contents, identifying fields, or artist/album/track
+  values taken from the upload. Shared enrichment logging and exception
+  paths must respect this too; logging an exception must not dump input.
+- WP-3/WP-4 verification must exercise the full export-to-enrichment path
+  and inspect disk writes, persistence arguments and captured logs. Prove
+  both the prohibited-data exclusions and the permitted catalog-cache use.
+
 ## Runtime model
 
 1. The form posts a zip and a mode. The upload is size-capped on the request
    class, because CSRF parses the multipart body before any view runs.
 2. The route reads only the zip *directory* synchronously -- entry count,
-   compression ratio, declared sizes, which entries are audio history -- so a
-   structurally wrong file is refused as JSON without starting a job.
+   compression ratio, declared sizes, which entries are audio history -- so
+   directory-detectable failures are refused as JSON without starting a job.
 3. A job slot is taken, a job is created with `source: "spotify_export"` and
    no username, and a background thread parses the buffer.
 4. Parsing streams: a 64 KB chunked incremental decoder feeds
    `JSONDecoder.raw_decode`, counting bytes actually read, so a zip header
    that lies still trips the bomb guard. No entry is ever loaded whole.
-5. Aggregation produces exactly the dict the Last.fm path produces, and the
-   job continues through the existing threshold partition, enrichment,
+   Malformed JSON, corrupt entry data and actual-byte limit violations
+   fail this background job; directory inspection cannot prove them absent.
+5. Album aggregation produces the pre-threshold mapping specified in WP-2.
+   WP-3 applies the existing threshold partition once, then enrichment,
    filtering and results build.
 6. The heatmap path mirrors this, anchored at the last play rather than
    today, because an export can lag by up to 30 days.
@@ -303,9 +358,13 @@ buffer it is handed.
 - [ ] `iter_plays` yields tz-aware UTC plays, applies the play rule, skips
   podcasts and audiobooks, keeps skip counters, and never copies a private
   field.
-- [ ] `aggregate_albums` returns exactly the shape `fetch_top_albums_async`
-  returns, keyed by `normalize_name`, plus stats with the same keys as the
-  Last.fm stats.
+- [ ] `aggregate_albums` produces an unpartitioned album mapping keyed by
+  `normalize_name`, with `play_count`, `track_counts`, `original_artist`
+  and `original_album`, plus aggregation stats. It does not reproduce
+  `fetch_top_albums_async`'s full return tuple of eligible albums,
+  exclusions and fetch metadata. WP-3 owns threshold partitioning and its
+  post-partition counters. The specialized plans pin this hand-off and
+  keep source-specific row/skip counters distinct from accepted play counts.
 - [ ] `aggregate_daily_counts_from_plays` anchors its window at
   `min(today, last play)` and reuses WP-0's zero-fill.
 - **Acceptance:** zips built in memory cover a nested folder, ignored Video
@@ -326,7 +385,8 @@ and the orchestrator never knows about zips.
   `_process_filtered_albums`, mapping `ExportError` to `set_job_error`.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
-- [ ] A `BoundedSemaphore(2)` around parsing caps peak memory.
+- [ ] A `BoundedSemaphore(2)` limits concurrent parses. Whole-process memory
+  acceptance is specified under Batch acceptance.
 - [ ] **The upload has one owner at every moment** (owner ruling,
   2026-09-23). The task receives the request's own buffer, never a copy,
   owns it from a successful thread start on, and closes it on every path.
@@ -336,7 +396,10 @@ and the orchestrator never knows about zips.
   `fetch_all_recent_tracks_async` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,
   parser failure and success included; the object the task closes is the
-  one the request created.
+  one the request created. A delayed task must still read that buffer after
+  the response finishes and request teardown runs. The WP-3/WP-4 plans
+  specify how successful hand-off removes request-side cleanup ownership,
+  and how failure leaves cleanup with the route.
 
 ### WP-4 -- Routes and upload handling
 
@@ -371,8 +434,10 @@ and the orchestrator never knows about zips.
   a failed thread start leaves no slot held and no orphaned job, tested for
   each of the three routes. For the waiting bound: with
   `EXPORT_MAX_IN_FLIGHT` export jobs in flight, the next export upload gets
-  429 and creates no job while a Last.fm job is still admitted, and the
-  buffer is closed after every refusal.
+  429 and creates no job while a Last.fm job is still admitted when the
+  shared job limit has spare capacity. The buffer is closed after every
+  refusal. Memory acceptance includes receiving and rejected requests,
+  not only jobs counted by the export admission limit (Batch acceptance).
 
 ### WP-5 -- The interface
 
@@ -410,6 +475,15 @@ would live. Settle it after WP-0's provider repairs and before this work
 package is designed. Scheduling it inside Batch 23 needs an explicit scope
 amendment, and a migration that keeps the Last.fm path's tests unmodified.
 
+**Statistics contract before implementation.** The specialized plan names
+which population each summary covers (all accepted plays, eligible albums
+or displayed rows), its duration basis, missing-data policy and tie rules.
+It also defines current-streak behaviour relative to each source's window.
+Labels and CSV values must agree with those choices. Preserve timestamps,
+original track names and any bounded intermediate counts needed for the
+statistics before aggregation discards them; do not retain raw history or
+silently change existing ranking and percentage semantics.
+
 - [ ] Per album: completion ("9 of 12 tracks"), the most-played track shown
   with its original name, and the first listen that year. Both aggregators
   keep one original track name per normalized key.
@@ -446,15 +520,23 @@ amendment, and a migration that keeps the Last.fm path's tests unmodified.
   would recognise, and the owner's own export cross-checks against their
   Last.fm results for one year within the differences the two sources
   explain.
-- No upload reaches disk, the database or the logs, and a test enforces each.
-- Every structural failure mode is refused before a job exists, with a
-  message naming the next action.
+- The Data handling contract passes end-to-end checks, including the shared
+  enrichment path and failure logging.
+- Request/directory failures create no job. Content failures found during
+  parsing terminate the job with the classified error, release capacity
+  and discard the buffer. Both paths give an actionable message.
 - The Last.fm path's tests pass unmodified throughout the batch. The one
   exception is an assertion that a WP-0 Part C finding fix must change; that
   commit's body names it (owner ruling, 2026-09-23).
-- Peak memory is measured, not assumed: `tracemalloc` and VmHWM on the real
-  export, locally and on Fly, then three concurrent uploads without an OOM,
-  with the upload cap and the parse semaphore set from those numbers.
+- Peak memory is measured, not assumed: `tracemalloc` and process peak RSS
+  (VmHWM on Fly/Linux) on the real export, locally and on Fly. Include the
+  receiving multipart requests, admitted/waiting buffers, parser working
+  data, retained job aggregates/results and normal enrichment workload.
+  Tune the request cap, `EXPORT_MAX_IN_FLIGHT` and parse semaphore together
+  before WP-4 acceptance, and repeat with three concurrent upload attempts
+  at batch close-out. Excess attempts may receive the specified 429; no
+  attempt may cause an OOM. An admitted-buffer bound is not a whole-process
+  memory bound.
 - The deferred frontend and accessibility audit has run and its findings are
   filed.
 - The full Python suite, the two-browser frontend gate, the pre-commit suite
@@ -468,14 +550,15 @@ amendment, and a migration that keeps the Last.fm path's tests unmodified.
   allowlisted users, and the owner rejected the path.
 - Deduplicating duplicate rows across export files. They are counted in v1,
   and the decision is recorded rather than silently taken.
-- Storing any part of an upload for later reuse, including as a cache of the
-  listener's own history.
+- Persisting or caching uploaded history or listener-linked derived facts.
+  The Data handling section owns the permitted shared catalog-cache use.
 
 ## Constraints
 
 - **Memory is the binding constraint.** The Fly machine is shared-cpu-2x with
-  512 MB and gunicorn runs one worker with four threads. Streaming parsing,
-  the parse semaphore and a measured upload cap are what keep it inside that.
+  512 MB and gunicorn runs one worker with four threads. Size the request,
+  admission and parsing limits using the whole-process Batch acceptance
+  measurement; streaming alone does not establish the memory bound.
 - **Never create a new Spotify Client ID.** A new one loses the postponement
   F-B21-59 records, and this source raises traffic through the same
   enrichment path.
