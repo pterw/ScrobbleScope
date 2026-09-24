@@ -15,7 +15,7 @@ SIDE_ARCHIVE_PREFIX = (
     "# PLAYBOOK Execution Log Archive",
     "",
     "Purpose:",
-    "- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.",
+    "- Store dated execution-log entries rotated out of PLAYBOOK Section 4.",
     "- Keep entries in reverse-chronological order (newest first).",
     "",
     "Read helpers:",
@@ -170,7 +170,7 @@ def _build_status_block(
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
         return [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             f"- Current batch: {batch_label}.",
             f"- Current-batch entries in active log block: {len(current_entries)}.",
             f"- Completed work packages in current-batch entries: {completed_wp}.",
@@ -181,7 +181,7 @@ def _build_status_block(
 
     last_completed = section_3_state.last_completed_batch
     lines = [
-        "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+        "- Source of truth: PLAYBOOK Section 3 and Section 4.",
         "- Current batch: none (between batches).",
         f"- Last completed batch in PLAYBOOK Section 3: "
         f"{f'Batch {last_completed}' if last_completed is not None else 'unknown'}.",

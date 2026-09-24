@@ -27,16 +27,16 @@ Last updated: 2026-09-20
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
 - Heatmap fetch speed is rate-limit bound; measurement and rationale live in
-  FINDINGS.md F-B18-11 (single source).
+  docs/agents/FINDINGS.md F-B18-11 (single source).
 
 ---
 
 ## 2. Execution status (machine-managed)
 
-`PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
+`docs/agents/PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
 
 <!-- DOCSYNC:STATUS-START -->
-- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
+- Source of truth: PLAYBOOK Section 3 and Section 4.
 - Current batch: Batch 23.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.

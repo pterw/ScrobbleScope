@@ -169,7 +169,7 @@ def _inspect_worktree(
     # damage a legitimate value.
     actual_branch = branch_result.stdout.strip("\r\n")
 
-    playbook_path = resolved_root / "PLAYBOOK.md"
+    playbook_path = resolved_root / "docs" / "agents" / "PLAYBOOK.md"
     try:
         batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
     except GuardError as parse_failure:

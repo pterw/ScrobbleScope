@@ -24,8 +24,8 @@ def test_missing_repository_fails_before_other_git_discovery(tmp_path):
 def test_unreadable_playbook_reports_no_filesystem_detail(tmp_path):
     """An arbitrary OS error must not reach the shared diagnostic stream."""
     repo, responses = repository(tmp_path)
-    repo.joinpath("PLAYBOOK.md").unlink()
-    repo.joinpath("PLAYBOOK.md").mkdir()
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").unlink()
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").mkdir()
 
     diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
 
@@ -48,7 +48,7 @@ def test_summary_never_echoes_a_hostile_base_ref(tmp_path):
 
 def _between_batches(repo):
     """Rewrite the fixture PLAYBOOK so Section 3 declares no active batch."""
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         "- Batch 20 is complete. No batch is open.\n\n"
         "## 4. Execution log\n",

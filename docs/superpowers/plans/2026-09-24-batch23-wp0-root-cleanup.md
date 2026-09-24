@@ -1038,7 +1038,7 @@ cannot pass with the move half-done). One commit.
   `PLAYBOOK_PATH` monkeypatch, Step 5), `tests/test_docsync_renderer.py` (the two status-block
   tests, Step 6)
 
-- [ ] **Step 1: Update the one test that reads the real file, first**
+- [x] **Step 1: Update the one test that reads the real file, first**
 
   In `tests/scripts/dev/test_worktree_guard_playbook.py::test_the_repository_playbook_parses`,
   change:
@@ -1056,7 +1056,7 @@ cannot pass with the move half-done). One commit.
   Expected: FAIL -- `FileNotFoundError` at the new path (it doesn't exist yet); this confirms
   the test is exercising the real repository file, not a fixture.
 
-- [ ] **Step 2: Move the four files**
+- [x] **Step 2: Move the four files**
 
   ```bash
   mkdir -p docs/agents
@@ -1066,7 +1066,7 @@ cannot pass with the move half-done). One commit.
   git mv HANDOFF_PROMPT.md docs/agents/HANDOFF_PROMPT.md
   ```
 
-- [ ] **Step 3: Fix the worktree guard's hard filesystem read (inventory Section 7, row 2)**
+- [x] **Step 3: Fix the worktree guard's hard filesystem read (inventory Section 7, row 2)**
 
   In `scripts/dev/_worktree_guard_inspection.py`, change:
   ```python
@@ -1100,7 +1100,7 @@ cannot pass with the move half-done). One commit.
   file list before and after to confirm each one fails first (proving it depends on the old
   literal) and passes after.
 
-- [ ] **Step 4: Wire `config/docsync.toml`'s `[documents]` table and fix the four
+- [x] **Step 4: Wire `config/docsync.toml`'s `[documents]` table and fix the four
   `allow_after` keys and the `AGENT_NOTES.md` value site**
 
   Add, in the "Options" section (after `[options]`, mirroring `[archives]`/`[closeout]`'s
@@ -1137,7 +1137,7 @@ cannot pass with the move half-done). One commit.
   Update the comment above the fourth block ("needs PLAYBOOK.md's real heading text") to say
   "docs/agents/PLAYBOOK.md's real heading text".
 
-- [ ] **Step 5: Wire `cli.py` to actually consume the new declaration**
+- [x] **Step 5: Wire `cli.py` to actually consume the new declaration**
 
   Add one helper beside `_read_lines`, and read every document path through it:
 
@@ -1174,7 +1174,7 @@ cannot pass with the move half-done). One commit.
   raises; delete that one line. The fixture already chdirs into its corpus and writes no
   `[documents]` table, so the default relative `PLAYBOOK.md` resolves to the same file.
 
-- [ ] **Step 6: The status block and the archive prologue stop naming a path**
+- [x] **Step 6: The status block and the archive prologue stop naming a path**
 
   `scripts/docsync/renderer.py` renders two texts that cite `` `PLAYBOOK.md` ``:
   `_build_status_block`'s "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4)." (two
@@ -1203,7 +1203,7 @@ cannot pass with the move half-done). One commit.
     value in a full-list `==`; update both to the new text. Tests that import
     `SIDE_ARCHIVE_PREFIX` by symbol need no edit.
 
-- [ ] **Step 7: Sweep every bare citation in the five always-scanned documents plus the active
+- [x] **Step 7: Sweep every bare citation in the five always-scanned documents plus the active
   definition and SESSION_CONTEXT (inventory Section 4, risk 4 -- `--check` cannot pass with
   this half-done)**
 
@@ -1224,7 +1224,7 @@ cannot pass with the move half-done). One commit.
   four files by bare name and are the densest hit set here; update every row/step to the
   `docs/agents/` form.
 
-- [ ] **Step 8: Sweep the non-gated live documents** (not scanned by DOC001, per inventory
+- [x] **Step 8: Sweep the non-gated live documents** (not scanned by DOC001, per inventory
   Section 4, but still stale prose if left)
 
   Citation style is settled: repository-root paths everywhere, including between files that
@@ -1251,7 +1251,7 @@ cannot pass with the move half-done). One commit.
   hits). Plans and specs of other work, and every `docs/history/` document other than the
   handoff, are point-in-time: leave them.
 
-- [ ] **Step 9: Keep the moved documents under the file hooks** (owner ruling,
+- [x] **Step 9: Keep the moved documents under the file hooks** (owner ruling,
   2026-09-24: approved)
 
   `.pre-commit-config.yaml`'s top-level `exclude` lists `docs`, so after the move four hooks
@@ -1278,7 +1278,7 @@ cannot pass with the move half-done). One commit.
     `python -c "import re,yaml; p=yaml.safe_load(open('.pre-commit-config.yaml'))['exclude']; print([bool(re.search(p,x)) for x in ('docs/agents/PLAYBOOK.md','docs/history/x.md','docs/x.md')])"`
     prints `[False, True, True]`.
 
-- [ ] **Step 10: Full test run, gates, and the live probe**
+- [x] **Step 10: Full test run, gates, and the live probe**
 
   ```
   .venv/bin/python -m pytest -q -p no:cacheprovider
@@ -1313,7 +1313,7 @@ cannot pass with the move half-done). One commit.
     file (`_read_lines` raises rather than reading nothing).
   - **Near-miss green 4:** restore `playbook = "docs/agents/PLAYBOOK.md"`; exit 0.
 
-- [ ] **Step 11: Section 4 entry and commit**
+- [x] **Step 11: Section 4 entry and commit**
 
   One untagged Section 4 entry (cloud-kit R1) in `docs/agents/PLAYBOOK.md`, with the probe
   table, the named test edits and the pre-commit ruling. Stage by name every path this task

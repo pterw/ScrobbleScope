@@ -1,5 +1,5 @@
 default_stages: [pre-commit]
-exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|docs|logs|oldlogs|static|templates)/
+exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|docs(?!/agents/)|logs|oldlogs|static|templates)/
 
 repos:
   # This hook must stay first in the whole file, not just first within

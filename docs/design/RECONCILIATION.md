@@ -664,7 +664,7 @@ floor for small labels. The owner ruled 12px (`0.75rem`) for both. It is neither
 the README's 9px nor the audit review's 11px. Uppercase stays. Sites:
 `.unmatched-fix-hint` in `static/css/unmatched.css`, the `unmatched-label` span
 in `templates/unmatched.html`, and the `fixHintSize` and `countLabelSize` pins
-in `check_unmatched_report`. This decides `FINDINGS.md` F-B21-4 item 4.
+in `check_unmatched_report`. This decides `docs/agents/FINDINGS.md` F-B21-4 item 4.
 
 ## 17. A displayed release year may come from MusicBrainz, 2026-09-20
 

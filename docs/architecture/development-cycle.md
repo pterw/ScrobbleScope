@@ -7,7 +7,7 @@ validation feeds the next iteration.
 ```mermaid
 flowchart TD
     Request([Owner request, issue, or review finding]) --> Triage{Review finding<br/>or comment job?}
-    Triage -->|No| Context[Read canonical context<br/>AGENTS.md, PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, AGENT_NOTES.md]
+    Triage -->|No| Context[Read canonical context<br/>AGENTS.md, docs/agents/PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, docs/agents/AGENT_NOTES.md]
     Triage -->|Yes| Fetch[Fetch the thread or comments first]
     Fetch --> Actionable{Comment job with<br/>nothing actionable?}
     Actionable -->|Yes| Stop([Stop without full bootstrap])

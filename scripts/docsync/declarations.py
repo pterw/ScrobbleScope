@@ -549,9 +549,9 @@ class DocumentsConfig:
     """Where docsync's own live documents live, from [documents] or defaults.
 
     The defaults are docsync's generic vocabulary -- true for any repository that adopts
-    the tool unmodified (AGENT_NOTES.md "This repository is also a template being
-    extracted"). This repository overrides every field in its own declarations file,
-    once the four documents move under docs/agents/.
+    the tool unmodified (docs/agents/AGENT_NOTES.md "This repository is also a template
+    being extracted"). This repository overrides every field in its own declarations
+    file, since the four documents moved under docs/agents/.
     """
 
     playbook: str = "PLAYBOOK.md"

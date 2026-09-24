@@ -139,7 +139,6 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import docsync.cli as cli_module
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli_module, "PLAYBOOK_PATH", tmp_path / "PLAYBOOK.md")
     monkeypatch.setattr(
         cli_module,
         "ARCHIVE_PATH",

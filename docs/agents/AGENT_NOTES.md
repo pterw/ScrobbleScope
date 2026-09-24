@@ -1,11 +1,11 @@
 # Agent Notes
 
 Project-specific context for all agents working on ScrobbleScope.
-Rules live in `AGENTS.md`. Work orders live in `PLAYBOOK.md`.
+Rules live in `AGENTS.md`. Work orders live in `docs/agents/PLAYBOOK.md`.
 This file contains preferences, local dev setup, and discovered constraints
 that agents need but that do not belong in either of those files.
 
-**Batch state:** owned by `PLAYBOOK.md` Section 3 -- this file does not
+**Batch state:** owned by `docs/agents/PLAYBOOK.md` Section 3 -- this file does not
 track it.
 
 ---

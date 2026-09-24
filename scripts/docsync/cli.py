@@ -50,8 +50,10 @@ from docsync.closeout import (
 )
 from docsync.declarations import (
     DECLARATIONS_FILENAME,
+    DocumentsConfig,
     load_archive_config,
     load_closeout_config,
+    load_documents_config,
 )
 from docsync.integrity import (
     LIVE_DOCUMENT_RELATIVE_PATHS,
@@ -60,6 +62,7 @@ from docsync.integrity import (
     _definition_wp_numbers,
     collect_integrity_issues,
     collect_tracked_paths,
+    resolved_live_document_paths,
 )
 from docsync.logic import (
     _merge_entries_into_log,
@@ -84,7 +87,6 @@ REPO_ROOT = Path(".")
 # None in its finally. REPO_ROOT is a true constant with no existing pattern
 # to copy for a value that changes per run.
 CONFIG_PATH: Path | None = None
-PLAYBOOK_PATH = Path("PLAYBOOK.md")
 ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 # Derived from integrity.py's canonical relative-path strings, not restated:
 # see the comment on LIVE_DOCUMENT_RELATIVE_PATHS there for why that module
@@ -92,7 +94,6 @@ ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(SESSION_CONTEXT_RELATIVE_PATH)
 LOGS_DIR = Path("docs/history/logs")
 DEFINITIONS_DIR = Path("docs/history/definitions")
-FINDINGS_PATH = Path(findings_module.ACTIVE_PATH)
 FINDINGS_ARCHIVE_PATH = Path(findings_module.ARCHIVE_PATH)
 LIVE_DOCUMENT_PATHS = tuple(Path(relative) for relative in LIVE_DOCUMENT_RELATIVE_PATHS)
 
@@ -113,6 +114,21 @@ def _check_root_batch_files(root: Path) -> list[str]:
             f"Root BATCH file detected: {f.name} should be archived under docs/history/definitions/."
         )
     return warnings
+
+
+def _documents() -> DocumentsConfig:
+    """Return the document paths declared for this invocation's config file."""
+    return load_documents_config(REPO_ROOT, config_path=CONFIG_PATH)
+
+
+def _declarations_path() -> Path:
+    """Return the declarations file this invocation's config resolves to.
+
+    Mirrors `docsync.declarations.load_declarations`'s own default so a
+    corpus that reads document paths through it can name the file among the
+    sources a publication must prove unchanged (`_Corpus.read_paths`).
+    """
+    return CONFIG_PATH if CONFIG_PATH is not None else REPO_ROOT / DECLARATIONS_FILENAME
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -236,13 +252,16 @@ def _archived_definitions() -> dict[str, list[str]]:
 
 def _read_live_documents() -> dict[str, list[str]]:
     """Load canonical documents, root definitions and archived definitions."""
-    documents = {
-        _repository_relative(path): _read_lines(path) for path in LIVE_DOCUMENT_PATHS
+    live_documents = {
+        _repository_relative(REPO_ROOT / relative): _read_lines(REPO_ROOT / relative)
+        for relative in resolved_live_document_paths(_documents())
     }
     for definition_path in REPO_ROOT.glob("BATCH*.md"):
-        documents[_repository_relative(definition_path)] = _read_lines(definition_path)
-    documents.update(_archived_definitions())
-    return documents
+        live_documents[_repository_relative(definition_path)] = _read_lines(
+            definition_path
+        )
+    live_documents.update(_archived_definitions())
+    return live_documents
 
 
 def _read_active_planned_wp_numbers(
@@ -289,7 +308,11 @@ class _Corpus:
     def __init__(self, store: ArchiveStore) -> None:
         self.store = store
         self.issues: list[IntegrityIssue] = []
-        self.playbook_lines = _read_lines(PLAYBOOK_PATH)
+        self.declarations_path = _declarations_path()
+        documents = _documents()
+        playbook_path = REPO_ROOT / documents.playbook
+        findings_path = REPO_ROOT / documents.findings
+        self.playbook_lines = _read_lines(playbook_path)
         if not ARCHIVE_PATH.exists():
             raise SyncError(f"Required file is missing: {ARCHIVE_PATH}")
         archive_lines, archive_issue = _archive_lines(store, ARCHIVE_PATH)
@@ -300,7 +323,7 @@ class _Corpus:
         self.batch_log_lines, batch_issues = _read_batch_log_lines(store)
         self.issues.extend(batch_issues)
         self.findings_text = (
-            FINDINGS_PATH.read_text(encoding="utf-8") if FINDINGS_PATH.is_file() else ""
+            findings_path.read_text(encoding="utf-8") if findings_path.is_file() else ""
         )
         self.findings_archive_text, findings_issue = _archive_text(
             store, FINDINGS_ARCHIVE_PATH
@@ -330,6 +353,7 @@ class _Corpus:
         """
         paths = [REPO_ROOT / relative for relative in self.live_documents]
         paths.append(SESSION_CONTEXT_PATH)
+        paths.append(self.declarations_path)
         paths.extend(_archive_members(ARCHIVE_PATH))
         paths.extend(_archive_members(FINDINGS_ARCHIVE_PATH))
         for batch_num in self.batch_log_lines:
@@ -464,8 +488,11 @@ def _drift_updates(
     """Return every write the deterministic renderer and rotation would make."""
     store = corpus.store
     config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
+    documents = _documents()
     updates: dict[Path, bytes | None] = {}
-    updates.update(_plan_document(PLAYBOOK_PATH, result.playbook_lines))
+    updates.update(
+        _plan_document(REPO_ROOT / documents.playbook, result.playbook_lines)
+    )
     updates.update(
         _plan_archive(
             store,
@@ -491,7 +518,7 @@ def _drift_updates(
     ):
         updates.update(_plan_document(SESSION_CONTEXT_PATH, result.session_lines))
     if rotation.rotated_ids:
-        updates.update(_plan_text(FINDINGS_PATH, rotation.active_text))
+        updates.update(_plan_text(REPO_ROOT / documents.findings, rotation.active_text))
         updates.update(
             _plan_archive(
                 store,
@@ -523,6 +550,7 @@ def _collect_issues(
     rotation: findings_module.FindingRotation,
 ) -> list[IntegrityIssue]:
     """Collect every blocking diagnostic for the corpus as it stands."""
+    documents = _documents()
     return [
         *corpus.issues,
         *rotation.issues,
@@ -537,6 +565,9 @@ def _collect_issues(
             tracked_paths=corpus.tracked_paths,
             batch_log_lines=corpus.batch_log_lines,
             config_path=CONFIG_PATH,
+            document_paths=resolved_live_document_paths(documents),
+            playbook_relative_path=documents.playbook,
+            findings_relative_path=documents.findings,
         ),
     ]
 
@@ -639,12 +670,17 @@ def _candidate_live_documents(
     ordinary check -- it is a document the gate reads, and a declaration may
     name it.
     """
-    documents = dict(corpus.live_documents)
-    documents.pop(source_relative, None)
-    documents[archived_relative] = archived_lines
-    documents[_repository_relative(PLAYBOOK_PATH)] = playbook_lines
-    documents[_repository_relative(FINDINGS_PATH)] = findings_text.split("\n")
-    return documents
+    document_paths = _documents()
+    live_documents = dict(corpus.live_documents)
+    live_documents.pop(source_relative, None)
+    live_documents[archived_relative] = archived_lines
+    live_documents[_repository_relative(REPO_ROOT / document_paths.playbook)] = (
+        playbook_lines
+    )
+    live_documents[_repository_relative(REPO_ROOT / document_paths.findings)] = (
+        findings_text.split("\n")
+    )
+    return live_documents
 
 
 def _resolve_closed_on(batch: int, archived_relative: str, proposed: str) -> str:
@@ -695,6 +731,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         _report(corpus.issues)
         return 1
 
+    documents = _documents()
     config = load_closeout_config(REPO_ROOT, config_path=CONFIG_PATH)
     archive_config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     archived_relative = f"{ARCHIVED_DEFINITIONS_DIR}BATCH{batch}_DEFINITION.md"
@@ -775,6 +812,9 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         tracked_paths=candidate_tracked,
         batch_log_lines=candidate_batch_logs,
         config_path=CONFIG_PATH,
+        document_paths=resolved_live_document_paths(documents),
+        playbook_relative_path=documents.playbook,
+        findings_relative_path=documents.findings,
     )
     if any(issue.severity == "error" for issue in candidate_issues):
         _report(candidate_issues)
@@ -789,7 +829,9 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     updates.update(_plan_document(REPO_ROOT / archived_relative, archived_lines))
     if source_relative != archived_relative:
         updates[source_path] = None
-    updates.update(_plan_document(PLAYBOOK_PATH, result.playbook_lines))
+    updates.update(
+        _plan_document(REPO_ROOT / documents.playbook, result.playbook_lines)
+    )
     updates.update(
         _plan_archive(
             store,
@@ -812,7 +854,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     if result.session_lines is not None:
         updates.update(_plan_document(SESSION_CONTEXT_PATH, result.session_lines))
     if rotation.rotated_ids:
-        updates.update(_plan_text(FINDINGS_PATH, rotation.active_text))
+        updates.update(_plan_text(REPO_ROOT / documents.findings, rotation.active_text))
         updates.update(
             _plan_archive(
                 store,

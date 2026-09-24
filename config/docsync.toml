@@ -25,6 +25,18 @@
 strikethrough_exempt = true
 
 # ----------------------------------------------------------------------
+# Document locations
+# ----------------------------------------------------------------------
+
+# These four documents moved from the repository root to docs/agents/ (root cleanup,
+# 2026-09-24). AGENTS.md itself is not declared here: it never moves.
+[documents]
+playbook = "docs/agents/PLAYBOOK.md"
+findings = "docs/agents/FINDINGS.md"
+agent_notes = "docs/agents/AGENT_NOTES.md"
+handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"
+
+# ----------------------------------------------------------------------
 # Archive thresholds
 # ----------------------------------------------------------------------
 
@@ -524,7 +536,7 @@ pattern = 'last (\d+) days'
 expect = "365"
 
 [[value.sites]]
-file = "AGENT_NOTES.md"
+file = "docs/agents/AGENT_NOTES.md"
 pattern = 'last (\d+) days'
 expect = "365"
 
@@ -631,7 +643,7 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # Owner reversed decision 4 on 2026-08-22. The configured Adobe Fonts kit is
 # the type stack and no static/fonts/ directory is coming, but four documents recorded
@@ -644,7 +656,7 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # DOC012 has been enforced since 2026-08-26, but the range that documents the docsync
 # codes drifted twice -- DOC001-DOC006, then DOC001-DOC011 -- and nothing checked it,
@@ -672,7 +684,7 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # Task 5 (2026-09-24) retired the range itself, not just its upper bound: the
 # catalogue's explicit list -- "DOC001-DOC020, DOC023 and DOC024" -- has a gap
@@ -697,11 +709,11 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLAUDE.md"]
 
 # The exemption compares the raw line verbatim (declarations.py
-# check_retired), so it needs PLAYBOOK.md's real heading text. F-DOCSYNC-16
+# check_retired), so it needs docs/agents/PLAYBOOK.md's real heading text. F-DOCSYNC-16
 # records that an unmatched allow_after marker is silently ignored rather
 # than erroring.
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # ----------------------------------------------------------------------
 # Findings

@@ -1,13 +1,36 @@
 # PLAYBOOK Execution Log Archive
 
 Purpose:
-- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.
+- Store dated execution-log entries rotated out of PLAYBOOK Section 4.
 - Keep entries in reverse-chronological order (newest first).
 
 Read helpers:
 - `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+
+### 2026-09-24 - The handoff catches up with the root cleanup's first three tasks
+
+Side task, no batch tag: the sixth (cloud) session's handoff revision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **What changed.** `docs/history/reports/HANDOFF_2026-09-24.md` records
+  root-cleanup Tasks 0-2 done and Task 3 next, with the two notes Task 3's
+  brief needs that the plan lacks. It also drops three claims the merge of
+  `main` made false: that PR #242 was still to be merged in, that the guard
+  fails against `origin/main`, and that pre-commit always prints WT005.
+  Section 8 gains two traps from this session: a plan's own heading can
+  break R1, and an adapted test can stop testing the change.
+- **Task 2's fix round.** The owner waived its re-review. The controller
+  verified it by mutation in a scratch copy instead: reverting the
+  scan-source comparison alone fails only
+  `test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path`,
+  and reverting the definition-line comparison alone fails only
+  `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`.
+- **Deviations:** none. Docs only.
+
+Validation: `pytest -q` -- **1842 passed**.
 
 ### 2026-09-24 - The documents-table tests prove the playbook override
 

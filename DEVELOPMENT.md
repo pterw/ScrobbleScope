@@ -47,16 +47,16 @@ these failure modes.
 ## The Orchestration Architecture
 
 The external-memory layer consists of five core tracked files, the advisory
-read-on-demand `FINDINGS.md`, and two archive directories. Each has a primary
+read-on-demand `docs/agents/FINDINGS.md`, and two archive directories. Each has a primary
 concern, and the design goal is that canonical facts live in exactly one
 place.
 
-`HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
+`docs/agents/HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
 session. It links to `AGENTS.md` for rules rather than summarising them:
 earlier versions did condense the rules into a cold-start checklist, and
 every summary eventually drifted from the text it summarised.
 
-`AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
+`docs/agents/AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
 restating them. `README.md` is excluded from the agent memory layer; it
 exists for *people* to read and is explicitly not used for orchestration.
 
@@ -71,7 +71,7 @@ current state, nor does it contain history. It is rarely subject to change.
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
 because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-scoped commit.
 
-### `HANDOFF_PROMPT.md` -- Session Start and Handoff
+### `docs/agents/HANDOFF_PROMPT.md` -- Session Start and Handoff
 
 Given to any agent beginning work, and intended to be passed verbatim as
 context when delegating to a new session. It holds the two things that
@@ -84,7 +84,7 @@ now live only in `AGENTS.md`. Each restatement had drifted from the
 canonical text -- in one case a copy silently outlived the rule it
 described -- so the copies were replaced with pointers.
 
-### `AGENT_NOTES.md` -- Owner Context
+### `docs/agents/AGENT_NOTES.md` -- Owner Context
 
 Tracks facts that belong to no other file: owner workflow preferences,
 local dev setup (Docker, Postgres, Browser MCP), architectural
@@ -92,7 +92,7 @@ constraints discovered during development, and known open issues. Tracked
 in git so every agent -- regardless of tool or machine -- reads the same
 preferences.
 
-### `PLAYBOOK.md` -- Work Orders
+### `docs/agents/PLAYBOOK.md` -- Work Orders
 
 The source of truth for what work is in progress, what is next, and what
 was just completed. Structured as:
@@ -125,8 +125,8 @@ Prompt" below.
 A machine-managed snapshot: current test count, branch, known risks,
 module structure, dependency graph, architecture overview. It is not
 a rules file and not a history file. It exists so a new agent session can read
-one file and understand the current runtime state without parsing PLAYBOOK.md
-or running tests.
+one file and understand the current runtime state without parsing
+`docs/agents/PLAYBOOK.md` or running tests.
 
 This file lives in `.claude/` and is committed to the repo (tracked via
 an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
@@ -156,7 +156,7 @@ decisions without loading them into the active context.
 The archive is organized into subdirectories:
 - `docs/history/definitions/`: archived batch definition files (`BATCHN_DEFINITION.md`)
 - `docs/history/logs/`: per-batch execution logs rotated from PLAYBOOK Section 4
-- `docs/history/findings/`: resolved findings rotated out of `FINDINGS.md`
+- `docs/history/findings/`: resolved findings rotated out of `docs/agents/FINDINGS.md`
 - `docs/history/reports/`: the dated one-off documents -- audits, changelogs,
   refactor plans, the worker ADR, and the SESSION_CONTEXT format snapshot
 - `docs/logarchive/`: auto-managed monolith archive for non-batch (side-task) entries
@@ -192,7 +192,7 @@ edit them out or misplace them.
 
 `doc_state_sync.py` makes the rotation deterministic:
 
-1. **Parses** Section 4 of PLAYBOOK.md into typed `Entry` dataclasses
+1. **Parses** Section 4 of `docs/agents/PLAYBOOK.md` into typed `Entry` dataclasses
    (date, title, content lines, SHA-256 fingerprint of the full block).
 2. **Partitions** entries into current-batch (inside the DOCSYNC markers)
    and non-current (outside) buckets.
@@ -564,7 +564,7 @@ to say and hard to act on:
 |---|---|---|
 | Document paths | `[[value.sites]]` and `[[anchor]]` entries | They name `docs/design/README.md`, `docs/design/RECONCILIATION.md`, `docs/history/definitions/BATCH21_DEFINITION.md`, `docs/architecture/documentation-tooling.md`, `docs/agents/ui-accessibility.md` |
 | Scanned corpus | `scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]` and its `allow_files` list | The document inventory a repository has is a policy choice, not a universal |
-| Section anchors | `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"` | PLAYBOOK and its section names are this workflow's vocabulary |
+| Section anchors | `[retired.allow_after] "docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"` | PLAYBOOK and its section names are this workflow's vocabulary |
 | Batch vocabulary | `[closeout] admit_from_batch = 22` | Batching is the portable idea; *which* batch is the local fact |
 | Design tokens | the `[[value]]` entries for the page background and muted text | These are ScrobbleScope's visual system, and one of them straddles source CSS, a legacy shell bridge and exact tests |
 | Live-document list | `LIVE_DOCUMENT_RELATIVE_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
@@ -574,7 +574,7 @@ local**, which is the intended end state. The unfinished half is that those
 local facts currently live *inside this repository's config* rather than in a
 config a second repository would write for itself. That is what the deferred
 kernel plan addresses, and it is why the plan's constraint is that the new
-kernel modules "must not contain `ScrobbleScope`, `PLAYBOOK.md`, `Batch`, `WP`,
+kernel modules "must not contain `ScrobbleScope`, `docs/agents/PLAYBOOK.md`, `Batch`, `WP`,
 or `docs/superpowers/` policy literals".
 
 **Why this is deliberately unfinished.** Two reasons, both of which are
@@ -611,7 +611,7 @@ The two extraction plans and their current status are
 `docs/superpowers/plans/2026-09-12-reusable-frontend-ci-verification-components.md`
 (the gate components). Both carry explicit "do not execute until" conditions;
 neither is current work. Owner intent and the reasoning behind the constraint
-are owned by `AGENT_NOTES.md`, which is the authority if this section and that
+are owned by `docs/agents/AGENT_NOTES.md`, which is the authority if this section and that
 one ever disagree.
 
 ---
@@ -624,9 +624,9 @@ locally and are not tracked in this repository (`.gitignore` excludes `.claude/`
 except `SESSION_CONTEXT.md`); this section documents their purpose for context.
 
 **`scrobblescope-bootstrap`** runs the canonical session bootstrap in a fixed
-read order: `AGENTS.md`, then `PLAYBOOK.md` Sections 3-4, the active batch
+read order: `AGENTS.md`, then `docs/agents/PLAYBOOK.md` Sections 3-4, the active batch
 definition named there, `.claude/SESSION_CONTEXT.md` Sections 1-2, and
-`AGENT_NOTES.md`, finishing with a git-state and test-baseline check against
+`docs/agents/AGENT_NOTES.md`, finishing with a git-state and test-baseline check against
 what those files claim. If PLAYBOOK Section 3 and SESSION_CONTEXT Section 1
 agree on the current batch and next work package, the agent has enough
 context to start. Invoke it at the start of any
@@ -686,8 +686,8 @@ or start over.
 
 ScrobbleScope's orchestration layer inverts that assumption: state is never
 allowed to live only in a conversation. It is externalized into a small,
-strictly-scoped set of files (`AGENTS.md`, `HANDOFF_PROMPT.md`,
-`AGENT_NOTES.md`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
+strictly-scoped set of files (`AGENTS.md`, `docs/agents/HANDOFF_PROMPT.md`,
+`docs/agents/AGENT_NOTES.md`, `docs/agents/PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
 `docs/history/` archive) with each file assigned exactly one concern, so
 that any agent -- regardless of vendor or context length -- can bootstrap
 full working context from a fixed, small reading list rather than from
@@ -712,7 +712,7 @@ practice follow from this:
   auto-applied.** Section "On Rejecting Code Review Suggestions" below is
   the direct consequence: a review tool (or agent) that only sees the
   current diff, with no causal history, will sometimes recommend reverting
-  a deliberate fix. Preserving the reasoning in `PLAYBOOK.md`/`docs/history/`
+  a deliberate fix. Preserving the reasoning in `docs/agents/PLAYBOOK.md`/`docs/history/`
   means the next agent (or reviewer) doesn't repeat the same wrong
   suggestion, which a purely conversational workflow has no mechanism to
   prevent.
@@ -788,7 +788,7 @@ If you have cloned this repository and want to understand any decision:
 
 1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md` to see what the
    acceptance criteria were before work started.
-2. Search `PLAYBOOK.md` Section 4 and
+2. Search `docs/agents/PLAYBOOK.md` Section 4 and
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
    covering the relevant date range.
 3. Search `docs/history/logs/` and `docs/logarchive/` for older dated entries.

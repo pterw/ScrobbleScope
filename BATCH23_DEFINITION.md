@@ -229,7 +229,7 @@ WP-0 did.
   - if the fix is not there, reopen it and say what is missing.
   Done 2026-09-23: all six fix commits are ancestors of `origin/main`; each
   now carries a canonical `resolved` record and completion date in
-  `FINDINGS.md`.
+  `docs/agents/FINDINGS.md`.
 - [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
   `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
   the archive page target, the DOC range, findings hygiene (pre-split line
@@ -237,8 +237,8 @@ WP-0 did.
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
   still applies.
-- [ ] **Root cleanup.** Move `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md` and
-  `HANDOFF_PROMPT.md` to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
+- [ ] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
+  HANDOFF_PROMPT.md to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
   to `config/`, per the owner rulings of 2026-09-24. Plan:
   `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`. `AGENTS.md`, `README.md`,
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `DEVELOPMENT.md`, `DEPLOY.md`,
@@ -270,7 +270,7 @@ WP-0 did.
 
 #### Part C -- Clear every open P0 and P1 finding
 
-The set is every finding open at P0 or P1 in `FINDINGS.md` on 2026-09-23,
+The set is every finding open at P0 or P1 in `docs/agents/FINDINGS.md` on 2026-09-23,
 plus the docsync gap Part B files (F-DOCSYNC-15). That is 38 IDs plus one,
 listed so that a finding filed later does not silently join, and a listed one
 does not silently leave:

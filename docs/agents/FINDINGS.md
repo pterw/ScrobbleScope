@@ -79,7 +79,7 @@ The Quality Gate's `pip-audit` step reported `Found 115 known vulnerabilities
 in 12 packages` (run 32444711411, 2026-08-21). The step is
 `continue-on-error: true` in `.github/workflows/test.yml`, so the gate stays
 green and the count reaches nobody. That disposition is deliberate and is
-recorded in `AGENT_NOTES.md`; the disposition is not the problem, the number
+recorded in `docs/agents/AGENT_NOTES.md`; the disposition is not the problem, the number
 is. Nobody reads a green check.
 
 **Unused packages ship to production.** The Dockerfile installs
@@ -126,11 +126,11 @@ and a work package. It did not belong in the documentation PR that created
 the mirror.
 
 What a sync needs: open an issue for each finding that has none, close the
-issue when its finding resolves, and never write back to `FINDINGS.md`. The
+issue when its finding resolves, and never write back to `docs/agents/FINDINGS.md`. The
 file stays the source of truth. Issues are a read-only mirror.
 
 **Owner ruling, 2026-09-20:** the sync has to run in both directions --
-GitHub issues to `FINDINGS.md` as well as out -- so neither side can become
+GitHub issues to `docs/agents/FINDINGS.md` as well as out -- so neither side can become
 the only place a defect is recorded.
 
 - [ ] **Status:** open, deferred by owner decision
@@ -475,7 +475,7 @@ sat at a hand-written "1036" untouched since 2026-09-11 through several
 passed), each of which apparently updated the STATUS block correctly
 without tripping DOC006. Why those earlier checks did not already fail on
 the same mismatch is not established here -- worth checking before
-assuming the mechanism above is the whole story. `FINDINGS.md`'s header
+assuming the mechanism above is the whole story. `docs/agents/FINDINGS.md`'s header
 count line has the identical problem under DOC008: also hand-written,
 also never rewritten by `--fix`.
 
@@ -625,7 +625,7 @@ simply stays `None`: the declaration silently loses its whole history
 exemption for that file, with no warning that the marker itself is dead. The
 three `[[retired]]` declarations in `.docsync.toml` that predate this finding
 all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
-but the real `PLAYBOOK.md` heading is `## 4. Execution log (for agent
+but the real `docs/agents/PLAYBOOK.md` heading is `## 4. Execution log (for agent
 handoff)`, so none of the three matched anything. Reproduced directly against
 `check_retired` with the real heading text: a claim placed below the heading
 was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
@@ -1195,7 +1195,7 @@ Measured 2026-09-11: the reuse is latent, not live. `_validate("retired", index,
 declaration)` at `:744` runs before the inner loop of its own iteration, and the
 `for` statement reassigns `index` at the top of each outer iteration, so the
 declaration index is restored before it is read again. Calling `check_retired`
-with two declarations -- the first scanning `PLAYBOOK.md` behind an
+with two declarations -- the first scanning `docs/agents/PLAYBOOK.md` behind an
 `allow_after` marker, so its inner loop ran and rebound the name, and the second
 carrying an unknown key -- named the fault `retired 1`, the declaration index
 rather than a line. Nothing reads `index` after `:765`.
@@ -1394,7 +1394,7 @@ Status: standing design decision. Source: PR #234 advisory verification,
 ## Deferred / future-batch candidates (Batch 18/19 audits)
 
 One-line cross-references; detailed bodies live in pre-Batch-20
-`FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
+`docs/agents/FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
 audits; 2026-03-04 load-test data is in the findings archive.
 
 - F-B18-1: orchestrator monolith -- promoted to F-B20-2, resolved 2026-09-21.

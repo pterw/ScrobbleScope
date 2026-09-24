@@ -5,9 +5,9 @@ worktree-guard, pre-commit, and CI relationships.
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>rules + Agent skills] --> H[HANDOFF_PROMPT.md]
-    A --> P[PLAYBOOK.md<br/>work order + execution log]
-    A --> F[FINDINGS.md<br/>open defects]
+    A[AGENTS.md<br/>rules + Agent skills] --> H[docs/agents/HANDOFF_PROMPT.md]
+    A --> P[docs/agents/PLAYBOOK.md<br/>work order + execution log]
+    A --> F[docs/agents/FINDINGS.md<br/>open defects]
     A --> SK[docs/agents/<br/>issue-tracker, domain]
     P --> B[BATCHN_DEFINITION.md<br/>scope + acceptance criteria]
     P --> S[SESSION_CONTEXT.md<br/>current-state dashboard]
@@ -127,7 +127,7 @@ The facade re-exports all six guard modules. `doc_state_sync.py` imports only
 
 **What this machinery is for.** docsync, the worktree guard, and the
 frontend gate are an extractable control plane, not a ScrobbleScope quirk
--- see `AGENT_NOTES.md` "This repository is also a template being
+-- see `docs/agents/AGENT_NOTES.md` "This repository is also a template being
 extracted" for why. Each mechanism reads its facts from repository-local
 configuration (`config/docsync.toml`'s declarations, the `[closeout]` and
 `[archives]` tables, options like DOC011's struck-through convention)

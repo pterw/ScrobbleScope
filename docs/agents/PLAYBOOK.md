@@ -163,7 +163,7 @@ See FINDINGS F-DOCSYNC-3.
   packages, WP-0 through WP-7; the deferred Batch 21 frontend and
   accessibility audit is inside WP-7, which the batch cannot close without.
   The branch is cut from `test`, so run the worktree guard with
-  `--base-ref origin/test` (`HANDOFF_PROMPT.md` "Bootstrap edge cases").
+  `--base-ref origin/test` (`docs/agents/HANDOFF_PROMPT.md` "Bootstrap edge cases").
   The definition's header names WP-0's plans.
 - **Next action:** WP-0 is next. The owner widened it on 2026-09-23 into
   three parts, which the definition's WP-0 describes. Part A is the
@@ -210,7 +210,7 @@ See FINDINGS F-DOCSYNC-3.
      task ruled by the owner 2026-09-24 -- the provider summary log line
      states its span as well as its time in calls (the handoff's section 5
      describes it) -- is done, 2026-09-24. Task 6 (findings hygiene: every
-     pre-split `orchestrator.py`/`routes.py` citation in `FINDINGS.md` and
+     pre-split `orchestrator.py`/`routes.py` citation in `docs/agents/FINDINGS.md` and
      the findings archive repointed by name, and the opening-state defect,
      the archive/cold-rule defect, the interrupted-publication diagnostic
      gap and the worktree guard's base-ref default filed as findings) is
@@ -223,7 +223,7 @@ See FINDINGS F-DOCSYNC-3.
      manifest by name, refusing an unknown name or a disabled required check
      before a browser launches) is done, 2026-09-24. Task 9 (`AGENTS.md`
      points at the full docsync CLI surface and the `docs/agents/global-rules.md`
-     skill pointer, and `AGENT_NOTES.md` records the installer decision) is
+     skill pointer, and `docs/agents/AGENT_NOTES.md` records the installer decision) is
      done, 2026-09-24. Task 10 (every `docs/architecture/*.md` diagram walked
      against current source, `api_logging.py` added to
      `docs/architecture/runtime-system.md`, and `docs/ARCHITECTURE.md`'s
@@ -242,7 +242,13 @@ See FINDINGS F-DOCSYNC-3.
      `config/docsync.toml`, `DECLARATIONS_FILENAME` and `CONTROL_PLANE_FILES`
      repointed, every declarations-writing test fixture following the symbol,
      and every live present-tense citation corrected) is done, 2026-09-24;
-     Tasks 6-8 remain.
+     Task 6 (the four agent documents moved to `docs/agents/`, the
+     `[documents]` table wired live through `cli.py`'s `_documents()`, the
+     worktree guard and
+     the docsync-generated text repointed or de-pathed, the pre-commit
+     exclude and the `.gitignore` carve-out both keeping the move under the
+     file hooks, and every live citation corrected) is done, 2026-09-24;
+     Tasks 7-8 remain.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -450,6 +456,105 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The four agent documents move to docs/agents/
+
+Side task, no batch tag: the root-cleanup plan's Task 6, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md` and
+  `HANDOFF_PROMPT.md` move to `docs/agents/` (`git mv`). `config/docsync.toml`
+  gains a `[documents]` table declaring the four new paths; its
+  `AGENT_NOTES.md` value-site and all four `[retired.allow_after]` keys
+  (and the comment above the fourth) now read `docs/agents/PLAYBOOK.md`.
+  `scripts/docsync/cli.py` reads and writes every document through a new
+  `_documents()`/`_declarations_path()` pair instead of the deleted
+  `PLAYBOOK_PATH`/`FINDINGS_PATH` constants (`_Corpus.__init__`,
+  `_read_live_documents`, `_drift_updates`, `_candidate_live_documents`,
+  `_collect_issues` and `_close_batch`'s two `collect_integrity_issues`
+  calls). `scripts/dev/_worktree_guard_inspection.py` reads
+  `docs/agents/PLAYBOOK.md`; `_worktree_guard_diagnostics.py`'s
+  `metadata_unavailable_diagnostic` label follows.
+  `scripts/docsync/renderer.py` drops the path from `_build_status_block`
+  and `SIDE_ARCHIVE_PREFIX` entirely (owner ruling: no document path in
+  generated text) -- `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`'s
+  prologue matches by hand where `--fix` did not rewrite it.
+  `.pre-commit-config.yaml`'s top-level exclude changes `docs` to
+  `docs(?!/agents/)` (owner-approved 2026-09-24), keeping `docs/agents/`
+  under `trailing-whitespace`, `end-of-file-fixer`, `check-merge-conflict`
+  and `detect-private-key`. Every live present-tense citation of the four
+  names is repointed: `AGENTS.md`, `docs/agents/domain.md`,
+  `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`,
+  `docs/agents/AGENT_NOTES.md`, `docs/agents/FINDINGS.md`,
+  `docs/agents/PLAYBOOK.md` Section 3, `DEVELOPMENT.md`, `PRODUCT.md`,
+  `docs/ARCHITECTURE.md`, `docs/architecture/documentation-tooling.md`
+  (including the mermaid node labels), `docs/architecture/development-cycle.md`,
+  `docs/AGENT_DOC_MAP.md`, `docs/design/RECONCILIATION.md:667`,
+  `docs/SWE_AUDIT_CHARTER.md` (9), `BATCH23_DEFINITION.md` (2 present-tense
+  pointers), `.claude/SESSION_CONTEXT.md`,
+  `.superpowers/cloud-kit/constraints.md` (including its literal
+  `grep ... PLAYBOOK.md` command), `docs/history/reports/HANDOFF_2026-09-24.md`
+  (sections 2/3/8 only; its section 6 narrative of past rulings is left as
+  written, point-in-time), `.gitignore`'s committed-files comment,
+  `scripts/dev/graphify_refresh.py`, `scripts/dev/install_docsync_hook.py`
+  (two comments) and `scripts/docsync/declarations.py`'s `DocumentsConfig`
+  docstring (its field defaults stay bare, by Task 2's design).
+- **Tests.** `tests/scripts/dev/test_worktree_guard_playbook.py`
+  (`test_the_repository_playbook_parses`, Step 1) reads the new path.
+  `tests/scripts/dev/worktree_guard_fakes.py`'s `repository()` fixture, and
+  `test_worktree_guard_base_ref.py`, `test_worktree_guard_inspection.py`,
+  `test_worktree_guard_subject.py` and `test_worktree_guard_topology.py`'s
+  own `PLAYBOOK.md`-writing helpers, all write to
+  `repo/docs/agents/PLAYBOOK.md` (a named, load-bearing edit: reverting the
+  guard's own code fix and re-running the six worktree-guard test files
+  reproduces 29 failures; restoring the fix returns all 74 to green).
+  `tests/conftest.py`'s `sync_env` no longer monkeypatches the deleted
+  `PLAYBOOK_PATH` (the fixture writes no `[documents]` table, so the
+  default relative name still resolves). `tests/test_docsync_renderer.py`'s
+  `test_declared_batch_with_no_entries_renders_as_open` and
+  `test_between_batches_block_carries_the_count` copy the status-block line
+  by value; both updated to the new text (RED before, GREEN after).
+- **Live probe**, `/c/ssprobe`, from `git archive $(git stash create)` with
+  this task's changes in the tree (L18):
+  - Pre-commit exclude: planted `<<<<<<< HEAD` (with a simulated merge
+    state, since `check-merge-conflict` only scans when `MERGE_HEAD` and
+    `MERGE_MSG` exist) in `docs/agents/PLAYBOOK.md` -- red,
+    `check-merge-conflict` failed; the same marker in
+    `docs/history/reports/` -- green, passed.
+  - `[retired.allow_after]`: none of the four declarations' retired claims
+    are still live in the current corpus, so a bare key revert alone proved
+    nothing; planted one claim below the Section 4 heading, then reverted
+    the fonts-retirement key to `PLAYBOOK.md` -- red, DOC011 fired as a
+    false positive; restored the key -- green.
+  - Worktree guard: reverted `_worktree_guard_inspection.py`'s literal to
+    `PLAYBOOK.md` -- red, WT002 "PLAYBOOK.md could not be read"; restored
+    -- green, Section 3 read (the corpus's own WT003/WT007/WT009 branch,
+    remote and venv gaps are unrelated to the PLAYBOOK read).
+  - DOC001 sweep: left one bare `` `PLAYBOOK.md` `` citation in `AGENTS.md`
+    -- red, DOC001 named it; restored to `` `docs/agents/PLAYBOOK.md` `` --
+    green.
+  - `[documents]` honoured: set `playbook = "docs/agents/NOWHERE.md"` --
+    red, `--check` failed naming the missing file; restored -- green.
+- **Deviations:**
+  - `_Corpus.read_paths()` gained the declarations file as a source (a new
+    `_declarations_path()` helper): `_documents()` now reads
+    `config/docsync.toml` during `_Corpus.__init__`, which
+    `test_close_batch_proves_every_read_source_before_publishing` (not
+    named in the brief) proved must be in the publish-time read set, or a
+    concurrent edit to the declarations file would go unnoticed.
+  - `.gitignore`'s `docs/agents/*` carve-out did not list the four moved
+    files; a plain `git add` (not `git mv`) silently dropped them, caught
+    by the Step 9 probe corpus. Added the four negations beside the
+    existing four.
+  - `BATCH23_DEFINITION.md`'s "Move ... to `docs/agents/`" bullet keeps the
+    pre-move names unbackticked: still `.md` files, but no longer DOC001
+    citations. A backtick-wrapped `.md` name after the move is a dead
+    reference DOC001 rightly flags, unlike Task 5's `.docsync.toml`
+    precedent this bullet otherwise mirrors (a `.toml` name the check never
+    matches).
+
+Validation: `pytest -q` -- **1849 passed**.
+
 ### 2026-09-24 - The docsync declarations file moves under config/
 
 Side task, no batch tag: the root-cleanup plan's Task 5, part of Batch 23
@@ -597,26 +702,3 @@ lands.
   L9/L18) captured the uncommitted implementation instead.
 
 Validation: `pytest -q` -- **1848 passed**.
-
-### 2026-09-24 - The handoff catches up with the root cleanup's first three tasks
-
-Side task, no batch tag: the sixth (cloud) session's handoff revision,
-part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands.
-
-- **What changed.** `docs/history/reports/HANDOFF_2026-09-24.md` records
-  root-cleanup Tasks 0-2 done and Task 3 next, with the two notes Task 3's
-  brief needs that the plan lacks. It also drops three claims the merge of
-  `main` made false: that PR #242 was still to be merged in, that the guard
-  fails against `origin/main`, and that pre-commit always prints WT005.
-  Section 8 gains two traps from this session: a plan's own heading can
-  break R1, and an adapted test can stop testing the change.
-- **Task 2's fix round.** The owner waived its re-review. The controller
-  verified it by mutation in a scratch copy instead: reverting the
-  scan-source comparison alone fails only
-  `test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path`,
-  and reverting the definition-line comparison alone fails only
-  `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`.
-- **Deviations:** none. Docs only.
-
-Validation: `pytest -q` -- **1842 passed**.

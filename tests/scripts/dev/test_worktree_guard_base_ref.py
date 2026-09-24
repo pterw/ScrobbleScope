@@ -52,7 +52,7 @@ def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remed
 
 def _write_section_three(repo, section_three):
     """Replace the fixture PLAYBOOK with controlled Section 3 content."""
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         f"{section_three}\n\n## 4. Execution log\n",
         encoding="utf-8",

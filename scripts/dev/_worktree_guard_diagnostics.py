@@ -113,7 +113,7 @@ def metadata_unavailable_diagnostic(detail: str) -> Diagnostic:
     return issue(
         "ERROR",
         "WT002",
-        "PLAYBOOK.md",
+        "docs/agents/PLAYBOOK.md",
         f"active batch metadata is unavailable: {detail}",
         "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
     )

@@ -1,7 +1,7 @@
 # Constraints for every task dispatched from an SDD workspace (cloud kit)
 
 Plans: `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md` and
-`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`; `PLAYBOOK.md`
+`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`; `docs/agents/PLAYBOOK.md`
 Section 3 says which task is next. This is the Linux, cloud-session form of
 the local workspace's `constraints.md`, first cut on 2026-09-24 (HEAD
 `cae2aa8`) and revised after the first cloud session. To use it, copy it
@@ -27,7 +27,7 @@ make the dashboard say WP-1 is next while WP-0 is still in progress.
 Therefore:
 
 - Each task's entry is an **untagged side-task entry**, placed **directly
-  after** the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker in `PLAYBOOK.md`
+  after** the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker in `docs/agents/PLAYBOOK.md`
   Section 4 (top of the non-current list; `AGENTS.md` "Side-Task Handling").
   Anchor the insertion on the whole marker *line*: PLAYBOOK repeats the
   marker text inside a backticked list a few lines above, and a bare string
@@ -50,7 +50,7 @@ definition or SESSION_CONTEXT.
 earlier task may have raised it. A task that adds tests must also update the count
 sites docsync names (DOC006, DOC008): `.claude/SESSION_CONTEXT.md` Section 1
 `Tests` row, its `## 6. Test structure (N tests)` heading, and the
-`FINDINGS.md` header count. A task that adds no test changes none of them.
+`docs/agents/FINDINGS.md` header count. A task that adds no test changes none of them.
 
 **R4 -- how to measure and quote the count.** Run the full suite with the
 `suite` gate's command in section 2b (the one copy of it). Quote the result
@@ -175,7 +175,7 @@ plan's workspace:
   DOC001 until it is staged (`git add` it before `--check`).
 - L3 (after Task 2): the Task 2 entry's first heading read "WP-0 Part A Task 2: ..." and took a fix
   round. Write the heading as plain words, e.g. `### 2026-09-23 - The release-window rule moves to
-  domain`. Check it with `grep -n "^### .*WP-[0-9]" PLAYBOOK.md` before committing: that must print
+  domain`. Check it with `grep -n "^### .*WP-[0-9]" docs/agents/PLAYBOOK.md` before committing: that must print
   nothing for your entry.
 - L5 (after reconcile Task 1) -- OVERRIDES the plan's "Resolving a finding" template. The gate
   accepts only the bare outcome: the status line is exactly `- [x] **Status:** resolved` (or

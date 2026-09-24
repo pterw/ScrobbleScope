@@ -12,10 +12,10 @@ serve as external memory shared across sessions.
 | File | Role | Contains |
 |------|------|----------|
 | `AGENTS.md` (this file) | **Rules** | How agents must behave. Stable; rarely changes. |
-| `HANDOFF_PROMPT.md` | **Session-start procedure** | Post-read verification steps and the end-of-session handoff checklist. Rules (bootstrap order, gates, commit discipline) live in `AGENTS.md`. |
-| `AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
+| `docs/agents/HANDOFF_PROMPT.md` | **Session-start procedure** | Post-read verification steps and the end-of-session handoff checklist. Rules (bootstrap order, gates, commit discipline) live in `AGENTS.md`. |
+| `docs/agents/AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
-| `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
+| `docs/agents/PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `docs/agents/global-rules.md` | **Architectural invariants** | The global business logic rules every code change must hold: single source of truth, SoC/SRP, the rule-of-three duplication buffer, the anti-corruption layer, KISS, network defence, and deterministic diagnostics. Binding, and each rule states how it is checked. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
@@ -31,7 +31,7 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ### Issue tracker
 
-Issues are findings in `FINDINGS.md`, rotating to
+Issues are findings in `docs/agents/FINDINGS.md`, rotating to
 `docs/history/findings/FINDINGS_ARCHIVE.md`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
@@ -70,19 +70,19 @@ batch definitions or history docs only if the comment depends on them.
    anti-patterns.
 2. `docs/agents/global-rules.md` -- the binding architectural invariants
    every code change must hold, and which rule wins when two conflict.
-3. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+3. `docs/agents/PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 4. The batch definition file named in Section 3 (repo root while active;
    under `docs/history/definitions/` once the batch is closed; between
    batches no file exists -- skip this step).
 5. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-6. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+6. `docs/agents/AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
 7. Relevant `docs/history/` doc only if the log references one.
-8. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
+8. `docs/agents/FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
    about to raise a defect, or you are reviewing a diff. Raise a known
    defect again only with new evidence. Mirrored to GitHub issues (cheaper
    to search; this file wins if they disagree). Not part of the bootstrap set.
 
-This is the single canonical bootstrap order (`HANDOFF_PROMPT.md` adds only
+This is the single canonical bootstrap order (`docs/agents/HANDOFF_PROMPT.md` adds only
 post-read verification and the edge cases below). Bootstrap is complete when
 the sources agree: during an active batch, PLAYBOOK Section 3, the batch
 definition, and SESSION_CONTEXT Section 1 agree on the current batch and
@@ -95,13 +95,13 @@ When network access is available, run `git fetch --prune origin` then
 and treat its base result as local-ref-only. Stop on a nonzero exit and
 follow the guard's remediation (it is read-only) and the owner-authorization
 rule before any history rewrite; add `--debug` only to diagnose the guard
-itself. See `HANDOFF_PROMPT.md` "Bootstrap edge cases" for the
+itself. See `docs/agents/HANDOFF_PROMPT.md` "Bootstrap edge cases" for the
 expected-not-a-fault states, the WT004 remediation, the stdlib-only
 exception, and the command-conversion rule.
 
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; later sections only if structure, dependency, architecture, test-inventory, or environment detail is needed.
-- Read only Sections 3-4 of `PLAYBOOK.md` by default.
+- Read only Sections 3-4 of `docs/agents/PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
 - When citing repository files in chat, use full filesystem paths. For tool
@@ -131,7 +131,7 @@ correct there.
 API keys live in `.env` (git-ignored; template `.env.example`). Required:
 `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SECRET_KEY`
 (min 16 chars; startup refuses weak values in production). Optional:
-`DATABASE_URL` (Postgres cache) -- see `AGENT_NOTES.md` Local Dev Setup for
+`DATABASE_URL` (Postgres cache) -- see `docs/agents/AGENT_NOTES.md` Local Dev Setup for
 the connection string, the Docker container, the `init_db.py` caveat, and
 `dev_start.py`.
 
@@ -453,7 +453,7 @@ Agents must check their work against this list before committing.
 
 ## Finding-Writing Rules
 
-Findings live in `FINDINGS.md` (active) and rotate to
+Findings live in `docs/agents/FINDINGS.md` (active) and rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or a
 findings-cleanup WP; nothing is deleted, so the archive preserves grep
 history.

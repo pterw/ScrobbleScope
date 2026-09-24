@@ -499,7 +499,7 @@ class TestBuildStatusBlockOpeningState:
         )
 
         assert block == [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             "- Current batch: Batch 23.",
             "- Current-batch entries in active log block: 0.",
             "- Completed work packages in current-batch entries: none.",
@@ -524,7 +524,7 @@ class TestBuildStatusBlockOpeningState:
         block = _build_status_block(state, [], latest_test_count=1717)
 
         assert block == [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             "- Current batch: none (between batches).",
             "- Last completed batch in PLAYBOOK Section 3: Batch 22.",
             "- Next batch definition status: Batch 23 is not yet defined.",
