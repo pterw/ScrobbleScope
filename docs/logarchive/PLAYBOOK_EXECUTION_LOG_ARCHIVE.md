@@ -9,6 +9,73 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The frontend gate selects checks from a manifest
+
+Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
+gate selects which checks run by name, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Steps 1-2: manifest and selection.** `frontend_gate_checks.toml` (root)
+  declares `required` (the four load-bearing checks) and `disabled` (empty
+  today). `scripts/dev/frontend_gate.py` loads it with `tomllib` at import,
+  validates every named check against `CHECKS`, and refuses -- with a clean
+  `[frontend_gate] ERROR:` line, before `main` ever runs -- an unknown name
+  or a required check disabled. Selection is by name only: `CHECKS` stays
+  the full registry, so the three existing tests in
+  `tests/scripts/dev/test_frontend_gate.py` that patch it directly are
+  unmodified. `run_checks` and `PLANNED_RUNS` filter by the disabled-name
+  set, and the startup line states the enabled count and names every
+  disabled check. New test module
+  `tests/scripts/dev/test_frontend_gate_manifest.py` (8 tests).
+- **Deviation from the brief:** Step 1 says disabling `divider contrast`
+  lowers the planned run count by one; measured, it drops by **two** -- the
+  check runs on one profile (DESKTOP) but belongs to the `STATIC_ASSETS`
+  group, which Firefox also runs as its canary. The test asserts the drop
+  is 2, with a comment saying why.
+- **Step 3: live probe**, throwaway corpus at `/c/ssprobe` (`git ls-files`
+  plus the two new files, since the change is uncommitted), deleted after.
+
+  | probe | expected | exit | evidence |
+  |---|---|---|---|
+  | faithful copy | same selection as the worktree | 0 | `30 of 30 checks selected; disabled: none`, `PLANNED_RUNS 52` |
+  | red: required check disabled | refused before a browser launches | 1 | `[frontend_gate] ERROR: check manifest ... disables required check(s) stylesheet isolation ...`; no launch line in the output |
+  | red: unknown name (typo) | refused, not ignored | 1 | `[frontend_gate] ERROR: check manifest ... names 'divider kontrast', which is not a check in CHECKS ...`; no launch line in the output |
+  | near-miss green | committed manifest, `disabled = []` | 0 | the worktree's own `frontend` gate run below |
+
+- **Step 4:** `documentation-tooling.md` records the manifest as landed and
+  states the decomposition's goal was isolating what executes, not
+  shrinking `_frontend_gate_layout.py`.
+
+`frontend` gate run locally (this task changes the gate itself, so its
+near-miss green is that run; section 2b's path-prefix `when` condition does
+not match `frontend_gate.py`, so it is not implied by other changed paths):
+`30 checks passed in 52 runs across chromium, firefox (static assets &
+tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+
+Validation: `pytest -q` -- **1833 passed**.
+
+**Fix round 1 (2026-09-24, review finding).** `DEVELOPMENT.md` still stated
+the exact fact Step 4 reversed: "the `frontend_gate_checks.toml` registry
+stays a deferred candidate" (line 539), next to a stale facade line count
+("535 lines", line 532; actual 619 at `a25d187`) -- a live architecture
+document, not a dated log, so it is not point-in-time and it directly
+contradicted the sentence this same commit wrote into
+`documentation-tooling.md`. Fixed: `DEVELOPMENT.md` now says the manifest
+landed too, in the same words `documentation-tooling.md` uses, and states
+the facade's size only as "under the decomposition plan's 700-line
+threshold" rather than restating an exact count -- a second copy of a
+number is exactly what went stale here. A second copy of the same stale
+count turned up on re-sweep: this Section 3's own "Side task complete: the
+frontend gate split (F-B21-51)" bullet also said "measures 535 lines";
+fixed the same way. Re-swept the whole tree for both claims, every spelling
+(`git grep -n "deferred candidate"`, `git grep -n "535 lines"`,
+`git grep -n "frontend_gate_checks.toml"`): every remaining hit is inside a
+dated log entry, an archived finding, or the decomposition plan's own dated
+worked example -- point-in-time and exempted, consistent with the review's
+own sweep.
+
+Validation: `pytest -q` -- **1833 passed**; no test added, docs only.
+
 ### 2026-09-24 - The docsync close-out plan's Progress block is closed
 
 Side task, no batch tag: closing the docsync close-out plan's Progress

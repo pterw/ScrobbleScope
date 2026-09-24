@@ -229,9 +229,12 @@ See FINDINGS F-DOCSYNC-3.
      `docs/architecture/runtime-system.md`, and `docs/ARCHITECTURE.md`'s
      "Last verified" date moved to 2026-09-24) is done, 2026-09-24. Next is
      the root-cleanup task the owner added on 2026-09-24. Its plan,
-     `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, is
-     committed as a draft: its "Revisions pending" section is applied and
-     the plan re-reviewed before any of its tasks run.
+     `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, has
+     its revisions applied (2026-09-24), and the owner ruled its open
+     points the same day (the pre-commit exclude keeps `docs/agents/`
+     checked; the `FINDINGS.md` labels join its Task 8; generated text names
+     no document path). It awaits the owner's approval before any of its
+     tasks run.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -439,6 +442,57 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The root-cleanup plan is revised and its open points ruled
+
+Side task, no batch tag: revising the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** The plan's eight "Revisions pending" items, plus what a
+  source-verified pre-flight found, applied to its task bodies. Nothing in
+  the plan has run. Fifth session, the first run of the plan in a cloud
+  sandbox.
+- **How.** Three read-only research passes at `85f47a0` (production code,
+  tests, the inventory's currency including PR #242's files), controller
+  probes in scratch copies, then two independent review rounds. Round 1
+  found two Critical defects in the revision itself: the proposed pre-commit
+  exclude `docs/(?!agents/)` would have un-excluded all of `docs/` (the
+  pattern's `/` sits outside the group), and a proposed test assumed the
+  `sync_env` corpus passes `--check` (it exits 1, DOC005). Both are fixed;
+  round 2 approved, and its three minors are fixed here. A two-axis code
+  review (standards, spec) at the owner's request then found no hard
+  violation and no missing or wrong item; its one duplicated fact (task
+  status copied into the cloud-kit constraints header) is now a pointer.
+- **What the plan now carries.** Task 0 merges `origin/main` (conflicts
+  only in this file and the log archive, re-verified). Task 3 refuses a
+  `--config` naming a missing file, which would otherwise mean "nothing
+  declared" and pass. Task 5 repoints the test fixtures that write the
+  declarations file (a probe of the draft failed 25 tests) and sweeps its
+  live citations by grep, since DOC001 checks backticked `.md` references
+  and not `.toml`. Task 6 names the `cli.py` path sites, the tests that
+  copy the status line, and the DOC004 contract between
+  `SIDE_ARCHIVE_PREFIX` and the log archive's prologue. Task 8 covers
+  fourteen `PLAYBOOK.md` and twelve `FINDINGS.md` diagnostic labels. The
+  plan's "Revisions applied" section maps every item.
+- **Owner rulings, 2026-09-24:** the pre-commit `exclude` becomes
+  `docs(?!/agents/)`, so the moved documents stay under the file hooks; the
+  `FINDINGS.md` labels join Task 8; generated docsync text names no document
+  path instead of hard-coding one; writers may run in parallel on disjoint
+  files. `docs/history/reports/HANDOFF_2026-09-24.md` sections 4 and 6
+  record them.
+- **Also changed.** Section 3's order list records this state (cloud-kit
+  R2; Task 1 replaces that text on approval). The handoff gains the
+  shallow-clone trap: this session's clone was shallow and 20 commits
+  behind, so the guard printed WT005 against `origin/test` until
+  `git fetch --unshallow`. `.superpowers/cloud-kit/constraints.md` now
+  names both plans and points at SESSION_CONTEXT for the baseline instead
+  of copying a count.
+- **Deviations:** none. Docs only; no test added or changed.
+
+Validation: `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
+and `doc_state_sync.py --check` pass; the frontend gate does not apply (no
+`static/`, `templates/` or gate path changed).
+
 ### 2026-09-24 - The root-cleanup plan is drafted and the handoff readied for a cloud session
 
 Side task, no batch tag: drafting the root-cleanup plan and revising the
@@ -553,70 +607,3 @@ pointers. The same line, with its curly apostrophe straightened (`AGENTS.md`
 Markdown Authoring Rules: ASCII only), is also on PR #242
 (`chore/repo-assist-workflow`); the two copies are byte-identical, so the
 branches merge cleanly. Docs only.
-
-### 2026-09-24 - The frontend gate selects checks from a manifest
-
-Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
-gate selects which checks run by name, part of Batch 23 WP-0 Part B.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Steps 1-2: manifest and selection.** `frontend_gate_checks.toml` (root)
-  declares `required` (the four load-bearing checks) and `disabled` (empty
-  today). `scripts/dev/frontend_gate.py` loads it with `tomllib` at import,
-  validates every named check against `CHECKS`, and refuses -- with a clean
-  `[frontend_gate] ERROR:` line, before `main` ever runs -- an unknown name
-  or a required check disabled. Selection is by name only: `CHECKS` stays
-  the full registry, so the three existing tests in
-  `tests/scripts/dev/test_frontend_gate.py` that patch it directly are
-  unmodified. `run_checks` and `PLANNED_RUNS` filter by the disabled-name
-  set, and the startup line states the enabled count and names every
-  disabled check. New test module
-  `tests/scripts/dev/test_frontend_gate_manifest.py` (8 tests).
-- **Deviation from the brief:** Step 1 says disabling `divider contrast`
-  lowers the planned run count by one; measured, it drops by **two** -- the
-  check runs on one profile (DESKTOP) but belongs to the `STATIC_ASSETS`
-  group, which Firefox also runs as its canary. The test asserts the drop
-  is 2, with a comment saying why.
-- **Step 3: live probe**, throwaway corpus at `/c/ssprobe` (`git ls-files`
-  plus the two new files, since the change is uncommitted), deleted after.
-
-  | probe | expected | exit | evidence |
-  |---|---|---|---|
-  | faithful copy | same selection as the worktree | 0 | `30 of 30 checks selected; disabled: none`, `PLANNED_RUNS 52` |
-  | red: required check disabled | refused before a browser launches | 1 | `[frontend_gate] ERROR: check manifest ... disables required check(s) stylesheet isolation ...`; no launch line in the output |
-  | red: unknown name (typo) | refused, not ignored | 1 | `[frontend_gate] ERROR: check manifest ... names 'divider kontrast', which is not a check in CHECKS ...`; no launch line in the output |
-  | near-miss green | committed manifest, `disabled = []` | 0 | the worktree's own `frontend` gate run below |
-
-- **Step 4:** `documentation-tooling.md` records the manifest as landed and
-  states the decomposition's goal was isolating what executes, not
-  shrinking `_frontend_gate_layout.py`.
-
-`frontend` gate run locally (this task changes the gate itself, so its
-near-miss green is that run; section 2b's path-prefix `when` condition does
-not match `frontend_gate.py`, so it is not implied by other changed paths):
-`30 checks passed in 52 runs across chromium, firefox (static assets &
-tokens canary on firefox); profiles: desktop, mobile, wide touch`.
-
-Validation: `pytest -q` -- **1833 passed**.
-
-**Fix round 1 (2026-09-24, review finding).** `DEVELOPMENT.md` still stated
-the exact fact Step 4 reversed: "the `frontend_gate_checks.toml` registry
-stays a deferred candidate" (line 539), next to a stale facade line count
-("535 lines", line 532; actual 619 at `a25d187`) -- a live architecture
-document, not a dated log, so it is not point-in-time and it directly
-contradicted the sentence this same commit wrote into
-`documentation-tooling.md`. Fixed: `DEVELOPMENT.md` now says the manifest
-landed too, in the same words `documentation-tooling.md` uses, and states
-the facade's size only as "under the decomposition plan's 700-line
-threshold" rather than restating an exact count -- a second copy of a
-number is exactly what went stale here. A second copy of the same stale
-count turned up on re-sweep: this Section 3's own "Side task complete: the
-frontend gate split (F-B21-51)" bullet also said "measures 535 lines";
-fixed the same way. Re-swept the whole tree for both claims, every spelling
-(`git grep -n "deferred candidate"`, `git grep -n "535 lines"`,
-`git grep -n "frontend_gate_checks.toml"`): every remaining hit is inside a
-dated log entry, an archived finding, or the decomposition plan's own dated
-worked example -- point-in-time and exempted, consistent with the review's
-own sweep.
-
-Validation: `pytest -q` -- **1833 passed**; no test added, docs only.

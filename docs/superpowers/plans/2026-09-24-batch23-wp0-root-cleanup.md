@@ -1,11 +1,17 @@
 # Batch 23 WP-0 Part B: root cleanup (document and config relocation)
 
-**Status: DRAFT, not approved for execution (2026-09-24).** Drafted from
-`docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` and reviewed
-once. Before Task 1 runs, apply every item in "Revisions pending" at the end
-of this file, have the revised plan reviewed again, delete this status
-paragraph and the "Revisions pending" section, and only then execute. The
-task bodies below are still the unrevised draft.
+**Status: REVISED, awaiting review and owner approval (2026-09-24).** Drafted
+from `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` and reviewed
+once. The eight "Revisions pending" items and a source-verified pre-flight
+(three read-only passes at `85f47a0`: production code, tests, and the
+inventory's currency including PR #242's files) are applied to the task
+bodies; "Revisions applied" at the end of this file maps each item to where
+it landed. The owner ruled its open points on 2026-09-24: the pre-commit
+exclude keeps `docs/agents/` checked (Task 6 Step 9), the `FINDINGS.md`
+diagnostic labels join Task 8, and generated text names no document path
+(Task 6 Step 6). When the revised plan is reviewed clean and approved, Task
+1's commit deletes this status paragraph and the "Revisions applied" section;
+nothing runs before that.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,8 +22,9 @@ committed point, and make docsync's own document paths a declared fact instead o
 hard-coded Python literal (`AGENT_NOTES.md` "This repository is also a template being
 extracted").
 
-**Architecture:** Three independent clusters, sequenced by blast radius (inventory Section 7,
-row 7): the `[documents]` declaration mechanism and the `--config` override land first, as
+**Architecture:** Task 0 first merges `origin/main` into this branch, so PR #242's workflow
+moves with the files. Then three independent clusters, sequenced by blast radius (inventory
+Section 7, row 7): the `[documents]` declaration mechanism and the `--config` override land first, as
 pure additions with no file movement and no default-value change, so they carry zero risk to
 today's corpus; the two `.toml` moves land next, one per commit, each pairing its `git mv`
 with the one constant that resolves it; the four `.md` moves land last, in one commit, because
@@ -25,7 +32,9 @@ DOC001 cannot pass with the move half-done (inventory Section 7, row 4) -- the f
 worktree guard fix, the `[retired.allow_after]` fix, the two behavioural path comparisons in
 `scripts/docsync/integrity.py`, and the citation sweep across every always-scanned live
 document all have to land together or the tree sits red between commits, which Global
-Constraints forbid.
+Constraints forbid. Task 7 then repoints PR #242's workflow at the moved documents, and Task
+8 makes every docsync diagnostic print the declared document path instead of a bare root
+name (owner ruling, 2026-09-24).
 
 **Tech Stack:** Python 3.13 stdlib (`tomllib`, `pathlib`, `dataclasses`), pytest. No new
 dependency.
@@ -35,21 +44,23 @@ dependency.
 Reused from `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md` "Global
 Constraints", unchanged, plus one addition:
 
-- **Qualified interpreter only.** `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe`
-  and its sibling `pytest.exe` / `pre-commit.exe`. Never bare `pip`, never a second venv.
+- **Qualified interpreter only.** The repository's one `.venv/` (`AGENTS.md` "Environment
+  Setup"): `.venv/bin/python -m pytest` and `.venv/bin/pre-commit` on Linux, as
+  `.superpowers/cloud-kit/constraints.md` R10 and its gates block (2b) state; on the owner's
+  Windows machine, the `.venv/Scripts/` equivalents. Commands below use the Linux form. Never
+  bare `pip`, never a second venv.
 - **No new dependency, no version change.**
 - **Nothing may break the repository.** No task may leave `pytest -q` red,
   `doc_state_sync.py --check` non-zero, `pre-commit run --all-files` failing, or the frontend
-  gate failing.
+  gate failing. A cloud sandbox cannot run the frontend gate
+  (`docs/history/reports/HANDOFF_2026-09-24.md` section 2): a task that needs it (Task 4)
+  runs it locally or relies on CI's `quality-gate` on the pushed commit, and its Section 4
+  entry says which.
 - **No existing test is modified, except where a task says so and says why.**
-- **Do not touch other agents' uncommitted work.** `git status --short` lists the untracked
-  set at the time this plan was drafted (`.github/skills/`, `.graphifyignore`,
-  `docs/2026-09-14-open-code-review-audit.md`, the two architecture-review HTML/report files,
-  `docs/superpowers/handoffs/scrobblescope-handoff-2026-09-23-after-task7.md`,
-  `docs/superpowers/plans/architecture-review-*.html`, `docs/superpowers/plans/plan.md`,
-  `progress_copy.md`, `scripts/dev/mutation_scope.toml`, `scripts/dev/mutation_test.py`,
-  `tests/scripts/dev/test_mutation_test.py`). Never stage, revert or delete them. Re-run
-  `git status --short` before Task 1 and treat any new untracked entry the same way.
+- **Do not touch other agents' uncommitted work.** Run `git status --short` before each task;
+  anything already untracked or modified that the task did not create belongs to someone
+  else. Never stage, revert or delete it. (The owner's machine carries a standing untracked
+  set; a fresh cloud clone carries none.)
 - **Commit procedure, in this order** (`AGENTS.md` "Commit Rules"): the dated `PLAYBOOK.md`
   Section 4 entry; `doc_state_sync.py --fix`; `pytest -q`; `pre-commit run --all-files`;
   `doc_state_sync.py --check`.
@@ -70,13 +81,14 @@ Constraints", unchanged, plus one addition:
 
 ## The verification standard for control-plane tasks
 
-Reused verbatim from the foundation plan. A failing green is worse than a red; a unit test
-over an invented fixture is not proof a gate works. Every task in this plan that changes a
-check or a path resolver (Tasks 2, 3, 4, 5, 6) is accepted only on a **live probe**:
+Reused from the foundation plan, with the probe corpus under `/tmp/ssprobe` (cloud-kit
+R10). A failing green is worse than a red; a unit test over an invented fixture is not proof
+a gate works. Every task in this plan that changes a check, a path resolver or a diagnostic
+(Tasks 2, 3, 4, 5, 6, 8) is accepted only on a **live probe**:
 
 1. Build a throwaway corpus from the committed tree, at a short path:
    ```bash
-   mkdir -p /c/ssprobe && cd /c/ssprobe && rm -rf corpus && mkdir corpus
+   mkdir -p /tmp/ssprobe && cd /tmp/ssprobe && rm -rf corpus && mkdir corpus
    git -C "<worktree>" archive HEAD | tar -x -C corpus
    cd corpus && git init -q && git config core.longpaths true && git add -A
    git -c user.email=p@l -c user.name=p commit -qm base && git tag base
@@ -88,7 +100,7 @@ check or a path resolver (Tasks 2, 3, 4, 5, 6) is accepted only on a **live prob
 4. **Near-miss green:** plant the closest *valid* variant and confirm silence.
 5. Reset with `git reset -q --hard base && git clean -qfd` between probes.
 6. Paste the probe table (probe, expected, exit, codes) into the task report and the Section 4
-   entry. Delete `/c/ssprobe` afterwards.
+   entry. Delete `/tmp/ssprobe` afterwards.
 
 A task's own unit tests are written first, as the regression guard; the probe is the proof.
 
@@ -96,15 +108,75 @@ A task's own unit tests are written first, as the regression guard; the probe is
 
 | File | Change |
 |---|---|
-| `scripts/docsync/declarations.py` | New `DocumentsConfig` dataclass, `_validate_documents`, `_documents_config`, `load_documents_config`; `load_declarations` and every `load_*_config` gain an optional `config_path` kwarg; `DECLARATIONS_FILENAME` value changes in Task 5. |
-| `scripts/docsync/integrity.py` | `collect_integrity_issues` gains three optional kwargs (`document_paths`, `playbook_relative_path`, `findings_relative_path`), all defaulting to today's literals; new `resolved_live_document_paths(documents)` helper. |
-| `scripts/docsync/cli.py` | New `--config` argument; new `CONFIG_PATH` computed once in `main()`; the five `load_archive_config`/`load_closeout_config` call sites and the two `collect_integrity_issues` call sites gain the new kwargs; `_read_live_documents` resolves paths through `load_documents_config`. |
-| `scripts/dev/docsync_preflight.py` | `CONTROL_PLANE_FILES` entry changes from `.docsync.toml` to `config/docsync.toml` (Task 5). |
-| `scripts/dev/frontend_gate.py` | `CHECK_MANIFEST_PATH` and its two error strings move to `config/` (Task 4). |
-| `scripts/dev/_worktree_guard_inspection.py` | The `PLAYBOOK.md` read moves to `docs/agents/PLAYBOOK.md` (Task 6). |
+| `PLAYBOOK.md`, `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` | Merge conflicts resolved when `origin/main` is merged in (Task 0). |
+| `scripts/docsync/declarations.py` | New `DocumentsConfig` dataclass, `_validate_documents`, `_documents_config`, `load_documents_config`; `load_declarations`, every `load_*_config` and `collect_declaration_issues` gain an optional `config_path` kwarg (Tasks 2-3); `DECLARATIONS_FILENAME` value and the `_TOP_LEVEL_SCHEMA` comment change in Task 5. |
+| `scripts/docsync/integrity.py` | `collect_integrity_issues` gains three optional path kwargs (`document_paths`, `playbook_relative_path`, `findings_relative_path`, Task 2) and `config_path` (Task 3); new `resolved_live_document_paths(documents)` helper; two `.docsync.toml` comments (Task 5); every diagnostic path label threads the declared path (Task 8). |
+| `scripts/docsync/closeout.py` | The `.docsync.toml` remediation string (Task 5); the four `"PLAYBOOK.md"` diagnostic labels (Task 8). |
+| `scripts/docsync/findings.py`, `scripts/docsync/archives.py` | The `.docsync.toml` remediation string and comment (Task 5); `findings.py`'s eleven `ACTIVE_PATH` diagnostic labels (Task 8). |
+| `scripts/docsync/cli.py` | New `--config` argument and module-level `CONFIG_PATH` (Task 3); the five `load_archive_config`/`load_closeout_config` call sites and the two `collect_integrity_issues` call sites gain the new kwargs; `PLAYBOOK_PATH` and `FINDINGS_PATH` give way to paths read from `[documents]` (Task 6). |
+| `scripts/docsync/renderer.py` | The two status-block `PLAYBOOK.md` lines and `SIDE_ARCHIVE_PREFIX` (Task 6). |
+| `scripts/dev/docsync_preflight.py` | `CONTROL_PLANE_FILES` entry and its comment change from `.docsync.toml` to `config/docsync.toml` (Task 5). |
+| `scripts/dev/frontend_gate.py` | `CHECK_MANIFEST_PATH`, its comment and its one error string move to `config/` (Task 4); the `AGENT_NOTES.md` docstring citation (Task 6). |
+| `scripts/dev/_worktree_guard_inspection.py`, `scripts/dev/_worktree_guard_diagnostics.py` | The `PLAYBOOK.md` read and its display label move to `docs/agents/PLAYBOOK.md` (Task 6). |
 | `config/docsync.toml`, `config/frontend_gate_checks.toml` | New locations (`git mv`, Tasks 4-5); `config/docsync.toml` gains a `[documents]` table (Task 6). |
 | `docs/agents/PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md`, `HANDOFF_PROMPT.md` | New locations (`git mv`, Task 6). |
-| Every always-scanned live document, plus `DEVELOPMENT.md`, `docs/AGENT_DOC_MAP.md`, `docs/agents/domain.md`, `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`, `.superpowers/cloud-kit/constraints.md`, `PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/architecture/*.md`, `docs/design/RECONCILIATION.md` | Citations repointed (Task 6). |
+| `.pre-commit-config.yaml` | The top-level `exclude` stops hiding `docs/agents/` (Task 6, owner ruling 2026-09-24). |
+| `.github/workflows/repo-assist.md` and its compiled `.lock.yml` | `allowed-files` and prose repointed, then recompiled (Task 7). |
+| Tests | Named per task: the declarations-file fixtures (Task 5), the worktree-guard fixtures, the renderer status-block tests and the `sync_env` monkeypatch (Task 6). |
+| Every always-scanned live document, plus `DEVELOPMENT.md`, `docs/AGENT_DOC_MAP.md`, `docs/agents/domain.md`, `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`, `.superpowers/cloud-kit/constraints.md`, `PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/architecture/*.md`, `docs/design/RECONCILIATION.md`, `docs/history/reports/HANDOFF_2026-09-24.md` | Citations repointed (Task 6). |
+
+---
+
+### Task 0: Merge `origin/main` into this branch
+
+Owner ruling, 2026-09-24: PR #242 merged into `main` as `707eed6` and this branch does not
+contain it. Merge it in before any file moves, so its workflow and its Section 4 entry move
+with the documents. A normal merge commit: no rebase, no history rewrite.
+
+**Files:**
+- Merge-conflict resolution: `PLAYBOOK.md` (Section 4 only),
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- Arrive cleanly from `main`: `.github/workflows/repo-assist.md`,
+  `.github/workflows/repo-assist.lock.yml`, `.github/aw/actions-lock.json`, `.gitattributes`,
+  and a `.github/copilot-instructions.md` line byte-identical to this branch's
+
+- [ ] **Step 1: Confirm the conflict set before merging**
+
+  ```bash
+  git fetch origin main
+  git merge-tree --write-tree --name-only HEAD origin/main
+  ```
+  Expected: exactly `PLAYBOOK.md` and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+  listed as conflicted (verified at `151717d` and again at `85f47a0`). Any other conflicted
+  path means `main` moved: stop and report it to the controller.
+
+- [ ] **Step 2: Merge and resolve**
+
+  ```bash
+  git merge --no-ff --no-commit origin/main
+  ```
+  Both conflicts are the same shape: each side added untagged entries after the
+  current-batch end marker. Keep every entry from both sides, newest first, with no text
+  changed inside any entry; then run `doc_state_sync.py --fix` and let it settle the rotation
+  (Lesson L1). Never move an entry across the DOCSYNC markers by hand.
+
+- [ ] **Step 3: Section 4 entry, gates, commit**
+
+  In PLAYBOOK Section 3's "Next action" order list, item 3, add after the root-cleanup
+  sentences: "Its Task 0 (`origin/main` merged in, bringing PR #242) is done, YYYY-MM-DD."
+  Add one untagged Section 4 entry directly after the current-batch end marker, headed
+  `### YYYY-MM-DD - main is merged in before the root cleanup`, opening with the
+  cloud-kit R1 sentence (Part B). Then `--fix`, `pytest -q`, `pre-commit run --all-files`,
+  `--check`. Stage the two resolved files, the files that arrived from `main`, and anything
+  `--fix` rotated, by name.
+
+  ```bash
+  git commit -m "chore(merge): Merge main into feat/batch23-wp0-hygiene"
+  ```
+
+**Acceptance:** the merge commit's parents are the branch head and `origin/main`; every
+Section 4 entry from both sides survives, in date order; `.github/workflows/repo-assist.md`
+exists on the branch; all four gates pass.
 
 ---
 
@@ -143,24 +215,37 @@ execution. Part B of `BATCH23_DEFINITION.md` WP-0 does not yet list the root cle
 
 - [ ] **Step 2: Repoint PLAYBOOK Section 3**
 
-  Replace "Next is the root-cleanup task the owner added on 2026-09-24." with:
+  In the "Next action" order list, item 3, replace everything from "Next is the root-cleanup
+  task the owner added on 2026-09-24." to the end of that item (the sentences describing the
+  plan as a draft or under review, and Task 0's progress note) with:
 
   ```
   Next is the root-cleanup plan,
-  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`.
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, approved
+  YYYY-MM-DD: Task 0 (`main` merged in) and Task 1 are done; Tasks 2-8 remain.
   ```
+  Keep `**Next action:** WP-0 is next.` exactly (cloud-kit R2).
 
-- [ ] **Step 3: Gates and commit**
+- [ ] **Step 3: Mark this plan approved**
 
-  `doc_state_sync.py --fix`; `pytest -q`; `pre-commit run --all-files`;
-  `doc_state_sync.py --check`. Stage `BATCH23_DEFINITION.md` and `PLAYBOOK.md` by name.
+  In this file, delete the status paragraph under the title and the "Revisions applied"
+  section at the end. The plan is committed in its approved form in this same commit.
+
+- [ ] **Step 4: Section 4 entry, gates and commit**
+
+  Add one untagged Section 4 entry directly after the current-batch end marker, headed
+  `### YYYY-MM-DD - The root cleanup joins WP-0 Part B`, opening with the cloud-kit R1
+  sentence (Part B). Then `doc_state_sync.py --fix`; `pytest -q`; `pre-commit run
+  --all-files`; `doc_state_sync.py --check`. Stage `BATCH23_DEFINITION.md`, `PLAYBOOK.md`,
+  this plan, and anything `--fix` rotated, by name.
 
   ```bash
   git commit -m "docs(batch23): Add the root-cleanup task to WP-0 Part B"
   ```
 
 **Acceptance:** `doc_state_sync.py --check` exits 0; `BATCH23_DEFINITION.md` Part B lists the
-task; PLAYBOOK Section 3 names this plan's path.
+task; PLAYBOOK Section 3 names this plan's path; this plan carries no status paragraph and no
+"Revisions applied" section.
 
 ---
 
@@ -281,7 +366,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
 - [ ] **Step 2: Run the new tests to verify they fail**
 
   ```
-  .venv/Scripts/pytest.exe tests/test_docsync_declarations.py::TestDocumentsConfig tests/test_docsync_integrity.py -k resolved_live_document_paths -v
+  .venv/bin/python -m pytest tests/test_docsync_declarations.py::TestDocumentsConfig tests/test_docsync_integrity.py -k resolved_live_document_paths -v
   ```
   Expected: `ImportError`/`AttributeError` -- `DocumentsConfig`, `load_documents_config`,
   `resolved_live_document_paths` and the `document_paths`/`playbook_relative_path` kwargs do
@@ -432,19 +517,15 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   - `live_documents.get(findings_module.ACTIVE_PATH)` (feeding the DOC023 rot-issues check)
     becomes `live_documents.get(findings_relative_path)`.
 
-  The twelve `_issue(..., "PLAYBOOK.md", ...)` and four `_issue("PLAYBOOK.md", ...)`
-  cosmetic path-label sites (in `_active_definition_reference`, `_unpaired_result_issue`,
-  `_check_unbolded_test_counts`, `_check_section3_next_wp` in `integrity.py`, and
-  `_admission_issue`/`_claim_issues` in `closeout.py`) are **left unchanged in this task**.
-  They only affect the printed `path` string in a diagnostic, never which document is
-  scanned or whether a check fires -- a real but cosmetic gap, filed as a finding at the end
-  of Task 6 rather than threaded through five more function signatures here (Rule 5, real-world
-  KISS: the behavioural fix is required, the label fix is not).
+  The diagnostic path labels (the fourteen `PLAYBOOK.md` and twelve `FINDINGS.md` sites Task
+  8 lists) are **left unchanged in this task**: they change only the printed `path`
+  of a diagnostic, never which document is scanned or whether a check fires. Task 8 threads
+  the declared path into them (owner ruling, 2026-09-24).
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
   ```
-  .venv/Scripts/pytest.exe tests/test_docsync_declarations.py tests/test_docsync_integrity.py tests/test_docsync_cli.py -v
+  .venv/bin/python -m pytest tests/test_docsync_declarations.py tests/test_docsync_integrity.py tests/test_docsync_cli.py -v
   ```
   Expected: PASS, including the two existing `TestLiveDocumentPathsSingleSource` tests in
   `tests/test_docsync_cli.py`, unmodified -- they compare the bare default tuples to each
@@ -456,11 +537,18 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   touches `scripts/docsync/`); run `doc_state_sync.py --check` directly first to confirm exit
   0, then commit with the documented escape.
 
-  Live probe: in `/c/ssprobe/corpus`, add `[documents]\nplaybook = "elsewhere/PLAYBOOK.md"\n`
-  to `.docsync.toml` with no other change. **Red:** the probe corpus's real `PLAYBOOK.md` is
-  still at the root, so this alone proves nothing about the CLI yet (the CLI does not call
-  `load_documents_config` until Task 6) -- record this as "not yet wired" rather than skipping
-  the probe silently, and re-run the same probe after Task 6 lands, when it becomes live.
+  Live probe. The CLI does not read document paths from `[documents]` until Task 6, but
+  `collect_declaration_issues` validates every table eagerly, so the table's admission is
+  observable now. In `/tmp/ssprobe/corpus`:
+  - **Baseline (before this task's code):** append `[documents]\nplaybook = "PLAYBOOK.md"\n`
+    to `.docsync.toml` in a corpus built from the pre-task commit; `--check` refuses it as an
+    unknown table (record the exit code and message).
+  - **Red:** in a corpus built from this task's tree, append
+    `[documents]\nnotebook = "x.md"\n`; `--check` refuses it, naming the unknown key
+    `'notebook'` (record the exit code).
+  - **Near-miss green:** reset, then append `[documents]\nplaybook = "PLAYBOOK.md"\n`;
+    `--check` prints the same summary as the unmodified corpus and exits 0.
+  Task 6 Step 10 proves the path-honouring half once the CLI consumes the table.
 
 - [ ] **Step 8: Commit**
 
@@ -482,41 +570,137 @@ contains. Small, additive, no file moves.
 
 **Files:**
 - Modify: `scripts/docsync/cli.py`
-- Test: `tests/test_docsync_cli.py`
+- Modify: `scripts/docsync/declarations.py` (`load_declarations`, `collect_declaration_issues`)
+- Modify: `scripts/docsync/integrity.py` (`collect_integrity_issues` forwards `config_path`)
+- Test: `tests/test_docsync_cli.py`, `tests/test_docsync_declarations.py`
 
 **Interfaces:**
 - Consumes: `declarations.load_declarations(repo_root, *, config_path=None)` (Task 2).
-- Produces: `cli._build_parser()` gains `--config`; `cli.main()` computes `CONFIG_PATH` once.
+- Produces: `cli._build_parser()` gains `--config`; a module-level `cli.CONFIG_PATH` that
+  `main()` sets for the length of one invocation;
+  `declarations.collect_declaration_issues(..., config_path=None)` and
+  `integrity.collect_integrity_issues(..., config_path=None)`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
-  In `tests/test_docsync_cli.py`, in `TestMainArgs` (or a new class beside it):
+  In `tests/test_docsync_declarations.py`, add (an explicit path that is missing must be an
+  error: the absent-file-means-no-declarations rule is for the default path only, or a
+  mistyped `--config` would run every check with nothing declared and pass):
+
+  ```python
+  class TestExplicitConfigPath:
+      def test_explicit_missing_path_is_refused(self, tmp_path: Path):
+          from docsync.declarations import DeclarationError, load_declarations
+
+          with pytest.raises(DeclarationError, match="nowhere.toml"):
+              load_declarations(tmp_path, config_path=tmp_path / "nowhere.toml")
+
+      def test_default_missing_path_still_means_no_declarations(self, tmp_path: Path):
+          from docsync.declarations import load_declarations
+
+          assert load_declarations(tmp_path) == {}
+
+      def test_explicit_path_is_read_instead_of_the_default(self, tmp_path: Path):
+          from docsync.declarations import load_declarations
+
+          alt = tmp_path / "alt.toml"
+          alt.write_text("[options]\n", encoding="utf-8")
+          assert load_declarations(tmp_path, config_path=alt) == {"options": {}}
+  ```
+
+  In `tests/test_docsync_cli.py`, beside `TestMainArgs`, add a class that drives `main()`
+  in-process through the `sync_env` fixture (which chdirs into a synthetic corpus whose
+  declarations file passes `--check`):
 
   ```python
   class TestConfigOverride:
-      def test_config_flag_is_accepted_and_parsed(self):
-          from docsync.cli import _build_parser
-
-          args = _build_parser().parse_args(["--check", "--config", "somewhere/docsync.toml"])
-          assert args.config == "somewhere/docsync.toml"
-
       def test_config_flag_defaults_to_none(self):
           from docsync.cli import _build_parser
 
-          args = _build_parser().parse_args(["--check"])
-          assert args.config is None
+          assert _build_parser().parse_args(["--check"]).config is None
+
+      def test_config_selects_the_declarations_file_every_check_reads(
+          self, sync_env, monkeypatch, capsys
+      ):
+          # sync_env's raw corpus fails --check with DOC005 (exit 1; see
+          # TestMainArgs.test_check_fails_on_stale_session_context). A copy of its
+          # declarations with an unknown table is refused as malformed input (exit 2)
+          # instead, which can only happen if --config changed the file read.
+          from docsync import cli as cli_mod
+          from docsync.declarations import DECLARATIONS_FILENAME
+
+          default = sync_env / DECLARATIONS_FILENAME
+          alt = sync_env / "alt.toml"
+          alt.write_text(
+              default.read_text(encoding="utf-8") + "\n[nonsense]\n", encoding="utf-8"
+          )
+          monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+          assert cli_mod.main() == 1
+          capsys.readouterr()
+          monkeypatch.setattr(
+              "sys.argv", ["doc_state_sync.py", "--check", "--config", str(alt)]
+          )
+          assert cli_mod.main() == 2
+          assert "nonsense" in capsys.readouterr().err
+
+      def test_main_restores_config_path_after_the_run(self, sync_env, monkeypatch):
+          # Tests call main() in-process; a --config from one call must not leak into
+          # the next test's direct calls.
+          from docsync import cli as cli_mod
+          from docsync.declarations import DECLARATIONS_FILENAME
+
+          monkeypatch.setattr(
+              "sys.argv",
+              [
+                  "doc_state_sync.py",
+                  "--check",
+                  "--config",
+                  str(sync_env / DECLARATIONS_FILENAME),
+              ],
+          )
+          cli_mod.main()
+          assert cli_mod.CONFIG_PATH is None
   ```
 
-- [ ] **Step 2: Run to verify it fails**
+  (`DeclarationError` subclasses `SyncError`, which `main()` turns into exit 2; the argv
+  form matches `TestMainArgs`. If the unknown-table message goes to stdout rather than
+  stderr, assert on the stream it uses.)
+
+- [ ] **Step 2: Run to verify they fail**
 
   ```
-  .venv/Scripts/pytest.exe tests/test_docsync_cli.py::TestConfigOverride -v
+  .venv/bin/python -m pytest tests/test_docsync_declarations.py::TestExplicitConfigPath tests/test_docsync_cli.py::TestConfigOverride -v
   ```
-  Expected: FAIL -- `argparse` raises "unrecognized arguments: --config ...".
+  Expected: FAIL -- `load_declarations` has no `config_path` refusal yet, and `argparse`
+  rejects `--config`.
 
 - [ ] **Step 3: Add the argument and thread it**
 
-  In `_build_parser()`, add:
+  In `declarations.py`, make `load_declarations` refuse an explicit path that is not a file,
+  and name the path it actually read in its errors:
+
+  ```python
+  def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
+      """Read the declarations file, or return nothing if there is none.
+
+      A repository with no declarations file at the default path is not an error.
+      An explicit ``config_path`` that does not exist is: a mistyped --config
+      would otherwise run every check with nothing declared, and pass.
+      """
+      path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
+      if not path.is_file():
+          if config_path is not None:
+              raise DeclarationError(f"--config names {path}, which is not a file.")
+          return {}
+      ...  # the TOML error message names `path`, not DECLARATIONS_FILENAME
+  ```
+
+  Give `collect_declaration_issues` a `config_path: Path | None = None` kwarg, passed to its
+  `load_declarations` call. Give `collect_integrity_issues` the same kwarg and forward it to
+  its three reads: `collect_declaration_issues`, `load_findings_config` and
+  `load_closeout_config`.
+
+  In `cli.py`'s `_build_parser()`, add:
 
   ```python
   parser.add_argument(
@@ -524,64 +708,59 @@ contains. Small, additive, no file moves.
       metavar="PATH",
       help=(
           "Path to the declarations file, overriding the repository default "
-          "(config/docsync.toml)."
+          f"({DECLARATIONS_FILENAME})."
       ),
   )
   ```
 
-  In `main()`, near the top, after `args = parser.parse_args()`:
+  (Interpolating `DECLARATIONS_FILENAME` keeps the help text true across Task 5's move.)
 
-  ```python
-  CONFIG_PATH = Path(args.config) if args.config else None
-  ```
+  Add a module-level `CONFIG_PATH: Path | None = None` beside `REPO_ROOT`, with a comment
+  saying `main()` sets it for one invocation. `REPO_ROOT` is a true constant, so there is no
+  existing pattern to copy: `main()` must declare `global CONFIG_PATH`, set it from
+  `args.config` before any mode runs, and restore the previous value in a `finally`. Without
+  the `global`, the assignment binds a local and every other function reads `None`; without
+  the `finally`, an in-process `main()` call in one test leaks its `--config` into the next
+  (`tests/test_docsync_cli.py` calls `cli_mod.main()` directly).
 
-  Thread `config_path=CONFIG_PATH` as a new keyword argument at every one of these existing
-  call sites (named by enclosing function, not line number -- each is a one-line addition):
-  `_archive_store` (`load_archive_config(REPO_ROOT)`), `_drift_updates`
-  (`load_archive_config(REPO_ROOT)`), `_close_batch` (both `load_closeout_config(REPO_ROOT)`
-  and `load_archive_config(REPO_ROOT)`), `_maintain_archives`
-  (`load_archive_config(REPO_ROOT)`), `_collect_issues` (`collect_integrity_issues(...)`,
-  which itself forwards to `collect_declaration_issues` and `load_findings_config`/
-  `load_closeout_config` inside `integrity.py` -- give `collect_integrity_issues` the same
-  `config_path: Path | None = None` kwarg and forward it to those three calls), and
-  `_close_batch`'s second `collect_integrity_issues(...)` call.
+  Pass `config_path=CONFIG_PATH` at every declarations read in `cli.py`, named by enclosing
+  function: `load_archive_config(REPO_ROOT)` in `_archive_store`, `_drift_updates`,
+  `_close_batch` and `_maintain_archives`; `load_closeout_config(REPO_ROOT)` in
+  `_close_batch`; and both `collect_integrity_issues(...)` calls (`_collect_issues`,
+  `_close_batch`). Then grep `cli.py` for `load_declarations(`, `load_.*_config(` and
+  `collect_.*_issues(` and confirm no read is left without it.
 
-  Because `main()` is the only place `CONFIG_PATH` is computed, every one of these functions
-  that is not already passed `REPO_ROOT` as a parameter needs `CONFIG_PATH` threaded down as
-  a parameter too, the same way `REPO_ROOT` already is (module-level constant, read directly,
-  since `cli.py`'s existing functions already read `REPO_ROOT` this way rather than taking it
-  as an argument). Model `CONFIG_PATH` the same way: a module-level `CONFIG_PATH: Path | None`
-  variable, assigned once in `main()` before any of these functions run, read directly by each
-  rather than passed as a parameter -- consistent with how `REPO_ROOT` already works in this
-  file, and avoiding a signature change on every function that currently reads `REPO_ROOT`
-  directly.
-
-- [ ] **Step 4: Run to verify it passes**
+- [ ] **Step 4: Run to verify they pass**
 
   ```
-  .venv/Scripts/pytest.exe tests/test_docsync_cli.py -v
+  .venv/bin/python -m pytest tests/test_docsync_cli.py tests/test_docsync_declarations.py tests/test_docsync_integrity.py -v
   ```
 
 - [ ] **Step 5: Gates and live probe**
 
   `pytest -q`; `doc_state_sync.py --check` at exit 0 first (this touches `scripts/docsync/`).
 
-  Live probe: in `/c/ssprobe/corpus`, copy `.docsync.toml` to `alt.toml` with one changed
-  value (e.g. `[archives] max_lines = 5` instead of `500`). **Red-equivalent (behavioural
-  proof):** `python scripts/doc_state_sync.py --check` (no `--config`) ignores `alt.toml`;
-  `python scripts/doc_state_sync.py --check --config alt.toml` picks up the changed threshold
-  (observable via `--paginate-archives --config alt.toml --as-of <date>` behaving differently
-  at the new threshold, or via a unit-level assertion if the CLI has no direct
-  threshold-visible `--check` output -- use whichever is actually observable and record which).
+  Live probe, in `/tmp/ssprobe/corpus`:
+  - **Red 1 (the flag changes the file read):** `cp .docsync.toml alt.toml` and append
+    `[nonsense]` to `alt.toml` only. `--check` alone exits 0 with the corpus's usual summary;
+    `--check --config alt.toml` is refused, naming the unknown table.
+  - **Red 2 (a mistyped path is not a green):** `--check --config nowhere.toml` is refused,
+    naming `nowhere.toml`.
+  - **Near-miss green:** reset; `cp .docsync.toml alt.toml` unchanged;
+    `--check --config alt.toml` prints the same summary as `--check` and exits 0.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Section 4 entry and commit**
+
+  One untagged Section 4 entry (cloud-kit R1), with the probe table.
 
   ```bash
   SKIP=doc-state-sync-check git commit -m "feat(docsync): Add a --config override"
   ```
 
-**Acceptance:** `--config PATH` is accepted, defaults to `None`, and demonstrably changes
-which declarations file every mode reads from.
+**Acceptance:** `--config PATH` changes which declarations file every mode and every check
+reads (the declared-fact checks included); a `--config` naming a missing file is refused,
+while a missing default file still means "nothing declared"; `CONFIG_PATH` is `None` again
+after `main()` returns.
 
 ---
 
@@ -593,6 +772,7 @@ the file move and the constant update must be the same commit.
 
 **Files:**
 - Modify: `scripts/dev/frontend_gate.py`
+- Modify: `config/frontend_gate_checks.toml` (its header comment, after the move)
 - Test: none need editing (inventory Section 2: the manifest-specific tests build their own
   `tmp_path` manifest and pass it explicitly; only *import* depends on the real path, and
   every `tests/scripts/dev/test_frontend_gate_*.py` module already imports `frontend_gate`
@@ -620,17 +800,23 @@ the file move and the constant update must be the same commit.
   mechanism under `scripts/`)...") to read "Declarations file under `config/`" and drop the
   now-false "facts at the root" claim.
 
-  Update the two hard-coded strings in `_load_check_manifest`'s `FrontendGateError` messages:
-  `"Restore frontend_gate_checks.toml at the repository root."` becomes `"Restore
-  frontend_gate_checks.toml at config/frontend_gate_checks.toml."`.
+  The manifest's own header comment says the same thing ("it sits here at the root, the same
+  split `.docsync.toml` uses: facts here, mechanism in `scripts/`"). Rewrite it to say the
+  file sits under `config/`, and name the docsync declarations file without a path until
+  Task 5 moves it (Task 5 Step 5 then names `config/docsync.toml`).
+
+  Update the one hard-coded location in `_load_check_manifest`'s `FrontendGateError`
+  messages: `"Restore frontend_gate_checks.toml at the repository root."` becomes `"Restore
+  config/frontend_gate_checks.toml."`. Its other two raises interpolate `{path}` and need no
+  edit. Grep `frontend_gate.py` for `repository root` and `frontend_gate_checks` afterwards:
+  only `CHECK_MANIFEST_PATH` and this message may name the file.
 
 - [ ] **Step 2: Run the collection-dependent tests**
 
   ```
-  .venv/Scripts/pytest.exe tests/scripts/dev/test_frontend_gate_manifest.py tests/scripts/dev/test_frontend_gate_checks.py tests/scripts/dev/test_frontend_gate_layout.py -v
+  .venv/bin/python -m pytest tests/scripts/dev/test_frontend_gate*.py -v
   ```
-  (substitute the real set of `test_frontend_gate_*.py` files present; every one that does
-  `from scripts.dev import frontend_gate` must still collect and pass.)
+  (twelve modules at `85f47a0`; every one must still collect and pass.)
 
 - [ ] **Step 3: Full gates**
 
@@ -639,9 +825,14 @@ the file move and the constant update must be the same commit.
   `doc_state_sync.py --check`. This task does not touch `scripts/docsync/`, so the normal
   preflight path applies -- no `SKIP=` needed.
 
+  The frontend gate itself reads the moved manifest, so it must pass on this commit: run
+  `.venv/bin/python scripts/dev/frontend_gate.py` locally, or, in a cloud sandbox that cannot
+  run it, rely on CI's `quality-gate` job for the pushed commit. The Section 4 entry names
+  which, with the gate's last line or the CI run.
+
 - [ ] **Step 4: Live probe**
 
-  In `/c/ssprobe/corpus`: **red** -- `git rm config/frontend_gate_checks.toml && git commit
+  In `/tmp/ssprobe/corpus`: **red** -- `git rm config/frontend_gate_checks.toml && git commit
   -qm red`, then `python -c "from scripts.dev import frontend_gate"` must raise
   `FrontendGateError: check manifest missing at .../config/frontend_gate_checks.toml`. **Near-
   miss green** -- restore the file with a trailing blank line added (still valid TOML); the
@@ -661,12 +852,53 @@ specified.
 
 ### Task 5: Move `.docsync.toml` to `config/`
 
-**Files:**
-- Modify: `scripts/docsync/declarations.py` (`DECLARATIONS_FILENAME`)
-- Modify: `scripts/dev/docsync_preflight.py` (`CONTROL_PLANE_FILES`)
-- Test: `tests/scripts/dev/test_docsync_preflight.py` (`test_control_plane_prefix_matching`)
+Every test fixture that writes a declarations file must follow the file, or it writes where
+docsync no longer reads, and `load_declarations` treats a missing default file as "nothing
+declared". A controller probe of the draft (the move plus the two constants alone, at
+`85f47a0`) left `--check` at exit 0 but failed 25 docsync tests: the 2 this task always named
+plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` anti-pattern 11).
 
-- [ ] **Step 1: Update the failing test first**
+**Files:**
+- `git mv .docsync.toml config/docsync.toml`
+- Modify: `scripts/docsync/declarations.py` (`DECLARATIONS_FILENAME`; the `_TOP_LEVEL_SCHEMA`
+  comment at `:219`)
+- Modify: `scripts/dev/docsync_preflight.py` (`CONTROL_PLANE_FILES` and its comment's example)
+- Modify: `scripts/docsync/findings.py` (`collect_rot_issues`' DOC023 remediation string),
+  `scripts/docsync/closeout.py` (`_admission_issue`'s DOC019 remediation string),
+  `scripts/docsync/archives.py` (comment), `scripts/docsync/integrity.py` (two comments near
+  the declared-fact and DOC019 blocks)
+- Modify: the live prose citing `.docsync.toml` (Step 5)
+- Test: `tests/scripts/dev/test_docsync_preflight.py` (`test_control_plane_prefix_matching`,
+  `test_staged_preflight_against_real_docsync_checker`)
+- Test (fixtures, repointed at the `DECLARATIONS_FILENAME` symbol): `tests/conftest.py`
+  (`sync_env`), `tests/test_docsync_cli.py` (`CORPUS_*` / `_make_corpus` keys),
+  `tests/test_docsync_integrity.py` (`_write_closeout_boundary` and
+  `test_doc023_honours_the_repositorys_grandfather_list`)
+
+- [ ] **Step 1: Repoint every declarations fixture at the symbol, before the move**
+
+  Find every test that writes a declarations file by literal name:
+
+  ```bash
+  git grep -n -F '.docsync.toml' -- tests
+  ```
+  At `85f47a0` the writers are `tests/conftest.py:162`, `tests/test_docsync_cli.py` (keys at
+  `:718`, `:893`, `:1081`, `:1331`, `:1501`, `:1538`, `:1598`),
+  `tests/test_docsync_integrity.py` (`_write_closeout_boundary`, and the grandfather-list test
+  near `:1907`) and `tests/scripts/dev/test_docsync_preflight.py:630`. Change each writer to
+  build its path from `DECLARATIONS_FILENAME` (imported from `docsync.declarations`) and to
+  create the parent directory first (`path.parent.mkdir(parents=True, exist_ok=True)`);
+  `_make_corpus`'s own `_write` helper already does. Rows that assert on the
+  preflight's name matching (`test_control_plane_prefix_matching`, `:152` and the
+  `.docsync.tomlx` row) are not writers: Step 2 handles them.
+
+  ```
+  .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_docsync_cli.py tests/test_docsync_logic.py tests/test_docsync_integrity.py tests/scripts/dev/test_docsync_preflight.py
+  ```
+  Expected: PASS, unchanged count -- the symbol still equals `.docsync.toml`, so this is a
+  pure parity step. These are named test edits; the commit body lists them and says why.
+
+- [ ] **Step 2: Update the name-matching test first**
 
   In `tests/scripts/dev/test_docsync_preflight.py`, in `test_control_plane_prefix_matching`'s
   parametrize list, replace `(".docsync.toml", True)` with `("config/docsync.toml", True)`,
@@ -675,14 +907,15 @@ specified.
   exact-match negative control at the new name).
 
   ```
-  .venv/Scripts/pytest.exe tests/scripts/dev/test_docsync_preflight.py::test_control_plane_prefix_matching -v
+  .venv/bin/python -m pytest tests/scripts/dev/test_docsync_preflight.py::test_control_plane_prefix_matching -v
   ```
   Expected: FAIL -- `"config/docsync.toml"` is not yet in `CONTROL_PLANE_FILES`, and
   `".docsync.toml"` still is.
 
-- [ ] **Step 2: Move the file and update both constants**
+- [ ] **Step 3: Move the file and update both constants**
 
   ```bash
+  mkdir -p config
   git mv .docsync.toml config/docsync.toml
   ```
 
@@ -700,47 +933,86 @@ specified.
       "config/docsync.toml",
   )
   ```
+  and rewrite the comment above it so its exact-match example names `config/docsync.tomlx`
+  and `config/docsync.toml`.
 
-- [ ] **Step 3: Run the updated test, plus the full declarations suite**
+- [ ] **Step 4: Repoint the diagnostics and comments that name the file**
+
+  - `scripts/docsync/findings.py`, `collect_rot_issues`: the DOC023 remediation tells the
+    reader to edit `` `.docsync.toml` ``; name `` `config/docsync.toml` ``. Better, interpolate
+    `DECLARATIONS_FILENAME` so the next move cannot strand it.
+  - `scripts/docsync/closeout.py`, `_admission_issue`: the DOC019 remediation ("Lower
+    `admit_from_batch` in .docsync.toml ..."), the same way.
+  - Comments: `scripts/docsync/declarations.py` (the `_TOP_LEVEL_SCHEMA` note),
+    `scripts/docsync/archives.py`, `scripts/docsync/integrity.py` (two, near the
+    declared-fact and DOC019 blocks).
+
+  Then `git grep -n -F '.docsync.toml' -- scripts` must print only lines that deliberately
+  name the retired spelling (none are expected).
+
+- [ ] **Step 5: Sweep the live prose, by grep (no gate catches it)**
+
+  The controller probe showed DOC001 does not resolve a bare `` `.docsync.toml` `` citation, so
+  `--check` stays green while every live mention goes stale. Sweep by hand:
+
+  ```bash
+  git grep -n -F '.docsync.toml' -- ':!docs/history' ':!docs/logarchive' ':!tests' ':!scripts'
+  ```
+  Rewrite every present-tense claim about where the file is, or a pointer telling the reader
+  to edit it, to `config/docsync.toml`. Leave as written: dated `PLAYBOOK.md` Section 4
+  entries, closed or dated finding records describing a past edit (e.g. `FINDINGS.md`'s
+  "corrected in `.docsync.toml` (2026-09-24, Task 5 ..." note), and plans or specs of
+  completed work. At `85f47a0` the live set is: `AGENTS.md`, `AGENT_NOTES.md` (3),
+  `DEVELOPMENT.md` (4), `docs/ARCHITECTURE.md`, `docs/agents/global-rules.md`,
+  `docs/architecture/documentation-tooling.md` (7, including its mermaid node label and the
+  sentence that says the file sits "at the repository root"), `FINDINGS.md` (open records
+  only), `.superpowers/cloud-kit/constraints.md` (R7), `.pre-commit-config.yaml` (comment),
+  `config/frontend_gate_checks.toml` (header comment), `scrobblescope/heatmap.py` (comment)
+  and `static/css/tailwind.src.css` (comment). The last one is under `static/`: rebuild with
+  the `tailwind-css-drift` hook and run the frontend gate, or rely on CI's `quality-gate`, as
+  Task 4 does, and say which.
+
+- [ ] **Step 6: Run the updated tests**
 
   ```
-  .venv/Scripts/pytest.exe tests/scripts/dev/test_docsync_preflight.py tests/test_docsync_declarations.py tests/test_docsync_cli.py -v
+  .venv/bin/python -m pytest -q -p no:cacheprovider tests/scripts/dev/test_docsync_preflight.py tests/test_docsync_declarations.py tests/test_docsync_cli.py tests/test_docsync_logic.py tests/test_docsync_integrity.py
   ```
-  Expected: PASS. No other test in these files reads `DECLARATIONS_FILENAME`'s value directly
-  (`tests/test_docsync_declarations.py` goes through the `DECLARATIONS_FILENAME` symbol, not a
-  literal, per inventory Section 2).
+  Expected: PASS, including `test_staged_preflight_against_real_docsync_checker` now that
+  Step 1 made it write its declarations at `config/docsync.toml` inside its temporary repo.
+  `PLAYBOOK.md`, `AGENTS.md`, `HANDOFF_PROMPT.md`, `AGENT_NOTES.md` and `FINDINGS.md` stay at
+  that fixture's root in *this* task; Task 6 decides whether they follow.
 
-- [ ] **Step 4: Update `test_staged_preflight_against_real_docsync_checker`**
+- [ ] **Step 7: Live probe**
 
-  This synthetic fixture (`tests/scripts/dev/test_docsync_preflight.py`, the real-git-repo
-  end-to-end test) writes `.docsync.toml` at its temporary repo's root, mirroring today's flat
-  layout. Change it to write the file at `config/docsync.toml` inside that same temporary repo
-  (creating the `config/` subdirectory first), so the fixture exercises the production layout
-  this task ships rather than the one it retires. `PLAYBOOK.md`, `AGENTS.md`,
-  `HANDOFF_PROMPT.md`, `AGENT_NOTES.md`, `FINDINGS.md` stay at the fixture's root in *this*
-  task -- they move in Task 6, and this test moves with them there.
+  In `/tmp/ssprobe/corpus`, built from this task's tree:
+  - **Faithful copy:** `--check` prints the same summary as the worktree (the declarations
+    are read from `config/docsync.toml`; a copy that silently read none would still pass, so
+    also confirm a declared check is live: append a `[nonsense]` table to
+    `config/docsync.toml` and see `--check` refuse it, then reset).
+  - **Red (the new name is control plane):** edit a comment in `config/docsync.toml` only,
+    `git add` it, run `python scripts/dev/docsync_preflight.py --staged`. Expected: exit 3,
+    the control-plane refusal, naming `config/docsync.toml`.
+  - **Near-miss green (the retired name is not):** reset; create a root `.docsync.toml` with
+    any content, `git add` only it, run the same command. Expected: no control-plane refusal
+    (exit 0 on this clean corpus).
+  (Staging a `scripts/docsync/` edit alone is refused under either name, since that
+  directory is matched as a prefix, so it cannot serve as the near-miss.)
 
-- [ ] **Step 5: Full gates**
+- [ ] **Step 8: Gates, Section 4 entry and commit**
 
-  This touches `scripts/docsync/declarations.py` and `scripts/dev/docsync_preflight.py`, both
-  control-plane. `doc_state_sync.py --check` directly first (exit 0), then:
+  One untagged Section 4 entry (cloud-kit R1), with the probe table and the named test
+  edits. This touches the control plane: `doc_state_sync.py --check` directly first (exit
+  0), then:
 
   ```bash
   SKIP=doc-state-sync-check git commit -m "chore(docsync): Move .docsync.toml under config/"
   ```
 
-- [ ] **Step 6: Live probe**
-
-  In `/c/ssprobe/corpus`: **red** -- stage a change to `scripts/docsync/declarations.py` (any
-  one-line comment edit) alongside a change to `config/docsync.toml`, `git add` both, and run
-  `python scripts/dev/docsync_preflight.py --staged`. Expected: nonzero exit, the control-plane
-  refusal message, naming `config/docsync.toml`. **Near-miss green** -- stage only the
-  `declarations.py` comment change (not `config/docsync.toml`); the same command must exit 0.
-
 **Acceptance:** `config/docsync.toml` is the declarations file docsync reads by default;
-`CONTROL_PLANE_FILES` recognizes it; the moved-fixture test still exercises real production
-behaviour; the probe confirms the preflight still refuses a staged control-plane change under
-the new name.
+`CONTROL_PLANE_FILES` recognizes it and no longer recognizes the root name; every test
+fixture writes its declarations where docsync reads them (no suite count change beyond the
+parametrize row); no live, present-tense citation names `.docsync.toml`; the probe
+behaves as specified.
 
 ---
 
@@ -756,21 +1028,28 @@ cannot pass with the move half-done). One commit.
 - `git mv HANDOFF_PROMPT.md docs/agents/HANDOFF_PROMPT.md`
 - Modify: `config/docsync.toml` (`[documents]` table; four `[retired.allow_after]` keys; the
   `AGENT_NOTES.md` value-site; the comment at the fourth retired block)
-- Modify: `scripts/docsync/cli.py` (`_read_live_documents` and the two `collect_integrity_issues`
-  call sites now pass the resolved paths for real)
+- Modify: `scripts/docsync/cli.py` (`_read_live_documents`, every `PLAYBOOK_PATH` /
+  `FINDINGS_PATH` read and write, and the two `collect_integrity_issues` call sites now use
+  the declared paths)
 - Modify: `scripts/dev/_worktree_guard_inspection.py`
-- Modify: `scripts/dev/_worktree_guard_diagnostics.py` (cosmetic label)
-- Modify: `scripts/docsync/renderer.py` (`_build_status_block`, two `` `PLAYBOOK.md` `` prose
-  strings)
-- Modify: every always-scanned live document's citations (see Step 5)
+- Modify: `scripts/dev/_worktree_guard_diagnostics.py` (display label)
+- Modify: `scripts/docsync/renderer.py` (`_build_status_block`'s two `` `PLAYBOOK.md` `` lines
+  and `SIDE_ARCHIVE_PREFIX`)
+- Modify: `scripts/dev/frontend_gate.py` (the `` `AGENT_NOTES.md` `` citation in
+  `_load_check_manifest`'s docstring)
+- Modify: `.pre-commit-config.yaml` (top-level `exclude`, Step 9, owner ruling 2026-09-24)
+- Modify: every always-scanned live document's citations (Step 7)
 - Modify: `docs/AGENT_DOC_MAP.md`, `docs/agents/domain.md`, `docs/agents/global-rules.md`,
   `docs/agents/issue-tracker.md`, `DEVELOPMENT.md`, `PRODUCT.md`, `docs/ARCHITECTURE.md`,
-  `docs/architecture/*.md` citing any of the four, `docs/design/RECONCILIATION.md` (if it
-  cites any of the four -- confirm before editing; inventory Section 3 does not list it under
-  any of the four documents' citer tables, so likely no change needed there), and
-  `.superpowers/cloud-kit/constraints.md`
+  `docs/architecture/*.md` citing any of the four, `docs/design/RECONCILIATION.md` (one
+  `` `FINDINGS.md` `` citation at `:667`, confirmed at `85f47a0`),
+  `.superpowers/cloud-kit/constraints.md`, and the entry-point handoff
+  `docs/history/reports/HANDOFF_2026-09-24.md` (Step 8)
 - Test: `tests/scripts/dev/test_worktree_guard_playbook.py`
   (`test_the_repository_playbook_parses`)
+- Test: the worktree-guard fixtures (Step 3), `tests/conftest.py` (`sync_env`'s
+  `PLAYBOOK_PATH` monkeypatch, Step 5), `tests/test_docsync_renderer.py` (the two status-block
+  tests, Step 6)
 
 - [ ] **Step 1: Update the one test that reads the real file, first**
 
@@ -785,7 +1064,7 @@ cannot pass with the move half-done). One commit.
   ```
 
   ```
-  .venv/Scripts/pytest.exe tests/scripts/dev/test_worktree_guard_playbook.py -v
+  .venv/bin/python -m pytest tests/scripts/dev/test_worktree_guard_playbook.py -v
   ```
   Expected: FAIL -- `FileNotFoundError` at the new path (it doesn't exist yet); this confirms
   the test is exercising the real repository file, not a fixture.
@@ -816,10 +1095,14 @@ cannot pass with the move half-done). One commit.
 
   Run the worktree guard's own suite:
   ```
-  .venv/Scripts/pytest.exe tests/scripts/dev/test_worktree_guard_playbook.py tests/scripts/dev/test_worktree_guard_base_ref.py tests/scripts/dev/test_worktree_guard_inspection.py tests/scripts/dev/test_worktree_guard_subject.py tests/scripts/dev/test_worktree_guard_topology.py -v
+  .venv/bin/python -m pytest tests/scripts/dev/test_worktree_guard_playbook.py tests/scripts/dev/test_worktree_guard_base_ref.py tests/scripts/dev/test_worktree_guard_inspection.py tests/scripts/dev/test_worktree_guard_subject.py tests/scripts/dev/test_worktree_guard_topology.py tests/scripts/dev/test_worktree_guard_cli_e2e.py -v
   ```
-  Expected: PASS. The synthetic `tmp_path`-based fixtures (`worktree_guard_fakes.py` and the
-  other four `test_worktree_guard_*.py` files) write `repo.joinpath("PLAYBOOK.md")` against a
+  Expected: PASS. `test_worktree_guard_cli_e2e.py` edits nothing itself but drives the real
+  inspection through `worktree_guard_fakes.repository()`, so it proves the fakes fix end to
+  end. The synthetic `tmp_path`-based fixtures (`worktree_guard_fakes.py:43`,
+  `test_worktree_guard_base_ref.py:55`, `test_worktree_guard_inspection.py:27-28,51`,
+  `test_worktree_guard_subject.py:124`, `test_worktree_guard_topology.py:43` at `85f47a0`)
+  write `repo.joinpath("PLAYBOOK.md")` against a
   `resolved_root` the test itself controls -- since the code now reads `resolved_root /
   "docs" / "agents" / "PLAYBOOK.md"`, these fixtures must write their synthetic file to that
   same nested path too, or they will fail with a real `FileNotFoundError` this time (not a
@@ -869,45 +1152,69 @@ cannot pass with the move half-done). One commit.
 
 - [ ] **Step 5: Wire `cli.py` to actually consume the new declaration**
 
-  In `_read_live_documents()`, resolve `LIVE_DOCUMENT_PATHS` through the loaded config instead
-  of the bare module constant:
+  Add one helper beside `_read_lines`, and read every document path through it:
+
   ```python
-  def _read_live_documents() -> dict[str, list[str]]:
-      """Load canonical documents, root definitions and archived definitions."""
-      documents_config = load_documents_config(REPO_ROOT, config_path=CONFIG_PATH)
-      live_paths = tuple(
-          REPO_ROOT / relative
-          for relative in resolved_live_document_paths(documents_config)
-      )
-      documents = {
-          _repository_relative(path): _read_lines(path) for path in live_paths
-      }
-      ...
+  def _documents() -> DocumentsConfig:
+      """Return the document paths declared for this invocation's config file."""
+      return load_documents_config(REPO_ROOT, config_path=CONFIG_PATH)
   ```
-  (add `resolved_live_document_paths` and `DocumentsConfig`/`load_documents_config` to the
-  existing `from docsync.integrity import (...)` / `from docsync.declarations import (...)`
-  blocks at the top of `cli.py`.)
+  (Reading a small TOML file a few times per run is cheaper than threading one object
+  through every mode; `CONFIG_PATH` already makes every read agree -- Task 3.)
 
-  `PLAYBOOK_PATH` and `FINDINGS_PATH`, wherever else they are read for direct I/O outside
-  `_read_live_documents` (grep `PLAYBOOK_PATH\b` and `FINDINGS_PATH\b` in `cli.py` to find every
-  site), become `REPO_ROOT / documents_config.playbook` and `REPO_ROOT /
-  documents_config.findings` resolved the same way, computed once per invocation (in `main()`,
-  alongside `CONFIG_PATH`) and passed down rather than re-read as bare module constants.
+  - `_read_live_documents()` reads `REPO_ROOT / relative` for each path in
+    `resolved_live_document_paths(_documents())` instead of `LIVE_DOCUMENT_PATHS`.
+    `LIVE_DOCUMENT_PATHS` itself stays, unchanged, as the default tuple that
+    `TestLiveDocumentPathsSingleSource` compares.
+  - Every `PLAYBOOK_PATH` and `FINDINGS_PATH` use becomes `REPO_ROOT / _documents().playbook`
+    or `REPO_ROOT / _documents().findings`. At `85f47a0` they are `cli.py:284`, `:295`, `:460`,
+    `:486`, `:636`, `:637`, `:782` and `:805` (reads and writes both); grep
+    `PLAYBOOK_PATH\b\|FINDINGS_PATH\b` to confirm none is left, then delete the two
+    constants, so nothing can read the retired default by accident.
+  - In `_collect_issues` and `_close_batch`'s `collect_integrity_issues(...)` calls, pass:
+    ```python
+    document_paths=resolved_live_document_paths(documents),
+    playbook_relative_path=documents.playbook,
+    findings_relative_path=documents.findings,
+    ```
+    with `documents = _documents()` read once at the top of each function.
+  - Add `resolved_live_document_paths`, `DocumentsConfig` and `load_documents_config` to the
+    existing `from docsync.integrity import (...)` / `from docsync.declarations import (...)`
+    blocks.
 
-  In `_collect_issues` and `_close_batch`'s `collect_integrity_issues(...)` calls, pass:
-  ```python
-  document_paths=resolved_live_document_paths(documents_config),
-  playbook_relative_path=documents_config.playbook,
-  findings_relative_path=documents_config.findings,
-  ```
-  (`documents_config` computed once, the same object used by `_read_live_documents`).
+  **Named test edit:** `tests/conftest.py`'s `sync_env` monkeypatches
+  `cli_module.PLAYBOOK_PATH` (`:141` at `85f47a0`). With the constant deleted, `setattr`
+  raises; delete that one line. The fixture already chdirs into its corpus and writes no
+  `[documents]` table, so the default relative `PLAYBOOK.md` resolves to the same file.
 
-- [ ] **Step 6: Rewrite renderer.py's prose and the two cosmetic-label call sites you choose to
-  fix now**
+- [ ] **Step 6: The status block and the archive prologue stop naming a path**
 
-  In `scripts/docsync/renderer.py`'s `_build_status_block`, change the two
-  `"- Source of truth: \`PLAYBOOK.md\` (Section 3 and Section 4)."` lines to
-  `"- Source of truth: \`docs/agents/PLAYBOOK.md\` (Section 3 and Section 4)."`.
+  `scripts/docsync/renderer.py` renders two texts that cite `` `PLAYBOOK.md` ``:
+  `_build_status_block`'s "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4)." (two
+  copies) and `SIDE_ARCHIVE_PREFIX`'s "rotated out of `PLAYBOOK.md` Section 4". Hard-coding
+  `docs/agents/PLAYBOOK.md` there would put a document path back into `scripts/docsync/`,
+  which the owner's ruling rules out (paths are declared in `config/docsync.toml`); asked
+  again on 2026-09-24, the owner restated that they do not want hard-coding and left the
+  choice to the controller. Drop the path instead: "- Source of truth: PLAYBOOK Section 3 and Section 4." and "rotated out of
+  PLAYBOOK Section 4". The hand-written line above the managed block in
+  `.claude/SESSION_CONTEXT.md` Section 2 carries the real path (Step 7 repoints it).
+  (Rejected alternative: thread the declared playbook path from `cli.py` through `logic.py`'s
+  `_build_status_block` caller and turn `SIDE_ARCHIVE_PREFIX` into a function. It keeps a
+  path in the generated text at the cost of a signature on three modules and a changed
+  import in every test that uses the constant.)
+
+  Consequences to handle in the same commit:
+  - `SIDE_ARCHIVE_PREFIX` is a contract, not prose: `integrity.py` raises DOC004 unless
+    `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`'s prologue equals it. Run `--fix` (it
+    renders the archive through this constant when it writes it) and confirm the real
+    archive's prologue matches; if `--fix` did not rewrite it, edit that one line by hand to
+    match the constant exactly.
+  - `.claude/SESSION_CONTEXT.md`'s managed status block is refreshed by `--fix`.
+  - **Named test edits:** `tests/test_docsync_renderer.py`'s
+    `test_declared_batch_with_no_entries_renders_as_open` (`:502`) and
+    `test_between_batches_block_carries_the_count` (`:527`) copy the status-block line by
+    value in a full-list `==`; update both to the new text. Tests that import
+    `SIDE_ARCHIVE_PREFIX` by symbol need no edit.
 
 - [ ] **Step 7: Sweep every bare citation in the five always-scanned documents plus the active
   definition and SESSION_CONTEXT (inventory Section 4, risk 4 -- `--check` cannot pass with
@@ -933,164 +1240,303 @@ cannot pass with the move half-done). One commit.
 - [ ] **Step 8: Sweep the non-gated live documents** (not scanned by DOC001, per inventory
   Section 4, but still stale prose if left)
 
-  `docs/AGENT_DOC_MAP.md` (routing table, 6+5+2+1 citations), `docs/agents/domain.md`,
-  `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md` (these three now sit in the
-  *same* directory as the four moved files -- cite them relative, e.g. `` `PLAYBOOK.md` ``
-  read as a sibling, since every other citation style in the repository is repo-root-relative
-  and consistency with that existing convention outweighs the shorter form here: use
-  `` `docs/agents/PLAYBOOK.md` `` even from a same-directory file), `DEVELOPMENT.md`,
+  Citation style is settled: repository-root paths everywhere, including between files that
+  share `docs/agents/` (DOC001 resolves citations from the repository root). Write
+  `` `docs/agents/PLAYBOOK.md` `` even from `docs/agents/domain.md`.
+
+  Sweep: `docs/AGENT_DOC_MAP.md` (routing table, 6+5+2+1 citations), `docs/agents/domain.md`,
+  `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`, `DEVELOPMENT.md`,
   `PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/architecture/*.md` that cite any of the four
-  (`documentation-tooling.md`, `development-cycle.md` per inventory Section 3), and
-  `.superpowers/cloud-kit/constraints.md` (including its literal `grep -n "^### .*WP-[0-9]"
-  PLAYBOOK.md` command example at line 175 -- rewrite the command itself, not just the prose
-  around it, or it silently finds nothing the next time an agent runs it). Confirm
-  `docs/design/RECONCILIATION.md`, `README.md` and `DESIGN.md` need no change (inventory
-  Section 3: zero hits for `README.md`/`DESIGN.md`; `RECONCILIATION.md` not listed as a citer
-  of any of the four).
+  (`documentation-tooling.md`, `development-cycle.md` per inventory Section 3),
+  `docs/design/RECONCILIATION.md:667` (one `` `FINDINGS.md` `` citation),
+  `scripts/dev/frontend_gate.py`'s `_load_check_manifest` docstring (`` `AGENT_NOTES.md` ``),
+  and `.superpowers/cloud-kit/constraints.md` -- including its literal
+  `grep -n "^### .*WP-[0-9]" PLAYBOOK.md` command: rewrite the command itself, not just the
+  prose around it, or it silently finds nothing the next time an agent runs it.
 
-- [ ] **Step 9: Full test run, gates, and the live probe**
+  `docs/history/reports/HANDOFF_2026-09-24.md` is a dated report, but it is also the current
+  entry point for a cold session until a newer handoff supersedes it. Repoint its commands
+  and read-order paths (section 2's setup block, section 3's read list, section 8's grep
+  trap); leave its narrative of past sessions as written.
+
+  Confirmed at `85f47a0` to need no change: `README.md`, `DESIGN.md`, `CONTRIBUTING.md`,
+  `DEPLOY.md`, `.github/copilot-instructions.md`, `.superpowers/cloud-kit/agents/*.md` (zero
+  hits). Plans and specs of other work, and every `docs/history/` document other than the
+  handoff, are point-in-time: leave them.
+
+- [ ] **Step 9: Keep the moved documents under the file hooks** (owner ruling,
+  2026-09-24: approved)
+
+  `.pre-commit-config.yaml`'s top-level `exclude` lists `docs`, so after the move four hooks
+  stop seeing the four documents: `trailing-whitespace`, `end-of-file-fixer`,
+  `check-merge-conflict` and `detect-private-key`. (`doc-state-sync-check`,
+  `tailwind-css-drift` and `worktree-alignment` are `always_run` with no filenames and are
+  unaffected.) Losing `check-merge-conflict` on `docs/agents/PLAYBOOK.md` matters most: it is
+  the file that conflicts on merges (Task 0).
+
+  Change `docs` in that alternation to `docs(?!/agents/)`, so `docs/agents/` stays checked
+  and the rest of `docs/` stays excluded. The lookahead goes before the slash because the
+  pattern's `/` sits outside the group and is shared by every alternative: `docs/(?!agents/)`
+  would then require `docs//` and silently un-exclude all of `docs/`. This also brings the
+  three documents already in `docs/agents/` (`domain.md`, `global-rules.md`,
+  `issue-tracker.md`) under the hooks for the first time; run `pre-commit run --all-files`
+  and stage whatever the whitespace fixers change.
+
+  Probe, in a scratch copy:
+  - **Red:** plant a `<<<<<<< HEAD` line in `docs/agents/PLAYBOOK.md`;
+    `pre-commit run check-merge-conflict --all-files` fails with the new exclude.
+  - **Near-miss green:** move the planted line to `docs/history/reports/` (any file there);
+    the same command passes, proving the rest of `docs/` is still excluded.
+  - Before running either, check the pattern itself:
+    `python -c "import re,yaml; p=yaml.safe_load(open('.pre-commit-config.yaml'))['exclude']; print([bool(re.search(p,x)) for x in ('docs/agents/PLAYBOOK.md','docs/history/x.md','docs/x.md')])"`
+    prints `[False, True, True]`.
+
+- [ ] **Step 10: Full test run, gates, and the live probe**
 
   ```
-  pytest -q
+  .venv/bin/python -m pytest -q -p no:cacheprovider
   ```
-  Expected: every test passes, including the newly-updated worktree-guard fixtures and
-  `test_the_repository_playbook_parses`.
+  Expected: every test passes, including the updated worktree-guard fixtures, the renderer
+  status-block tests and `test_the_repository_playbook_parses`.
 
-  `doc_state_sync.py --check` directly first (this commit touches `scripts/docsync/cli.py`,
-  control-plane) -- expect exit 0 once Steps 4-8 are complete; a nonzero exit here before
-  Step 8 is finished is expected and not a defect, per the "cannot pass with the move
-  half-done" constraint -- do not commit until it is 0.
+  `doc_state_sync.py --check` directly first (this commit touches `scripts/docsync/`,
+  control plane) -- expect exit 0 once Steps 4-9 are complete; a nonzero exit before the
+  sweeps are finished is expected, per the "cannot pass with the move half-done" constraint.
+  Do not commit until it is 0.
 
-  Live probe, in `/c/ssprobe/corpus` (rebuilt fresh from HEAD *after* this task's changes are
-  staged locally but not yet committed -- build the probe from the working tree, not from the
-  last commit, per the verification standard's Step 1 using the worktree as source):
+  Live probe, in `/tmp/ssprobe/corpus`, built from the working tree with this task's changes
+  (`git archive $(git stash create) | tar -x -C corpus`, which leaves the stash list
+  untouched), not from the last commit:
   - **Red 1 (allow_after silently stops applying):** revert only the four
-    `[retired.allow_after]` keys in `config/docsync.toml` back to `"PLAYBOOK.md"` while
-    leaving everything else moved; run `--check`. Expected: DOC011 fires on the retired-claim
-    text still present in `docs/agents/PLAYBOOK.md`'s Section 4 (a false positive, proving the
-    key must point at the new path).
-  - **Near-miss green 1:** restore the correct `"docs/agents/PLAYBOOK.md"` keys; `--check`
-    exits 0 on the same content.
-  - **Red 2 (worktree guard):** revert only `_worktree_guard_inspection.py`'s literal back to
+    `[retired.allow_after]` keys in `config/docsync.toml` back to `"PLAYBOOK.md"`; run
+    `--check`. Expected: DOC011 fires on the retired-claim text in
+    `docs/agents/PLAYBOOK.md`'s Section 4 (a false positive, proving the key must follow the
+    file).
+  - **Near-miss green 1:** restore the `"docs/agents/PLAYBOOK.md"` keys; `--check` exits 0.
+  - **Red 2 (worktree guard):** revert only `_worktree_guard_inspection.py`'s literal to
     `"PLAYBOOK.md"`; run `python scripts/dev/check_worktree_alignment.py --offline
-    --base-ref <base>`. Expected: the metadata-unavailable diagnostic, "PLAYBOOK.md could not
-    be read" (or the new label if Step 3's diagnostics fix is also reverted together).
+    --base-ref <base>`. Expected: the metadata-unavailable diagnostic.
   - **Near-miss green 2:** restore the fix; the same command reads Section 3 successfully.
-  - **Red 3 (DOC001 citation sweep):** leave one bare `` `PLAYBOOK.md` `` citation
-    un-rewritten inside `AGENTS.md`; run `--check`. Expected: DOC001 fires, naming the stale
-    citation.
-  - **Near-miss green 3:** the same citation rewritten to `` `docs/agents/PLAYBOOK.md` ``;
-    `--check` exits 0.
+  - **Red 3 (DOC001 citation sweep):** leave one bare `` `PLAYBOOK.md` `` citation in
+    `AGENTS.md`; run `--check`. Expected: DOC001 names it (a controller probe at `85f47a0`
+    confirmed DOC001 flags an unresolved backticked `.md` basename).
+  - **Near-miss green 3:** the same citation as `` `docs/agents/PLAYBOOK.md` ``; exit 0.
+  - **Red 4 (`[documents]` is honoured, closing Task 2's probe):** set
+    `playbook = "docs/agents/NOWHERE.md"` in `[documents]`; `--check` fails, naming the missing
+    file (`_read_lines` raises rather than reading nothing).
+  - **Near-miss green 4:** restore `playbook = "docs/agents/PLAYBOOK.md"`; exit 0.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 11: Section 4 entry and commit**
+
+  One untagged Section 4 entry (cloud-kit R1) in `docs/agents/PLAYBOOK.md`, with the probe
+  table, the named test edits and the pre-commit ruling. Stage by name every path this task
+  changed -- `git status --short` must show nothing unstaged of this task's afterwards. At
+  `85f47a0` that is: the four moved documents; `config/docsync.toml`;
+  `scripts/docsync/cli.py`, `scripts/docsync/renderer.py`;
+  `scripts/dev/_worktree_guard_inspection.py`, `scripts/dev/_worktree_guard_diagnostics.py`,
+  `scripts/dev/frontend_gate.py`; `.pre-commit-config.yaml`;
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (prologue, and any rotation);
+  `AGENTS.md`, `BATCH23_DEFINITION.md`, `.claude/SESSION_CONTEXT.md`;
+  `docs/AGENT_DOC_MAP.md`, `docs/agents/domain.md`, `docs/agents/global-rules.md`,
+  `docs/agents/issue-tracker.md`, `DEVELOPMENT.md`, `PRODUCT.md`, `docs/ARCHITECTURE.md`,
+  `docs/architecture/documentation-tooling.md`, `docs/architecture/development-cycle.md`,
+  `docs/design/RECONCILIATION.md`, `docs/history/reports/HANDOFF_2026-09-24.md`,
+  `.superpowers/cloud-kit/constraints.md`; and the tests `tests/conftest.py`,
+  `tests/test_docsync_renderer.py`, `tests/scripts/dev/test_worktree_guard_playbook.py`,
+  `tests/scripts/dev/worktree_guard_fakes.py`, `tests/scripts/dev/test_worktree_guard_base_ref.py`,
+  `tests/scripts/dev/test_worktree_guard_inspection.py`,
+  `tests/scripts/dev/test_worktree_guard_subject.py`,
+  `tests/scripts/dev/test_worktree_guard_topology.py`.
 
   ```bash
-  git add docs/agents/PLAYBOOK.md docs/agents/FINDINGS.md docs/agents/AGENT_NOTES.md \
-    docs/agents/HANDOFF_PROMPT.md config/docsync.toml scripts/docsync/cli.py \
-    scripts/docsync/renderer.py scripts/dev/_worktree_guard_inspection.py \
-    scripts/dev/_worktree_guard_diagnostics.py AGENTS.md BATCH23_DEFINITION.md \
-    .claude/SESSION_CONTEXT.md docs/AGENT_DOC_MAP.md docs/agents/domain.md \
-    docs/agents/global-rules.md docs/agents/issue-tracker.md DEVELOPMENT.md PRODUCT.md \
-    docs/ARCHITECTURE.md docs/architecture/documentation-tooling.md \
-    docs/architecture/development-cycle.md .superpowers/cloud-kit/constraints.md \
-    tests/scripts/dev/test_worktree_guard_playbook.py \
-    tests/scripts/dev/worktree_guard_fakes.py tests/scripts/dev/test_worktree_guard_base_ref.py \
-    tests/scripts/dev/test_worktree_guard_inspection.py \
-    tests/scripts/dev/test_worktree_guard_subject.py tests/scripts/dev/test_worktree_guard_topology.py
-  doc_state_sync.py --check   # confirm exit 0 first
-  SKIP=doc-state-sync-check git commit -m "chore(docs): Move PLAYBOOK/FINDINGS/AGENT_NOTES/HANDOFF_PROMPT to docs/agents/"
+  .venv/bin/python scripts/doc_state_sync.py --check   # confirm exit 0 first
+  SKIP=doc-state-sync-check git commit -m "chore(docs): Move the four agent documents to docs/agents/"
   ```
+  (The draft's subject, "Move PLAYBOOK/FINDINGS/AGENT_NOTES/HANDOFF_PROMPT to docs/agents/",
+  is 78 characters, over the 72-character limit.)
 
 **Acceptance:** the four files live at `docs/agents/`; `config/docsync.toml` declares their
 new paths; the worktree guard reads the new location; the four `allow_after` keys and every
 bare citation inside the five always-scanned documents (plus the active definition and
-SESSION_CONTEXT) are current; `pytest -q`, `pre-commit run --all-files` and
+SESSION_CONTEXT) are current; `cli.py` reads and writes every document through
+`[documents]`, with `PLAYBOOK_PATH` and `FINDINGS_PATH` gone; no generated text under
+`scripts/docsync/` names a document path; the pre-commit exclude keeps `docs/agents/`
+checked and the rest of `docs/` excluded; `pytest -q`, `pre-commit run --all-files` and
 `doc_state_sync.py --check` all pass; every live-probe row behaves as specified.
 
 ---
 
-### Task 7: Reconcile PR #242's repo-assist workflow, or file the follow-up
+### Task 7: Point PR #242's repo-assist workflow at the moved documents
 
-Owner ruling: PR #242 (`chore/repo-assist-workflow`) adds `.github/workflows/repo-assist.md`
-naming `PLAYBOOK.md`/`FINDINGS.md` at the root in its `allowed-files` lists and prose, and the
-owner merges #242 before this move lands. This task decides which of the two stated options
-applies, at the moment it runs, and does not guess.
+PR #242 merged into `main` (`707eed6`) and Task 0 merges it here, so the workflow is on this
+branch when this task runs; the draft's "absent" branch (file a finding instead) no longer
+applies. `.github/workflows/repo-assist.md` names `PLAYBOOK.md` and `FINDINGS.md` at the
+root, and its compiled `.github/workflows/repo-assist.lock.yml` carries its own copies.
+
+**Environment:** needs the `gh aw` extension to recompile. A cloud sandbox without it (no
+`gh` CLI at all in the 2026-09-24 cloud session) leaves this task to a local session; do not
+hand-edit the lock file. Pushing a change under `.github/workflows/` also needs a token with
+the `workflow` permission (handoff section 8).
 
 **Files:**
-- Modify (if present): `.github/workflows/repo-assist.md`
-- Modify (if absent): `FINDINGS.md` (post-move: `docs/agents/FINDINGS.md`)
+- Modify: `.github/workflows/repo-assist.md`
+- Regenerate: `.github/workflows/repo-assist.lock.yml` (`gh aw compile`)
 
-- [ ] **Step 1: Check whether the file exists on this branch**
+- [ ] **Step 1: Repoint the source**
+
+  In `.github/workflows/repo-assist.md` (line numbers at `origin/main` `707eed6`):
+  - Both `allowed-files` lists (`create-pull-request`, `:189`/`:191`, and
+    `push-to-pull-request-branch`, `:204`/`:206`) name `docs/agents/PLAYBOOK.md` and
+    `docs/agents/FINDINGS.md` in place of the root paths.
+  - The "Repository Rules" prose that forbids editing anything under `docs/` other than the
+    log files must permit exactly those two files, so the grant and the prohibition agree.
+  - Its prose mentions of `FINDINGS.md` and `PLAYBOOK.md` (`:10-11`, `:322-324`) become the
+    `docs/agents/` paths.
+
+- [ ] **Step 2: Recompile and check the copies**
 
   ```bash
-  git fetch origin
-  test -f .github/workflows/repo-assist.md && echo PRESENT || echo ABSENT
+  gh aw compile repo-assist
+  git grep -n -e 'PLAYBOOK\.md' -e 'FINDINGS\.md' -- .github/workflows/repo-assist.lock.yml
   ```
+  Every hit must carry the `docs/agents/` prefix. At `707eed6` the lock file carries the paths
+  on six lines: the two `allowed_files` JSON configs (`GH_AW_SAFE_OUTPUTS_CONFIG` and
+  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG`) and the embedded workflow description. If the compile
+  also asks for `--approve` (a changed memory-validation script), review the change first.
 
-- [ ] **Step 2a: If PRESENT** (PR #242 merged to `main` and `main` has been merged into this
-  branch by the time this task runs)
+- [ ] **Step 3: Section 4 entry, gates, commit**
 
-  Update both `allowed-files` lists (`create-pull-request` and
-  `push-to-pull-request-branch`) to add `docs/agents/PLAYBOOK.md` and
-  `docs/agents/FINDINGS.md` alongside (or in place of, if the owner's #242 merge already
-  dropped the root paths as dead) the root-path entries. Update the "Repository Rules" prose
-  exclusion ("Never edit ... anything under `scripts/` or `docs/` other than the log files
-  ...") to explicitly permit `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md`, so the
-  `allowed-files` grant and the prose prohibition agree. Update the two prose mentions of
-  `FINDINGS.md` at lines 10-11 and 316 for consistency. Commit as its own change:
+  One untagged Section 4 entry (cloud-kit R1). Gates as usual.
+
   ```bash
   git commit -m "chore(repo-assist): Point allowed-files at the moved documents"
   ```
 
-- [ ] **Step 2b: If ABSENT** (this task runs before #242 merges)
+**Acceptance:** neither workflow file names a root `PLAYBOOK.md` or `FINDINGS.md`; the
+allowed-files grant and the "Repository Rules" prose agree; the lock file was regenerated by
+`gh aw compile`, not edited by hand.
 
-  File a finding in `FINDINGS.md` (pre-move) or `docs/agents/FINDINGS.md` (if Task 6 has
-  already landed) at P1, tagged `F-DOCSYNC-<next>`: "The `chore/repo-assist-workflow` branch
-  (PR #242, not yet merged) hard-codes `PLAYBOOK.md`/`FINDINGS.md` at the repository root in
-  its `allowed-files` lists and prose; once merged, repoint both to `docs/agents/`." No code
-  change in this repository; this is the "stated follow-up" the owner ruling names as the
-  alternative, and closing it is future-batch work triggered by #242's merge, not by this
-  plan.
+---
 
-**Acceptance:** either `.github/workflows/repo-assist.md` is consistent with the new paths, or
-a named finding records the follow-up. One of the two, not neither.
+### Task 8: Diagnostics name the declared document path
+
+Owner ruling, 2026-09-24: the docsync diagnostics that print a bare `PLAYBOOK.md` as their
+location are fixed in this plan, not deferred to a finding. After Task 6 they point a reader
+at a file that no longer exists. Labels change only the printed `path`, never whether a
+check fires, so this task is safe to land after Task 6.
+
+**Scope (at `85f47a0`; re-grep before starting, since Tasks 2-6 move lines):**
+- `"PLAYBOOK.md"` labels, fourteen: `scripts/docsync/integrity.py` --
+  `_active_definition_reference` (two, built as `IntegrityIssue(path="PLAYBOOK.md")`
+  directly, not through `_issue`), `_unpaired_result_issue` (one), `_check_unbolded_test_counts`
+  (two), `_check_section3_next_wp` (three), `collect_integrity_issues` (two DOC002);
+  `scripts/docsync/closeout.py` -- `_admission_issue` (one), `_claim_issues` (three). (The
+  draft said "ten": that is `integrity.py`'s count alone. The two `path == "PLAYBOOK.md"`
+  comparisons are behavioural and are Task 2's.)
+- `FINDINGS.md` labels, twelve, the same defect for the other moved document (owner ruling,
+  2026-09-24: they join this task): `_check_findings_header_count`'s DOC008 label
+  (`integrity.py:901`) and every diagnostic in `scripts/docsync/findings.py` that prints
+  `ACTIVE_PATH` as its location -- eleven sites (`:220`, `:233`, `:250`, `:262`, `:274`,
+  `:286`, `:297`, `:318`, `:344`, `:437`, `:459`), covering DOC013-DOC018 and DOC023; the
+  DOC023 warning at `:459` is built as `IntegrityIssue` directly.
+
+None of these functions receives a document path today. Thread the declared path down from
+`collect_integrity_issues`'s `playbook_relative_path` / `findings_relative_path` (Task 2) as
+a keyword argument defaulting to today's literal, so direct callers and existing tests keep
+working; for `closeout.py`, from its caller in `collect_integrity_issues` or `cli.py`'s
+`_close_batch`, whichever builds the issue. Grep for the literal afterwards: no
+`"PLAYBOOK.md"` may remain as a diagnostic path in `scripts/docsync/`.
+
+**Files:**
+- Modify: `scripts/docsync/integrity.py`, `scripts/docsync/closeout.py`,
+  `scripts/docsync/findings.py`, `scripts/docsync/cli.py`
+  (if `_close_batch` must pass the path)
+- Test: `tests/test_docsync_integrity.py`, `tests/test_docsync_closeout.py`,
+  `tests/test_docsync_findings.py`
+
+- [ ] **Step 1: Tests first**
+
+  For each check family -- DOC002 (`_active_definition_reference` and the two
+  `collect_integrity_issues` sites), DOC007, DOC012, the close-out admission and claim
+  issues, DOC008, and each findings code (DOC013-DOC018, DOC023) -- one test that calls the check
+  with `playbook_relative_path="docs/agents/PLAYBOOK.md"` (or the findings equivalent) on
+  input that raises it, and asserts the issue's `path` is the declared one. Each must fail
+  first: today every one prints the bare root name.
+
+- [ ] **Step 2: Thread the path and run the tests**
+
+  ```
+  .venv/bin/python -m pytest tests/test_docsync_integrity.py tests/test_docsync_closeout.py tests/test_docsync_findings.py -v
+  ```
+
+- [ ] **Step 3: Gates and live probe**
+
+  Control plane: `--check` at exit 0 first, then commit with `SKIP=doc-state-sync-check`.
+  In `/tmp/ssprobe/corpus` built from this task's tree:
+  - **Red (DOC007):** make `docs/agents/PLAYBOOK.md` Section 3's `**Next action:**` line
+    name a work package that disagrees with the definition; `--check` prints DOC007 with the
+    location `docs/agents/PLAYBOOK.md:<line>`.
+  - **Red (DOC002):** point Section 3's active-definition reference at a missing file;
+    DOC002 prints `docs/agents/PLAYBOOK.md` as its location.
+  - **Near-miss green:** reset; `--check` exits 0.
+  - Record each diagnostic's printed location in the probe table.
+
+- [ ] **Step 4: Section 4 entry and commit**
+
+  ```bash
+  SKIP=doc-state-sync-check git commit -m "fix(docsync): Name the declared document path in diagnostics"
+  ```
+
+**Acceptance:** every docsync diagnostic about a moved document prints its declared path;
+no `"PLAYBOOK.md"` literal remains as a diagnostic location under `scripts/docsync/` (nor
+`FINDINGS.md`); each new test fails without the change; the probe shows the new
+location.
 
 ---
 
 ## Self-Review
 
-**Spec coverage.** Every item in `.superpowers/sdd/2026-09-24-batch23-root-cleanup/inventory.md`
-is accounted for: Section 1's code sites (Tasks 4-6), Section 2's tests (Tasks 1, 5, 6 name
-every test that changes and why; the self-consistent synthetic fixtures in `tests/conftest.py`
-and `tests/test_docsync_cli.py`'s `CORPUS_*` constants are a deliberate, stated scope cut --
-they test docsync's logic generically and gain no regression coverage from mirroring the new
-layout, so touching ~45+ call sites for no behavioural gain is declined by Rule 5), Section 3's
-citers (Task 6 Steps 7-8), Section 4's DOC001 scan mechanics (Task 2's kwargs, Task 6's sweep),
-Section 5's declarations (Task 6 Step 4), Section 6's other entry points (Task 6's sweep list,
-Task 7, and the controller list below), Section 7's seven risks (rows 1 and 2 are Tasks 4 and
-6's same-commit constraints; row 3 is Task 6 Step 4; row 4 is Task 6's whole-document sweep;
-row 5 is the `git mv` rule in Global Constraints; row 6 noted, no defect found; row 7 is why
-Tasks 4 and 5 are separate commits from Task 6).
+**Spec coverage.** Every item in `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md`
+is accounted for, plus what the 2026-09-24 pre-flight found beyond it: Section 1's code sites
+(Tasks 4-6, 8), Section 2's tests (Tasks 1, 3, 5, 6 name every test that changes and why),
+Section 3's citers (Task 5 Step 5, Task 6 Steps 7-8), Section 4's DOC001 scan mechanics (Task
+2's kwargs, Task 6's sweep; DOC001 checks backticked `.md` references and not `.toml`, so the
+`.docsync.toml` sweep is by grep), Section 5's declarations (Task 6 Step 4), Section 6's
+other entry points (Task 6's sweep list, Task 7, and the controller list below), and Section
+7's seven risks (rows 1 and 2 are Tasks 4 and 6's same-commit constraints; row 3 is Task 6
+Step 4; row 4 is Task 6's whole-document sweep; row 5 is the `git mv` rule in Global
+Constraints; row 6 noted, no defect found; row 7 is why Tasks 4 and 5 are separate commits
+from Task 6). Beyond the inventory: the pre-commit exclude (Task 6 Step 9), the lock file
+(Task 7), the declarations-file fixtures (Task 5 Step 1), the renderer tests and the archive
+prologue contract (Task 6 Step 6).
 
-**Placeholder scan.** No task says "add tests" without the test body, no task says "update
-references" without naming which ones and where.
+**Scope cut, narrowed.** The synthetic fixtures in `tests/conftest.py` and
+`tests/test_docsync_cli.py`'s `CORPUS_*` constants keep their four documents at the fixture
+root: with no `[documents]` table the defaults are the root names, so they still test
+docsync's generic behaviour and gain nothing from mirroring this repository's layout (Rule
+5). Their declarations file is not cut: it follows `DECLARATIONS_FILENAME` (Task 5 Step 1),
+or those fixtures would run with nothing declared.
+
+**Placeholder scan.** No task says "add tests" without the test body or the assertion it must
+make, and no task says "update references" without naming which ones and where.
 
 **Type consistency.** `DocumentsConfig` is defined once (Task 2) and consumed with the same
-field names (`playbook`, `findings`, `agent_notes`, `handoff_prompt`) in Tasks 3 and 6.
+field names (`playbook`, `findings`, `agent_notes`, `handoff_prompt`) in Tasks 6 and 8.
 `resolved_live_document_paths(documents: DocumentsConfig) -> tuple[str, ...]` is defined once
-(Task 2) and called unchanged in Task 6. `collect_integrity_issues`'s three new kwargs
+(Task 2) and called unchanged in Task 6. `collect_integrity_issues`'s three path kwargs
 (`document_paths`, `playbook_relative_path`, `findings_relative_path`) are introduced in Task
-2 with their final names and used unchanged in Task 6.
+2 and used unchanged in Tasks 6 and 8; its `config_path` kwarg, and
+`collect_declaration_issues`', arrive in Task 3.
 
 ---
 
 ## Definition of Done
 
-Parts 1-7 each meet their own acceptance. `pytest -q`, `pre-commit run --all-files`,
-`doc_state_sync.py --check`, and the frontend gate all pass on the final tree. `PLAYBOOK.md`
-Section 4 carries one dated entry per task (untagged, per WP-0's logging rule), with each
-task's live-probe table pasted in. Task 7 has landed one of its two branches. The controller
-checklist below is handed to the owner, not executed by an implementer.
+Tasks 0-8 each meet their own acceptance. `pytest -q`, `pre-commit run --all-files`,
+`doc_state_sync.py --check`, and the frontend gate (locally or CI's `quality-gate`) all pass
+on the final tree. `docs/agents/PLAYBOOK.md` Section 4 carries one dated entry per task
+(untagged, per WP-0's logging rule), each with its live-probe table where the task has one.
+The controller checklist below is handed to the owner, not executed by an implementer.
 
 ---
 
@@ -1106,69 +1552,58 @@ repository entirely. Hand these to the owner or do them yourself once Task 6 has
 3. **`~/.claude` memory files** (`project_batch23_wp0.md` and any sibling that cites `PLAYBOOK.md`/
    `FINDINGS.md`/`AGENT_NOTES.md`/`HANDOFF_PROMPT.md` by bare root path): update once Task 6
    lands, so the next cold-resume session's memory agrees with the tree.
-4. **Handoff documents already written** (e.g.
-   `docs/superpowers/handoffs/scrobblescope-handoff-2026-09-23-after-task7.md`): point-in-time,
-   per DOC001's own exemption rule -- leave as written, no edit.
-5. **PR #242** itself: see Task 7. If it merges after this plan's Task 6 has already landed on
-   `main`, its author should git-mv the repo-assist workflow's targets against the already-moved
-   tree rather than reintroducing root paths that Task 7's finding then has to catch again.
+4. **Handoff documents already written** (e.g. the untracked
+   `docs/superpowers/handoffs/scrobblescope-handoff-2026-09-23-after-task7.md` on the owner's
+   machine): point-in-time -- leave as written. The tracked entry-point handoff is repointed
+   in Task 6 Step 8.
+5. **A local session for Task 7** if this plan runs in a cloud sandbox without `gh aw`.
 
 ---
 
-## Revisions pending (apply before execution)
+## Revisions applied (2026-09-24; Task 1 deletes this section)
 
-The owner answered this draft's open points and ruled on two more items on
-2026-09-24; a plan review (read-only, source-verified) found the rest. Each
-item says what to change.
+The eight items the first review and the owner's rulings left pending, and where each
+landed:
 
-1. **New Task 0: merge `origin/main` into this branch before anything else**
-   (owner ruling, 2026-09-24). PR #242 merged into `main` as `707eed6`; this
-   branch does not contain it. A normal merge commit, no history rewrite.
-   Verified with `git merge-tree --write-tree HEAD origin/main` at `151717d`:
-   the only conflicts are `PLAYBOOK.md` Section 4 and
-   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, because both sides
-   added untagged entries after the current-batch end marker. Keep every
-   entry from both sides, newest first, then let `doc_state_sync.py --fix`
-   settle the rotation; `main`'s other changes (`.github/workflows/repo-assist.*`,
-   `.github/aw/actions-lock.json`, `.gitattributes`, and a
-   `.github/copilot-instructions.md` line byte-identical to this branch's)
-   merge cleanly. `main`'s other commits since the merge base (`1d16e18`) are
-   merges whose content this branch already holds. The review's claim that
-   `AGENTS.md`, `FINDINGS.md`, `AGENT_NOTES.md`, `frontend_gate.py` and a
-   test would conflict is disproved by that simulation. Run every gate after
-   the merge; its Section 4 entry is untagged.
-2. **Task 7 always takes the "present" branch.** After Task 0 the workflow
-   is on this branch, so delete the probe and Step 2b (whose "not yet
-   merged" wording is now false). Repoint `.github/workflows/repo-assist.md`:
-   both `allowed-files` lists name `docs/agents/PLAYBOOK.md` and
-   `docs/agents/FINDINGS.md` in place of the root paths; its "Repository
-   Rules" prose, which forbids editing `docs/` beyond the log files, must
-   permit those two files, and its `FINDINGS.md` mentions become
-   `docs/agents/FINDINGS.md`. Then `gh aw compile repo-assist` and commit
-   the regenerated `.lock.yml` (a cloud sandbox without the `gh aw`
-   extension leaves this task to a local session).
-3. **New Task 8: the diagnostics name the declared path** (owner ruling,
-   2026-09-24; replaces "file a finding"). Thread the declared playbook path
-   into every `_issue(...)` call that prints `"PLAYBOOK.md"` as its location:
-   ten label sites across `scripts/docsync/integrity.py` and
-   `scripts/docsync/closeout.py` (the draft's "twelve" double-counted the two
-   `path ==` comparisons Task 6 already fixes), including the two DOC002
-   checks inside `collect_integrity_issues` that the draft never named.
-   Tests first, asserting the `docs/agents/` path appears in the diagnostic;
-   a live probe that plants a DOC002 or DOC007 defect and shows the new
-   path. Remove the draft's open point 2.
-4. **Task 6 Step 6 also fixes `SIDE_ARCHIVE_PREFIX`** in
-   `scripts/docsync/renderer.py`, the module's third `PLAYBOOK.md` citation
-   (inventory Section 1 lists all three).
-5. **Task 1 names its own Section 4 entry** (untagged, Part B) explicitly,
-   and, since this file is already tracked, its commit also carries the
-   plan's approved version (status paragraph and this section removed).
-6. **Citation style is settled:** repository-root paths everywhere, including
-   between files in `docs/agents/` (DOC001 resolves citations from the
-   repository root). Remove the draft's open point 1.
-7. **Advisory, decide at dispatch:** Task 6 must be one commit, but may be
-   two sequential implementer dispatches over one uncommitted tree (moves
-   and wiring, then the citation sweep, tests and the commit).
-8. **Interpreter paths:** Global Constraints name the local Windows venv. In
-   a cloud session use `.superpowers/cloud-kit/constraints.md` R10 and its
-   gates block instead.
+1. Merge `origin/main` first -> Task 0. Conflict set re-verified at `85f47a0`: only
+   `PLAYBOOK.md` and the log archive.
+2. Task 7 always takes the "present" branch -> Task 7 rewritten; the probe and Step 2b are
+   gone; the lock-file recompile is Step 2, and a sandbox without `gh aw` leaves the task to a
+   local session.
+3. Diagnostics name the declared path -> Task 8. Corrected: fourteen `"PLAYBOOK.md"` label
+   sites, not ten (ten in `integrity.py`, two of them built directly; four in `closeout.py`);
+   the twelve `FINDINGS.md` labels (eleven in `findings.py`, one in `integrity.py`) join the
+   task by owner ruling. The draft's open point 2 is gone (Task 2 Step 5 now points at Task
+   8).
+4. `SIDE_ARCHIVE_PREFIX` -> Task 6 Step 6, which also found it is a DOC004 contract with the
+   real archive's prologue, and drops the path from generated text instead of hard-coding the
+   new one (the owner's "declared, not hard-coded" ruling).
+5. Task 1 names its own Section 4 entry and carries the approved plan -> Task 1 Steps 3-4.
+6. Citation style settled on repository-root paths -> Task 6 Step 8; open point 1 is gone.
+7. Task 6 may be two sequential dispatches over one uncommitted tree, one commit -> advisory,
+   decided at dispatch (unchanged).
+8. Interpreter paths -> Global Constraints point at cloud-kit R10 and its gates block; every
+   command uses `.venv/bin/python -m pytest` and `/tmp/ssprobe`.
+
+The pre-flight (three read-only passes at `85f47a0`, plus controller probes in a scratch
+copy) found, and the tasks now handle:
+
+- Task 3: `CONFIG_PATH` needs `global` and a restore in `finally` (`REPO_ROOT` is a true
+  constant, and tests call `main()` in-process); `collect_declaration_issues` needs
+  `config_path` too; an explicit `--config` naming a missing file must be refused, since a
+  missing file otherwise means "nothing declared" and passes.
+- Task 4: one error string, not two; the manifest's own header comment claims the root; the
+  real test set is `tests/scripts/dev/test_frontend_gate*.py`.
+- Task 5: the draft moved the file out from under test fixtures that still wrote the old
+  path (a probe of the draft: 25 failures, 2 of them expected); two remediation strings and
+  four comments name the file; 28 prose and comment lines outside `scripts/` and `tests/`
+  cite it (some point-in-time), with no gate to catch the live ones; the
+  draft's near-miss probe staged a `scripts/docsync/` file, which is refused under either
+  name.
+- Task 6: `cli.py` reads and writes `PLAYBOOK_PATH` / `FINDINGS_PATH` at eight sites;
+  `sync_env` monkeypatches `PLAYBOOK_PATH`; two renderer tests copy the status line by value;
+  `test_worktree_guard_cli_e2e.py` was missing from the verification run;
+  `docs/design/RECONCILIATION.md:667`, `frontend_gate.py`'s docstring and the entry-point
+  handoff cite moved documents; `.pre-commit-config.yaml`'s `exclude` would silently drop the
+  moved documents from four file hooks (owner ruling pending, Step 9); the commit subject was
+  78 characters.

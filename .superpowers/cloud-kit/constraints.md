@@ -1,7 +1,8 @@
 # Constraints for every task dispatched from an SDD workspace (cloud kit)
 
-Plan: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, Tasks 6-10
-(Track 2; Task 5 landed 2026-09-24). This is the Linux, cloud-session form of
+Plans: `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md` and
+`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`; `PLAYBOOK.md`
+Section 3 says which task is next. This is the Linux, cloud-session form of
 the local workspace's `constraints.md`, first cut on 2026-09-24 (HEAD
 `cae2aa8`) and revised after the first cloud session. To use it, copy it
 into a new workspace as `constraints.md` (see
@@ -44,8 +45,9 @@ only the progress text inside that bullet, e.g. its numbered order list:
 mark the step that landed. Do not write "WP-1" anywhere in Section 3, the
 definition or SESSION_CONTEXT.
 
-**R3 -- test count.** Baseline **1821 passed** (measured 2026-09-24, last at HEAD
-`4ae0dc3`; re-measure at your BASE -- an earlier task may have raised it). A task that adds tests must also update the count
+**R3 -- test count.** The baseline is the `Tests` row of
+`.claude/SESSION_CONTEXT.md` Section 1; re-measure it at your BASE, since an
+earlier task may have raised it. A task that adds tests must also update the count
 sites docsync names (DOC006, DOC008): `.claude/SESSION_CONTEXT.md` Section 1
 `Tests` row, its `## 6. Test structure (N tests)` heading, and the
 `FINDINGS.md` header count. A task that adds no test changes none of them.
@@ -55,7 +57,7 @@ sites docsync names (DOC006, DOC008): `.claude/SESSION_CONTEXT.md` Section 1
 in exactly this form, qualifier *after* the count:
 
 ```
-Validation: `pytest -q` -- **1821 passed**.
+Validation: `pytest -q` -- **N passed**.
 ```
 
 Nothing but ` -- ` may sit between `` `pytest -q` `` and the bold count
@@ -98,9 +100,9 @@ the files your brief names. Throwaway probe or scratch copies go under
 **R11 -- ASCII only** in every file you write, including the PLAYBOOK entry
 and the commit message: `--` not an em dash, straight quotes only.
 
-**R12 -- Track 2 specifics (foundation Tasks 4-10).**
+**R12 -- Plan-task specifics (foundation Tasks 4-10, root-cleanup Tasks 0-8).**
 
-- **Live probe for every task that changes a check** (Tasks 4, 5 and 8):
+- **Live probe for every task its plan's verification standard names**:
   follow the plan's "The verification standard for control-plane tasks"
   exactly -- throwaway corpus at `/tmp/ssprobe` from `git archive HEAD`,
   faithful-copy check, red, near-miss green, reset between probes, the probe
@@ -121,10 +123,11 @@ and the commit message: `--` not an em dash, straight quotes only.
   unless your brief says so and says why; name any such test in the commit
   body.
 - **Section 3:** in the "Next action" order list, step 3 is "The foundation
-  plan's Tasks 4-10"; record your task's progress there, keeping
+  plan's Tasks 4-10", and the root cleanup's progress sits at that item's
+  end; record your task's progress there, keeping
   `WP-0 is next.` exactly (R2).
-- **Plan bookkeeping:** tick your task's step checkboxes in the foundation
-  plan, and stage the plan.
+- **Plan bookkeeping:** tick your task's step checkboxes in its plan, and
+  stage the plan.
 - **Ledger:** this workspace's `progress.md` is the controller's; do not
   edit it.
 
