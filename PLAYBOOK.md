@@ -204,8 +204,10 @@ See FINDINGS F-DOCSYNC-3.
      on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call and the
      release checks), is done, 2026-09-24, including the owner's live check
      (its Step 5). Task 5 (the DOC range the catalogue owns is no longer
-     stated as a range anywhere live) is done, 2026-09-24. Next is the
-     foundation plan's Task 6.
+     stated as a range anywhere live) is done, 2026-09-24. Next, by owner
+     ruling 2026-09-24, is a small side task: the provider summary log line
+     states its span as well as its time in calls (the handoff's section 5
+     describes it). Then the foundation plan's Task 6.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -413,6 +415,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The handoff schedules a truer provider summary line
+
+Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Why.** The owner read `MusicBrainz: 17 calls in 2.6s` as MusicBrainz
+  running faster than its 1 request per second. The calls were compliant:
+  their log timestamps are one second apart, as the global throttle in
+  `scrobblescope/utils.py` enforces. The summary's time is the sum of
+  per-call durations, not the session's span.
+- **Change.** `docs/history/reports/HANDOFF_2026-09-24.md` section 5 now
+  opens with a side task, ruled by the owner on 2026-09-24 to run before
+  foundation Task 6: the summary states both the span and the time in calls.
+  Section 7 withdraws the per-album Spotify item (the owner's log lines came
+  from `/api/artist_spotlight` and the token fetch, not the album fetch). It
+  also notes that `scrobblescope/musicbrainz.py` puts album and artist names
+  in its retry log label, for the WP-3/WP-4 Data handling check.
+- **Section 3** names the side task as next, before Task 6.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-24 - The cloud handoff is revised after the first cloud session
 
 Side task, no batch tag: revise the session handoff at the end of the first
@@ -601,31 +624,3 @@ ruling 2026-09-23 until the whole of WP-0 lands.
 - Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
   tests were excluded, since they are not repository state. The frontend
   gate ran, since `static/` changed.
-
-### 2026-09-24 - The Batch 23 foundation work gets a handoff a cloud session can run from
-
-Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a
-cloud session. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Why.** The owner is moving the work to a cloud session, which has only
-  the repository. The local sessions kept their working state outside Git:
-  the SDD ledgers and workspace constraints (`.superpowers/sdd/`, ignored),
-  the four agent definitions (user-level, `~/.claude/agents/`), and the
-  owner's working agreements (session memory). The gate commands were also
-  Windows paths.
-- **Added.** `docs/history/reports/HANDOFF_2026-09-24.md`, the new entry
-  point: state, Linux setup, how the subagent loop runs without the plugin
-  scripts, next steps with Task 5's owner ruling, rulings in force, open
-  items and traps. `.superpowers/cloud-kit/constraints.md` is the Linux form
-  of the workspace constraints (gates on `.venv/bin`, Lessons L1-L10).
-  `.superpowers/cloud-kit/agents/` holds the four agent definitions,
-  copied unchanged. `.superpowers/sdd/.gitignore` is now tracked, so a
-  fresh clone keeps new SDD workspaces out of Git.
-- **Not added.** The root `CLAUDE.md` stays git-ignored, as `.gitignore`
-  records; the cloud session's first prompt names the handoff instead. The
-  SDD helper scripts stay out too (vendored skills are local harness state
-  per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
-- **Section 3** points its handoff bullet at the new file.
-- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-  tests were excluded, since they are not repository state. Docs only.

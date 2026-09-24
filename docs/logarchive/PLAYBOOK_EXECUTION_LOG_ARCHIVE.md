@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The Batch 23 foundation work gets a handoff a cloud session can run from
+
+Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a
+cloud session. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Why.** The owner is moving the work to a cloud session, which has only
+  the repository. The local sessions kept their working state outside Git:
+  the SDD ledgers and workspace constraints (`.superpowers/sdd/`, ignored),
+  the four agent definitions (user-level, `~/.claude/agents/`), and the
+  owner's working agreements (session memory). The gate commands were also
+  Windows paths.
+- **Added.** `docs/history/reports/HANDOFF_2026-09-24.md`, the new entry
+  point: state, Linux setup, how the subagent loop runs without the plugin
+  scripts, next steps with Task 5's owner ruling, rulings in force, open
+  items and traps. `.superpowers/cloud-kit/constraints.md` is the Linux form
+  of the workspace constraints (gates on `.venv/bin`, Lessons L1-L10).
+  `.superpowers/cloud-kit/agents/` holds the four agent definitions,
+  copied unchanged. `.superpowers/sdd/.gitignore` is now tracked, so a
+  fresh clone keeps new SDD workspaces out of Git.
+- **Not added.** The root `CLAUDE.md` stays git-ignored, as `.gitignore`
+  records; the cloud session's first prompt names the handoff instead. The
+  SDD helper scripts stay out too (vendored skills are local harness state
+  per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
+- **Section 3** points its handoff bullet at the new file.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-24 - The owner's live check closes the logging task
 
 Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
