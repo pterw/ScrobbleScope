@@ -111,11 +111,12 @@ See FINDINGS F-DOCSYNC-3.
   are complete**. The batch is closed: its definition is archived at
   `docs/history/definitions/BATCH22_DEFINITION.md` and its log at
   `docs/history/logs/BATCH22_LOG.md`.
-- **Session handoff, 2026-09-23:** `docs/history/reports/HANDOFF_2026-09-23.md`
-  is the entry point for a new agent. It covers WP-0's state, the next steps
-  in order, the untracked artifacts and the traps. For the environment, the
-  gates and the schema-migration trap, it defers to
-  `docs/history/reports/HANDOFF_2026-09-20.md`.
+- **Session handoff, 2026-09-24:** `docs/history/reports/HANDOFF_2026-09-24.md`
+  is the entry point for a new agent, written for a cloud session with only
+  this repository. It covers WP-0's state, the Linux environment setup, how
+  the subagent loop is run, the next steps in order, the rulings in force and
+  the traps. `.superpowers/cloud-kit/` holds the workspace constraints and
+  the four agent definitions it uses.
 - **PR #236 merged into `test`** at `fc9098d3` (2026-09-20 21:12). It carried
   the eight commits that landed after PR #234, which had merged the branch as
   it stood at `f6d5926` (2026-09-20 05:06) while the first of those eight was
@@ -402,6 +403,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - WP-0 gets a handoff a cloud session can run from
+
+Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a
+cloud session. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Why.** The owner is moving the work to a cloud session, which has only
+  the repository. The local sessions kept their working state outside Git:
+  the SDD ledgers and workspace constraints (`.superpowers/sdd/`, ignored),
+  the four agent definitions (user-level, `~/.claude/agents/`), and the
+  owner's working agreements (session memory). The gate commands were also
+  Windows paths.
+- **Added.** `docs/history/reports/HANDOFF_2026-09-24.md`, the new entry
+  point: state, Linux setup, how the subagent loop runs without the plugin
+  scripts, next steps with Task 5's owner ruling, rulings in force, open
+  items and traps. `.superpowers/cloud-kit/constraints.md` is the Linux form
+  of the workspace constraints (gates on `.venv/bin`, Lessons L1-L10).
+  `.superpowers/cloud-kit/agents/` holds the four agent definitions,
+  copied unchanged. `.superpowers/sdd/.gitignore` is now tracked, so a
+  fresh clone keeps new SDD workspaces out of Git.
+- **Not added.** The root `CLAUDE.md` stays git-ignored, as `.gitignore`
+  records; the cloud session's first prompt names the handoff instead. The
+  SDD helper scripts stay out too (vendored skills are local harness state
+  per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
+- **Section 3** points its handoff bullet at the new file.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-24 - The owner's live check closes the logging task
 
 Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
@@ -549,30 +578,3 @@ tests were excluded, since they are not repository state.
 Forward guidance: the reconcile plan's Task 13 (its whole Stage 4) is done.
 Next is the foundation plan's Task 5, per Section 3's order list -- Step 5
 above is still owed from the owner.
-
-### 2026-09-24 - Provider call logging joins the reconcile plan as its Task 13
-
-Side task, no batch tag: files F-B23-6 and writes the task that fixes it,
-part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands.
-
-- **Why.** Testing Batch 22's MusicBrainz corrections, the owner still saw
-  no MusicBrainz line in the log. At source: the release-check worker logs
-  nothing on success, `enqueue_release_check` skips silently without
-  `MUSICBRAINZ_CONTACT`, and `musicbrainz.py` and `deezer.py` have no log
-  call at all.
-- **Owner rulings, 2026-09-24.** Scope: all four providers, plus the three
-  release-worker lines the plan's "After this plan" section held (moved into
-  the task, with a pointer left behind). Levels: 429 and 5xx at WARNING with
-  `Retry-After`, other non-2xx at INFO, timeouts and connection errors at
-  WARNING, 2xx at DEBUG, and one INFO summary per provider per session.
-- **Recorded:** F-B23-6 (P2, owner-added) in `FINDINGS.md`; a Part C bullet
-  in `BATCH23_DEFINITION.md`; the reconcile plan's disposition row, its
-  Stage 4 and Task 13, and its stage count and order list; PLAYBOOK Section
-  3's order list, which runs Task 13 before the foundation plan's Task 5.
-- **Design constraint carried into the task:** no query string in any log
-  line, because it carries Last.fm's API key and the search terms the
-  definition's Data handling section keeps out of logs. The one exception
-  is Last.fm's `method` value.
-- Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
-  tests were excluded, since they are not repository state. Docs only.

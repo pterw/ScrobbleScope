@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - Provider call logging joins the reconcile plan as its Task 13
+
+Side task, no batch tag: files F-B23-6 and writes the task that fixes it,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Why.** Testing Batch 22's MusicBrainz corrections, the owner still saw
+  no MusicBrainz line in the log. At source: the release-check worker logs
+  nothing on success, `enqueue_release_check` skips silently without
+  `MUSICBRAINZ_CONTACT`, and `musicbrainz.py` and `deezer.py` have no log
+  call at all.
+- **Owner rulings, 2026-09-24.** Scope: all four providers, plus the three
+  release-worker lines the plan's "After this plan" section held (moved into
+  the task, with a pointer left behind). Levels: 429 and 5xx at WARNING with
+  `Retry-After`, other non-2xx at INFO, timeouts and connection errors at
+  WARNING, 2xx at DEBUG, and one INFO summary per provider per session.
+- **Recorded:** F-B23-6 (P2, owner-added) in `FINDINGS.md`; a Part C bullet
+  in `BATCH23_DEFINITION.md`; the reconcile plan's disposition row, its
+  Stage 4 and Task 13, and its stage count and order list; PLAYBOOK Section
+  3's order list, which runs Task 13 before the foundation plan's Task 5.
+- **Design constraint carried into the task:** no query string in any log
+  line, because it carries Last.fm's API key and the search terms the
+  definition's Data handling section keeps out of logs. The one exception
+  is Last.fm's `method` value.
+- Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-23 - The DOC024 wiring gets a test, and its severity gets stated truly
 
 Side task, no batch tag: fix round 1 on the archive page target task --
