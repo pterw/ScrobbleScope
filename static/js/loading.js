@@ -97,8 +97,12 @@ function updateProgress(progressData) {
   }
 }
 
-/** Upstream names a failure may cite; any other source shows no source line. */
-const ERROR_SOURCE_LABELS = { lastfm: 'Last.fm', spotify: 'Spotify' };
+/**
+ * Upstream names a failure may cite; any other source shows no source line.
+ * A Map, not an object literal, so an inherited key such as 'constructor'
+ * finds nothing instead of a prototype member.
+ */
+const ERROR_SOURCE_LABELS = new Map([['lastfm', 'Last.fm'], ['spotify', 'Spotify']]);
 
 /** Render a job failure and name its upstream source when there is one. */
 function showFailure(message, source) {
@@ -109,7 +113,7 @@ function showFailure(message, source) {
 
   if (errorSource) {
     // A fault that is ours ('internal') is not blamed on an upstream.
-    const label = ERROR_SOURCE_LABELS[source];
+    const label = ERROR_SOURCE_LABELS.get(source);
     errorSource.textContent = label ? `Source: ${label}` : '';
     errorSource.classList.toggle('hidden', !label);
   }
