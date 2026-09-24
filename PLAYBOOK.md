@@ -450,6 +450,15 @@ workflow runs only from the default branch.
 
 Validation: `pytest -q` -- **1821 passed**; no test or application change.
 
+**Follow-up (2026-09-24).** The owner added one line to the top of
+`.github/copilot-instructions.md` and asked for it to be tracked with this
+change: GitHub's coding agents are to follow `AGENTS.md` and its bootstrap,
+not duplicate its rules, and use the existing Graphify guidance for
+architecture questions. Its one curly apostrophe became a straight one
+(`AGENTS.md` Markdown Authoring Rules: ASCII only); the file's older
+non-ASCII characters, in its Mermaid section, are untouched.
+Validation: `pytest -q` -- **1821 passed**; docs only.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading
