@@ -2156,3 +2156,35 @@ def test_results_loading_year_gate_uses_the_utc_year(client):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
 
     assert b"Year must be between 2002 and 2024." in response.data
+
+
+def test_album_capacity_refusal_states_the_configured_cap(client):
+    """The cap comes from MAX_ACTIVE_JOBS, never a literal (F-LOAD-1)."""
+    with (
+        patch("scrobblescope.routes.MAX_ACTIVE_JOBS", 7),
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert b"Too many requests in progress" in response.data
+    assert b"all 7 search slots are busy" in response.data
+
+
+def test_heatmap_capacity_refusal_states_the_configured_cap(client):
+    """The heatmap's 429 carries the same configured cap (F-LOAD-1)."""
+    with (
+        patch("scrobblescope.routes.MAX_ACTIVE_JOBS", 7),
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "flounder14"})
+
+    assert response.status_code == 429
+    assert "all 7 search slots are busy" in response.get_json()["message"]

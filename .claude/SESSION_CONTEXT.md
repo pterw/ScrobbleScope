@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1743 passing** across 66 test modules |
+| Tests | **1745 passing** across 66 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -41,7 +41,7 @@ Last updated: 2026-09-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **1743 passed**.
+- Latest validated test count: **1745 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -148,7 +148,7 @@ orchestrator/_cache.py    <- orchestrator (facade)
 orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
 heatmap.py       <- lastfm, repositories, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/__init__.py     <- config, domain, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
@@ -237,7 +237,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1743 tests)
+## 6. Test structure (1745 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

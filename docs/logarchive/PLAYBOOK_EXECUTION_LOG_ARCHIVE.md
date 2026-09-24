@@ -9,6 +9,41 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The unused enrich_albums is retired
+
+Side task, no batch tag: fixes F-B22-7, part 3 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 6 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py`'s `enrich_albums` is deleted: after Task 5,
+  the live path already does everything it did, through
+  `_run_spotify_search_phase` and `_run_spotify_batch_detail_phase`, with the
+  per-phase progress the loading page shows that `enrich_albums` never had.
+  `scrobblescope/orchestrator/__init__.py` drops its import and its
+  `__all__` entry; `album_metadata_from_details` keeps both, since
+  `_details.py` still calls it through the facade. `git grep -n
+  "enrich_albums" -- '*.py'` now returns nothing.
+- **Tests removed, five in total, none replaced:**
+  `test_enrich_albums_empty_misses_makes_no_request`,
+  `test_enrich_albums_returns_matched_and_unmatched`,
+  `test_enrich_albums_marks_unmatched_when_detail_lookup_misses` and
+  `test_enrich_albums_handles_missing_cover_art`
+  (`tests/services/test_spotify_service.py`, with their banner comment and
+  the `enrich_albums` import), and
+  `test_enrich_albums_is_exposed_on_the_orchestrator_facade`
+  (`tests/services/test_orchestrator_fetch_spotify.py`, with both of its
+  `enrich_albums` imports).
+- **This resolves F-B22-7.** The Spotify payload is translated only in
+  `spotify.album_metadata_from_details`; every metadata row is built by
+  `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in
+  `spotify_id` (Task 4); the unused `enrich_albums` and its tests are gone.
+- **Bookkeeping:** the reconcile plan's Task 6 steps are ticked. Section 3's
+  order list now records Task 6 landed alongside Tasks 3-5 in Stage 2.
+
+Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The Spotify payload is translated once, in spotify.py
 
 Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0

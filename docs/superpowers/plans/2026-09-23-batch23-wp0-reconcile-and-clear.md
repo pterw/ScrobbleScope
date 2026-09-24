@@ -1262,7 +1262,7 @@ when `acquire_job_slot()` has just failed, and at that moment every slot is take
 always read cap/cap. What the finding needs is the cap itself, read from configuration rather than
 written as a literal.
 
-- [ ] **Step 1: Write the failing tests.** Append to `tests/test_routes.py`:
+- [x] **Step 1: Write the failing tests.** Append to `tests/test_routes.py`:
 
 ```python
 def test_album_capacity_refusal_states_the_configured_cap(client):
@@ -1297,12 +1297,12 @@ def test_heatmap_capacity_refusal_states_the_configured_cap(client):
     assert "all 7 search slots are busy" in response.get_json()["message"]
 ```
 
-- [ ] **Step 2: Run them to verify they fail.**
+- [x] **Step 2: Run them to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_routes.py -q -k "configured_cap"`
 Expected: 2 failed, with `AttributeError`: `scrobblescope.routes` has no `MAX_ACTIVE_JOBS`.
 
-- [ ] **Step 3: Add the helper.** In `scrobblescope/routes/__init__.py`, add
+- [x] **Step 3: Add the helper.** In `scrobblescope/routes/__init__.py`, add
   `from scrobblescope.config import MAX_ACTIVE_JOBS` in alphabetical position among the `scrobblescope`
   imports, and add, after `_current_year`:
 
@@ -1321,26 +1321,26 @@ def _capacity_message():
     )
 ```
 
-- [ ] **Step 4: Use it at both sites.**
+- [x] **Step 4: Use it at both sites.**
   - In `album_flow.py`, `error="Too many requests in progress. Please try again in a moment.",` becomes
     `error=_routes._capacity_message(),`.
   - In `heatmap_flow.py`, `"message": "Too many requests in progress. Please try again in a moment.",`
     becomes `"message": _routes._capacity_message(),`.
 
-- [ ] **Step 5: Update the dependency graph.** In `.claude/SESSION_CONTEXT.md` Section 4, the
+- [x] **Step 5: Update the dependency graph.** In `.claude/SESSION_CONTEXT.md` Section 4, the
   `routes/__init__.py` line gains `config`:
 
 ```
 routes/__init__.py     <- config, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass.**
+- [x] **Step 6: Run the tests to verify they pass.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_routes.py -q`
 Expected: pass, including the unchanged `test_results_loading_capacity_exceeded_returns_error`, which
 matches the "Too many requests" substring the new text keeps.
 
-- [ ] **Step 7: Resolve F-LOAD-1 and commit.** The canonical record's reason: "both refusals read
+- [x] **Step 7: Resolve F-LOAD-1 and commit.** The canonical record's reason: "both refusals read
   `routes._capacity_message()`, which states the configured `MAX_ACTIVE_JOBS`". The count rises by 2.
   The frontend gate runs, because `templates/index.html` renders the album message. Then:
 

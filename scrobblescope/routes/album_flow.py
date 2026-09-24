@@ -411,7 +411,7 @@ def results_loading():
     if not _routes.acquire_job_slot():
         return render_template(
             "index.html",
-            error="Too many requests in progress. Please try again in a moment.",
+            error=_routes._capacity_message(),
         )
 
     params = {

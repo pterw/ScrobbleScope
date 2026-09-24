@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1743 tests across 66 test modules.
+1745 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -711,17 +711,6 @@ concurrent at `limit=200`). Options: heatmap-specific caching,
 progressive rendering, or a higher rate limit (not recommended). Status:
 open; no fetch-speed work scheduled. Source: Batch 18 audit + perf
 session 2026-05-16.
-
-### F-LOAD-1: concurrent-user UX when job slots are full
-
-With all `MAX_ACTIVE_JOBS` slots busy (default 5 since 2026-07-31; was
-10), users get "Too many requests in progress" with no occupancy hint.
-An "N/<cap> slots in use" hint would help, with the cap read from the
-configured `MAX_ACTIVE_JOBS` at render time rather than written as a
-literal -- deployments that override the env var must show their own
-capacity, and a literal silently goes stale at the next default change
-(it read "N/10" until 2026-07-31).
-Status: open. Source: load testing 2026-03-04.
 
 ### F-LOAD-2: no integration tests in CI
 

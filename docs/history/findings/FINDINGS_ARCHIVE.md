@@ -9,6 +9,20 @@ Newest rotation first.
 
 ---
 
+### F-LOAD-1: concurrent-user UX when job slots are full -- RESOLVED
+
+With all `MAX_ACTIVE_JOBS` slots busy (default 5 since 2026-07-31; was
+10), users get "Too many requests in progress" with no occupancy hint.
+An "N/<cap> slots in use" hint would help, with the cap read from the
+configured `MAX_ACTIVE_JOBS` at render time rather than written as a
+literal -- deployments that override the env var must show their own
+capacity, and a literal silently goes stale at the next default change
+(it read "N/10" until 2026-07-31).
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+both refusals read `routes._capacity_message()`, which states the configured `MAX_ACTIVE_JOBS`.
+Source: load testing 2026-03-04.
+
 ### F-B21-6: the year gate reads host-local time, the fetch window reads UTC -- RESOLVED
 
 `scrobblescope/routes.py` calls naive `datetime.now()` in three places:

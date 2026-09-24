@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, session, url_for
 
+from scrobblescope.config import MAX_ACTIVE_JOBS
 from scrobblescope.domain import format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.repositories import cleanup_expired_jobs, get_job_context
@@ -197,6 +198,20 @@ def _current_year():
     three call sites asked the same question.
     """
     return datetime.now(timezone.utc).year
+
+
+def _capacity_message():
+    """Return the refusal shown when every job slot is busy (F-LOAD-1).
+
+    The cap is MAX_ACTIVE_JOBS as configured, never a literal: a deployment
+    that overrides the variable shows its own capacity, and a change to the
+    default cannot leave this text stale. There is no occupancy count,
+    because the message only appears when every slot is taken.
+    """
+    return (
+        f"Too many requests in progress: all {MAX_ACTIVE_JOBS} search slots "
+        "are busy. Please try again in a moment."
+    )
 
 
 @bp.app_context_processor

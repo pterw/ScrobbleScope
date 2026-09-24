@@ -176,9 +176,11 @@ See FINDINGS F-DOCSYNC-3.
      `spotify_id` column), Task 5 (F-B22-7, part 2 of 3, the Spotify
      payload translated once in `spotify.py`), Task 6 (F-B22-7, part 3 of
      3, retiring the unused `enrich_albums`), Task 7 (F-SWE-5, both
-     background entry points now publish `internal_error`) and Task 8
+     background entry points now publish `internal_error`), Task 8
      (F-B21-6, every year gate reads `routes._current_year()`, which uses
-     `datetime.now(timezone.utc)`) landed 2026-09-23.
+     `datetime.now(timezone.utc)`) and Task 9 (F-LOAD-1, both refusals read
+     `routes._capacity_message()`, which states the configured
+     `MAX_ACTIVE_JOBS`) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -387,6 +389,43 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The capacity refusal states the configured cap
+
+Side task, no batch tag: fixes F-LOAD-1, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 9 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_capacity_message()`,
+  which returns `f"Too many requests in progress: all {MAX_ACTIVE_JOBS}
+  search slots are busy. Please try again in a moment."`, reading
+  `MAX_ACTIVE_JOBS` from `scrobblescope.config` rather than a literal.
+  `scrobblescope/routes/album_flow.py`'s and
+  `scrobblescope/routes/heatmap_flow.py`'s refusal strings now both read
+  `_routes._capacity_message()` through the existing `_routes` module
+  reference. There is no occupancy counter: the message only renders after
+  `acquire_job_slot()` has just failed, when every slot is already taken, so
+  a count would always read cap/cap. Two new tests in `tests/test_routes.py`
+  cover it: `test_album_capacity_refusal_states_the_configured_cap` and
+  `test_heatmap_capacity_refusal_states_the_configured_cap`, both patching
+  `MAX_ACTIVE_JOBS` to a distinctive value and asserting the refusal names
+  it.
+- **F-LOAD-1 is resolved.** Both refusals read
+  `routes._capacity_message()`, which states the configured
+  `MAX_ACTIVE_JOBS`.
+- **Deviation from the brief.** The brief's Step 5 dependency-graph line
+  for `routes/__init__.py` omitted `domain`, which the module has imported
+  (`format_album_key`) since `d20a7924`. The `config` edge from this task
+  is added alongside the missing `domain` edge in the same edit, so the
+  line now reads `routes/__init__.py <- config, domain, lastfm,
+  repositories, spotify, unmatched, utils, worker; ...`. No other
+  dependency-graph line was touched.
+- **Forward guidance:** next is reconcile Task 11 (F-B22-8, release checks
+  run without the cache DB).
+
+Validation: `pytest -q` -- **1745 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The year gate reads the UTC calendar
 
 Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.
@@ -480,39 +519,4 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   order list now records Task 7 landed alongside Tasks 3-6 in Stage 2.
 
 Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The unused enrich_albums is retired
-
-Side task, no batch tag: fixes F-B22-7, part 3 of 3, part of Batch 23 WP-0
-Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 6 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/spotify.py`'s `enrich_albums` is deleted: after Task 5,
-  the live path already does everything it did, through
-  `_run_spotify_search_phase` and `_run_spotify_batch_detail_phase`, with the
-  per-phase progress the loading page shows that `enrich_albums` never had.
-  `scrobblescope/orchestrator/__init__.py` drops its import and its
-  `__all__` entry; `album_metadata_from_details` keeps both, since
-  `_details.py` still calls it through the facade. `git grep -n
-  "enrich_albums" -- '*.py'` now returns nothing.
-- **Tests removed, five in total, none replaced:**
-  `test_enrich_albums_empty_misses_makes_no_request`,
-  `test_enrich_albums_returns_matched_and_unmatched`,
-  `test_enrich_albums_marks_unmatched_when_detail_lookup_misses` and
-  `test_enrich_albums_handles_missing_cover_art`
-  (`tests/services/test_spotify_service.py`, with their banner comment and
-  the `enrich_albums` import), and
-  `test_enrich_albums_is_exposed_on_the_orchestrator_facade`
-  (`tests/services/test_orchestrator_fetch_spotify.py`, with both of its
-  `enrich_albums` imports).
-- **This resolves F-B22-7.** The Spotify payload is translated only in
-  `spotify.album_metadata_from_details`; every metadata row is built by
-  `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in
-  `spotify_id` (Task 4); the unused `enrich_albums` and its tests are gone.
-- **Bookkeeping:** the reconcile plan's Task 6 steps are ticked. Section 3's
-  order list now records Task 6 landed alongside Tasks 3-5 in Stage 2.
-
-Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
