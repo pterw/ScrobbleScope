@@ -399,21 +399,21 @@ self-review).
 diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (the catalogue heading),
 `FINDINGS.md` (the "starts at DOC023" note), `.docsync.toml`.
 
-- [ ] **Step 1:** Grep the live corpus for the range:
+- [x] **Step 1:** Grep the live corpus for the range:
   `git grep -n "DOC001-DOC02" -- ':!docs/history' ':!docs/logarchive' ':!docs/superpowers'`.
   Expected today: `AGENTS.md` (three hits), `DEVELOPMENT.md`, and `documentation-tooling.md`.
-- [ ] **Step 2:** Replace each with a sentence that states no range, e.g. "the typed DOC diagnostics
+- [x] **Step 2:** Replace each with a sentence that states no range, e.g. "the typed DOC diagnostics
   (catalogue: ...)", so it cannot drift again. `documentation-tooling.md` keeps the one explicit list,
   "DOC001-DOC020, DOC023 and DOC024", as the owner of the fact.
-- [ ] **Step 3:** Repoint the `FINDINGS.md` note at the catalogue: the next free code is read there.
-- [ ] **Step 4:** Add a `[[retired]]` declaration to `.docsync.toml` for the claim `DOC001-DOC023`.
+- [x] **Step 3:** Repoint the `FINDINGS.md` note at the catalogue: the next free code is read there.
+- [x] **Step 4:** Add a `[[retired]]` declaration to `.docsync.toml` for the claim `DOC001-DOC023`.
   Scan the live corpus and allow `docs/history/*`, `docs/logarchive/*` and `docs/superpowers/*`, so the
   claim cannot come back.
-- [ ] **Step 5: Live probe.**
+- [x] **Step 5: Live probe.**
   - *Red:* re-adding "the DOC001-DOC023 catalogue" to `AGENTS.md` gives DOC011.
   - *Near-miss green:* the same text struck through, or in a dated Section 4 entry below the marker,
     passes.
-- [ ] **Step 6:** `.docsync.toml` is control plane, so run `--check` directly, then
+- [x] **Step 6:** `.docsync.toml` is control plane, so run `--check` directly, then
   `SKIP=doc-state-sync-check git commit`, subject `docs(docsync): Stop stating a code range the catalogue owns`.
 
 ### Task 6: Findings hygiene

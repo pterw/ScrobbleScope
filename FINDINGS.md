@@ -38,43 +38,6 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
 
 - [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
 
-### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
-
-`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
-against a declared `allow_after` marker with `line.strip() == marker.strip()`
--- exact equality, no prefix match -- and when nothing matches, `exempt_from`
-simply stays `None`: the declaration silently loses its whole history
-exemption for that file, with no warning that the marker itself is dead. The
-three `[[retired]]` declarations in `.docsync.toml` that predate this finding
-all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
-but the real `PLAYBOOK.md` heading is `## 4. Execution log (for agent
-handoff)`, so none of the three matched anything. Reproduced directly against
-`check_retired` with the real heading text: a claim placed below the heading
-was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
-for the new fourth declaration that task added).
-
-**Impact was latent, not live.** No dated Section 4 entry restated
-`limit_results ... thresholds disclosure`, `fonts self-hosted under
-static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
-never actually exercised the mismatch before it was caught. It would have
-surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
-one of those retired phrases as history.
-
-**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
-fix round) to the real heading text, matching the fourth declaration that
-task added, which used the correct text from the start. That corrects this
-one instance; the finding stays open because the mechanism -- a declared
-`allow_after` marker can silently match nothing, for any file, and nobody is
-told -- is still unchecked, so the next marker written this way fails the
-same way undetected.
-
-**Fix shape, not yet built:** a declaration check that errors when an
-`allow_after` marker matches no line in its named file (a new check; not
-built here).
-
-- [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
-  probe, 2026-09-24.
-
 ### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
 
 `--fix` cannot publish a measured test count, and `--check` refuses a
@@ -652,6 +615,43 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 
 ## P2 -- Scaling roadmap
+
+### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
+
+`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
+against a declared `allow_after` marker with `line.strip() == marker.strip()`
+-- exact equality, no prefix match -- and when nothing matches, `exempt_from`
+simply stays `None`: the declaration silently loses its whole history
+exemption for that file, with no warning that the marker itself is dead. The
+three `[[retired]]` declarations in `.docsync.toml` that predate this finding
+all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
+but the real `PLAYBOOK.md` heading is `## 4. Execution log (for agent
+handoff)`, so none of the three matched anything. Reproduced directly against
+`check_retired` with the real heading text: a claim placed below the heading
+was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
+for the new fourth declaration that task added).
+
+**Impact was latent, not live.** No dated Section 4 entry restated
+`limit_results ... thresholds disclosure`, `fonts self-hosted under
+static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
+never actually exercised the mismatch before it was caught. It would have
+surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
+one of those retired phrases as history.
+
+**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
+fix round) to the real heading text, matching the fourth declaration that
+task added, which used the correct text from the start. That corrects this
+one instance; the finding stays open because the mechanism -- a declared
+`allow_after` marker can silently match nothing, for any file, and nobody is
+told -- is still unchecked, so the next marker written this way fails the
+same way undetected.
+
+**Fix shape, not yet built:** a declaration check that errors when an
+`allow_after` marker matches no line in its named file (a new check; not
+built here).
+
+- [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
+  probe, 2026-09-24.
 
 ### F-B22-5: the release-year lookup has a precision path it does not use
 

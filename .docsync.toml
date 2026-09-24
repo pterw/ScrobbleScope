@@ -696,12 +696,10 @@ pattern = '`?DOC001`?-`?DOC02[34]`?'
 scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLAUDE.md"]
 
-# The exemption compares the raw line verbatim (declarations.py check_retired),
-# so it needs PLAYBOOK.md's real heading text, not the truncated "## 4.
-# Execution log" the three sibling declarations above declare -- filed as
-# F-DOCSYNC-16, since that mismatch leaves their own Section 4 exemption
-# non-functional against the live document, undetected only because no dated
-# entry has yet restated one of their three retired phrases.
+# The exemption compares the raw line verbatim (declarations.py
+# check_retired), so it needs PLAYBOOK.md's real heading text. F-DOCSYNC-16
+# records that an unmatched allow_after marker is silently ignored rather
+# than erroring.
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 

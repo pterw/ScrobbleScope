@@ -516,6 +516,21 @@ errors on a dead marker, not built here); status stays open.
 - Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched
   in the fix round).
 
+**Fix round 2 (2026-09-24, re-review + owner catch).** Two Important issues
+and one owner catch, all in the same commit (`aa6a867` -> next): the
+`.docsync.toml` comment above the fourth declaration's `allow_after` still
+described the three siblings' pre-fix state in the present tense, false as
+of `aa6a867` -- rewritten to state only what is true now (the exemption
+needs the real heading text; F-DOCSYNC-16 records the silent-ignore
+mechanism), with no other live present-tense claim found by corpus grep.
+F-DOCSYNC-16 carried its new P2 priority but was still filed under the
+`## P1 -- Next batch candidates` heading -- moved, unchanged, to the top of
+`## P2 -- Scaling roadmap`. Owner catch: this task's own Step 1-6 checkboxes
+in the foundation plan were never ticked in the first commit -- ticked now,
+nothing else in the plan changed.
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched).
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading
