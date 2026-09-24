@@ -9,6 +9,83 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
+
+Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1: pre-split citations repointed by name.** `FINDINGS.md`'s
+  F-SWE-3 and `docs/history/findings/FINDINGS_ARCHIVE.md`'s F-B21-6,
+  F-SWE-5 (two citations) and F-SWE-2 (context.md's "second `:70-71`
+  citation") each named their `orchestrator.py:NNN` line by the function
+  it pointed at (`_run_spotify_search_phase`, `fetch_top_albums_async`,
+  `background_task`'s outer handler, `_fetch_and_process`'s inner
+  handler), confirmed by reading `scrobblescope/orchestrator.py` at the
+  commit nearest each finding's date (`bb8681b` for the three 2026-08-20
+  SWE-audit findings, `319134e` for F-B21-6, filed 2026-08-22), and naming
+  the module both as it was (`orchestrator.py`) and as it is now
+  (`scrobblescope/orchestrator/__init__.py` or `_search.py`). No resolved
+  record's account of what was wrong or how it closed changed, only its
+  citation.
+- **The broader `git grep -n "orchestrator\.py:\|routes\.py:"` over the
+  live corpus** found 100 hits in 14 files beyond the findings files. Left
+  as written, point-in-time: five files under `docs/history/reports/` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (named exemptions);
+  `docs/history/definitions/BATCH21_DEFINITION.md` (same archive tier as
+  `logs/` and `reports/` per `AGENTS.md`'s `docs/history/` table row); and
+  five `docs/superpowers/plans/*.md` files, including this plan's own
+  Task 6 text, which quotes the citations as the problem statement rather
+  than reporting current code. `.codacy.yml`, `docs/SWE_AUDIT_CHARTER.md`
+  and `scripts/dev/_frontend_gate_shared.py` were checked and carry none
+  of these citations under this grep's pattern; their stale `routes.py`
+  citations (a different spelling) stay deferred to WP-0 close-out,
+  unedited, per context.md.
+- **Step 2: four findings filed**, IDs taken as the next free number per
+  tag across both files. `F-DOCSYNC-17` (opening-state defect, resolved
+  `aad26e5`, foundation Task 3) and `F-DOCSYNC-18` (archive page target
+  had no reader and the cold rule's all-dated condition was undocumented,
+  resolved `d499e3a`, foundation Task 4) filed resolved in `FINDINGS.md`'s
+  "Resolved this batch" section, each with its `**Completed:**` line.
+  `F-DOCSYNC-19` (`--check` has no diagnostic for an interrupted
+  publication; DoD row 29) and `F-WORKTREE-6` (the worktree guard's
+  `--base-ref` defaults to `origin/main` rather than a fact PLAYBOOK
+  declares, sharper since PR #241: WT006 then WT005 against `origin/main`
+  with an empty merge-base diff, `docs/history/reports/HANDOFF_2026-09-24.md`
+  section 2) filed open (P2) under P2 -- Scaling roadmap. Checked
+  F-WORKTREE-6 against F-WORKTREE-3 first: its three open items (the
+  between-batch ancestry skip, WT010 missing on a dirty detached worktree,
+  the doubled base-ref label) are a different defect, so this is a
+  separate finding.
+- **Owner ruling, 2026-09-24 (mid-task):** the foundation plan's Task 11
+  (F-SWE-5) is recorded done, not left unticked -- F-SWE-5 was resolved by
+  the reconcile plan's Task 7 (`ffbee0e`) before this plan reached Task 11.
+  Task 11's five step boxes are ticked and a done-by-reference line added
+  under its heading; nothing else in Task 11 changed. This supersedes
+  context.md's original "do NOT edit Task 11" note.
+- **Step 3.** `doc_state_sync.py --fix` then `--check`, both at exit 0.
+- **Deviations:** none from the brief's Step 1/2 text; the point-in-time
+  scope for `docs/history/definitions/` and `docs/superpowers/plans/` is
+  this task's own reading of context.md's "list any hit you leave, with
+  the reason" allowance, not an enumerated exemption -- reasons are above.
+- Validation: `pytest -q` -- **1825 passed**. No test added; the three R3
+  count sites are unchanged.
+- **Next:** the foundation plan's Task 7.
+
+**Follow-up (2026-09-24).** `docs/history/reports/HANDOFF_2026-09-24.md` had
+not caught up with this task: its Section 1 WP-0 status bullet still read
+"Tasks 4 and 5 done; Tasks 6-10 remain," Section 5 item 2 still described
+Task 6 as upcoming work with a pre-flight instruction, Section 3's reading
+order still pointed a cold session at "Task 6 onward," and Section 6 named
+no ruling for Task 11. All four now record Task 6 done (Section 5 item 2
+points at this entry), Section 3 points at Task 7 onward, and Section 6
+carries the Task 11 (F-SWE-5) done-by-`ffbee0e` ruling beside the other
+2026-09-24 rulings. Validation: `pytest -q` -- **1825 passed**; no test
+changes, so the three R3 count sites are unaffected.
+
+**Correction (2026-09-24).** The task review reproduced the broader sweep
+above as 95-98 hits in 12 files, not 100 in 14; the categorization of what
+was left as point-in-time is unchanged.
+
 ### 2026-09-24 - The provider summary states its span and its time in calls
 
 Side task, no batch tag: the provider summary log line states its span

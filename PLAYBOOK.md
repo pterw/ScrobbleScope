@@ -224,7 +224,11 @@ See FINDINGS F-DOCSYNC-3.
      before a browser launches) is done, 2026-09-24. Task 9 (`AGENTS.md`
      points at the full docsync CLI surface and the `docs/agents/global-rules.md`
      skill pointer, and `AGENT_NOTES.md` records the installer decision) is
-     done, 2026-09-24. Next is the foundation plan's Task 10.
+     done, 2026-09-24. Task 10 (every `docs/architecture/*.md` diagram walked
+     against current source, `api_logging.py` added to
+     `docs/architecture/runtime-system.md`, and `docs/ARCHITECTURE.md`'s
+     "Last verified" date moved to 2026-09-24) is done, 2026-09-24. Next is
+     the root-cleanup task the owner added on 2026-09-24.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -432,6 +436,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The architecture diagrams are re-verified against source
+
+Side task, no batch tag: walking every `docs/architecture/*.md` diagram
+against current source, part of Batch 23 WP-0 Part B. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1:** `runtime-system.md` gained `api_logging.py` as a runtime node
+  (`Utils --> ApiLogging`), a sixth "Five things" bullet on the shared
+  `aiohttp.TraceConfig` trace hook and per-provider call summary (F-B23-6,
+  `433120c`/`e7e076b`/`5bfb997`), and its `config.py` importer count
+  corrected from ten to eleven: `routes/__init__.py`'s module-level
+  `MAX_ACTIVE_JOBS` import (landed at `e552956`, before this diagram's own
+  last edit, and missed until now) joins the list, and `app.py` is renamed
+  the twelfth (deferred-only) importer.
+- **Step 2:** `top-albums-sequence.md`, `heatmap-sequence.md`,
+  `development-cycle.md` and `documentation-tooling.md` needed no change.
+  Walked against `de8c2d8` (`domain.release_window`), `4cbb9b1` (release
+  checks run without the cache, guarded per use rather than skipped),
+  `e552956` (the capacity message), `82557fd` (the UTC year gate), the
+  logging commits above, the `_frontend_gate_*` slice split, `a25d187`
+  (the check manifest), `a87e6058` (ruff BLE gate on broad catches),
+  `c611f721` (`_validate_api_keys` in `create_app`) and `bd7ffef0` (the
+  `.githooks/` CRLF rule) -- each fact these four files already state
+  still matches current source.
+- **Step 3:** `docs/ARCHITECTURE.md`'s "Last verified" date moved from
+  2026-09-20 to 2026-09-24, after every file above was walked.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - AGENTS.md points at the full docsync CLI and records the installer decision
 
 Side task, no batch tag: `AGENTS.md` pointers and the installer decision,
@@ -567,80 +602,3 @@ had not caught up with this task: sections 1, 3 and 5 now record Task 7 done
 and Tasks 8-10 next, section 6 carries both 2026-09-24 rulings, and its Task
 11 line no longer cites an untracked workspace file.
 Validation: `pytest -q` -- **1825 passed**; docs only.
-
-### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
-
-Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Step 1: pre-split citations repointed by name.** `FINDINGS.md`'s
-  F-SWE-3 and `docs/history/findings/FINDINGS_ARCHIVE.md`'s F-B21-6,
-  F-SWE-5 (two citations) and F-SWE-2 (context.md's "second `:70-71`
-  citation") each named their `orchestrator.py:NNN` line by the function
-  it pointed at (`_run_spotify_search_phase`, `fetch_top_albums_async`,
-  `background_task`'s outer handler, `_fetch_and_process`'s inner
-  handler), confirmed by reading `scrobblescope/orchestrator.py` at the
-  commit nearest each finding's date (`bb8681b` for the three 2026-08-20
-  SWE-audit findings, `319134e` for F-B21-6, filed 2026-08-22), and naming
-  the module both as it was (`orchestrator.py`) and as it is now
-  (`scrobblescope/orchestrator/__init__.py` or `_search.py`). No resolved
-  record's account of what was wrong or how it closed changed, only its
-  citation.
-- **The broader `git grep -n "orchestrator\.py:\|routes\.py:"` over the
-  live corpus** found 100 hits in 14 files beyond the findings files. Left
-  as written, point-in-time: five files under `docs/history/reports/` and
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (named exemptions);
-  `docs/history/definitions/BATCH21_DEFINITION.md` (same archive tier as
-  `logs/` and `reports/` per `AGENTS.md`'s `docs/history/` table row); and
-  five `docs/superpowers/plans/*.md` files, including this plan's own
-  Task 6 text, which quotes the citations as the problem statement rather
-  than reporting current code. `.codacy.yml`, `docs/SWE_AUDIT_CHARTER.md`
-  and `scripts/dev/_frontend_gate_shared.py` were checked and carry none
-  of these citations under this grep's pattern; their stale `routes.py`
-  citations (a different spelling) stay deferred to WP-0 close-out,
-  unedited, per context.md.
-- **Step 2: four findings filed**, IDs taken as the next free number per
-  tag across both files. `F-DOCSYNC-17` (opening-state defect, resolved
-  `aad26e5`, foundation Task 3) and `F-DOCSYNC-18` (archive page target
-  had no reader and the cold rule's all-dated condition was undocumented,
-  resolved `d499e3a`, foundation Task 4) filed resolved in `FINDINGS.md`'s
-  "Resolved this batch" section, each with its `**Completed:**` line.
-  `F-DOCSYNC-19` (`--check` has no diagnostic for an interrupted
-  publication; DoD row 29) and `F-WORKTREE-6` (the worktree guard's
-  `--base-ref` defaults to `origin/main` rather than a fact PLAYBOOK
-  declares, sharper since PR #241: WT006 then WT005 against `origin/main`
-  with an empty merge-base diff, `docs/history/reports/HANDOFF_2026-09-24.md`
-  section 2) filed open (P2) under P2 -- Scaling roadmap. Checked
-  F-WORKTREE-6 against F-WORKTREE-3 first: its three open items (the
-  between-batch ancestry skip, WT010 missing on a dirty detached worktree,
-  the doubled base-ref label) are a different defect, so this is a
-  separate finding.
-- **Owner ruling, 2026-09-24 (mid-task):** the foundation plan's Task 11
-  (F-SWE-5) is recorded done, not left unticked -- F-SWE-5 was resolved by
-  the reconcile plan's Task 7 (`ffbee0e`) before this plan reached Task 11.
-  Task 11's five step boxes are ticked and a done-by-reference line added
-  under its heading; nothing else in Task 11 changed. This supersedes
-  context.md's original "do NOT edit Task 11" note.
-- **Step 3.** `doc_state_sync.py --fix` then `--check`, both at exit 0.
-- **Deviations:** none from the brief's Step 1/2 text; the point-in-time
-  scope for `docs/history/definitions/` and `docs/superpowers/plans/` is
-  this task's own reading of context.md's "list any hit you leave, with
-  the reason" allowance, not an enumerated exemption -- reasons are above.
-- Validation: `pytest -q` -- **1825 passed**. No test added; the three R3
-  count sites are unchanged.
-- **Next:** the foundation plan's Task 7.
-
-**Follow-up (2026-09-24).** `docs/history/reports/HANDOFF_2026-09-24.md` had
-not caught up with this task: its Section 1 WP-0 status bullet still read
-"Tasks 4 and 5 done; Tasks 6-10 remain," Section 5 item 2 still described
-Task 6 as upcoming work with a pre-flight instruction, Section 3's reading
-order still pointed a cold session at "Task 6 onward," and Section 6 named
-no ruling for Task 11. All four now record Task 6 done (Section 5 item 2
-points at this entry), Section 3 points at Task 7 onward, and Section 6
-carries the Task 11 (F-SWE-5) done-by-`ffbee0e` ruling beside the other
-2026-09-24 rulings. Validation: `pytest -q` -- **1825 passed**; no test
-changes, so the three R3 count sites are unaffected.
-
-**Correction (2026-09-24).** The task review reproduced the broader sweep
-above as 95-98 hits in 12 files, not 100 in 14; the categorization of what
-was left as point-in-time is unchanged.
