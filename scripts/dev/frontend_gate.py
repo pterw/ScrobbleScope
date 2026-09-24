@@ -25,6 +25,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+import tomllib
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Throwaway key so the app boots under the gate. It signs nothing that
@@ -376,15 +378,94 @@ def groups_for(browser_name: str) -> tuple[str, ...]:
     return tuple(group for group in CHECK_GROUPS if group in scope)
 
 
+#: Root-level declarations file: which checks run is a repository fact, the
+#: same pattern `.docsync.toml` sets (facts at the root, mechanism under
+#: `scripts/`), not a second thing for the gate mechanism to own.
+CHECK_MANIFEST_PATH = REPO_ROOT / "frontend_gate_checks.toml"
+
+
+def _load_check_manifest(
+    path: Path = CHECK_MANIFEST_PATH,
+) -> tuple[tuple[str, ...], frozenset[str]]:
+    """Load and validate the check-selection manifest, returning
+    `(required, disabled)`.
+
+    Selection is by check name only: groups are an isolation concern CHECKS
+    already owns, and a second copy of their membership here would drift
+    from the tuple that owns it. Fail Fast (`AGENT_NOTES.md`): a missing
+    file, malformed TOML, an unknown name, or a required check disabled all
+    stop the gate before a browser launches, naming the path and the check.
+    """
+    try:
+        with path.open("rb") as handle:
+            manifest = tomllib.load(handle)
+    except FileNotFoundError as exc:
+        raise FrontendGateError(
+            f"check manifest missing at {path}. Restore "
+            "frontend_gate_checks.toml at the repository root."
+        ) from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise FrontendGateError(
+            f"check manifest at {path} is not valid TOML ({exc}). Fix the "
+            "syntax and rerun."
+        ) from exc
+
+    known = {entry[0] for entry in CHECKS}
+    required = tuple(manifest.get("required", ()))
+    disabled = frozenset(manifest.get("disabled", ()))
+
+    for name in (*required, *disabled):
+        if name not in known:
+            raise FrontendGateError(
+                f"check manifest at {path} names {name!r}, which is not a "
+                "check in CHECKS. Fix the spelling, or remove the entry."
+            )
+
+    still_required = sorted(set(required) & disabled)
+    if still_required:
+        raise FrontendGateError(
+            f"check manifest at {path} disables required check(s) "
+            f"{', '.join(still_required)}. Drop them from disabled, or from "
+            "required if they are no longer load-bearing."
+        )
+
+    return required, disabled
+
+
+try:
+    REQUIRED_CHECKS, DISABLED_CHECKS = _load_check_manifest()
+except FrontendGateError as exc:
+    # Fail fast before a browser ever launches: a bad manifest is a setup
+    # fault, not a check result, so it gets the same clean line `main`
+    # prints for every other FrontendGateError, not a raw traceback.
+    print(f"[frontend_gate] ERROR: {exc}", file=sys.stderr)
+    raise SystemExit(1) from None
+
+
+def _selected_runs(disabled: frozenset[str]) -> int:
+    """How many runs the matrix performs with `disabled` names excluded."""
+    return sum(
+        1
+        for _b in BROWSER_NAMES
+        for _e in CHECKS
+        if _e[0] not in disabled
+        for _v in _e[2]
+        if groups_for(_b) and _e[3] in groups_for(_b)
+    )
+
+
+def _selection_header(disabled: frozenset[str]) -> str:
+    """One line naming what the manifest selected, so a drop is visible."""
+    enabled = len(CHECKS) - len(disabled)
+    names = ", ".join(sorted(disabled)) if disabled else "none"
+    return (
+        f"[frontend_gate] {enabled} of {len(CHECKS)} checks selected; disabled: {names}"
+    )
+
+
 #: How many check runs a clean pass performs. Printed so a check that silently
 #: stops running is visible as a smaller number.
-PLANNED_RUNS = sum(
-    1
-    for _b in BROWSER_NAMES
-    for _e in CHECKS
-    for _v in _e[2]
-    if groups_for(_b) and _e[3] in groups_for(_b)
-)
+PLANNED_RUNS = _selected_runs(DISABLED_CHECKS)
 
 
 def run_checks(
@@ -406,10 +487,11 @@ def run_checks(
     Every failure carries its profile. "the submit button is 38px" is not
     actionable until you know which device produced it.
     """
-    live_groups = tuple(dict.fromkeys(entry[3] for entry in CHECKS))
+    live_checks = tuple(entry for entry in CHECKS if entry[0] not in DISABLED_CHECKS)
+    live_groups = tuple(dict.fromkeys(entry[3] for entry in live_checks))
     failures = []
     for group in group_order or live_groups:
-        claimed_in_group = [entry for entry in CHECKS if entry[3] == group]
+        claimed_in_group = [entry for entry in live_checks if entry[3] == group]
         for viewport, spec in VIEWPORTS.items():
             claimed = [entry for entry in claimed_in_group if viewport in entry[2]]
             if claimed:
@@ -466,6 +548,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     """Run every check against a freshly served app and report all failures."""
     args = _parse_args(argv)
+    print(_selection_header(DISABLED_CHECKS))
     try:
         sync_playwright = _load_playwright()
         with serve_app() as base_url, sync_playwright() as playwright:
@@ -522,8 +605,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # type error. Firefox always declares an explicit canary scope.
     canary_groups = groups_for("firefox")
     canary = canary_groups[0] if canary_groups else "no groups"
+    enabled_count = len(CHECKS) - len(DISABLED_CHECKS)
     print(
-        f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
+        f"[frontend_gate] {enabled_count} checks passed in {PLANNED_RUNS} runs "
         f"across {', '.join(BROWSER_NAMES)} "
         f"({canary} canary on firefox); "
         f"profiles: {', '.join(VIEWPORTS)}"

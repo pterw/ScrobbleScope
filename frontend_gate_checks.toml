@@ -1,0 +1,22 @@
+# Which frontend-gate checks run. A repository fact, not gate mechanism, so
+# it sits here at the root, the same split `.docsync.toml` uses: facts here,
+# mechanism in `scripts/`. Loaded by `scripts/dev/frontend_gate.py`
+# (`_load_check_manifest`).
+#
+# Selection is by check name only -- `CHECKS` in `frontend_gate.py` owns
+# each check's groups and viewports, so this file never repeats that
+# membership.
+
+# Checks the gate refuses to disable. Listing a name here that is also in
+# `disabled` stops the gate before a browser launches, naming the check.
+required = [
+    "stylesheet isolation",
+    "theme tokens",
+    "pipeline state machines",
+    "unmatched report",
+]
+
+# Checks not currently selected to run. Empty today: nothing is disabled. A
+# name here that is not a check in `CHECKS` is refused, not ignored -- a
+# typo must not silently keep a check on.
+disabled = []

@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The handoff schedules a truer provider summary line
+
+Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Why.** The owner read `MusicBrainz: 17 calls in 2.6s` as MusicBrainz
+  running faster than its 1 request per second. The calls were compliant:
+  their log timestamps are one second apart, as the global throttle in
+  `scrobblescope/utils.py` enforces. The summary's time is the sum of
+  per-call durations, not the session's span.
+- **Change.** `docs/history/reports/HANDOFF_2026-09-24.md` section 5 now
+  opens with a side task, ruled by the owner on 2026-09-24 to run before
+  foundation Task 6: the summary states both the span and the time in calls.
+  Section 7 withdraws the per-album Spotify item (the owner's log lines came
+  from `/api/artist_spotlight` and the token fetch, not the album fetch). It
+  also notes that `scrobblescope/musicbrainz.py` puts album and artist names
+  in its retry log label, for the WP-3/WP-4 Data handling check.
+- **Section 3** names the side task as next, before Task 6.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-24 - The cloud handoff is revised after the first cloud session
 
 Side task, no batch tag: revise the session handoff at the end of the first

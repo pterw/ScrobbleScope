@@ -218,8 +218,11 @@ See FINDINGS F-DOCSYNC-3.
      plan's Task 7 (`ffbee0e`), ahead of this plan reaching it (owner
      ruling, 2026-09-24). Task 7 (the docsync close-out plan's Progress block
      closed, and its ledger's untriaged deferred Minors checked at HEAD, with
-     the still-true ones filed as F-DOCSYNC-20) is done, 2026-09-24. Next is
-     the foundation plan's Task 8.
+     the still-true ones filed as F-DOCSYNC-20) is done, 2026-09-24. Task 8
+     (`frontend_gate_checks.toml`: the frontend gate selects checks from a
+     manifest by name, refusing an unknown name or a disabled required check
+     before a browser launches) is done, 2026-09-24. Next is the foundation
+     plan's Task 9.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -427,6 +430,51 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The frontend gate selects checks from a manifest
+
+Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
+gate selects which checks run by name, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Steps 1-2: manifest and selection.** `frontend_gate_checks.toml` (root)
+  declares `required` (the four load-bearing checks) and `disabled` (empty
+  today). `scripts/dev/frontend_gate.py` loads it with `tomllib` at import,
+  validates every named check against `CHECKS`, and refuses -- with a clean
+  `[frontend_gate] ERROR:` line, before `main` ever runs -- an unknown name
+  or a required check disabled. Selection is by name only: `CHECKS` stays
+  the full registry, so the three existing tests in
+  `tests/scripts/dev/test_frontend_gate.py` that patch it directly are
+  unmodified. `run_checks` and `PLANNED_RUNS` filter by the disabled-name
+  set, and the startup line states the enabled count and names every
+  disabled check. New test module
+  `tests/scripts/dev/test_frontend_gate_manifest.py` (8 tests).
+- **Deviation from the brief:** Step 1 says disabling `divider contrast`
+  lowers the planned run count by one; measured, it drops by **two** -- the
+  check runs on one profile (DESKTOP) but belongs to the `STATIC_ASSETS`
+  group, which Firefox also runs as its canary. The test asserts the drop
+  is 2, with a comment saying why.
+- **Step 3: live probe**, throwaway corpus at `/c/ssprobe` (`git ls-files`
+  plus the two new files, since the change is uncommitted), deleted after.
+
+  | probe | expected | exit | evidence |
+  |---|---|---|---|
+  | faithful copy | same selection as the worktree | 0 | `30 of 30 checks selected; disabled: none`, `PLANNED_RUNS 52` |
+  | red: required check disabled | refused before a browser launches | 1 | `[frontend_gate] ERROR: check manifest ... disables required check(s) stylesheet isolation ...`; no launch line in the output |
+  | red: unknown name (typo) | refused, not ignored | 1 | `[frontend_gate] ERROR: check manifest ... names 'divider kontrast', which is not a check in CHECKS ...`; no launch line in the output |
+  | near-miss green | committed manifest, `disabled = []` | 0 | the worktree's own `frontend` gate run below |
+
+- **Step 4:** `documentation-tooling.md` records the manifest as landed and
+  states the decomposition's goal was isolating what executes, not
+  shrinking `_frontend_gate_layout.py`.
+
+`frontend` gate run locally (this task changes the gate itself, so its
+near-miss green is that run; section 2b's path-prefix `when` condition does
+not match `frontend_gate.py`, so it is not implied by other changed paths):
+`30 checks passed in 52 runs across chromium, firefox (static assets &
+tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - The docsync close-out plan's Progress block is closed
 
 Side task, no batch tag: closing the docsync close-out plan's Progress
@@ -591,24 +639,3 @@ remaining hit is section 1's own count. No test changes; no other count
 site affected.
 
 - Validation: `pytest -q` -- **1825 passed**.
-
-### 2026-09-24 - The handoff schedules a truer provider summary line
-
-Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Why.** The owner read `MusicBrainz: 17 calls in 2.6s` as MusicBrainz
-  running faster than its 1 request per second. The calls were compliant:
-  their log timestamps are one second apart, as the global throttle in
-  `scrobblescope/utils.py` enforces. The summary's time is the sum of
-  per-call durations, not the session's span.
-- **Change.** `docs/history/reports/HANDOFF_2026-09-24.md` section 5 now
-  opens with a side task, ruled by the owner on 2026-09-24 to run before
-  foundation Task 6: the summary states both the span and the time in calls.
-  Section 7 withdraws the per-album Spotify item (the owner's log lines came
-  from `/api/artist_spotlight` and the token fetch, not the album fetch). It
-  also notes that `scrobblescope/musicbrainz.py` puts album and artist names
-  in its retry log label, for the WP-3/WP-4 Data handling check.
-- **Section 3** names the side task as next, before Task 6.
-- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-  tests were excluded, since they are not repository state. Docs only.

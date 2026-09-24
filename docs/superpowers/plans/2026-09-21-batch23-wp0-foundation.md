@@ -456,24 +456,27 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
 derive `PLANNED_RUNS`, print the selection); `docs/architecture/documentation-tooling.md`; test
 `tests/scripts/dev/test_frontend_gate_manifest.py`.
 
-- [ ] **Step 1: Failing tests.** Disabling `divider contrast` (one profile) lowers the planned run count
+- [x] **Step 1: Failing tests.** Disabling `divider contrast` (one profile) lowers the planned run count
   by one and the name is reported. Disabling a check listed in `required` raises `FrontendGateError`
   naming it. A name not in `CHECKS` is refused, not ignored: a typo must not silently keep a check on.
-- [ ] **Step 2: Implement with `tomllib`.**
+  Measured 2026-09-24: the drop is **two**, not one -- `divider contrast` runs on one profile (DESKTOP)
+  but belongs to `STATIC_ASSETS`, which Firefox also runs as its canary; the test asserts 2 with a
+  comment saying why.
+- [x] **Step 2: Implement with `tomllib`.**
   - `required = ["stylesheet isolation", "theme tokens", "pipeline state machines", "unmatched report"]`
     (all four names exist in `CHECKS`, verified 2026-09-21), and `disabled = []`.
   - Select by check name only. Groups are an isolation concern, and a second copy of their membership
     would drift from the tuple that owns it.
   - The header states the enabled count and names every disabled check.
-- [ ] **Step 3: Live probe.**
+- [x] **Step 3: Live probe.**
   - *Red:* disable a required check in the real manifest and run the gate: it refuses before launching
     a browser.
   - *Near-miss green:* with `disabled = []`, the gate prints the same checks-and-runs count as before
     the change and exits 0.
-- [ ] **Step 4:** In `documentation-tooling.md`, replace "stays a deferred candidate" with the fact that
+- [x] **Step 4:** In `documentation-tooling.md`, replace "stays a deferred candidate" with the fact that
   it landed, and add that the decomposition's goal was isolating what executes, not reducing
   `_frontend_gate_layout.py`'s size.
-- [ ] **Step 5:** Commit: `feat(gate): Select checks from a manifest, and never silently`.
+- [x] **Step 5:** Commit: `feat(gate): Select checks from a manifest, and never silently`.
 
 ### Task 9: `AGENTS.md` pointers and the installer decision
 
