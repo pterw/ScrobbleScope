@@ -7,7 +7,6 @@ from scrobblescope.config import (
     SPOTIFY_BATCH_RETRIES,
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
-    SPOTIFY_SEARCH_CONCURRENCY,
     SPOTIFY_SEARCH_RETRIES,
     spotify_token_cache,
 )
@@ -235,67 +234,37 @@ async def fetch_spotify_album_details_batch(
     return await _fetch_album_details_one_by_one(session, album_ids, token, retries)
 
 
-async def enrich_albums(session, misses, token):
-    """Enrich a batch of cache-miss albums via Spotify search + batch detail.
+def album_metadata_from_details(spotify_id, details):
+    """Translate one Spotify album object into the provider contract.
 
-    *misses* is a dict keyed by (artist_norm, album_norm) tuples; only the
-    keys are read here, so a caller may pass the same {key: original_data}
-    shape it already keeps for other purposes. Returns (matched, unmatched):
-    ``matched`` is {key: AlbumMetadata} for every album Spotify both found
-    and returned details for; ``unmatched`` is the set of keys Spotify could
-    not find, or found but could not detail. This module owns its own
-    retry, limiter and matching -- the caller does not see how the match was
-    made, only the result.
+    The one place the application reads Spotify's album JSON. The
+    orchestrator's detail phase files what this returns and never drills into
+    the payload itself (global rule 4, F-B22-7). A sparse payload degrades
+    field by field -- no images gives ``image_url=None``, no external URL
+    falls back to the album's canonical URL -- rather than raising.
+
+    Args:
+        spotify_id: The album id Spotify issued.
+        details: One album object from Get Album or Get Several Albums.
+
+    Returns:
+        AlbumMetadata with ``provider="spotify"`` and track durations in
+        whole seconds, keyed by ``normalize_track_name``.
     """
-    if not misses:
-        return {}, set()
-
-    search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-
-    async def search_one(key):
-        artist, album = key
-        spotify_id = await search_for_spotify_album_id(
-            session, artist, album, token, semaphore=search_semaphore
-        )
-        return key, spotify_id
-
-    search_results = await asyncio.gather(*(search_one(key) for key in misses))
-
-    id_to_key = {}
-    unmatched = set()
-    for key, spotify_id in search_results:
-        if spotify_id:
-            id_to_key[spotify_id] = key
-        else:
-            unmatched.add(key)
-
-    matched = {}
-    if id_to_key:
-        album_details = await fetch_spotify_album_details_batch(
-            session, list(id_to_key.keys()), token
-        )
-        for spotify_id, key in id_to_key.items():
-            details = album_details.get(spotify_id)
-            if not details:
-                unmatched.add(key)
-                continue
-            images = details.get("images") or [{}]
-            matched[key] = AlbumMetadata(
-                provider="spotify",
-                album_id=spotify_id,
-                url=details.get("external_urls", {}).get(
-                    "spotify", f"https://open.spotify.com/album/{spotify_id}"
-                ),
-                release_date=details.get("release_date", ""),
-                image_url=images[0].get("url"),
-                track_durations={
-                    normalize_track_name(t.get("name", "")): t.get("duration_ms", 0)
-                    // 1000
-                    for t in details.get("tracks", {}).get("items", [])
-                },
-            )
-
-    return matched, unmatched
+    images = details.get("images") or [{}]
+    return AlbumMetadata(
+        provider="spotify",
+        album_id=spotify_id,
+        url=details.get("external_urls", {}).get(
+            "spotify", f"https://open.spotify.com/album/{spotify_id}"
+        ),
+        release_date=details.get("release_date", ""),
+        image_url=images[0].get("url"),
+        track_durations={
+            normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
+            for t in details.get("tracks", {}).get("items", [])
+        },
+    )
 
 
 def _artist_spotlight_details(artist, artist_name=None, artist_id=None):

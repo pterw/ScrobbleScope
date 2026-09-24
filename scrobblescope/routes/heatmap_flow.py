@@ -133,7 +133,7 @@ def _dispatch_heatmap_job(username):
             jsonify(
                 {
                     "error": True,
-                    "message": "Too many requests in progress. Please try again in a moment.",
+                    "message": _routes._capacity_message(),
                     "retryable": True,
                 }
             ),

@@ -20,6 +20,7 @@ from scrobblescope.repositories import (
     delete_job,
     get_job_context,
     get_job_progress,
+    get_job_unmatched,
     jobs_lock,
     set_job_error,
     set_job_progress,
@@ -747,3 +748,32 @@ async def test_batch_persist_metadata_upsert_call_shape():
     td_param = call_args[0][6]
     assert json.loads(td_param[0]) == {"track a": 200}
     assert json.loads(td_param[1]) == {}
+
+
+@pytest.mark.parametrize(
+    "read",
+    [get_job_progress, get_job_unmatched, get_job_context],
+    ids=["progress", "unmatched", "context"],
+)
+def test_reading_a_job_does_not_renew_its_lease(read):
+    """
+    GIVEN a job whose last write is older than JOB_TTL_SECONDS
+    WHEN a getter reads it and cleanup then runs
+    THEN the job is reaped: reading is not activity (F-SWE-6).
+
+    Before this, each getter wrote updated_at, so a polled job -- an open
+    results tab, or the release-check worker asking whether it still
+    exists -- never expired.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    expired_time = time.time() - JOB_TTL_SECONDS - 60
+    with jobs_lock:
+        JOBS[job_id]["created_at"] = expired_time
+        JOBS[job_id]["updated_at"] = expired_time
+
+    assert read(job_id) is not None  # the read itself still works
+
+    cleanup_expired_jobs()
+
+    with jobs_lock:
+        assert job_id not in JOBS

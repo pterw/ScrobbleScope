@@ -21,10 +21,11 @@ boundaries may evolve safely.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, session, url_for
 
+from scrobblescope.config import MAX_ACTIVE_JOBS
 from scrobblescope.domain import format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.repositories import cleanup_expired_jobs, get_job_context
@@ -188,10 +189,35 @@ def album_key_filter(result):
     return format_album_key(normalized_key) if normalized_key else ""
 
 
+def _current_year():
+    """Return the current year in UTC, the calendar the fetch window uses.
+
+    The orchestrator builds each year's window from UTC midnights, so a gate
+    reading the host's local clock would disagree with it for the hours
+    around New Year on any host not running UTC (F-B21-6). One helper, because
+    three call sites asked the same question.
+    """
+    return datetime.now(timezone.utc).year
+
+
+def _capacity_message():
+    """Return the refusal shown when every job slot is busy (F-LOAD-1).
+
+    The cap is MAX_ACTIVE_JOBS as configured, never a literal: a deployment
+    that overrides the variable shows its own capacity, and a change to the
+    default cannot leave this text stale. There is no occupancy count,
+    because the message only appears when every slot is taken.
+    """
+    return (
+        f"Too many requests in progress: all {MAX_ACTIVE_JOBS} search slots "
+        "are busy. Please try again in a moment."
+    )
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
-    return {"current_year": datetime.now().year}
+    return {"current_year": _current_year()}
 
 
 @bp.app_context_processor

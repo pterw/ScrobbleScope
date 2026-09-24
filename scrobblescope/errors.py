@@ -39,6 +39,14 @@ ERROR_CODES = {
         "retryable": False,
         "message": "No scrobbles found in the last 365 days for '{username}'.",
     },
+    # A fault that escaped every inner classifier is ours, not an upstream's.
+    # Both background entry points publish it (F-SWE-5). Not retryable: an
+    # immediate identical retry meets the same bug.
+    "internal_error": {
+        "source": "internal",
+        "retryable": False,
+        "message": "Something went wrong on our side and the search stopped. Please start a new search.",
+    },
 }
 
 

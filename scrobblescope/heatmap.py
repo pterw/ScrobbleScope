@@ -28,7 +28,11 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.utils import cleanup_expired_cache
-from scrobblescope.worker import new_thread_event_loop, release_job_slot
+from scrobblescope.worker import (
+    new_thread_event_loop,
+    release_job_slot,
+    run_coroutine_in_new_loop,
+)
 
 #: How many calendar days the heatmap covers, today included.
 #:
@@ -38,6 +42,34 @@ from scrobblescope.worker import new_thread_event_loop, release_job_slot
 #: displaying and averaging another. `.docsync.toml` declares every copy
 #: against this one, and DOC009 fails if they stop agreeing.
 HEATMAP_WINDOW_DAYS = 365
+
+
+def _zero_fill_daily_counts(counts, from_date, to_date):
+    """Fill every calendar date in ``[from_date, to_date]`` with 0 where missing.
+
+    Extracted from ``_aggregate_daily_counts``'s Phase 2 so it can be reused
+    on its own; called by ``_aggregate_daily_counts`` after Phase 1 tallies
+    raw per-day counts, and Batch 23's export path will be the second
+    caller.
+
+    Args:
+        counts: Mapping (dict or ``collections.Counter``) of ``"YYYY-MM-DD"``
+            strings to integer counts for dates that had at least one
+            scrobble.
+        from_date: Inclusive start date (``datetime.date``).
+        to_date: Inclusive end date (``datetime.date``).
+
+    Returns:
+        New dict with every ISO date in the ``[from_date, to_date]`` range
+        present, each mapped to ``counts.get(key, 0)``.
+    """
+    daily_counts = {}
+    current = from_date
+    while current <= to_date:
+        key = current.isoformat()
+        daily_counts[key] = counts.get(key, 0)
+        current += timedelta(days=1)
+    return daily_counts
 
 
 def _aggregate_daily_counts(pages, from_date, to_date):
@@ -81,15 +113,7 @@ def _aggregate_daily_counts(pages, from_date, to_date):
             if from_date <= day <= to_date:
                 counter[day.isoformat()] += 1
 
-    # Phase 2: fill every calendar date in the range with 0 where missing.
-    daily_counts = {}
-    current = from_date
-    while current <= to_date:
-        key = current.isoformat()
-        daily_counts[key] = counter.get(key, 0)
-        current += timedelta(days=1)
-
-    return daily_counts
+    return _zero_fill_daily_counts(counter, from_date, to_date)
 
 
 async def _fetch_and_process_heatmap(job_id, username):
@@ -235,25 +259,33 @@ async def _fetch_and_process_heatmap(job_id, username):
     logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
 
+def _report_heatmap_failure(job_id, username):
+    """Log the crash and publish this pipeline's terminal state.
+
+    Called from inside the helper's ``except`` block, so ``logging.exception``
+    still sees the active exception. A fault that reaches this backstop is
+    ours: ``internal_error`` says so, where ``lastfm_unavailable`` blamed an
+    upstream that never failed (F-SWE-5). The inner, status-based Last.fm
+    path inside ``_fetch_and_process_heatmap`` still publishes its own code.
+    """
+    logging.exception(f"Unhandled error in heatmap task for {username}")
+    set_job_error(job_id, "internal_error", username=username)
+
+
 def heatmap_task(job_id, username):
     """Thread entry point: run the heatmap pipeline in a dedicated event loop.
 
-    ``worker.new_thread_event_loop`` builds the loop, including the Windows
-    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try``, so
-    the concurrency slot acquired by the caller is released in the ``finally``
-    block regardless of success or failure, loop setup included.
+    The build-run-close-release protocol, including that the loop is built inside
+    the ``try`` so the slot is released in the ``finally``, lives in
+    ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed
+    run is reported as ``internal_error`` rather than raised, the same answer
+    the album entry point gives (F-SWE-5).
     """
-    loop = None
-    try:
-        loop = new_thread_event_loop()
-        loop.run_until_complete(_fetch_and_process_heatmap(job_id, username))
-    except Exception:
-        logging.exception(f"Unhandled error in heatmap task for {username}")
-        # Surface the error to the polling client so it does not hang.
-        set_job_error(job_id, "lastfm_unavailable", username=username)
-    finally:
-        try:
-            if loop is not None:
-                loop.close()
-        finally:
-            release_job_slot()
+    run_coroutine_in_new_loop(
+        _fetch_and_process_heatmap(job_id, username),
+        # Explicit, for the same reason as the album entry point: these tests patch
+        # ``scrobblescope.heatmap.release_job_slot`` and ``...heatmap.set_job_error``.
+        make_loop=new_thread_event_loop,
+        release_slot=release_job_slot,
+        on_run_error=lambda _exc: _report_heatmap_failure(job_id, username),
+    )

@@ -669,6 +669,109 @@ def test_appending_after_cold_migration_keeps_cold_pages_in_place(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Page-target health (DOC024)
+# ---------------------------------------------------------------------------
+
+
+def test_small_monolith_under_target_has_no_page_target_issues(tmp_path):
+    store, index = _store(tmp_path)
+    text = _corpus([_entry("F-1"), _entry("F-2")])
+    index.write_text(text, encoding="utf-8")
+
+    assert store.page_target_issues(index) == []
+
+
+def test_unpaginated_archive_over_target_warns_once_and_writes_nothing(tmp_path):
+    store, index = _store(tmp_path, max_lines=20)
+    text = _corpus([_entry(f"F-{n}") for n in range(8)])
+    index.write_text(text, encoding="utf-8")
+    before = index.read_bytes()
+    assert len(text.splitlines()) > 20, "setup must actually exceed the target"
+
+    issues = store.page_target_issues(index)
+
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue.code == "DOC024"
+    assert issue.severity == "warning"
+    assert "--paginate-archives" in issue.remediation
+    # The diagnostic is read-only: nothing about the archive changed.
+    assert index.read_bytes() == before
+    assert not (index.parent / "pages").exists()
+
+
+def test_paginated_page_with_an_undated_entry_warns_that_it_can_never_age(tmp_path):
+    store, index = _store(tmp_path, max_lines=30)
+    entries = [_entry(f"F-{n}", body=4, completed=OLD) for n in range(19)]
+    # Near the oldest end, so it lands on a finalized page rather than on
+    # the writable tail, which is never checked (it always stays hot).
+    entries.insert(-1, _entry("F-undated", body=4))
+    text = _corpus(entries)
+    _apply(store.plan(index, text))
+
+    issues = store.page_target_issues(index)
+
+    assert len(issues) == 1
+    issue = issues[0]
+    assert issue.code == "DOC024"
+    assert issue.severity == "warning"
+    assert "never" in issue.invariant.lower() or "never" in issue.remediation.lower()
+
+
+def test_fully_dated_paginated_archive_has_no_never_ageing_issues(tmp_path):
+    store, index, text = _dated(tmp_path, [OLD] * 20)
+    _apply(store.plan(index, text))
+
+    # Paginated and every entry dated: no page can ever be reported as
+    # unable to age, and pagination itself never re-triggers the
+    # unpaginated-monolith warning.
+    assert store.page_target_issues(index) == []
+
+
+def test_a_missing_archive_has_no_page_target_issues(tmp_path):
+    store, index = _store(tmp_path)
+
+    assert store.page_target_issues(index) == []
+
+
+def test_undated_entry_on_the_writable_tail_warns_of_nothing(tmp_path):
+    """The never-ageing check never looks at the tail; it always stays hot."""
+    store, index = _store(tmp_path, max_lines=30)
+    entries = [_entry(f"F-{n}", body=4, completed=OLD) for n in range(19)]
+    # At the newest end, so it lands on the writable tail page once packed:
+    # `plan()` fills pages oldest-to-newest, so the entry nearest the top of
+    # this newest-first list is packed last, onto the highest-numbered page.
+    entries.insert(0, _entry("F-undated-tail", body=4))
+    text = _corpus(entries)
+    _apply(store.plan(index, text))
+
+    assert store.page_target_issues(index) == []
+
+
+def test_unpaginated_boundary_is_exactly_max_lines_not_one_over(tmp_path):
+    """The unpaginated check uses the same measure `plan()` uses to paginate.
+
+    An archive whose flattened text is exactly `max_lines` lines does not
+    warn; one line more does. Both sides are counted the way the check
+    itself counts them (`len(flattened.splitlines())`), not approximated.
+    """
+    store, index = _store(tmp_path, max_lines=19)
+    at_target = _corpus([_entry("F-1", body=4), _entry("F-2", body=4)])
+    assert len(at_target.splitlines()) == 19, "setup must land exactly on target"
+    index.write_text(at_target, encoding="utf-8")
+
+    assert store.page_target_issues(index) == []
+
+    over_target = _corpus([_entry("F-1", body=4), _entry("F-2", body=5)])
+    assert len(over_target.splitlines()) == 20, "setup must land one over target"
+    index.write_text(over_target, encoding="utf-8")
+
+    issues = store.page_target_issues(index)
+    assert len(issues) == 1
+    assert issues[0].code == "DOC024"
+
+
+# ---------------------------------------------------------------------------
 # Task 2 fix round 1: reproduced Important findings
 # ---------------------------------------------------------------------------
 

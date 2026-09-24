@@ -47,7 +47,7 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.spotify import (
-    enrich_albums,
+    album_metadata_from_details,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
@@ -57,7 +57,11 @@ from scrobblescope.unmatched import (
     partition_albums_by_threshold,
 )
 from scrobblescope.utils import cleanup_expired_cache, create_optimized_session
-from scrobblescope.worker import new_thread_event_loop, release_job_slot
+from scrobblescope.worker import (
+    new_thread_event_loop,
+    release_job_slot,
+    run_coroutine_in_new_loop,
+)
 
 # Hard upper bound on the number of albums sent to process_albums across all sort
 # modes. An unbounded album count creates proportional Spotify API load and
@@ -66,6 +70,31 @@ from scrobblescope.worker import new_thread_event_loop, release_job_slot
 # outlier; raw play_count is the best available proxy for culling the tail.
 _MAX_ALBUM_CAP = 500
 _PLAYTIME_ALBUM_CAP = _MAX_ALBUM_CAP
+
+
+def _cap_threshold_exclusions(threshold_exclusions):
+    """Cap a threshold-exclusions dict to ``_MAX_ALBUM_CAP`` entries.
+
+    Called by ``fetch_top_albums_async`` after partitioning albums by the
+    listening thresholds; Batch 23's export path will be the second caller.
+
+    Returns the dict unchanged when it is already at or below the cap, or a
+    new dict holding only the top ``_MAX_ALBUM_CAP`` entries by play count
+    otherwise.
+    """
+    if len(threshold_exclusions) > _MAX_ALBUM_CAP:
+        # Ties are broken by normalized key so the retained set does not depend on
+        # the mapping's insertion order. A stable sort alone would keep whichever
+        # tied album happened to be inserted first, which is a property of the
+        # fetch path rather than of this decision.
+        sorted_exclusion_keys = sorted(
+            threshold_exclusions.keys(),
+            key=lambda k: (-int(threshold_exclusions[k].get("play_count", 0)), k),
+        )[:_MAX_ALBUM_CAP]
+        threshold_exclusions = {
+            k: threshold_exclusions[k] for k in sorted_exclusion_keys
+        }
+    return threshold_exclusions
 
 
 async def fetch_top_albums_async(
@@ -134,18 +163,7 @@ async def fetch_top_albums_async(
     logging.debug(f"Albums after filter: {len(filtered)}")
 
     total_below_threshold = len(threshold_exclusions)
-    if len(threshold_exclusions) > _MAX_ALBUM_CAP:
-        # Ties are broken by normalized key so the retained set does not depend on
-        # the mapping's insertion order. A stable sort alone would keep whichever
-        # tied album happened to be inserted first, which is a property of the
-        # fetch path rather than of this decision.
-        sorted_exclusion_keys = sorted(
-            threshold_exclusions.keys(),
-            key=lambda k: (-int(threshold_exclusions[k].get("play_count", 0)), k),
-        )[:_MAX_ALBUM_CAP]
-        threshold_exclusions = {
-            k: threshold_exclusions[k] for k in sorted_exclusion_keys
-        }
+    threshold_exclusions = _cap_threshold_exclusions(threshold_exclusions)
 
     fetch_metadata["stats"] = {
         "total_scrobbles": total_tracks,
@@ -498,6 +516,110 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
     return filtered_albums
 
 
+async def _process_filtered_albums(
+    job_id,
+    filtered_albums,
+    year,
+    sort_mode,
+    release_scope,
+    decade,
+    release_year,
+    limit_results,
+    overall_start_time,
+):
+    """Slice, enrich, and finalize a job's already-filtered albums.
+
+    This is the tail of ``_fetch_and_process``: pre-slicing for the Spotify
+    lookup, enrichment via ``process_albums``, post-slicing, storing the
+    results, and handing the job off to the release-check worker. It is
+    called by ``_fetch_and_process`` right after ``fetch_metadata``'s
+    "Processing your albums..." progress update, and Batch 23's export
+    task will be the second caller, invoking it after its own aggregation
+    so both paths share the same "Done" progress and release-check
+    hand-off instead of duplicating them.
+
+    ``overall_start_time`` is passed in from the caller so the "Total time
+    elapsed" log still measures from the start of the job (the start of
+    ``_fetch_and_process``), not from this function's own start.
+
+    Returns the results list on success, or ``[]`` when Spotify is
+    unavailable or every album fails enrichment -- in both cases the job
+    error/results state has already been recorded before returning.
+    """
+    filtered_albums = _apply_pre_slice(
+        filtered_albums, sort_mode, limit_results, release_scope
+    )
+
+    set_job_progress(
+        job_id,
+        progress=20,
+        message=f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
+        phase=None,
+    )
+
+    step_start_time = time.time()
+
+    try:
+        results = await process_albums(
+            job_id,
+            filtered_albums,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+        )
+    except SpotifyUnavailableError:
+        set_job_error(job_id, "spotify_unavailable")
+        return []
+    step_elapsed = time.time() - step_start_time
+    logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
+
+    if _detect_enrichment_total_failure(job_id, results, filtered_albums):
+        return []
+
+    set_job_progress(
+        job_id,
+        progress=80,
+        message="Adding album art to your results...",
+        phase=None,
+    )
+
+    set_job_progress(
+        job_id,
+        progress=85,
+        message="Compiling your top album list...",
+        phase=None,
+    )
+
+    set_job_progress(
+        job_id,
+        progress=90,
+        message="Finalizing list...",
+        phase=None,
+    )
+
+    results = _apply_post_slice(results, limit_results)
+
+    overall_elapsed = time.time() - overall_start_time
+    logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
+
+    set_job_results(job_id, results)
+    set_job_progress(
+        job_id,
+        progress=100,
+        message=f"Done! Found {len(results)} albums matching your criteria.",
+        error=False,
+        phase=None,
+    )
+    # Hand the finished job to the MusicBrainz correction worker (Task 9)
+    # so it can replace reissue dates with original ones while the results
+    # page is open. Only here, on the happy path: the error paths below
+    # set an empty results list, and there is nothing to correct in one.
+    enqueue_release_check(job_id)
+    return results
+
+
 async def _fetch_and_process(
     job_id,
     username,
@@ -538,78 +660,17 @@ async def _fetch_and_process(
             phase=None,
         )
 
-        filtered_albums = _apply_pre_slice(
-            filtered_albums, sort_mode, limit_results, release_scope
-        )
-
-        set_job_progress(
+        return await _process_filtered_albums(
             job_id,
-            progress=20,
-            message=f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
-            phase=None,
+            filtered_albums,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+            limit_results,
+            overall_start_time,
         )
-
-        step_start_time = time.time()
-
-        try:
-            results = await process_albums(
-                job_id,
-                filtered_albums,
-                year,
-                sort_mode,
-                release_scope,
-                decade,
-                release_year,
-            )
-        except SpotifyUnavailableError:
-            set_job_error(job_id, "spotify_unavailable")
-            return []
-        step_elapsed = time.time() - step_start_time
-        logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
-
-        if _detect_enrichment_total_failure(job_id, results, filtered_albums):
-            return []
-
-        set_job_progress(
-            job_id,
-            progress=80,
-            message="Adding album art to your results...",
-            phase=None,
-        )
-
-        set_job_progress(
-            job_id,
-            progress=85,
-            message="Compiling your top album list...",
-            phase=None,
-        )
-
-        set_job_progress(
-            job_id,
-            progress=90,
-            message="Finalizing list...",
-            phase=None,
-        )
-
-        results = _apply_post_slice(results, limit_results)
-
-        overall_elapsed = time.time() - overall_start_time
-        logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
-
-        set_job_results(job_id, results)
-        set_job_progress(
-            job_id,
-            progress=100,
-            message=f"Done! Found {len(results)} albums matching your criteria.",
-            error=False,
-            phase=None,
-        )
-        # Hand the finished job to the MusicBrainz correction worker (Task 9)
-        # so it can replace reissue dates with original ones while the results
-        # page is open. Only here, on the happy path: the error paths below
-        # set an empty results list, and there is nothing to correct in one.
-        enqueue_release_check(job_id)
-        return results
 
     except Exception as exc:
         error_message = str(exc)
@@ -633,6 +694,19 @@ async def _fetch_and_process(
         return []
 
 
+def _report_album_failure(job_id, username, year):
+    """Log the crash and publish this pipeline's terminal state.
+
+    Called from inside the helper's ``except`` block, so ``logging.exception``
+    still sees the active exception. Publishes the same ``internal_error``
+    the heatmap entry point does: two entry points, one answer (F-SWE-5).
+    Before this, the album backstop only logged, and a page polling the job
+    waited on a job that would never finish.
+    """
+    logging.exception(f"Unhandled error in background task for {username}/{year}")
+    set_job_error(job_id, "internal_error", username=username)
+
+
 def background_task(
     job_id,
     username,
@@ -645,37 +719,34 @@ def background_task(
     min_tracks=3,
     limit_results="all",
 ):
-    """Run the async fetch pipeline in a dedicated event loop on this thread.
+    """Run the album pipeline on this thread, in a loop the worker owns.
 
-    ``worker.new_thread_event_loop`` builds the loop, including the Windows
-    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try`` so a
-    setup failure still reaches the ``finally`` that releases the job slot.
+    The build-run-close-release protocol lives in
+    ``worker.run_coroutine_in_new_loop``. What stays here is the reaction to
+    a failed run: ``_report_album_failure`` logs it and publishes
+    ``internal_error``. Upstream failures are classified deeper in, inside
+    ``_fetch_and_process``, so this backstop only sees faults that are ours.
     """
-    loop = None
-    try:
-        loop = new_thread_event_loop()
-        loop.run_until_complete(
-            _fetch_and_process(
-                job_id,
-                username,
-                year,
-                sort_mode,
-                release_scope,
-                decade,
-                release_year,
-                min_plays,
-                min_tracks,
-                limit_results,
-            )
-        )
-    except Exception:
-        logging.exception(f"Unhandled error in background task for {username}/{year}")
-    finally:
-        try:
-            if loop is not None:
-                loop.close()
-        finally:
-            release_job_slot()
+    run_coroutine_in_new_loop(
+        _fetch_and_process(
+            job_id,
+            username,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+            min_plays,
+            min_tracks,
+            limit_results,
+        ),
+        # Passed explicitly rather than left to the helper's own defaults: the tests
+        # patch ``scrobblescope.orchestrator.release_job_slot``, and a default taken
+        # from the helper's module would move that patch target without failing.
+        make_loop=new_thread_event_loop,
+        release_slot=release_job_slot,
+        on_run_error=lambda _exc: _report_album_failure(job_id, username, year),
+    )
 
 
 # Phase submodules import this package back (``from scrobblescope import
@@ -727,11 +798,11 @@ __all__ = [
     "_run_spotify_batch_detail_phase",
     "_run_spotify_search_phase",
     "add_job_unmatched",
+    "album_metadata_from_details",
     "background_task",
     "cleanup_expired_jobs",
     "create_optimized_session",
     "enqueue_release_check",
-    "enrich_albums",
     "fetch_all_recent_tracks_async",
     "fetch_deezer_album",
     "fetch_spotify_access_token",

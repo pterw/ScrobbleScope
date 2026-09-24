@@ -9,6 +9,1466 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - Every provider call is logged, and the release worker says what it did
+
+Side task, no batch tag: implements the reconcile plan's Task 13 (F-B23-6),
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **New module `scrobblescope/api_logging.py`** (leaf: standard library plus
+  `aiohttp`): a host-to-provider map (`ws.audioscrobbler.com` -> Last.fm,
+  `api.spotify.com`/`accounts.spotify.com` -> Spotify, `api.deezer.com` ->
+  Deezer, `musicbrainz.org` -> MusicBrainz; any other host is named by its
+  hostname), the `aiohttp.TraceConfig` callbacks that log every call, and a
+  per-session tally that logs one INFO summary per called provider on
+  close (for example `Spotify: 3 calls in 0.2s -- 2x200, 1x404`). Levels
+  per the owner's ruling: 429/5xx at WARNING (naming `Retry-After` when the
+  response has one), other non-2xx at INFO, a timeout or connection error
+  at WARNING (naming the exception class), 2xx at DEBUG. A line never
+  carries the query string -- only the path -- except Last.fm's `method`
+  value, named because the bare path (`/2.0/`) does not say which call it
+  was. Every callback catches its own errors so a logging failure can never
+  fail the request it describes.
+- **`utils.create_optimized_session`** attaches a fresh trace config (one
+  per session: `aiohttp.ClientSession` freezes whatever `TraceConfig` it is
+  given at construction, so a shared module-level one could not accept new
+  sessions' callbacks) and wraps the returned session's `close()` so the
+  summary logs the first time it closes. Not a `ClientSession` subclass:
+  aiohttp 3.14 fires a `DeprecationWarning` at class-definition time for
+  any subclass of it (`__init_subclass__` in `aiohttp.client`), which would
+  have shown up as a warning on every test that imports this module.
+  Rebinding `close` on the session instance reaches the same one place --
+  `__aexit__` and every explicit `await session.close()` both call
+  `session.close()` -- without subclassing. The function's name, signature
+  and return type (an `aiohttp.ClientSession`, used as `async with`) are
+  unchanged, so no caller and no existing test needed touching; every
+  existing provider test mocks `session.get`, so the hook never fires in
+  them.
+- **`release_checks.py`'s three worker lines** (INFO, counts only, no
+  artist or album names): `run_release_checks` logs its candidate count
+  when it starts and, in its `finally` block, the checked and corrected
+  counts when it finishes; `enqueue_release_check` logs which setting is
+  missing -- `MUSICBRAINZ_ENABLED` or `MUSICBRAINZ_CONTACT` -- when it
+  skips.
+- **Reading "corrected"** (not defined further by the brief): the finish
+  line reports `state["moved_out"]`, the count of results the worker
+  actually rewrote in place, not `moved_out + moved_in` -- a moved-in
+  candidate is only tallied on the job's stats, never applied to a result
+  (`_check_candidate`'s own comment: "move-ins are counted on the job's
+  stats, not inserted"). Flagged here in case the owner intended the wider
+  count.
+- **Privacy proof.** The adversarial test (a query holding
+  `api_key=SECRET-KEY` and `artist=Radiohead`) was run red first: with
+  `_call_outcome_line` temporarily logging the full URL instead of
+  `url.path`, both the pure-function test and the end-to-end
+  `TestServer`-backed test failed on the planted leak, then passed again
+  once reverted. `tests/services/test_api_logging.py` drives a real
+  session from `create_optimized_session()` against a local
+  `aiohttp.test_utils.TestServer` (part of `aiohttp`; no new dependency)
+  for the end-to-end cases, and tests the host map and the Last.fm
+  `method` exception as pure functions of a `yarl.URL` -- the TestServer's
+  host is always `127.0.0.1`, which only exercises the unknown-host
+  fallback branch. `tests/services/test_release_checks.py` gained four
+  tests for the three worker lines and the two skip reasons.
+- **Docs.** `.claude/SESSION_CONTEXT.md` Section 3 lists the new module;
+  Section 4 gains the `utils -> api_logging` edge (`AGENTS.md`
+  Anti-Pattern 2). `FINDINGS.md` resolves F-B23-6 (rotated to
+  `docs/history/findings/FINDINGS_ARCHIVE.md` by `--fix`).
+- **Not run:** Step 5, the owner's live check with a real Last.fm run under
+  `DEBUG_MODE=1` and without it -- it needs the owner's username and API
+  quota. Left unticked in the reconcile plan; the owner records the outcome
+  here when it runs.
+
+Validation: `pytest -q` -- **1820 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+Forward guidance: the reconcile plan's Task 13 (its whole Stage 4) is done.
+Next is the foundation plan's Task 5, per Section 3's order list -- Step 5
+above is still owed from the owner.
+
+### 2026-09-24 - Provider call logging joins the reconcile plan as its Task 13
+
+Side task, no batch tag: files F-B23-6 and writes the task that fixes it,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Why.** Testing Batch 22's MusicBrainz corrections, the owner still saw
+  no MusicBrainz line in the log. At source: the release-check worker logs
+  nothing on success, `enqueue_release_check` skips silently without
+  `MUSICBRAINZ_CONTACT`, and `musicbrainz.py` and `deezer.py` have no log
+  call at all.
+- **Owner rulings, 2026-09-24.** Scope: all four providers, plus the three
+  release-worker lines the plan's "After this plan" section held (moved into
+  the task, with a pointer left behind). Levels: 429 and 5xx at WARNING with
+  `Retry-After`, other non-2xx at INFO, timeouts and connection errors at
+  WARNING, 2xx at DEBUG, and one INFO summary per provider per session.
+- **Recorded:** F-B23-6 (P2, owner-added) in `FINDINGS.md`; a Part C bullet
+  in `BATCH23_DEFINITION.md`; the reconcile plan's disposition row, its
+  Stage 4 and Task 13, and its stage count and order list; PLAYBOOK Section
+  3's order list, which runs Task 13 before the foundation plan's Task 5.
+- **Design constraint carried into the task:** no query string in any log
+  line, because it carries Last.fm's API key and the search terms the
+  definition's Data handling section keeps out of logs. The one exception
+  is Last.fm's `method` value.
+- Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
+### 2026-09-23 - The DOC024 wiring gets a test, and its severity gets stated truly
+
+Side task, no batch tag: fix round 1 on the archive page target task --
+add CLI-level test coverage for the `cli.py` splice that actually surfaces
+DOC024 to `--check`/`--fix`, and correct two overclaims the original commit
+left standing, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **CLI-level test for DOC024** (`tests/test_docsync_cli.py`,
+  `TestArchivePageTargetDiagnosticsThroughTheCli`): a real `--check` and
+  `--fix` run over a fixture corpus with an unpaginated managed archive over
+  the page target asserts `"WARNING DOC024"` in stderr, naming the archive,
+  with exit 0. Every prior DOC024 test only called
+  `ArchiveStore.page_target_issues` directly, so none of them exercised
+  `cli._archive_page_target_issues`'s splice into `_collect_issues`
+  (`scripts/docsync/cli.py`) -- the wiring that actually makes DOC024
+  visible to an operator. Proved by temporarily removing that splice: both
+  new tests failed red (`WARNING DOC024` absent from stderr, exit code
+  still 0 -- a silent regression, not a crash), then passed green again
+  once restored.
+- **Two new unit tests** (`tests/test_docsync_archives.py`): an undated
+  entry placed on the writable tail page produces no never-ageing warning
+  (the guard clause was previously only inferred, never asserted); and an
+  unpaginated archive at exactly `max_lines` does not warn while one line
+  over does, measured the same way the check does
+  (`len(flattened.splitlines())`).
+- **`AGENTS.md`'s DOC001-DOC024 sentence** overclaimed that every code
+  "block[s] rather than warn[s]" -- false for DOC024 (100% warning) and for
+  DOC023's grandfathered-finding count. Reworded to
+  "error-severity ones block, and warnings print without changing the exit
+  code," keeping the exact substring `returns typed DOC001-DOC024 issues`
+  that `STATED_RANGE_RE` reads, and without enumerating the warning codes
+  (the catalogue owns them).
+- **`docs/architecture/documentation-tooling.md`**: the catalogue's lead
+  paragraph made the same overclaim ("exits 1", full stop) -- corrected to
+  "exits 1 on any error-severity [issue]; a warning ... prints and leaves
+  the exit code alone." The DOC024 paragraph now states the full
+  never-ageing condition (finalized, non-oversized, hot page of a paginated
+  archive) instead of dropping the non-oversized/hot qualifiers, and the
+  DOC020 cold-rule sentence is anchored to `--as-of` ("more than
+  `cold_days` days before `--as-of`") instead of the looser "older than
+  `cold_days`".
+
+Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The archive page target gets a reader
+
+Side task, no batch tag: warn when a managed archive outgrows its page
+target or a paginated page can never age, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 4.** `ArchiveStore.page_target_issues`
+  (`scripts/docsync/archives.py`) is a new DOC024 diagnostic, warning
+  severity only, so `--check` still exits 0. It fires on two conditions: an
+  unpaginated (legacy monolith) archive whose logical text has outgrown
+  `[archives] max_lines`, naming `--paginate-archives`; and a paginated
+  archive's finalized, non-oversized, hot page whose entries are not all
+  dated, since `_age` requires every entry on such a page to carry a date
+  before the cutoff and a page with even one undated entry can never
+  satisfy that rule. `cli.py`'s `_collect_issues` folds these in for every
+  path `_managed_archive_paths()` names.
+- **The real corpus warns four times, not once**, correcting the brief's
+  prediction: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (10451
+  lines), `docs/history/findings/FINDINGS_ARCHIVE.md` (2277),
+  `docs/history/logs/BATCH22_LOG.md` (989) and
+  `docs/history/logs/BATCH21_LOG.md` (750) each exceed the 500-line target
+  and are still unpaginated monoliths; `--check` on this worktree exits 0
+  and prints all four.
+- **`docs/architecture/documentation-tooling.md`** now names DOC024 in the
+  renamed DOC001-DOC024 catalogue, and its cold-rule sentence states what
+  `_age` actually checks -- every entry on a finalized, non-oversized, hot
+  page dated before the cutoff -- rather than "365 days" alone.
+- **`AGENTS.md`'s stated `DOC001-DOC023` range** (the sentence
+  `test_stated_docsync_range_matches_the_highest_code_raised` reads) was
+  bumped to `DOC001-DOC024` in the same commit: adding the `"DOC024"`
+  literal to `archives.py` made that test fail, and the smallest fix was
+  the one sentence the test reads. The rest of the range wording is left
+  to Task 5, which owns it.
+- **Live probe** (`/c/ssprobe`, `git archive HEAD` from this worktree,
+  deleted after):
+
+  | probe | expected | exit | codes |
+  | --- | --- | --- | --- |
+  | faithful copy, `--check` | same summary as this worktree | 0 | DOC024 x4 (same paths), root-BATCH warning |
+  | red: `--check` (the corpus already carries the four oversized monoliths; nothing further to plant) | fires | 0 | DOC024 x4 |
+  | near-miss: `--paginate-archives`, then `--check` | no oversize warning anywhere; `FINDINGS_ARCHIVE_0001.md` (28/28 entries undated) and `FINDINGS_ARCHIVE_0002.md` (9/16 undated) each warn once as never-ageing; no log page warns | 0 | DOC024 x2 |
+
+Validation: `pytest -q` -- **1798 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The owner's rulings land in their findings
+
+Side task, no batch tag: write the owner's 2026-09-23 WP-0 rulings into
+FINDINGS.md and docs/design/RECONCILIATION.md, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the reconcile plan's Stage 3 Task 10.** Step 1b recorded
+  `F-B21-53` no action (Q10 = b): the light card is delineated by its border,
+  not lifted by its fill. `docs/design/README.md` was not edited -- it
+  already reads "borders do the work" (line ~107) and "Edge, not elevation"
+  (line ~254), and a sweep found no other live elevation claim about cards;
+  `static/css/shell.css:566`'s "elevated paper pill" is the theme toggle, not
+  a card, and was left alone.
+- **Step 2 wrote six no-action records**, each replacing its free-prose
+  `Status:` line with the canonical `- [x] **Status:** no action` /
+  `**Completed:** 2026-09-23` / reason form: `F-B21-15` (no scheduled
+  `GET /heatmap/<username>` route), `F-STYLE-1` and `F-STYLE-2` (guidance
+  that cannot become a gate; the docstring convention stays undecided),
+  `F-WORKTREE-4` (the owner's 2026-09-21 ruling, written in canonical form),
+  `F-B21-24` (Tasks 2-5 shipped; Task 6 runs as Batch 23 WP-7's audit) and
+  `F-MAS-2` (absorbed into `F-B21-18`; a pointer line was added under
+  "Deferred / future-batch candidates" so the old id stays resolvable).
+- **Step 3 re-graded `F-B21-48` and `F-B18-11`** to P2 -- a persistent
+  scrobble cache is a feature, not a defect -- and moved both under "P2 --
+  Scaling roadmap". The Codex/Copilot session-entry-point item, F-B21-25's
+  third "Remaining" item, was filed as the new finding `F-B21-63` (the next
+  free `F-B21-` number) under P2; F-B21-25's own "Remaining" paragraph now
+  points at it instead of restating it.
+- **Step 4 split the partly-ruled findings.** `F-B21-4` closes no action:
+  items 1, 2 and 4 are settled (citing `templates/index.html` `.index-grid`,
+  RECONCILIATION's loading-signal override, and RECONCILIATION section 16),
+  and item 3 folds into Batch 23 WP-6 (Q13 = a). `F-B21-19` closes no
+  action per Q12 = a: `docs/design/RECONCILIATION.md` section 1 gained an
+  owner-approved override row for the width-driven mobile heatmap grid, and
+  day detail (hover reveals what was played) is named a future feature since
+  the payload holds only `daily_counts`. `F-DOCSYNC-6` and `F-WORKTREE-3`
+  each gained a dated line: the boundary/ancestry items are no action, the
+  mechanical bugs stay open for the control-plane plan. RECONCILIATION
+  section 9's `F-B21-4` bullet and section 7's lead-in were reworded so
+  neither sibling claim still reads as pending.
+- **No test changed.** The task is documentation only; the test count stays
+  at the baseline.
+
+Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+Forward guidance: the reconcile plan's Stage 3 Task 10 (Part B) has landed,
+completing every task in
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The
+next step is the foundation plan's Tasks 4-10, per Section 3's order list.
+
+### 2026-09-23 - The release-window rule gets one owner
+
+Side task, no batch tag: fixes F-B23-5, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 12 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/domain.py` gains `release_window(release_scope, year,
+  decade=None, release_year=None)`, which returns the inclusive `(first,
+  last)` years a scope accepts, `None` when every year qualifies, and raises
+  `ValueError` when a companion parameter is present but unparseable.
+  `domain._matches_release_criteria` (the album filter) and
+  `release_checks._window_end` (the correction worker) both derive from it
+  now instead of each restating the same scope table; neither's name,
+  signature or import path changed, so every test that used them passed
+  unmodified.
+- **The two divergences named in the finding are kept, per owner ruling
+  2026-09-23 (KEEP PARITY).** An unparseable `decade` (the route does not
+  validate it) still makes `_matches_release_criteria` return `False` and
+  `_window_end` return `None`; the only change is that the warning now
+  names the bad decade instead of the release date. `_window_end` still
+  accepts `year` as a string; the filter is still only ever called with an
+  `int`.
+- **Parity tests pin both consumers' outputs first.**
+  `tests/services/test_orchestrator_helpers.py` gains
+  `test_matches_release_criteria_parity_before_release_window`, a
+  parametrized test covering the four bounded scopes plus every divergence
+  the finding names; `tests/services/test_release_checks.py` gains
+  `test_window_end_parity_before_release_window`, the same coverage for
+  `_window_end`. Both were checked against the pre-refactor functions (the
+  finding's own known-bad decade warning reproduced) before the refactor
+  landed, and both still pass against the derived code -- the net held.
+  `test_window_end_per_release_scope` and
+  `test_window_end_returns_none_on_unusable_inputs` pass unmodified.
+- **Direct coverage for `release_window`** also lands in
+  `tests/services/test_orchestrator_helpers.py`:
+  `test_release_window_per_scope` (the four bounded scopes),
+  `test_release_window_unbounded_returns_none` (`"all"`, an unrecognized
+  scope, and a falsy companion) and
+  `test_release_window_unparseable_decade_raises` (the adversarial case).
+- **Deviation from the brief.** The brief's Files list names only
+  `tests/services/test_orchestrator_helpers.py` and
+  `tests/services/test_release_checks.py` as test files to touch, append
+  only, and does not mention `tests/test_domain.py`. `release_window`'s own
+  tests (Step 2) are therefore appended to
+  `tests/services/test_orchestrator_helpers.py` -- the file that already
+  hosts `_matches_release_criteria`'s adversarial coverage -- rather than
+  added to a new or different test module.
+- **Documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py`
+  summary line now lists all five module-level functions:
+  `normalize_name, format_album_key, normalize_track_name,
+  _matches_release_criteria, release_window`.
+  `docs/architecture/runtime-system.md`'s runtime-system prose named
+  `_matches_release_criteria` as what the worker and the album filter both
+  read from `domain.py`; it now names `release_window`, since that is the
+  rule's one owner. A sweep for `_window_end` and "release window" across
+  live prose found nothing else naming the old, two-copy shape.
+- **F-B23-5 is resolved.** `domain.release_window` is the rule's one
+  owner; the album filter and the worker's window end both derive from it.
+- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
+  Task 10.
+
+Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The export contracts are made consistent
+
+Side task, no batch tag: a definition edit within Batch 23, made before
+WP-1. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Author.** Codex (GPT-6) made these edits at the owner's request, after
+  a read-only review of `BATCH23_DEFINITION.md` and the current execution
+  path. The definition's header lists all seven changes and why.
+- **The definition** gains a "Data handling" section as the one owner of
+  the privacy contract. It separates listening history, which stays in
+  memory, from reusable catalog metadata, which the existing enrichment
+  cache may keep. It also makes these changes:
+  - It separates failures refused before a job exists from content
+    failures that end a running job.
+  - WP-2 now hands WP-3 a pre-threshold album mapping, and WP-3
+    partitions it once.
+  - The memory acceptance measures the whole process, not only admitted
+    buffers.
+  - WP-6 must settle a statistics contract before it is implemented.
+  - Each WP gets its own SDD plan, and that plan owns the task order.
+- **The export outline**
+  (`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`)
+  and `README.md` now point at the definition instead of repeating the
+  older privacy and aggregation wording. The outline's stale
+  `routes.py` and `orchestrator.py` paths are updated.
+- **Also corrected:** Section 3 still called Batch 23 "queued" and "not
+  started", and named the outline as its plan. That bullet now says the
+  batch is active and calls the file its cross-WP outline. A sweep found no
+  other copy of the replaced wording outside dated history.
+- **No effect on WP-0.** The WP-0 plans, their order and the next action
+  (reconcile Task 12) are unchanged.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The release-window rule gets a task of its own
+
+Side task, no batch tag: a planning change within Batch 23 WP-0. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-5 at P2, and the owner added it to WP-0 Part C
+  (2026-09-23).** `release_checks._window_end` restates the scope table
+  that foundation Task 12 moved to `domain._matches_release_criteria`, so
+  the release-window rule has two copies. They already differ at the
+  edges: an unparseable decade excludes every album in the filter but
+  gives the worker no window.
+- **Plan:** the reconcile plan gains Task 12, the last task of Stage 2 and
+  before Stage 3. It pins both consumers' current outputs with parity tests
+  first, then derives both from one `domain.release_window`. Changing the
+  unparseable-decade behaviour needs an owner ruling before dispatch. The
+  definition's Part C now lists F-B23-5 as the fourth owner-added P2, and
+  the plan's disposition table has its row.
+- **Also corrected:** the plan's Acceptance said only Tasks 4 and 6 edit
+  an existing test. Task 11 replaced one too, so it now says 4, 6 and 11.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Release checks run without the cache DB
+
+Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 11 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/release_checks.py`'s `run_release_checks` no longer
+  returns early when `_get_db_connection()` finds no cache: it logs
+  "Release checks running without the cache DB: findings will not be
+  saved." and runs the job's candidates against MusicBrainz regardless,
+  guarding the three uses of `conn` (`_lookup_cached`, `_check_candidate`'s
+  persist, and the `finally` close) with `if conn`. Everything else is
+  unchanged: the job still ends `done`, the per-result outcomes are the
+  same, and the shared one-request-per-second limiter still paces the
+  requests. `tests/services/test_release_checks.py` replaces
+  `test_run_release_checks_marks_skipped_without_a_db_connection` with
+  `test_run_release_checks_runs_without_a_db_connection` (asserts the
+  lookup runs, nothing is persisted, and the result still moves out) and
+  adds
+  `test_run_release_checks_without_a_db_connection_survives_a_lookup_error`
+  (a MusicBrainz failure with no connection still ends `done`).
+  `test_run_release_checks_closes_the_connection_when_a_lookup_raises`
+  passes unchanged, proving the connected path still closes.
+- **F-B22-8 is resolved.** `run_release_checks` runs its candidates
+  without a cache connection and skips only the cache read, the persist
+  and the close.
+- **Deviation from the brief (controller-directed).** F-B23-3's status
+  paragraph is rewritten: it stays open (P2), now says F-B22-7 and
+  F-B22-8 have both landed (reconcile Tasks 4-6 and 11) and are to be
+  reassessed against the code they left, and drops the "keep it out of
+  their commits" sentence now that both have landed.
+- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
+  Task 10.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The capacity refusal states the configured cap
+
+Side task, no batch tag: fixes F-LOAD-1, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 9 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_capacity_message()`,
+  which returns `f"Too many requests in progress: all {MAX_ACTIVE_JOBS}
+  search slots are busy. Please try again in a moment."`, reading
+  `MAX_ACTIVE_JOBS` from `scrobblescope.config` rather than a literal.
+  `scrobblescope/routes/album_flow.py`'s and
+  `scrobblescope/routes/heatmap_flow.py`'s refusal strings now both read
+  `_routes._capacity_message()` through the existing `_routes` module
+  reference. There is no occupancy counter: the message only renders after
+  `acquire_job_slot()` has just failed, when every slot is already taken, so
+  a count would always read cap/cap. Two new tests in `tests/test_routes.py`
+  cover it: `test_album_capacity_refusal_states_the_configured_cap` and
+  `test_heatmap_capacity_refusal_states_the_configured_cap`, both patching
+  `MAX_ACTIVE_JOBS` to a distinctive value and asserting the refusal names
+  it.
+- **F-LOAD-1 is resolved.** Both refusals read
+  `routes._capacity_message()`, which states the configured
+  `MAX_ACTIVE_JOBS`.
+- **Deviation from the brief.** The brief's Step 5 dependency-graph line
+  for `routes/__init__.py` omitted `domain`, which the module has imported
+  (`format_album_key`) since `d20a7924`. The `config` edge from this task
+  is added alongside the missing `domain` edge in the same edit, so the
+  line now reads `routes/__init__.py <- config, domain, lastfm,
+  repositories, spotify, unmatched, utils, worker; ...`. No other
+  dependency-graph line was touched.
+- **Forward guidance:** next is reconcile Task 11 (F-B22-8, release checks
+  run without the cache DB).
+
+Validation: `pytest -q` -- **1745 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The year gate reads the UTC calendar
+
+Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 8 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_current_year()`, which
+  returns `datetime.now(timezone.utc).year`; `inject_current_year` now
+  returns `{"current_year": _current_year()}` instead of reading the host's
+  local clock. `scrobblescope/routes/album_flow.py`'s two `datetime.now().year`
+  sites -- the results-page year fallback and the submit-path validation
+  gate -- now read `_routes._current_year()` through the existing `_routes`
+  module reference, and the file's now-unused `datetime` import is removed.
+  Two new tests in `tests/test_routes.py` cover it:
+  `test_current_year_reads_the_utc_calendar` (the helper itself, against a
+  clock stub whose local and UTC readings disagree) and
+  `test_results_loading_year_gate_uses_the_utc_year` (the submit-path gate's
+  upper bound comes from `routes._current_year()`).
+- **F-B21-6 is resolved.** Every year gate reads `routes._current_year()`,
+  which uses `datetime.now(timezone.utc)`, so the gate and the orchestrator's
+  UTC-built fetch window can no longer disagree around New Year.
+- **Forward guidance:** next is reconcile Task 9 (F-LOAD-1, the capacity
+  refusal states the configured cap).
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
+
+Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-4 at P2, non-blocking (owner ruling, 2026-09-23).** After
+  reconcile Task 7 committed, the independent gate run's frontend gate
+  failed once in `check_touch_targets`: two `.btn` controls on the 404 page
+  measured 40px high in the wide-touch profile. The same tree then passed
+  three times. The finding records why only that profile can fail (at
+  1280px only `error.css`'s `any-pointer: coarse` rule gives `.btn` its
+  44px) and that the check measures with nothing waiting for that rule.
+- **Scope:** documentation only. No code, test or gate changed. WP-0 Part C
+  clears P0 and P1 findings, so a P2 finding stays out of WP-0.
+- **Forward guidance:** until F-B23-4 is fixed, re-run a frontend-gate
+  failure once before acting on it when the implementer's own runs were
+  green. Next is reconcile Task 8 (F-B21-6).
+
+Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Both pipelines end a crash as internal_error
+
+Side task, no batch tag: fixes F-SWE-5, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 7 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/errors.py` gains an `internal_error` entry
+  (`source: "internal"`, `retryable: False`). `heatmap.py`'s
+  `_report_heatmap_failure` now publishes it instead of borrowing
+  `lastfm_unavailable`. `orchestrator/__init__.py` gains
+  `_report_album_failure`, called from `background_task`'s `on_run_error`
+  in place of a bare `logging.exception`, so the album pipeline now
+  publishes a terminal state on an unhandled crash instead of leaving the
+  job stuck. `static/js/loading.js`'s `showFailure` now looks up the source
+  label in an `ERROR_SOURCE_LABELS` map and hides the source line for any
+  source not in it (`internal` included), instead of defaulting every
+  unrecognized source to "Spotify". `scripts/dev/_frontend_gate_pipeline.py`
+  pins both: the album rate-limit failure still names `Source: Last.fm`,
+  and a probed `internal` failure hides the source line.
+- **Two architecture diagrams updated in the same commit:**
+  `docs/architecture/heatmap-sequence.md`'s `opt Unhandled exception
+  anywhere above` block now draws `set_job_error(internal_error)`, with its
+  closing prose split to say the inner, status-based Last.fm path still
+  emits `lastfm_unavailable` while the outer backstop publishes
+  `internal_error`. `docs/architecture/top-albums-sequence.md`'s `opt
+  Exception escaping that handler` block now draws
+  `set_job_error(internal_error)` and its note says the pipeline publishes
+  a terminal state, so a polling page stops instead of waiting forever.
+- **Tests added, three in total, none replaced:**
+  `TestErrorCode.test_internal_error_exists` and
+  `TestHeatmapTask.test_unhandled_crash_publishes_internal_error`
+  (`tests/test_heatmap.py`), and
+  `test_background_task_crash_publishes_internal_error`
+  (`tests/services/test_orchestrator_fetch_and_process.py`). No existing
+  test changed.
+- **This resolves F-SWE-5.** Both entry points now publish `internal_error`
+  from their outer handler, so a fault that is ours is no longer reported
+  as a Last.fm outage, and the album pipeline no longer leaves a polling
+  page waiting on a job that would never finish.
+- **Bookkeeping:** the reconcile plan's Task 7 steps are ticked. Section 3's
+  order list now records Task 7 landed alongside Tasks 3-6 in Stage 2.
+
+Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The unused enrich_albums is retired
+
+Side task, no batch tag: fixes F-B22-7, part 3 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 6 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py`'s `enrich_albums` is deleted: after Task 5,
+  the live path already does everything it did, through
+  `_run_spotify_search_phase` and `_run_spotify_batch_detail_phase`, with the
+  per-phase progress the loading page shows that `enrich_albums` never had.
+  `scrobblescope/orchestrator/__init__.py` drops its import and its
+  `__all__` entry; `album_metadata_from_details` keeps both, since
+  `_details.py` still calls it through the facade. `git grep -n
+  "enrich_albums" -- '*.py'` now returns nothing.
+- **Tests removed, five in total, none replaced:**
+  `test_enrich_albums_empty_misses_makes_no_request`,
+  `test_enrich_albums_returns_matched_and_unmatched`,
+  `test_enrich_albums_marks_unmatched_when_detail_lookup_misses` and
+  `test_enrich_albums_handles_missing_cover_art`
+  (`tests/services/test_spotify_service.py`, with their banner comment and
+  the `enrich_albums` import), and
+  `test_enrich_albums_is_exposed_on_the_orchestrator_facade`
+  (`tests/services/test_orchestrator_fetch_spotify.py`, with both of its
+  `enrich_albums` imports).
+- **This resolves F-B22-7.** The Spotify payload is translated only in
+  `spotify.album_metadata_from_details`; every metadata row is built by
+  `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in
+  `spotify_id` (Task 4); the unused `enrich_albums` and its tests are gone.
+- **Bookkeeping:** the reconcile plan's Task 6 steps are ticked. Section 3's
+  order list now records Task 6 landed alongside Tasks 3-5 in Stage 2.
+
+Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The Spotify payload is translated once, in spotify.py
+
+Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 5 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py` gains `album_metadata_from_details`, the
+  one place the application reads a Spotify album object into the provider
+  contract; `enrich_albums` now calls it instead of building `AlbumMetadata`
+  inline. It is re-exported on the orchestrator facade
+  (`scrobblescope/orchestrator/__init__.py`).
+- **The detail phase files, it no longer parses.**
+  `scrobblescope/orchestrator/_details.py`'s "Extract cacheable fields" loop
+  now calls `_orchestrator.album_metadata_from_details` and appends
+  `metadata.as_cache_row(...)` (Task 4's contract) instead of building the
+  row by hand; its now-unused `normalize_track_name` import is dropped, and
+  the module docstring names the new cross-cutting dependency.
+  `scrobblescope/orchestrator/_deezer_fallback.py`'s inline 9-tuple is
+  replaced the same way. Since Task 4, that tuple was already identical to
+  what `as_cache_row` writes, so the Deezer row is unchanged in shape.
+  `provider_url` for a Spotify row now holds the album's Spotify URL instead
+  of `NULL`, since the 9-tuple form carries it; `_batch_persist_metadata`
+  still accepts 6-tuples.
+- **Tests added, four in total:**
+  `test_album_metadata_from_details_translates_one_payload` and the
+  parametrized `test_album_metadata_from_details_degrades_field_by_field`
+  (`tests/services/test_spotify_service.py`, two cases: no `images` key and
+  an empty list), and `test_process_albums_persists_a_spotify_row_through_the_contract`
+  (`tests/services/test_orchestrator_process_albums.py`), which pins the
+  live Spotify path's persisted row as the provider contract's nine-element
+  form. No existing test changed.
+- **Bookkeeping:** the reconcile plan's Task 5 steps are ticked. Section 3's
+  order list now records Task 5 landed alongside Tasks 3 and 4 in Stage 2.
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - A Deezer id no longer lands in the Spotify column
+
+Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 4 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `AlbumMetadata.as_cache_row` (`scrobblescope/enrichment.py`) now
+  writes `album_id` into the `spotify_id` column (tuple index 2) only when
+  `provider == "spotify"`; every other provider writes `None` there, matching
+  what the live Deezer fallback has always written at that column. F-B22-7 is
+  not resolved by this task -- Tasks 5 and 6 complete it.
+- **Two existing assertions changed**, both in
+  `tests/services/test_enrichment.py`, because the finding requires it:
+  `test_album_metadata_carries_its_provider_and_url`'s expected tuple pinned
+  the Deezer album id at index 2, and
+  `test_cache_row_matches_what_the_persistence_layer_unpacks` asserted
+  `row[2] == meta.album_id` for a Deezer row -- both pinned the pre-fix
+  (wrong) value the method wrote before this change. A new test,
+  `test_cache_row_puts_a_spotify_album_id_in_the_spotify_column`, pins the
+  Spotify case.
+- **Bookkeeping:** the reconcile plan's Task 4 steps are ticked. Section 3's
+  order list now records Task 4 landed alongside Task 3 in Stage 2.
+
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Reading a job no longer renews its lease
+
+Side task, no batch tag: fixes F-SWE-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 3 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done, for the owner's Q1 = a: reads never renew a job's lease.
+  `get_job_progress`, `get_job_unmatched` and `get_job_context`
+  (`scrobblescope/repositories.py`) no longer write `updated_at`;
+  `cleanup_expired_jobs` still reaps on that field, but only a writer now
+  renews it. A polled job -- an open results tab, or the release-check
+  worker's `get_job_context` existence check -- expires `JOB_TTL_SECONDS`
+  after its last write, not its last read.
+- **Test added:** `test_reading_a_job_does_not_renew_its_lease`, parametrized
+  over the three getters (`tests/test_repositories.py`). No existing test
+  asserted the old renewal, so none changed.
+- **`scrobblescope/config.py`:** a new comment above `JOB_TTL_SECONDS` states
+  the reads-never-renew contract.
+- **F-SWE-6 resolved**, with the canonical record and a completion date;
+  `doc_state_sync.py --fix` rotated it into
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- **Bookkeeping:** the reconcile plan's Task 3 steps are ticked. Section 3's
+  order list now records Stage 2 as started, with Task 3 landed.
+- **Fix round 1:** F-SWE-5's body still called F-SWE-6 out as compounding
+  it ("a polled job never expires"), which this task's own fix made false.
+  Reworded to the past tense: F-SWE-6 used to compound it; since it was
+  settled, the stuck job now expires `JOB_TTL_SECONDS` after its last write.
+  The reconcile plan's Step 5 sweep is re-run with wrapped-line variants; no
+  other sibling copy survives outside `BATCH23_DEFINITION.md`'s historical
+  before/after narrative and `README.md`'s unrelated metadata-cache TTL
+  sentence, both out of this task's scope. No test added.
+
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
+
+Side task, no batch tag: files the docsync work-package state gap this
+amendment exposed, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Task 2 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scripts/docsync/parser.py` `_collect_wp_numbers` counts every
+  `WP-<n>` token in a current-batch entry heading as a completed work
+  package, so the first commit of a multi-commit work package already makes
+  the dashboard name the next one -- verified directly before filing:
+  `docs/history/logs/BATCH22_LOG.md` carries three `(Batch 22 WP-4)` entries
+  dated 2026-09-20, all landed before WP-4 was actually done, and
+  `_collect_wp_numbers` regex-matches `WP-(\d+)` against each entry heading
+  with no completion check at all.
+- **Filed as F-DOCSYNC-15** under `FINDINGS.md` "P1 -- Next batch
+  candidates", status open (P1), unchecked. The body records the owner's Q4
+  fix shape (2026-09-23): a work package closes only on an entry carrying an
+  explicit `**Status:** WP-N complete` line, which the control-plane
+  follow-on plan implements.
+- **Bookkeeping:** `BATCH23_DEFINITION.md` WP-0 Part B's "File the docsync
+  gap this amendment exposed" checkbox is ticked (done 2026-09-23, as
+  F-DOCSYNC-15); its Part C set now names F-DOCSYNC-15 alongside the "38 IDs
+  plus one" count. The reconcile plan's Task 2 steps are ticked. Section 3's
+  order list now records Stage 1 (Tasks 1 and 2) as complete.
+- No code changed; no test added.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
+
+Side task, no batch tag: records owner rulings on the 2026-09-23
+architecture-depth proposal, part of Batch 23 WP-0. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. No code changed. With Task 12's
+fix round (`972264f`) reviewed clean, Part A -- the loop protocol, the
+three extractions and the release-window leaf -- is complete.
+
+- **The proposal is now tracked** as
+  `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`, renamed from
+  the owner's "ScrobbleScope - further architectural depth.html" to the
+  reports folder's topic-and-date form. An older `.htm` draft beside it stays
+  untracked. DOC001 checks only `.md` references and skips paths containing
+  spaces, so the rename is a naming convention, not a gate fix.
+- **Card 04 amends the export plan now.** The upload has one owner at every
+  moment and is never copied: the route owns it until the thread starts and
+  closes it on every refusal, and the task owns it after that. Admission
+  also caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, because the
+  parse semaphore bounds running parses, not buffers waiting for a permit.
+  The export plan's new "Upload ownership and the waiting bound" section
+  holds the rule, and the definition's WP-3 and WP-4 checkboxes and
+  acceptance carry it. The plan's Phase 2 now records the Part A
+  extractions as landed, under their real names.
+- **Cards 01-03 are filed at P2** as F-B23-1 (album calculation returns its
+  whole answer), F-B23-2 (Last.fm translates its own payload) and F-B23-3
+  (the cache module owns its connection). F-B23-1 is timed by the owner:
+  after WP-0's provider repairs and before WP-6's design, with any move into
+  Batch 23 needing its own scope amendment. The definition's WP-6 names that
+  decision point.
+- **The reconcile plan's finding template is corrected.** It put the reason
+  on the status line (`resolved -- <reason>`). The gate accepts only a bare
+  `resolved` or `no action`, and Task 1's implementer found this by running
+  `--fix`. The template, Task 1 Step 3's record of what ran, and Task 10
+  Step 2's no-action form now follow the archive's order: status,
+  completion date, then the reason on its own line.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Close six stale pending-deploy findings
+
+Side task, no batch tag: close the six finding records that still said "resolved locally, pending
+deploy", part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope: the reconcile plan's Stage 1 Task 1.** F-B20-3, F-B21-10, F-B21-26, F-B21-27, F-B21-28 and
+  F-B21-29 all said "resolved locally, pending deploy" although their fixes were already on
+  `origin/main`. `git fetch origin` ran first, then `git merge-base --is-ancestor` confirmed all seven
+  named fix commits (`85e7511`, `079c2b0c`, `b1fdb121`, `ee5ee4eb`, `47321b23`, `df28c06d`, `8b37566a`)
+  are ancestors of `origin/main`; none printed STOP, so all six records were written.
+- **Plan vs implementation: one deviation, forced by the gate.** The brief's canonical Status line put
+  the "fixed by \`<sha>\` ... confirmed an ancestor of \`origin/main\`" text on the checked `**Status:**`
+  line itself. `scripts/docsync/findings.py`'s DOC014/DOC015 checks require that line's value to
+  normalize to the bare word `resolved` (or `no action`); anything else is rejected, and the word
+  "deployed" inside the brief's sentence also trips DOC014's pending-qualifier scan, which is why the
+  first `--fix` run failed with six errors naming exactly these findings. Every already-archived finding
+  in `docs/history/findings/FINDINGS_ARCHIVE.md` uses the bare form for the same reason. Each of the six
+  now reads `- [x] **Status:** resolved` / `**Completed:** <date>`, followed immediately by a new prose
+  line carrying the brief's exact sentence (the sha(s), "deployed with it", "confirmed an ancestor of
+  \`origin/main\` on 2026-09-23") -- that line sits outside the lifecycle record the gate parses, so its
+  wording is unconstrained. The rest of each body (the "Was recorded as" and "Source" lines) was kept
+  unchanged, per the brief. F-B21-28 and F-B21-29 each have two fix commits in the brief's table, so
+  their new prose line names both ("fixed by \`X\`, completed by \`Y\`, and deployed with it"); the
+  completion date used is the later commit's date in both cases, as directed. F-B20-3's new prose line
+  uses the brief's supplied reason text (Bootstrap and both CDN providers retired by \`85e7511\`, Batch 21
+  WP-8) in place of the generic "fixed by" clause. Completion dates came from
+  `git log --ancestry-path --merges --reverse --format=%cs "<sha>..origin/main"`, falling back to the fix
+  commit's own date when no merge commit exists on that path: 2026-09-19 (F-B20-3), 2026-09-10 (F-B21-10,
+  using `079c2b0c`), 2026-09-10 (F-B21-26 and F-B21-28, using `b1fdb121`), and 2026-09-07 (F-B21-27 and
+  F-B21-29, using `ee5ee4eb` and `8b37566a` respectively).
+  `doc_state_sync.py --fix` then rotated all six resolved records into
+  `docs/history/findings/FINDINGS_ARCHIVE.md`, which emptied the `## P0 -- Fix before next deploy`
+  section (F-B21-26, F-B21-27, F-B21-28 and F-B21-29 were its only members); a line was added under
+  that heading, rather than deleting it, because other documents cite the severity levels.
+  `BATCH23_DEFINITION.md` WP-0 Part B's "Stale finding records" checkbox and the reconcile plan's Task 1
+  step boxes are ticked, and Section 3's numbered order list now notes Stage 1 Task 1 landed, keeping
+  "WP-0 is next." exactly.
+- **No test changed.** The task is documentation only; `git diff --stat tests/` is empty, so the test
+  count stays at the baseline.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
+they are not repository state.
+
+Forward guidance: the reconcile plan's Stage 1 Task 1 (Part B) has landed; Stage 1 Task 2 (the docsync
+work-package gap) is still open. The next steps are the rest of Stage 1, then Stage 2 (Part C, including
+Task 11 for F-B22-8), then Stage 3, then the foundation plan's Tasks 4-10, per Section 3's order list.
+
+### 2026-09-23 - The release-window rule gets a leaf home
+
+Side task, no batch tag: move `_matches_release_criteria` into `scrobblescope/domain.py`, part of
+Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 12** (review A card 3, added to Part A on 2026-09-23). The rule
+  had two consumers -- the album filter in `orchestrator/_results.py` and the correction worker's
+  `release_checks._matches_window` -- and lived in `orchestrator`, which imports `release_checks` at
+  module level, so the worker could only reach the rule through a function-local import. That was the
+  one documented exception in the SESSION_CONTEXT Section 4 dependency graph.
+- **Plan vs implementation: matched exactly, no deviation.** `domain.py` gained the function verbatim
+  (body and docstring unchanged) plus `import logging`, placed after `normalize_track_name`.
+  `orchestrator/_results.py` deletes the definition and extends its existing `from scrobblescope.domain
+  import normalize_name` line to also import `_matches_release_criteria`, so the facade's re-export
+  (`scrobblescope.orchestrator._matches_release_criteria`) and `orchestrator/_results
+  ._matches_release_criteria` both still resolve unchanged. `release_checks.py` imports the rule from
+  `domain` at module level, next to `normalize_name`, and `_matches_window` lost its function-local
+  import and cycle-explaining docstring in favour of one sentence naming the shared home. Both import
+  orders (`release_checks` before `orchestrator` and the reverse) were run directly and succeeded, since
+  the change is specifically about import order. `.claude/SESSION_CONTEXT.md` Section 4 dropped the
+  `; orchestrator (facade, DEFERRED -- see note)` qualifier from the `release_checks.py` line and the
+  "The one deferred edge" paragraph; a repo-wide check confirmed nothing else cited it. No new edge was
+  added: both consumers already import `domain`. `docs/architecture/runtime-system.md`'s
+  correction-worker bullet now says the worker and the album filter both read the rule from
+  `domain.py`, instead of describing the function-local import.
+  `BATCH23_DEFINITION.md` WP-0 Part A and the foundation plan's Task 12 checkboxes are ticked, and
+  Section 3's numbered order list marks this step done, keeping "WP-0 is next." exactly.
+- **No test changed.** `git diff --stat tests/` is empty; the task is behaviour-neutral and adds no
+  test, so the test count stays at the baseline.
+- **Fix round 1 (review finding, Important).** The Mermaid diagram in
+  `docs/architecture/runtime-system.md` still drew `ReleaseChecks -.->|imported inside a function|
+  Album`, an edge the move made false: `release_checks.py` no longer imports anything from
+  `orchestrator` at all. Deleted that one line; `ReleaseChecks --> Domain` already carries the real
+  dependency, so nothing replaces it. `Album` stays referenced by several other edges, so no node was
+  orphaned. A repo-wide grep for the same edge in any other wording found none. The diagram was
+  validated with the Mermaid Chart MCP tool (`valid: true`, `diagramType: flowchart`) after the edit.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
+they are not repository state.
+
+Forward guidance: WP-0 Part A's foundation-plan tasks (2 and 12) are both done. The next steps are the
+reconcile plan's Stage 1 through Stage 3 (Task 11 included), then the foundation plan's Tasks 4-10, per
+Section 3's order list.
+
+### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
+
+Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. No code
+changed.
+
+- **Q0 is settled: the Batch 22 MusicBrainz check is done.** The worker logs
+  nothing on success, so the logs could not answer it. `original_release_cache`
+  could. It held 121 rows, and 60 were written within a minute of each of the
+  owner's two runs with Postgres up (06:04 and 16:34 local). Section 3's
+  Batch 22 bullet and the definition's Part B box now record both owner items
+  as done. The reconcile plan's Task 1 Step 5 is marked as taken over by this
+  commit, because Section 3 must stay true at every commit.
+- **Review A card 3 joins Part A** as the foundation plan's Task 12. It moves
+  `_matches_release_criteria` into `domain.py`, which deletes the one deferred
+  edge in the import graph. It is numbered 12, not 2b, because `task-brief`
+  would pull a "Task 2b" heading into Task 2's brief. The rest of the
+  2026-09-21 review was already dispositioned in the foundation plan's DoD.
+- **F-B22-8 is filed and joins Part C at P2.** With the cache DB down,
+  `run_release_checks` skips the whole job. The owner ruled that checks run
+  regardless, with only persistence skipped. It is P2 because only local
+  development reaches the branch: on Fly.io the database wakes with the app.
+  The reconcile plan's Task 11 fixes it; one existing test that asserts the
+  skip is replaced there, as Part C allows.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - The remaining shared extractions
+
+Side task, no batch tag: extract the three remaining shared steps, part of
+Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **What moved, verbatim (controller ruling R12).** In
+  `scrobblescope/orchestrator/__init__.py`: `_cap_threshold_exclusions(threshold_exclusions)`
+  is the tie-break-commented cap block from `fetch_top_albums_async`, returning the
+  (possibly capped) dict; `total_below_threshold` is still computed from the
+  uncapped dict before the call. `_process_filtered_albums(job_id, filtered_albums,
+  year, sort_mode, release_scope, decade, release_year, limit_results,
+  overall_start_time)` is the tail of `_fetch_and_process`, from the
+  `_apply_pre_slice` call through `enqueue_release_check` and `return results`;
+  `_fetch_and_process` keeps its outer `try`/`except`, `overall_start_time`, and the
+  "Processing your albums..." progress call, and now ends with
+  `return await _process_filtered_albums(...)`. In `scrobblescope/heatmap.py`:
+  `_zero_fill_daily_counts(counts, from_date, to_date)` is Phase 2 of
+  `_aggregate_daily_counts`, which now returns its result.
+- Each new function's docstring names the Batch 23 Spotify-export path as its
+  second caller.
+- No test written or modified: `tests/services/test_orchestrator_fetch_and_process.py`
+  and `tests/test_heatmap.py` pass unmodified, and `git diff --stat tests/` was
+  empty after each of the three moves.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Session handoff written
+
+Side task, no batch tag: session close for Batch 23 WP-0, by owner request
+ahead of a context reset. It adds `docs/history/reports/HANDOFF_2026-09-23.md`
+and points Section 3's handoff bullet at it. No code changed, and no task
+started.
+
+- **What the handoff records:**
+  - the state of WP-0 and the gate results;
+  - the four commit ranges of 2026-09-23;
+  - the next steps, in the order Section 3 owns;
+  - the WP-0-specific rules;
+  - the untracked artifacts a cold agent needs: the triage reports, the
+    reusable kit for subagent-driven work, and the stale foundation ledger;
+  - the traps hit this session.
+- **New evidence on Q0.** The owner's second run had Postgres up and still
+  logged no MusicBrainz line. That proves nothing: the release-check worker
+  logs nothing on a successful run, and the primary checkout sets no
+  `MUSICBRAINZ_CONTACT`. The handoff's section 6 says how to settle it.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Owner answers to the reconcile-and-clear plan
+
+Side task, no batch tag: records the owner's answers to Q0-Q16 of
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`,
+part of Batch 23 WP-0. No code changed, and no task started: the session
+ends here for a context reset, by owner instruction.
+
+- **Every question takes its recommended answer, except three.**
+  - **Q0:** no MusicBrainz lines in the log. This is expected, not a result.
+    `release_checks._run_release_checks` skips when the cache database is
+    down, and Postgres was down on purpose for that run.
+    `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is
+    unset. The Batch 22 MusicBrainz check stays owed until a run with
+    `ss-postgres` up. The silent skip gets a `logging.info` line in the
+    test-infrastructure plan.
+  - **Q10 = b:** the UI stays as it is. F-B21-53 becomes no action in Task
+    10, and leaves the frontend plan.
+  - **Q16 = a:** all the listed rule-outs are approved.
+- **What this settles.** Q1 and Q2 confirm Stage 2's Tasks 3-9 as written:
+  F-SWE-6 and F-B22-7 join the set.
+
+Next, in order:
+1. Part A: the foundation plan's Task 2, by subagent-driven development.
+2. This plan's Tasks 1-10.
+3. The foundation plan's Tasks 4-10.
+4. The three follow-on plans.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Plan of record for reconciling and clearing findings
+
+Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md` and
+points the definition and Section 3 at it. No code changed.
+
+- **Evidence.** Four read-only triage passes checked all 38 IDs in Part C's
+  set against `167e650`. Results:
+  - six records are already fixed on `main`;
+  - several findings are partly fixed (F-B21-3, F-B21-4, F-B21-24,
+    F-STYLE-2);
+  - three findings share one mechanism (F-DOCSYNC-11, -12, -13);
+  - two are one defect (F-B21-18 and F-MAS-2).
+  The controller re-ran the load-bearing checks, including the ancestry of
+  all seven fix commits.
+- **F-B22-7 is wider than filed.** The orchestrator parses Spotify's album
+  JSON itself, against global rule 4, and `enrich_albums` has no production
+  caller either. `as_cache_row` would also write a Deezer id into
+  `spotify_id` if anything called it, and its own tests pin that wrong value.
+- **Triage missed one defect.** `loading.js` `showFailure` labels every
+  non-Last.fm source "Spotify". F-SWE-5's `internal_error` source would show
+  that label, and so would WP-1's export source. Task 7 fixes it and pins it
+  in the gate.
+- **F-LOAD-1 needs no occupancy counter.** The refusal only appears when
+  every slot is full, so a count would always read cap/cap. The fix states
+  the configured cap instead.
+- **The plan's shape.**
+  - Stages 1 and 2 are written in full: records, then the five pipeline
+    fixes.
+  - Stage 3 records the owner's rulings.
+  - The control-plane and frontend clusters get follow-on plans once the
+    rulings land.
+  - Owner questions Q0-Q16 are batched in the plan, each with a
+    recommendation.
+
+Deviation: none. The owner asked for the plan and for a view on F-SWE-6;
+that view is in the plan's "Controller's view on F-SWE-6".
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Batch 23 definition: the foundation package widened
+
+Side task, no batch tag: this is a definition amendment, not work-package
+work. It follows the owner's rulings of 2026-09-23. It lands after the
+worker run-coroutine wrapper plan, all four tasks of which are done
+(`ad2d078`..`54ab72b`).
+
+- `BATCH23_DEFINITION.md` WP-0 now has three parts:
+  - Part A: the behaviour-neutral extractions, with the loop protocol ticked
+    and its deviations recorded.
+  - Part B: reconciling what earlier batches left open. This covers six
+    findings still marked "pending deploy" after `main` deployed, the
+    foundation plan's Tasks 4-10, a Section 3 pruned to the current work
+    order, the owed Batch 22 owner checks, and a new docsync finding.
+  - Part C: fixing every finding open at P0 or P1 unless the owner rules one
+    out. That is 38 IDs, listed in the definition and checked one by one
+    against `FINDINGS.md`.
+- Owner rulings, each with its reason in the definition:
+  - WP-0 logs untagged until one tagged entry closes it, because docsync
+    reads a work package as complete on its first tagged heading.
+  - Part A keeps strict test parity.
+  - Part C may change behaviour, and may edit a test only where its finding
+    requires it. The batch acceptance and the intended outcome's "Last.fm
+    path is untouched" line are amended to match.
+  - F-SWE-5 lands before WP-3.
+- Section 3's Next action now describes the widened WP-0 and the logging
+  rule. The old line saying WP-0 work logs tagged entries contradicted the
+  ruling.
+- Plan bookkeeping:
+  - The wrapper plan's steps are ticked, and it gains an Outcome section.
+  - The foundation plan records that its Tracks 2 and 3 fold into WP-0, and
+    its superseded Track 1 logging line is struck through.
+
+Deviation: none from the rulings. Proposal Rule 2 is met, because the owner
+added the scope, and Rule 1 is met, because the amendment lands before any
+Part B or Part C work. Part C and the uncovered parts of Part B still need a
+plan of record.
+
+Forward guidance:
+- Part A's three extractions can proceed now under the foundation plan's
+  Task 2.
+- Before Part C starts, collect every owner-gated question in the set in a
+  single batch.
+- Raise F-SWE-6 and F-B22-7 with the owner. They are P2, outside the set,
+  but under this batch's code.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
+
+Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- Documentation only, no code changed. `.claude/SESSION_CONTEXT.md` Section 3's
+  `worker.py` structure line now names `run_coroutine_in_new_loop` alongside
+  the functions it already listed; Section 4's dependency graph needed no
+  change, since `worker.py`'s dependencies are unchanged.
+- Both sequence diagrams that described the build-run-close-release
+  protocol are now corrected. `docs/architecture/top-albums-sequence.md`
+  owned a now-inaccurate claim in two places: its intro paragraph and a
+  sequence Note both said the protocol -- event-loop setup inside the
+  `try` that `finally` guards -- lived directly in `background_task`. Both
+  now say the protocol lives in `worker.run_coroutine_in_new_loop`, which
+  `background_task` calls, supplying only the reaction to a failed run.
+  `docs/architecture/heatmap-sequence.md` carried the identical stale Note
+  for `heatmap_task`; added in review fix round 1 after the first pass
+  missed it as a sibling of the top-albums file, it now attributes the
+  same `finally` to `worker.run_coroutine_in_new_loop`, called from
+  `heatmap_task`, which injects `_report_heatmap_failure` as its
+  `on_run_error`. Neither file carries a "Last verified" date to update.
+- `docs/architecture/runtime-system.md` was read in full; it does not
+  describe the build-run-close-release protocol anywhere (its `worker.py`
+  node label and prose stay at the module level), so it needed no edit.
+- `AGENT_NOTES.md`'s Windows-asyncio bullet still holds: it names
+  `worker.new_thread_event_loop` as the seam every background thread builds
+  its loop through, which is still true and unrelated to which function owns
+  the run-close-release wrapping, so it was left alone.
+
+Deviations: none from the brief. Review fix round 1 extended the
+correction from `top-albums-sequence.md` to its sibling
+`heatmap-sequence.md`, which the brief's Files list had not predicted as a
+hit but which Step 1/Step 3 cover on their own terms.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
+
+Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- `heatmap_task` in `scrobblescope/heatmap.py` now delegates its
+  build-run-close-release protocol to `worker.run_coroutine_in_new_loop`,
+  added in Task 1, instead of carrying its own `loop = None` / `try` /
+  `except Exception` / nested `finally` block. `make_loop` and
+  `release_slot` are passed explicitly as `new_thread_event_loop` and
+  `release_job_slot` rather than left to the helper's own defaults,
+  because the existing tests patch `scrobblescope.heatmap.release_job_slot`
+  and `scrobblescope.heatmap.set_job_error`. The failure reaction moved into
+  a new named module-private helper, `_report_heatmap_failure(job_id,
+  username)`, placed immediately above `heatmap_task`; it keeps the
+  `lastfm_unavailable` error code deliberately, since `F-SWE-5` records that
+  code as wrong for a fault that is not the user's, and changing it is a
+  separate, now one-line, commit. The import at the top of the module gains
+  `run_coroutine_in_new_loop` alongside the two names it already carried.
+- No test was written or edited: the four existing guard tests in
+  `tests/test_heatmap.py::TestHeatmapTask`
+  (`test_release_job_slot_called_on_success`,
+  `test_release_job_slot_called_on_exception`,
+  `test_release_job_slot_called_when_event_loop_setup_raises`,
+  `test_release_job_slot_called_when_loop_close_raises`) are the acceptance
+  criterion and pass unmodified, including the one that asserts a
+  `loop.close()` failure still propagates out of `heatmap_task` while the
+  slot is released.
+- `background_task` and `heatmap_task` now share exactly one protocol; the
+  only remaining difference between the two entry points is the injected
+  `on_run_error` (silent logging for the album path, versus logging plus a
+  published terminal job error for the heatmap path) -- the remaining half
+  of `F-SWE-5`.
+
+Deviations: none from the brief.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Worker run-coroutine wrapper: Task 2 of 4
+
+Side task, no batch tag: Task 2 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- `background_task` in `scrobblescope/orchestrator/__init__.py` now
+  delegates its build-run-close-release protocol to
+  `worker.run_coroutine_in_new_loop`, added in Task 1, instead of carrying
+  its own `loop = None` / `try` / `except Exception` / nested `finally`
+  block. `make_loop` and `release_slot` are passed explicitly as
+  `new_thread_event_loop` and `release_job_slot` rather than left to the
+  helper's own defaults, because the existing tests patch
+  `scrobblescope.orchestrator.release_job_slot`, and a default taken from
+  the helper's module would move that patch target without failing.
+  `on_run_error` reproduces the prior log line exactly. The import at the
+  top of the module gains `run_coroutine_in_new_loop` alongside the two
+  names it already carried.
+- No test was written or edited: the four existing guard tests in
+  `tests/services/test_orchestrator_fetch_and_process.py`
+  (`test_background_task_runs_single_event_loop`,
+  `test_background_task_releases_slot_on_exception`,
+  `test_background_task_releases_slot_when_event_loop_setup_raises`,
+  `test_background_task_releases_slot_when_loop_close_raises`) are the
+  acceptance criterion and pass unmodified, including the one that asserts
+  a `loop.close()` failure still propagates out of `background_task` while
+  the slot is released.
+
+Deviations: none from the brief.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-23 - Worker run-coroutine wrapper: Task 1 of 4
+
+Side task, no batch tag: Task 1 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- Added `run_coroutine_in_new_loop(coroutine, *, make_loop=new_thread_event_loop,
+  release_slot=release_job_slot, on_run_error=None)` to the end of
+  `scrobblescope/worker.py`, after `new_thread_event_loop`. It builds the loop
+  inside the `try` so a setup failure still reaches the `finally` that
+  releases the concurrency slot; closes a coroutine that never got a loop, so
+  a setup failure does not leak an unstarted coroutine; never swallows a
+  `loop.close()` failure; and routes a run failure through the caller's
+  `on_run_error`, which stays `None`-safe (silent) by default. Tasks 2 and 3
+  will point the album and heatmap entry points at it.
+- Six unit tests appended to `tests/test_worker.py`, each with an in-function
+  import of the helper (matching this repository's existing convention, e.g.
+  `tests/test_heatmap.py`), so a pre-implementation run fails once per test
+  rather than once per file. Covered: one loop built, run once, closed, and
+  the slot released; a run failure reaching a supplied `on_run_error` while
+  the loop still closes; a run failure staying silent with no policy given;
+  the slot released when loop construction itself fails; the coroutine closed
+  when the loop is never built (the regression the old inline code could not
+  hit, since it used to build the coroutine and the loop in the same line);
+  and a `loop.close()` failure propagating, never routed through
+  `on_run_error`, with the slot still released.
+- Verified the mutation-kill property directly: with the helper's body
+  replaced by `raise NotImplementedError`, all six new tests failed; restored,
+  all six passed again.
+
+Deviations: none from the brief. The brief's baseline count (1,717) was
+already stale at dispatch; this entry measures and quotes the current count
+per controller ruling, and the two other count sites it names.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-21 - Batch 23 opened on feat/batch23-wp0-hygiene
+
+Side task, no batch tag: this entry records the opening itself and is not
+WP work, so it does not count as WP-0 being done. Task 3b of the Batch 23
+WP-0 foundation plan, done under the owner's instruction that the opening be
+explicit rather than silent.
+
+- Section 3 now declares `**Batch 23 is active.**` with its definition and
+  its branch, and names WP-0 as next. The Section 2 index gains the Batch 23
+  row, SESSION_CONTEXT Section 1 marks Batch 23 active, and the
+  `FINDINGS.md` header no longer says no batch is active.
+- The definition records the branch, the status and the 2026-09-21 owner
+  rulings, and folds job admission into WP-4 with its own acceptance
+  clause. WP-0's wrapper bullet names where the wrapper lands.
+- The first `--fix` rendered `Current batch: Batch 23.` and
+  `Next expected work package: WP-0.`, which confirms the D1 fix on the
+  real corpus.
+
+Deviations. The Batch 22 bullet's `Branch:` label was reworded, because
+the worktree guard refuses two Branch values in Section 3. Once the batch
+was active, the guard compared ancestry and reported WT005 against its
+default `origin/main`, which carries merges of `test` the branch does not.
+Against `origin/test`, the branch's parent, it exits 0, and the trees of
+`e6ce9d7` and `origin/main` are identical. `HANDOFF_PROMPT.md` now carries
+that edge case, and its WT004 premise that `main` only squashes or rebases
+was corrected against the live rulesets, which allow all three merge
+methods. No history was changed.
+
+Live check (throwaway copy of this working tree): a false `WP-3 is next`
+went red with DOC007 in Section 3, on the dashboard and in the definition.
+The definition leg only went red once its claim was moved onto the
+`**Status:**` line itself.
+
+Validation: `pytest -q` -- **1729 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-21 - Docsync renders an opened batch before its first entry
+
+Side task, no batch tag: Task 3 of the Batch 23 WP-0 foundation plan, the
+fix for audit defect D1 and its sibling D2, plus O1. Commit made with
+`SKIP=doc-state-sync-check`, because it changes `scripts/docsync/`; the
+checker was run directly at exit 0 first.
+
+- D1: `_build_status_block` now branches on the batch Section 3 declares,
+  not on whether entries exist, and `_computed_next_wp` no longer returns
+  nothing for an empty current-batch block. An opened batch with nothing
+  logged renders as that batch, and a false next-package claim raises
+  DOC007. The between-batches block now carries the count line too.
+- D2: under a finite plan, WP-0 is a real package (owner ruling), so a
+  plan with nothing done names WP-0. The no-plan rule is unchanged.
+- O1: DOC012 names an entry whose `pytest -q` and bold count are not
+  directly paired, since the authority skips it. The pattern is shared
+  as `logic.FULL_SUITE_RESULT_RE`. The pairing is bounded at 80
+  characters so prose citing another entry's count is not a claim.
+  `AGENTS.md` now states the one readable form and both plans point there.
+
+Deviation: two lines of the shared CLI fixture in
+`tests/test_docsync_cli.py` wrote the colon form, which the authority read
+only through its legacy fallback; they now use the canonical form. No
+other existing test changed. 44 archived entries use an unpaired form;
+DOC012 reads only live entries, so they are left as written.
+
+Live probe (throwaway corpus from HEAD plus the changed modules):
+
+| Probe | Expected | Observed |
+| --- | --- | --- |
+| opened batch, no entries: block | Batch 23, WP-0 next | Batch 23, WP-0 next |
+| opened batch, Section 3 claims WP-3 | DOC007 | exit 1, DOC007 |
+| opened batch, dashboard claims WP-3 | DOC007 | exit 1, DOC007 |
+| `pytest -q` (qualifier) -- bold count | DOC012 | exit 1, DOC012 |
+| `pytest -q`: bold count | DOC012 | exit 1, DOC012 |
+| opened batch, true "WP-0 is next" | green | exit 0 |
+| real corpus between batches | green, count shown | exit 0, count shown |
+| targeted `pytest -q tests/...` run | no DOC012 | no DOC012 |
+| prose citing another entry's count | no DOC012 | no DOC012 |
+| canonical form | no DOC012 | no DOC012 |
+
+The original 18 planted-defect probes were re-run on the changed code:
+18 of 18 red.
+
+Validation: `pytest -q` -- **1729 passed**, 12 of them new; the untracked
+mutation-runner tests were excluded, since they are not repository state.
+
+### 2026-09-21 - Batch 23 WP-0 foundation plan committed
+
+Side task, no batch tag. Scope: commit
+`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, which
+replaces an earlier draft that put 22 tasks and two behaviour changes under
+WP-0. WP-0 keeps its definition's scope: the loop-protocol plan plus the
+three original extractions. Control-plane fixes run as side tasks, led by
+the fix for audit defect D1, which must land before the batch opens.
+F-SWE-5 follows WP-0 as its own commit. Every change to a check is
+accepted only on a live probe: red on the planted defect, green on its
+near miss.
+
+Owner rulings, 2026-09-21, recorded in the plan: Batch 23's branch is
+`feat/batch23-wp0-hygiene`, opened by the plan's Task 3b after the D1 fix;
+no worker-count guard (delegated, declined: the Dockerfile pins one worker
+and a partial guard is its own wrong green); WP-0 counts as "next" under a
+finite plan; job admission is folded into Batch 23 WP-4. Section 3 is
+deliberately unchanged here: opening the batch before the D1 fix would
+produce the defect's state.
+
+Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-21 - Docsync live-probe audit recorded
+
+Side task, no batch tag. Scope: record the formal conclusion of the live
+probe run earlier today as
+`docs/history/reports/DOCSYNC_LIVE_PROBE_AUDIT_2026-09-21.md`. No code
+changed.
+
+Verdict: conditionally fit. All 21 implemented codes fired on their own
+planted defect (26 of 26 red probes), all 8 near-miss controls stayed
+green, and `--fix`, the exit codes and the preflight behaved as documented.
+Blocking defect D1: a batch declared open with no logged work package reads
+as "between batches" and DOC007 is silent on a false next-package claim; it
+must be fixed before Batch 23 opens. D2: WP-0 is never "next" under a finite
+plan; the owner ruled that it counts. The report states what was not probed.
+
+Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+### 2026-09-21 - Worker loop-protocol plan committed; docsync probed live
+
+Side task, no batch tag. Scope: commit the plan of record for Batch 23
+WP-0's loop-protocol extraction,
+`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`, and
+verify the docsync gate by live probe rather than by its unit tests.
+
+The plan was checked against source before committing and four statements
+were corrected: `tests/test_worker.py` has nine existing tests, not four;
+its in-function imports make six failures, not six errors; the untracked
+set is larger than the eight paths it named; and its commit blocks now run
+`--fix` before pytest and pre-commit, as "Commit Rules" orders. Its code,
+tests and parity argument are unchanged. The expanded WP-0 foundation plan
+was rewritten in the working tree and is deliberately not in this commit.
+
+Live probe: a throwaway corpus built from `git archive HEAD` plus a scratch
+`git init`, with one planted defect per code, run through the real CLI.
+Every implemented code (DOC001-DOC020, DOC023) went red on its own defect
+and raised only that code; six near misses (struck-through or fenced
+retired claims, a fenced missing path, `Status: not closed.`, a canonical
+resolved finding, a valid citation) stayed green. `--fix` repaired a
+tampered managed block and rotated a resolved finding, and refused to write
+a rotting finding's record or a hand-authored count. The preflight returned
+3 on a staged `scripts/docsync/` edit, 0 on an ordinary one, and passed the
+checker's 1 through.
+
+One defect found: in a batch Section 3 declares active but with no tagged
+Section 4 entry yet, the status block renders "none (between batches)" and
+DOC007 is silent on a false next-work-package claim. Both are correct once
+one entry exists. That is the state Batch 23 enters when its branch is
+named, so the fix is scheduled to land first; it is not yet filed in
+`FINDINGS.md`.
+
+Validation: `pytest -q` -- **1717 passed**, across 66 tracked test modules;
+the untracked mutation-runner tests were excluded, since they are not
+repository state. The dashboard and the findings header are updated from
+1555 across 58 to match.
+
+### 2026-09-21 - Frontend gate split complete (F-B21-51)
+
+Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`
+measures 535 lines, under the plan's 700-line threshold and above its
+roughly-450 estimate. The ten `_frontend_gate_*` siblings measure
+`_frontend_gate_assets` 49, `_frontend_gate_colour` 191,
+`_frontend_gate_forms` 434, `_frontend_gate_layout` 1,176,
+`_frontend_gate_pipeline` 854, `_frontend_gate_results` 497,
+`_frontend_gate_runtime` 156, `_frontend_gate_shared` 71,
+`_frontend_gate_theme` 749, `_frontend_gate_unmatched` 490. The gate
+summary is unchanged: `[frontend_gate] 30 checks passed in 52 runs across
+chromium, firefox`. F-B21-51 is resolved; `docs/architecture/
+documentation-tooling.md`, `DEVELOPMENT.md`, `FINDINGS.md` and this file
+are reconciled to the measured end state. The `frontend_gate_checks.toml`
+registry stays a deferred candidate.
+
+### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
+
+Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now
+owns `SETUP_COMMAND`, `install_cdn_routes`, `_SERVE_APP_LOCK`,
+`FrontendGateError`, `_load_playwright`, `_launch_browser` and `serve_app`,
+moved verbatim with the `app`, `werkzeug.serving` and
+`scrobblescope.repositories` imports they need. The facade no longer imports
+`create_app`, `make_server` or the repository job functions directly; it
+re-exports the six public names through the new sibling instead.
+`REPO_ROOT`, the `sys.path` insert, `GATE_SECRET_KEY` and the environment
+bootstrap stay in the facade, above every sibling import, because
+`scrobblescope.config` reads the provider keys once at first import and the
+gate boots in CI's production mode with no secrets set. The facade's
+bootstrap comment now says so explicitly.
+
+Seven tests moved out of `test_frontend_gate.py` into
+`test_frontend_gate_runtime.py`, retargeting their `make_server` and
+`create_app` patches to `_frontend_gate_runtime`, and their
+`frontend_gate.install_cdn_routes` attribute calls to
+`_frontend_gate_runtime.install_cdn_routes`. `test_headed_reaches_the_browser_launch`,
+`test_launch_is_headless_by_default` and the tests that call `main(` or
+`run_checks(` stayed in `test_frontend_gate.py`, unchanged, because they
+reach `_launch_browser` and `serve_app` through the facade's re-export or
+`patch.object(frontend_gate, ...)`, which still resolves.
+
+Removing the facade's `create_job`/`delete_job` import broke two tests in
+`test_frontend_gate_pipeline.py` (an earlier slice) that called
+`frontend_gate.create_job`/`frontend_gate.delete_job` by attribute access --
+a name the facade no longer defines. `_frontend_gate_pipeline` already
+imports both from `scrobblescope.repositories` for its own checks, so those
+four call sites were retargeted to `_frontend_gate_pipeline.create_job`/
+`_frontend_gate_pipeline.delete_job` rather than restoring the facade
+import.
+
+### 2026-09-21 - Frontend gate split: pipeline slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_pipeline.py` now owns the three
+checks that write real job state through `scrobblescope.repositories` and
+watch the page follow it -- `check_loading_composition`,
+`check_pipeline_state_machines`, `check_artist_spotlight_rotation` -- plus
+their nine helpers (`_parse_matrix_scalex`, `_assert_loading_progress_state`,
+`_exercise_loading_progress_phases`, `_check_phase_repository_isolation`,
+`_exercise_counted_progress`, `_exercise_album_progress`,
+`_exercise_heatmap_progress`, `_exercise_replaced_job_progress`,
+`_exercise_pipeline_state_machines`) and the ten progress constants
+(`ALBUM_PROGRESS_TRACK`, `ALBUM_PROGRESS_BAR`, `ALBUM_PROGRESS_TEXT`,
+`HEATMAP_PROGRESS_TRACK`, `HEATMAP_PROGRESS_BAR`, `HEATMAP_PROGRESS_TEXT`,
+`FETCHING_SCROBBLES`, `COUNTING_SCROBBLES`, `PAGE_23_OF_102`,
+`PAGE_90_OF_100`), moved verbatim. `serve_app` stays behind in the facade, so
+the facade keeps `create_job`, `delete_job` and `set_job_progress`; the other
+six repository imports (`get_job_context`, `get_job_progress`,
+`reset_job_state`, `set_job_error`, `set_job_results`, `set_job_stat`) moved
+with the code that reads them.
+
+Six tests moved out of `test_frontend_gate.py`, retargeting their patches of
+`reset_job_state`, `set_job_progress`, `create_job`, `delete_job`,
+`get_job_progress` and `get_job_context`, and of
+`_exercise_pipeline_state_machines`, to `_frontend_gate_pipeline`. Two moved
+tests also called `_check_phase_repository_isolation`,
+`_exercise_replaced_job_progress`, `_exercise_counted_progress` and
+`get_job_progress` through `frontend_gate.<name>` attribute access -- names
+the facade no longer defines -- and were retargeted the same way.
+`serve_app`'s own tests kept patching `frontend_gate.create_job`,
+`frontend_gate.set_job_progress` and `frontend_gate.delete_job`, since those
+three still resolve there.
+
+### 2026-09-21 - Frontend gate split: layout slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_layout.py` now owns the six checks
+that measure fonts, text scaling, touch targets and large-display
+composition -- `check_touch_targets`, `check_fonts`, `check_body_font`,
+`check_shell_scales_with_text`, `check_large_display_scale_parity`,
+`check_destination_empty_states` -- plus their eighteen measurement and
+judgement helpers and the `FONTS_READY_EXPRESSION`, `REQUIRED_FONT_FAMILIES`,
+`MIN_TOUCH_TARGET_PX`, `INTERACTIVE_SELECTOR`, `TOUCH_TARGET_STATES` and
+`DEFAULT_STATES` constants, moved verbatim and importing `_clamp_px` from the
+colour slice and the page inventories and `_reach_state` from the shared
+module. It is the largest slice at roughly 1,150 lines; the split isolates it
+rather than shrinking it, and `check_large_display_scale_parity`'s own
+complexity is a separate question. The definitions were not contiguous in the
+facade: `check_loading_composition` stayed behind between
+`check_shell_scales_with_text` and the scale-parity measurement helpers.
+
+Sixteen tests and the `_healthy_mobile_header` helper moved out of
+`test_frontend_gate.py`. Several of the moved tests called private helpers
+through `frontend_gate._mobile_header_failures`, `frontend_gate.
+_expected_scaled_dimension`, `frontend_gate._scale_dimension_failures`,
+`frontend_gate._wide_layout_failures`, `frontend_gate._header_geometry_failures`,
+`frontend_gate._scale_mechanism_failures`, `frontend_gate._measure_enlarged_root`
+and `frontend_gate._composition_bounds_failures` -- private names the facade
+never re-exports, so those references were retargeted to
+`_frontend_gate_layout` alongside the patch-target guard's own findings.
+`test_the_touch_profiles_really_carry_a_coarse_pointer` stayed in
+`test_frontend_gate.py`: it tests `VIEWPORTS`, which remains in the facade.
+
 ### 2026-09-21 - Frontend gate split: theme slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_theme.py` now owns the nine checks

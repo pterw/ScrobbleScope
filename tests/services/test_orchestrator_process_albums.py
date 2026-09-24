@@ -1062,3 +1062,87 @@ async def test_lookup_still_reports_a_transient_failure_plainly(caplog):
     assert cached == {}
     logged = " ".join(record.message for record in caplog.records)
     assert "init_db.py" not in logged
+
+
+@pytest.mark.asyncio
+async def test_process_albums_persists_a_spotify_row_through_the_contract():
+    """
+    GIVEN a cache miss that Spotify finds and details
+    WHEN process_albums persists it
+    THEN the row is the provider contract's nine-element form, so the
+    Spotify URL is stored rather than left NULL (F-B22-7).
+    """
+    from scrobblescope.domain import normalize_track_name
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    mock_conn = AsyncMock()
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._get_db_connection",
+            new_callable=AsyncMock,
+            return_value=mock_conn,
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_persist_metadata",
+            new_callable=AsyncMock,
+        ) as mock_persist,
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value="sp1",
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={
+                "sp1": {
+                    "release_date": "2025-01-01",
+                    "images": [{"url": "https://img.example.com/a.jpg"}],
+                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
+                }
+            },
+        ),
+    ):
+        await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    mock_persist.assert_awaited_once()
+    (row,) = mock_persist.call_args[0][1]
+    assert row == (
+        "artist",
+        "album",
+        "sp1",
+        "2025-01-01",
+        "https://img.example.com/a.jpg",
+        {normalize_track_name("Track One"): 240},
+        "spotify",
+        "sp1",
+        "https://open.spotify.com/album/sp1",
+    )

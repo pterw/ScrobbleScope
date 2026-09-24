@@ -84,18 +84,21 @@ def _next_wp_number(
     current_entries: list[Entry],
     planned_wp_numbers: Iterable[int] | None = None,
 ) -> int | None:
-    """Return the next positive WP number for the managed status block.
+    """Return the next WP number for the managed status block.
 
     When an active definition supplies its planned numbers, that finite set is
     authoritative: absorbed, dropped, or merged work packages are not viable
-    candidates, and completing the set returns ``None``. Without a usable plan,
-    preserve the historical renderer rule by returning the lowest positive
-    integer absent from the current-entry headings. Entries with no WP tags and
-    no plan provide no basis for a numbered answer.
+    candidates, and completing the set returns ``None``. WP-0 is a member like
+    any other, so a plan with nothing done names WP-0 -- the owner ruled on
+    2026-09-21 that it counts, and a batch's WP-0 is usually its foundation.
+    Without a usable plan, preserve the historical renderer rule by returning
+    the lowest positive integer absent from the current-entry headings: with no
+    plan there is no declared WP-0 to name. Entries with no WP tags and no plan
+    provide no basis for a numbered answer.
     """
     completed = set(_collect_wp_numbers(current_entries))
     declared_plan = tuple(planned_wp_numbers or ())
-    planned = {number for number in declared_plan if number > 0}
+    planned = {number for number in declared_plan if number >= 0}
     if declared_plan:
         return next(
             (number for number in sorted(planned) if number not in completed),
@@ -109,6 +112,23 @@ def _next_wp_number(
     return candidate
 
 
+def _count_line(latest_test_count: int | None, count_is_ambiguous: bool) -> str:
+    """Render the STATUS block's count line, one wording per state.
+
+    Two different absences render differently. Reporting "no bold count" when
+    the newest entry in fact quotes several sends the reader looking for a
+    missing number instead of the ambiguous entry that caused it.
+    """
+    if latest_test_count is not None:
+        return f"- Latest validated test count: **{latest_test_count} passed**."
+    if count_is_ambiguous:
+        return (
+            "- Latest validated test count: unknown (newest entry quotes "
+            "several counts without a `pytest -q` result)."
+        )
+    return "- Latest validated test count: unknown (no bold count in log entries)."
+
+
 def _build_status_block(
     section_3_state: ActiveBatchState,
     current_entries: list[Entry],
@@ -116,7 +136,18 @@ def _build_status_block(
     count_is_ambiguous: bool = False,
     planned_wp_numbers: Iterable[int] | None = None,
 ) -> list[str]:
-    if current_entries:
+    """Render the managed STATUS block from Section 3 state and the log.
+
+    The branch is chosen by whether a batch is open -- Section 3's declared
+    state, or entries already logged inside the current-batch markers -- not by
+    entries alone. Keying on entries alone rendered a freshly opened batch as
+    "between batches" until its first work package was logged, which the
+    2026-09-21 live probe found: the dashboard stated the wrong batch state
+    while the gate passed. Both branches carry the same count line, because
+    between batches is when an arriving agent reads it most.
+    """
+    count_line = _count_line(latest_test_count, count_is_ambiguous)
+    if current_entries or section_3_state.current_batch is not None:
         wp_numbers = _collect_wp_numbers(current_entries)
         completed_wp = (
             ", ".join(f"WP-{num}" for num in wp_numbers) if wp_numbers else "none"
@@ -129,27 +160,15 @@ def _build_status_block(
             next_wp = "none (all planned work packages complete)"
         else:
             next_wp = "unknown"
-        newest_heading = current_entries[-1].heading.removeprefix("### ").strip()
+        newest_heading = (
+            current_entries[-1].heading.removeprefix("### ").strip()
+            if current_entries
+            else "none"
+        )
         batch_num = section_3_state.current_batch
         if batch_num is None and section_3_state.last_completed_batch is not None:
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
-        # Two different absences render differently. Reporting "no bold count"
-        # when the newest entry in fact quotes several sends the reader looking
-        # for a missing number instead of the ambiguous entry that caused it.
-        if latest_test_count is not None:
-            count_line = (
-                f"- Latest validated test count: **{latest_test_count} passed**."
-            )
-        elif count_is_ambiguous:
-            count_line = (
-                "- Latest validated test count: unknown (newest entry quotes "
-                "several counts without a `pytest -q` result)."
-            )
-        else:
-            count_line = (
-                "- Latest validated test count: unknown (no bold count in log entries)."
-            )
         return [
             "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
             f"- Current batch: {batch_label}.",
@@ -169,6 +188,7 @@ def _build_status_block(
         "- Current-batch entries in active log block: 0.",
         "- Completed work packages in current-batch entries: n/a (no active batch).",
         "- Next expected work package: n/a (next batch not defined).",
+        count_line,
         "- Newest current-batch entry: none.",
     ]
     if section_3_state.next_undefined_batch is not None:

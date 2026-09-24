@@ -51,6 +51,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` | `docs/history/logs/BATCH20_LOG.md` |
 | 21 | UI overhaul -- Tailwind + daisyUI migration | `docs/history/definitions/BATCH21_DEFINITION.md` | `docs/history/logs/BATCH21_LOG.md` |
 | 22 | Enrichment providers and original release years | `docs/history/definitions/BATCH22_DEFINITION.md` | `docs/history/logs/BATCH22_LOG.md` |
+| 23 | Spotify Extended Streaming History import | `BATCH23_DEFINITION.md` | active -- Section 4 |
 
 A batch's close-out entry sits in its per-batch log only when the heading
 carried a `(Batch N WP-X)` tag (as Batch 18's did). Close-outs tagged
@@ -87,7 +88,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Batch 22 is complete**, closed 2026-09-20. All six work packages are
   done. Definition archived:
   `docs/history/definitions/BATCH22_DEFINITION.md`; log:
-  `docs/history/logs/BATCH22_LOG.md`. Branch: `feat/batch22-enrichment`
+  `docs/history/logs/BATCH22_LOG.md`. It ran on `feat/batch22-enrichment`
   (worktree off `test`). Scope was album enrichment behind a provider
   contract, Deezer answering when Spotify cannot, and MusicBrainz correcting
   a reissue year to the album's original while the results page is open.
@@ -110,9 +111,12 @@ See FINDINGS F-DOCSYNC-3.
   are complete**. The batch is closed: its definition is archived at
   `docs/history/definitions/BATCH22_DEFINITION.md` and its log at
   `docs/history/logs/BATCH22_LOG.md`.
-- **Session handoff, 2026-09-20:** `docs/history/reports/HANDOFF_2026-09-20.md`
-  is the entry point for a new agent -- reading order, environment, the gates
-  and why they refuse, the schema-migration trap, and the open items.
+- **Session handoff, 2026-09-24:** `docs/history/reports/HANDOFF_2026-09-24.md`
+  is the entry point for a new agent, written for a cloud session with only
+  this repository. It covers WP-0's state, the Linux environment setup, how
+  the subagent loop is run, the next steps in order, the rulings in force and
+  the traps. `.superpowers/cloud-kit/` holds the workspace constraints and
+  the four agent definitions it uses.
 - **PR #236 merged into `test`** at `fc9098d3` (2026-09-20 21:12). It carried
   the eight commits that landed after PR #234, which had merged the branch as
   it stood at `f6d5926` (2026-09-20 05:06) while the first of those eight was
@@ -141,22 +145,62 @@ See FINDINGS F-DOCSYNC-3.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
-- **Next action: the owner opens Batch 23 by naming its branch here.**
-  `BATCH23_DEFINITION.md` is written and sits at the repository root, derived
-  from
-  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`: eight
-  work packages, WP-0 through WP-7, with the deferred Batch 21 frontend and
-  accessibility audit inside WP-7, which the batch cannot close without.
-  What remains is the branch. It is not `test`, it is named in this section
-  before the first commit, or the worktree guard raises WT003, and choosing
-  it is an owner decision.
-- **Batch 23 is not yet defined**, in the sense the parser reads: no batch is
-  open and none is being worked. That phrase has to sit on one line, because
-  the scanner reads Section 3 line by line and a wrapped copy of it matches
-  nothing. The definition file itself does exist, at the repository root. The
-  tool's vocabulary has "not yet defined" and "active" and no word for
-  "written, not started", so the sentence is kept and qualified rather than
-  removed.
+- **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`. Branch: `feat/batch23-wp0-hygiene`.
+  Opened 2026-09-21 by the owner, who named the branch that day and asked
+  for the opening to be explicit rather than silent. It waited for the fix
+  to audit defect D1 (`aad26e5`), because before it an opened batch with no
+  logged work package rendered as "between batches". Scope: eight work
+  packages, WP-0 through WP-7; the deferred Batch 21 frontend and
+  accessibility audit is inside WP-7, which the batch cannot close without.
+  The branch is cut from `test`, so run the worktree guard with
+  `--base-ref origin/test` (`HANDOFF_PROMPT.md` "Bootstrap edge cases").
+  The definition's header names WP-0's plans.
+- **Next action:** WP-0 is next. The owner widened it on 2026-09-23 into
+  three parts, which the definition's WP-0 describes. Part A is the
+  behaviour-neutral extractions: the shared loop protocol has landed
+  (`ad2d078`..`54ab72b`), and the three original extractions are done
+  2026-09-23. Part B reconciles what earlier batches left open. Part C
+  clears every finding open at P0 or P1. The rest of Parts B and C run from
+  `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`.
+  The owner answered its questions, Q0-Q16, on 2026-09-23; the plan
+  records the answers. The order from here:
+  1. Part A: the foundation plan's Task 2 -- done 2026-09-23. Then its
+     Task 12, the release-window rule moved to `domain.py`, which the owner
+     added to Part A on 2026-09-23 -- also done 2026-09-23. Part A is
+     complete, each task reviewed clean.
+  2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 (Tasks 1 and 2)
+     is complete: Task 1 (the six stale "pending deploy" records) and Task 2
+     (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
+     2026-09-23. Stage 2's Tasks 3-9 and 11 are complete: Task 3
+     (F-SWE-6, reading a job no longer renews its lease), Task 4 (F-B22-7,
+     part 1 of 3, the `spotify_id` column), Task 5 (F-B22-7, part 2 of 3,
+     the Spotify payload translated once in `spotify.py`), Task 6 (F-B22-7,
+     part 3 of 3, retiring the unused `enrich_albums`), Task 7 (F-SWE-5,
+     both background entry points now publish `internal_error`), Task 8
+     (F-B21-6, every year gate reads `routes._current_year()`, which uses
+     `datetime.now(timezone.utc)`), Task 9 (F-LOAD-1, both refusals read
+     `routes._capacity_message()`, which states the configured
+     `MAX_ACTIVE_JOBS`) and Task 11 (F-B22-8, `run_release_checks` runs its
+     candidates without a cache connection and skips only the cache read,
+     the persist and the close) all landed 2026-09-23. Stage 2's last task,
+     Task 12 (F-B23-5, one owner in `domain.py` for the release-window
+     rule), was added by the owner 2026-09-23 and is done: `domain.py` now
+     owns `release_window`, and both `_matches_release_criteria` and
+     `release_checks._window_end` derive from it. Stage 2 is complete. Stage 3
+     (Task 10, writing the owner's rulings into their findings) is also
+     complete, 2026-09-23: this plan's tasks are done. Next is the foundation
+     plan's Tasks 4-10.
+  3. The foundation plan's Tasks 4-10. Task 4 (the archive page target gets
+     a reader, DOC024, and the cold rule's documentation is corrected) is
+     done, 2026-09-23. The reconcile plan's Task 13, which the owner added
+     on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call and the
+     release checks), is done, 2026-09-24, including the owner's live check
+     (its Step 5). Next is the foundation plan's Task 5.
+  4. The follow-on plans.
+  Every WP-0
+  commit logs an untagged entry directly after the current-batch end marker;
+  one tagged `(Batch 23 WP-0)` entry closes WP-0 (owner ruling, 2026-09-23).
+  Later work packages log tagged entries inside the markers.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -168,10 +212,12 @@ See FINDINGS F-DOCSYNC-3.
   outranks the older one in its own source. The count still cannot be
   published directly; F-DOCSYNC-13 proposes letting an authored measurement
   be passed in instead.
-- **Owner-facing verification still owed from Batch 22**, neither blocking the
-  close-out: a run with `MUSICBRAINZ_CONTACT` configured, to watch corrections
-  land against the real service, and restoring the Spotify credentials that
-  were disabled to live-test the Deezer fallback.
+- **Owner-facing verification from Batch 22 is done** (2026-09-23). The
+  Spotify credentials are restored: the owner's run logged 142 of 146 lookups
+  answered by Spotify. MusicBrainz corrections land against the real service:
+  the owner's two runs with Postgres up each wrote 60 `original_release_cache`
+  rows within a minute of the job finishing. The worker logs nothing on
+  success, which is why neither run's log showed it.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -303,15 +349,15 @@ See FINDINGS F-DOCSYNC-3.
   move; the frontend gate keeps its own accessibility checks running
   meanwhile.
 
-- **Queued after Batch 22 -- Batch 23, Spotify export import:** approved by the
-  owner on 2026-09-13 and not started. Spotify listeners upload the Extended
-  Streaming History zip; there is no Spotify login, because Spotify caps apps
-  without extended access at 5 allowlisted users. The plan is
-  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`.
-  Neither batch starts on `test`: each opens on its own branch, named here
-  first, or the worktree guard raises WT003. F-B21-59 records the Spotify API
-  risk they raise, and F-B21-60 the artwork rules Batch 22's provider work
-  must satisfy.
+- **Batch 23, Spotify export import**, approved by the owner on 2026-09-13,
+  is now the active batch (see its bullet above). Spotify listeners upload
+  the Extended Streaming History zip; there is no Spotify login, because
+  Spotify caps apps without extended access at 5 allowlisted users.
+  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` is
+  its cross-WP export outline; each work package gets its own SDD plan, as
+  the definition's "Planning authority" paragraph says. F-B21-59 records
+  the Spotify API risk, and F-B21-60 the artwork rules Batch 22's provider
+  work had to satisfy.
 
 - **Owed before Phase 2:** none. Every commit this bullet previously named has
   landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
@@ -357,113 +403,129 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-21 - Frontend gate split complete (F-B21-51)
+### 2026-09-24 - The loading page looks up its error source label in a Map
 
-Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`
-measures 535 lines, under the plan's 700-line threshold and above its
-roughly-450 estimate. The ten `_frontend_gate_*` siblings measure
-`_frontend_gate_assets` 49, `_frontend_gate_colour` 191,
-`_frontend_gate_forms` 434, `_frontend_gate_layout` 1,176,
-`_frontend_gate_pipeline` 854, `_frontend_gate_results` 497,
-`_frontend_gate_runtime` 156, `_frontend_gate_shared` 71,
-`_frontend_gate_theme` 749, `_frontend_gate_unmatched` 490. The gate
-summary is unchanged: `[frontend_gate] 30 checks passed in 52 runs across
-chromium, firefox`. F-B21-51 is resolved; `docs/architecture/
-documentation-tooling.md`, `DEVELOPMENT.md`, `FINDINGS.md` and this file
-are reconciled to the measured end state. The `frontend_gate_checks.toml`
-registry stays a deferred candidate.
+Side task, no batch tag: close Codacy's object-injection flag on the loading
+page's error source label, part of Batch 23 WP-0 Part C. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
 
-### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
+- **Why.** Codacy's check failed on PR #241 with one high issue, "Variable
+  Assigned to Object Injection Sink", at `static/js/loading.js`'s
+  `const label = ERROR_SOURCE_LABELS[source];`. It is not exploitable: the
+  server sends only `lastfm`, `spotify` or `internal`
+  (`scrobblescope/errors.py`), and the label goes into `textContent`. But an
+  object-literal lookup resolves inherited keys, so a source of
+  `constructor` would have printed `Source: function Object() ...`.
+- **Change.** `ERROR_SOURCE_LABELS` is a `Map`, read with `.get(source)`.
+  An unknown or inherited key finds nothing, so the source line stays
+  hidden. The failure call that passes no source is unchanged:
+  `Map.get(undefined)` is `undefined`, as the object lookup was. The JSDoc
+  says why it is a Map. Nothing else changed; the reconcile plan's Task 7
+  code block keeps the object form it shipped with, as a record.
+- **Found by** the cloud session, which could not run the frontend gate
+  (no Playwright browsers in its sandbox), so the change was made locally.
+- **Also corrected:** the heading of the cloud-handoff entry below carried
+  a `WP-<digit>` token, against the untagged-entry rule; it now reads
+  without one.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. The frontend
+  gate ran, since `static/` changed.
 
-Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now
-owns `SETUP_COMMAND`, `install_cdn_routes`, `_SERVE_APP_LOCK`,
-`FrontendGateError`, `_load_playwright`, `_launch_browser` and `serve_app`,
-moved verbatim with the `app`, `werkzeug.serving` and
-`scrobblescope.repositories` imports they need. The facade no longer imports
-`create_app`, `make_server` or the repository job functions directly; it
-re-exports the six public names through the new sibling instead.
-`REPO_ROOT`, the `sys.path` insert, `GATE_SECRET_KEY` and the environment
-bootstrap stay in the facade, above every sibling import, because
-`scrobblescope.config` reads the provider keys once at first import and the
-gate boots in CI's production mode with no secrets set. The facade's
-bootstrap comment now says so explicitly.
+### 2026-09-24 - The Batch 23 foundation work gets a handoff a cloud session can run from
 
-Seven tests moved out of `test_frontend_gate.py` into
-`test_frontend_gate_runtime.py`, retargeting their `make_server` and
-`create_app` patches to `_frontend_gate_runtime`, and their
-`frontend_gate.install_cdn_routes` attribute calls to
-`_frontend_gate_runtime.install_cdn_routes`. `test_headed_reaches_the_browser_launch`,
-`test_launch_is_headless_by_default` and the tests that call `main(` or
-`run_checks(` stayed in `test_frontend_gate.py`, unchanged, because they
-reach `_launch_browser` and `serve_app` through the facade's re-export or
-`patch.object(frontend_gate, ...)`, which still resolves.
+Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a
+cloud session. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
 
-Removing the facade's `create_job`/`delete_job` import broke two tests in
-`test_frontend_gate_pipeline.py` (an earlier slice) that called
-`frontend_gate.create_job`/`frontend_gate.delete_job` by attribute access --
-a name the facade no longer defines. `_frontend_gate_pipeline` already
-imports both from `scrobblescope.repositories` for its own checks, so those
-four call sites were retargeted to `_frontend_gate_pipeline.create_job`/
-`_frontend_gate_pipeline.delete_job` rather than restoring the facade
-import.
+- **Why.** The owner is moving the work to a cloud session, which has only
+  the repository. The local sessions kept their working state outside Git:
+  the SDD ledgers and workspace constraints (`.superpowers/sdd/`, ignored),
+  the four agent definitions (user-level, `~/.claude/agents/`), and the
+  owner's working agreements (session memory). The gate commands were also
+  Windows paths.
+- **Added.** `docs/history/reports/HANDOFF_2026-09-24.md`, the new entry
+  point: state, Linux setup, how the subagent loop runs without the plugin
+  scripts, next steps with Task 5's owner ruling, rulings in force, open
+  items and traps. `.superpowers/cloud-kit/constraints.md` is the Linux form
+  of the workspace constraints (gates on `.venv/bin`, Lessons L1-L10).
+  `.superpowers/cloud-kit/agents/` holds the four agent definitions,
+  copied unchanged. `.superpowers/sdd/.gitignore` is now tracked, so a
+  fresh clone keeps new SDD workspaces out of Git.
+- **Not added.** The root `CLAUDE.md` stays git-ignored, as `.gitignore`
+  records; the cloud session's first prompt names the handoff instead. The
+  SDD helper scripts stay out too (vendored skills are local harness state
+  per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
+- **Section 3** points its handoff bullet at the new file.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
 
-### 2026-09-21 - Frontend gate split: pipeline slice (F-B21-51)
+### 2026-09-24 - The owner's live check closes the logging task
 
-Side task, no batch tag. `_frontend_gate_pipeline.py` now owns the three
-checks that write real job state through `scrobblescope.repositories` and
-watch the page follow it -- `check_loading_composition`,
-`check_pipeline_state_machines`, `check_artist_spotlight_rotation` -- plus
-their nine helpers (`_parse_matrix_scalex`, `_assert_loading_progress_state`,
-`_exercise_loading_progress_phases`, `_check_phase_repository_isolation`,
-`_exercise_counted_progress`, `_exercise_album_progress`,
-`_exercise_heatmap_progress`, `_exercise_replaced_job_progress`,
-`_exercise_pipeline_state_machines`) and the ten progress constants
-(`ALBUM_PROGRESS_TRACK`, `ALBUM_PROGRESS_BAR`, `ALBUM_PROGRESS_TEXT`,
-`HEATMAP_PROGRESS_TRACK`, `HEATMAP_PROGRESS_BAR`, `HEATMAP_PROGRESS_TEXT`,
-`FETCHING_SCROBBLES`, `COUNTING_SCROBBLES`, `PAGE_23_OF_102`,
-`PAGE_90_OF_100`), moved verbatim. `serve_app` stays behind in the facade, so
-the facade keeps `create_job`, `delete_job` and `set_job_progress`; the other
-six repository imports (`get_job_context`, `get_job_progress`,
-`reset_job_state`, `set_job_error`, `set_job_results`, `set_job_stat`) moved
-with the code that reads them.
+Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
+C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
-Six tests moved out of `test_frontend_gate.py`, retargeting their patches of
-`reset_job_state`, `set_job_progress`, `create_job`, `delete_job`,
-`get_job_progress` and `get_job_context`, and of
-`_exercise_pipeline_state_machines`, to `_frontend_gate_pipeline`. Two moved
-tests also called `_check_phase_repository_isolation`,
-`_exercise_replaced_job_progress`, `_exercise_counted_progress` and
-`get_job_progress` through `frontend_gate.<name>` attribute access -- names
-the facade no longer defines -- and were retargeted the same way.
-`serve_app`'s own tests kept patching `frontend_gate.create_job`,
-`frontend_gate.set_job_progress` and `frontend_gate.delete_job`, since those
-three still resolve there.
+- **What.** The reconcile plan's Task 13 (F-B23-6) landed as `433120c` and
+  its fix round as `e7e076b`. Its Step 5, the owner's live check against
+  the real providers, was left to the owner. The owner ran a job with
+  `DEBUG_MODE=1` on 2026-09-24 and confirmed the log: per-call DEBUG lines
+  such as `MusicBrainz GET /ws/2/release-group/ -> 200 in 133ms` and
+  `Spotify GET /v1/search -> 200 in 241ms`, INFO summaries, and no query
+  value. Section 3 and the plan's Step 5 now record it done.
+- **Observation for a later task.** The owner's log shows one
+  `Spotify: 1 calls` INFO summary per Spotify search, each from its own
+  runner thread. So that path builds one session per call, and the
+  per-session summary becomes one INFO line per album rather than one per
+  job. It may also mean connections are not reused there. Not fixed here.
+- **Fix-round note.** The fix-round implementer for `e7e076b` stopped at a
+  rate limit after its edits and before its gates. The controller read the
+  diff, ran `--fix`, the suite, pre-commit and `--check`, repeated the
+  scratch-copy mutation proof, and committed. That fix round has no
+  independent re-review yet.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
 
-### 2026-09-21 - Frontend gate split: layout slice (F-B21-51)
+### 2026-09-24 - The release-check finish line names both corrections
 
-Side task, no batch tag. `_frontend_gate_layout.py` now owns the six checks
-that measure fonts, text scaling, touch targets and large-display
-composition -- `check_touch_targets`, `check_fonts`, `check_body_font`,
-`check_shell_scales_with_text`, `check_large_display_scale_parity`,
-`check_destination_empty_states` -- plus their eighteen measurement and
-judgement helpers and the `FONTS_READY_EXPRESSION`, `REQUIRED_FONT_FAMILIES`,
-`MIN_TOUCH_TARGET_PX`, `INTERACTIVE_SELECTOR`, `TOUCH_TARGET_STATES` and
-`DEFAULT_STATES` constants, moved verbatim and importing `_clamp_px` from the
-colour slice and the page inventories and `_reach_state` from the shared
-module. It is the largest slice at roughly 1,150 lines; the split isolates it
-rather than shrinking it, and `check_large_display_scale_parity`'s own
-complexity is a separate question. The definitions were not contiguous in the
-facade: `check_loading_composition` stayed behind between
-`check_shell_scales_with_text` and the scale-parity measurement helpers.
+Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
 
-Sixteen tests and the `_healthy_mobile_header` helper moved out of
-`test_frontend_gate.py`. Several of the moved tests called private helpers
-through `frontend_gate._mobile_header_failures`, `frontend_gate.
-_expected_scaled_dimension`, `frontend_gate._scale_dimension_failures`,
-`frontend_gate._wide_layout_failures`, `frontend_gate._header_geometry_failures`,
-`frontend_gate._scale_mechanism_failures`, `frontend_gate._measure_enlarged_root`
-and `frontend_gate._composition_bounds_failures` -- private names the facade
-never re-exports, so those references were retargeted to
-`_frontend_gate_layout` alongside the patch-target guard's own findings.
-`test_the_touch_profiles_really_carry_a_coarse_pointer` stayed in
-`test_frontend_gate.py`: it tests `VIEWPORTS`, which remains in the facade.
+- **What the review caught.** `run_release_checks`'s finish line (the entry
+  below, from `433120c`) logged `state["moved_out"]` alone as "corrected".
+  That hid `state["moved_in"]` -- an excluded album whose original release
+  MusicBrainz found to fall back inside the window, just as real a finding
+  as a moved-out result, and the whole reason this task exists is so the
+  owner can see what MusicBrainz found.
+- **Fix.** `scrobblescope/release_checks.py`'s finish line now names both
+  counts: `"{checked} checked, {moved_out} moved out, {moved_in} moved in"`.
+  No artist or album names, as before.
+- **Test.** `tests/services/test_release_checks.py`'s finish-line test
+  (its own new test from `433120c`, so changing it is in scope) is renamed
+  `test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts`
+  and now drives a job with two results that move out and one exclusion
+  that moves in, asserting `2 moved out` and `1 moved in` -- distinct,
+  non-zero counts, so a swap of the two would fail the test.
+- **New test: a logging failure never fails a request.**
+  `tests/services/test_api_logging.py` gains
+  `test_a_recording_failure_never_fails_the_request`: with `_record`
+  monkeypatched to raise, a real request through `create_optimized_session()`
+  against a local `TestServer` still returns its response normally, and an
+  explicit `close()` afterwards still does not raise. Proved to actually
+  exercise the callbacks' `try/except` (not just the happy path): archived
+  `HEAD` to a scratch directory outside the repo
+  (`git archive HEAD | tar -x`), removed the `try/except` from
+  `_on_request_start`/`_on_request_end`/`_on_request_exception` there, and
+  reran the same test against that mutated copy with `PYTHONPATH` pointed
+  at it -- it failed (`RuntimeError: boom` reaching the caller through
+  `session.get(...)`). Scratch directory deleted afterward; nothing in the
+  repository was touched by the mutation.
+- **Sibling text.** The `433120c` dated entry below keeps its "Reading
+  `corrected`" bullet as a record of what that commit actually shipped; this
+  entry states the change instead. The reconcile plan's Task 13 spec text
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
+  updated its "checked and corrected" line to name both counts. The
+  resolved F-B23-6 record's reason line ("start, finish and skip") never
+  claimed "corrected" and needed no change.
+
+Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.

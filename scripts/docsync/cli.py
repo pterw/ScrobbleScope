@@ -496,6 +496,19 @@ def _drift_updates(
     return updates
 
 
+def _archive_page_target_issues(store: ArchiveStore) -> list[IntegrityIssue]:
+    """DOC024 diagnostics across every managed archive (warning severity).
+
+    Every archive `--paginate-archives` and `--cold-storage` would touch is
+    checked here too, so `--check` reports the same page-target health those
+    explicit maintenance commands would act on -- without ever running them.
+    """
+    issues: list[IntegrityIssue] = []
+    for path in _managed_archive_paths():
+        issues.extend(store.page_target_issues(path))
+    return issues
+
+
 def _collect_issues(
     corpus: _Corpus,
     result,
@@ -505,6 +518,7 @@ def _collect_issues(
     return [
         *corpus.issues,
         *rotation.issues,
+        *_archive_page_target_issues(corpus.store),
         *collect_integrity_issues(
             repo_root=REPO_ROOT,
             live_documents=corpus.live_documents,

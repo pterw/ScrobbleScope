@@ -115,6 +115,62 @@ def structure_issue(path: str, error: SyncError) -> IntegrityIssue:
     )
 
 
+def _page_target_issue(path: str, max_lines: int) -> IntegrityIssue:
+    """Report an unpaginated archive that has outgrown its page target.
+
+    Reported at warning severity, never error: pagination is an explicit
+    maintenance action (``--paginate-archives``), not something an ordinary
+    `--check` or `--fix` performs as a side effect. This diagnostic only
+    names the condition; it writes nothing.
+    """
+    return IntegrityIssue(
+        code="DOC024",
+        severity="warning",
+        path=path,
+        line=None,
+        invariant=(
+            "An archive under its page target of "
+            f"{max_lines} lines stays a single file; once its logical text "
+            "exceeds that target it is paginated explicitly, never as a "
+            "side effect of --check or --fix."
+        ),
+        remediation=(
+            f"{path} has grown past the {max_lines}-line page target. Run "
+            "`python scripts/doc_state_sync.py --paginate-archives` to split "
+            "it into indexed, numbered pages. This warning writes nothing on "
+            "its own."
+        ),
+    )
+
+
+def _never_ageing_page_issue(path: str, page_name: str) -> IntegrityIssue:
+    """Report a finalized page that the cold-storage rule can never age.
+
+    `_age` only moves a finalized, non-oversized, hot page to cold storage
+    when every entry on it carries an explicit date before the cutoff. A
+    page holding even one undated entry can never satisfy that rule, no
+    matter how old the page itself is -- so this is reported once per such
+    page, at warning severity, purely informational.
+    """
+    return IntegrityIssue(
+        code="DOC024",
+        severity="warning",
+        path=path,
+        line=None,
+        invariant=(
+            "A finalized page moves to cold storage only when every entry "
+            "on it carries a date before the cutoff; a page with even one "
+            "undated entry can never satisfy that rule."
+        ),
+        remediation=(
+            f"Page {page_name} holds at least one entry with no explicit "
+            "date, so it can never age into cold storage. This is "
+            "informational only: add an explicit date to every entry on the "
+            "page if it should become cold-storage eligible."
+        ),
+    )
+
+
 def _strip_trailing_blank(lines: Sequence[str]) -> list[str]:
     block = list(lines)
     while block and not block[-1].strip():
@@ -411,6 +467,48 @@ class ArchiveStore:
             raise SyncError(f"Archive entry point does not exist: {index_path}")
         layout = self._load(index_path)
         return _join(layout.prologue, layout.entries)
+
+    def page_target_issues(self, path: Path) -> list[IntegrityIssue]:
+        """Return this archive's DOC024 page-target diagnostics, if any.
+
+        Two independent conditions are checked, both warning-only so
+        `--check` still exits 0 on them. An unpaginated (legacy monolith)
+        archive whose logical text has outgrown `max_lines` warns once,
+        naming the explicit `--paginate-archives` maintenance command --
+        pagination is never triggered as a side effect of reading. A
+        paginated archive's finalized, non-oversized, hot page whose entries
+        are not all dated warns once as well, because `_age` requires every
+        entry on such a page to carry a date before the cutoff: a page
+        missing even one date can never satisfy that rule, whatever the
+        cutoff turns out to be.
+
+        A missing entry point yields no diagnostics: an archive that has
+        not been created yet has nothing to warn about.
+        """
+        index_path = resolve_within(self.root, path)
+        if not index_path.is_file():
+            return []
+        relative = index_path.relative_to(self.root).as_posix()
+        layout = self._load(index_path)
+
+        if not layout.paginated:
+            flattened = _join(layout.prologue, layout.entries)
+            if len(flattened.splitlines()) > self.max_lines:
+                return [_page_target_issue(relative, self.max_lines)]
+            return []
+
+        issues: list[IntegrityIssue] = []
+        total = len(layout.pages)
+        for position, page in enumerate(layout.pages):
+            finalized = position < total - 1
+            if not finalized or page.oversized or page.location != "hot":
+                continue
+            if not page.entries:
+                continue
+            dates = [_entry_date(entry) for entry in page.entries]
+            if not all(date is not None for date in dates):
+                issues.append(_never_ageing_page_issue(relative, page.name))
+        return issues
 
     # -- planning ---------------------------------------------------------
 

@@ -21,15 +21,17 @@ class AlbumMetadata:
 
         The keys are arguments because this object does not carry them: it
         describes an album a provider returned, not which lookup asked for
-        it. ``cache._batch_persist_metadata`` owns this order and documents
-        it; the nine-element form is the provider-aware one, where
-        ``provider_album_id`` repeats ``album_id`` because that is the id
-        the provider itself issued.
+        it. The nine-element form is the provider-aware one: ``spotify_id``
+        carries ``album_id`` only for a Spotify row, and ``provider_album_id``
+        always carries the id the provider itself issued.
         """
         return (
             artist_norm,
             album_norm,
-            self.album_id,
+            # The legacy spotify_id column holds a Spotify id only. Any other
+            # provider writes None there -- as the live Deezer fallback always
+            # has -- and keeps its own id in provider_album_id below.
+            self.album_id if self.provider == "spotify" else None,
             self.release_date,
             self.image_url,
             self.track_durations,

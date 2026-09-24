@@ -475,6 +475,107 @@ class TestBuildStatusBlockBoundary:
 
 
 # ---------------------------------------------------------------------------
+# _build_status_block -- the opening state (a batch declared, nothing logged)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildStatusBlockOpeningState:
+    """Section 3 declares a batch open before its first entry is logged.
+
+    The 2026-09-21 live probe found this state rendered as "between batches":
+    the block chose its branch on whether current entries existed, not on the
+    batch Section 3 declares. It is the state every batch passes through when
+    its branch is named, and the dashboard is what a cold-resume agent reads
+    first.
+    """
+
+    OPEN = ActiveBatchState(
+        current_batch=23, last_completed_batch=22, next_undefined_batch=None
+    )
+
+    def test_declared_batch_with_no_entries_renders_as_open(self):
+        block = _build_status_block(
+            self.OPEN, [], latest_test_count=1717, planned_wp_numbers=range(8)
+        )
+
+        assert block == [
+            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Current batch: Batch 23.",
+            "- Current-batch entries in active log block: 0.",
+            "- Completed work packages in current-batch entries: none.",
+            "- Next expected work package: WP-0.",
+            "- Latest validated test count: **1717 passed**.",
+            "- Newest current-batch entry: none.",
+        ]
+
+    def test_declared_batch_without_a_plan_names_no_package(self):
+        """No plan and no entries give no basis for a number."""
+        block = _build_status_block(self.OPEN, [])
+
+        assert "- Current batch: Batch 23." in block
+        assert "- Next expected work package: unknown." in block
+
+    def test_between_batches_block_carries_the_count(self):
+        """Between batches is when agents read the count most."""
+        state = ActiveBatchState(
+            current_batch=None, last_completed_batch=22, next_undefined_batch=23
+        )
+
+        block = _build_status_block(state, [], latest_test_count=1717)
+
+        assert block == [
+            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Current batch: none (between batches).",
+            "- Last completed batch in PLAYBOOK Section 3: Batch 22.",
+            "- Next batch definition status: Batch 23 is not yet defined.",
+            "- Current-batch entries in active log block: 0.",
+            "- Completed work packages in current-batch entries: n/a (no active batch).",
+            "- Next expected work package: n/a (next batch not defined).",
+            "- Latest validated test count: **1717 passed**.",
+            "- Newest current-batch entry: none.",
+        ]
+
+
+class TestNextWpNumberCountsWpZero:
+    """A finite plan's WP-0 is a real package (owner ruling, 2026-09-21)."""
+
+    def test_nothing_done_names_wp_zero(self):
+        from docsync.renderer import _next_wp_number
+
+        assert _next_wp_number([], (0, 1, 2)) == 0
+
+    def test_wp_zero_done_moves_to_wp_one(self):
+        from docsync.renderer import _next_wp_number
+
+        entry = Entry(
+            heading="### 2026-09-22 - Opened (Batch 23 WP-0)",
+            date="2026-09-22",
+            title="Opened (Batch 23 WP-0)",
+            lines=("### 2026-09-22 - Opened (Batch 23 WP-0)",),
+            start_idx=0,
+            fingerprint="zero",
+        )
+
+        assert _next_wp_number([entry], (0, 1, 2)) == 1
+
+    def test_legacy_rule_without_a_plan_still_starts_at_one(self):
+        """With no plan there is no WP-0 to name, so the old rule stands."""
+        from docsync.renderer import _next_wp_number
+
+        entry = Entry(
+            heading="### 2026-09-22 - Opened (Batch 23 WP-0)",
+            date="2026-09-22",
+            title="Opened (Batch 23 WP-0)",
+            lines=("### 2026-09-22 - Opened (Batch 23 WP-0)",),
+            start_idx=0,
+            fingerprint="zero",
+        )
+
+        assert _next_wp_number([entry]) == 1
+        assert _next_wp_number([]) is None
+
+
+# ---------------------------------------------------------------------------
 # _render_section4 -- empty entry lines edge case
 # ---------------------------------------------------------------------------
 

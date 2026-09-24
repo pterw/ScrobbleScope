@@ -9,10 +9,11 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1555 passing** across 58 test modules |
+| Tests | **1821 passing** across 67 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
+| Batch 23 status | **Active**. WP-0 is next. Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -36,12 +37,11 @@ Last updated: 2026-09-20
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 22.
-- Next batch definition status: Batch 23 is not yet defined.
+- Current batch: Batch 23.
 - Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
+- Completed work packages in current-batch entries: none.
+- Next expected work package: WP-0.
+- Latest validated test count: **1821 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -54,10 +54,11 @@ app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
-  domain.py                 # normalize_name, normalize_track_name
+  domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
+  api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary
   utils.py                  # rate limiters, session pooling, request caching
   repositories.py           # JOBS dict, jobs_lock, job state CRUD
-  worker.py                 # semaphore, acquire/release_job_slot, start_job_thread
+  worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
@@ -132,7 +133,8 @@ scripts/
 errors.py        <- (leaf)
 domain.py        <- (leaf)
 config.py        <- (leaf)
-utils.py         <- config
+api_logging.py   <- (leaf; standard library + aiohttp)
+utils.py         <- api_logging, config
 cache.py         <- config
 worker.py        <- config
 repositories.py  <- config, domain, errors
@@ -140,7 +142,7 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker; orchestrator (facade, DEFERRED -- see note)
+release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker
 orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
@@ -148,7 +150,7 @@ orchestrator/_cache.py    <- orchestrator (facade)
 orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
 heatmap.py       <- lastfm, repositories, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/__init__.py     <- config, domain, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
@@ -186,16 +188,6 @@ dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_sha
 dev/_frontend_gate_unmatched.py <- repositories
 dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
-
-**The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports
-`release_checks` at module level, to hand a finished job to the correction
-worker. `release_checks` needs `_matches_release_criteria` back from
-`orchestrator`, and takes it through a **function-local** import inside
-`_matches_window`, not a module-level one. At module level the pair would
-form a cycle whose outcome depends on which module is imported first --
-importing `release_checks` before `orchestrator` would fail on a
-partially-initialised module. The graph above therefore stays acyclic at
-import time; the edge exists only at call time, and is marked DEFERRED.
 
 ---
 
@@ -247,7 +239,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1555 tests)
+## 6. Test structure (1821 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

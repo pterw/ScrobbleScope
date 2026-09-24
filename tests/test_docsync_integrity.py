@@ -1206,6 +1206,49 @@ def test_doc007_section3_unlabelled_claim_blocks(tmp_path: Path):
     assert "lacks the required '- **Next action:**' bullet label" in doc007[0].invariant
 
 
+def _opened_batch_inputs(tmp_path: Path, claim: str) -> dict[str, object]:
+    """An active Batch 21 with a planned WP-0..WP-2 and nothing logged yet."""
+    inputs = _valid_inputs(tmp_path)
+    marker = inputs["playbook_lines"].index("<!-- DOCSYNC:CURRENT-BATCH-START -->")
+    end = inputs["playbook_lines"].index("<!-- DOCSYNC:CURRENT-BATCH-END -->")
+    del inputs["playbook_lines"][marker + 1 : end]
+    inputs["playbook_lines"].insert(6, f"- **Next action:** **{claim}**.")
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+        "",
+        "### WP-0 -- Foundation",
+        "",
+        "### WP-1 -- Feature",
+        "",
+        "### WP-2 -- Close-out",
+    ]
+    return inputs
+
+
+def test_doc007_false_claim_in_an_opened_batch_blocks(tmp_path: Path):
+    """The live probe's case: nothing is logged, and Section 3 claims WP-2.
+
+    Before the fix `_computed_next_wp` returned None with no current entries,
+    so a false claim in the opening state passed with exit 0.
+    """
+    issues = collect_integrity_issues(**_opened_batch_inputs(tmp_path, "WP-2 is next"))
+
+    doc007 = [i for i in issues if i.code == "DOC007" and i.path == "PLAYBOOK.md"]
+    assert len(doc007) == 1
+    assert "Section 3 claims WP-2 is next" in doc007[0].invariant
+    assert "WP-0" in doc007[0].remediation
+
+
+def test_doc007_true_claim_in_an_opened_batch_is_clean(tmp_path: Path):
+    """The near miss: WP-0 is the true answer when nothing is logged."""
+    inputs = _opened_batch_inputs(tmp_path, "WP-0 is next")
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_doc007_stale_session_section1_claim_is_blocking(tmp_path: Path):
     """The hand-maintained dashboard cannot name a stale next package."""
     inputs = _valid_inputs(tmp_path)
@@ -1522,6 +1565,68 @@ def test_doc012_leaves_a_subset_claim_beside_a_bold_count_alone():
         "",
         "- Toolchain module (35 passed).",
         "- Validation: `pytest -q` -- **682 passed**.",
+    ]
+    assert _doc012_codes(lines) == []
+
+
+@pytest.mark.parametrize(
+    "validation",
+    [
+        # The 2026-09-21 entry that cost a round: a parenthesis between the
+        # command and its bold count, wrapped across two lines.
+        [
+            "Validation: `pytest -q` (tracked suite; the untracked tests",
+            "excluded) -- **1717 passed**.",
+        ],
+        ["Validation: `pytest -q`: **1717 passed**."],
+    ],
+)
+def test_doc012_flags_a_bold_count_the_authority_cannot_pair(validation):
+    """A bold count that does not follow `pytest -q` directly is skipped.
+
+    The authority reads only `` `pytest -q` -- **N passed** ``. Anything else
+    between the two makes the entry invisible and an older count current;
+    DOC006 and DOC008 then go red against the figures the author updated,
+    with a remediation that points away from the entry at fault.
+    """
+    from docsync.integrity import _check_unbolded_test_counts
+
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-21 - newest",
+        *validation,
+        "### 2026-09-20 - older",
+        "Validation: `pytest -q` -- **1555 passed**.",
+    ]
+    issues = _check_unbolded_test_counts(lines)
+
+    assert [issue.code for issue in issues] == ["DOC012"]
+    assert issues[0].line == 3
+    assert "`pytest -q` -- **1717 passed**" in issues[0].remediation
+
+
+def test_doc012_leaves_a_targeted_run_with_a_bold_count_alone():
+    """The near miss: a scoped run is correctly not a full-suite claim."""
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-21 - newest",
+        "Focused: `pytest -q tests/test_worker.py` -- **16 passed**.",
+        "### 2026-09-20 - older",
+        "Validation: `pytest -q` -- **1555 passed**.",
+    ]
+    assert _doc012_codes(lines) == []
+
+
+def test_doc012_leaves_a_sentence_about_another_entrys_count_alone():
+    """The near miss from Batch 22's log: prose citing a count, not claiming one."""
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-14 - README pass",
+        "Validation: docs only; `pytest -q` and the frontend gate are",
+        "unaffected -- Task 6's own entry above has the current measurement,",
+        "**1069 passed**.",
+        "### 2026-09-13 - older",
+        "Validation: `pytest -q` -- **1069 passed**.",
     ]
     assert _doc012_codes(lines) == []
 

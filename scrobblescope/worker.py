@@ -71,3 +71,56 @@ def new_thread_event_loop():
         loop.close()
         raise
     return loop
+
+
+def run_coroutine_in_new_loop(
+    coroutine,
+    *,
+    make_loop=new_thread_event_loop,
+    release_slot=release_job_slot,
+    on_run_error=None,
+):
+    """Run one coroutine to completion, then close the loop and release the slot.
+
+    The protocol in one place: the loop is built *inside* the ``try``, so a setup
+    failure still reaches the ``finally`` that releases the concurrency slot, and a
+    failure to *close* is never swallowed -- a leaked loop must not be reported as a
+    failed pipeline.
+
+    The *policy* stays with the caller, through ``on_run_error``. The album and
+    heatmap entry points deliberately answer a failed run differently today
+    (``F-SWE-5`` records both answers as wrong, and fixing that means changing a
+    caller, not this helper), so the helper shares the protocol and takes the
+    reaction as a parameter.
+
+    Args:
+        coroutine: The coroutine to run, on a loop built for the calling thread. It is
+            closed here if the loop is never built, so a setup failure does not leave
+            an unstarted coroutine for the garbage collector to complain about.
+        make_loop: Builds and installs that thread's event loop. Injected so callers
+            keep their own patchable name; defaults to the local helper.
+        release_slot: Releases the slot acquired before the job started. Called
+            exactly once, even when closing the loop fails.
+        on_run_error: Called with the caught exception when loop construction or the
+            run itself fails. ``None`` leaves the failure silent, which is what an
+            entry point with its own inner handler wants. It is *not* called for a
+            close failure, which propagates instead.
+    """
+    loop = None
+    try:
+        loop = make_loop()
+        loop.run_until_complete(coroutine)
+    except Exception as exc:  # noqa: BLE001 - the injected policy decides what to do
+        if on_run_error is not None:
+            on_run_error(exc)
+    finally:
+        if loop is None:
+            # The loop was never built, so the coroutine never started. Nobody else
+            # will close it, and an unstarted coroutine nobody closes raises
+            # "RuntimeWarning: coroutine ... was never awaited" on the worker thread.
+            coroutine.close()
+        try:
+            if loop is not None:
+                loop.close()
+        finally:
+            release_slot()

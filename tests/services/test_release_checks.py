@@ -161,6 +161,50 @@ def test_window_end_returns_none_on_unusable_inputs():
     assert _window_end("previous", None) is None
 
 
+# F-B23-5: `_window_end` restated the same scope table
+# `domain._matches_release_criteria` uses; Task 12 moves it to
+# `domain.release_window`. This parity test pins `_window_end`'s current
+# outputs on every divergence the finding names first, so the refactor has a
+# net -- it must keep passing, unchanged.
+@pytest.mark.parametrize(
+    "release_scope, year, decade, release_year, expected",
+    [
+        # The four bounded scopes.
+        ("same", 2025, None, None, 2025),
+        ("previous", 2025, None, None, 2024),
+        ("decade", 2025, "1990s", None, 1999),
+        ("custom", 2025, None, 1991, 1991),
+        # (a) "custom" with no release_year: unbounded.
+        ("custom", 2025, None, None, None),
+        # (b) "decade" with an unparseable value: unbounded (no window end
+        # to move a candidate against).
+        ("decade", 2025, "nope", None, None),
+        # (c) year as a string: accepted, unlike the filter.
+        ("same", "2025", None, None, 2025),
+        ("previous", "2025", None, None, 2024),
+        # (d) an unknown scope: unbounded.
+        ("unknown-scope", 2025, None, None, None),
+        # (e) "decade"/"custom" with a falsy companion: unbounded.
+        ("decade", 2025, None, None, None),
+        ("decade", 2025, "", None, None),
+        ("decade", 2025, 0, None, None),
+        ("custom", 2025, None, None, None),
+        ("custom", 2025, None, "", None),
+        ("custom", 2025, None, 0, None),
+    ],
+)
+def test_window_end_parity_before_release_window(
+    release_scope, year, decade, release_year, expected
+):
+    """
+    GIVEN every divergence F-B23-5 names plus the four bounded scopes
+    WHEN `_window_end` is called before it derives from `domain.release_window`
+    THEN it returns today's output -- the net Task 12's refactor must not
+        tear, since every case here keeps passing afterward unchanged.
+    """
+    assert _window_end(release_scope, year, decade, release_year) == expected
+
+
 def test_release_year_parses_and_rejects():
     """
     GIVEN provider release dates of varying shape
@@ -578,20 +622,52 @@ async def test_run_release_checks_marks_skipped_when_musicbrainz_is_disabled():
 
 
 @pytest.mark.asyncio
-async def test_run_release_checks_marks_skipped_without_a_db_connection():
+async def test_run_release_checks_runs_without_a_db_connection(caplog):
     """
     GIVEN the cache DB is unreachable
     WHEN the worker runs
-    THEN it skips without requesting anything: a finding it cannot persist
-    would spend the shared 1-request/second budget for nothing.
+    THEN it still asks MusicBrainz and records the outcome on the open job,
+    persisting nothing: the cache is how findings are reused, not a
+    precondition for showing one (F-B22-8).
     """
     job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
-    lookup = AsyncMock()
+    lookup = AsyncMock(return_value=("rg-1", "1997-05-21"))
+    persist = AsyncMock()
+    with (
+        caplog.at_level(logging.INFO),
+        _worker_patches(lookup, conn=None, persist=persist),
+    ):
+        await run_release_checks(job_id)
+
+    lookup.assert_awaited_once()
+    persist.assert_not_awaited()
+    assert get_job_progress(job_id)["stats"]["release_check"] == {
+        "status": "done",
+        "checked": 1,
+        "total": 1,
+        "moved_out": 1,
+        "moved_in": 0,
+    }
+    result = get_job_context(job_id)["results"][0]
+    assert result["release_check"] == "moved_out"
+    assert result["original_release_date"] == "1997-05-21"
+    assert "without the cache DB" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_without_a_db_connection_survives_a_lookup_error():
+    """
+    GIVEN no cache connection and MusicBrainz raising part-way through
+    WHEN the worker unwinds
+    THEN the job still ends "done" and nothing tries to close a connection
+    that was never opened.
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(side_effect=RuntimeError("boom"))
     with _worker_patches(lookup, conn=None):
         await run_release_checks(job_id)
 
-    lookup.assert_not_awaited()
-    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "skipped"
+    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
 
 
 @pytest.mark.asyncio
@@ -764,3 +840,114 @@ def test_ensure_worker_started_starts_exactly_one_live_thread():
         assert release_checks._worker_thread is live_thread
     finally:
         release_checks._worker_thread = original
+
+
+# --- Task 13: the three worker log lines (F-B23-6) --------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_logs_its_start_with_the_candidate_count(caplog):
+    """
+    GIVEN a job with two results
+    WHEN the worker starts
+    THEN it logs the candidate count at INFO before any lookup, naming no
+    artist or album.
+    """
+    job_id = _job_with(
+        results=[
+            _result("Radiohead", "OK Computer"),
+            _result("Pulp", "Different Class"),
+        ]
+    )
+    lookup = AsyncMock(return_value=(None, None))
+    with caplog.at_level(logging.INFO), _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    start_lines = [r for r in caplog.records if "starting" in r.getMessage()]
+    assert len(start_lines) == 1
+    assert start_lines[0].levelno == logging.INFO
+    message = start_lines[0].getMessage()
+    assert "2 candidates" in message
+    assert "Radiohead" not in message
+    assert "OK Computer" not in message
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts(
+    caplog,
+):
+    """
+    GIVEN a job with two results that both move out of the window and one
+    excluded album whose original release moves it back in
+    WHEN the worker finishes
+    THEN it logs the checked, moved-out and moved-in counts at INFO -- as
+    distinct, non-zero numbers, so the two corrected findings MusicBrainz
+    can return (a result rewritten in place, and an exclusion that would now
+    qualify) are both visible, not just the one the worker rewrote -- naming
+    no artist or album.
+    """
+    job_id = _job_with(
+        results=[
+            _result("Radiohead", "OK Computer"),
+            _result("Pulp", "Different Class"),
+        ],
+        unmatched=[_unmatched("Fleetwood Mac", "Rumours", "2031-01-31")],
+    )
+    lookup = AsyncMock(
+        side_effect=[
+            ("mbid-okc", "1990-01-01"),
+            ("mbid-diffclass", "1985-01-01"),
+            ("mbid-rumours", "2025-02-04"),
+        ]
+    )
+    with caplog.at_level(logging.INFO), _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    finish_lines = [r for r in caplog.records if "finished" in r.getMessage()]
+    assert len(finish_lines) == 1
+    assert finish_lines[0].levelno == logging.INFO
+    message = finish_lines[0].getMessage()
+    assert "3 checked" in message
+    assert "2 moved out" in message
+    assert "1 moved in" in message
+    assert "Radiohead" not in message
+    assert "OK Computer" not in message
+    assert "Pulp" not in message
+    assert "Different Class" not in message
+    assert "Fleetwood Mac" not in message
+    assert "Rumours" not in message
+
+
+def test_enqueue_release_check_names_musicbrainz_disabled_in_the_skip_line(caplog):
+    """
+    GIVEN MusicBrainz is disabled
+    WHEN a job is handed to the worker
+    THEN the skip line names MusicBrainz as disabled, not the contact.
+    """
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    with (
+        caplog.at_level(logging.INFO),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", False),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_CONTACT", "a@b.c"),
+    ):
+        assert enqueue_release_check(job_id) is False
+
+    assert "MusicBrainz is disabled" in caplog.text
+    assert "MUSICBRAINZ_CONTACT" not in caplog.text
+
+
+def test_enqueue_release_check_names_the_missing_contact_in_the_skip_line(caplog):
+    """
+    GIVEN MusicBrainz is enabled but MUSICBRAINZ_CONTACT is unset
+    WHEN a job is handed to the worker
+    THEN the skip line names the missing contact setting, not "disabled".
+    """
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    with (
+        caplog.at_level(logging.INFO),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.release_checks.MUSICBRAINZ_CONTACT", None),
+    ):
+        assert enqueue_release_check(job_id) is False
+
+    assert "MUSICBRAINZ_CONTACT is unset" in caplog.text

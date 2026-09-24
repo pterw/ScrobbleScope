@@ -8,7 +8,6 @@ that live on the facade (``_check_user_exists``, ``_check_profile_is_public``,
 """
 
 import logging
-from datetime import datetime
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 
@@ -176,7 +175,7 @@ def _render_results_page():
     username = p["username"] or request.values.get("username")
     year = p["year"]
     if year is None:
-        year = int(request.values.get("year", datetime.now().year))
+        year = int(request.values.get("year", _routes._current_year()))
     sort_mode = p["sort_mode"] or request.values.get("sort_by", "playcount")
     release_scope = p["release_scope"] or request.values.get("release_scope", "same")
     decade = p["decade"]
@@ -379,7 +378,7 @@ def results_loading():
         logging.warning("Invalid year format.")
         return render_template("index.html", error="Year must be a valid number.")
 
-    current_year = datetime.now().year
+    current_year = _routes._current_year()
     if year < 2002 or year > current_year:
         return render_template(
             "index.html", error=f"Year must be between 2002 and {current_year}."
@@ -412,7 +411,7 @@ def results_loading():
     if not _routes.acquire_job_slot():
         return render_template(
             "index.html",
-            error="Too many requests in progress. Please try again in a moment.",
+            error=_routes._capacity_message(),
         )
 
     params = {

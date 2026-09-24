@@ -2,9 +2,9 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22). See
 ``scrobblescope/orchestrator/_search.py`` for why cross-cutting dependencies
-(``fetch_spotify_album_details_batch``, ``set_job_progress``) are read
-through the live ``orchestrator`` module reference rather than imported
-directly.
+(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``,
+``set_job_progress``) are read through the live ``orchestrator`` module
+reference rather than imported directly.
 """
 
 import asyncio
@@ -14,7 +14,6 @@ from math import ceil
 
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_BATCH_CONCURRENCY
-from scrobblescope.domain import normalize_track_name
 
 
 async def _run_spotify_batch_detail_phase(
@@ -104,7 +103,8 @@ async def _run_spotify_batch_detail_phase(
         f"{len(all_album_details)} albums"
     )
 
-    # Extract cacheable fields, promote to cache_hits
+    # Translate at the edge: spotify.album_metadata_from_details owns the
+    # payload's shape, and this phase only files the result (F-B22-7).
     for spotify_id, album_details in all_album_details.items():
         if not album_details:
             continue
@@ -112,37 +112,17 @@ async def _run_spotify_batch_detail_phase(
         if not original_data:
             continue
         key = spotify_id_to_key[spotify_id]
-
-        release_date = album_details.get("release_date", "")
-        album_image_url = (
-            album_details.get("images", [{}])[0].get("url")
-            if album_details.get("images")
-            else None
-        )
-        track_durations = {
-            normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
-            for t in album_details.get("tracks", {}).get("items", [])
-        }
+        metadata = _orchestrator.album_metadata_from_details(spotify_id, album_details)
 
         cache_hits[key] = {
             "cached": {
                 "spotify_id": spotify_id,
-                "release_date": release_date,
-                "album_image_url": album_image_url,
-                "track_durations": track_durations,
+                "release_date": metadata.release_date,
+                "album_image_url": metadata.image_url,
+                "track_durations": metadata.track_durations,
             },
             "original": original_data,
         }
-
-        new_metadata_rows.append(
-            (
-                key[0],
-                key[1],
-                spotify_id,
-                release_date,
-                album_image_url,
-                track_durations,
-            )
-        )
+        new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
 
     return new_metadata_rows

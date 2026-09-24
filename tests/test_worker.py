@@ -169,3 +169,161 @@ def test_new_thread_event_loop_closes_the_loop_when_installing_it_fails():
             new_thread_event_loop()
 
     loop.close.assert_called_once_with()
+
+
+async def _idle():
+    """A real coroutine, so a mocked loop is handed something it could have run."""
+    return None
+
+
+def _closes(coro):
+    """Close what a mocked loop was handed, as the real loop's run would have."""
+    coro.close()
+
+
+def _explodes(message):
+    """Close the coroutine, then fail the run, as a real loop would have started it."""
+
+    def _side_effect(coro):
+        coro.close()
+        raise RuntimeError(message)
+
+    return _side_effect
+
+
+def test_run_coroutine_builds_one_loop_then_closes_and_releases():
+    """GIVEN a coroutine and a fake loop
+    WHEN run_coroutine_in_new_loop runs it
+    THEN one loop is built, run once with that coroutine, closed, and the slot released.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    built = []
+
+    def _make_loop():
+        loop = MagicMock()
+        loop.run_until_complete.side_effect = _closes
+        built.append(loop)
+        return loop
+
+    released = []
+    coro = _idle()
+    run_coroutine_in_new_loop(
+        coro, make_loop=_make_loop, release_slot=lambda: released.append(True)
+    )
+
+    assert len(built) == 1
+    built[0].run_until_complete.assert_called_once_with(coro)
+    built[0].close.assert_called_once_with()
+    assert released == [True]
+
+
+def test_run_coroutine_shares_the_protocol_but_not_the_failure_policy():
+    """GIVEN a run that fails
+    WHEN a policy is supplied
+    THEN the policy receives the exception, the loop still closes, and nothing propagates.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    loop = MagicMock()
+    loop.run_until_complete.side_effect = _explodes("pipeline exploded")
+    seen = []
+    released = []
+
+    run_coroutine_in_new_loop(
+        _idle(),
+        make_loop=lambda: loop,
+        release_slot=lambda: released.append(True),
+        on_run_error=seen.append,
+    )
+
+    assert len(seen) == 1
+    assert isinstance(seen[0], RuntimeError)
+    loop.close.assert_called_once_with()
+    assert released == [True]
+
+
+def test_run_coroutine_swallows_a_run_failure_when_no_policy_is_given():
+    """GIVEN a run that fails and no policy
+    WHEN the helper runs it
+    THEN the failure is silent and the slot is still released.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    loop = MagicMock()
+    loop.run_until_complete.side_effect = _explodes("pipeline exploded")
+    released = []
+
+    run_coroutine_in_new_loop(
+        _idle(), make_loop=lambda: loop, release_slot=lambda: released.append(True)
+    )
+
+    assert released == [True]
+
+
+def test_run_coroutine_releases_the_slot_when_loop_setup_fails():
+    """GIVEN loop construction fails
+    WHEN the helper runs
+    THEN no loop is closed, because there is none, and the slot is released.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    released = []
+
+    def _make_loop():
+        raise RuntimeError("loop setup failed")
+
+    run_coroutine_in_new_loop(
+        _idle(), make_loop=_make_loop, release_slot=lambda: released.append(True)
+    )
+
+    assert released == [True]
+
+
+def test_run_coroutine_closes_a_coroutine_the_loop_never_started():
+    """GIVEN loop construction fails
+    WHEN the helper runs
+    THEN the coroutine it was handed is closed, not abandoned.
+
+    The call site builds the coroutine before the helper is entered, so this is the
+    only thing between a setup failure and a "coroutine was never awaited" warning.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    def _make_loop():
+        raise RuntimeError("loop setup failed")
+
+    coro = _idle()
+    assert coro.cr_frame is not None  # created, not yet started
+
+    run_coroutine_in_new_loop(coro, make_loop=_make_loop, release_slot=lambda: None)
+
+    assert coro.cr_frame is None  # closed, so nothing is left to complain about
+
+
+def test_run_coroutine_never_hides_a_close_failure():
+    """GIVEN loop.close fails
+    WHEN the helper runs
+    THEN the close failure propagates, the slot is still released, and no policy sees it.
+
+    A leaked loop must never be mistaken for a failed pipeline, which is why this
+    failure is not routed through on_run_error.
+    """
+    from scrobblescope.worker import run_coroutine_in_new_loop
+
+    loop = MagicMock()
+    loop.run_until_complete.side_effect = _closes
+    loop.close.side_effect = RuntimeError("close failed")
+    released = []
+    seen = []
+
+    with pytest.raises(RuntimeError, match="close failed"):
+        run_coroutine_in_new_loop(
+            _idle(),
+            make_loop=lambda: loop,
+            release_slot=lambda: released.append(True),
+            on_run_error=seen.append,
+        )
+
+    assert released == [True]
+    assert seen == []

@@ -78,7 +78,6 @@ flowchart LR
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
     ReleaseChecks --> Worker
-    ReleaseChecks -.->|imported inside a function| Album
     LastFMClient --> Utils
     SpotifyClient --> Utils
     SpotifyClient --> Domain
@@ -176,10 +175,8 @@ silent:
 - **The correction worker is one thread for the whole process.** It owns its
   own event loop and a FIFO queue of job ids. More threads would only queue
   behind the same process-wide limiter while multiplying database connections
-  and the ways one job's state can be raced. It imports
-  `_matches_release_criteria` from `orchestrator/` inside a function: the
-  orchestrator imports this module at module level to enqueue a finished job,
-  and a module-level import back would close that cycle.
+  and the ways one job's state can be raced. The worker and the album filter
+  both read the release-window rule, `release_window`, from `domain.py`.
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track

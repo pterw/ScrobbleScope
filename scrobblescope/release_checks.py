@@ -49,7 +49,11 @@ from scrobblescope.config import (
     MUSICBRAINZ_CONTACT,
     MUSICBRAINZ_ENABLED,
 )
-from scrobblescope.domain import normalize_name
+from scrobblescope.domain import (
+    _matches_release_criteria,
+    normalize_name,
+    release_window,
+)
 from scrobblescope.musicbrainz import lookup_original_release
 from scrobblescope.repositories import (
     get_job_context,
@@ -107,18 +111,14 @@ def _window_end(release_scope, year, decade=None, release_year=None):
     None means no exclusion can be moved in: either every year qualifies
     ("all"), or the scope's companion parameter is missing or unparseable and
     guessing a window would spend requests on albums that cannot qualify.
+    The window itself comes from ``domain.release_window``, the rule's one
+    owner; this reads only its ``last`` year.
     """
-    if release_scope == "same":
-        return year if isinstance(year, int) else _release_year(year)
-    if release_scope == "previous":
-        base = year if isinstance(year, int) else _release_year(year)
-        return None if base is None else base - 1
-    if release_scope == "decade" and decade:
-        start = _release_year(str(decade)[:3] + "0")
-        return None if start is None else start + 9
-    if release_scope == "custom" and release_year:
-        return _release_year(release_year)
-    return None
+    try:
+        window = release_window(release_scope, year, decade, release_year)
+    except ValueError:
+        return None
+    return None if window is None else window[1]
 
 
 def _candidate(artist, album, kind):
@@ -181,13 +181,8 @@ def _select_candidates(context):
 def _matches_window(original_release, params):
     """Return True when *original_release* still satisfies the job's filter.
 
-    ``_matches_release_criteria`` is imported inside the function on purpose:
-    it lives in the ``orchestrator`` package, which imports this module to
-    enqueue jobs, and a module-level import here would close that cycle and
-    make the two import orders behave differently.
+    The rule lives in ``domain`` so the album filter and this re-check share it.
     """
-    from scrobblescope.orchestrator import _matches_release_criteria
-
     return _matches_release_criteria(
         original_release,
         params.get("release_scope"),
@@ -294,22 +289,24 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         session, candidate["artist"], candidate["album"]
     )
 
-    # Persisted per check rather than batched at the end: the worker spends a
-    # second per candidate and up to two hours per job, and a finding that is
-    # only in memory when the process restarts is a request nobody gets back.
-    try:
-        await _batch_persist_original_release(
-            conn, [(artist_norm, album_norm, mb_release_group, original_release)]
-        )
-    # Fail open: an unpersisted finding is looked up again next time.
-    except Exception as exc:  # noqa: BLE001
-        if schema_is_out_of_date(exc):
-            logging.warning(
-                f"Original-release persist failed (non-fatal): {exc}. "
-                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+    # Persisted per check rather than batched at the end, when a connection
+    # exists: the worker spends a second per candidate and up to two hours
+    # per job, and a finding that is only in memory when the process
+    # restarts is a request nobody gets back.
+    if conn:
+        try:
+            await _batch_persist_original_release(
+                conn, [(artist_norm, album_norm, mb_release_group, original_release)]
             )
-        else:
-            logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+        # Fail open: an unpersisted finding is looked up again next time.
+        except Exception as exc:  # noqa: BLE001
+            if schema_is_out_of_date(exc):
+                logging.warning(
+                    f"Original-release persist failed (non-fatal): {exc}. "
+                    f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+                )
+            else:
+                logging.warning(f"Original-release persist failed (non-fatal): {exc}")
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)
@@ -349,6 +346,9 @@ async def run_release_checks(job_id):
 
     params = context.get("params") or {}
     candidates = _select_candidates(context)
+    logging.info(
+        f"Release checks starting for job {job_id}: {len(candidates)} candidates"
+    )
     _mark_unchecked(job_id, candidates)
 
     if not MUSICBRAINZ_ENABLED:
@@ -361,15 +361,16 @@ async def run_release_checks(job_id):
 
     conn = await _get_db_connection()
     if not conn:
-        # Every finding belongs in original_release_cache; without it the
-        # requests would buy one job's display and nothing for the next.
-        logging.info("Release checks skipped: the cache DB is unavailable.")
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
-        return
+        # The page that is open still gets its corrections; only their reuse
+        # by the next job is lost. On Fly.io the DB wakes with the app, so
+        # this branch is reached in local development only (F-B22-8).
+        logging.info(
+            "Release checks running without the cache DB: findings will not be saved."
+        )
 
     state = _state(STATUS_RUNNING)
     try:
-        cached = await _lookup_cached(conn, candidates)
+        cached = await _lookup_cached(conn, candidates) if conn else {}
         pending = _resolve_cached(job_id, candidates, cached)[
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
@@ -381,13 +382,21 @@ async def run_release_checks(job_id):
     except Exception:
         logging.exception(f"Release checks failed for job {job_id}")
     finally:
+        logging.info(
+            f"Release checks finished for job {job_id}: "
+            f"{state['checked']} checked, {state['moved_out']} moved out, "
+            f"{state['moved_in']} moved in"
+        )
         state["status"] = STATUS_DONE
         set_job_release_check(job_id, state)
-        try:
-            await conn.close()
-        # A failed close must not mask the job's own outcome.
-        except Exception as exc:  # noqa: BLE001
-            logging.warning(f"Closing the release-check DB connection failed: {exc}")
+        if conn:
+            try:
+                await conn.close()
+            # A failed close must not mask the job's own outcome.
+            except Exception as exc:  # noqa: BLE001
+                logging.warning(
+                    f"Closing the release-check DB connection failed: {exc}"
+                )
 
 
 def _worker_loop():
@@ -435,6 +444,12 @@ def enqueue_release_check(job_id):
     if not job_id:
         return False
     if not (MUSICBRAINZ_ENABLED and MUSICBRAINZ_CONTACT):
+        missing = (
+            "MusicBrainz is disabled"
+            if not MUSICBRAINZ_ENABLED
+            else "MUSICBRAINZ_CONTACT is unset"
+        )
+        logging.info(f"Release checks skipped for job {job_id}: {missing}")
         set_job_release_check(job_id, _state(STATUS_SKIPPED))
         return False
     _ensure_worker_started()

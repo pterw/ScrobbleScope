@@ -40,6 +40,7 @@ The owner-approved overrides currently recorded are:
 | Release filter label | "Album release filter" | "Release filter" | Owner review, WP-4 |
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
+| Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -248,8 +249,8 @@ every case `README.md` wins, per precedence.
 | `--heatmap-empty` again | `#e8e2d6` / `#262230` | `#e0e0e0` / `#2a2a2a` in `guidelines/colors-rocket.prompt.md`, **not imported** | The README values. `#e0e0e0` is the old shipped grey the design deliberately warmed away from, so that file predates the revision. It is the third variant of this one token; `tokens/heatmap.css` and the README agree and win. |
 
 Two places where the bundle's component layer agrees with
-`reference/audit-review.md` rather than with `README.md`. Both are worth
-knowing before `F-B21-4` is judged:
+`reference/audit-review.md` rather than with `README.md`. Both informed the
+`F-B21-4` rulings:
 
 - **Mobile input size.** `components/forms/Input.prompt.md` opens with "On
   mobile keep the rendered font-size at 16px or larger to stop iOS auto-zoom."
@@ -285,7 +286,8 @@ This file, being Claude's prose rather than a snapshot, follows the rule.
 - **`F-B21-2`** -- the three dormant Tailwind seams WP-2 closes. Section 5
   above settles the theme-marker seam.
 - **`F-B21-4`** -- the four screens where `reference/audit-review.md` dissents
-  from `README.md`. Open; judged per WP.
+  from `README.md`. No action, 2026-09-23: items 1, 2 and 4 settled, item 3
+  folded into Batch 23 WP-6.
 - **`F-B21-5`** -- accessibility and mobile defects the handoff does not
   resolve.
 

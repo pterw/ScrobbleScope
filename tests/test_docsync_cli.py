@@ -613,7 +613,7 @@ Preamble.
 
 ### 2026-09-10 - Closing work (Batch 22 WP-1)
 
-Ran `pytest -q`: **1234 passed**.
+Ran `pytest -q` -- **1234 passed**.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 """
@@ -1489,7 +1489,7 @@ class TestArchiveMaintenanceModes:
         # count, and a claimed-complete batch would raise close-out
         # diagnostics that have nothing to do with the question.
         playbook = CORPUS_PLAYBOOK.replace(
-            "Ran `pytest -q`: **1234 passed**.", "Reviewed the enrichment work."
+            "Ran `pytest -q` -- **1234 passed**.", "Reviewed the enrichment work."
         ).replace(
             "- **Batch 22 is complete.**\n- Batch 23 is not yet defined.",
             "- Batch 21 is complete.\n"
@@ -1568,6 +1568,70 @@ class TestArchiveStructureDiagnostics:
         assert result.returncode == 1
         assert "ERROR DOC020" in result.stderr
         assert "Traceback" not in result.stderr
+
+
+class TestArchivePageTargetDiagnosticsThroughTheCli:
+    """DOC024 warns through --check/--fix, never blocking either mode.
+
+    `_archive_page_target_issues` is spliced into `_collect_issues`
+    (`scripts/docsync/cli.py`), which is what actually surfaces DOC024 to an
+    operator running the shipped entry point; every other DOC024 test in
+    this repository exercises `ArchiveStore.page_target_issues` directly and
+    would keep passing even if that splice were deleted.
+    """
+
+    def _active_batch_corpus(self, tmp_path: Path, **overrides: str) -> Path:
+        """A corpus where Batch 22 is active, so DOC019 close-out checks stay quiet."""
+        playbook = CORPUS_PLAYBOOK.replace(
+            "- **Batch 22 is complete.**\n- Batch 23 is not yet defined.",
+            "- Batch 21 is complete.\n"
+            "- Batch 22 is active. Definition: `BATCH22_DEFINITION.md`.",
+        )
+        session = CORPUS_SESSION.replace(
+            "| Batch 22 status | Complete |", "| Batch 22 status | Active |"
+        )
+        return _make_corpus(
+            tmp_path,
+            **{
+                "PLAYBOOK.md": playbook,
+                ".claude/SESSION_CONTEXT.md": session,
+                ".docsync.toml": CORPUS_TOML.replace(
+                    "max_lines = 500", "max_lines = 24"
+                ),
+                SIDE_ARCHIVE: _dated_archive(12, year=2020),
+                **overrides,
+            },
+        )
+
+    def test_check_warns_doc024_on_an_unpaginated_archive_over_target(
+        self, tmp_path: Path
+    ):
+        """--check names the oversized archive at warning severity and exits 0."""
+        self._active_batch_corpus(tmp_path)
+        # Settle the managed SESSION_CONTEXT rendering first, exactly as an
+        # operator would, so the assertion below isolates DOC024 from
+        # unrelated DOC005 drift the hand-built fixture would otherwise carry.
+        _run_cli(tmp_path, "--fix")
+        _git(tmp_path, "add", "-A")
+
+        result = _run_cli(tmp_path, "--check")
+
+        assert result.returncode == 0, result.stderr
+        assert "WARNING DOC024" in result.stderr
+        assert SIDE_ARCHIVE in result.stderr
+
+    def test_fix_also_warns_doc024_and_still_paginates_nothing(self, tmp_path: Path):
+        """--fix reports the same warning and never acts on it by itself."""
+        self._active_batch_corpus(tmp_path)
+
+        result = _run_cli(tmp_path, "--fix")
+
+        assert result.returncode == 0, result.stderr
+        assert "WARNING DOC024" in result.stderr
+        assert SIDE_ARCHIVE in result.stderr
+        text = (tmp_path / SIDE_ARCHIVE).read_text(encoding="utf-8")
+        assert INDEX_START_MARKER not in text
+        assert not (tmp_path / "docs/logarchive" / HOT_DIRECTORY).exists()
 
 
 class TestFindingRotationThroughTheCli:
