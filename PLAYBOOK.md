@@ -452,16 +452,15 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   (contiguous or backtick-split), needs no verb-prefix guard because the
   valid list never contains either substring, and leaves `DOC001-DOC020`
   alone.
-- **Deviation, filed as F-DOCSYNC-16.** The three pre-existing `[[retired]]`
-  declarations' `allow_after` marker for `PLAYBOOK.md` is the literal string
-  `"## 4. Execution log"`, but `check_retired` compares a raw line by exact
-  equality and the real heading is `"## 4. Execution log (for agent
-  handoff)"` -- confirmed by reproducing the mismatch directly against
-  `check_retired`. Their Section 4 exemption is therefore non-functional
-  against the live document today, latent only because no dated entry
-  currently restates one of their three retired phrases. This task's own
-  new declaration uses the full, correct heading text so it is not affected;
-  fixing the three siblings is out of scope here and left to F-DOCSYNC-16.
+- **Discovered and filed as F-DOCSYNC-16.** The three pre-existing
+  `[[retired]]` declarations' `allow_after` marker for `PLAYBOOK.md` was the
+  literal string `"## 4. Execution log"`, but `check_retired` compares a raw
+  line by exact equality and the real heading is `"## 4. Execution log (for
+  agent handoff)"` -- confirmed by reproducing the mismatch directly against
+  `check_retired`. Their Section 4 exemption was therefore non-functional
+  against the live document, latent only because no dated entry restated one
+  of their three retired phrases. This task's own new declaration used the
+  full, correct heading text from the start so it was not affected.
 - **Live probe** (`/tmp/ssprobe`, `git archive` of `git stash create`,
   deleted after):
 
@@ -478,6 +477,44 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 - Validation: `pytest -q` -- **1821 passed**. No test added or removed, so
   the three R3 count sites are unchanged.
+
+**Fix round (2026-09-24, review finding).** The review's one Important
+issue: the three pre-existing `allow_after` markers were left broken
+next to the fourth, freshly-corrected one in the same commit and same
+file, instead of being corrected outright (Anti-Pattern 11). Owner ruling:
+correct all three in `.docsync.toml` (touching nothing else in those
+declarations); reword F-DOCSYNC-16 to name the mechanism gap -- docsync
+silently ignores an `allow_after` marker that matches no line, rather than
+erroring -- and record that the three markers are corrected in this fix
+commit; drop its priority to P2 (the fix shape becomes a future check that
+errors on a dead marker, not built here); status stays open.
+
+- **`.docsync.toml`:** all three `[retired.allow_after] "PLAYBOOK.md" =
+  "## 4. Execution log"` lines corrected to `"## 4. Execution log (for
+  agent handoff)"`, the real heading, matching the fourth declaration this
+  task already added. Nothing else in the three declarations changed.
+- **`FINDINGS.md`:** F-DOCSYNC-16 retitled "docsync silently ignores an
+  `allow_after` marker that matches no line," its body names the general
+  mechanism gap ahead of the specific instance, records that the three
+  markers are now corrected, keeps the reproduction evidence, and states
+  the not-yet-built fix shape (a declaration check erroring on a dead
+  marker). Priority dropped P1 -> P2; status line unchanged (`open`).
+- **Live probe, reproduced in a fresh `/tmp/ssprobe`** (`git archive
+  9ea79f5`, `git init`, deleted after): a dated Section 4 entry quoting
+  "limit_results goes inside the thresholds disclosure" gives `ERROR
+  DOC011`, exit 1, with the unfixed markers; correcting all three markers on
+  that same scratch tree makes it silent, exit 0; and `--check` on the
+  unmodified corpus (no injected quote) is byte-identical before and after
+  the marker fix -- same four DOC024 + root-BATCH warnings, exit 0.
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | unfixed markers, dated entry quoting the retired `limit_results` phrase | DOC011, exit 1 | DOC011, exit 1 |
+  | corrected markers, same quote | silent, exit 0 | silent, exit 0 |
+  | corrected markers, unmodified corpus vs. before | identical `--check` output | identical |
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched
+  in the fix round).
 
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
