@@ -185,8 +185,10 @@ See FINDINGS F-DOCSYNC-3.
      Task 12 (F-B23-5, one owner in `domain.py` for the release-window
      rule), was added by the owner 2026-09-23 and is done: `domain.py` now
      owns `release_window`, and both `_matches_release_criteria` and
-     `release_checks._window_end` derive from it. Stage 2 is complete. Next
-     is Stage 3 (Task 10).
+     `release_checks._window_end` derive from it. Stage 2 is complete. Stage 3
+     (Task 10, writing the owner's rulings into their findings) is also
+     complete, 2026-09-23: this plan's tasks are done. Next is the foundation
+     plan's Tasks 4-10.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -395,6 +397,57 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The owner's rulings land in their findings
+
+Side task, no batch tag: write the owner's 2026-09-23 WP-0 rulings into
+FINDINGS.md and docs/design/RECONCILIATION.md, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the reconcile plan's Stage 3 Task 10.** Step 1b recorded
+  `F-B21-53` no action (Q10 = b): the light card is delineated by its border,
+  not lifted by its fill. `docs/design/README.md` was not edited -- it
+  already reads "borders do the work" (line ~107) and "Edge, not elevation"
+  (line ~254), and a sweep found no other live elevation claim about cards;
+  `static/css/shell.css:566`'s "elevated paper pill" is the theme toggle, not
+  a card, and was left alone.
+- **Step 2 wrote six no-action records**, each replacing its free-prose
+  `Status:` line with the canonical `- [x] **Status:** no action` /
+  `**Completed:** 2026-09-23` / reason form: `F-B21-15` (no scheduled
+  `GET /heatmap/<username>` route), `F-STYLE-1` and `F-STYLE-2` (guidance
+  that cannot become a gate; the docstring convention stays undecided),
+  `F-WORKTREE-4` (the owner's 2026-09-21 ruling, written in canonical form),
+  `F-B21-24` (Tasks 2-5 shipped; Task 6 runs as Batch 23 WP-7's audit) and
+  `F-MAS-2` (absorbed into `F-B21-18`; a pointer line was added under
+  "Deferred / future-batch candidates" so the old id stays resolvable).
+- **Step 3 re-graded `F-B21-48` and `F-B18-11`** to P2 -- a persistent
+  scrobble cache is a feature, not a defect -- and moved both under "P2 --
+  Scaling roadmap". The Codex/Copilot session-entry-point item, F-B21-25's
+  third "Remaining" item, was filed as the new finding `F-B21-63` (the next
+  free `F-B21-` number) under P2; F-B21-25's own "Remaining" paragraph now
+  points at it instead of restating it.
+- **Step 4 split the partly-ruled findings.** `F-B21-4` closes no action:
+  items 1, 2 and 4 are settled (citing `templates/index.html` `.index-grid`,
+  RECONCILIATION's loading-signal override, and RECONCILIATION section 16),
+  and item 3 folds into Batch 23 WP-6 (Q13 = a). `F-B21-19` closes no
+  action per Q12 = a: `docs/design/RECONCILIATION.md` section 1 gained an
+  owner-approved override row for the width-driven mobile heatmap grid, and
+  day detail (hover reveals what was played) is named a future feature since
+  the payload holds only `daily_counts`. `F-DOCSYNC-6` and `F-WORKTREE-3`
+  each gained a dated line: the boundary/ancestry items are no action, the
+  mechanical bugs stay open for the control-plane plan. RECONCILIATION
+  section 9's `F-B21-4` bullet and section 7's lead-in were reworded so
+  neither sibling claim still reads as pending.
+- **No test changed.** The task is documentation only; the test count stays
+  at the baseline.
+
+Validation: `pytest -q` -- **1793 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
+Forward guidance: the reconcile plan's Stage 3 Task 10 (Part B) has landed,
+completing every task in
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The
+next step is the foundation plan's Tasks 4-10, per Section 3's order list.
+
 ### 2026-09-23 - The release-window rule gets one owner
 
 Side task, no batch tag: fixes F-B23-5, part of Batch 23 WP-0 Part C.
@@ -516,44 +569,6 @@ by owner ruling 2026-09-23 until the whole of WP-0 lands.
 - **Also corrected:** the plan's Acceptance said only Tasks 4 and 6 edit
   an existing test. Task 11 replaced one too, so it now says 4, 6 and 11.
 - **Scope:** documentation only. No code, test or gate changed.
-
-Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Release checks run without the cache DB
-
-Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 11 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/release_checks.py`'s `run_release_checks` no longer
-  returns early when `_get_db_connection()` finds no cache: it logs
-  "Release checks running without the cache DB: findings will not be
-  saved." and runs the job's candidates against MusicBrainz regardless,
-  guarding the three uses of `conn` (`_lookup_cached`, `_check_candidate`'s
-  persist, and the `finally` close) with `if conn`. Everything else is
-  unchanged: the job still ends `done`, the per-result outcomes are the
-  same, and the shared one-request-per-second limiter still paces the
-  requests. `tests/services/test_release_checks.py` replaces
-  `test_run_release_checks_marks_skipped_without_a_db_connection` with
-  `test_run_release_checks_runs_without_a_db_connection` (asserts the
-  lookup runs, nothing is persisted, and the result still moves out) and
-  adds
-  `test_run_release_checks_without_a_db_connection_survives_a_lookup_error`
-  (a MusicBrainz failure with no connection still ends `done`).
-  `test_run_release_checks_closes_the_connection_when_a_lookup_raises`
-  passes unchanged, proving the connected path still closes.
-- **F-B22-8 is resolved.** `run_release_checks` runs its candidates
-  without a cache connection and skips only the cache read, the persist
-  and the close.
-- **Deviation from the brief (controller-directed).** F-B23-3's status
-  paragraph is rewritten: it stays open (P2), now says F-B22-7 and
-  F-B22-8 have both landed (reconcile Tasks 4-6 and 11) and are to be
-  reassessed against the code they left, and drops the "keep it out of
-  their commits" sentence now that both have landed.
-- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
-  Task 10.
 
 Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

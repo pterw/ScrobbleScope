@@ -1554,12 +1554,12 @@ table.
 
 - [x] **Step 1: Mark this plan's rulings table** with each answer and its date. Done 2026-09-23 in
   "Owner answers, 2026-09-23" above.
-- [ ] **Step 1b: Record F-B21-53 (Q10 = b).** Write `no action -- owner ruling 2026-09-23: the light
+- [x] **Step 1b: Record F-B21-53 (Q10 = b).** Write `no action -- owner ruling 2026-09-23: the light
   card is delineated by its border, not lifted by its fill; the UI stays as it is`. Replace any claim
   in `docs/design/README.md` that cards are "elevated" in the light theme with "delineated by the
   border". F-B21-53 therefore leaves the frontend plan.
 
-- [ ] **Step 2: Write the no-action records.** Each finding's `Status:` prose becomes a bare
+- [x] **Step 2: Write the no-action records.** Each finding's `Status:` prose becomes a bare
   `- [x] **Status:** no action` line, then `**Completed:** <today>`, then the reason on its own line
   (Global Constraints "Resolving a finding": text after the outcome fails DOC015). The reasons:
   - **F-B21-15:** "owner ruling 2026-09-23: Batch 23 schedules no `GET /heatmap/<username>` route, and
@@ -1580,14 +1580,14 @@ table.
     `- F-MAS-2: no automated JS tests -- absorbed into F-B21-18.` under "Deferred / future-batch
     candidates", so the old ID stays resolvable.
 
-- [ ] **Step 3: Write the re-grades.**
+- [x] **Step 3: Write the re-grades.**
   - Move **F-B21-48** and **F-B18-11** under "P2 -- Scaling roadmap", each with a `Status:` line of
     "open (P2), re-graded 2026-09-23 by owner ruling: a persistent scrobble cache is a feature, not a
     defect". F-B18-11's line adds "its only unrejected remedy is F-B21-48".
   - File the Codex/Copilot entry point from F-B21-25 item 3 as a new P2 finding. Take its number the
     same way Task 2 Step 1 does, with prefix `F-B21-`.
 
-- [ ] **Step 4: Split the partly-ruled findings.**
+- [x] **Step 4: Split the partly-ruled findings.**
   - **F-B21-4:** record items 1, 2 and 4 as settled, citing `templates/index.html` `.index-grid`,
     RECONCILIATION's loading override, and RECONCILIATION section 16. Record item 3 per Q13. With
     Q13 = a, the whole finding is `no action -- item 3 is folded into Batch 23 WP-6`.
@@ -1597,7 +1597,7 @@ table.
   - **F-DOCSYNC-6 and F-WORKTREE-3:** add a dated line recording which items were ruled no action. They
     stay open until the control-plane plan fixes their mechanical items.
 
-- [ ] **Step 5: Run the gates and commit.** Then:
+- [x] **Step 5: Run the gates and commit.** Then:
 
 ```bash
 git commit -m "docs(findings): Record the owner's WP-0 rulings"

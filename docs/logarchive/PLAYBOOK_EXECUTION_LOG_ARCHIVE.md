@@ -9,6 +9,44 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Release checks run without the cache DB
+
+Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 11 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/release_checks.py`'s `run_release_checks` no longer
+  returns early when `_get_db_connection()` finds no cache: it logs
+  "Release checks running without the cache DB: findings will not be
+  saved." and runs the job's candidates against MusicBrainz regardless,
+  guarding the three uses of `conn` (`_lookup_cached`, `_check_candidate`'s
+  persist, and the `finally` close) with `if conn`. Everything else is
+  unchanged: the job still ends `done`, the per-result outcomes are the
+  same, and the shared one-request-per-second limiter still paces the
+  requests. `tests/services/test_release_checks.py` replaces
+  `test_run_release_checks_marks_skipped_without_a_db_connection` with
+  `test_run_release_checks_runs_without_a_db_connection` (asserts the
+  lookup runs, nothing is persisted, and the result still moves out) and
+  adds
+  `test_run_release_checks_without_a_db_connection_survives_a_lookup_error`
+  (a MusicBrainz failure with no connection still ends `done`).
+  `test_run_release_checks_closes_the_connection_when_a_lookup_raises`
+  passes unchanged, proving the connected path still closes.
+- **F-B22-8 is resolved.** `run_release_checks` runs its candidates
+  without a cache connection and skips only the cache read, the persist
+  and the close.
+- **Deviation from the brief (controller-directed).** F-B23-3's status
+  paragraph is rewritten: it stays open (P2), now says F-B22-7 and
+  F-B22-8 have both landed (reconcile Tasks 4-6 and 11) and are to be
+  reassessed against the code they left, and drops the "keep it out of
+  their commits" sentence now that both have landed.
+- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
+  Task 10.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The capacity refusal states the configured cap
 
 Side task, no batch tag: fixes F-LOAD-1, part of Batch 23 WP-0 Part C.
