@@ -486,6 +486,17 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   count sites are unchanged.
 - **Next:** the foundation plan's Task 7.
 
+**Follow-up (2026-09-24).** `docs/history/reports/HANDOFF_2026-09-24.md` had
+not caught up with this task: its Section 1 WP-0 status bullet still read
+"Tasks 4 and 5 done; Tasks 6-10 remain," Section 5 item 2 still described
+Task 6 as upcoming work with a pre-flight instruction, Section 3's reading
+order still pointed a cold session at "Task 6 onward," and Section 6 named
+no ruling for Task 11. All four now record Task 6 done (Section 5 item 2
+points at this entry), Section 3 points at Task 7 onward, and Section 6
+carries the Task 11 (F-SWE-5) done-by-`ffbee0e` ruling beside the other
+2026-09-24 rulings. Validation: `pytest -q` -- **1825 passed**; no test
+changes, so the three R3 count sites are unaffected.
+
 ### 2026-09-24 - The provider summary states its span and its time in calls
 
 Side task, no batch tag: the provider summary log line states its span
