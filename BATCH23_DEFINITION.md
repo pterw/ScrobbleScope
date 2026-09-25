@@ -236,8 +236,8 @@ WP-0 did.
   citations, and the defects the 2026-09-21 probe found), the close-out
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
-  still applies. Done 2026-09-24; each task's completion is recorded in
-  PLAYBOOK Section 3 and the plan.
+  still applies. Done 2026-09-24; the plan's checked steps and the dated
+  execution entries record each task's completion.
 - [x] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
   HANDOFF_PROMPT.md to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
   to `config/`, per the owner rulings of 2026-09-24. Plan:
@@ -247,16 +247,16 @@ WP-0 did.
   `run.py`, `init_db.py`, and the standard Python config files stay at the root.
   Done 2026-09-24, with the 2026-09-25 declared-path review fix recorded as
   F-DOCSYNC-21.
-- [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
+- [x] **PLAYBOOK Section 3 states only the current work order.** Its Batch
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
-  held nowhere else moves there first.
+  held nowhere else moves there first. Done 2026-09-25; the archival
+  crosswalk is `docs/history/reports/BATCH23_WP0_SECTION3_CROSSWALK_2026-09-25.md`.
 - [x] **Owed from Batch 22, owner actions:** a live run with
   `MUSICBRAINZ_CONTACT` set, and restoring the Spotify credentials that were
   disabled to test the Deezer fallback. An agent cannot do either. WP-0
-  records the outcome of each, or the owner's deferral. Both are done,
-  recorded 2026-09-23 in PLAYBOOK Section 3; the reconcile plan's Q0 answer
-  holds the evidence.
+  records the outcome of each, or the owner's deferral. Both are done; the
+  reconcile plan's Q0 answer holds the evidence.
 - [x] **File the docsync gap this amendment exposed.** A work package cannot
   be marked "in progress": it reads as complete on its first tagged entry.
   Filed at P1, it joins Part C's set. Done 2026-09-23, as F-DOCSYNC-15.
