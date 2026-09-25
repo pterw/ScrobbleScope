@@ -9,6 +9,26 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-21: document declarations can hide a live file or escape the repository -- RESOLVED
+
+The root-cleanup `[documents]` loader accepted duplicate or aliased paths, so
+`--check` could exit 0 after scanning one declared role twice and omitting
+another. It also read an outside-root document before failing with an uncaught
+`ValueError`. An external `--config` passed `--check` but a writing mode
+refused it at the publication boundary. The 2026-09-25 review reproduced all
+three paths against the real CLI or its publication transaction.
+
+The declaration loader now resolves and checks all five live roles, including
+the fixed `AGENTS.md`, before reading documents. It rejects duplicate,
+traversing, absolute, symlinked and directory paths. An explicit config path
+must resolve inside the repository, so checks and writing modes agree and the
+transaction can prove its source snapshot. Regression tests and live CLI
+probes cover the duplicate and outside-path cases.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+Source: Batch 23 WP-0 completed-work review, 2026-09-25.
+
 ### F-DOCSYNC-17: an active batch with no logged work package rendered as between batches -- RESOLVED
 
 Section 3's status block treated a batch Section 3 declares open, with no

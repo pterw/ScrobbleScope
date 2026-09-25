@@ -297,8 +297,11 @@ beyond `--check`/`--fix`:
 
 **`--config PATH`** is an option, not a mode: it overrides which declarations
 file every mode and every check reads, in place of the repository default.
-A path that is not a file is refused with exit 2, while a missing repository
-default still means nothing is declared.
+The path must resolve inside the repository because writing modes include it
+in the publication transaction's source snapshot. An outside path or a path
+that is not a file is refused with exit 2. A missing repository default still
+means nothing is declared. The `[documents]` paths must also stay inside the
+repository and resolve to five distinct live files, including `AGENTS.md`.
 
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by

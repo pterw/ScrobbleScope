@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1866 tests across 68 test modules.
+1873 tests across 68 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -423,8 +423,8 @@ unstaged still counts as tracked.
 **Owner ruling, 2026-09-23:** the four-space indentation scan, the no-check
 on prose added after the last Section 4 entry, and the deleted-but-unstaged
 file counting as tracked are accepted design boundaries, not defects, and
-stay as documented. The case-inconsistent glob discovery and the
-outside-root `ValueError` stay open; the control-plane plan fixes both.
+stay as documented. F-DOCSYNC-21 addresses the outside-root `ValueError`.
+The case-inconsistent glob discovery remains open for the control-plane plan.
 Status: open. Source: PR #169 independent review.
 
 ### F-DOCSYNC-11: same-date precedence hides a batch count recorded after a side task

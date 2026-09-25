@@ -79,6 +79,47 @@ class TestDocumentsConfig:
         with pytest.raises(DeclarationError, match="not a string"):
             load_documents_config(tmp_path)
 
+    @pytest.mark.parametrize(
+        "agent_notes",
+        [
+            "docs/agents/HANDOFF_PROMPT.md",
+            "docs/./agents/HANDOFF_PROMPT.md",
+            "AGENTS.md",
+        ],
+    )
+    def test_two_document_roles_cannot_resolve_to_one_path(
+        self, tmp_path: Path, agent_notes: str
+    ):
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            "[documents]\n"
+            'handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"\n'
+            f'agent_notes = "{agent_notes}"\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(DeclarationError, match="same path"):
+            load_documents_config(tmp_path)
+
+    @pytest.mark.parametrize(
+        "agent_notes",
+        ["../outside.md", "docs/agents/../agents/HANDOFF_PROMPT.md", "C:/outside.md"],
+    )
+    def test_document_path_cannot_escape_the_repository(
+        self, tmp_path: Path, agent_notes: str
+    ):
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            f'[documents]\nagent_notes = "{agent_notes}"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError, match="repository-relative"):
+            load_documents_config(tmp_path)
+
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
     """Write a throwaway repository and return its root."""
@@ -1313,6 +1354,14 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
 
 
 class TestExplicitConfigPath:
+    def test_explicit_path_outside_repository_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_declarations
+
+        outside = tmp_path.parent / f"{tmp_path.name}-outside.toml"
+        outside.write_text("[options]\n", encoding="utf-8")
+        with pytest.raises(DeclarationError, match="inside the repository"):
+            load_declarations(tmp_path, config_path=outside)
+
     def test_explicit_missing_path_is_refused(self, tmp_path: Path):
         from docsync.declarations import DeclarationError, load_declarations
 

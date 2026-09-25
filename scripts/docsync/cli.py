@@ -1072,7 +1072,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--config",
         metavar="PATH",
         help=(
-            "Path to the declarations file, overriding the repository default "
+            "Path inside the repository to the declarations file, overriding the default "
             f"({DECLARATIONS_FILENAME})."
         ),
     )

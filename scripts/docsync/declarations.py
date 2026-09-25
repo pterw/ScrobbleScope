@@ -30,12 +30,13 @@ import fnmatch
 import re
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import tomllib
 
 from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
+from docsync.transaction import resolve_within
 
 #: Where the repository's own declarations live, relative to the repo root.
 DECLARATIONS_FILENAME = "config/docsync.toml"
@@ -560,8 +561,8 @@ class DocumentsConfig:
     handoff_prompt: str = "HANDOFF_PROMPT.md"
 
 
-def _validate_documents(documents: object) -> DocumentsConfig:
-    """Check a declared [documents] table and return the resolved paths."""
+def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
+    """Check that each document role names one distinct in-repository path."""
     if not isinstance(documents, Mapping):
         raise DeclarationError(
             f"[documents] is {type(documents).__name__}, not a table."
@@ -579,21 +580,52 @@ def _validate_documents(documents: object) -> DocumentsConfig:
                 f"[documents] gives {key!r} as {type(value).__name__}, not a string."
             )
         kwargs[key] = value
-    return DocumentsConfig(**kwargs)
+    result = DocumentsConfig(**kwargs)
+    seen: dict[str, str] = {}
+    for role, value in (
+        ("agents", "AGENTS.md"),
+        ("handoff_prompt", result.handoff_prompt),
+        ("agent_notes", result.agent_notes),
+        ("playbook", result.playbook),
+        ("findings", result.findings),
+    ):
+        if Path(value).is_absolute() or PureWindowsPath(value).anchor or "\\" in value:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            )
+        try:
+            path = resolve_within(repo_root, value)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            ) from exc
+        if path.is_dir():
+            raise DeclarationError(
+                f"[documents] {role!r} names a directory, not a document: {value!r}."
+            )
+        key = path.as_posix().casefold()
+        if key in seen:
+            raise DeclarationError(
+                f"[documents] {role!r} and {seen[key]!r} resolve to the same path: {value!r}."
+            )
+        seen[key] = role
+    return result
 
 
-def _documents_config(declarations: Mapping) -> DocumentsConfig:
+def _documents_config(declarations: Mapping, repo_root: Path) -> DocumentsConfig:
     """Return the document paths for an already-read declarations file."""
     if "documents" not in declarations:
         return DocumentsConfig()
-    return _validate_documents(declarations["documents"])
+    return _validate_documents(declarations["documents"], repo_root)
 
 
 def load_documents_config(
     repo_root: Path, *, config_path: Path | None = None
 ) -> DocumentsConfig:
     """Read the repository's document paths, defaults included."""
-    return _documents_config(load_declarations(repo_root, config_path=config_path))
+    return _documents_config(
+        load_declarations(repo_root, config_path=config_path), repo_root
+    )
 
 
 def _issue(
@@ -618,6 +650,13 @@ def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> di
     would otherwise run every check with nothing declared, and pass.
     """
     path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
+    if config_path is not None:
+        try:
+            path = resolve_within(repo_root, path)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"--config path {config_path} must be inside the repository."
+            ) from exc
     if not path.is_file():
         if config_path is not None:
             raise DeclarationError(f"--config names {path}, which is not a file.")
@@ -1312,7 +1351,7 @@ def collect_declaration_issues(
     # that happens to consume the thresholds.
     _archive_config(declarations)
     _closeout_config(declarations)
-    _documents_config(declarations)
+    _documents_config(declarations, repo_root)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot
