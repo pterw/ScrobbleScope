@@ -1441,7 +1441,7 @@ working; for `closeout.py`, from its caller in `collect_integrity_issues` or `cl
 - Test: `tests/test_docsync_integrity.py`, `tests/test_docsync_closeout.py`,
   `tests/test_docsync_findings.py`
 
-- [ ] **Step 1: Tests first**
+- [x] **Step 1: Tests first**
 
   For each check family -- DOC002 (`_active_definition_reference` and the two
   `collect_integrity_issues` sites), DOC007, DOC012, the close-out admission and claim
@@ -1450,13 +1450,13 @@ working; for `closeout.py`, from its caller in `collect_integrity_issues` or `cl
   input that raises it, and asserts the issue's `path` is the declared one. Each must fail
   first: today every one prints the bare root name.
 
-- [ ] **Step 2: Thread the path and run the tests**
+- [x] **Step 2: Thread the path and run the tests**
 
   ```
   .venv/bin/python -m pytest tests/test_docsync_integrity.py tests/test_docsync_closeout.py tests/test_docsync_findings.py -v
   ```
 
-- [ ] **Step 3: Gates and live probe**
+- [x] **Step 3: Gates and live probe**
 
   Control plane: `--check` at exit 0 first, then commit with `SKIP=doc-state-sync-check`.
   In `/tmp/ssprobe/corpus` built from this task's tree:
@@ -1468,7 +1468,7 @@ working; for `closeout.py`, from its caller in `collect_integrity_issues` or `cl
   - **Near-miss green:** reset; `--check` exits 0.
   - Record each diagnostic's printed location in the probe table.
 
-- [ ] **Step 4: Section 4 entry and commit**
+- [x] **Step 4: Section 4 entry and commit**
 
   ```bash
   SKIP=doc-state-sync-check git commit -m "fix(docsync): Name the declared document path in diagnostics"

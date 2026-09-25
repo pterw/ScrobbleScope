@@ -242,6 +242,8 @@ def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]
 
 def _active_definition_reference(
     playbook_lines: list[str],
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> tuple[int | None, str | None, int | None, IntegrityIssue | None]:
     """Resolve the active definition or return its diagnostic."""
     section_start, section_end = _find_section(
@@ -284,7 +286,7 @@ def _active_definition_reference(
             IntegrityIssue(
                 code="DOC002",
                 severity="error",
-                path="PLAYBOOK.md",
+                path=playbook_relative_path,
                 line=references[0][0] if references else section_start + 1,
                 invariant="An active batch has one root definition declaration.",
                 remediation=remediation,
@@ -301,7 +303,7 @@ def _active_definition_reference(
             IntegrityIssue(
                 code="DOC002",
                 severity="error",
-                path="PLAYBOOK.md",
+                path=playbook_relative_path,
                 line=line,
                 invariant="The definition matches the current batch token.",
                 remediation="Point Section 3 at the current batch definition.",
@@ -540,7 +542,10 @@ _EXECUTION_LOG_HEADING = "## 4. Execution log"
 
 
 def _unpaired_result_issue(
-    ordered_lines: Sequence[tuple[int, str]], first: int
+    ordered_lines: Sequence[tuple[int, str]],
+    first: int,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> IntegrityIssue | None:
     """DOC012: a bold count the authority cannot pair with its `pytest -q`.
 
@@ -562,7 +567,7 @@ def _unpaired_result_issue(
     count = match.group(1)
     return _issue(
         "DOC012",
-        "PLAYBOOK.md",
+        playbook_relative_path,
         first + source_offset + 1,
         "A full-suite result is written in the one form the count authority reads.",
         f"Write `` `pytest -q` -- **{count} passed** `` with nothing between the "
@@ -574,6 +579,8 @@ def _unpaired_result_issue(
 
 def _check_unbolded_test_counts(
     playbook_lines: Sequence[str],
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> list[IntegrityIssue]:
     """DOC012: a pass claim in the log must carry the bold the authority reads.
 
@@ -635,14 +642,16 @@ def _check_unbolded_test_counts(
                 issues.append(
                     _issue(
                         "DOC012",
-                        "PLAYBOOK.md",
+                        playbook_relative_path,
                         first + offset + 1,
                         "A full-suite pass claim carries its own bold count.",
                         f"Write `**{match.group(1)} passed**`.",
                     )
                 )
             continue
-        unpaired = _unpaired_result_issue(ordered_lines, first)
+        unpaired = _unpaired_result_issue(
+            ordered_lines, first, playbook_relative_path=playbook_relative_path
+        )
         if unpaired is not None:
             issues.append(unpaired)
             continue
@@ -656,7 +665,7 @@ def _check_unbolded_test_counts(
             issues.append(
                 _issue(
                     "DOC012",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     offset,
                     "A full-suite pass claim in the execution log carries the "
                     "bold the count authority reads.",
@@ -728,7 +737,10 @@ def _check_definition_next_wp(
 
 
 def _check_section3_next_wp(
-    playbook_lines: list[str], definition_lines: list[str] | None = None
+    playbook_lines: list[str],
+    definition_lines: list[str] | None = None,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> IntegrityIssue | None:
     """DOC007: PLAYBOOK Section 3 must agree on the next work package.
 
@@ -755,7 +767,7 @@ def _check_section3_next_wp(
             unlabelled_wp, line_no = unlabelled[-1]
             return _issue(
                 "DOC007",
-                "PLAYBOOK.md",
+                playbook_relative_path,
                 line_no,
                 f"Section 3 mentions WP-{unlabelled_wp} is next, but lacks the "
                 f"required '- **Next action:**' bullet label.",
@@ -766,7 +778,7 @@ def _check_section3_next_wp(
     if all_planned_complete:
         return _issue(
             "DOC007",
-            "PLAYBOOK.md",
+            playbook_relative_path,
             claimed_line,
             f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 entries "
             "show that all planned work packages are complete.",
@@ -779,7 +791,7 @@ def _check_section3_next_wp(
         return None
     return _issue(
         "DOC007",
-        "PLAYBOOK.md",
+        playbook_relative_path,
         claimed_line,
         f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 "
         f"entries make WP-{computed} next.",
@@ -877,7 +889,10 @@ def _check_session_section1_bootstrap_state(
 
 
 def _check_findings_header_count(
-    findings_lines: list[str] | None, authority: TestCountAuthority
+    findings_lines: list[str] | None,
+    authority: TestCountAuthority,
+    *,
+    findings_relative_path: str = findings_module.ACTIVE_PATH,
 ) -> IntegrityIssue | None:
     """DOC008: the FINDINGS.md header must carry the authoritative count.
 
@@ -917,7 +932,7 @@ def _check_findings_header_count(
     issue_line = mismatched[0][0] if mismatched else fields[0][0]
     return _issue(
         "DOC008",
-        "FINDINGS.md",
+        findings_relative_path,
         issue_line,
         "The findings header test count must agree with the authoritative "
         "full-suite validation in the log.",
@@ -947,7 +962,9 @@ def collect_integrity_issues(
         definition_path,
         definition_line,
         definition_issue,
-    ) = _active_definition_reference(playbook_lines)
+    ) = _active_definition_reference(
+        playbook_lines, playbook_relative_path=playbook_relative_path
+    )
     if definition_issue is not None:
         issues.append(definition_issue)
     elif current_batch is not None and definition_path is not None:
@@ -957,7 +974,7 @@ def collect_integrity_issues(
             issues.append(
                 _issue(
                     "DOC002",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     definition_line,
                     "The declaration names the sole tracked root candidate.",
                     f"Keep and declare one root Batch {current_batch} file in Section 3. "
@@ -968,7 +985,7 @@ def collect_integrity_issues(
             issues.append(
                 _issue(
                     "DOC002",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     definition_line,
                     "The tracked definition has supplied live content.",
                     "Supply its content to the integrity pass.",
@@ -1126,7 +1143,11 @@ def collect_integrity_issues(
                 )
             )
 
-    issues.extend(_check_unbolded_test_counts(playbook_lines))
+    issues.extend(
+        _check_unbolded_test_counts(
+            playbook_lines, playbook_relative_path=playbook_relative_path
+        )
+    )
 
     if (
         current_batch is not None
@@ -1142,7 +1163,9 @@ def collect_integrity_issues(
             issues.append(definition_next_wp_issue)
 
         section3_next_wp_issue = _check_section3_next_wp(
-            playbook_lines, live_documents.get(definition_path)
+            playbook_lines,
+            live_documents.get(definition_path),
+            playbook_relative_path=playbook_relative_path,
         )
         if section3_next_wp_issue is not None:
             issues.append(section3_next_wp_issue)
@@ -1159,6 +1182,7 @@ def collect_integrity_issues(
     findings_count_issue = _check_findings_header_count(
         live_documents.get(findings_relative_path),
         latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines),
+        findings_relative_path=findings_relative_path,
     )
     if findings_count_issue is not None:
         issues.append(findings_count_issue)
@@ -1189,6 +1213,7 @@ def collect_integrity_issues(
             findings_module.collect_rot_issues(
                 "\n".join(active_findings),
                 load_findings_config(repo_root, config_path=config_path).grandfathered,
+                active_path=findings_relative_path,
             )
         )
 

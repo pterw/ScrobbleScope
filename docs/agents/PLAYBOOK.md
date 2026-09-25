@@ -251,7 +251,10 @@ See FINDINGS F-DOCSYNC-3.
      Task 7 (the Repo Assist workflow's `allowed-files` and prose repointed
      at `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md`, and its
      lock file recompiled with `gh aw compile`) is done, 2026-09-24; Task 8
-     remains.
+     (every docsync diagnostic about a moved document now prints its
+     declared `playbook_relative_path`/`findings_relative_path` -- or
+     `active_path` in `findings.py` -- instead of the pre-move root name)
+     is done, 2026-09-24. The root-cleanup plan is complete.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -458,6 +461,73 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-24 - Docsync diagnostics name the declared document path
+
+Side task, no batch tag: the root-cleanup plan's Task 8, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands. The last task of the root-cleanup plan.
+
+- **What changed.** `scripts/docsync/integrity.py`: `_active_definition_reference`,
+  `_unpaired_result_issue`, `_check_unbolded_test_counts`,
+  `_check_section3_next_wp` and `_check_findings_header_count` each gain a
+  `playbook_relative_path`/`findings_relative_path` keyword (default: today's
+  literal), and every diagnostic they build prints it instead of the bare
+  root name; `collect_integrity_issues` threads its own two matching keyword
+  arguments (already present since Task 2) into all five, and its own two
+  direct DOC002 sites do the same. `scripts/docsync/closeout.py`:
+  `_admission_issue` and `_claim_issues` gain the same
+  `playbook_relative_path` keyword; `collect_transition_issues` threads it
+  through. `scripts/docsync/cli.py`'s `_close_batch` passes
+  `documents.playbook` into `collect_transition_issues`, and its
+  `SyncError` message ("... has no batch index row for batch ...") now
+  names `documents.playbook` instead of a bare `PLAYBOOK.md`.
+  `scripts/docsync/findings.py`: `_lifecycle_issues`, `_duplicate_issues`,
+  `collect_rot_issues` and `plan_findings` gain an `active_path` keyword
+  (default: `ACTIVE_PATH`); `collect_integrity_issues`'s call into
+  `findings_module.collect_rot_issues` and `cli.py`'s `_Corpus.rotation`
+  (via a new `self.findings_relative_path`) both pass their declared path.
+  `ARCHIVE_PATH` (the findings archive, never moved) is untouched. Grepped
+  `scripts/docsync/` afterwards: no `"PLAYBOOK.md"` or `"FINDINGS.md"`
+  literal remains as a diagnostic location, only default keyword values,
+  the `LIVE_DOCUMENT_RELATIVE_PATHS`/`DocumentsConfig` constants (Task 2's
+  scope) and prose in a docstring/comment.
+- **Tests.** `tests/test_docsync_integrity.py`: two DOC002 tests (the
+  `_active_definition_reference` direct site and `collect_integrity_issues`'s
+  candidate-mismatch site), one DOC007 test (`_check_section3_next_wp`), one
+  parametrized DOC012 test covering `_check_unbolded_test_counts`'s three
+  internal branches including `_unpaired_result_issue`, and one DOC008 test,
+  all via a new `_inputs_with_document_paths` fixture helper. One pre-existing
+  test, `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`
+  (written for Task 2, its own docstring naming Task 8 as the task that would
+  thread the DOC002 diagnostic's path further), asserted the stale bare
+  `"PLAYBOOK.md"` literal for that DOC002 diagnostic under an overridden
+  playbook path; updated to the declared path (deviation, precedence rule
+  "brief and reality disagree": the test exercises exactly the mechanism
+  this task changes). `tests/test_docsync_closeout.py`: one test each for
+  `_claim_issues` and the admission-boundary refusal via
+  `collect_transition_issues`. `tests/test_docsync_findings.py`: one test
+  per DOC013, DOC014, DOC015, DOC016, DOC017, DOC018 and DOC023, all via
+  `plan_findings`/`collect_rot_issues`'s new `active_path` keyword. Every
+  new test failed before the change (RED: a `TypeError` for the unknown
+  keyword, or the stale-literal path for the one DOC008 fixture that
+  predates the keyword) and passes after it.
+- **Live probe**, `/c/ssprobe`, from `git archive $(git stash create)` with
+  this task's changes in the tree (L18):
+  - DOC007: edited `docs/agents/PLAYBOOK.md` Section 3's `**Next action:**`
+    line to claim a WP that disagrees with the definition -- red, DOC007
+    printed `docs/agents/PLAYBOOK.md:<line>`.
+  - DOC002: pointed Section 3's `Definition:` reference at a missing file
+    -- red, DOC002 printed `docs/agents/PLAYBOOK.md` as its location.
+  - Reset both edits -- green, `--check` exited 0 (the standing DOC024/root
+    BATCH warnings from section 2b aside).
+- **Deviations:**
+  - `docs/agents/PLAYBOOK.md`'s own Section 3 completion sentence for this
+    task avoids backticking the pre-move `PLAYBOOK.md`/`FINDINGS.md` names:
+    a backtick-wrapped `.md` name that does not resolve from the repository
+    root fails DOC001 (L20), the same lesson Task 6 recorded.
+
+Validation: `pytest -q` -- **1866 passed**.
 
 ### 2026-09-24 - The four agent documents move to docs/agents/
 
@@ -668,37 +738,3 @@ lands.
   | Near-miss green: stage a root `.docsync.toml` with any content, same command | no control-plane refusal -- the checker runs (a `.venv` junction was needed for the probe's own precondition; the run then hit the same pending DOC006/DOC008 as the faithful-copy row, not a control-plane one) | 1 (no EXIT_CONTROL_PLANE_REJECTED) |
 
 Validation: `pytest -q` -- **1849 passed**.
-
-### 2026-09-24 - The check manifest moves under config/
-
-Side task, no batch tag: the root-cleanup plan's Task 4, part of Batch 23
-WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What changed.** `frontend_gate_checks.toml` moves to
-  `config/frontend_gate_checks.toml` (`git mv`), the same commit as the
-  constant update (the riskiest single step in this plan by import-time
-  coupling). `scripts/dev/frontend_gate.py`'s `CHECK_MANIFEST_PATH`, the
-  comment above it, and the missing-manifest `FrontendGateError` message
-  ("Restore config/frontend_gate_checks.toml.") all follow the move. The
-  manifest's own header comment, and the two live documents that called it
-  "root-level" (`DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md`),
-  now say it sits under `config/`, naming the docsync declarations file
-  without a path until Task 5 moves it.
-- **Tests.** None added (R3): the manifest-specific tests build their own
-  `tmp_path` manifest. All twelve `tests/scripts/dev/test_frontend_gate_*.py`
-  modules still collect and pass (316 tests).
-- **Frontend gate ran locally** on this commit (plan Step 3), its last
-  line: `[frontend_gate] 30 checks passed in 52 runs across chromium,
-  firefox (static assets & tokens canary on firefox); profiles: desktop,
-  mobile, wide touch`.
-- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards),
-  built from `git archive $(git stash create)` (Lesson L18: this task's
-  probe step runs before its commit, so HEAD was still BASE):
-
-  | Probe | Expected | Exit |
-  |---|---|---|
-  | Red: remove `config/frontend_gate_checks.toml`, commit, then `python -c "from scripts.dev import frontend_gate"` | prints `[frontend_gate] ERROR: check manifest missing at .../config/frontend_gate_checks.toml. Restore config/frontend_gate_checks.toml.` (`FrontendGateError` converted to `SystemExit`) | 1 |
-  | Near-miss green: restore the file with a trailing blank line added (still valid TOML), same import | imports silently | 0 |
-
-Validation: `pytest -q` -- **1848 passed**.

@@ -312,6 +312,7 @@ class _Corpus:
         documents = _documents()
         playbook_path = REPO_ROOT / documents.playbook
         findings_path = REPO_ROOT / documents.findings
+        self.findings_relative_path = documents.findings
         self.playbook_lines = _read_lines(playbook_path)
         if not ARCHIVE_PATH.exists():
             raise SyncError(f"Required file is missing: {ARCHIVE_PATH}")
@@ -336,7 +337,9 @@ class _Corpus:
     def rotation(self) -> findings_module.FindingRotation:
         """Plan the finding rotation this corpus permits, if any."""
         return findings_module.plan_findings(
-            self.findings_text, self.findings_archive_text
+            self.findings_text,
+            self.findings_archive_text,
+            active_path=self.findings_relative_path,
         )
 
     def read_paths(self) -> list[Path]:
@@ -751,6 +754,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
             definition_lines=definition_lines,
             tracked_paths=corpus.tracked_paths,
             config=config,
+            playbook_relative_path=documents.playbook,
         ),
         *rotation.issues,
     ]
@@ -778,8 +782,8 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     row = find_batch_index_row(playbook_lines, batch)
     if row is None:
         raise SyncError(
-            f"PLAYBOOK.md has no batch index row for batch {batch} after the "
-            f"close-out checks passed; refusing to publish."
+            f"{documents.playbook} has no batch index row for batch {batch} "
+            f"after the close-out checks passed; refusing to publish."
         )
     playbook_lines[row] = render_batch_index_row(
         playbook_lines[row],

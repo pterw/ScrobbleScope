@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The check manifest moves under config/
+
+Side task, no batch tag: the root-cleanup plan's Task 4, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `frontend_gate_checks.toml` moves to
+  `config/frontend_gate_checks.toml` (`git mv`), the same commit as the
+  constant update (the riskiest single step in this plan by import-time
+  coupling). `scripts/dev/frontend_gate.py`'s `CHECK_MANIFEST_PATH`, the
+  comment above it, and the missing-manifest `FrontendGateError` message
+  ("Restore config/frontend_gate_checks.toml.") all follow the move. The
+  manifest's own header comment, and the two live documents that called it
+  "root-level" (`DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md`),
+  now say it sits under `config/`, naming the docsync declarations file
+  without a path until Task 5 moves it.
+- **Tests.** None added (R3): the manifest-specific tests build their own
+  `tmp_path` manifest. All twelve `tests/scripts/dev/test_frontend_gate_*.py`
+  modules still collect and pass (316 tests).
+- **Frontend gate ran locally** on this commit (plan Step 3), its last
+  line: `[frontend_gate] 30 checks passed in 52 runs across chromium,
+  firefox (static assets & tokens canary on firefox); profiles: desktop,
+  mobile, wide touch`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards),
+  built from `git archive $(git stash create)` (Lesson L18: this task's
+  probe step runs before its commit, so HEAD was still BASE):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Red: remove `config/frontend_gate_checks.toml`, commit, then `python -c "from scripts.dev import frontend_gate"` | prints `[frontend_gate] ERROR: check manifest missing at .../config/frontend_gate_checks.toml. Restore config/frontend_gate_checks.toml.` (`FrontendGateError` converted to `SystemExit`) | 1 |
+  | Near-miss green: restore the file with a trailing blank line added (still valid TOML), same import | imports silently | 0 |
+
+Validation: `pytest -q` -- **1848 passed**.
+
 ### 2026-09-24 - A --config override lets every check read a different declarations file
 
 Side task, no batch tag: the root-cleanup plan's Task 3, part of Batch 23

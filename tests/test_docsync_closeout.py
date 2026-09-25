@@ -15,7 +15,9 @@ from docsync.closeout import (
     CLOSEOUT_START_MARKER,
     COMPLETE,
     DROPPED,
+    _claim_issues,
     collect_definition_issues,
+    collect_transition_issues,
     parse_wp_dispositions,
     read_closeout_record,
     render_closeout_record,
@@ -251,3 +253,43 @@ def test_record_round_trips() -> None:
 
 def test_absent_record_reads_as_none() -> None:
     assert read_closeout_record(_definition("### WP-0 -- one")) is None
+
+
+# ---------------------------------------------------------------------------
+# Task 8: the pre-transition refusals name the playbook's declared path.
+# ---------------------------------------------------------------------------
+
+
+def test_claim_issues_use_the_declared_playbook_path() -> None:
+    """DOC019's PLAYBOOK-side pre-transition signals print the declared path."""
+    playbook_lines = [
+        "## 3. Active batch + next action",
+        "",
+        "- **Batch 9 is active.** Definition: `BATCH9_DEFINITION.md`.",
+    ]
+
+    issues = _claim_issues(
+        9, playbook_lines, playbook_relative_path="docs/agents/PLAYBOOK.md"
+    )
+
+    assert len(issues) == 3
+    assert all(issue.path == "docs/agents/PLAYBOOK.md" for issue in issues)
+
+
+def test_admission_issue_uses_the_declared_playbook_path() -> None:
+    """A batch below the admission boundary is refused at its declared path."""
+    issues = collect_transition_issues(
+        batch=9,
+        playbook_lines=["# PLAYBOOK"],
+        session_lines=None,
+        session_path=".claude/SESSION_CONTEXT.md",
+        definition_path=ARCHIVED_PATH,
+        definition_lines=None,
+        tracked_paths=_tracked(),
+        config=_config(30),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+
+    assert [(issue.code, issue.path) for issue in issues] == [
+        ("DOC019", "docs/agents/PLAYBOOK.md")
+    ]

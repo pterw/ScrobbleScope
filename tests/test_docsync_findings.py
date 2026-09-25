@@ -696,6 +696,128 @@ def test_a_legacy_status_line_opening_with_closed_is_a_claim(line):
     assert "F-B21-13" in issues[0].remediation
 
 
+# ---------------------------------------------------------------------------
+# Task 8: every lifecycle diagnostic prints the declared active-findings path.
+# ---------------------------------------------------------------------------
+
+DECLARED_ACTIVE_PATH = "docs/agents/FINDINGS.md"
+
+
+def test_duplicate_lifecycle_record_uses_declared_active_path():
+    block = "\n".join(
+        [
+            "### F-B22-8: two status lines",
+            "",
+            "- [x] **Status:** resolved",
+            "- [x] **Status:** resolved",
+            "**Completed:** 2026-09-10",
+            "",
+        ]
+    )
+    rotation = plan_findings(
+        _active(block), ARCHIVE_PROLOGUE, active_path=DECLARED_ACTIVE_PATH
+    )
+
+    doc013 = [issue for issue in rotation.issues if issue.code == "DOC013"]
+    assert len(doc013) == 1
+    assert doc013[0].path == DECLARED_ACTIVE_PATH
+
+
+def test_pending_deployment_issue_uses_declared_active_path():
+    block = "\n".join(
+        [
+            "### F-B22-10: fixed locally, not deployed",
+            "",
+            "- [x] **Status:** resolved, pending deployment",
+            "**Completed:** 2026-09-10",
+            "",
+        ]
+    )
+    rotation = plan_findings(
+        _active(block), ARCHIVE_PROLOGUE, active_path=DECLARED_ACTIVE_PATH
+    )
+
+    doc014 = [issue for issue in rotation.issues if issue.code == "DOC014"]
+    assert len(doc014) == 1
+    assert doc014[0].path == DECLARED_ACTIVE_PATH
+
+
+def test_checked_open_record_issue_uses_declared_active_path():
+    block = "\n".join(
+        [
+            "### F-B22-12: checked but open",
+            "",
+            "- [x] **Status:** open",
+            "**Completed:** 2026-09-10",
+            "",
+        ]
+    )
+    rotation = plan_findings(
+        _active(block), ARCHIVE_PROLOGUE, active_path=DECLARED_ACTIVE_PATH
+    )
+
+    doc015 = [issue for issue in rotation.issues if issue.code == "DOC015"]
+    assert len(doc015) == 1
+    assert doc015[0].path == DECLARED_ACTIVE_PATH
+
+
+def test_invalid_completion_date_issue_uses_declared_active_path():
+    block = "\n".join(
+        [
+            "### F-B22-14: an impossible date",
+            "",
+            "- [x] **Status:** resolved",
+            "**Completed:** 2026-02-31",
+            "",
+        ]
+    )
+    rotation = plan_findings(
+        _active(block), ARCHIVE_PROLOGUE, active_path=DECLARED_ACTIVE_PATH
+    )
+
+    doc016 = [issue for issue in rotation.issues if issue.code == "DOC016"]
+    assert len(doc016) == 1
+    assert doc016[0].path == DECLARED_ACTIVE_PATH
+
+
+def test_no_action_without_explanation_issue_uses_declared_active_path():
+    block = "\n".join(
+        [
+            "### F-B22-18: no action and no reason",
+            "",
+            "- [x] **Status:** no action",
+            "**Completed:** 2026-09-10",
+            "",
+        ]
+    )
+    rotation = plan_findings(
+        _active(block), ARCHIVE_PROLOGUE, active_path=DECLARED_ACTIVE_PATH
+    )
+
+    doc017 = [issue for issue in rotation.issues if issue.code == "DOC017"]
+    assert len(doc017) == 1
+    assert doc017[0].path == DECLARED_ACTIVE_PATH
+
+
+def test_duplicate_id_issue_uses_declared_active_path():
+    rotation = plan_findings(
+        _active(RESOLVED, RESOLVED),
+        ARCHIVE_PROLOGUE,
+        active_path=DECLARED_ACTIVE_PATH,
+    )
+
+    doc018 = [issue for issue in rotation.issues if issue.code == "DOC018"]
+    assert doc018
+    assert all(issue.path == DECLARED_ACTIVE_PATH for issue in doc018)
+
+
+def test_rot_issue_uses_declared_active_path():
+    issues = collect_rot_issues(_active(ROTTED), active_path=DECLARED_ACTIVE_PATH)
+
+    assert [issue.code for issue in issues] == ["DOC023"]
+    assert issues[0].path == DECLARED_ACTIVE_PATH
+
+
 @pytest.mark.parametrize(
     "line",
     [

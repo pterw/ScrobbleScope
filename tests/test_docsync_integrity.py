@@ -1646,6 +1646,142 @@ def test_doc012_ignores_counts_above_the_execution_log():
     assert _doc012_codes(lines) == []
 
 
+# ---------------------------------------------------------------------------
+# Task 8: diagnostics name the document's declared path, not a bare root
+# `PLAYBOOK.md` / `FINDINGS.md`.
+# ---------------------------------------------------------------------------
+
+
+def _inputs_with_document_paths(
+    tmp_path: Path,
+    *,
+    playbook_path: str = "PLAYBOOK.md",
+    findings_path: str = "FINDINGS.md",
+) -> dict[str, object]:
+    """`_valid_inputs`, with the two moved documents declared at custom paths.
+
+    Exercises the keyword paths `collect_integrity_issues` threads down to
+    every diagnostic that used to print a bare `PLAYBOOK.md` or
+    `FINDINGS.md` location regardless of where the document actually lives.
+    """
+    inputs = _valid_inputs(tmp_path)
+    live_documents = inputs["live_documents"]
+    live_documents[playbook_path] = live_documents.pop("PLAYBOOK.md")
+    live_documents[findings_path] = live_documents.pop("FINDINGS.md")
+    live_documents["AGENTS.md"] = [f"See `{findings_path}`."]
+    inputs["playbook_lines"] = live_documents[playbook_path]
+    inputs["tracked_paths"] = (
+        inputs["tracked_paths"] - {"PLAYBOOK.md", "FINDINGS.md"}
+    ) | {playbook_path, findings_path}
+    inputs["playbook_relative_path"] = playbook_path
+    inputs["findings_relative_path"] = findings_path
+    return inputs
+
+
+def test_doc002_missing_definition_reference_uses_declared_playbook_path(
+    tmp_path: Path,
+):
+    """`_active_definition_reference`'s direct diagnostic honours the declared path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["playbook_lines"][4] = "- **Batch 21 is active.**"
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path) for issue in issues] == [
+        ("DOC002", "docs/agents/PLAYBOOK.md")
+    ]
+
+
+def test_doc002_candidate_mismatch_uses_declared_playbook_path(tmp_path: Path):
+    """`collect_integrity_issues`'s own DOC002 site honours the declared path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH21_EXTRA.md"}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path) for issue in issues] == [
+        ("DOC002", "docs/agents/PLAYBOOK.md")
+    ]
+
+
+def test_doc007_section3_claim_uses_declared_playbook_path(tmp_path: Path):
+    """`_check_section3_next_wp` honours the declared playbook path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** **WP-9 is next**: the sweep and close-out work.",
+    )
+
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [issue for issue in issues if issue.code == "DOC007"]
+    assert len(doc007) == 1
+    assert doc007[0].path == "docs/agents/PLAYBOOK.md"
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        [
+            "## 4. Execution log",
+            "",
+            "### 2026-08-26 - a side task",
+            "",
+            "- Validation: `pytest -q` -- 823 passed, all hooks green.",
+        ],
+        [
+            "## 4. Execution log",
+            "### 2026-09-21 - newest",
+            "Validation: `pytest -q`: **1717 passed**.",
+            "### 2026-09-20 - older",
+            "Validation: `pytest -q` -- **1555 passed**.",
+        ],
+        [
+            "## 4. Execution log",
+            "### 2026-09-15 - newest",
+            "Focused: **12 passed**.",
+            "Validation: `pytest -q` -- 1154 passed.",
+            "### 2026-09-14 - older",
+            "Validation: `pytest -q` -- **1153 passed**.",
+        ],
+    ],
+    ids=("unbolded", "unpaired", "unbolded-explicit-claim"),
+)
+def test_doc012_uses_declared_playbook_path(lines):
+    """DOC012's three internal branches all print the declared playbook path."""
+    from docsync.integrity import _check_unbolded_test_counts
+
+    issues = _check_unbolded_test_counts(
+        lines, playbook_relative_path="docs/agents/PLAYBOOK.md"
+    )
+
+    assert issues
+    assert all(issue.path == "docs/agents/PLAYBOOK.md" for issue in issues)
+
+
+def test_doc008_stale_header_uses_declared_findings_path(tmp_path: Path):
+    """DOC008's header-count mismatch honours the declared findings path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, findings_path="docs/agents/FINDINGS.md"
+    )
+    inputs["live_documents"]["docs/agents/FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC008", "docs/agents/FINDINGS.md", 2)
+    ]
+
+
 #: The catalogue's explicit code list in documentation-tooling.md, e.g.
 #: "DOC001-DOC020, DOC023 and DOC024". Anchored on "returns typed" so the
 #: sentence that *records* a previous, now-retired range is not read as
@@ -2121,5 +2257,5 @@ def test_definition_line_skip_is_honoured_under_an_overridden_playbook_path(
     )
 
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
-        ("DOC002", "PLAYBOOK.md", 5)
+        ("DOC002", "docs/agents/PLAYBOOK.md", 5)
     ]
