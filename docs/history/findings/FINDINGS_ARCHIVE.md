@@ -9,6 +9,22 @@ Newest rotation first.
 
 ---
 
+### F-B23-8: the WP-0 definition lagged completed Part B records -- RESOLVED
+
+The Batch 23 definition left the completed foundation Tasks 4-10 and
+root-cleanup Tasks 0-8 unchecked after PLAYBOOK Section 3 and both plans
+recorded them done. It also pointed six rotated finding records at the
+active file, where they no longer lived. A new agent could read the checked
+plan tasks and the definition as conflicting work orders.
+
+The definition now checks those two completed Part B bullets and points to
+the findings archive. The Section 3 cleanup bullet stays open because that
+work has not been done; WP-0 remains next.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+Source: Batch 23 WP-0 completed-work review, 2026-09-25.
+
 ### F-B23-7: an empty release-check pass has no finish log -- RESOLVED
 
 `run_release_checks` logged a start for a job with zero eligible candidates,

@@ -9,6 +9,116 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The four agent documents move to docs/agents/
+
+Side task, no batch tag: the root-cleanup plan's Task 6, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md` and
+  `HANDOFF_PROMPT.md` move to `docs/agents/` (`git mv`). `config/docsync.toml`
+  gains a `[documents]` table declaring the four new paths; its
+  `AGENT_NOTES.md` value-site and all four `[retired.allow_after]` keys
+  (and the comment above the fourth) now read `docs/agents/PLAYBOOK.md`.
+  `scripts/docsync/cli.py` reads and writes every document through a new
+  `_documents()`/`_declarations_path()` pair instead of the deleted
+  `PLAYBOOK_PATH`/`FINDINGS_PATH` constants (`_Corpus.__init__`,
+  `_read_live_documents`, `_drift_updates`, `_candidate_live_documents`,
+  `_collect_issues` and `_close_batch`'s two `collect_integrity_issues`
+  calls). `scripts/dev/_worktree_guard_inspection.py` reads
+  `docs/agents/PLAYBOOK.md`; `_worktree_guard_diagnostics.py`'s
+  `metadata_unavailable_diagnostic` label follows.
+  `scripts/docsync/renderer.py` drops the path from `_build_status_block`
+  and `SIDE_ARCHIVE_PREFIX` entirely (owner ruling: no document path in
+  generated text) -- `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`'s
+  prologue matches by hand where `--fix` did not rewrite it.
+  `.pre-commit-config.yaml`'s top-level exclude changes `docs` to
+  `docs(?!/agents/)` (owner-approved 2026-09-24), keeping `docs/agents/`
+  under `trailing-whitespace`, `end-of-file-fixer`, `check-merge-conflict`
+  and `detect-private-key`. Every live present-tense citation of the four
+  names is repointed: `AGENTS.md`, `docs/agents/domain.md`,
+  `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`,
+  `docs/agents/AGENT_NOTES.md`, `docs/agents/FINDINGS.md`,
+  `docs/agents/PLAYBOOK.md` Section 3, `DEVELOPMENT.md`, `PRODUCT.md`,
+  `docs/ARCHITECTURE.md`, `docs/architecture/documentation-tooling.md`
+  (including the mermaid node labels), `docs/architecture/development-cycle.md`,
+  `docs/AGENT_DOC_MAP.md`, `docs/design/RECONCILIATION.md:667`,
+  `docs/SWE_AUDIT_CHARTER.md` (9), `BATCH23_DEFINITION.md` (2 present-tense
+  pointers), `.claude/SESSION_CONTEXT.md`,
+  `.superpowers/cloud-kit/constraints.md` (including its literal
+  `grep ... PLAYBOOK.md` command), `docs/history/reports/HANDOFF_2026-09-24.md`
+  (sections 2/3/8 only; its section 6 narrative of past rulings is left as
+  written, point-in-time), `.gitignore`'s committed-files comment,
+  `scripts/dev/graphify_refresh.py`, `scripts/dev/install_docsync_hook.py`
+  (two comments) and `scripts/docsync/declarations.py`'s `DocumentsConfig`
+  docstring (its field defaults stay bare, by Task 2's design).
+- **Tests.** `tests/scripts/dev/test_worktree_guard_playbook.py`
+  (`test_the_repository_playbook_parses`, Step 1) reads the new path.
+  `tests/scripts/dev/worktree_guard_fakes.py`'s `repository()` fixture, and
+  `test_worktree_guard_base_ref.py`, `test_worktree_guard_inspection.py`,
+  `test_worktree_guard_subject.py` and `test_worktree_guard_topology.py`'s
+  own `PLAYBOOK.md`-writing helpers, all write to
+  `repo/docs/agents/PLAYBOOK.md` (a named, load-bearing edit: reverting the
+  guard's own code fix and re-running the six worktree-guard test files
+  reproduces 29 failures; restoring the fix returns all 74 to green).
+  `tests/conftest.py`'s `sync_env` no longer monkeypatches the deleted
+  `PLAYBOOK_PATH` (the fixture writes no `[documents]` table, so the
+  default relative name still resolves). `tests/test_docsync_renderer.py`'s
+  `test_declared_batch_with_no_entries_renders_as_open` and
+  `test_between_batches_block_carries_the_count` copy the status-block line
+  by value; both updated to the new text (RED before, GREEN after).
+- **Live probe**, `/c/ssprobe`, from `git archive $(git stash create)` with
+  this task's changes in the tree (L18):
+  - Pre-commit exclude: planted `<<<<<<< HEAD` (with a simulated merge
+    state, since `check-merge-conflict` only scans when `MERGE_HEAD` and
+    `MERGE_MSG` exist) in `docs/agents/PLAYBOOK.md` -- red,
+    `check-merge-conflict` failed; the same marker in
+    `docs/history/reports/` -- green, passed.
+  - `[retired.allow_after]`: none of the four declarations' retired claims
+    are still live in the current corpus, so a bare key revert alone proved
+    nothing; planted one claim below the Section 4 heading, then reverted
+    the fonts-retirement key to `PLAYBOOK.md` -- red, DOC011 fired as a
+    false positive; restored the key -- green.
+  - Worktree guard: reverted `_worktree_guard_inspection.py`'s literal to
+    `PLAYBOOK.md` -- red, WT002 "PLAYBOOK.md could not be read"; restored
+    -- green, Section 3 read (the corpus's own WT003/WT007/WT009 branch,
+    remote and venv gaps are unrelated to the PLAYBOOK read).
+  - DOC001 sweep: left one bare `` `PLAYBOOK.md` `` citation in `AGENTS.md`
+    -- red, DOC001 named it; restored to `` `docs/agents/PLAYBOOK.md` `` --
+    green.
+  - `[documents]` honoured: set `playbook = "docs/agents/NOWHERE.md"` --
+    red, `--check` failed naming the missing file; restored -- green.
+- **Deviations:**
+  - `_Corpus.read_paths()` gained the declarations file as a source (a new
+    `_declarations_path()` helper): `_documents()` now reads
+    `config/docsync.toml` during `_Corpus.__init__`, which
+    `test_close_batch_proves_every_read_source_before_publishing` (not
+    named in the brief) proved must be in the publish-time read set, or a
+    concurrent edit to the declarations file would go unnoticed.
+  - `.gitignore`'s `docs/agents/*` carve-out did not list the four moved
+    files; a plain `git add` (not `git mv`) silently dropped them, caught
+    by the Step 9 probe corpus. Added the four negations beside the
+    existing four.
+  - `BATCH23_DEFINITION.md`'s "Move ... to `docs/agents/`" bullet keeps the
+    pre-move names unbackticked: still `.md` files, but no longer DOC001
+    citations. A backtick-wrapped `.md` name after the move is a dead
+    reference DOC001 rightly flags, unlike Task 5's `.docsync.toml`
+    precedent this bullet otherwise mirrors (a `.toml` name the check never
+    matches).
+- **Fix round 1** (review): the "every live present-tense citation" claim
+  above missed two sites invisible to `doc_state_sync.py --check` (inside a
+  Python docstring/comment, not scanned Markdown):
+  `scripts/dev/frontend_gate.py`'s `_load_check_manifest` docstring still
+  cited `AGENT_NOTES.md`, and `scripts/dev/_worktree_guard_inspection.py`'s
+  `OSError`-branch `detail` literal still read "PLAYBOOK.md could not be
+  read." three lines below this task's own `playbook_path` fix. Both
+  repointed to `docs/agents/`. Added
+  `test_unreadable_playbook_names_the_moved_path_in_the_detail` (new,
+  RED before the fix, GREEN after) since the diagnostic's literal text was
+  previously untested.
+
+Validation: `pytest -q` -- **1850 passed**.
+
 ### 2026-09-24 - The Repo Assist workflow points at the moved documents
 
 Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23

@@ -229,21 +229,24 @@ WP-0 did.
   - if the fix is not there, reopen it and say what is missing.
   Done 2026-09-23: all six fix commits are ancestors of `origin/main`; each
   now carries a canonical `resolved` record and completion date in
-  `docs/agents/FINDINGS.md`.
-- [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- [x] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
   `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
   the archive page target, the DOC range, findings hygiene (pre-split line
   citations, and the defects the 2026-09-21 probe found), the close-out
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
-  still applies.
-- [ ] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
+  still applies. Done 2026-09-24; each task's completion is recorded in
+  PLAYBOOK Section 3 and the plan.
+- [x] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
   HANDOFF_PROMPT.md to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
   to `config/`, per the owner rulings of 2026-09-24. Plan:
   `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`. `AGENTS.md`, `README.md`,
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `DEVELOPMENT.md`, `DEPLOY.md`,
   `DESIGN.md`, `PRODUCT.md`, `BATCH*_DEFINITION.md`, `fly.toml`, `Dockerfile`, `app.py`,
   `run.py`, `init_db.py`, and the standard Python config files stay at the root.
+  Done 2026-09-24, with the 2026-09-25 declared-path review fix recorded as
+  F-DOCSYNC-21.
 - [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
