@@ -392,7 +392,7 @@ def _load_check_manifest(
 
     Selection is by check name only: groups are an isolation concern CHECKS
     already owns, and a second copy of their membership here would drift
-    from the tuple that owns it. Fail Fast (`AGENT_NOTES.md`): a missing
+    from the tuple that owns it. Fail Fast (`docs/agents/AGENT_NOTES.md`): a missing
     file, malformed TOML, an unknown name, or a required check disabled all
     stop the gate before a browser launches, naming the path and the check.
     """

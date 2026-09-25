@@ -459,39 +459,6 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-24 - The Repo Assist workflow points at the moved documents
-
-Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
-WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
-  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
-  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
-  paths. The "Repository Rules" prose's grant (rule 3, "anything under
-  `scripts/` or `docs/` other than...") now permits exactly those two paths
-  alongside the log files, agreeing with the allowed-files lists. Every other
-  prose mention of the two names (the frontmatter description, rules 2 and 4,
-  and Task 11's mirror-hygiene step) is repointed the same way; the last one
-  is not among the brief's cited line ranges but carries the same root path
-  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
-  the workflow source, so nothing else needed a change.
-- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
-  v0.89.21, the version that produced the previous lock file). The compile
-  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
-  and asked for no `--approve`. The lock diff is the metadata hash pair plus
-  the six path-copy lines the brief names (two header-comment lines, two
-  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
-  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
-  hand-edited.
-- **Tests.** None; this task touches no test-bearing code path.
-- **Gates.** `pytest -q`, `pre-commit run --all-files` and
-  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
-  (a changed path under `static/`, `templates/` or
-  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
-
-Validation: `pytest -q` -- **1849 passed**.
-
 ### 2026-09-24 - The four agent documents move to docs/agents/
 
 Side task, no batch tag: the root-cleanup plan's Task 6, part of Batch 23
@@ -588,6 +555,50 @@ lands.
     reference DOC001 rightly flags, unlike Task 5's `.docsync.toml`
     precedent this bullet otherwise mirrors (a `.toml` name the check never
     matches).
+- **Fix round 1** (review): the "every live present-tense citation" claim
+  above missed two sites invisible to `doc_state_sync.py --check` (inside a
+  Python docstring/comment, not scanned Markdown):
+  `scripts/dev/frontend_gate.py`'s `_load_check_manifest` docstring still
+  cited `AGENT_NOTES.md`, and `scripts/dev/_worktree_guard_inspection.py`'s
+  `OSError`-branch `detail` literal still read "PLAYBOOK.md could not be
+  read." three lines below this task's own `playbook_path` fix. Both
+  repointed to `docs/agents/`. Added
+  `test_unreadable_playbook_names_the_moved_path_in_the_detail` (new,
+  RED before the fix, GREEN after) since the diagnostic's literal text was
+  previously untested.
+
+Validation: `pytest -q` -- **1850 passed**.
+
+### 2026-09-24 - The Repo Assist workflow points at the moved documents
+
+Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
+  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
+  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
+  paths. The "Repository Rules" prose's grant (rule 3, "anything under
+  `scripts/` or `docs/` other than...") now permits exactly those two paths
+  alongside the log files, agreeing with the allowed-files lists. Every other
+  prose mention of the two names (the frontmatter description, rules 2 and 4,
+  and Task 11's mirror-hygiene step) is repointed the same way; the last one
+  is not among the brief's cited line ranges but carries the same root path
+  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
+  the workflow source, so nothing else needed a change.
+- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
+  v0.89.21, the version that produced the previous lock file). The compile
+  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
+  and asked for no `--approve`. The lock diff is the metadata hash pair plus
+  the six path-copy lines the brief names (two header-comment lines, two
+  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
+  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
+  hand-edited.
+- **Tests.** None; this task touches no test-bearing code path.
+- **Gates.** `pytest -q`, `pre-commit run --all-files` and
+  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
+  (a changed path under `static/`, `templates/` or
+  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
 
 Validation: `pytest -q` -- **1849 passed**.
 

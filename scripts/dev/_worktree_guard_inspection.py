@@ -178,7 +178,7 @@ def _inspect_worktree(
     except OSError:
         # An arbitrary OS failure carries absolute paths and errno text, which
         # the shared diagnostic stream must not republish.
-        detail = "PLAYBOOK.md could not be read."
+        detail = "docs/agents/PLAYBOOK.md could not be read."
     else:
         detail = None
     if detail is not None:
