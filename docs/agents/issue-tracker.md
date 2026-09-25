@@ -70,7 +70,8 @@ old ID stays resolvable.
 
 ## Relationship to GitHub
 
-Open findings are mirrored to GitHub issues, which are cheaper to search.
-`docs/agents/FINDINGS.md` wins if the two disagree. GitHub pull requests are a **review**
+Findings are not mirrored to GitHub (owner ruling, 2026-09-25): the
+committed `docs/agents/FINDINGS.md` is the tracker. The issues labelled `finding` are a
+frozen 2026-08-22 snapshot, and this file wins over them. GitHub pull requests are a **review**
 surface, not a request surface: every change in this repo goes through a
 reviewed PR, so PRs are not triaged here.

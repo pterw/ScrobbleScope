@@ -73,6 +73,32 @@ F-DOCSYNC-12 already records that `--fix` rewrites none of those three today.
 
 Source: Batch 22 close-out, 2026-09-20.
 
+### F-DOCSYNC-22: a count corrected in an older same-date entry stays shadowed until the entry is moved
+
+`latest_test_count_authority` (`scripts/docsync/logic.py`) orders live
+side-task entries newest-first by their position in PLAYBOOK Section 4. When
+two entries share a date, the upper one is authoritative. Position records
+when an entry was written. It does not record when its count was last edited.
+F-DOCSYNC-11 assumes the opposite ("Position within each source already
+encodes recency"). Its tie is between two sources; this one is inside one.
+
+Reproduced 2026-09-24, root-cleanup Task 6 fix round 1 (`c959237`). The Task 6
+entry and the Task 7 entry above it both recorded **1849 passed**. The fix
+round added one test and corrected the Task 6 entry to **1850 passed**. The
+authority still read 1849 from the Task 7 entry, so DOC006 and DOC008 rejected
+the true count in `.claude/SESSION_CONTEXT.md` and the FINDINGS header. The
+only compliant remedy was to move the Task 6 entry above Task 7's. That makes
+Section 4 misstate the order in which the work was done.
+
+The Q3 fix for F-DOCSYNC-11, -12 and -13 (an explicit `--fix --test-count N`
+input, in `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
+covers this case only if `--check` stops recomputing the count from entry
+position. The control-plane plan fixes it in that same task and tests this
+case. It joined WP-0 Part C's set by owner amendment on 2026-09-25.
+
+- [ ] **Status:** open (P1). Source: Batch 23 WP-0 root-cleanup ledger,
+  2026-09-24; filed on owner instruction, 2026-09-25.
+
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 
 The Quality Gate's `pip-audit` step reported `Found 115 known vulnerabilities
@@ -112,32 +138,6 @@ nothing imports, then upgrade the outbound HTTP libraries. Resolve the
 dependency graph before removing anything -- `pillow` is plausibly present as
 `pdf2image`'s dependency rather than on its own.
 Status: open. Source: Quality Gate run 32444711411, 2026-08-21.
-
-### F-B21-9: the findings-to-issues mirror is manual
-
-Open findings were mirrored to GitHub issues #174-#215 on 2026-08-22. The
-mirror ran once, from a script that was not committed.
-
-Nothing keeps it current. A new finding does not open an issue. A resolved
-finding does not close one. The two lists will drift.
-
-This was deliberate, not an oversight. A sync script is code. It needs tests
-and a work package. It did not belong in the documentation PR that created
-the mirror.
-
-What a sync needs: open an issue for each finding that has none, close the
-issue when its finding resolves, and never write back to `docs/agents/FINDINGS.md`. The
-file stays the source of truth. Issues are a read-only mirror.
-
-**Owner ruling, 2026-09-20:** the sync has to run in both directions --
-GitHub issues to `docs/agents/FINDINGS.md` as well as out -- so neither side can become
-the only place a defect is recorded.
-
-- [ ] **Status:** open, deferred by owner decision
-Was recorded as: open, deferred on purpose. The owner accepted the drift on
-2026-08-22 and asked that the work be recorded rather than done now.
-Source: findings mirror, 2026-08-22.
-
 
 ### F-B21-14: the heatmap has no path to its data that is not colour
 

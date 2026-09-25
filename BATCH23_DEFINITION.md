@@ -70,6 +70,12 @@ produces the pre-threshold album mapping consumed by
 `partition_albums_by_threshold`; WP-3 partitions it and hands eligible
 albums to the existing machinery.
 
+**Owner rulings, 2026-09-25.** Findings are not mirrored to GitHub:
+`docs/agents/FINDINGS.md` is committed and can be followed there. F-B21-9
+therefore leaves Part C as no action, and the findings/issues sync is not
+built. F-DOCSYNC-22, the same-date count tie inside one source, joins
+Part C's set by amendment.
+
 **Owner rulings, 2026-09-23.** WP-0 prepares the repository for a large
 structural feature. It has three parts. Part A is the behaviour-neutral
 extractions. Part B reconciles what earlier batches left open. Part C
@@ -274,7 +280,8 @@ WP-0 did.
 #### Part C -- Clear every open P0 and P1 finding
 
 The set is every finding open at P0 or P1 in `docs/agents/FINDINGS.md` on 2026-09-23,
-plus the docsync gap Part B files (F-DOCSYNC-15). That is 38 IDs plus one,
+plus the docsync gap Part B files (F-DOCSYNC-15) and F-DOCSYNC-22, added by
+owner amendment on 2026-09-25. That is 38 IDs plus two,
 listed so that a finding filed later does not silently join, and a listed one
 does not silently leave:
 

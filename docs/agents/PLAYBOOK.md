@@ -109,6 +109,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-25 - Owner rulings: no GitHub mirror, and F-DOCSYNC-22 joins Part C
+
+Side task, no batch tag: records two owner rulings given on 2026-09-25.
+
+- **Scope and result.** F-DOCSYNC-22 is filed at P1: a count corrected in an
+  older same-date side-task entry stays shadowed until the entry is moved. It
+  was found in root-cleanup Task 6's fix round 1 (`c959237`) and held until now
+  as a candidate in a gitignored SDD ledger. The owner amended Part C's set to
+  include it, in the definition and in the reconcile plan's control-plane
+  follow-on, where it joins the F-DOCSYNC-11, -12 and -13 task. The owner also
+  ruled that findings are not mirrored to GitHub. F-B21-9 closes as no action
+  and rotates to the archive. `AGENTS.md` and `docs/agents/issue-tracker.md`
+  now say the `finding` issues are a frozen snapshot.
+- **Deviations.** None. The Q15 row of the reconcile plan's rulings table and
+  its triage table are point-in-time records and stay as written. The
+  follow-on list carries the change.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Docsync check and pre-commit pass.
+- **Forward guidance.** The control-plane plan's count task must test a
+  corrected count in an older same-date entry.
+
 ### 2026-09-25 - Section 3 states the live WP-0 work order
 
 Side task, no batch tag: Batch 23 WP-0 Part B's final documentation cleanup.
@@ -172,25 +193,3 @@ its skip at enqueue; this change addresses only the empty done path.
   file excluded. Pre-commit and docsync checks pass on the documented tree.
 - **Forward guidance.** The remaining WP-0 review corrections are document
   state and citation work. WP-0 itself remains open.
-
-### 2026-09-25 - Docsync refuses ambiguous document paths
-
-Side task, no batch tag: the completed Batch 23 WP-0 root-cleanup audit found
-that two `[documents]` roles could name one file and leave another unscanned
-while `--check` passed. An outside path crashed after a read; an outside
-`--config` worked for `--check` but could not enter a write transaction.
-
-- **Scope and fix.** F-DOCSYNC-21 records the reproduced cases. Validate all
-  five live document paths for containment and distinctness before any corpus
-  read. Require an explicit config path inside the repository, preserving the
-  publication transaction's source-snapshot boundary. Clarify the CLI help
-  and documentation. F-DOCSYNC-6 retains only its case-glob item.
-- **Validation.** The new path tests failed before the fix and passed after.
-  A live duplicate-path `--check` probe exited 2 with the two roles named;
-  an outside-config probe exited 2 before a read. The valid corpus's
-  `--check` exited 0. `pytest -q` -- **1873 passed** with the owner's
-  untracked mutation-test file excluded; that file adds 46 local tests and is
-  not part of this commit. Pre-commit and final docsync checks passed.
-- **Forward guidance.** The root-cleanup plan's path resolver now has the
-  same containment rule in check and write modes. Continue the WP-0 review
-  side task, then return to the remaining Part B and Part C work.

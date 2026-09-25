@@ -79,8 +79,8 @@ batch definitions or history docs only if the comment depends on them.
 7. Relevant `docs/history/` doc only if the log references one.
 8. `docs/agents/FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
    about to raise a defect, or you are reviewing a diff. Raise a known
-   defect again only with new evidence. Mirrored to GitHub issues (cheaper
-   to search; this file wins if they disagree). Not part of the bootstrap set.
+   defect again only with new evidence. Not mirrored to GitHub: the
+   `finding` issues are a frozen 2026-08-22 snapshot. Not part of the bootstrap set.
 
 This is the single canonical bootstrap order (`docs/agents/HANDOFF_PROMPT.md` adds only
 post-read verification and the edge cases below). Bootstrap is complete when

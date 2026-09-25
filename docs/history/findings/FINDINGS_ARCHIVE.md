@@ -9,6 +9,33 @@ Newest rotation first.
 
 ---
 
+### F-B21-9: the findings-to-issues mirror is manual -- NO ACTION
+
+Open findings were mirrored to GitHub issues #174-#215 on 2026-08-22. The
+mirror ran once, from a script that was not committed.
+
+Nothing keeps it current. A new finding does not open an issue. A resolved
+finding does not close one. The two lists will drift.
+
+This was deliberate, not an oversight. A sync script is code. It needs tests
+and a work package. It did not belong in the documentation PR that created
+the mirror.
+
+What a sync needs: open an issue for each finding that has none, close the
+issue when its finding resolves, and never write back to `docs/agents/FINDINGS.md`. The
+file stays the source of truth. Issues are a read-only mirror.
+
+**Owner ruling, 2026-09-20:** the sync has to run in both directions --
+GitHub issues to `docs/agents/FINDINGS.md` as well as out -- so neither side can become
+the only place a defect is recorded.
+
+- [x] **Status:** no action
+**Completed:** 2026-09-25
+Owner ruling 2026-09-25: findings are not mirrored to GitHub, because `docs/agents/FINDINGS.md` is committed and can be followed there. The sync is not built, which supersedes the 2026-09-20 two-way ruling and the reconcile plan's Q15 sync answer. Issues #174-#215 stay as a frozen 2026-08-22 snapshot.
+Was recorded as: open, deferred on purpose. The owner accepted the drift on
+2026-08-22 and asked that the work be recorded rather than done now.
+Source: findings mirror, 2026-08-22.
+
 ### F-B23-8: the WP-0 definition lagged completed Part B records -- RESOLVED
 
 The Batch 23 definition left the completed foundation Tasks 4-10 and

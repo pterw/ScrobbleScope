@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - Docsync refuses ambiguous document paths
+
+Side task, no batch tag: the completed Batch 23 WP-0 root-cleanup audit found
+that two `[documents]` roles could name one file and leave another unscanned
+while `--check` passed. An outside path crashed after a read; an outside
+`--config` worked for `--check` but could not enter a write transaction.
+
+- **Scope and fix.** F-DOCSYNC-21 records the reproduced cases. Validate all
+  five live document paths for containment and distinctness before any corpus
+  read. Require an explicit config path inside the repository, preserving the
+  publication transaction's source-snapshot boundary. Clarify the CLI help
+  and documentation. F-DOCSYNC-6 retains only its case-glob item.
+- **Validation.** The new path tests failed before the fix and passed after.
+  A live duplicate-path `--check` probe exited 2 with the two roles named;
+  an outside-config probe exited 2 before a read. The valid corpus's
+  `--check` exited 0. `pytest -q` -- **1873 passed** with the owner's
+  untracked mutation-test file excluded; that file adds 46 local tests and is
+  not part of this commit. Pre-commit and final docsync checks passed.
+- **Forward guidance.** The root-cleanup plan's path resolver now has the
+  same containment rule in check and write modes. Continue the WP-0 review
+  side task, then return to the remaining Part B and Part C work.
+
 ### 2026-09-24 - Docsync diagnostics name the declared document path
 
 Side task, no batch tag: the root-cleanup plan's Task 8, part of Batch 23
