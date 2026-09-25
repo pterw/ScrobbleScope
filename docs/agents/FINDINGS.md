@@ -1046,8 +1046,9 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
 - Standard library only: `re` and `pathlib`. Mermaid syntax validation needs a
   parser, so if it is wanted, add it as a CI-only step using the Node
   toolchain the Tailwind build already requires, never as a pre-commit hook.
-- AGENT_NOTES.md "This repository is also a template being extracted" gains a
-  line naming diagrams as a third declared surface beside values and anchors.
+- `docs/agents/AGENT_NOTES.md` "This repository is also a template being
+  extracted" gains a line naming diagrams as a third declared surface
+  beside values and anchors.
 
 Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes).
 

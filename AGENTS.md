@@ -462,7 +462,7 @@ history.
    Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
    complete source tags -- extend the list here, never leave a tag
    undocumented: `MAS`, `DOCSYNC`, `AUDIT`, `LOAD`, `SWE`, `WORKTREE`,
-   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in FINDINGS.md.
+   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in `docs/agents/FINDINGS.md`.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when a named audit or session
    produced it.

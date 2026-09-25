@@ -432,11 +432,11 @@ See FINDINGS F-DOCSYNC-3.
   persistent Last.fm scrobble-cache candidate; it does not expand this
   frontend change.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
-  rationale live in FINDINGS.md F-B18-11 (single source).
+  rationale live in `docs/agents/FINDINGS.md` F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
   aggregate `user.gettopartists`/`user.gettoptracks` calls with page fan-out,
   not exact per-scrobble recent-track timestamps. Useful for future perf
-  research, but not a drop-in heatmap speedup. See FINDINGS.md F-B19-3.
+  research, but not a drop-in heatmap speedup. See `docs/agents/FINDINGS.md` F-B19-3.
 - Future feature candidates (confirmed by owner roadmap):
   - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
