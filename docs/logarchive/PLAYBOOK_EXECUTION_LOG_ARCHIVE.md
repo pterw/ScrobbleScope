@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - Empty release checks log their finish
+
+Side task, no batch tag: the Batch 23 WP-0 reconciliation review found that
+`run_release_checks` logged a start for zero candidates and then returned
+without the finish line Task 13 promises. The normal disabled path still logs
+its skip at enqueue; this change addresses only the empty done path.
+
+- **Scope and fix.** F-B23-7 records the gap. The zero-candidate branch
+  writes the same finish fields as a processed pass, before returning.
+  The existing `test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies`
+  now asserts the start and finish lines as well as the done state.
+- **Validation.** The new finish assertion failed before the fix and passed
+  after. `pytest -q` -- **1873 passed** with the untracked mutation-test
+  file excluded. Pre-commit and docsync checks pass on the documented tree.
+- **Forward guidance.** The remaining WP-0 review corrections are document
+  state and citation work. WP-0 itself remains open.
+
 ### 2026-09-25 - Docsync refuses ambiguous document paths
 
 Side task, no batch tag: the completed Batch 23 WP-0 root-cleanup audit found
