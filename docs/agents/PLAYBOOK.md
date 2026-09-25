@@ -261,7 +261,8 @@ See FINDINGS F-DOCSYNC-3.
   one tagged `(Batch 23 WP-0)` entry closes WP-0 (owner ruling, 2026-09-23).
   Later work packages log tagged entries inside the markers.
 - **2026-09-25 review side task:** docsync path-declaration remediation is
-  implemented. Release-check logging and definition-record corrections follow;
+  committed. Release-check logging is implemented; definition-record
+  corrections follow;
   WP-0 remains the next work package.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
@@ -465,6 +466,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-25 - Empty release checks log their finish
+
+Side task, no batch tag: the Batch 23 WP-0 reconciliation review found that
+`run_release_checks` logged a start for zero candidates and then returned
+without the finish line Task 13 promises. The normal disabled path still logs
+its skip at enqueue; this change addresses only the empty done path.
+
+- **Scope and fix.** F-B23-7 records the gap. The zero-candidate branch
+  writes the same finish fields as a processed pass, before returning.
+  The existing `test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies`
+  now asserts the start and finish lines as well as the done state.
+- **Validation.** The new finish assertion failed before the fix and passed
+  after. `pytest -q` -- **1873 passed** with the untracked mutation-test
+  file excluded. Pre-commit and docsync checks pass on the documented tree.
+- **Forward guidance.** The remaining WP-0 review corrections are document
+  state and citation work. WP-0 itself remains open.
+
 ### 2026-09-25 - Docsync refuses ambiguous document paths
 
 Side task, no batch tag: the completed Batch 23 WP-0 root-cleanup audit found
@@ -663,36 +681,3 @@ lands.
   previously untested.
 
 Validation: `pytest -q` -- **1850 passed**.
-
-### 2026-09-24 - The Repo Assist workflow points at the moved documents
-
-Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
-WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
-  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
-  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
-  paths. The "Repository Rules" prose's grant (rule 3, "anything under
-  `scripts/` or `docs/` other than...") now permits exactly those two paths
-  alongside the log files, agreeing with the allowed-files lists. Every other
-  prose mention of the two names (the frontmatter description, rules 2 and 4,
-  and Task 11's mirror-hygiene step) is repointed the same way; the last one
-  is not among the brief's cited line ranges but carries the same root path
-  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
-  the workflow source, so nothing else needed a change.
-- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
-  v0.89.21, the version that produced the previous lock file). The compile
-  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
-  and asked for no `--approve`. The lock diff is the metadata hash pair plus
-  the six path-copy lines the brief names (two header-comment lines, two
-  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
-  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
-  hand-edited.
-- **Tests.** None; this task touches no test-bearing code path.
-- **Gates.** `pytest -q`, `pre-commit run --all-files` and
-  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
-  (a changed path under `static/`, `templates/` or
-  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
-
-Validation: `pytest -q` -- **1849 passed**.

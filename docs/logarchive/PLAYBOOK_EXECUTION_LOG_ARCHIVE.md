@@ -9,6 +9,39 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The Repo Assist workflow points at the moved documents
+
+Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
+  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
+  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
+  paths. The "Repository Rules" prose's grant (rule 3, "anything under
+  `scripts/` or `docs/` other than...") now permits exactly those two paths
+  alongside the log files, agreeing with the allowed-files lists. Every other
+  prose mention of the two names (the frontmatter description, rules 2 and 4,
+  and Task 11's mirror-hygiene step) is repointed the same way; the last one
+  is not among the brief's cited line ranges but carries the same root path
+  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
+  the workflow source, so nothing else needed a change.
+- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
+  v0.89.21, the version that produced the previous lock file). The compile
+  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
+  and asked for no `--approve`. The lock diff is the metadata hash pair plus
+  the six path-copy lines the brief names (two header-comment lines, two
+  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
+  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
+  hand-edited.
+- **Tests.** None; this task touches no test-bearing code path.
+- **Gates.** `pytest -q`, `pre-commit run --all-files` and
+  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
+  (a changed path under `static/`, `templates/` or
+  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
+
+Validation: `pytest -q` -- **1849 passed**.
+
 ### 2026-09-24 - The docsync declarations file moves under config/
 
 Side task, no batch tag: the root-cleanup plan's Task 5, part of Batch 23

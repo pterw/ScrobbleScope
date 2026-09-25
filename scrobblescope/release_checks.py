@@ -357,6 +357,10 @@ async def run_release_checks(job_id):
 
     if not candidates:
         set_job_release_check(job_id, _state(STATUS_DONE))
+        logging.info(
+            f"Release checks finished for job {job_id}: "
+            "0 checked, 0 moved out, 0 moved in"
+        )
         return
 
     conn = await _get_db_connection()

@@ -9,6 +9,21 @@ Newest rotation first.
 
 ---
 
+### F-B23-7: an empty release-check pass has no finish log -- RESOLVED
+
+`run_release_checks` logged a start for a job with zero eligible candidates,
+then marked it done and returned before its finish log. This is a normal
+outcome, so the Stage 4 provider-log contract's start/finish pair was absent
+in the case the worker can complete without opening a cache connection.
+
+The zero-candidate branch now emits the same finish fields as a processed
+pass. The existing empty-candidate test asserts both log lines and the done
+state without a DB call.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+Source: Batch 23 WP-0 completed-work review, 2026-09-25.
+
 ### F-DOCSYNC-21: document declarations can hide a live file or escape the repository -- RESOLVED
 
 The root-cleanup `[documents]` loader accepted duplicate or aliased paths, so
