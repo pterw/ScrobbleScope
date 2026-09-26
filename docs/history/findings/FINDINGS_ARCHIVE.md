@@ -9,6 +9,83 @@ Newest rotation first.
 
 ---
 
+### F-B21-18: browser JavaScript has no automated unit coverage -- RESOLVED
+
+There are more than 2,400 lines under `static/js/`, with no `package.json`,
+test runner or `.test.js` anywhere in the repository.
+`docs/SWE_AUDIT_CHARTER.md` also excludes `static/js/` from the audit, on the
+grounds that Batch 21 rewrites it -- which is true, and leaves the rewritten
+code as the only code in the batch that nothing checks at unit level.
+
+Five of the first nineteen review comments in this batch came from that gap: a
+validation message never cleared, a join year leaking between accounts, a
+daily average rounding a positive total to zero, a form that submitted a
+username it had already been told was invalid, and an export header laid out
+for one screen width that painted over itself on another.
+
+The export is the sharpest case. `saveHeatmapImage` draws a canvas by hand,
+and it cannot be reached by any check as it stands: it needs a rendered
+heatmap, so it needs live Last.fm data and a key, which does not belong in
+CI.
+
+Independent PR review confirmed the untested path is already off contract:
+`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
+to render the desktop 53x7 grid at every viewport, while
+`saveHeatmapImage()` serializes whichever mobile or desktop SVG is on screen.
+Its own docstring records the deviation, but no owner ruling adds that
+deviation to `docs/design/RECONCILIATION.md`. A pure render seam would make the
+contract testable without a Last.fm key and let mobile export use the desktop
+geometry without changing the visible page.
+
+**Do not add Node.** The batch decided against a `package.json`, and the
+repository already owns a JavaScript engine it paid for -- Chromium, through
+the pinned Playwright runtime the frontend gate uses. The blocker is only
+that every module is an IIFE with no exports. A guarded seam, exposing pure
+functions when a test flag is set and nothing otherwise, would put
+`rocketColor`, `countToNorm`, `computeStreak` and the export's header layout
+under test for about eighty lines of harness.
+
+DOM-state defects are a different half and are already being covered where
+they bite: `check_validation_feedback` in the frontend gate was written after
+this batch's stale-message defect and fails on both forms when the fix is
+removed.
+
+The two username validators are also duplicated state machines:
+`static/js/index.js` owns the album version and `static/js/heatmap.js` owns the
+heatmap version. Their success work differs, but request freshness, outage and
+failure semantics do not. The independent review first found that only the
+heatmap catch discarded a stale failed request. The sibling fix compared field
+values in both consumers, and the final self-review found that still fails an
+A-to-B-to-A sequence because the oldest and newest requests carry the same
+text. Both now use request generations, with the browser gate holding the ABA
+case. Centralise that shared base only after broader browser parity checks
+cover both consumers; refactoring it before then would trade a demonstrated
+shotgun-surgery bug for an unproved rewrite.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-26
+rocketColor, countToNorm and the export header layout are exercised by a
+Chromium harness (tests/frontend/test_heatmap_pure_functions.py) through
+window.__scrobbleHeatmapTestHooks, exposed at the module's top level;
+computeStreak is WP-6's per Q14 answer a (docs/superpowers/
+plans/2026-09-23-batch23-wp0-reconcile-and-clear.md, Owner answers 2026-09-23, Q14 answer a).
+
+The timing is the reason for that position. WP-5 and WP-7 are the two
+remaining JavaScript-heavy pages, so a seam built before WP-5 still guards
+work this batch does; built at WP-8 it would guard nothing here. The DOM
+half is deliberately excluded, because the frontend gate already covers it
+where it bites -- 2026-08-26 is the worked example: a real pre-paint theme
+defect was caught by a browser check reading `data-theme` under blocked
+storage, which no unit test of a pure function could have seen.
+
+Placing it needs care. `WP_SKIPPED_RE` and the DOC007 derivation read work
+package numbers from PLAYBOOK Section 4 headings, and WP-6 is already
+absorbed into WP-3, so the number this takes and how the definition records
+it must be settled before the first commit rather than discovered by a red
+gate.
+Source: Batch 21 WP-3 review analysis, 2026-08-25. Scheduled by owner
+ruling, 2026-08-26.
+
 ### F-B21-20: the Tailwind hook and commit procedure disagree on staging order -- RESOLVED
 
 `AGENTS.md` requires `pre-commit run --all-files` to pass before any path is

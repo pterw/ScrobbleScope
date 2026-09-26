@@ -142,7 +142,7 @@ fixes this with a pytest marker, not a workflow reorder (the step order stays ex
 starting the browser earlier just to satisfy one new test module would slow every other run for a
 gate this small).
 
-- [ ] **Step 1: Expose the seam at the module's top level, not inside `DOMContentLoaded`.**
+- [x] **Step 1: Expose the seam at the module's top level, not inside `DOMContentLoaded`.**
   `rocketColor`, `countToNorm`, `exportHeaderModel` and `exportHeaderLayout` are pure functions
   declared in the IIFE's outer scope and need nothing from the DOM to be callable, so nothing stops
   the hook running the moment the script executes. Add, directly above the existing
@@ -162,7 +162,7 @@ gate this small).
   ```
   No Node, no `package.json`, no build step.
 
-- [ ] **Step 2: Build the harness fixture.** New files `tests/frontend/__init__.py` (empty) and
+- [x] **Step 2: Build the harness fixture.** New files `tests/frontend/__init__.py` (empty) and
   `tests/frontend/test_heatmap_pure_functions.py`. Reuse `_load_playwright` from
   `scripts.dev._frontend_gate_runtime` rather than importing `playwright.sync_api` a second way. This
   harness never boots the Flask app: `page.set_content("<!doctype html><html><body></body></html>")`
@@ -176,7 +176,7 @@ gate this small).
   `page.set_content()` call on the same page -- re-setting content after the script has run is an
   unnecessary risk to the already-installed hook and adds nothing a DOM insert does not.
 
-- [ ] **Step 3: Register a `browser` pytest marker and wire CI around it.** `pyproject.toml` has no
+- [x] **Step 3: Register a `browser` pytest marker and wire CI around it.** `pyproject.toml` has no
   `markers` list today. Add one to `[tool.pytest.ini_options]`:
   ```toml
   markers = [
@@ -216,7 +216,7 @@ gate this small).
   collects both. The implementer repeats this collection check against the real worktree change
   before committing, alongside Step 7's mutation probe.
 
-- [ ] **Step 4: Write the failing tests.**
+- [x] **Step 4: Write the failing tests.**
   ```python
   @pytest.mark.parametrize(
       ("t", "expected"),
@@ -285,14 +285,14 @@ gate this small).
   `340/4 = 85 < 105` drops to 2, and `340/2 = 170 >= 105` stops there; `150/4 = 37.5 < 105` drops to 2,
   and `150/2 = 75 < 105` drops again to 1. Verified in the probe (`harness-probe.md`): all three pass.
 
-- [ ] **Step 5: Run them to verify they fail** with
+- [x] **Step 5: Run them to verify they fail** with
   `window.__scrobbleHeatmapTestHooks is undefined` before Step 1 is applied.
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/frontend -q`
 
-- [ ] **Step 6: Apply Step 1 and run again.** Expected: pass, 13 of 13.
+- [x] **Step 6: Apply Step 1 and run again.** Expected: pass, 13 of 13.
 
-- [ ] **Step 7: Live probe, twice.** First, the mutation proof: in a scratch copy outside the
+- [x] **Step 7: Live probe, twice.** First, the mutation proof: in a scratch copy outside the
   repository (`git archive HEAD | tar -x -C <scratch dir>`), change `ROCKET_STOPS[0].r` from `3` to
   `4` in the scratch `heatmap.js` and re-run the scratch copy's tests; confirm
   `test_rocket_color[0-rgb(3,5,26)]` fails naming `rgb(4,5,26)`. Second, the collection proof from
@@ -302,7 +302,7 @@ gate this small).
   change, the same probes already recorded in `harness-probe.md` for this plan's Critical,
   Important-2 and CI-collection findings.)
 
-- [ ] **Step 8: Resolve F-B21-18 and commit.** The module count rises by one (`tests/frontend`).
+- [x] **Step 8: Resolve F-B21-18 and commit.** The module count rises by one (`tests/frontend`).
   Canonical reason: "rocketColor, countToNorm and the export header layout are exercised by a
   Chromium harness (tests/frontend/test_heatmap_pure_functions.py) through
   window.__scrobbleHeatmapTestHooks, exposed at the module's top level; computeStreak is WP-6's per

@@ -82,7 +82,8 @@ See FINDINGS F-DOCSYNC-3.
   tasks are all complete (Task 7 landed `8cf5fd4`..`c39da3c`). The frontend
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
-  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. Next
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
+  frontend plan: Task 1 has landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -115,6 +116,19 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - A Chromium harness for heatmap.js's pure-function seam
+
+Side task, no batch tag: added a Chromium harness for heatmap.js's pure-function seam, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+rocketColor, countToNorm and the export header layout are exercised by a Chromium harness
+(tests/frontend/test_heatmap_pure_functions.py) through window.__scrobbleHeatmapTestHooks,
+exposed at the module's top level; computeStreak is WP-6's per Q14 answer a; the harness carries
+a browser pytest marker so CI's pre-browser coverage step deselects it and the post-browser
+frontend-gate step runs it instead.
+
+Validation: `pytest -q` -- **1939 passed**.
 
 ### 2026-09-26 - Drop a work-package token from a log heading
 
@@ -171,39 +185,5 @@ WP-0 lands.
   ':!docs/superpowers/plans'` found no other live-doc copy showing a stale
   figure: `tests/test_docsync_cli.py` and `tests/test_docsync_test_count.py`
   only quote fixture text (68), not a live claim.
-
-Validation: `pytest -q` -- **1926 passed**.
-
-### 2026-09-26 - Keep the essentials warning from failing the worktree guard
-
-Side task, no batch tag: fix round on Task 7's code review, part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **CR1.** `essentials_diagnostics` (`scripts/dev/_worktree_guard_essentials.py`)
-  now catches `DeclarationError` from `load_untracked_essentials_config` and
-  returns a single WARNING `WT015` naming `config/docsync.toml` and quoting
-  the parse error, instead of letting it escape to `inspect_worktree`'s
-  fail-closed `except Exception` and collapse the whole result to ERROR
-  `WT014`.
-- **CR2.** `collect_declaration_issues`
-  (`scripts/docsync/declarations.py`) now also calls
-  `_untracked_essentials_config`, so `doc_state_sync --check` and pre-commit
-  refuse a malformed `[untracked_essentials]` table the same way they refuse
-  a bad `[archives]` or `[closeout]` table.
-- **CR3.** `_inspect_worktree`
-  (`scripts/dev/_worktree_guard_inspection.py`) now runs the essentials
-  check on the detached-HEAD return path and the PLAYBOOK-parse-failure
-  return path too, so `WT015` fires in a detached scratch worktree (the
-  parallel workflow's `git worktree add --detach`) and not only on the
-  fully-resolved path.
-- **CR7.** `WT015` raises the code count to sixteen: updated the "eleven of
-  the fifteen codes" text in `scripts/dev/check_worktree_alignment.py`,
-  `.pre-commit-config.yaml` and `tests/scripts/dev/test_worktree_guard_cli_e2e.py`
-  to sixteen, adding `WT015` where the non-error codes are listed.
-  `docs/agents/FINDINGS.md`'s note quoting a reviewer's past correction is
-  left as a point-in-time record.
-- **CR8.** The tree now has 73 tracked `test_*.py` modules; `FINDINGS.md`'s
-  hand-maintained header corrected from 72 to 73.
 
 Validation: `pytest -q` -- **1926 passed**.
