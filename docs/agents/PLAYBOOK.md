@@ -139,6 +139,18 @@ tests for the same design: the card stays hidden until every hydration settles, 
 candidate without a confirmed photo is dropped, and reduced motion keeps the surviving
 confirmed artist still.
 
+**Fix round 1, 2026-09-26:** two of the `results_behavior_tests.py` rewrites above
+could not fail if the rotation's `c => c.image_url` filter were deleted --
+`test_card_hidden_until_settle_then_drops_unconfirmed_candidates`'s 30s/7s-tick math
+happened to land back on the same artist either way, and
+`test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration`'s confirmed
+candidate was already the one shown regardless of filtering. Both now assert the
+filtered-list rank (`01 / 01`) and put the failing hydration on the first candidate so
+the surviving, filtered name ("Second") only appears if the filter runs; R14 proof
+in `task-5-report.md`. Also names the third existing test this task edited,
+`test_spotlight_rotation_wraps_and_preserves_input` (`tests/test_routes.py`'s two
+edits were already named in 699bec2's body), which the original commit omitted.
+
 Validation: `pytest -q` -- **1958 passed**.
 
 ### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests

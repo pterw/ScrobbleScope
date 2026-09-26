@@ -150,10 +150,21 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
         self.assertEqual(
+            self.page.locator("#spotlight-artist-rank").inner_text(), "01 / 01"
+        )
+        self.assertEqual(
             self.page.locator("#spotlight-spotify-link").get_attribute("href"),
             "https://open.spotify.com/artist/a",
         )
-        self.page.clock.run_for(30000)
+        # A filtered, single-candidate list never has a second tick to rotate
+        # to: each single 7s tick must still show "A & B", never "Second"
+        # (the dropped, unconfirmed candidate), unlike a real two-candidate
+        # rotation that would wrap between them.
+        self.page.clock.run_for(7000)
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
+        )
+        self.page.clock.run_for(7000)
         self.assertEqual(
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
@@ -163,16 +174,22 @@ class ResultsBehaviorTests(unittest.TestCase):
         surviving confirmed artist still."""
         self.spotlight(reduced=True)
         self.resolve_pending("""() => {
-            pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg'})});
-            pending[1].resolve({ok: false});
+            pending[0].resolve({ok: false});
+            pending[1].resolve({ok: true, json: async () => ({image_url: 'https://img/b.jpg'})});
         }""")
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "Second"
+        )
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-rank").inner_text(), "01 / 01"
+        )
         self.page.clock.run_for(30000)
         self.assertEqual(
-            self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
+            self.page.locator("#spotlight-artist-name").inner_text(), "Second"
         )
         self.assertEqual(
             self.page.locator("#spotlight-scrobble-text").inner_text(),
-            "20 scrobbles across 1 album in 2025",
+            "10 scrobbles across 2 albums in 2025",
         )
 
     def leaderboard(self):
