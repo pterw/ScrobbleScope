@@ -153,22 +153,24 @@ def _inspect_worktree(
             if detached_status_result.returncode != 0:
                 raise GuardError("Git could not inspect the worktree status.")
             detached_dirty = bool(detached_status_result.stdout)
+        detached_diagnostics = classify_lineage(
+            LineageSnapshot(
+                None,
+                None,
+                None,
+                base_ref,
+                0,
+                0,
+                None,
+                None,
+                detached_dirty,
+                True,
+                is_recognized_ci,
+            )
+        )
+        detached_diagnostics.extend(essentials_diagnostics(resolved_root))
         return finish_diagnostics(
-            classify_lineage(
-                LineageSnapshot(
-                    None,
-                    None,
-                    None,
-                    base_ref,
-                    0,
-                    0,
-                    None,
-                    None,
-                    detached_dirty,
-                    True,
-                    is_recognized_ci,
-                )
-            ),
+            detached_diagnostics,
             offline=offline,
             base_ref=base_ref,
         )
@@ -197,7 +199,10 @@ def _inspect_worktree(
         detail = None
     if detail is not None:
         return finish_diagnostics(
-            [metadata_unavailable_diagnostic(detail)],
+            [
+                metadata_unavailable_diagnostic(detail),
+                *essentials_diagnostics(resolved_root),
+            ],
             offline=offline,
             base_ref=base_ref,
         )

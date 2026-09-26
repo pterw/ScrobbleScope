@@ -114,6 +114,40 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-26 - Keep the essentials warning from failing the worktree guard
+
+Side task, no batch tag: fix round on Task 7's code review, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **CR1.** `essentials_diagnostics` (`scripts/dev/_worktree_guard_essentials.py`)
+  now catches `DeclarationError` from `load_untracked_essentials_config` and
+  returns a single WARNING `WT015` naming `config/docsync.toml` and quoting
+  the parse error, instead of letting it escape to `inspect_worktree`'s
+  fail-closed `except Exception` and collapse the whole result to ERROR
+  `WT014`.
+- **CR2.** `collect_declaration_issues`
+  (`scripts/docsync/declarations.py`) now also calls
+  `_untracked_essentials_config`, so `doc_state_sync --check` and pre-commit
+  refuse a malformed `[untracked_essentials]` table the same way they refuse
+  a bad `[archives]` or `[closeout]` table.
+- **CR3.** `_inspect_worktree`
+  (`scripts/dev/_worktree_guard_inspection.py`) now runs the essentials
+  check on the detached-HEAD return path and the PLAYBOOK-parse-failure
+  return path too, so `WT015` fires in a detached scratch worktree (the
+  parallel workflow's `git worktree add --detach`) and not only on the
+  fully-resolved path.
+- **CR7.** `WT015` raises the code count to sixteen: updated the "eleven of
+  the fifteen codes" text in `scripts/dev/check_worktree_alignment.py`,
+  `.pre-commit-config.yaml` and `tests/scripts/dev/test_worktree_guard_cli_e2e.py`
+  to sixteen, adding `WT015` where the non-error codes are listed.
+  `docs/agents/FINDINGS.md`'s note quoting a reviewer's past correction is
+  left as a point-in-time record.
+- **CR8.** The tree now has 73 tracked `test_*.py` modules; `FINDINGS.md`'s
+  hand-maintained header corrected from 72 to 73.
+
+Validation: `pytest -q` -- **1926 passed**.
+
 ### 2026-09-26 - Bootstrap fast-paths move below the list; skills-lock.json gets a warn-only manifest
 
 Side task, no batch tag: bootstrap fast-path reorder and the skills-lock.json
@@ -224,60 +258,4 @@ lands.
   A correct rebuild passes under the new order and fails under the old one;
   a genuinely stale build still correctly fails either way.
 - F-B21-20 is resolved.
-- **Validation.** `pytest -q` -- **1910 passed**.
-
-### 2026-09-26 - Two worktree-guard bugs are fixed
-
-Side task, no batch tag: Task 5 of the control-plane plan, part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope and result.** `classify_lineage`'s (`scripts/dev/
-  _worktree_guard_lineage.py`) detached branch returned before either dirty
-  check, so a detached, dirty, non-CI worktree reported WT012 alone; it now
-  builds `issues` and appends the dirty diagnostic when `snapshot.dirty` is
-  true, the same pattern the non-detached path already used.
-  `missing_base_remediation` (`scripts/dev/_worktree_guard_diagnostics.py`)
-  branched on and interpolated its already-labelled parameter, so an unsafe
-  base ref's remediation always fell into the "local ref" branch and doubled
-  the placeholder text; it now branches on the raw `base_ref` and computes
-  `label = base_ref_label(base_ref)` only at the point each branch's message
-  substitutes it, and `missing_base_diagnostic` now passes the raw ref
-  instead of the label (F-WORKTREE-3).
-- **Controller ruling after the code phase (2026-09-26).** Bug 1's classifier
-  fix alone was unreachable through the real CLI: the detached, non-CI
-  branch of `inspect_worktree` (`scripts/dev/_worktree_guard_inspection.py`)
-  built its `LineageSnapshot` with `dirty` hard-coded `False` and returned
-  before any status check. That branch now measures dirtiness with the same
-  `("status", "--porcelain")` call the attached path uses (the
-  recognized-CI detached branch keeps `dirty=False` and makes no extra git
-  call, owner ruling Q2: WT011 alone on CI).
-  `tests/scripts/dev/test_worktree_guard_topology.py::
-  test_detached_checkout_stops_before_local_topology_checks` now expects the
-  local case's last git call to be `("status", "--porcelain")` instead of
-  `symbolic-ref`; the CI cases are unchanged. One inspection-level test,
-  `test_detached_dirty_local_reports_wt012_and_wt010`, covers detached,
-  dirty, non-CI end to end (`WT012` and `WT010`).
-- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
-  create)`), reverting the inspection-layer fix made
-  `test_detached_checkout_stops_before_local_topology_checks[local]` and
-  `test_detached_dirty_local_reports_wt012_and_wt010` both FAIL (last call
-  stayed `symbolic-ref`; codes stayed `['WT012']`); the CI-branch cases were
-  unaffected. Reverting `classify_lineage`'s WT012 branch made
-  `test_detached_and_dirty_reports_both_wt012_and_wt010` FAIL while
-  `test_detached_ci_dirty_still_only_reports_wt011` still passed. Reverting
-  `missing_base_remediation`/`missing_base_diagnostic` made
-  `test_missing_base_remediation_matches_selected_ref[unsafe-remote-like]`
-  FAIL while the two pre-existing parametrize cases still passed.
-- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
-
-  | Probe | State | Result |
-  |---|---|---|
-  | Red | BASE, detached + dirty | `WT012` alone |
-  | Green | this task's tree, detached + dirty | `WT012` and `WT010` |
-  | Near-miss | this task's tree, detached + clean | `WT012` alone |
-
-- F-WORKTREE-3 is now fully resolved (3 of 3 items accounted for); the
-  between-batch ancestry skip remains the owner's 2026-09-23 accepted design
-  boundary.
 - **Validation.** `pytest -q` -- **1910 passed**.

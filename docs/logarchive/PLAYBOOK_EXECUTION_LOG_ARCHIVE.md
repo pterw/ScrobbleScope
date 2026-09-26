@@ -9,6 +9,62 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Two worktree-guard bugs are fixed
+
+Side task, no batch tag: Task 5 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `classify_lineage`'s (`scripts/dev/
+  _worktree_guard_lineage.py`) detached branch returned before either dirty
+  check, so a detached, dirty, non-CI worktree reported WT012 alone; it now
+  builds `issues` and appends the dirty diagnostic when `snapshot.dirty` is
+  true, the same pattern the non-detached path already used.
+  `missing_base_remediation` (`scripts/dev/_worktree_guard_diagnostics.py`)
+  branched on and interpolated its already-labelled parameter, so an unsafe
+  base ref's remediation always fell into the "local ref" branch and doubled
+  the placeholder text; it now branches on the raw `base_ref` and computes
+  `label = base_ref_label(base_ref)` only at the point each branch's message
+  substitutes it, and `missing_base_diagnostic` now passes the raw ref
+  instead of the label (F-WORKTREE-3).
+- **Controller ruling after the code phase (2026-09-26).** Bug 1's classifier
+  fix alone was unreachable through the real CLI: the detached, non-CI
+  branch of `inspect_worktree` (`scripts/dev/_worktree_guard_inspection.py`)
+  built its `LineageSnapshot` with `dirty` hard-coded `False` and returned
+  before any status check. That branch now measures dirtiness with the same
+  `("status", "--porcelain")` call the attached path uses (the
+  recognized-CI detached branch keeps `dirty=False` and makes no extra git
+  call, owner ruling Q2: WT011 alone on CI).
+  `tests/scripts/dev/test_worktree_guard_topology.py::
+  test_detached_checkout_stops_before_local_topology_checks` now expects the
+  local case's last git call to be `("status", "--porcelain")` instead of
+  `symbolic-ref`; the CI cases are unchanged. One inspection-level test,
+  `test_detached_dirty_local_reports_wt012_and_wt010`, covers detached,
+  dirty, non-CI end to end (`WT012` and `WT010`).
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), reverting the inspection-layer fix made
+  `test_detached_checkout_stops_before_local_topology_checks[local]` and
+  `test_detached_dirty_local_reports_wt012_and_wt010` both FAIL (last call
+  stayed `symbolic-ref`; codes stayed `['WT012']`); the CI-branch cases were
+  unaffected. Reverting `classify_lineage`'s WT012 branch made
+  `test_detached_and_dirty_reports_both_wt012_and_wt010` FAIL while
+  `test_detached_ci_dirty_still_only_reports_wt011` still passed. Reverting
+  `missing_base_remediation`/`missing_base_diagnostic` made
+  `test_missing_base_remediation_matches_selected_ref[unsafe-remote-like]`
+  FAIL while the two pre-existing parametrize cases still passed.
+- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
+
+  | Probe | State | Result |
+  |---|---|---|
+  | Red | BASE, detached + dirty | `WT012` alone |
+  | Green | this task's tree, detached + dirty | `WT012` and `WT010` |
+  | Near-miss | this task's tree, detached + clean | `WT012` alone |
+
+- F-WORKTREE-3 is now fully resolved (3 of 3 items accounted for); the
+  between-batch ancestry skip remains the owner's 2026-09-23 accepted design
+  boundary.
+- **Validation.** `pytest -q` -- **1910 passed**.
+
 ### 2026-09-26 - Test the staged-deletion case of the docsync.toml exemption
 
 Side task, no batch tag: fix round on Task 8 of the control-plane plan, part

@@ -2057,3 +2057,54 @@ class TestUntrackedEssentialsConfig:
         path.write_text('[untracked_essentials]\nfiles = ["x"]\n', encoding="utf-8")
         with pytest.raises(DeclarationError, match="unknown key 'files'"):
             load_untracked_essentials_config(tmp_path)
+
+
+def test_collect_declaration_issues_rejects_a_string_paths_table(
+    tmp_path: Path,
+) -> None:
+    """`doc_state_sync --check` must refuse a bad [untracked_essentials] table.
+
+    Before CR2, `collect_declaration_issues` never called
+    `_untracked_essentials_config`, so a `paths` written as a bare string
+    passed `--check` and pre-commit untouched.
+    """
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = "skills-lock.json"\n'},
+    )
+    with pytest.raises(DeclarationError, match="'paths'"):
+        collect_declaration_issues(repo_root=root, live_documents={})
+
+
+def test_collect_declaration_issues_rejects_an_unknown_essentials_key(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\nfiles = ["x"]\n'},
+    )
+    with pytest.raises(DeclarationError, match="unknown key 'files'"):
+        collect_declaration_issues(repo_root=root, live_documents={})
+
+
+def test_collect_declaration_issues_accepts_valid_untracked_essentials(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: (
+                '[untracked_essentials]\npaths = ["skills-lock.json"]\n'
+            )
+        },
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+def test_collect_declaration_issues_accepts_an_absent_essentials_table(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path, {DECLARATIONS_FILENAME: "[archives]\nmax_lines = 1\ncold_days = 1\n"}
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []

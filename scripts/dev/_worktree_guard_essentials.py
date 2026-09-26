@@ -4,7 +4,11 @@ These files are gitignored by design -- `skills-lock.json` is the first one
 -- so every gate that runs before this one is looking at tracked content and
 never even sees them go missing. This check is WARNING only: unlike a
 tracked file, the worktree guard cannot restore or fetch a missing one
-either, so it can only tell the reader it is gone.
+either, so it can only tell the reader it is gone. A malformed
+`[untracked_essentials]` table is WARNING-only for the same reason: it is
+still not something this guard can repair, so it must not escalate to the
+fail-closed WT014 that `inspect_worktree` raises for an unexpected
+exception.
 """
 
 from __future__ import annotations
@@ -25,17 +29,36 @@ _SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from docsync.declarations import load_untracked_essentials_config  # noqa: E402
+from docsync.declarations import (  # noqa: E402
+    DeclarationError,
+    load_untracked_essentials_config,
+)
 
 
 def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
-    """Return one WT015 WARNING per declared path missing from disk.
+    """Return WT015 WARNINGs for declared untracked-essential files.
 
-    Silent when nothing is declared, and silent for any declared path that
-    is present. Never ERROR: this guard has no way to create or fetch a
-    missing untracked-essential file, so it never blocks on one.
+    One per declared path missing from disk. Silent when nothing is
+    declared, and silent for any declared path that is present. Never
+    ERROR: this guard has no way to create or fetch a missing
+    untracked-essential file, so it never blocks on one. A malformed
+    `[untracked_essentials]` table itself is reported the same way, as a
+    single WT015 WARNING naming the config problem, rather than escaping to
+    `inspect_worktree`'s fail-closed WT014.
     """
-    config = load_untracked_essentials_config(repo_root)
+    try:
+        config = load_untracked_essentials_config(repo_root)
+    except DeclarationError as error:
+        return [
+            issue(
+                "WARNING",
+                "WT015",
+                "config/docsync.toml",
+                f"the [untracked_essentials] declaration could not be read: {error}",
+                "Fix the [untracked_essentials] table; this guard cannot "
+                "check declared paths until it parses.",
+            )
+        ]
     diagnostics: list[Diagnostic] = []
     for relative in config.paths:
         if not (repo_root / relative).is_file():

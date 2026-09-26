@@ -1471,6 +1471,7 @@ def collect_declaration_issues(
     _archive_config(declarations)
     _closeout_config(declarations)
     _documents_config(declarations, repo_root)
+    _untracked_essentials_config(declarations)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot

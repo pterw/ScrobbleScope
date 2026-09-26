@@ -148,6 +148,21 @@ def test_missing_declared_untracked_essential_warns(tmp_path):
     assert "WT015" in codes(diagnostics)
 
 
+def test_malformed_untracked_essentials_table_warns_not_wt014(tmp_path):
+    """CR1: through the public `inspect_worktree` boundary, a malformed
+    [untracked_essentials] table must not collapse the whole result to the
+    fail-closed WT014 -- it stays a WARNING WT015 alongside the normal
+    result."""
+    repo, responses = repository(tmp_path)
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = "skills-lock.json"\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, offline=True, runner=FakeGit(responses))
+    assert "WT014" not in codes(diagnostics)
+    assert "WT015" in codes(diagnostics)
+
+
 @pytest.mark.parametrize(
     ("branch", "counts", "status", "expected"),
     [

@@ -93,6 +93,23 @@ def test_summary_reports_checkout_kind_and_primary_tools(tmp_path, linked):
         assert str(tool) in summary
 
 
+def test_detached_local_reports_wt015_for_a_missing_declared_essential(tmp_path):
+    """CR3: WT015 must also run on the detached-HEAD return path.
+
+    Before the fix, the detached branch returned via `finish_diagnostics`
+    before `essentials_diagnostics` ran, so a declared but missing
+    untracked-essential file never surfaced in a detached (scratch) worktree.
+    """
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, environ={}, runner=FakeGit(responses))
+    assert "WT015" in codes(diagnostics)
+
+
 def test_inspection_accepts_simulated_posix_tool_layout(tmp_path):
     """The public inspection boundary honors a deterministic POSIX topology."""
     repo, responses = repository(tmp_path, linked=True, os_name="posix")
