@@ -48,14 +48,24 @@ from docsync.closeout import (
     render_archived_definition,
     render_batch_index_row,
 )
-from docsync.declarations import load_archive_config, load_closeout_config
+from docsync.declarations import (
+    DECLARATIONS_FILENAME,
+    DocumentsConfig,
+    load_archive_config,
+    load_closeout_config,
+    load_documents_config,
+    load_test_count_config,
+)
 from docsync.integrity import (
+    _FINDINGS_HEADER_END_RE,
+    FINDINGS_HEADER_COUNT_RE,
     LIVE_DOCUMENT_RELATIVE_PATHS,
     SESSION_CONTEXT_RELATIVE_PATH,
     _active_definition_reference,
     _definition_wp_numbers,
     collect_integrity_issues,
     collect_tracked_paths,
+    resolved_live_document_paths,
 )
 from docsync.logic import (
     _merge_entries_into_log,
@@ -72,11 +82,18 @@ from docsync.parser import (
     _parse_entries,
     root_definition_pattern,
 )
-from docsync.renderer import _remove_marker_lines, _trim_trailing_blank
+from docsync.renderer import (
+    _remove_marker_lines,
+    _trim_trailing_blank,
+    rewrite_recorded_counts,
+)
 from docsync.transaction import publish
 
 REPO_ROOT = Path(".")
-PLAYBOOK_PATH = Path("PLAYBOOK.md")
+# Set from --config for the length of one main() invocation, and restored to
+# None in its finally. REPO_ROOT is a true constant with no existing pattern
+# to copy for a value that changes per run.
+CONFIG_PATH: Path | None = None
 ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 # Derived from integrity.py's canonical relative-path strings, not restated:
 # see the comment on LIVE_DOCUMENT_RELATIVE_PATHS there for why that module
@@ -84,12 +101,27 @@ ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(SESSION_CONTEXT_RELATIVE_PATH)
 LOGS_DIR = Path("docs/history/logs")
 DEFINITIONS_DIR = Path("docs/history/definitions")
-FINDINGS_PATH = Path(findings_module.ACTIVE_PATH)
 FINDINGS_ARCHIVE_PATH = Path(findings_module.ARCHIVE_PATH)
 LIVE_DOCUMENT_PATHS = tuple(Path(relative) for relative in LIVE_DOCUMENT_RELATIVE_PATHS)
 
 _BATCH_LOG_RE = re.compile(r"^BATCH(\d+)_LOG\.md$", re.IGNORECASE)
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _batch_filename_candidates(directory: Path, name_re: re.Pattern[str]) -> list[Path]:
+    """Scan a directory listing for BATCH* files, matched the same way everywhere.
+
+    `Path.glob`'s case sensitivity follows the OS (insensitive on Windows,
+    sensitive on POSIX) while every regex this module already filters glob's
+    candidates with (`_BATCH_LOG_RE`, `root_definition_pattern`) is
+    `re.IGNORECASE` -- that mismatch meant a lower-case batch file was visible
+    to discovery on Windows and invisible on Linux (F-DOCSYNC-6); scanning the
+    listing directly with the same regex everywhere makes discovery identical
+    on every platform.
+    """
+    if not directory.is_dir():
+        return []
+    return sorted(path for path in directory.iterdir() if name_re.match(path.name))
 
 
 def _get_batch_log_path(batch_num: int) -> Path:
@@ -100,11 +132,28 @@ def _get_batch_log_path(batch_num: int) -> Path:
 def _check_root_batch_files(root: Path) -> list[str]:
     """Scan root for unarchived BATCH*.md files and return warning strings."""
     warnings = []
-    for f in sorted(root.glob("BATCH*.md")):
+    for f in _batch_filename_candidates(
+        root, re.compile(r"^BATCH.*\.md$", re.IGNORECASE)
+    ):
         warnings.append(
             f"Root BATCH file detected: {f.name} should be archived under docs/history/definitions/."
         )
     return warnings
+
+
+def _documents() -> DocumentsConfig:
+    """Return the document paths declared for this invocation's config file."""
+    return load_documents_config(REPO_ROOT, config_path=CONFIG_PATH)
+
+
+def _declarations_path() -> Path:
+    """Return the declarations file this invocation's config resolves to.
+
+    Mirrors `docsync.declarations.load_declarations`'s own default so a
+    corpus that reads document paths through it can name the file among the
+    sources a publication must prove unchanged (`_Corpus.read_paths`).
+    """
+    return CONFIG_PATH if CONFIG_PATH is not None else REPO_ROOT / DECLARATIONS_FILENAME
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -142,7 +191,7 @@ def _repo_root() -> Path:
 
 def _archive_store() -> ArchiveStore:
     """Build the archive reader/planner from this repository's own thresholds."""
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     return ArchiveStore(_repo_root(), max_lines=config.max_lines)
 
 
@@ -197,7 +246,7 @@ def _read_batch_log_lines(
     issues: list[IntegrityIssue] = []
     if not LOGS_DIR.exists():
         return result, issues
-    for batch_log_path in sorted(LOGS_DIR.glob("BATCH*_LOG.md")):
+    for batch_log_path in _batch_filename_candidates(LOGS_DIR, _BATCH_LOG_RE):
         match = _BATCH_LOG_RE.match(batch_log_path.name)
         if match is None:
             continue
@@ -222,19 +271,26 @@ def _archived_definitions() -> dict[str, list[str]]:
         return {}
     return {
         _repository_relative(path): _read_lines(path)
-        for path in sorted(directory.glob("BATCH*_DEFINITION.md"))
+        for path in _batch_filename_candidates(
+            directory, re.compile(r"^BATCH\d+_DEFINITION\.md$", re.IGNORECASE)
+        )
     }
 
 
 def _read_live_documents() -> dict[str, list[str]]:
     """Load canonical documents, root definitions and archived definitions."""
-    documents = {
-        _repository_relative(path): _read_lines(path) for path in LIVE_DOCUMENT_PATHS
+    live_documents = {
+        _repository_relative(REPO_ROOT / relative): _read_lines(REPO_ROOT / relative)
+        for relative in resolved_live_document_paths(_documents())
     }
-    for definition_path in REPO_ROOT.glob("BATCH*.md"):
-        documents[_repository_relative(definition_path)] = _read_lines(definition_path)
-    documents.update(_archived_definitions())
-    return documents
+    for definition_path in _batch_filename_candidates(
+        REPO_ROOT, re.compile(r"^BATCH.*\.md$", re.IGNORECASE)
+    ):
+        live_documents[_repository_relative(definition_path)] = _read_lines(
+            definition_path
+        )
+    live_documents.update(_archived_definitions())
+    return live_documents
 
 
 def _read_active_planned_wp_numbers(
@@ -281,7 +337,12 @@ class _Corpus:
     def __init__(self, store: ArchiveStore) -> None:
         self.store = store
         self.issues: list[IntegrityIssue] = []
-        self.playbook_lines = _read_lines(PLAYBOOK_PATH)
+        self.declarations_path = _declarations_path()
+        documents = _documents()
+        playbook_path = REPO_ROOT / documents.playbook
+        findings_path = REPO_ROOT / documents.findings
+        self.findings_relative_path = documents.findings
+        self.playbook_lines = _read_lines(playbook_path)
         if not ARCHIVE_PATH.exists():
             raise SyncError(f"Required file is missing: {ARCHIVE_PATH}")
         archive_lines, archive_issue = _archive_lines(store, ARCHIVE_PATH)
@@ -292,7 +353,7 @@ class _Corpus:
         self.batch_log_lines, batch_issues = _read_batch_log_lines(store)
         self.issues.extend(batch_issues)
         self.findings_text = (
-            FINDINGS_PATH.read_text(encoding="utf-8") if FINDINGS_PATH.is_file() else ""
+            findings_path.read_text(encoding="utf-8") if findings_path.is_file() else ""
         )
         self.findings_archive_text, findings_issue = _archive_text(
             store, FINDINGS_ARCHIVE_PATH
@@ -305,7 +366,9 @@ class _Corpus:
     def rotation(self) -> findings_module.FindingRotation:
         """Plan the finding rotation this corpus permits, if any."""
         return findings_module.plan_findings(
-            self.findings_text, self.findings_archive_text
+            self.findings_text,
+            self.findings_archive_text,
+            active_path=self.findings_relative_path,
         )
 
     def read_paths(self) -> list[Path]:
@@ -322,6 +385,7 @@ class _Corpus:
         """
         paths = [REPO_ROOT / relative for relative in self.live_documents]
         paths.append(SESSION_CONTEXT_PATH)
+        paths.append(self.declarations_path)
         paths.extend(_archive_members(ARCHIVE_PATH))
         paths.extend(_archive_members(FINDINGS_ARCHIVE_PATH))
         for batch_num in self.batch_log_lines:
@@ -438,6 +502,76 @@ def _plan_text(path: Path, text: str) -> dict[Path, bytes | None]:
     return _plan_document(path, text.splitlines())
 
 
+#: Where an existing `[test_count]` table's own heading line sits.
+_TEST_COUNT_TABLE_RE = re.compile(r"^\[test_count\]\s*$", re.MULTILINE)
+#: The `pinned =` line inside that table, however it is indented.
+_TEST_COUNT_PINNED_LINE_RE = re.compile(r"^\s*pinned\s*=.*$", re.MULTILINE)
+
+
+def _rewrite_test_count_pin(text: str, count: int) -> str:
+    """Return config/docsync.toml's text with `[test_count]` pinned to count.
+
+    A targeted find-or-append of one line, not a general TOML writer,
+    because the stdlib `tomllib` this repository already relies on is
+    read-only and no new dependency is allowed. Replaces an existing
+    `[test_count]` table's `pinned =` line in place, or inserts one right
+    after the table heading when the table exists but carries no pin yet.
+    Appends a new `[test_count]\\npinned = N\\n` block at the end of the
+    file's text when the table is absent entirely -- never between existing
+    `[[value]]` blocks, since a single-bracket table opens and closes no
+    array scope but a wrong insertion point beside one has bitten this file
+    before (F-DOCSYNC-8's scoping notice).
+    """
+    table_match = _TEST_COUNT_TABLE_RE.search(text)
+    if table_match is None:
+        if not text.strip():
+            return f"[test_count]\npinned = {count}\n"
+        prefix = text if text.endswith("\n") else text + "\n"
+        if not prefix.endswith("\n\n"):
+            prefix += "\n"
+        return f"{prefix}[test_count]\npinned = {count}\n"
+
+    header_end = table_match.end()
+    body_start = (
+        header_end + 1 if text[header_end : header_end + 1] == "\n" else header_end
+    )
+    next_heading = re.search(r"^\[", text[body_start:], re.MULTILINE)
+    body_end = body_start + next_heading.start() if next_heading else len(text)
+    body = text[body_start:body_end]
+
+    pinned_match = _TEST_COUNT_PINNED_LINE_RE.search(body)
+    if pinned_match is not None:
+        new_body = (
+            body[: pinned_match.start()]
+            + f"pinned = {count}"
+            + body[pinned_match.end() :]
+        )
+    else:
+        new_body = f"pinned = {count}\n" + body
+    return text[:body_start] + new_body + text[body_end:]
+
+
+def _rewrite_findings_header_count(text: str, count: int) -> str:
+    """Return FINDINGS.md's text with its header test-count line rewritten.
+
+    Mirrors `_check_findings_header_count`'s own header-boundary rule
+    (`_FINDINGS_HEADER_END_RE`, the first heading line) so the writer and
+    the DOC008 checker agree on where "the header" ends -- a count quoted
+    in running prose below the header is never touched.
+    """
+    lines = text.splitlines()
+    header_end = len(lines)
+    for line_number, line in enumerate(lines, start=1):
+        if line_number > 1 and _FINDINGS_HEADER_END_RE.match(line):
+            header_end = line_number - 1
+            break
+    new_lines = (
+        rewrite_recorded_counts(lines[:header_end], count, [FINDINGS_HEADER_COUNT_RE])
+        + lines[header_end:]
+    )
+    return "\n".join(new_lines) + "\n"
+
+
 def _publish(
     updates: Mapping[Path, bytes | None], expected: Mapping[Path, bytes | None]
 ) -> None:
@@ -451,13 +585,19 @@ def _publish(
 
 
 def _drift_updates(
-    corpus: _Corpus, result, rotation: findings_module.FindingRotation
+    corpus: _Corpus,
+    result,
+    rotation: findings_module.FindingRotation,
+    explicit_test_count: int | None = None,
 ) -> dict[Path, bytes | None]:
     """Return every write the deterministic renderer and rotation would make."""
     store = corpus.store
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
+    documents = _documents()
     updates: dict[Path, bytes | None] = {}
-    updates.update(_plan_document(PLAYBOOK_PATH, result.playbook_lines))
+    updates.update(
+        _plan_document(REPO_ROOT / documents.playbook, result.playbook_lines)
+    )
     updates.update(
         _plan_archive(
             store,
@@ -483,7 +623,7 @@ def _drift_updates(
     ):
         updates.update(_plan_document(SESSION_CONTEXT_PATH, result.session_lines))
     if rotation.rotated_ids:
-        updates.update(_plan_text(FINDINGS_PATH, rotation.active_text))
+        updates.update(_plan_text(REPO_ROOT / documents.findings, rotation.active_text))
         updates.update(
             _plan_archive(
                 store,
@@ -493,6 +633,29 @@ def _drift_updates(
                 paginate=False,
             )
         )
+    if explicit_test_count is not None:
+        # An operator has just asserted the true count with --test-count: pin
+        # it in config/docsync.toml and rewrite the FINDINGS.md header from
+        # it, the two sites SESSION_CONTEXT's rewrite pass above does not
+        # reach. rewrite_recorded_counts already covers the STATUS block, the
+        # Section 1 Tests row and the Section 6 heading inside `_sync` itself.
+        findings_text = (
+            rotation.active_text if rotation.rotated_ids else corpus.findings_text
+        )
+        new_findings_text = _rewrite_findings_header_count(
+            findings_text, explicit_test_count
+        )
+        updates.update(_plan_text(REPO_ROOT / documents.findings, new_findings_text))
+
+        declarations_text = (
+            corpus.declarations_path.read_text(encoding="utf-8")
+            if corpus.declarations_path.is_file()
+            else ""
+        )
+        new_declarations_text = _rewrite_test_count_pin(
+            declarations_text, explicit_test_count
+        )
+        updates.update(_plan_text(corpus.declarations_path, new_declarations_text))
     return updates
 
 
@@ -515,6 +678,7 @@ def _collect_issues(
     rotation: findings_module.FindingRotation,
 ) -> list[IntegrityIssue]:
     """Collect every blocking diagnostic for the corpus as it stands."""
+    documents = _documents()
     return [
         *corpus.issues,
         *rotation.issues,
@@ -528,6 +692,10 @@ def _collect_issues(
             expected_session_lines=result.session_lines,
             tracked_paths=corpus.tracked_paths,
             batch_log_lines=corpus.batch_log_lines,
+            config_path=CONFIG_PATH,
+            document_paths=resolved_live_document_paths(documents),
+            playbook_relative_path=documents.playbook,
+            findings_relative_path=documents.findings,
         ),
     ]
 
@@ -541,8 +709,11 @@ def _report(issues: Sequence[IntegrityIssue]) -> bool:
     return any(issue.severity == "error" for issue in issues)
 
 
-def _sync_corpus(corpus: _Corpus, keep_non_current: int):
+def _sync_corpus(
+    corpus: _Corpus, keep_non_current: int, explicit_test_count: int | None = None
+):
     """Run the deterministic renderer over one already-read corpus."""
+    config = load_test_count_config(REPO_ROOT, config_path=CONFIG_PATH)
     return _sync(
         playbook_lines=corpus.playbook_lines,
         archive_lines=corpus.archive_lines,
@@ -550,6 +721,8 @@ def _sync_corpus(corpus: _Corpus, keep_non_current: int):
         keep_non_current=keep_non_current,
         batch_log_lines=corpus.batch_log_lines,
         planned_wp_numbers=_read_active_planned_wp_numbers(corpus.playbook_lines),
+        pinned=config.pinned,
+        explicit_test_count=explicit_test_count,
     )
 
 
@@ -630,12 +803,17 @@ def _candidate_live_documents(
     ordinary check -- it is a document the gate reads, and a declaration may
     name it.
     """
-    documents = dict(corpus.live_documents)
-    documents.pop(source_relative, None)
-    documents[archived_relative] = archived_lines
-    documents[_repository_relative(PLAYBOOK_PATH)] = playbook_lines
-    documents[_repository_relative(FINDINGS_PATH)] = findings_text.split("\n")
-    return documents
+    document_paths = _documents()
+    live_documents = dict(corpus.live_documents)
+    live_documents.pop(source_relative, None)
+    live_documents[archived_relative] = archived_lines
+    live_documents[_repository_relative(REPO_ROOT / document_paths.playbook)] = (
+        playbook_lines
+    )
+    live_documents[_repository_relative(REPO_ROOT / document_paths.findings)] = (
+        findings_text.split("\n")
+    )
+    return live_documents
 
 
 def _resolve_closed_on(batch: int, archived_relative: str, proposed: str) -> str:
@@ -686,8 +864,9 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         _report(corpus.issues)
         return 1
 
-    config = load_closeout_config(REPO_ROOT)
-    archive_config = load_archive_config(REPO_ROOT)
+    documents = _documents()
+    config = load_closeout_config(REPO_ROOT, config_path=CONFIG_PATH)
+    archive_config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     archived_relative = f"{ARCHIVED_DEFINITIONS_DIR}BATCH{batch}_DEFINITION.md"
     roots = _root_definition_candidates(batch, corpus.tracked_paths)
     source_relative = roots[0] if roots else archived_relative
@@ -705,6 +884,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
             definition_lines=definition_lines,
             tracked_paths=corpus.tracked_paths,
             config=config,
+            playbook_relative_path=documents.playbook,
         ),
         *rotation.issues,
     ]
@@ -732,8 +912,8 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     row = find_batch_index_row(playbook_lines, batch)
     if row is None:
         raise SyncError(
-            f"PLAYBOOK.md has no batch index row for batch {batch} after the "
-            f"close-out checks passed; refusing to publish."
+            f"{documents.playbook} has no batch index row for batch {batch} "
+            f"after the close-out checks passed; refusing to publish."
         )
     playbook_lines[row] = render_batch_index_row(
         playbook_lines[row],
@@ -765,6 +945,10 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         expected_session_lines=result.session_lines,
         tracked_paths=candidate_tracked,
         batch_log_lines=candidate_batch_logs,
+        config_path=CONFIG_PATH,
+        document_paths=resolved_live_document_paths(documents),
+        playbook_relative_path=documents.playbook,
+        findings_relative_path=documents.findings,
     )
     if any(issue.severity == "error" for issue in candidate_issues):
         _report(candidate_issues)
@@ -779,7 +963,9 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     updates.update(_plan_document(REPO_ROOT / archived_relative, archived_lines))
     if source_relative != archived_relative:
         updates[source_path] = None
-    updates.update(_plan_document(PLAYBOOK_PATH, result.playbook_lines))
+    updates.update(
+        _plan_document(REPO_ROOT / documents.playbook, result.playbook_lines)
+    )
     updates.update(
         _plan_archive(
             store,
@@ -802,7 +988,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     if result.session_lines is not None:
         updates.update(_plan_document(SESSION_CONTEXT_PATH, result.session_lines))
     if rotation.rotated_ids:
-        updates.update(_plan_text(FINDINGS_PATH, rotation.active_text))
+        updates.update(_plan_text(REPO_ROOT / documents.findings, rotation.active_text))
         updates.update(
             _plan_archive(
                 store,
@@ -892,7 +1078,7 @@ def _managed_archive_paths() -> list[Path]:
     """Return every archive entry point this repository maintains."""
     paths = [ARCHIVE_PATH, FINDINGS_ARCHIVE_PATH]
     if LOGS_DIR.exists():
-        paths.extend(sorted(LOGS_DIR.glob("BATCH*_LOG.md")))
+        paths.extend(_batch_filename_candidates(LOGS_DIR, _BATCH_LOG_RE))
     return [path for path in paths if path.is_file()]
 
 
@@ -905,7 +1091,7 @@ def _maintain_archives(*, as_of: dt.date | None, label: str) -> int:
     run never ages anything, because neither can drift from the other.
     """
     store = _archive_store()
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     updates: dict[Path, bytes | None] = {}
     sources: list[Path] = []
     issues: list[IntegrityIssue] = []
@@ -1012,171 +1198,214 @@ def _build_parser() -> argparse.ArgumentParser:
         default=4,
         help="How many non-current entries to keep in PLAYBOOK section 4 (default: 4).",
     )
+    parser.add_argument(
+        "--test-count",
+        type=int,
+        metavar="N",
+        help=(
+            "The measured `pytest -q` result. Valid only with --fix: pins N in "
+            "config/docsync.toml's [test_count] table and writes the STATUS "
+            "block, the SESSION_CONTEXT Section 1 Tests row, the Section 6 "
+            "heading and the FINDINGS.md header from it, in one command."
+        ),
+    )
+    parser.add_argument(
+        "--config",
+        metavar="PATH",
+        help=(
+            "Path inside the repository to the declarations file, overriding the default "
+            f"({DECLARATIONS_FILENAME})."
+        ),
+    )
     return parser
 
 
 def main() -> int:
+    global CONFIG_PATH
     parser = _build_parser()
     args = parser.parse_args()
-
-    modes = [
-        args.check,
-        args.fix,
-        args.split_archive,
-        args.close_batch is not None,
-        args.paginate_archives,
-        args.cold_storage,
-    ]
-    if sum(bool(mode) for mode in modes) > 1:
-        print(
-            "Use exactly one mode: --check, --fix, --split-archive, "
-            "--close-batch, --paginate-archives, or --cold-storage.",
-            file=sys.stderr,
-        )
-        return 2
-
-    if not any(modes):
-        print("No mode selected; defaulting to --check.", file=sys.stderr)
-        args.check = True
-
-    if args.keep_non_current < 0:
-        print("--keep-non-current must be >= 0.", file=sys.stderr)
-        return 2
-
-    as_of: dt.date | None = None
-    if args.as_of is not None:
-        if not (args.cold_storage or args.close_batch is not None):
+    previous_config_path = CONFIG_PATH
+    CONFIG_PATH = Path(args.config) if args.config is not None else None
+    try:
+        modes = [
+            args.check,
+            args.fix,
+            args.split_archive,
+            args.close_batch is not None,
+            args.paginate_archives,
+            args.cold_storage,
+        ]
+        if sum(bool(mode) for mode in modes) > 1:
             print(
-                "--as-of only applies to --cold-storage and --close-batch.",
+                "Use exactly one mode: --check, --fix, --split-archive, "
+                "--close-batch, --paginate-archives, or --cold-storage.",
                 file=sys.stderr,
             )
             return 2
+
+        if not any(modes):
+            print("No mode selected; defaulting to --check.", file=sys.stderr)
+            args.check = True
+
+        if args.keep_non_current < 0:
+            print("--keep-non-current must be >= 0.", file=sys.stderr)
+            return 2
+
+        if args.test_count is not None:
+            if not args.fix:
+                print("--test-count requires --fix.", file=sys.stderr)
+                return 2
+            if args.test_count < 0:
+                print("--test-count must be >= 0.", file=sys.stderr)
+                return 2
+
+        as_of: dt.date | None = None
+        if args.as_of is not None:
+            if not (args.cold_storage or args.close_batch is not None):
+                print(
+                    "--as-of only applies to --cold-storage and --close-batch.",
+                    file=sys.stderr,
+                )
+                return 2
+            try:
+                as_of = _parse_as_of(args.as_of)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+        if args.cold_storage and as_of is None:
+            print(
+                "--cold-storage requires --as-of YYYY-MM-DD. Ageing history from "
+                "the wall clock would move files because a day passed, not because "
+                "a maintainer decided to.",
+                file=sys.stderr,
+            )
+            return 2
+
+        # ------------------------------------------------------------------ #
+        # --split-archive mode                                                 #
+        # ------------------------------------------------------------------ #
+        if args.split_archive:
+            try:
+                return _split_archive_mode()
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # Archive maintenance modes                                            #
+        # ------------------------------------------------------------------ #
+        if args.paginate_archives or args.cold_storage:
+            label = "--cold-storage" if args.cold_storage else "--paginate-archives"
+            try:
+                return _maintain_archives(as_of=as_of, label=label)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # --close-batch mode                                                   #
+        # ------------------------------------------------------------------ #
+        if args.close_batch is not None:
+            # The record states when the closure was performed, which is today
+            # unless the operator says otherwise. This is the one place a date is
+            # read from the clock, and it is safe precisely because it decides
+            # nothing: no file moves or ages because of it. Cold storage, which
+            # does move files by date, refuses the clock outright.
+            closed_on = (as_of or dt.date.today()).isoformat()
+            try:
+                return _close_batch(args.close_batch, args.keep_non_current, closed_on)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # --check / --fix modes                                                #
+        # ------------------------------------------------------------------ #
         try:
-            as_of = _parse_as_of(args.as_of)
+            store = _archive_store()
+            corpus = _Corpus(store)
+            # An archive whose pages and index disagree is reported, never acted
+            # on. Planning against it would write the half of the corpus the
+            # reader could still see over the half it could not.
+            if corpus.issues:
+                _report(corpus.issues)
+                return 1
+            result = _sync_corpus(
+                corpus, args.keep_non_current, explicit_test_count=args.test_count
+            )
+            rotation = corpus.rotation()
+            updates = _drift_updates(
+                corpus, result, rotation, explicit_test_count=args.test_count
+            )
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)
             return 2
-    if args.cold_storage and as_of is None:
-        print(
-            "--cold-storage requires --as-of YYYY-MM-DD. Ageing history from "
-            "the wall clock would move files because a day passed, not because "
-            "a maintainer decided to.",
-            file=sys.stderr,
-        )
-        return 2
 
-    # ------------------------------------------------------------------ #
-    # --split-archive mode                                                 #
-    # ------------------------------------------------------------------ #
-    if args.split_archive:
+        if args.check:
+            try:
+                issues = _collect_issues(corpus, result, rotation)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+            blocking = _report(issues)
+            if updates:
+                print("doc_state_sync drift detected:")
+                for path in sorted(updates):
+                    print(f"- {path}")
+                print("Run: python scripts/doc_state_sync.py --fix")
+            if updates or blocking:
+                return 1
+            print(
+                "doc_state_sync check passed "
+                f"(current_batch_entries={result.current_batch_entry_count}, "
+                f"kept_non_current={result.kept_non_current_count}, "
+                f"rotated={result.rotated_count})."
+            )
+            return 0
+
+        # args.fix: publish the deterministic renderer output and the eligible
+        # rotation as one transaction, then validate the resulting disk state.
+        # Semantic integrity issues remain for a human fix, exactly as before:
+        # refusing to repair drift because an unrelated document has a dead
+        # reference would leave the repository with two defects instead of one.
         try:
-            return _split_archive_mode()
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
+            if updates:
+                # See `_close_batch`'s identical comment: `corpus.read_paths()`
+                # covers every live document and every archive's members
+                # (including batch logs that were only read, not rewritten,
+                # in this run) so the staleness check cannot miss a source.
+                _publish(updates, _preimages([*corpus.read_paths(), *updates]))
+                print("doc_state_sync wrote updates:")
+                for path in sorted(updates):
+                    print(f"- {path}")
+            else:
+                print("doc_state_sync --fix found no changes.")
 
-    # ------------------------------------------------------------------ #
-    # Archive maintenance modes                                            #
-    # ------------------------------------------------------------------ #
-    if args.paginate_archives or args.cold_storage:
-        label = "--cold-storage" if args.cold_storage else "--paginate-archives"
-        try:
-            return _maintain_archives(as_of=as_of, label=label)
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
-
-    # ------------------------------------------------------------------ #
-    # --close-batch mode                                                   #
-    # ------------------------------------------------------------------ #
-    if args.close_batch is not None:
-        # The record states when the closure was performed, which is today
-        # unless the operator says otherwise. This is the one place a date is
-        # read from the clock, and it is safe precisely because it decides
-        # nothing: no file moves or ages because of it. Cold storage, which
-        # does move files by date, refuses the clock outright.
-        closed_on = (as_of or dt.date.today()).isoformat()
-        try:
-            return _close_batch(args.close_batch, args.keep_non_current, closed_on)
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
-
-    # ------------------------------------------------------------------ #
-    # --check / --fix modes                                                #
-    # ------------------------------------------------------------------ #
-    try:
-        store = _archive_store()
-        corpus = _Corpus(store)
-        # An archive whose pages and index disagree is reported, never acted
-        # on. Planning against it would write the half of the corpus the
-        # reader could still see over the half it could not.
-        if corpus.issues:
-            _report(corpus.issues)
-            return 1
-        result = _sync_corpus(corpus, args.keep_non_current)
-        rotation = corpus.rotation()
-        updates = _drift_updates(corpus, result, rotation)
-    except SyncError as exc:
-        print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-        return 2
-
-    if args.check:
-        try:
-            issues = _collect_issues(corpus, result, rotation)
+            final_corpus = _Corpus(store)
+            final_result = _sync_corpus(
+                final_corpus, args.keep_non_current, explicit_test_count=args.test_count
+            )
+            final_rotation = final_corpus.rotation()
+            final_updates = _drift_updates(
+                final_corpus,
+                final_result,
+                final_rotation,
+                explicit_test_count=args.test_count,
+            )
+            issues = _collect_issues(final_corpus, final_result, final_rotation)
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)
             return 2
         blocking = _report(issues)
-        if updates:
-            print("doc_state_sync drift detected:")
-            for path in sorted(updates):
-                print(f"- {path}")
-            print("Run: python scripts/doc_state_sync.py --fix")
-        if updates or blocking:
+        if final_updates or blocking:
             return 1
+
         print(
-            "doc_state_sync check passed "
+            "doc_state_sync summary "
             f"(current_batch_entries={result.current_batch_entry_count}, "
             f"kept_non_current={result.kept_non_current_count}, "
             f"rotated={result.rotated_count})."
         )
         return 0
-
-    # args.fix: publish the deterministic renderer output and the eligible
-    # rotation as one transaction, then validate the resulting disk state.
-    # Semantic integrity issues remain for a human fix, exactly as before:
-    # refusing to repair drift because an unrelated document has a dead
-    # reference would leave the repository with two defects instead of one.
-    try:
-        if updates:
-            # See `_close_batch`'s identical comment: `corpus.read_paths()`
-            # covers every live document and every archive's members
-            # (including batch logs that were only read, not rewritten,
-            # in this run) so the staleness check cannot miss a source.
-            _publish(updates, _preimages([*corpus.read_paths(), *updates]))
-            print("doc_state_sync wrote updates:")
-            for path in sorted(updates):
-                print(f"- {path}")
-        else:
-            print("doc_state_sync --fix found no changes.")
-
-        final_corpus = _Corpus(store)
-        final_result = _sync_corpus(final_corpus, args.keep_non_current)
-        final_rotation = final_corpus.rotation()
-        final_updates = _drift_updates(final_corpus, final_result, final_rotation)
-        issues = _collect_issues(final_corpus, final_result, final_rotation)
-    except SyncError as exc:
-        print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-        return 2
-    blocking = _report(issues)
-    if final_updates or blocking:
-        return 1
-
-    print(
-        "doc_state_sync summary "
-        f"(current_batch_entries={result.current_batch_entry_count}, "
-        f"kept_non_current={result.kept_non_current_count}, "
-        f"rotated={result.rotated_count})."
-    )
-    return 0
+    finally:
+        CONFIG_PATH = previous_config_path

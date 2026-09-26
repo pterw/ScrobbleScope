@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1821 passing** across 67 test modules |
+| Tests | **1940 passing** across 75 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -27,21 +27,21 @@ Last updated: 2026-09-20
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
 - Heatmap fetch speed is rate-limit bound; measurement and rationale live in
-  FINDINGS.md F-B18-11 (single source).
+  docs/agents/FINDINGS.md F-B18-11 (single source).
 
 ---
 
 ## 2. Execution status (machine-managed)
 
-`PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
+`docs/agents/PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
 
 <!-- DOCSYNC:STATUS-START -->
-- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
+- Source of truth: PLAYBOOK Section 3 and Section 4.
 - Current batch: Batch 23.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **1821 passed**.
+- Latest validated test count: **1940 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -239,7 +239,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1821 tests)
+## 6. Test structure (1940 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

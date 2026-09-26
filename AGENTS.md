@@ -12,15 +12,15 @@ serve as external memory shared across sessions.
 | File | Role | Contains |
 |------|------|----------|
 | `AGENTS.md` (this file) | **Rules** | How agents must behave. Stable; rarely changes. |
-| `HANDOFF_PROMPT.md` | **Session-start procedure** | Post-read verification steps and the end-of-session handoff checklist. Rules (bootstrap order, gates, commit discipline) live in `AGENTS.md`. |
-| `AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
+| `docs/agents/HANDOFF_PROMPT.md` | **Session-start procedure** | Post-read verification steps and the end-of-session handoff checklist. Rules (bootstrap order, gates, commit discipline) live in `AGENTS.md`. |
+| `docs/agents/AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
-| `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
+| `docs/agents/PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `docs/agents/global-rules.md` | **Architectural invariants** | The global business logic rules every code change must hold: single source of truth, SoC/SRP, the rule-of-three duplication buffer, the anti-corruption layer, KISS, network defence, and deterministic diagnostics. Binding, and each rule states how it is checked. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 | `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
-| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC023 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
+| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC diagnostic catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -31,7 +31,7 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ### Issue tracker
 
-Issues are findings in `FINDINGS.md`, rotating to
+Issues are findings in `docs/agents/FINDINGS.md`, rotating to
 `docs/history/findings/FINDINGS_ARCHIVE.md`. See `docs/agents/issue-tracker.md`.
 
 ### Domain docs
@@ -45,9 +45,30 @@ document. See `docs/agents/domain.md`.
 Units, touch targets, keyboard access, motion and computed-style rules for
 templates and static assets. See `docs/agents/ui-accessibility.md`.
 
+### Global rules
+
+The binding architectural invariants every code change must hold. See
+`docs/agents/global-rules.md`.
+
 ---
 
 ## Session Bootstrap (in order)
+
+1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
+   anti-patterns.
+2. `docs/agents/global-rules.md` -- the binding architectural invariants
+   every code change must hold, and which rule wins when two conflict.
+3. `docs/agents/PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+4. The batch definition file named in Section 3 (repo root while active;
+   under `docs/history/definitions/` once the batch is closed; between
+   batches no file exists -- skip this step).
+5. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
+6. `docs/agents/AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+7. Relevant `docs/history/` doc only if the log references one.
+8. `docs/agents/FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
+   about to raise a defect, or you are reviewing a diff. Raise a known
+   defect again only with new evidence. Not mirrored to GitHub: the
+   `finding` issues are a frozen 2026-08-22 snapshot. Not part of the bootstrap set.
 
 **Fast-path for Copilot comment jobs:** With no direct review-comment link,
 fetch comments first and check for actionable new `@copilot` comments --
@@ -61,23 +82,7 @@ or `discussion_r...` URL: fetch that thread first, work from the linked
 file/lines, and read only the minimum bootstrap/context files needed. Open
 batch definitions or history docs only if the comment depends on them.
 
-1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
-   anti-patterns.
-2. `docs/agents/global-rules.md` -- the binding architectural invariants
-   every code change must hold, and which rule wins when two conflict.
-3. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
-4. The batch definition file named in Section 3 (repo root while active;
-   under `docs/history/definitions/` once the batch is closed; between
-   batches no file exists -- skip this step).
-5. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-6. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
-7. Relevant `docs/history/` doc only if the log references one.
-8. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
-   about to raise a defect, or you are reviewing a diff. Raise a known
-   defect again only with new evidence. Mirrored to GitHub issues (cheaper
-   to search; this file wins if they disagree). Not part of the bootstrap set.
-
-This is the single canonical bootstrap order (`HANDOFF_PROMPT.md` adds only
+This is the single canonical bootstrap order (`docs/agents/HANDOFF_PROMPT.md` adds only
 post-read verification and the edge cases below). Bootstrap is complete when
 the sources agree: during an active batch, PLAYBOOK Section 3, the batch
 definition, and SESSION_CONTEXT Section 1 agree on the current batch and
@@ -90,13 +95,13 @@ When network access is available, run `git fetch --prune origin` then
 and treat its base result as local-ref-only. Stop on a nonzero exit and
 follow the guard's remediation (it is read-only) and the owner-authorization
 rule before any history rewrite; add `--debug` only to diagnose the guard
-itself. See `HANDOFF_PROMPT.md` "Bootstrap edge cases" for the
+itself. See `docs/agents/HANDOFF_PROMPT.md` "Bootstrap edge cases" for the
 expected-not-a-fault states, the WT004 remediation, the stdlib-only
 exception, and the command-conversion rule.
 
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; later sections only if structure, dependency, architecture, test-inventory, or environment detail is needed.
-- Read only Sections 3-4 of `PLAYBOOK.md` by default.
+- Read only Sections 3-4 of `docs/agents/PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
 - When citing repository files in chat, use full filesystem paths. For tool
@@ -126,7 +131,7 @@ correct there.
 API keys live in `.env` (git-ignored; template `.env.example`). Required:
 `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SECRET_KEY`
 (min 16 chars; startup refuses weak values in production). Optional:
-`DATABASE_URL` (Postgres cache) -- see `AGENT_NOTES.md` Local Dev Setup for
+`DATABASE_URL` (Postgres cache) -- see `docs/agents/AGENT_NOTES.md` Local Dev Setup for
 the connection string, the Docker container, the `init_db.py` caveat, and
 `dev_start.py`.
 
@@ -160,19 +165,31 @@ validated -- a gate that runs before the doc update cannot check it, and
 
 1. Update PLAYBOOK Section 3 + Section 4. Batch log entries carry a
    `(Batch N WP-X)` tag in the heading; side-task entries are untagged
-   (see Side-Task Handling).
-2. `python scripts/doc_state_sync.py --fix` -- rotates and refreshes the
-   managed blocks from the text you just wrote.
-3. `pytest -q` -- all tests pass.
-4. `pre-commit run --all-files` -- all hooks pass.
-5. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
-   state (the root `BATCHN_DEFINITION.md` warning is expected while a
-   batch is active).
-6. Stage specific paths by name. **Never `git add -A` or `git add .`** --
+   (see Side-Task Handling). A tagged heading identifies which work package
+   an entry belongs to; only an explicit `**Status:** WP-N complete` line in
+   the entry body marks that package done (F-DOCSYNC-15). A multi-commit
+   work package's earlier commits carry the tag without that line.
+2. `pytest -q` -- all tests pass; measure and note N.
+3. `python scripts/doc_state_sync.py --fix --test-count N` -- rotates and
+   refreshes the managed blocks from the text you just wrote, and pins N
+   in `config/docsync.toml`. Bare `--fix` remains documented for a commit
+   that does not change the count.
+4. Stage specific paths by name. **Never `git add -A` or `git add .`** --
    the prohibition is on the command, since it silently picks up whatever
    else is in the tree, even when every changed file belongs to this WP.
    Stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever it
-   changed; do not leave it modified and unstaged.
+   changed; do not leave it modified and unstaged. Staging now, before
+   `pre-commit run --all-files`, is required: the `tailwind-css-drift` hook
+   rebuilds the compiled stylesheet and diffs it against the index, so an
+   unstaged source edit always reads as drift whether or not the rebuild is
+   correct (F-B21-20).
+5. `pre-commit run --all-files` -- all hooks pass. A hook that rewrites a
+   file, for example `tailwind-css-drift` itself or an auto-formatter,
+   leaves the working tree ahead of the index again; re-stage the paths it
+   touched before the next step.
+6. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
+   state (the root `BATCHN_DEFINITION.md` warning is expected while a
+   batch is active).
 7. Commit after each WP (never batch multiple into one commit). Do not push
    without explicit owner instruction; pause after each commit for review.
    **Standing exception (Claude Code and Codex only, granted 2026-07-31):**
@@ -224,8 +241,10 @@ where that entry goes and how it is tagged:
    top placement keeps it out of the staleness filter and out of the next
    `--fix` run's rotation (`--keep-non-current`, default 4), which would
    otherwise archive a bottom-appended entry as oldest.
-2. Run `doc_state_sync.py --fix`, then update SESSION_CONTEXT Section 1 if
-   test count or project state changed.
+2. Run `doc_state_sync.py --fix --test-count N` (N =
+   the just-measured `pytest -q` result) when the count changed, bare `--fix` otherwise;
+   update SESSION_CONTEXT Section 1's batch-status row by hand if project state changed --
+   the test-count field is rendered, never hand-edited.
 
 ---
 
@@ -258,16 +277,17 @@ dated entries from PLAYBOOK Section 4 into per-batch log files
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
 validates the live document corpus through `docsync.integrity`, which
-returns typed DOC001-DOC024 issues; error-severity ones block, and warnings
+returns typed DOC diagnostic issues; error-severity ones block, and warnings
 print without changing the exit code (full catalogue:
 `docs/architecture/documentation-tooling.md`). Add a declaration
-in `.docsync.toml` when a fact starts living in two places, not after it
+in `config/docsync.toml` when a fact starts living in two places, not after it
 drifts (`F-B21-17` is the tally that motivated this).
 
 ### How to run
 
 ```bash
 python scripts/doc_state_sync.py --fix          # after any Section 4 / SESSION_CONTEXT edit
+python scripts/doc_state_sync.py --fix --test-count N   # after measuring the suite; pins N and writes all four count sites
 pre-commit run --all-files
 python scripts/doc_state_sync.py --fix --keep-non-current 0   # at batch close-out
 ```
@@ -278,7 +298,15 @@ per-batch log files). Exit codes: 0 clean; 1 drift or an integrity error;
 2 malformed input or an invocation error. A commit staging docsync
 control-plane code is refused; the one escape is
 `SKIP=doc-state-sync-check git commit`, never `--no-verify` -- see
-`docs/architecture/documentation-tooling.md`.
+`docs/architecture/documentation-tooling.md`. A staged `config/docsync.toml`
+whose only change is the `[test_count]` pin is not control-plane (owner
+ruling 2026-09-26), so an ordinary `--fix --test-count N` commit runs every
+hook.
+
+Three further operator modes -- `--close-batch`, `--paginate-archives` and
+`--cold-storage` -- are documented in `docs/architecture/documentation-tooling.md`
+under "CLI surface added by the close-out and bounded-archives plan"; see
+that heading for what each does.
 
 ### Integrity diagnostics
 
@@ -287,18 +315,20 @@ both modes; `--fix` writes deterministic output first, then revalidates the
 final disk state rather than guessing how to repair a semantic reference.
 `.claude/SESSION_CONTEXT.md`'s managed block is deterministic sync output,
 so stale content there is blocking; an absent file skips dependent checks.
-The DOC001-DOC023 catalogue and owning modules are in
+The DOC diagnostic catalogue and owning modules are in
 `docs/architecture/documentation-tooling.md`; each WT code is defined by
 the guard module that owns its check, spread across
 `scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.
-**Which test count is authoritative.** The newest full-suite `pytest -q`
-result wins, even from a side-task entry outside the current-batch markers,
-and stays authoritative after rotation archives that entry. It is read in
-one form only -- `` `pytest -q` -- **N passed** ``, nothing between the
-command and the count; put any qualifier after it. Any other wording is
-skipped (DOC012 names the entry). An entry quoting several bold counts
-without a `pytest -q` result reads as unknown rather than deferring to an
-older one.
+**Which test count is authoritative.** `--fix --test-count N` is how a measured count
+enters the corpus: it pins `N` in `config/docsync.toml`'s `[test_count]` table and writes
+the SESSION_CONTEXT STATUS block, the Section 1 `Tests` row, the Section 6 heading and the
+FINDINGS.md header from the same number, in one command. Once a count is pinned, it stays
+authoritative across every later `--fix` (with no `--test-count`) and `--check` --
+Section 4 prose is not re-scanned for it, so a same-date tie or an out-of-position
+correction (F-DOCSYNC-11, F-DOCSYNC-22) can never shadow the true count again. `--check`
+prints a non-blocking DOC025 warning if the single newest dated log entry disagrees with
+the pin. A repository with no pin falls back to the newest full-suite `pytest -q` result
+found in the log, exactly as before.
 
 ### What to update after a WP or side-task commit
 
@@ -309,7 +339,8 @@ recorded decision or a date collision. Then update:
 
 - PLAYBOOK Section 3 + Section 4 (inside markers for batch work, after the
   end marker for side-tasks; see Side-Task Handling).
-- SESSION_CONTEXT Section 1 (test count, batch status) if changed, and
+- SESSION_CONTEXT Section 1's batch-status row by hand if changed (the test-count field is
+  rendered by `--fix --test-count N`, never hand-edited), and
   Sections 3-4 (structure, dependency graph) if modules change.
 - `README.md` for user/developer-visible changes (a batch's dedicated
   README WP may absorb updates from earlier WPs instead).
@@ -335,7 +366,9 @@ When all WPs in the active batch are committed and validated:
    Section 4`) at `docs/history/definitions/BATCHN_DEFINITION.md` and
    `docs/history/logs/BATCHN_LOG.md`; add a new row only if the batch has none.
 4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done. Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
-5. **Run `--fix` again** to refresh the STATUS block.
+5. **Run `--fix --test-count N`** (N = the
+   just-measured `pytest -q` result) if the count changed since step 1's sync, bare `--fix`
+   otherwise, to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` exits 0 with
    no integrity errors (the root BATCH file warning disappears once step 2
    archives the definition).
@@ -443,7 +476,7 @@ Agents must check their work against this list before committing.
 
 ## Finding-Writing Rules
 
-Findings live in `FINDINGS.md` (active) and rotate to
+Findings live in `docs/agents/FINDINGS.md` (active) and rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or a
 findings-cleanup WP; nothing is deleted, so the archive preserves grep
 history.
@@ -452,7 +485,7 @@ history.
    Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
    complete source tags -- extend the list here, never leave a tag
    undocumented: `MAS`, `DOCSYNC`, `AUDIT`, `LOAD`, `SWE`, `WORKTREE`,
-   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in FINDINGS.md.
+   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in `docs/agents/FINDINGS.md`.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when a named audit or session
    produced it.

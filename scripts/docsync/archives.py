@@ -29,8 +29,9 @@ from pathlib import Path
 
 # The thresholds arrive from `declarations`, which owns them because it must
 # also validate and default the `[archives]` table. Importing them here rather
-# than repeating the literals keeps one number in one place: `.docsync.toml`,
-# the default, and these signatures cannot drift apart. The dependency runs
+# than repeating the literals keeps one number in one place:
+# `config/docsync.toml`, the default, and these signatures cannot drift
+# apart. The dependency runs
 # this way, not the reverse, because `declarations` is the lighter module --
 # it reads TOML and text, while this one also needs the transaction layer.
 from docsync.declarations import (

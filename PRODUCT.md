@@ -82,7 +82,7 @@ information architecture.
   Tailwind CSS and daisyUI. Existing behavior must remain stable, and each page
   uses only its assigned framework stylesheet during the transition. The live
   migration status and next action remain owned by `BATCH21_DEFINITION.md` and
-  `PLAYBOOK.md`; this record must not duplicate them.
+  `docs/agents/PLAYBOOK.md`; this record must not duplicate them.
 - The design system is not ready for final extraction. After the migration is
   complete, critique and audit the implemented system, then export the durable
   result. Batch 21 WP-8 owns the final frontend and accessibility audit and
@@ -96,8 +96,8 @@ information architecture.
 - The existing wordmark, inline marks, pinwheel, and favicon family are the
   established brand assets.
 - The dated `docs/design/` snapshot is historical evidence, not current visual
-  authority. Current source, current owner constraints in `AGENT_NOTES.md`, and
-  recent decisions in `PLAYBOOK.md` take precedence.
+  authority. Current source, current owner constraints in `docs/agents/AGENT_NOTES.md`, and
+  recent decisions in `docs/agents/PLAYBOOK.md` take precedence.
 - Product copy addresses the listener as "you," uses sentence case, names
   capabilities in plain language, and avoids invented enthusiasm.
 

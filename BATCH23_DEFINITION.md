@@ -70,6 +70,12 @@ produces the pre-threshold album mapping consumed by
 `partition_albums_by_threshold`; WP-3 partitions it and hands eligible
 albums to the existing machinery.
 
+**Owner rulings, 2026-09-25.** Findings are not mirrored to GitHub:
+`docs/agents/FINDINGS.md` is committed and can be followed there. F-B21-9
+therefore leaves Part C as no action, and the findings/issues sync is not
+built. F-DOCSYNC-22, the same-date count tie inside one source, joins
+Part C's set by amendment.
+
 **Owner rulings, 2026-09-23.** WP-0 prepares the repository for a large
 structural feature. It has three parts. Part A is the behaviour-neutral
 extractions. Part B reconciles what earlier batches left open. Part C
@@ -229,24 +235,34 @@ WP-0 did.
   - if the fix is not there, reopen it and say what is missing.
   Done 2026-09-23: all six fix commits are ancestors of `origin/main`; each
   now carries a canonical `resolved` record and completion date in
-  `FINDINGS.md`.
-- [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- [x] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
   `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
   the archive page target, the DOC range, findings hygiene (pre-split line
   citations, and the defects the 2026-09-21 probe found), the close-out
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
-  still applies.
-- [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
+  still applies. Done 2026-09-24; the plan's checked steps and the dated
+  execution entries record each task's completion.
+- [x] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
+  HANDOFF_PROMPT.md to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
+  to `config/`, per the owner rulings of 2026-09-24. Plan:
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`. `AGENTS.md`, `README.md`,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `DEVELOPMENT.md`, `DEPLOY.md`,
+  `DESIGN.md`, `PRODUCT.md`, `BATCH*_DEFINITION.md`, `fly.toml`, `Dockerfile`, `app.py`,
+  `run.py`, `init_db.py`, and the standard Python config files stay at the root.
+  Done 2026-09-24, with the 2026-09-25 declared-path review fix recorded as
+  F-DOCSYNC-21.
+- [x] **PLAYBOOK Section 3 states only the current work order.** Its Batch
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
-  held nowhere else moves there first.
+  held nowhere else moves there first. Done 2026-09-25; the archival
+  crosswalk is `docs/history/reports/BATCH23_WP0_SECTION3_CROSSWALK_2026-09-25.md`.
 - [x] **Owed from Batch 22, owner actions:** a live run with
   `MUSICBRAINZ_CONTACT` set, and restoring the Spotify credentials that were
   disabled to test the Deezer fallback. An agent cannot do either. WP-0
-  records the outcome of each, or the owner's deferral. Both are done,
-  recorded 2026-09-23 in PLAYBOOK Section 3; the reconcile plan's Q0 answer
-  holds the evidence.
+  records the outcome of each, or the owner's deferral. Both are done; the
+  reconcile plan's Q0 answer holds the evidence.
 - [x] **File the docsync gap this amendment exposed.** A work package cannot
   be marked "in progress": it reads as complete on its first tagged entry.
   Filed at P1, it joins Part C's set. Done 2026-09-23, as F-DOCSYNC-15.
@@ -256,13 +272,16 @@ WP-0 did.
   - No open finding says "pending deploy".
   - Each foundation plan task meets that plan's acceptance, with its
     live-probe table where the plan asks for one.
+  - Every task in the root-cleanup plan meets that plan's acceptance, with its live-probe
+    table where the plan asks for one.
   - Section 3 describes only current work.
   - Each Batch 22 owner item has a recorded outcome or deferral.
 
 #### Part C -- Clear every open P0 and P1 finding
 
-The set is every finding open at P0 or P1 in `FINDINGS.md` on 2026-09-23,
-plus the docsync gap Part B files (F-DOCSYNC-15). That is 38 IDs plus one,
+The set is every finding open at P0 or P1 in `docs/agents/FINDINGS.md` on 2026-09-23,
+plus the docsync gap Part B files (F-DOCSYNC-15) and F-DOCSYNC-22, added by
+owner amendment on 2026-09-25. That is 38 IDs plus two,
 listed so that a finding filed later does not silently join, and a listed one
 does not silently leave:
 

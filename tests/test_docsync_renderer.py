@@ -99,7 +99,11 @@ class TestBuildStatusBlock:
             heading="### 2026-02-20 - Work (Batch 11 WP-1)",
             date="2026-02-20",
             title="Work (Batch 11 WP-1)",
-            lines=("### 2026-02-20 - Work (Batch 11 WP-1)", "Content"),
+            lines=(
+                "### 2026-02-20 - Work (Batch 11 WP-1)",
+                "**Status:** WP-1 complete",
+                "Content",
+            ),
             start_idx=0,
             fingerprint="a",
         )
@@ -107,7 +111,11 @@ class TestBuildStatusBlock:
             heading="### 2026-02-21 - Work (Batch 11 WP-3)",
             date="2026-02-21",
             title="Work (Batch 11 WP-3)",
-            lines=("### 2026-02-21 - Work (Batch 11 WP-3)", "Content"),
+            lines=(
+                "### 2026-02-21 - Work (Batch 11 WP-3)",
+                "**Status:** WP-3 complete",
+                "Content",
+            ),
             start_idx=0,
             fingerprint="b",
         )
@@ -126,7 +134,10 @@ class TestBuildStatusBlock:
                 heading=f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
                 date=f"2026-02-2{wp}",
                 title=f"Work (Batch 11 WP-{wp})",
-                lines=(f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",),
+                lines=(
+                    f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
+                    f"**Status:** WP-{wp} complete",
+                ),
                 start_idx=wp,
                 fingerprint=str(wp),
             )
@@ -152,7 +163,10 @@ class TestBuildStatusBlock:
                 heading=f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
                 date=f"2026-02-2{wp}",
                 title=f"Work (Batch 11 WP-{wp})",
-                lines=(f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",),
+                lines=(
+                    f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
+                    f"**Status:** WP-{wp} complete",
+                ),
                 start_idx=wp,
                 fingerprint=str(wp),
             )
@@ -179,7 +193,10 @@ class TestBuildStatusBlock:
             heading="### 2026-02-20 - Opened (Batch 11 WP-0)",
             date="2026-02-20",
             title="Opened (Batch 11 WP-0)",
-            lines=("### 2026-02-20 - Opened (Batch 11 WP-0)",),
+            lines=(
+                "### 2026-02-20 - Opened (Batch 11 WP-0)",
+                "**Status:** WP-0 complete",
+            ),
             start_idx=0,
             fingerprint="zero",
         )
@@ -241,7 +258,11 @@ class TestBuildStatusBlock:
             heading="### 2026-02-20 - Work (Batch 11 WP-1)",
             date="2026-02-20",
             title="Work (Batch 11 WP-1)",
-            lines=("### 2026-02-20 - Work (Batch 11 WP-1)", "**157 tests passing**"),
+            lines=(
+                "### 2026-02-20 - Work (Batch 11 WP-1)",
+                "**Status:** WP-1 complete",
+                "**157 tests passing**",
+            ),
             start_idx=0,
             fingerprint="a",
         )
@@ -462,6 +483,7 @@ class TestBuildStatusBlockBoundary:
             title="Baseline (Batch 0 WP-1)",
             lines=(
                 "### 2026-01-01 - Baseline (Batch 0 WP-1)",
+                "**Status:** WP-1 complete",
                 "**10 passed**",
             ),
             start_idx=0,
@@ -499,7 +521,7 @@ class TestBuildStatusBlockOpeningState:
         )
 
         assert block == [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             "- Current batch: Batch 23.",
             "- Current-batch entries in active log block: 0.",
             "- Completed work packages in current-batch entries: none.",
@@ -524,7 +546,7 @@ class TestBuildStatusBlockOpeningState:
         block = _build_status_block(state, [], latest_test_count=1717)
 
         assert block == [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             "- Current batch: none (between batches).",
             "- Last completed batch in PLAYBOOK Section 3: Batch 22.",
             "- Next batch definition status: Batch 23 is not yet defined.",
@@ -551,7 +573,10 @@ class TestNextWpNumberCountsWpZero:
             heading="### 2026-09-22 - Opened (Batch 23 WP-0)",
             date="2026-09-22",
             title="Opened (Batch 23 WP-0)",
-            lines=("### 2026-09-22 - Opened (Batch 23 WP-0)",),
+            lines=(
+                "### 2026-09-22 - Opened (Batch 23 WP-0)",
+                "**Status:** WP-0 complete",
+            ),
             start_idx=0,
             fingerprint="zero",
         )
@@ -566,7 +591,10 @@ class TestNextWpNumberCountsWpZero:
             heading="### 2026-09-22 - Opened (Batch 23 WP-0)",
             date="2026-09-22",
             title="Opened (Batch 23 WP-0)",
-            lines=("### 2026-09-22 - Opened (Batch 23 WP-0)",),
+            lines=(
+                "### 2026-09-22 - Opened (Batch 23 WP-0)",
+                "**Status:** WP-0 complete",
+            ),
             start_idx=0,
             fingerprint="zero",
         )

@@ -72,13 +72,13 @@ here:
 
 | Fact | Owner | Also holds a copy |
 |------|-------|-------------------|
-| Open defect status | `FINDINGS.md` | `docs/history/findings/FINDINGS_ARCHIVE.md` keeps the same record under the same F-ID after resolution. The GitHub issue mirror is a convenience index and is not maintained; `FINDINGS.md` wins on any disagreement. |
+| Open defect status | `docs/agents/FINDINGS.md` | `docs/history/findings/FINDINGS_ARCHIVE.md` keeps the same record under the same F-ID after resolution. The GitHub issue mirror is a convenience index and is not maintained; `docs/agents/FINDINGS.md` wins on any disagreement. |
 | System and runtime architecture | `docs/ARCHITECTURE.md` and its `docs/architecture/*.md` diagrams | -- |
 | The visual design system | `docs/design/README.md`, with `docs/design/RECONCILIATION.md` as the override ledger | `DESIGN.md` at the repository root states the same design facts and must be kept declared, not duplicated silently. |
 | Agent rules and session procedure | `AGENTS.md` | -- |
 
 **How this is checked.** `scripts/doc_state_sync.py` re-checks every fact that
-has been declared in `.docsync.toml` -- values that must agree across sites
+has been declared in `config/docsync.toml` -- values that must agree across sites
 (DOC009), citations that must resolve (DOC010), and claims that must not
 survive (DOC011). It cannot discover a new duplicate on its own. When a fact
 starts living in two places, declare it in the same commit that copies it. That

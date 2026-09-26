@@ -106,7 +106,7 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          pytest --cov=scrobblescope --cov-report=xml --cov-fail-under=70
+          pytest -m "not browser" --cov=scrobblescope --cov-report=xml --cov-fail-under=70
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -124,6 +124,7 @@ jobs:
       - name: Run frontend gate
         if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}
         run: |
+          python -m pytest -m browser tests/frontend -q
           python scripts/dev/results_behavior_tests.py
           python scripts/dev/frontend_gate.py
 

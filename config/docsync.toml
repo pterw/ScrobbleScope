@@ -25,6 +25,29 @@
 strikethrough_exempt = true
 
 # ----------------------------------------------------------------------
+# Document locations
+# ----------------------------------------------------------------------
+
+# These four documents moved from the repository root to docs/agents/ (root cleanup,
+# 2026-09-24). AGENTS.md itself is not declared here: it never moves.
+[documents]
+playbook = "docs/agents/PLAYBOOK.md"
+findings = "docs/agents/FINDINGS.md"
+agent_notes = "docs/agents/AGENT_NOTES.md"
+handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"
+
+# ----------------------------------------------------------------------
+# Untracked-essential files
+# ----------------------------------------------------------------------
+
+# Gitignored files the workflow depends on but Git cannot protect
+# (F-B21-25 item 3 of its causes: "what was lost was gitignored"). WARNING
+# only -- the worktree guard cannot create or fetch a missing one, it can
+# only tell the reader it is gone.
+[untracked_essentials]
+paths = ["skills-lock.json"]
+
+# ----------------------------------------------------------------------
 # Archive thresholds
 # ----------------------------------------------------------------------
 
@@ -524,7 +547,7 @@ pattern = 'last (\d+) days'
 expect = "365"
 
 [[value.sites]]
-file = "AGENT_NOTES.md"
+file = "docs/agents/AGENT_NOTES.md"
 pattern = 'last (\d+) days'
 expect = "365"
 
@@ -631,7 +654,7 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # Owner reversed decision 4 on 2026-08-22. The configured Adobe Fonts kit is
 # the type stack and no static/fonts/ directory is coming, but four documents recorded
@@ -644,7 +667,7 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # DOC012 has been enforced since 2026-08-26, but the range that documents the docsync
 # codes drifted twice -- DOC001-DOC006, then DOC001-DOC011 -- and nothing checked it,
@@ -672,7 +695,36 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
-"PLAYBOOK.md" = "## 4. Execution log"
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+
+# Task 5 (2026-09-24) retired the range itself, not just its upper bound: the
+# catalogue's explicit list -- "DOC001-DOC020, DOC023 and DOC024" -- has a gap
+# (DOC021 and DOC022 are reserved by docs/superpowers/plans/
+# 2026-09-12-repository-agnostic-plan-spec-guards.md but not yet raised), so a
+# contiguous "DOC001-DOC023" or "DOC001-DOC024" is false on arrival, the same
+# way the old DOC001-DOC0NN range went stale, and no later renumbering can
+# make either true again. The explicit list never contains either substring
+# (it names "DOC001-DOC020" as its own span, separately from "DOC023" and
+# "DOC024"), so this declaration needs no verb-prefix guard like its DOC011
+# sibling above: the pattern matches the bare literal in either spelling that
+# has shipped -- contiguous `DOC001-DOC023` and backtick-split
+# `DOC001`-`DOC024` -- while leaving the valid `DOC001-DOC020` span alone.
+# docs/superpowers/plans/ is allowed because that plan cites DOC001-DOC022 as
+# a future target for its own Tasks 5-6, not a claim about what the package
+# raises today.
+[[retired]]
+name = "the docsync range is DOC001-DOC023 or DOC001-DOC024"
+reason = "The catalogue states no contiguous range; DOC021/DOC022 are reserved, not raised."
+pattern = '`?DOC001`?-`?DOC02[34]`?'
+scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLAUDE.md"]
+
+# The exemption compares the raw line verbatim (declarations.py
+# check_retired), so it needs docs/agents/PLAYBOOK.md's real heading text. F-DOCSYNC-16
+# records that an unmatched allow_after marker is silently ignored rather
+# than erroring.
+[retired.allow_after]
+"docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
 # ----------------------------------------------------------------------
 # Findings
@@ -694,3 +746,6 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 # empty, and it has. It stays declared so the next repository to adopt this
 # gate starts strict, with somewhere to put its own history.
 grandfathered = []
+
+[test_count]
+pinned = 1940

@@ -1521,6 +1521,17 @@
     if (ramp) ramp.style.backgroundImage = legendGradient();
   }
 
+  // Module top level, not inside DOMContentLoaded: a harness that loads this
+  // file via page.add_script_tag() after the document has already reached
+  // "complete" never sees a later DOMContentLoaded fire. These four
+  // functions are pure, so the seam is safe to expose immediately.
+  window.__scrobbleHeatmapTestHooks = {
+    rocketColor: rocketColor,
+    countToNorm: countToNorm,
+    exportHeaderModel: exportHeaderModel,
+    exportHeaderLayout: exportHeaderLayout,
+  };
+
   document.addEventListener('DOMContentLoaded', function () {
     initPreviewRamp();
     readSavedHeatmap();

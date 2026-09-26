@@ -1,4 +1,11 @@
-# ScrobbleScope -- Your Last.fm Listening Habits Visualized
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/scrobble_scope_lockup_dark.svg">
+    <img alt="ScrobbleScope" src="docs/assets/scrobble_scope_lockup_light.svg" width="420">
+  </picture>
+</h1>
+
+<p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
 
 [![Quality Gate](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml/badge.svg)](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
@@ -294,10 +301,12 @@ module, so the clients stay thin:
 | `enrichment.py` | The provider-neutral album record both metadata providers return |
 | `release_checks.py` | The correction worker: one thread, a FIFO queue of jobs, and the rules for which albums are worth a lookup |
 | `cache.py` | Every asyncpg call, with batch lookups, batch writes and connection retry |
-| `domain.py` | Name normalization -- the keys everything else joins on |
+| `domain.py` | Name normalization -- the keys everything else joins on -- and the release-window rule both the album filter and the correction worker apply |
 | `unmatched.py` | The stable exclusion reason codes and the threshold partition |
 | `spotlight.py` | Artist sampling for the results side rail |
 | `utils.py` | The shared limiters, sessions, retries, caches and formatters described above |
+| `api_logging.py` | One log line per provider call and a per-provider summary when a session closes, attached where `utils.py` builds every session |
+| `config.py` | Provider credentials; the environment-tunable provider rates, concurrency and retries, job and correction caps and cache TTLs, each with its default; and the application's User-Agent |
 | `errors.py` | Classified, user-facing error codes with their retryability |
 
 ## Key Implementation Highlights
@@ -505,10 +514,11 @@ fallback, so the panel has no empty state to design for.
    URL you can be reached at to enable original-release corrections. Never commit `.env` or
    reuse its secret in a public example.
 
-   The tuning variables -- per-provider rate limits and retry counts, the
-   per-job correction cap, and the cache TTLs -- are read from the environment
-   as well. [scrobblescope/config.py](scrobblescope/config.py) owns every name
-   and its default; set one in `.env` only to override it.
+   The tuning variables -- per-provider rate limits, concurrency and retry
+   counts, the active-job and per-job correction caps, and the cache TTLs --
+   are read from the environment as well.
+   [scrobblescope/config.py](scrobblescope/config.py) owns every name and its
+   default; set one in `.env` only to override it.
 
 ### Running the App
 
@@ -610,9 +620,9 @@ The repository includes a Fly.io configuration and Dockerfile. The configured
 release command runs `init_db.py` before deployment to initialize the cache
 schema. Credentials are supplied through deployment secrets.
 
-See [DEPLOY.md](DEPLOY.md) for the deployment procedure, configuration location,
-and validation checklist. Changes to the repository are not automatically a
-release of the live site.
+See [DEPLOY.md](DEPLOY.md) for the deployment commands, the MusicBrainz
+contact setting and where the configuration lives. Changes to the repository
+are not automatically a release of the live site.
 
 ## Current Status & Roadmap
 
@@ -650,6 +660,17 @@ you read, and a corrected row stays where it is, marked, showing the year the
 album first came out. Nothing re-sorts under you; albums that now qualify are
 announced with a reload link. Every finding is cached, including "checked,
 nothing found", so the next reader pays nothing for it.
+
+**Every call to a provider identifies the app and is logged.** Every
+request to Last.fm, Spotify, Deezer and MusicBrainz carries a ScrobbleScope
+User-Agent instead of the HTTP library's anonymous default, which Last.fm
+asks for. Each call writes one log line -- provider, endpoint, status and
+time; debug level for a success, a warning for a 429 or a server error --
+and each provider gets a summary when its session closes, such as
+`MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`: the
+span and the time actually spent waiting differ because calls are throttled
+apart or run in parallel. These lines never carry a query string, a request
+body or an artist or album name.
 
 ### Next: importing a Spotify listening history
 

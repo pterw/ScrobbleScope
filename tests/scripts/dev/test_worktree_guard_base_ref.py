@@ -38,11 +38,19 @@ def test_default_missing_base_preserves_fetch_and_offline_remediation(tmp_path):
             "Verify the local base ref main exists and is current, then rerun the "
             "guard. This guard does not fetch.",
         ),
+        (
+            "origin/bad ref",
+            "Refresh or otherwise verify the selected base ref configured base ref "
+            "exists locally and is current, then rerun the guard. This guard does "
+            "not fetch.",
+        ),
     ],
-    ids=("custom-remote", "local-ref"),
+    ids=("custom-remote", "local-ref", "unsafe-remote-like"),
 )
 def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remediation):
-    """Missing custom and local bases never prescribe the origin remote."""
+    """Missing custom and local bases never prescribe the origin remote, and
+    an unsafe ref never doubles 'base ref' into its own remediation text
+    (F-WORKTREE-3)."""
     repo, responses = repository(tmp_path, base_ref=base_ref)
     responses[("rev-parse", "--verify", f"{base_ref}^{{commit}}")] = fail()
     diagnostics = inspect_worktree(repo, base_ref=base_ref, runner=FakeGit(responses))
@@ -52,7 +60,7 @@ def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remed
 
 def _write_section_three(repo, section_three):
     """Replace the fixture PLAYBOOK with controlled Section 3 content."""
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         f"{section_three}\n\n## 4. Execution log\n",
         encoding="utf-8",

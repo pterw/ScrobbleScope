@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from docsync.closeout import parse_wp_dispositions, render_closeout_record
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.integrity import collect_integrity_issues, collect_tracked_paths
 from docsync.models import SyncError
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
@@ -33,6 +34,8 @@ def _valid_inputs(tmp_path: Path) -> dict[str, object]:
         "<!-- DOCSYNC:CURRENT-BATCH-START -->",
         "",
         "### 2026-08-05 - Current work (Batch 21 WP-0)",
+        "",
+        "**Status:** WP-0 complete.",
         "",
         "Validation: **390 passed**.",
         "",
@@ -548,7 +551,7 @@ def test_definition_label_outside_section_3_is_not_exempt(tmp_path: Path):
     issues = collect_integrity_issues(**inputs)
 
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
-        ("DOC001", "PLAYBOOK.md", 20)
+        ("DOC001", "PLAYBOOK.md", 22)
     ]
 
 
@@ -565,7 +568,7 @@ def test_playbook_reference_after_dated_entry_keeps_original_line_number(
     issues = collect_integrity_issues(**inputs)
 
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
-        ("DOC001", "PLAYBOOK.md", 20)
+        ("DOC001", "PLAYBOOK.md", 22)
     ]
 
 
@@ -859,11 +862,13 @@ def test_doc007_completed_wp_summary_does_not_steal_the_claim(tmp_path: Path):
     avoid.
     """
     inputs = _valid_inputs(tmp_path)
-    # Insert inside the current-batch markers (end marker is at index 15)
+    # Insert inside the current-batch markers (end marker is at index 17)
     # so PLAYBOOK computes WP-2.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-06 - First step done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **400 passed**.",
     ]
@@ -909,9 +914,11 @@ def test_doc007_gap_in_completed_wps_picks_lowest_missing(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
     # Insert WP-2 before the current-batch end marker. Together with the
     # fixture's WP-0, this creates the claimed live gap at WP-1.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-06 - Another step (Batch 21 WP-2)",
+        "",
+        "**Status:** WP-2 complete.",
         "",
         "Validation: `pytest -q` -- **400 passed**.",
     ]
@@ -1315,25 +1322,35 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
     # Insert WP-1 through WP-5 inside the current-batch markers. The fixture
     # already supplies WP-0, so every member of the asserted range is present.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-22 - Preflight done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **690 passed**.",
         "",
         "### 2026-08-23 - Shell done (Batch 21 WP-2)",
         "",
+        "**Status:** WP-2 complete.",
+        "",
         "Validation: `pytest -q` -- **695 passed**.",
         "",
         "### 2026-08-24 - Index done (Batch 21 WP-3)",
+        "",
+        "**Status:** WP-3 complete.",
         "",
         "Validation: `pytest -q` -- **700 passed**.",
         "",
         "### 2026-08-25 - Loading done (Batch 21 WP-4)",
         "",
+        "**Status:** WP-4 complete.",
+        "",
         "Validation: `pytest -q` -- **705 passed**.",
         "",
         "### 2026-08-26 - Leaderboard done (Batch 21 WP-5)",
+        "",
+        "**Status:** WP-5 complete.",
         "",
         "Validation: `pytest -q` -- **710 passed**.",
     ]
@@ -1406,9 +1423,11 @@ def test_doc007_all_planned_wps_reject_stale_numeric_claims(tmp_path: Path):
         6,
         "- **Next action:** **WP-1 is next**: close out the completed batch.",
     )
-    inputs["playbook_lines"][15:15] = [
+    inputs["playbook_lines"][17:17] = [
         "",
         "### 2026-08-24 - Only package done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **704 passed**.",
     ]
@@ -1645,94 +1664,261 @@ def test_doc012_ignores_counts_above_the_execution_log():
     assert _doc012_codes(lines) == []
 
 
-#: The range AGENTS.md states for the docsync codes. Anchored on "returns typed"
-#: so the sentence that *records* the previous range is not read as stating one.
-STATED_RANGE_RE = re.compile(r"returns typed DOC001-(DOC0\d\d) issues")
+# ---------------------------------------------------------------------------
+# Task 8: diagnostics name the document's declared path, not a bare root
+# `PLAYBOOK.md` / `FINDINGS.md`.
+# ---------------------------------------------------------------------------
+
+
+def _inputs_with_document_paths(
+    tmp_path: Path,
+    *,
+    playbook_path: str = "PLAYBOOK.md",
+    findings_path: str = "FINDINGS.md",
+) -> dict[str, object]:
+    """`_valid_inputs`, with the two moved documents declared at custom paths.
+
+    Exercises the keyword paths `collect_integrity_issues` threads down to
+    every diagnostic that used to print a bare `PLAYBOOK.md` or
+    `FINDINGS.md` location regardless of where the document actually lives.
+    """
+    inputs = _valid_inputs(tmp_path)
+    live_documents = inputs["live_documents"]
+    live_documents[playbook_path] = live_documents.pop("PLAYBOOK.md")
+    live_documents[findings_path] = live_documents.pop("FINDINGS.md")
+    live_documents["AGENTS.md"] = [f"See `{findings_path}`."]
+    inputs["playbook_lines"] = live_documents[playbook_path]
+    inputs["tracked_paths"] = (
+        inputs["tracked_paths"] - {"PLAYBOOK.md", "FINDINGS.md"}
+    ) | {playbook_path, findings_path}
+    inputs["playbook_relative_path"] = playbook_path
+    inputs["findings_relative_path"] = findings_path
+    return inputs
+
+
+def test_doc002_missing_definition_reference_uses_declared_playbook_path(
+    tmp_path: Path,
+):
+    """`_active_definition_reference`'s direct diagnostic honours the declared path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["playbook_lines"][4] = "- **Batch 21 is active.**"
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path) for issue in issues] == [
+        ("DOC002", "docs/agents/PLAYBOOK.md")
+    ]
+
+
+def test_doc002_candidate_mismatch_uses_declared_playbook_path(tmp_path: Path):
+    """`collect_integrity_issues`'s own DOC002 site honours the declared path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH21_EXTRA.md"}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path) for issue in issues] == [
+        ("DOC002", "docs/agents/PLAYBOOK.md")
+    ]
+
+
+def test_doc007_section3_claim_uses_declared_playbook_path(tmp_path: Path):
+    """`_check_section3_next_wp` honours the declared playbook path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, playbook_path="docs/agents/PLAYBOOK.md"
+    )
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** **WP-9 is next**: the sweep and close-out work.",
+    )
+
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [issue for issue in issues if issue.code == "DOC007"]
+    assert len(doc007) == 1
+    assert doc007[0].path == "docs/agents/PLAYBOOK.md"
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        [
+            "## 4. Execution log",
+            "",
+            "### 2026-08-26 - a side task",
+            "",
+            "- Validation: `pytest -q` -- 823 passed, all hooks green.",
+        ],
+        [
+            "## 4. Execution log",
+            "### 2026-09-21 - newest",
+            "Validation: `pytest -q`: **1717 passed**.",
+            "### 2026-09-20 - older",
+            "Validation: `pytest -q` -- **1555 passed**.",
+        ],
+        [
+            "## 4. Execution log",
+            "### 2026-09-15 - newest",
+            "Focused: **12 passed**.",
+            "Validation: `pytest -q` -- 1154 passed.",
+            "### 2026-09-14 - older",
+            "Validation: `pytest -q` -- **1153 passed**.",
+        ],
+    ],
+    ids=("unbolded", "unpaired", "unbolded-explicit-claim"),
+)
+def test_doc012_uses_declared_playbook_path(lines):
+    """DOC012's three internal branches all print the declared playbook path."""
+    from docsync.integrity import _check_unbolded_test_counts
+
+    issues = _check_unbolded_test_counts(
+        lines, playbook_relative_path="docs/agents/PLAYBOOK.md"
+    )
+
+    assert issues
+    assert all(issue.path == "docs/agents/PLAYBOOK.md" for issue in issues)
+
+
+def test_doc008_stale_header_uses_declared_findings_path(tmp_path: Path):
+    """DOC008's header-count mismatch honours the declared findings path."""
+    inputs = _inputs_with_document_paths(
+        tmp_path, findings_path="docs/agents/FINDINGS.md"
+    )
+    inputs["live_documents"]["docs/agents/FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC008", "docs/agents/FINDINGS.md", 2)
+    ]
+
+
+#: The catalogue's explicit code list in documentation-tooling.md, e.g.
+#: "DOC001-DOC020, DOC023 and DOC024". Anchored on "returns typed" so the
+#: sentence that *records* a previous, now-retired range is not read as
+#: stating the current one.
+CATALOGUE_SENTENCE_RE = re.compile(r"returns typed (.+?) issues")
+
+#: One DOC code, or a contiguous "DOC0AA-DOC0BB" span, inside the list text.
+_CODE_TOKEN_RE = re.compile(r"DOC0(\d\d)(?:-DOC0(\d\d))?")
 
 #: The repository root, resolved the way the sibling test modules resolve it.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _stated_upper_bound(text: str) -> str:
-    """Return the upper bound of the range AGENTS.md states for the docsync codes."""
-    match = STATED_RANGE_RE.search(text)
-    assert match, "AGENTS.md no longer states the docsync range in the expected form"
-    return match.group(1)
+def _stated_codes(text: str) -> set[str]:
+    """Return the set of DOC codes the catalogue's explicit list states.
+
+    Parses both a single code and a "DOC0AA-DOC0BB" span into every code it
+    covers. Backticks (`DOC001`-`DOC024` vs plain DOC001-DOC024) are stripped
+    before parsing so either shipped spelling reads the same. Fails loudly,
+    never silently passing, when the sentence itself cannot be found -- the
+    same contract `_stated_upper_bound` held before this task.
+    """
+    match = CATALOGUE_SENTENCE_RE.search(text.replace("`", ""))
+    assert match, (
+        "documentation-tooling.md no longer states the DOC catalogue list "
+        "in the expected form"
+    )
+    tokens = _CODE_TOKEN_RE.findall(match.group(1))
+    assert tokens, "the catalogue sentence names no DOC codes"
+    codes: set[str] = set()
+    for lo, hi in tokens:
+        if hi:
+            codes.update(f"DOC0{n:02d}" for n in range(int(lo), int(hi) + 1))
+        else:
+            codes.add(f"DOC0{lo}")
+    return codes
 
 
-def _raised_upper_bound(sources: list[str]) -> str:
-    """Return the highest docsync code literal raised across the given sources."""
+def _raised_codes(sources: list[str]) -> set[str]:
+    """Return every docsync code literal raised across the given sources."""
     codes = {code for text in sources for code in re.findall(r'"(DOC0\d\d)"', text)}
     assert codes, "no docsync code literals found in the scanned sources"
-    return max(codes)
+    return codes
 
 
-def _ranges_agree(text: str, sources: list[str]) -> bool:
-    """Return whether the stated range equals the highest code the sources raise.
+def _catalogue_matches_raised_codes(text: str, sources: list[str]) -> bool:
+    """Return whether the stated list equals the set of codes the sources raise.
 
     Both tests below assert through this one predicate, so the corpus check and
     the proof of its failure mode exercise the same comparison. Asserting the
     two helpers separately would let a later edit change one comparison while
     the proof went on testing another.
     """
-    return _stated_upper_bound(text) == _raised_upper_bound(sources)
+    return _stated_codes(text) == _raised_codes(sources)
 
 
-def test_stated_docsync_range_matches_the_highest_code_raised():
-    """The documented range must equal the highest code the package raises.
+def test_stated_docsync_catalogue_matches_the_codes_raised():
+    """The documented catalogue list must equal the codes the package raises.
 
-    The mutation this defends against is the drift that actually happened: the
-    stated upper bound stayed at DOC011 while `scripts/docsync/integrity.py` had
-    raised DOC012 since 2026-08-26. Its next instance is DOC013 -- added to the
-    package without the documentation following.
+    The mutation this defends against is the drift that actually happened: a
+    stated *range* (DOC001-DOC0NN) implies every code in between is raised,
+    which stopped being true once DOC021 and DOC022 were reserved
+    (docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md)
+    without being raised. Comparing sets rather than upper bounds catches that
+    gap; comparing only the maximum would not.
 
-    Guard A cannot catch either. The `[[retired]]` declaration guards the stale
-    *wording*, so a document that states a range which is merely behind the
-    code, in fresh wording, passes it. This comparison is the only check on the
+    Guard A (`[[retired]]`) cannot catch either drift: it guards stale
+    *wording*, so a document that states a list merely behind the code, in
+    fresh wording, passes it. This comparison is the only check on the
     authoritative statement itself.
     """
-    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    catalogue = (
+        REPO_ROOT / "docs" / "architecture" / "documentation-tooling.md"
+    ).read_text(encoding="utf-8")
     sources = [
         path.read_text(encoding="utf-8")
         for path in sorted((REPO_ROOT / "scripts" / "docsync").glob("*.py"))
     ]
 
-    assert _ranges_agree(agents, sources) is True
+    assert _catalogue_matches_raised_codes(catalogue, sources) is True
 
 
-def test_stated_range_helper_rejects_a_stale_range():
+def test_stated_catalogue_helper_rejects_a_mismatched_list():
     """Show the comparison above can fail, so it is not a vacuous assertion.
 
-    Two failure modes, both asserted through the same predicate the corpus test
-    uses. The first is the drift that happened: a document still stating the
-    retired range while the package raises `DOC012`. The second is the case this
-    guard exists for -- a `DOC013` added to the package while the authoritative
-    statement still ends at `DOC012` -- and it is asserted against the real
-    `AGENTS.md` text, so it fails for exactly the reason the next drift would.
-    Without these proofs the corpus test passes even if both helpers were
-    reduced to returning the same constant, which is the failure the
-    repository's test-quality rule forbids: an assertion whose failure mode was
-    never observed.
+    Two failure modes, both asserted through the same predicate the corpus
+    test uses, and both against the real catalogue sentence in
+    `documentation-tooling.md` (mutated in place) rather than a synthetic
+    fixture, so the proof exercises the same parsing the corpus test relies
+    on. Without these proofs the corpus test would pass even if both helpers
+    were reduced to returning the same constant, which is the failure the
+    repository's test-quality rule forbids: an assertion whose failure mode
+    was never observed.
     """
-    # The retired range is assembled at runtime rather than written as a
-    # literal. This fixture is the document-shaped claim that guard A's
-    # declaration retires, and it sits outside that declaration's `scan` list
-    # only because the list names no Python file: widening `scan` to include
-    # this module would otherwise make guard A fail on the fixture that proves
-    # it works.
-    retired_range = "DOC001-DOC" + "011"
-    stale_document = (
-        f"which returns typed {retired_range} issues that block rather than warn."
-    )
-    current_source = ['issues.append(_issue("DOC012", rel_path, line, "x"))']
-    assert _ranges_agree(stale_document, current_source) is False
-
-    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    future_source = [
-        'issues.append(_issue("DOC012", rel_path, line, "x"))',
-        'issues.append(_issue("DOC013", rel_path, line, "x"))',
+    catalogue = (
+        REPO_ROOT / "docs" / "architecture" / "documentation-tooling.md"
+    ).read_text(encoding="utf-8")
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted((REPO_ROOT / "scripts" / "docsync").glob("*.py"))
     ]
-    assert _ranges_agree(agents, future_source) is False
+
+    # (a) a code raised but not listed: drop DOC024 from the stated list while
+    # `scripts/docsync/archives.py` still raises it.
+    dropped_doc024 = catalogue.replace(
+        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
+        "DOC001`-`DOC020`, `DOC023` and `DOC025",
+    )
+    assert dropped_doc024 != catalogue, "fixture no longer matches the real sentence"
+    assert _catalogue_matches_raised_codes(dropped_doc024, sources) is False
+
+    # (b) a code listed but not raised: add DOC021 to the stated list. It is
+    # reserved by the spec-guards plan above but no source raises it yet.
+    added_doc021 = catalogue.replace(
+        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
+        "DOC001`-`DOC021`, `DOC023`, `DOC024` and `DOC025",
+    )
+    assert added_doc021 != catalogue, "fixture no longer matches the real sentence"
+    assert _catalogue_matches_raised_codes(added_doc021, sources) is False
 
 
 # ---------------------------------------------------------------------------
@@ -1742,7 +1928,9 @@ def test_stated_range_helper_rejects_a_stale_range():
 
 def _write_closeout_boundary(tmp_path: Path, admit_from_batch: int) -> None:
     """Configure the [closeout] admission boundary for one integrity run."""
-    tmp_path.joinpath(".docsync.toml").write_text(
+    declarations_path = tmp_path.joinpath(DECLARATIONS_FILENAME)
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         f"[closeout]\nadmit_from_batch = {admit_from_batch}\n",
         encoding="utf-8",
     )
@@ -1829,7 +2017,7 @@ class TestClosedBatchGate:
     def test_fenced_batch_claim_does_not_reach_the_gate(self, tmp_path: Path):
         """A claim inside a fenced example is sample text, not a live claim.
 
-        No `.docsync.toml` is written, so the default boundary sits at its
+        No declarations file is written, so the default boundary sits at its
         strictest end -- every claimed-closed batch would be managed. The
         claim below is fenced out of the prose scan, so it must not be
         evaluated at all.
@@ -1878,7 +2066,9 @@ def test_doc023_reaches_the_gate_through_the_live_findings_document(tmp_path: Pa
 def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
     """The declared list is read from the repository under check."""
     inputs = _valid_inputs(tmp_path)
-    (tmp_path / ".docsync.toml").write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         '[findings]\ngrandfathered = ["F-B21-9"]\n', encoding="utf-8"
     )
     inputs["live_documents"]["FINDINGS.md"] = [
@@ -1896,3 +2086,257 @@ def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
 
     assert [issue.severity for issue in rot] == ["warning"]
     assert rot[0].remediation.startswith("1 grandfathered")
+
+
+# ---------------------------------------------------------------------------
+# [documents] -- resolved_live_document_paths (Batch 23 WP-0 Task 2)
+# ---------------------------------------------------------------------------
+
+
+def test_resolved_live_document_paths_matches_the_default_tuple_by_default():
+    from docsync.declarations import DocumentsConfig
+    from docsync.integrity import (
+        LIVE_DOCUMENT_RELATIVE_PATHS,
+        resolved_live_document_paths,
+    )
+
+    assert (
+        resolved_live_document_paths(DocumentsConfig()) == LIVE_DOCUMENT_RELATIVE_PATHS
+    )
+
+
+def test_resolved_live_document_paths_honours_an_override():
+    from docsync.declarations import DocumentsConfig
+    from docsync.integrity import resolved_live_document_paths
+
+    documents = DocumentsConfig(playbook="docs/agents/PLAYBOOK.md")
+    resolved = resolved_live_document_paths(documents)
+    assert "docs/agents/PLAYBOOK.md" in resolved
+    assert "PLAYBOOK.md" not in resolved
+
+
+def test_collect_integrity_issues_scans_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """DOC001's scan set honours `document_paths`, not the default literal.
+
+    Proves only the `documents_to_scan = set(document_paths)` substitution
+    (`scripts/docsync/integrity.py`): with `document_paths=("docs/agents/
+    PLAYBOOK.md",)`, a dead reference living under that path is found even
+    though it is not named in the default `LIVE_DOCUMENT_RELATIVE_PATHS`
+    tuple at all -- so a moved document does not silently drop out of the
+    scan. It does NOT exercise either `path == playbook_relative_path`
+    comparison in the same function: in this fixture
+    `_playbook_lines_without_entry_blocks` returns `playbook_lines`
+    byte-for-byte unchanged (no dated Section 4 entry exists to blank) and
+    `definition_line` is `None` (Section 3 declares no active batch), so
+    both sites are inert here regardless of which side of the comparison
+    wins -- confirmed by scratch-copy mutation (see the fix-round-1 report
+    section). `test_playbook_entry_block_reference_is_blanked_under_an_
+    overridden_playbook_path` and `test_definition_line_skip_is_honoured_
+    under_an_overridden_playbook_path` below cover those two comparisons.
+
+    Deviation from the brief's literal snippet (sdd-implementer precedence
+    rule "brief and reality disagree"): `collect_integrity_issues` scans the
+    document named `playbook_relative_path` from the *structural*
+    `playbook_lines` argument via `_playbook_lines_without_entry_blocks`
+    (`scripts/docsync/integrity.py`), which itself requires `playbook_lines`
+    to carry real "## 3. Active batch" and "## 4. Execution log" headings
+    (`_find_section`, `scripts/docsync/parser.py`) or it raises `SyncError`
+    -- a pre-existing requirement this task's kwargs do not change and Task 8
+    is the one that threads the declared path further in. The brief's bare
+    one-line `playbook_lines` triggers that unrelated `SyncError` rather than
+    proving the DOC001 rescan; this version gives `playbook_lines` the
+    minimal real structure so the same assertion exercises the actual
+    kwarg-driven behaviour. `repo_root=Path(".")` is likewise replaced with
+    `tmp_path` (no declarations file there) so this unit test does not depend
+    on this repository's own declarations file.
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    playbook_lines = [
+        "## 3. Active batch",
+        "",
+        "## 4. Execution log",
+        "",
+        "See `NOWHERE.md` for detail.",
+    ]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        live_documents={"docs/agents/PLAYBOOK.md": playbook_lines},
+        playbook_lines=playbook_lines,
+        archive_lines=[],
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=frozenset({"AGENTS.md"}),
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+    assert any(
+        issue.code == "DOC001" and issue.path == "docs/agents/PLAYBOOK.md"
+        for issue in issues
+    )
+
+
+def test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """The `path == playbook_relative_path` scan-source comparison is load-bearing.
+
+    Mirrors `test_playbook_reference_after_dated_entry_keeps_original_line_number`
+    (dated Section 4 history is skipped for DOC001) and
+    `test_definition_label_outside_section_3_is_not_exempt` (only the
+    resolved declaration is exempt, not other sections), but at an
+    overridden `playbook_relative_path` instead of the default literal.
+
+    A dead reference inside a dated Section 4 entry must NOT be reported
+    (entry-block history is point-in-time and blanked before the scan, the
+    same as it is at the default path); the same dead reference outside any
+    entry block, in Section 3, MUST be reported at the overridden path.
+    `live_documents[playbook_relative_path]` is set to the raw,
+    still-entry-block-bearing `playbook_lines` (not the pre-blanked form),
+    so the two behave identically only when `collect_integrity_issues`
+    itself selects `_playbook_lines_without_entry_blocks(playbook_lines)`
+    for this path -- if the `path == playbook_relative_path` comparison
+    that makes that selection were reverted to the hardcoded `"PLAYBOOK.md"`
+    literal, `scan_lines` would instead be this raw, unblanked
+    `live_documents` entry and the entry-block reference would also be
+    reported, changing one DOC001 into two. Proven by scratch-copy mutation
+    (see the fix-round-1 report section).
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    playbook_lines = [
+        "## 3. Active batch",  # 1
+        "",  # 2
+        "See `NOWHERE.md` for detail.",  # 3 -- outside any entry block: reported
+        "",  # 4
+        "## 4. Execution log",  # 5
+        "",  # 6
+        "### 2026-09-24 - Some heading",  # 7 -- dated entry starts
+        "",  # 8
+        "See `NOWHERE.md` too.",  # 9 -- inside the entry block: blanked, not reported
+        "",  # 10
+    ]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        # Raw, unblanked copy: only correct if collect_integrity_issues itself
+        # re-derives the blanked form from `playbook_lines` for this path.
+        live_documents={"docs/agents/PLAYBOOK.md": playbook_lines},
+        playbook_lines=playbook_lines,
+        archive_lines=list(SIDE_ARCHIVE_PREFIX),
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=frozenset({"AGENTS.md"}),
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC001", "docs/agents/PLAYBOOK.md", 3)
+    ]
+
+
+def test_definition_line_skip_is_honoured_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """The `path == playbook_relative_path` definition-line skip is load-bearing.
+
+    Mirrors `test_untracked_active_definition_is_blocking`: an untracked
+    active-batch definition reference is reported as DOC002 (its own
+    diagnostic), and the same reference must NOT *also* be reported as a
+    generic DOC001 dead reference -- that double-report is exactly what the
+    `path == playbook_relative_path and line == definition_line and
+    reference == definition_path` skip exists to prevent. This is the same
+    fixture as that test, with the playbook moved to an overridden
+    `playbook_relative_path`/`document_paths` instead of the default. If the
+    skip's path comparison were reverted to the hardcoded `"PLAYBOOK.md"`
+    literal, it would never match this fixture's real (overridden) path, the
+    skip would never fire, and the untracked definition reference would be
+    reported twice (DOC002 and DOC001) instead of once. Proven by
+    scratch-copy mutation (see the fix-round-1 report section).
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    inputs = _valid_inputs(tmp_path)
+    playbook_lines = inputs["playbook_lines"]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        live_documents={
+            "docs/agents/PLAYBOOK.md": playbook_lines,
+            "BATCH21_DEFINITION.md": inputs["live_documents"]["BATCH21_DEFINITION.md"],
+        },
+        playbook_lines=playbook_lines,
+        archive_lines=inputs["archive_lines"],
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=inputs["tracked_paths"] - {"BATCH21_DEFINITION.md"},
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "docs/agents/PLAYBOOK.md", 5)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# DOC025 -- a pin disagreeing with the sole newest-dated entry (Task 1,
+# F-DOCSYNC-11/-12/-13/-22, Q1 ruling 2026-09-25)
+# ---------------------------------------------------------------------------
+
+
+def test_pin_disagreeing_with_the_sole_newest_entry_warns(tmp_path: Path):
+    """_valid_inputs's one entry reads `Validation: **390 passed**.` -- no
+    `pytest -q` text -- so this only fires if the helper's legacy-fallback
+    pass actually parses it to 390 and compares that against the pin."""
+    inputs = _valid_inputs(tmp_path)
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 400\n", encoding="utf-8")
+
+    issues = [i for i in collect_integrity_issues(**inputs) if i.code == "DOC025"]
+
+    assert len(issues) == 1
+    assert issues[0].severity == "warning"
+
+
+def test_pin_agreeing_with_the_sole_newest_entry_is_silent(tmp_path: Path):
+    """Silent because 390 was parsed (via the legacy fallback pass -- this
+    fixture has no `pytest -q` text) and matches the pin, not because
+    nothing parsed: test_pin_disagreeing_with_the_sole_newest_entry_warns
+    uses this identical fixture shape and requires the same parse to
+    succeed for DOC025 to fire there, so a helper that silently failed to
+    parse anything would fail that test, not this one."""
+    inputs = _valid_inputs(tmp_path)
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 390\n", encoding="utf-8")
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]
+
+
+def test_a_same_date_tie_stays_silent(tmp_path: Path):
+    """F-DOCSYNC-22 shape: two entries share the newest date, so DOC025
+    never pushes anyone to reorder them (Q1 ruling)."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-05 - A second same-date entry",
+            "",
+            "Validation: **500 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 400\n", encoding="utf-8")
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]
+
+
+def test_no_pin_is_silent(tmp_path: Path):
+    inputs = _valid_inputs(tmp_path)
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]

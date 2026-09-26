@@ -1,8 +1,10 @@
 # Constraints for every task dispatched from an SDD workspace (cloud kit)
 
-Plan: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, Tasks 5-10
-(Track 2). This is the Linux, cloud-session form of the local workspace's
-`constraints.md` as it stood on 2026-09-24 (HEAD `cae2aa8`). To use it, copy it
+Plans: `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md` and
+`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`; `docs/agents/PLAYBOOK.md`
+Section 3 says which task is next. This is the Linux, cloud-session form of
+the local workspace's `constraints.md`, first cut on 2026-09-24 (HEAD
+`cae2aa8`) and revised after the first cloud session. To use it, copy it
 into a new workspace as `constraints.md` (see
 `docs/history/reports/HANDOFF_2026-09-24.md`). It is shared by every implementer
 and reviewer. Re-read it at the start of every task: the Lessons section at the
@@ -25,7 +27,7 @@ make the dashboard say WP-1 is next while WP-0 is still in progress.
 Therefore:
 
 - Each task's entry is an **untagged side-task entry**, placed **directly
-  after** the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker in `PLAYBOOK.md`
+  after** the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker in `docs/agents/PLAYBOOK.md`
   Section 4 (top of the non-current list; `AGENTS.md` "Side-Task Handling").
   Anchor the insertion on the whole marker *line*: PLAYBOOK repeats the
   marker text inside a backticked list a few lines above, and a bare string
@@ -43,18 +45,19 @@ only the progress text inside that bullet, e.g. its numbered order list:
 mark the step that landed. Do not write "WP-1" anywhere in Section 3, the
 definition or SESSION_CONTEXT.
 
-**R3 -- test count.** Baseline **1821 passed** (measured 2026-09-24, HEAD
-`cae2aa8`; re-measure at your BASE -- an earlier task may have raised it). A task that adds tests must also update the count
+**R3 -- test count.** The baseline is the `Tests` row of
+`.claude/SESSION_CONTEXT.md` Section 1; re-measure it at your BASE, since an
+earlier task may have raised it. A task that adds tests must also update the count
 sites docsync names (DOC006, DOC008): `.claude/SESSION_CONTEXT.md` Section 1
 `Tests` row, its `## 6. Test structure (N tests)` heading, and the
-`FINDINGS.md` header count. A task that adds no test changes none of them.
+`docs/agents/FINDINGS.md` header count. A task that adds no test changes none of them.
 
 **R4 -- how to measure and quote the count.** Run the full suite with the
 `suite` gate's command in section 2b (the one copy of it). Quote the result
 in exactly this form, qualifier *after* the count:
 
 ```
-Validation: `pytest -q` -- **1821 passed**.
+Validation: `pytest -q` -- **N passed**.
 ```
 
 Nothing but ` -- ` may sit between `` `pytest -q` `` and the bold count
@@ -73,7 +76,7 @@ clone lacks `origin/main` or `origin/test`: run `git fetch origin main test`.
 
 **R7 -- docsync control plane.** A task that stages anything under
 `scripts/docsync/`, `scripts/doc_state_sync.py`,
-`scripts/dev/docsync_preflight.py` or `.docsync.toml` is refused by the
+`scripts/dev/docsync_preflight.py` or `config/docsync.toml` is refused by the
 preflight (exit 3) by design: run `doc_state_sync.py --check` at exit 0
 first, then commit with `SKIP=doc-state-sync-check git commit ...`. Any
 other task must commit with every hook. `--no-verify` is forbidden outright.
@@ -97,9 +100,9 @@ the files your brief names. Throwaway probe or scratch copies go under
 **R11 -- ASCII only** in every file you write, including the PLAYBOOK entry
 and the commit message: `--` not an em dash, straight quotes only.
 
-**R12 -- Track 2 specifics (foundation Tasks 4-10).**
+**R12 -- Plan-task specifics (foundation Tasks 4-10, root-cleanup Tasks 0-8).**
 
-- **Live probe for every task that changes a check** (Tasks 4, 5 and 8):
+- **Live probe for every task its plan's verification standard names**:
   follow the plan's "The verification standard for control-plane tasks"
   exactly -- throwaway corpus at `/tmp/ssprobe` from `git archive HEAD`,
   faithful-copy check, red, near-miss green, reset between probes, the probe
@@ -120,10 +123,11 @@ and the commit message: `--` not an em dash, straight quotes only.
   unless your brief says so and says why; name any such test in the commit
   body.
 - **Section 3:** in the "Next action" order list, step 3 is "The foundation
-  plan's Tasks 4-10"; record your task's progress there, keeping
+  plan's Tasks 4-10", and the root cleanup's progress sits at that item's
+  end; record your task's progress there, keeping
   `WP-0 is next.` exactly (R2).
-- **Plan bookkeeping:** tick your task's step checkboxes in the foundation
-  plan, and stage the plan.
+- **Plan bookkeeping:** tick your task's step checkboxes in its plan, and
+  stage the plan.
 - **Ledger:** this workspace's `progress.md` is the controller's; do not
   edit it.
 
@@ -171,7 +175,7 @@ plan's workspace:
   DOC001 until it is staged (`git add` it before `--check`).
 - L3 (after Task 2): the Task 2 entry's first heading read "WP-0 Part A Task 2: ..." and took a fix
   round. Write the heading as plain words, e.g. `### 2026-09-23 - The release-window rule moves to
-  domain`. Check it with `grep -n "^### .*WP-[0-9]" PLAYBOOK.md` before committing: that must print
+  domain`. Check it with `grep -n "^### .*WP-[0-9]" docs/agents/PLAYBOOK.md` before committing: that must print
   nothing for your entry.
 - L5 (after reconcile Task 1) -- OVERRIDES the plan's "Resolving a finding" template. The gate
   accepts only the bare outcome: the status line is exactly `- [x] **Status:** resolved` (or
@@ -199,3 +203,16 @@ plan's workspace:
   (`git stash create` leaves the shared stash list untouched).
 - L10 (2026-09-24): a gate-runner once replied in prose and wrote no logs.
   Record its verdict only after checking that LOG_DIR holds one log per gate.
+- L11 (after foundation Task 5): the first Task 5 commit ticked none of its
+  plan checkboxes, and neither the review nor the controller noticed; the
+  owner did. Before recording a task done, check its `- [x]` boxes in the
+  plan and that the plan is staged (R12 "Plan bookkeeping").
+- L12 (after foundation Task 5): Task 5 took three review rounds, each finding
+  a stale copy of a fact the previous round had changed (a code comment, a
+  finding filed under the wrong priority heading, a table row in
+  `DEVELOPMENT.md`). Ask the FIRST review to sweep the whole task range
+  (`BASE..HEAD`) for every fact the task changes, in every spelling, and
+  name the paths it exempts as point-in-time.
+- L13 (after foundation Task 5): a gate-runner summary once listed a
+  `WARNING WT023` as expected output; no log contained it. Every code a
+  summary quotes must be found in LOG_DIR before its verdict is recorded.

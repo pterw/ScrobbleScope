@@ -1705,14 +1705,16 @@ Each of these is its own plan, written once the rulings are in, so its code matc
 
 1. **Control-plane plan.** It runs after the foundation plan's Tasks 4-10.
    - **F-DOCSYNC-11, -12 and -13** (one task, per Q3), which must land before anything else that
-     touches `latest_test_count_authority`.
+     touches `latest_test_count_authority`. F-DOCSYNC-22 joins this task (owner amendment,
+     2026-09-25): its test is a corrected count in an older same-date entry.
    - **F-DOCSYNC-7 together with F-MAS-3** (one commit: repoint `TestLatestTestCount`, then split the
      file).
    - **The new work-package finding** (Q4).
    - **F-DOCSYNC-6's two mechanical items**: exit 2 on an outside-root path, and case-consistent
      `BATCH*` discovery.
    - **F-WORKTREE-3's two bugs**: WT010 on a detached, dirty worktree, and the doubled base-ref label.
-   - **F-B21-20** (Q5), **F-B21-25 items 1-2** and **F-B21-9** (Q15).
+   - **F-B21-20** (Q5) and **F-B21-25 items 1-2** (Q15). F-B21-9 left the set as no action by
+     owner ruling on 2026-09-25: findings are not mirrored to GitHub, so the Q15 sync is not built.
    Every change to a check is accepted only on a live probe: red on the planted defect, green on its
    near miss.
 2. **Frontend plan.** It must precede WP-5, which rebuilds the index form.

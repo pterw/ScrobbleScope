@@ -10,11 +10,12 @@ from pathlib import Path
 from docsync import findings as findings_module
 from docsync.closeout import ARCHIVED_DEFINITIONS_DIR, collect_definition_issues
 from docsync.declarations import (
+    DocumentsConfig,
     collect_declaration_issues,
     load_closeout_config,
     load_findings_config,
+    load_test_count_config,
 )
-from docsync.logic import FULL_SUITE_RESULT_RE, latest_test_count_authority
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
@@ -76,7 +77,7 @@ def _definition_wp_numbers(definition_lines: list[str]) -> tuple[int, ...]:
 
 
 FINDINGS_HEADER_COUNT_RE = re.compile(
-    r"^>?\s*\*{0,2}(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\*{0,2}\s*$"
+    r"^>?\s*\*{0,2}(\d+)\s+tests\s+across\s+(\d+)\s+(?:tracked\s+)?test\s+modules\.\*{0,2}\s*$"
 )
 # The count line lives in FINDINGS.md's header block, before the first
 # section heading. Scanning the whole file let a historical example or an
@@ -105,6 +106,19 @@ SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
 )
 
+# Deferred past SESSION_CURRENT_COUNT_RES's own definition, not grouped with
+# the imports at the top of the file: logic.py imports that constant from
+# this module (DOC006 already owns it), and this is what this module needs
+# back from logic.py. Importing it before SESSION_CURRENT_COUNT_RES exists
+# here -- or before logic.py's own three names exist there -- would deadlock
+# the circular import between these two modules, whichever a caller happens
+# to import first. See the matching comment in logic.py.
+from docsync.logic import (  # noqa: E402
+    FULL_SUITE_RESULT_RE,
+    _newest_dated_test_count,
+    resolved_test_count_authority,
+)
+
 # The canonical list of this repository's always-scanned live documents, plus
 # the dashboard path, both named here as plain repository-relative strings
 # rather than `Path` objects: this module never touches a filesystem, it only
@@ -123,6 +137,24 @@ LIVE_DOCUMENT_RELATIVE_PATHS: tuple[str, ...] = (
     "PLAYBOOK.md",
     findings_module.ACTIVE_PATH,
 )
+
+
+def resolved_live_document_paths(documents: DocumentsConfig) -> tuple[str, ...]:
+    """Return the five live-document paths this repository currently declares.
+
+    Mirrors LIVE_DOCUMENT_RELATIVE_PATHS's shape and order, but reads AGENT_NOTES.md,
+    HANDOFF_PROMPT.md, PLAYBOOK.md and FINDINGS.md's locations from `documents` instead of
+    restating them. AGENTS.md is not a `documents` field: it never moves.
+    """
+    return (
+        "AGENTS.md",
+        documents.handoff_prompt,
+        documents.agent_notes,
+        documents.playbook,
+        documents.findings,
+    )
+
+
 SESSION_CONTEXT_RELATIVE_PATH = ".claude/SESSION_CONTEXT.md"
 _TRACKED_PATH_DISCOVERY_ERROR = "Repository tracked-file discovery failed"
 
@@ -223,6 +255,8 @@ def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]
 
 def _active_definition_reference(
     playbook_lines: list[str],
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> tuple[int | None, str | None, int | None, IntegrityIssue | None]:
     """Resolve the active definition or return its diagnostic."""
     section_start, section_end = _find_section(
@@ -265,7 +299,7 @@ def _active_definition_reference(
             IntegrityIssue(
                 code="DOC002",
                 severity="error",
-                path="PLAYBOOK.md",
+                path=playbook_relative_path,
                 line=references[0][0] if references else section_start + 1,
                 invariant="An active batch has one root definition declaration.",
                 remediation=remediation,
@@ -282,7 +316,7 @@ def _active_definition_reference(
             IntegrityIssue(
                 code="DOC002",
                 severity="error",
-                path="PLAYBOOK.md",
+                path=playbook_relative_path,
                 line=line,
                 invariant="The definition matches the current batch token.",
                 remediation="Point Section 3 at the current batch definition.",
@@ -521,7 +555,10 @@ _EXECUTION_LOG_HEADING = "## 4. Execution log"
 
 
 def _unpaired_result_issue(
-    ordered_lines: Sequence[tuple[int, str]], first: int
+    ordered_lines: Sequence[tuple[int, str]],
+    first: int,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> IntegrityIssue | None:
     """DOC012: a bold count the authority cannot pair with its `pytest -q`.
 
@@ -543,7 +580,7 @@ def _unpaired_result_issue(
     count = match.group(1)
     return _issue(
         "DOC012",
-        "PLAYBOOK.md",
+        playbook_relative_path,
         first + source_offset + 1,
         "A full-suite result is written in the one form the count authority reads.",
         f"Write `` `pytest -q` -- **{count} passed** `` with nothing between the "
@@ -555,6 +592,8 @@ def _unpaired_result_issue(
 
 def _check_unbolded_test_counts(
     playbook_lines: Sequence[str],
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> list[IntegrityIssue]:
     """DOC012: a pass claim in the log must carry the bold the authority reads.
 
@@ -616,14 +655,16 @@ def _check_unbolded_test_counts(
                 issues.append(
                     _issue(
                         "DOC012",
-                        "PLAYBOOK.md",
+                        playbook_relative_path,
                         first + offset + 1,
                         "A full-suite pass claim carries its own bold count.",
                         f"Write `**{match.group(1)} passed**`.",
                     )
                 )
             continue
-        unpaired = _unpaired_result_issue(ordered_lines, first)
+        unpaired = _unpaired_result_issue(
+            ordered_lines, first, playbook_relative_path=playbook_relative_path
+        )
         if unpaired is not None:
             issues.append(unpaired)
             continue
@@ -637,7 +678,7 @@ def _check_unbolded_test_counts(
             issues.append(
                 _issue(
                     "DOC012",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     offset,
                     "A full-suite pass claim in the execution log carries the "
                     "bold the count authority reads.",
@@ -709,7 +750,10 @@ def _check_definition_next_wp(
 
 
 def _check_section3_next_wp(
-    playbook_lines: list[str], definition_lines: list[str] | None = None
+    playbook_lines: list[str],
+    definition_lines: list[str] | None = None,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
 ) -> IntegrityIssue | None:
     """DOC007: PLAYBOOK Section 3 must agree on the next work package.
 
@@ -736,7 +780,7 @@ def _check_section3_next_wp(
             unlabelled_wp, line_no = unlabelled[-1]
             return _issue(
                 "DOC007",
-                "PLAYBOOK.md",
+                playbook_relative_path,
                 line_no,
                 f"Section 3 mentions WP-{unlabelled_wp} is next, but lacks the "
                 f"required '- **Next action:**' bullet label.",
@@ -747,7 +791,7 @@ def _check_section3_next_wp(
     if all_planned_complete:
         return _issue(
             "DOC007",
-            "PLAYBOOK.md",
+            playbook_relative_path,
             claimed_line,
             f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 entries "
             "show that all planned work packages are complete.",
@@ -760,7 +804,7 @@ def _check_section3_next_wp(
         return None
     return _issue(
         "DOC007",
-        "PLAYBOOK.md",
+        playbook_relative_path,
         claimed_line,
         f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 "
         f"entries make WP-{computed} next.",
@@ -858,7 +902,10 @@ def _check_session_section1_bootstrap_state(
 
 
 def _check_findings_header_count(
-    findings_lines: list[str] | None, authority: TestCountAuthority
+    findings_lines: list[str] | None,
+    authority: TestCountAuthority,
+    *,
+    findings_relative_path: str = findings_module.ACTIVE_PATH,
 ) -> IntegrityIssue | None:
     """DOC008: the FINDINGS.md header must carry the authoritative count.
 
@@ -898,7 +945,7 @@ def _check_findings_header_count(
     issue_line = mismatched[0][0] if mismatched else fields[0][0]
     return _issue(
         "DOC008",
-        "FINDINGS.md",
+        findings_relative_path,
         issue_line,
         "The findings header test count must agree with the authoritative "
         "full-suite validation in the log.",
@@ -916,15 +963,22 @@ def collect_integrity_issues(
     expected_session_lines: list[str] | None,
     tracked_paths: frozenset[str],
     batch_log_lines: Mapping[int, list[str]] | None = None,
+    document_paths: tuple[str, ...] = LIVE_DOCUMENT_RELATIVE_PATHS,
+    playbook_relative_path: str = "PLAYBOOK.md",
+    findings_relative_path: str = findings_module.ACTIVE_PATH,
+    config_path: Path | None = None,
 ) -> list[IntegrityIssue]:
     """Return deterministic live-document integrity issues."""
     issues: list[IntegrityIssue] = []
+    test_count_config = load_test_count_config(repo_root, config_path=config_path)
     (
         current_batch,
         definition_path,
         definition_line,
         definition_issue,
-    ) = _active_definition_reference(playbook_lines)
+    ) = _active_definition_reference(
+        playbook_lines, playbook_relative_path=playbook_relative_path
+    )
     if definition_issue is not None:
         issues.append(definition_issue)
     elif current_batch is not None and definition_path is not None:
@@ -934,7 +988,7 @@ def collect_integrity_issues(
             issues.append(
                 _issue(
                     "DOC002",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     definition_line,
                     "The declaration names the sole tracked root candidate.",
                     f"Keep and declare one root Batch {current_batch} file in Section 3. "
@@ -945,14 +999,14 @@ def collect_integrity_issues(
             issues.append(
                 _issue(
                     "DOC002",
-                    "PLAYBOOK.md",
+                    playbook_relative_path,
                     definition_line,
                     "The tracked definition has supplied live content.",
                     "Supply its content to the integrity pass.",
                 )
             )
 
-    documents_to_scan = set(LIVE_DOCUMENT_RELATIVE_PATHS)
+    documents_to_scan = set(document_paths)
     if definition_path is not None:
         documents_to_scan.add(definition_path)
     if session_lines is not None:
@@ -967,12 +1021,12 @@ def collect_integrity_issues(
             continue
         scan_lines = (
             _playbook_lines_without_entry_blocks(playbook_lines)
-            if path == "PLAYBOOK.md"
+            if path == playbook_relative_path
             else lines
         )
         for line, reference in _concrete_references(scan_lines):
             if (
-                path == "PLAYBOOK.md"
+                path == playbook_relative_path
                 and line == definition_line
                 and reference == definition_path
             ):
@@ -1063,8 +1117,11 @@ def collect_integrity_issues(
                     "Run doc_state_sync.py --fix to refresh the managed session block.",
                 )
             )
-        authority = latest_test_count_authority(
-            playbook_lines, archive_lines, batch_log_lines
+        authority = resolved_test_count_authority(
+            playbook_lines,
+            archive_lines,
+            batch_log_lines,
+            pinned=test_count_config.pinned,
         )
         session_count_fields = [
             (line_number, int(match.group(1)))
@@ -1103,7 +1160,11 @@ def collect_integrity_issues(
                 )
             )
 
-    issues.extend(_check_unbolded_test_counts(playbook_lines))
+    issues.extend(
+        _check_unbolded_test_counts(
+            playbook_lines, playbook_relative_path=playbook_relative_path
+        )
+    )
 
     if (
         current_batch is not None
@@ -1119,7 +1180,9 @@ def collect_integrity_issues(
             issues.append(definition_next_wp_issue)
 
         section3_next_wp_issue = _check_section3_next_wp(
-            playbook_lines, live_documents.get(definition_path)
+            playbook_lines,
+            live_documents.get(definition_path),
+            playbook_relative_path=playbook_relative_path,
         )
         if section3_next_wp_issue is not None:
             issues.append(section3_next_wp_issue)
@@ -1134,40 +1197,78 @@ def collect_integrity_issues(
             issues.append(session_section1_issue)
 
     findings_count_issue = _check_findings_header_count(
-        live_documents.get("FINDINGS.md"),
-        latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines),
+        live_documents.get(findings_relative_path),
+        resolved_test_count_authority(
+            playbook_lines,
+            archive_lines,
+            batch_log_lines,
+            pinned=test_count_config.pinned,
+        ),
+        findings_relative_path=findings_relative_path,
     )
     if findings_count_issue is not None:
         issues.append(findings_count_issue)
 
+    # DOC025 (warning-only, Q1 ruling 2026-09-25): the single Section 4 entry
+    # carrying the newest date (across every source latest_test_count_authority
+    # reads) disagrees with the pin. Silent on a same-date tie -- that is the
+    # F-DOCSYNC-22 shape the pin exists to protect against, and DOC025 must
+    # never push an author to reorder same-date entries to silence it -- and
+    # silent when nothing is pinned at all.
+    if test_count_config.pinned is not None:
+        newest_dated_count = _newest_dated_test_count(
+            playbook_lines, archive_lines, batch_log_lines
+        )
+        if (
+            newest_dated_count is not None
+            and newest_dated_count != test_count_config.pinned
+        ):
+            issues.append(
+                IntegrityIssue(
+                    "DOC025",
+                    "warning",
+                    playbook_relative_path,
+                    None,
+                    "The single Section 4 entry carrying the newest date "
+                    f"records {newest_dated_count}, which disagrees with the "
+                    f"count pinned in config/docsync.toml ({test_count_config.pinned}).",
+                    f"Run `--fix --test-count {newest_dated_count}` if that "
+                    "entry is right, or ignore this warning if the pin still is.",
+                )
+            )
+
     # DOC009 to DOC011. Declared rather than hard-coded, so the mechanism is
-    # repository-independent and only .docsync.toml is local. See F-B21-17.
+    # repository-independent and only config/docsync.toml is local. See F-B21-17.
     issues.extend(
-        collect_declaration_issues(repo_root=repo_root, live_documents=live_documents)
+        collect_declaration_issues(
+            repo_root=repo_root, live_documents=live_documents, config_path=config_path
+        )
     )
 
     # DOC019. Every batch PLAYBOOK Section 3 claims complete is held to the
     # definition-side close-out evidence when it sits at or above the admission
     # boundary. Below it a batch closed before those signals existed, so its
-    # claim is admitted as it stands; the boundary (an edit in .docsync.toml,
-    # never guessed) is what separates evidence-checked closure from rewritten
+    # claim is admitted as it stands; the boundary (an edit in
+    # config/docsync.toml, never guessed) is what separates evidence-checked
+    # closure from rewritten
     # history. The archived definition's content arrives through
     # `live_documents`, the same as every other document this pass reads; the
     # DOC023 reads the active findings file itself rather than a rendering of
     # it, because what it checks is what an author wrote: a finding whose
     # prose says it is done while carrying no record for DOC013-DOC018 to
     # read. Absent from `live_documents` the check simply has nothing to say.
-    active_findings = live_documents.get(findings_module.ACTIVE_PATH)
+    active_findings = live_documents.get(findings_relative_path)
     if active_findings is not None:
         issues.extend(
             findings_module.collect_rot_issues(
                 "\n".join(active_findings),
-                load_findings_config(repo_root).grandfathered,
+                load_findings_config(repo_root, config_path=config_path).grandfathered,
+                active_path=findings_relative_path,
             )
         )
 
     # close-out composition that publishes a real closure must keep it there.
-    closeout_config = load_closeout_config(repo_root)
+    closeout_config = load_closeout_config(repo_root, config_path=config_path)
     try:
         section3_start, section3_end = _find_section(
             playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"

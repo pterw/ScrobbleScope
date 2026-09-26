@@ -1,11 +1,11 @@
 # Agent Notes
 
 Project-specific context for all agents working on ScrobbleScope.
-Rules live in `AGENTS.md`. Work orders live in `PLAYBOOK.md`.
+Rules live in `AGENTS.md`. Work orders live in `docs/agents/PLAYBOOK.md`.
 This file contains preferences, local dev setup, and discovered constraints
 that agents need but that do not belong in either of those files.
 
-**Batch state:** owned by `PLAYBOOK.md` Section 3 -- this file does not
+**Batch state:** owned by `docs/agents/PLAYBOOK.md` Section 3 -- this file does not
 track it.
 
 ---
@@ -138,7 +138,28 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 - **Heatmap window:** the heatmap covers the last 365 days, today included, and
   the daily average divides by that. `HEATMAP_WINDOW_DAYS` in
   `scrobblescope/heatmap.py` is the source; every prose copy is declared in
-  `.docsync.toml` and DOC009 fails if they stop agreeing.
+  `config/docsync.toml` and DOC009 fails if they stop agreeing.
+- **The docsync hook installer is not live in this repository (decision
+  record, 2026-09-24).** No `--install --yes` has run here; see
+  `docs/architecture/documentation-tooling.md` "The commit preflight and the
+  opt-in hook installer" for what it would do. Either install order fails
+  loudly rather than silently, so the two are never layered by hand: wrapper
+  first, then `pre-commit install`, moves the wrapper to `pre-commit.legacy`
+  (`install_uninstall.py`'s `_install_hook_script`, since `is_our_script`
+  reads it as foreign) and re-enters it through `hook_impl.py`'s
+  `_run_legacy`; the wrapper's own non-recursive delegation to
+  `python -m pre_commit hook-impl` then inherits `PRE_COMMIT_RUNNING_LEGACY`
+  and hits `_run_legacy`'s own `SystemExit` -- pre-commit's "installed in
+  migration mode" bug message -- on every future commit. `pre-commit
+  install` first, then the wrapper, fails the other way: pre-commit's own
+  generated hook file carries no `GENERATED_MARKER`, so
+  `install_docsync_hook.py`'s `classify_existing_hook` reads it as
+  `"unknown"` and `install()` refuses to overwrite it (exit 2) rather than
+  clobbering it. Neither loud failure is a defect to fix; it is why the
+  wired path does not need the wrapper at all -- `doc-state-sync-check` runs
+  first in `.pre-commit-config.yaml`, and CI's own explicit preflight step
+  backs it up. The wrapper stays for a repository with no pre-commit
+  installed; making it live here is an owner action, not a task's.
 
 ---
 
@@ -157,8 +178,8 @@ something that will run in a repository that is not this one:
 
 - **Keep repository facts out of the mechanism.** A check reads its facts from
   a declarations file; it does not hard-code them. `scripts/docsync/
-  declarations.py` and `.docsync.toml` are the worked example -- the module
-  carries no ScrobbleScope value at all.
+  declarations.py` and `config/docsync.toml` are the worked example -- the
+  module carries no ScrobbleScope value at all.
 - **Name assumptions and make them switchable.** An assumption that is true
   here becomes doctrine the moment the tool is lifted. DOC011 treats
   `~~struck-through text~~` as retired, which is true in this corpus and is a
@@ -171,12 +192,12 @@ something that will run in a repository that is not this one:
 
 **What is already extractable, and what is not.** `scripts/docsync/` is close:
 its integrity checks are generic apart from the document names in
-`_LIVE_DOCUMENT_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
+`LIVE_DOCUMENT_RELATIVE_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
 -- serve, drive a browser, run checks per device profile -- and specific in
 its checks, which is the right split. The batch and work-package vocabulary in
-`AGENTS.md` is portable. What is not portable: `.docsync.toml`, the design
-system under `docs/design/`, and every path constant naming a ScrobbleScope
-file.
+`AGENTS.md` is portable. What is not portable: `config/docsync.toml`, the
+design system under `docs/design/`, and every path constant naming a
+ScrobbleScope file.
 
 **Do not start the extraction as a side task.** It is a batch of its own, and
 the owner has not scheduled it. Until then, the constraint is only that new

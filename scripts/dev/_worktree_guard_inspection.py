@@ -15,6 +15,7 @@ from scripts.dev._worktree_guard_diagnostics import (
     metadata_unavailable_diagnostic,
     missing_base_diagnostic,
 )
+from scripts.dev._worktree_guard_essentials import essentials_diagnostics
 from scripts.dev._worktree_guard_lineage import classify_lineage, parse_batch_branch
 from scripts.dev._worktree_guard_runner import (
     optional_output,
@@ -139,22 +140,37 @@ def _inspect_worktree(
         resolved_root, ("symbolic-ref", "--quiet", "--short", "HEAD")
     )
     if branch_result.returncode == 1:
+        # A recognized CI checkout's dirtiness (if any -- typically build
+        # artifacts) is not the "local work in progress" signal WT010 exists
+        # to protect, so no status call is made on that branch (F-WORKTREE-3,
+        # owner ruling 2026-09-23 on the between-batch boundary; owner Q2 on
+        # CI). A local detached checkout is measured the same way the
+        # attached path below measures it, so its dirty state is not hidden
+        # behind WT012 alone.
+        detached_dirty = False
+        if not is_recognized_ci:
+            detached_status_result = runner(resolved_root, ("status", "--porcelain"))
+            if detached_status_result.returncode != 0:
+                raise GuardError("Git could not inspect the worktree status.")
+            detached_dirty = bool(detached_status_result.stdout)
+        detached_diagnostics = classify_lineage(
+            LineageSnapshot(
+                None,
+                None,
+                None,
+                base_ref,
+                0,
+                0,
+                None,
+                None,
+                detached_dirty,
+                True,
+                is_recognized_ci,
+            )
+        )
+        detached_diagnostics.extend(essentials_diagnostics(resolved_root))
         return finish_diagnostics(
-            classify_lineage(
-                LineageSnapshot(
-                    None,
-                    None,
-                    None,
-                    base_ref,
-                    0,
-                    0,
-                    None,
-                    None,
-                    False,
-                    True,
-                    is_recognized_ci,
-                )
-            ),
+            detached_diagnostics,
             offline=offline,
             base_ref=base_ref,
         )
@@ -169,7 +185,7 @@ def _inspect_worktree(
     # damage a legitimate value.
     actual_branch = branch_result.stdout.strip("\r\n")
 
-    playbook_path = resolved_root / "PLAYBOOK.md"
+    playbook_path = resolved_root / "docs" / "agents" / "PLAYBOOK.md"
     try:
         batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
     except GuardError as parse_failure:
@@ -178,12 +194,15 @@ def _inspect_worktree(
     except OSError:
         # An arbitrary OS failure carries absolute paths and errno text, which
         # the shared diagnostic stream must not republish.
-        detail = "PLAYBOOK.md could not be read."
+        detail = "docs/agents/PLAYBOOK.md could not be read."
     else:
         detail = None
     if detail is not None:
         return finish_diagnostics(
-            [metadata_unavailable_diagnostic(detail)],
+            [
+                metadata_unavailable_diagnostic(detail),
+                *essentials_diagnostics(resolved_root),
+            ],
             offline=offline,
             base_ref=base_ref,
         )
@@ -247,6 +266,7 @@ def _inspect_worktree(
         os_name=os_name,
     )
     diagnostics.extend(venv_diagnostics)
+    diagnostics.extend(essentials_diagnostics(resolved_root))
     if venv is not None and not any(
         diagnostic.severity == "ERROR" for diagnostic in diagnostics
     ):

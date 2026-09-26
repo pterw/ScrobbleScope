@@ -5,7 +5,7 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-09-20.
+Last verified against the tree on 2026-09-24.
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are
@@ -43,14 +43,14 @@ Canonical documents, docsync, the worktree guard, pre-commit, and CI:
 ## Source references
 
 - Rules and bootstrap order: `AGENTS.md`
-- Active work and handoff state: `PLAYBOOK.md`, Sections 3 and 4
-- Batch scope: the active `BATCHN_DEFINITION.md` named in `PLAYBOOK.md`
+- Active work and handoff state: `docs/agents/PLAYBOOK.md`, Sections 3 and 4
+- Batch scope: the active `BATCHN_DEFINITION.md` named in `docs/agents/PLAYBOOK.md`
   Section 3 (repo root while active; `docs/history/definitions/` once closed)
 - Complete module graph: `.claude/SESSION_CONTEXT.md`, Section 4
 - Product overview: `README.md`, Architecture
 - CI gate: `.github/workflows/test.yml`
 - Diagram workflow: `.github/instructions/mermaid.instructions.md`
 - Agent-skill configuration: `docs/agents/`
-- Declared duplicated facts and retired claims: `.docsync.toml`
-- Open defects and their status: `FINDINGS.md`
+- Declared duplicated facts and retired claims: `config/docsync.toml`
+- Open defects and their status: `docs/agents/FINDINGS.md`
 - Job state, key runtime facts, and architecture: `README.md`

@@ -37,6 +37,7 @@ flowchart LR
         MusicBrainzClient[musicbrainz.py]
         Cache[cache.py]
         Utils[utils.py]
+        ApiLogging[api_logging.py<br/>trace hook + call summary]
         Domain[domain.py]
         Errors[errors.py]
         Spotlight[spotlight.py<br/>artist sampling]
@@ -88,6 +89,7 @@ flowchart LR
     MusicBrainzClient --> Utils
     MusicBrainzClient --> Domain
     Spotlight --> Utils
+    Utils --> ApiLogging
 
     Worker -.->|runs injected callable| Album
     Worker -.->|runs injected callable| Heatmap
@@ -116,7 +118,7 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,Repo,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,Domain,Errors runtime
+    class App,Routes,Worker,Repo,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors runtime
     class Pages,APIs runtime
     class Jobs,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external
@@ -131,12 +133,13 @@ what the factory pattern requires: `create_app` imports the blueprint, and
 import `ensure_api_keys` -- none of them a module-level edge, because
 `load_dotenv` must run before `config` reads the environment.
 
-`config.py` is not drawn: **ten** of the nodes shown here import it at module
-level, and those edges would cross and hide the flow. They are `worker.py`,
-`repositories.py`, `cache.py`, `utils.py`, `lastfm.py`, `spotify.py`,
-`deezer.py`, `musicbrainz.py`, `release_checks.py`, and `orchestrator/`
-(three of its files: `__init__.py`, `_search.py`, `_details.py`). An eleventh
-node, `app.py`, imports it only inside functions. Named by module rather than
+`config.py` is not drawn: **eleven** of the nodes shown here import it at
+module level, and those edges would cross and hide the flow. They are
+`worker.py`, `repositories.py`, `cache.py`, `utils.py`, `lastfm.py`,
+`spotify.py`, `deezer.py`, `musicbrainz.py`, `release_checks.py`, `routes/`
+(one file: `__init__.py`, for `MAX_ACTIVE_JOBS`), and `orchestrator/` (three
+of its files: `__init__.py`, `_search.py`, `_details.py`). A twelfth node,
+`app.py`, imports it only inside functions. Named by module rather than
 by line, because a line number moves with every edit above it; re-check the
 list with a module-level `ast` walk for `scrobblescope.config` imports.
 `routes/` and `orchestrator/` are each a package as of Batch 22 WP-0 (split
@@ -183,3 +186,13 @@ silent:
   minimum are written straight to the unmatched repository and cost no Spotify
   quota. `unmatched.py` owns that partition and the stable reason codes;
   `spotlight.py` owns artist sampling for `/api/artist_spotlight`.
+- **Every provider call is logged the same way, and a logging failure never
+  fails the request.** `api_logging.py` attaches one `aiohttp.TraceConfig`
+  inside `utils.create_optimized_session`, so `lastfm.py`, `spotify.py`,
+  `deezer.py`, `musicbrainz.py` and `release_checks.py` share one line shape
+  per call and one per-provider summary logged when the session closes, with
+  no query string logged except Last.fm's `method` parameter. Each trace
+  callback catches its own errors, and the summary states both the session's
+  span and the summed in-call time -- `MusicBrainz: 17 calls over 12.1s
+  (2.6s in calls)` -- so it cannot be misread as MusicBrainz outrunning its
+  one-request-per-second throttle (F-B23-6).

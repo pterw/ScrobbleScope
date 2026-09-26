@@ -14,6 +14,7 @@ import re
 from collections.abc import Sequence
 
 from docsync.archives import ENTRY_BOUNDARY_RE
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue
 
@@ -202,7 +203,9 @@ def _valid_date(raw: str | None) -> bool:
     return True
 
 
-def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
+def _lifecycle_issues(
+    finding: _Finding, *, active_path: str = ACTIVE_PATH
+) -> list[IntegrityIssue]:
     """Return every blocking lifecycle diagnostic for one finding.
 
     A finding with no canonical record at all is legacy prose. It is reported
@@ -217,7 +220,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
         issues.append(
             _issue(
                 "DOC013",
-                ACTIVE_PATH,
+                active_path,
                 line,
                 f"{finding.identifier} carries one lifecycle record.",
                 "Keep a single `- [ ] **Status:**` line and at most one "
@@ -230,7 +233,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
             issues.append(
                 _issue(
                     "DOC016",
-                    ACTIVE_PATH,
+                    active_path,
                     finding.completed_line,
                     f"{finding.identifier} records a completion date only "
                     "alongside a checked status line.",
@@ -247,7 +250,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
                 issues.append(
                     _issue(
                         "DOC014",
-                        ACTIVE_PATH,
+                        active_path,
                         line,
                         f"{finding.identifier} is checked while still "
                         "qualified by pending deployment or acceptance.",
@@ -259,7 +262,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
                 issues.append(
                     _issue(
                         "DOC015",
-                        ACTIVE_PATH,
+                        active_path,
                         line,
                         f"{finding.identifier} is checked without a reviewed "
                         "terminal outcome.",
@@ -271,7 +274,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
             issues.append(
                 _issue(
                     "DOC016",
-                    ACTIVE_PATH,
+                    active_path,
                     finding.completed_line or line,
                     f"{finding.identifier} is checked without a valid ISO "
                     "completion date.",
@@ -283,7 +286,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
             issues.append(
                 _issue(
                     "DOC017",
-                    ACTIVE_PATH,
+                    active_path,
                     line,
                     f"{finding.identifier} claims no action without an "
                     "explanation in its body.",
@@ -294,7 +297,7 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
         issues.append(
             _issue(
                 "DOC016",
-                ACTIVE_PATH,
+                active_path,
                 finding.completed_line,
                 f"{finding.identifier} is unchecked while recording a completion date.",
                 "Check the box and record a terminal outcome, or remove the "
@@ -305,7 +308,10 @@ def _lifecycle_issues(finding: _Finding) -> list[IntegrityIssue]:
 
 
 def _duplicate_issues(
-    active: Sequence[_Finding], archived: Sequence[_Finding]
+    active: Sequence[_Finding],
+    archived: Sequence[_Finding],
+    *,
+    active_path: str = ACTIVE_PATH,
 ) -> list[IntegrityIssue]:
     """Report every ID that is not unique across both documents."""
     issues: list[IntegrityIssue] = []
@@ -315,7 +321,7 @@ def _duplicate_issues(
             issues.append(
                 _issue(
                     "DOC018",
-                    ACTIVE_PATH,
+                    active_path,
                     finding.start + 1,
                     f"Finding ID {finding.identifier} is unique.",
                     "Give the duplicate its own ID, or merge the two bodies "
@@ -341,7 +347,7 @@ def _duplicate_issues(
             issues.append(
                 _issue(
                     "DOC018",
-                    ACTIVE_PATH,
+                    active_path,
                     seen[finding.identifier] + 1,
                     f"Finding ID {finding.identifier} lives in exactly one of "
                     "the active and archived documents.",
@@ -404,7 +410,10 @@ def _claims_a_terminal_outcome(finding: _Finding) -> bool:
 
 
 def collect_rot_issues(
-    active_text: str, grandfathered: Sequence[str] = ()
+    active_text: str,
+    grandfathered: Sequence[str] = (),
+    *,
+    active_path: str = ACTIVE_PATH,
 ) -> list[IntegrityIssue]:
     """Report findings that read as finished but carry no lifecycle record.
 
@@ -434,7 +443,7 @@ def collect_rot_issues(
     issues = [
         _issue(
             "DOC023",
-            ACTIVE_PATH,
+            active_path,
             finding.start + 1,
             "A finding whose prose says it is finished carries the lifecycle "
             "record that says so.",
@@ -456,7 +465,7 @@ def collect_rot_issues(
             IntegrityIssue(
                 code="DOC023",
                 severity="warning",
-                path=ACTIVE_PATH,
+                path=active_path,
                 line=None,
                 invariant=(
                     "The findings that predate the lifecycle rule are counted, "
@@ -467,7 +476,7 @@ def collect_rot_issues(
                     f"finished without a lifecycle record: "
                     f"{', '.join(sorted(outstanding))}. Give one its record and "
                     f"drop its id from [findings] grandfathered in "
-                    f"`.docsync.toml`; the list is meant to empty."
+                    f"`{DECLARATIONS_FILENAME}`; the list is meant to empty."
                 ),
             )
         )
@@ -499,7 +508,9 @@ def _archive_heading(finding: _Finding, outcome: str) -> str:
     return f"### {finding.identifier}: {title} {suffix}".rstrip()
 
 
-def plan_findings(active_text: str, archive_text: str) -> FindingRotation:
+def plan_findings(
+    active_text: str, archive_text: str, *, active_path: str = ACTIVE_PATH
+) -> FindingRotation:
     """Plan the rotation of every archive-eligible finding.
 
     Returns the two documents as they would be written, the rotated IDs in
@@ -513,8 +524,8 @@ def plan_findings(active_text: str, archive_text: str) -> FindingRotation:
 
     issues: list[IntegrityIssue] = []
     for finding in active:
-        issues.extend(_lifecycle_issues(finding))
-    issues.extend(_duplicate_issues(active, archived))
+        issues.extend(_lifecycle_issues(finding, active_path=active_path))
+    issues.extend(_duplicate_issues(active, archived, active_path=active_path))
 
     eligible = [
         finding

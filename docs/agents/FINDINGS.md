@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1821 tests across 67 test modules.
+1940 tests across 75 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -32,54 +32,13 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
 
 ## P1 -- Next batch candidates
 
-### F-DOCSYNC-15: a work package reads as complete on its first tagged log entry
-
-`scripts/docsync/parser.py` `_collect_wp_numbers` counts every `WP-<n>` token in a current-batch entry heading as a completed work package, so the first commit of a multi-commit work package already makes the dashboard name the next one. `docs/history/logs/BATCH22_LOG.md` shows it happened: three `(Batch 22 WP-4)` entries landed on 2026-09-20 before WP-4 was done. Nothing went red, because DOC007 compares only against a claim someone wrote, and nobody wrote "WP-5 is next" in that window. Batch 23 WP-0 works around it by logging untagged until the package closes (owner ruling, 2026-09-23). The fix shape is Q4 of `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The owner chose the fix shape on 2026-09-23 -- a work package closes only on an entry carrying an explicit `**Status:** WP-N complete` line -- and the control-plane follow-on plan implements it.
-
-- [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
-
-### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
-
-`--fix` cannot publish a measured test count, and `--check` refuses a
-hand-written one. Both follow from the same design: `latest_test_count_authority`
-(`scripts/docsync/logic.py`) resolves the count by parsing `**N passed**` out
-of dated log entries under a total ordering, and DOC005, DOC006 and DOC008
-recompute that ordering and compare the named fields against it. A field
-edited to the number a real run produced is therefore drift, and is rejected.
-
-Measured 2026-09-20: the suite was 1522 passing while every dashboard field
-read 1497, because two entries dated the same day each carry a count and
-same-date precedence ranks the untagged side-task entry above the batch
-entries regardless of which was written later. That tie is F-DOCSYNC-11; this
-finding is the reason it cannot simply be overridden by hand.
-
-**Why `--fix` does not just run pytest.** `docs/agents/global-rules.md` Rule 7
-lets the engine rewrite only what it can derive deterministically from facts a
-human already authored. Running a test suite is measuring the world, not
-deriving from an authored fact, and it would put a minute of test execution
-inside a documentation tool that the pre-commit hook calls.
-
-**Proposed shape, for the owner to rule on.** Let the author supply the
-measurement instead of the tool taking it: an explicit input --
-`--test-count N`, or a small machine-written artifact a test run drops -- that
-`--fix` writes into the managed block *and* the three hand-maintained fields
-(SESSION_CONTEXT Section 1's Tests row, its Section 6 heading, and the
-FINDINGS header), with `--check` comparing against the same input. The
-measurement stays human-authored, the copies stop being hand-typed, and the
-same-date tie stops mattering for every field a reader actually looks at.
-F-DOCSYNC-12 already records that `--fix` rewrites none of those three today.
-
-- [ ] **Status:** open (P1, owner-gated -- needs a decision on the input shape)
-
-Source: Batch 22 close-out, 2026-09-20.
-
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 
 The Quality Gate's `pip-audit` step reported `Found 115 known vulnerabilities
 in 12 packages` (run 32444711411, 2026-08-21). The step is
 `continue-on-error: true` in `.github/workflows/test.yml`, so the gate stays
 green and the count reaches nobody. That disposition is deliberate and is
-recorded in `AGENT_NOTES.md`; the disposition is not the problem, the number
+recorded in `docs/agents/AGENT_NOTES.md`; the disposition is not the problem, the number
 is. Nobody reads a green check.
 
 **Unused packages ship to production.** The Dockerfile installs
@@ -113,32 +72,6 @@ dependency graph before removing anything -- `pillow` is plausibly present as
 `pdf2image`'s dependency rather than on its own.
 Status: open. Source: Quality Gate run 32444711411, 2026-08-21.
 
-### F-B21-9: the findings-to-issues mirror is manual
-
-Open findings were mirrored to GitHub issues #174-#215 on 2026-08-22. The
-mirror ran once, from a script that was not committed.
-
-Nothing keeps it current. A new finding does not open an issue. A resolved
-finding does not close one. The two lists will drift.
-
-This was deliberate, not an oversight. A sync script is code. It needs tests
-and a work package. It did not belong in the documentation PR that created
-the mirror.
-
-What a sync needs: open an issue for each finding that has none, close the
-issue when its finding resolves, and never write back to `FINDINGS.md`. The
-file stays the source of truth. Issues are a read-only mirror.
-
-**Owner ruling, 2026-09-20:** the sync has to run in both directions --
-GitHub issues to `FINDINGS.md` as well as out -- so neither side can become
-the only place a defect is recorded.
-
-- [ ] **Status:** open, deferred by owner decision
-Was recorded as: open, deferred on purpose. The owner accepted the drift on
-2026-08-22 and asked that the work be recorded rather than done now.
-Source: findings mirror, 2026-08-22.
-
-
 ### F-B21-14: the heatmap has no path to its data that is not colour
 
 Every value in the grid is encoded once, as a fill. The only way to read a
@@ -166,107 +99,6 @@ why no review caught it and no gate can.
 
 Status: open. Owner-ruled critical. Not scheduled to a work package.
 Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24.
-
-### F-B21-18: browser JavaScript has no automated unit coverage
-
-There are more than 2,400 lines under `static/js/`, with no `package.json`,
-test runner or `.test.js` anywhere in the repository.
-`docs/SWE_AUDIT_CHARTER.md` also excludes `static/js/` from the audit, on the
-grounds that Batch 21 rewrites it -- which is true, and leaves the rewritten
-code as the only code in the batch that nothing checks at unit level.
-
-Five of the first nineteen review comments in this batch came from that gap: a
-validation message never cleared, a join year leaking between accounts, a
-daily average rounding a positive total to zero, a form that submitted a
-username it had already been told was invalid, and an export header laid out
-for one screen width that painted over itself on another.
-
-The export is the sharpest case. `saveHeatmapImage` draws a canvas by hand,
-and it cannot be reached by any check as it stands: it needs a rendered
-heatmap, so it needs live Last.fm data and a key, which does not belong in
-CI.
-
-Independent PR review confirmed the untested path is already off contract:
-`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
-to render the desktop 53x7 grid at every viewport, while
-`saveHeatmapImage()` serializes whichever mobile or desktop SVG is on screen.
-Its own docstring records the deviation, but no owner ruling adds that
-deviation to `docs/design/RECONCILIATION.md`. A pure render seam would make the
-contract testable without a Last.fm key and let mobile export use the desktop
-geometry without changing the visible page.
-
-**Do not add Node.** The batch decided against a `package.json`, and the
-repository already owns a JavaScript engine it paid for -- Chromium, through
-the pinned Playwright runtime the frontend gate uses. The blocker is only
-that every module is an IIFE with no exports. A guarded seam, exposing pure
-functions when a test flag is set and nothing otherwise, would put
-`rocketColor`, `countToNorm`, `computeStreak` and the export's header layout
-under test for about eighty lines of harness.
-
-DOM-state defects are a different half and are already being covered where
-they bite: `check_validation_feedback` in the frontend gate was written after
-this batch's stale-message defect and fails on both forms when the fix is
-removed.
-
-The two username validators are also duplicated state machines:
-`static/js/index.js` owns the album version and `static/js/heatmap.js` owns the
-heatmap version. Their success work differs, but request freshness, outage and
-failure semantics do not. The independent review first found that only the
-heatmap catch discarded a stale failed request. The sibling fix compared field
-values in both consumers, and the final self-review found that still fails an
-A-to-B-to-A sequence because the oldest and newest requests carry the same
-text. Both now use request generations, with the browser gate holding the ABA
-case. Centralise that shared base only after broader browser parity checks
-cover both consumers; refactoring it before then would trade a demonstrated
-shotgun-surgery bug for an unproved rewrite.
-
-Status: open, and **scheduled**. The owner ruled on 2026-08-26 that this
-becomes a work package of its own, sequenced before WP-5, and is not folded
-into WP-4. Scope is the pure-function seam only -- `rocketColor`,
-`countToNorm`, `computeStreak` and the export header layout -- on the
-Chromium the frontend gate already owns. No Node, no `package.json`.
-
-The timing is the reason for that position. WP-5 and WP-7 are the two
-remaining JavaScript-heavy pages, so a seam built before WP-5 still guards
-work this batch does; built at WP-8 it would guard nothing here. The DOM
-half is deliberately excluded, because the frontend gate already covers it
-where it bites -- 2026-08-26 is the worked example: a real pre-paint theme
-defect was caught by a browser check reading `data-theme` under blocked
-storage, which no unit test of a pure function could have seen.
-
-Placing it needs care. `WP_SKIPPED_RE` and the DOC007 derivation read work
-package numbers from PLAYBOOK Section 4 headings, and WP-6 is already
-absorbed into WP-3, so the number this takes and how the definition records
-it must be settled before the first commit rather than discovered by a red
-gate.
-Source: Batch 21 WP-3 review analysis, 2026-08-25. Scheduled by owner
-ruling, 2026-08-26.
-
-### F-B21-20: the Tailwind hook and commit procedure disagree on staging order
-
-`AGENTS.md` requires `pre-commit run --all-files` to pass before any path is
-staged. The `tailwind-css-drift` hook rebuilds `static/css/tailwind.css`, then
-runs `git diff --exit-code` against the index. A correct source-and-output edit
-therefore fails before staging for the same reason a stale output fails: both
-make the generated file differ from the index. Rebuilding again does not
-change that answer.
-
-The hook passes at commit time after the source and generated output are
-staged, which is the state its Batch 21 acceptance criterion describes. The
-manual commit procedure demands the opposite state. This review had to run
-all hooks with an exact-name staged candidate, compare the index tree before
-and after, and restore the index afterward; otherwise the final gate could
-never be green.
-
-Do not silently reorder the repository-wide commit procedure or rewrite the
-hook inside a UI review. The owner needs to choose one contract: stage named
-paths before pre-commit, or make `--check` compare the freshly built bytes with
-the bytes present before the build instead of comparing the working file with
-the index. Either choice needs a regression test for an intentionally changed,
-already rebuilt stylesheet.
-
-Status: open. Owner decision required; not assigned to a work package.
-Source: PR #218 final verification, 2026-08-25.
 
 ### F-B21-22: theme follows the system only until the toggle is first used
 
@@ -398,155 +230,26 @@ model, or the model choosing to read. The second virtualenv the allowlist
 had been authorising is deleted.
 
 Remaining, and not started: a declared manifest of untracked-but-essential
-files, in the shape of `.docsync.toml` so the mechanism carries no
+files, in the shape of `config/docsync.toml` so the mechanism carries no
 repository facts; and the two `AGENTS.md` defects above. The Codex/Copilot
 entry point moved to F-B21-63.
+
+**2026-09-25 (control-plane plan).** Items 1-2 are done: the two fast-path
+paragraphs moved below the numbered bootstrap list, and `skills-lock.json`
+is declared in `config/docsync.toml` `[untracked_essentials]`, warned about
+(WT015) by `scripts/dev/_worktree_guard_essentials.py` when missing. The
+findings/issues sync (item 2's other half) is not built: findings are not
+mirrored to GitHub (owner ruling, 2026-09-25). The remaining AGENTS.md
+origin-narrative defect stays open.
 
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
 
-### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
-
-Cases the PR #169 review round confirmed and deliberately left unfixed
-because each needs a design decision rather than a patch:
-four-space indented blocks are still scanned for references, because the
-canonical documents use that indentation for list continuations and
-excluding it would silently disable DOC001 across much of AGENTS.md;
-prose added after the last Section 4 entry is never reference-checked;
-`cli.py` glob discovery is case-insensitive on Windows and case-sensitive
-on Linux while candidate matching uses `re.IGNORECASE`; a live document
-resolving outside the working directory raises `ValueError` rather than
-the documented exit 2; and a file deleted on disk with the deletion
-unstaged still counts as tracked.
-
-**Owner ruling, 2026-09-23:** the four-space indentation scan, the no-check
-on prose added after the last Section 4 entry, and the deleted-but-unstaged
-file counting as tracked are accepted design boundaries, not defects, and
-stay as documented. The case-inconsistent glob discovery and the
-outside-root `ValueError` stay open; the control-plane plan fixes both.
-Status: open. Source: PR #169 independent review.
-
-### F-DOCSYNC-11: same-date precedence hides a batch count recorded after a side task
-
-`latest_test_count_authority` in `scripts/docsync/logic.py` orders candidates by
-date, then by source precedence, and ranks a live side-task entry above a
-current-batch entry on a shared date. Its docstring states the assumption: "A
-side-task entry is written after the batch entry it follows."
-
-The assumption fails whenever batch work resumes on the same day as a side
-task. Reproduced 2026-09-12: the side-task entry "Planning records preserved"
-recorded **1026 passed** that morning, and the WP-7 entry written hours later
-recorded **1028 passed** after two tests were added. The older count stayed
-authoritative, so SESSION_CONTEXT and the FINDINGS header, both correct at 1028,
-failed DOC006 and DOC008. The only compliant remedies were to publish a
-superseded number or to restate the count in a side-task entry.
-
-Position within each source already encodes recency; the cross-source tie-break
-is where it is lost. A fix needs a design decision about what "newer" means
-across the two lists, so it is recorded rather than patched.
-
-**Reproduced again, 2026-09-14 (Batch 22 Task 8):** the
-DB-connect-timeout side-task entry (same day) recorded **1081 passed**;
-Task 8's own current-batch entry, written later that day, recorded
-**1085 passed**. The authority stayed at 1081. Unlike the 2026-09-12
-case, hand-correcting SESSION_CONTEXT/FINDINGS to the true count (1085)
-was tried and rejected by `--check` outright (DOC005/DOC006/DOC008
-recompute the same authority and compare against it), where the earlier
-case's fix (F-DOCSYNC-12) only ever applied to fields the renderer never
-recomputes. Confirms the same mechanism generalizes: a current-batch entry
-written on a day that already has a side-task entry can have its count
-silently shadowed until this is fixed.
-
-Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12; reproduced
-Batch 22 Task 8, 2026-09-14.
-
-### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
-
-`doc_state_sync.py --fix` only ever writes the "Latest validated test
-count" line inside `.claude/SESSION_CONTEXT.md`'s `DOCSYNC:STATUS` block
-(`scripts/docsync/renderer.py`). DOC006
-(`scripts/docsync/integrity.py::SESSION_CURRENT_COUNT_RES`) checks that
-line plus two more: the Section 1 "Tests" dashboard row and the Section 6
-"Test structure (N tests)" heading. Neither of those two is ever rewritten
-by `--fix`, so they can drift indefinitely -- reproduced 2026-09-14: both
-sat at a hand-written "1036" untouched since 2026-09-11 through several
-`--fix` runs across three later PLAYBOOK entries (1069, 1079, 1081
-passed), each of which apparently updated the STATUS block correctly
-without tripping DOC006. Why those earlier checks did not already fail on
-the same mismatch is not established here -- worth checking before
-assuming the mechanism above is the whole story. `FINDINGS.md`'s header
-count line has the identical problem under DOC008: also hand-written,
-also never rewritten by `--fix`.
-
-Fix candidates: extend the renderer to also rewrite the Section 1 row,
-the Section 6 heading, and the FINDINGS header from the same authoritative
-count, or fold all three into one place `--fix` actually owns.
-
-Status: open. Source: Batch 22 WP-1, DB-connect-timeout side task,
-2026-09-14 (fix commit `c724ebc`).
-
-### F-WORKTREE-3: guard boundaries outside the design decision table
-
-Confirmed but unaddressed: between batches the guard skips every ancestry
-check by design, which is exactly when the rebase-merge artifact appears,
-so a genuinely diverged branch passes silently; WT010 never fires for a
-detached dirty worktree, which returns WT012 alone; and
-`missing_base_remediation` receives an already-labelled ref, so an unsafe
-ref name renders as "the local base ref configured base ref".
-
-The fourth item originally listed here -- `resolve_venv` deriving the primary
-checkout from the common Git directory's parent -- was fixed in this PR's
-round-2 remediation, which discovers the main working tree with
-`git worktree list --porcelain` and passes it in. The remaining three are
-unchanged.
-
-**Owner ruling, 2026-09-23:** the between-batch ancestry skip is an accepted
-design boundary, not a defect, and stays as documented. WT010 on a
-detached, dirty worktree and the doubled base-ref label stay open; the
-control-plane plan fixes both.
-Status: open. Source: PR #169 independent review.
-
-### F-DOCSYNC-7: `_latest_test_count_from_entries` has no production caller
-
-The bare-count wrapper lost its last production caller when the integrity gate
-moved to `latest_test_count_authority`. It is now exercised only by its own
-unit tests in `tests/test_docsync_logic.py`, which is the same condition that
-led to `_cross_validate` being removed rather than kept.
-
-Deliberately not removed in the review round that created the condition:
-deleting it also rewrites eight test call sites, which is a refactor rather
-than a review fix. Remove it and repoint those tests at
-`latest_test_count_authority` in a hygiene pass.
-Status: open. Source: PR #169 review round 5.
-
-### F-LOAD-2: no integration tests in CI
-
-All tests mock dependencies; an in-process `/results_loading ->
-/progress -> /results_complete` test is on the README roadmap.
-Status: open. Source: load testing 2026-03-04.
-
 ### F-MAS-1: mocks may drift from API reality
 
 No contract tests or recorded API fixtures; upstream format changes would
 pass mocked tests. Status: open. Source: MULTI_AGENT_SWEEP.
-
-### F-MAS-3: test_docsync_logic.py covers several unrelated seams
-
-One module holds WP collection, test-count authority, whole-sync
-integration, log merging, archive splitting, dedup, and Section 3 parsing.
-Splitting along those class boundaries stays worthwhile. The originally
-suggested `cross-validate` seam no longer exists -- that helper and its
-tests were removed on this branch. Count authority is now split across two
-files rather than extracted from this one: `TestLatestTestCount` still holds
-the unit cases here, while `tests/test_docsync_test_count.py` covers the
-behaviour through `_sync`. Consolidating them is part of the same split.
-
-No line count is quoted here deliberately: the figure in the original
-finding went stale as soon as the file changed, and size was never the
-defect. Compare against the largest peer in the directory when deciding
-whether the split is due.
-Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
 
@@ -615,6 +318,125 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 
 ## P2 -- Scaling roadmap
+
+### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
+
+`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
+against a declared `allow_after` marker with `line.strip() == marker.strip()`
+-- exact equality, no prefix match -- and when nothing matches, `exempt_from`
+simply stays `None`: the declaration silently loses its whole history
+exemption for that file, with no warning that the marker itself is dead. The
+three `[[retired]]` declarations in `.docsync.toml` that predate this finding
+all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
+but the real `docs/agents/PLAYBOOK.md` heading is `## 4. Execution log (for agent
+handoff)`, so none of the three matched anything. Reproduced directly against
+`check_retired` with the real heading text: a claim placed below the heading
+was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
+for the new fourth declaration that task added).
+
+**Impact was latent, not live.** No dated Section 4 entry restated
+`limit_results ... thresholds disclosure`, `fonts self-hosted under
+static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
+never actually exercised the mismatch before it was caught. It would have
+surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
+one of those retired phrases as history.
+
+**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
+fix round) to the real heading text, matching the fourth declaration that
+task added, which used the correct text from the start. That corrects this
+one instance; the finding stays open because the mechanism -- a declared
+`allow_after` marker can silently match nothing, for any file, and nobody is
+told -- is still unchecked, so the next marker written this way fails the
+same way undetected.
+
+**Fix shape, not yet built:** a declaration check that errors when an
+`allow_after` marker matches no line in its named file (a new check; not
+built here).
+
+- [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
+  probe, 2026-09-24.
+
+### F-DOCSYNC-19: `--check` has no diagnostic for an interrupted publication
+
+Transactional publication recovers a crash mid-publish by replaying its
+journal against the on-disk state on the next writer, but a read-only
+`--check` run gives no signal that a journal is present and an earlier
+publish was interrupted -- recovery exists, a diagnostic does not.
+- [ ] **Status:** open (P2). Source: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+  DoD row 29, GPT Sol Max review.
+
+### F-DOCSYNC-20: the docsync close-out review's carried-over Minors, still true at HEAD
+
+The docsync close-out plan's final review (PR #234 round) covered automated
+tool reports on the engine commit but never worked its own ledger's
+carried-over triage list of "minor (deferred)" items from Tasks 1-4a; checked
+individually against the code and tests at HEAD, eleven were still true. The
+owner ruled one of them intended behaviour on 2026-09-24 -- `--cold-storage`
+may repaginate a never-paginated monolith -- so it is dropped here and ten
+remain.
+
+- `transaction.py`: `_atomic_write` and `_restore` both write through
+  `_stage_and_replace`, but every rollback fault-injection test
+  (`test_publication_failure_rolls_every_file_back`,
+  `test_interruption_restores_exact_bytes`,
+  `test_a_failed_run_restores_a_file_it_had_already_deleted`) patches only
+  `_atomic_write`, so none proves a rollback write itself surviving a
+  disk-full condition.
+- `findings.py`: the DOC017 branch of `_lifecycle_issues` reads `body_lines`
+  from `prose_lines()`, which excludes fenced and commented text, so a "no
+  action" explanation written only inside a fence still trips DOC017 as a
+  false positive.
+- `findings.py`: the DOC014-vs-DOC015 branch still selects the code by
+  `PENDING_QUALIFIER_RE`'s literal word list, so it can still misattribute
+  the diagnostic on a non-terminal outcome that happens to use one of those
+  words.
+- `test_undated_entries_keep_their_page_hot`
+  (`tests/test_docsync_archives.py`) still asserts
+  `any(page["location"] == "hot" for page in pages[:-1])` rather than naming
+  the page holding the undated entry, so a masking pass remains possible.
+- `archives.py`: `normalize()` (via `_join`) still joins entries with a fixed
+  blank line, collapsing original blank-line spacing; conservation holds
+  modulo normalization, not byte-for-byte.
+- `transaction.py`: `publish(root, {}, {})` with both maps empty still never
+  resolves `root`, so a nonexistent root surfaces `_exclusive_lock`'s raw
+  `FileNotFoundError` rather than `SyncError`.
+- `tests/test_docsync_archives.py` still has no test pinning that a fenced
+  `### ` heading is not a page or entry boundary, unlike `findings.py`'s
+  `test_fenced_example_heading_is_never_a_finding`.
+- A deleted archive index with surviving `pages/` files still reports no
+  DOC020. Confirmed live: `--check` instead fails with a generic "Required
+  file is missing" (exit 2), and `--paginate-archives`/`--cold-storage`
+  silently skip the archive entirely because `_managed_archive_paths`
+  filters by `path.is_file()` -- `ArchiveStore._load`'s own orphan-page guard
+  is unreachable from the CLI for this exact case.
+- `install_docsync_hook.py`: no test gives `SKIP` a prefix collision (a hook
+  id preceded by extra characters before the comma);
+  `test_generated_wrapper_does_not_skip_for_unrelated_skip_value` covers only
+  a suffix collision.
+- `install_docsync_hook.py`: `install()`'s containment-refusal message still
+  prints `disclosure.hook_directory`, the unresolved candidate, rather than
+  the resolved path `hook_directory_is_contained` actually compared.
+
+- [ ] **Status:** open (P2). Source: the docsync close-out plan's final-review
+  triage list, and `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+  Task 7 / DoD row 32.
+
+### F-WORKTREE-6: the guard's base ref is a flag default, not a fact PLAYBOOK declares
+
+`check_worktree_alignment.py --base-ref` defaults to `origin/main`, and
+nothing lets the guard learn a branch's actual base from PLAYBOOK, so a
+branch cut from `test` reads as diverged or behind until the agent knows to
+pass `--base-ref origin/test` by hand. It is worse since PR #241 merged
+into `main` on 2026-09-24: against `origin/main` the guard now reports
+WT006 (behind) while the branch has nothing past the merge, and WT005
+(diverged) once it does, with an empty merge-base diff. When this was filed,
+F-WORKTREE-3's open items were the between-batch ancestry skip, a dirty
+detached worktree missing WT010, and the doubled base-ref label -- none was
+this defect, so this is a separate finding. F-WORKTREE-3 has since been
+archived.
+- [ ] **Status:** open (P2). Source: found opening Batch 23, 2026-09-21;
+  sharpened by `docs/history/reports/HANDOFF_2026-09-24.md` section 2 after
+  PR #241 merged, 2026-09-24.
 
 ### F-B22-5: the release-year lookup has a precision path it does not use
 
@@ -909,7 +731,7 @@ hook, no CI step, no test. Every symbol resolves today, verified 2026-09-13, so
 this is drift prevention rather than a repair.
 
 Every other repeated fact in this repository has a control plane: docsync
-carries a generic mechanism plus `.docsync.toml` declarations plus a gate, and
+carries a generic mechanism plus `config/docsync.toml` declarations plus a gate, and
 the worktree guard reads PLAYBOOK Section 3. A diagram node is the same kind of
 claim as a `[[anchor]]`, and it is the only one with no owner.
 
@@ -918,7 +740,7 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
   their labels, and resolves any label naming a code symbol against the tree.
   It holds no repository-specific value, so it lifts with the rest of the
   package.
-- Declarations: a `[[diagram]]` kind in `.docsync.toml` naming each diagram's
+- Declarations: a `[[diagram]]` kind in `config/docsync.toml` naming each diagram's
   claimed symbols and the labels that are prose, not code ("Last.fm API"). The
   prose exemption is a local convention, like `strikethrough_exempt`.
 - Gate: the existing `doc-state-sync-check` hook, reporting a new `DOC013`
@@ -927,11 +749,18 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
 - Standard library only: `re` and `pathlib`. Mermaid syntax validation needs a
   parser, so if it is wanted, add it as a CI-only step using the Node
   toolchain the Tailwind build already requires, never as a pre-commit hook.
-- AGENT_NOTES.md "This repository is also a template being extracted" gains a
-  line naming diagrams as a third declared surface beside values and anchors.
+- `docs/agents/AGENT_NOTES.md` "This repository is also a template being
+  extracted" gains a line naming diagrams as a third declared surface
+  beside values and anchors.
 
-Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes); a new
-invariant for this finding starts at DOC023, not DOC013.
+Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes).
+
+Note (2026-09-24): DOC023 is also taken (docsync finding-lifecycle
+grandfathered-finding count, `scripts/docsync/findings.py`). A new invariant
+for this finding starts at the next free code named in
+`docs/architecture/documentation-tooling.md`'s catalogue; DOC021 and DOC022
+are reserved by
+`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`.
 
 Status: open (P2). Not scheduled; it belongs with docsync work, not with
 Batch 21. Source: architecture review, 2026-09-13.
@@ -1070,7 +899,7 @@ Measured 2026-09-11: the reuse is latent, not live. `_validate("retired", index,
 declaration)` at `:744` runs before the inner loop of its own iteration, and the
 `for` statement reassigns `index` at the top of each outer iteration, so the
 declaration index is restored before it is read again. Calling `check_retired`
-with two declarations -- the first scanning `PLAYBOOK.md` behind an
+with two declarations -- the first scanning `docs/agents/PLAYBOOK.md` behind an
 `allow_after` marker, so its inner loop ran and rebound the name, and the second
 carrying an unknown key -- named the fault `retired 1`, the declaration index
 rather than a line. Nothing reads `index` after `:765`.
@@ -1120,7 +949,8 @@ unmatched when a second attempt would have found it.
 **Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
 The audit first filed this as a user-facing mislabelling -- `spotify.py:75`
 returns the same value for a genuine empty result, so
-`orchestrator.py:250-262` records the album with the reason
+`_run_spotify_search_phase` (`orchestrator.py` at the time, now
+`scrobblescope/orchestrator/_search.py`) records the album with the reason
 `No Spotify match`, and the report treated that label as wrong. It is not.
 Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
 the label is accurate for the ordinary case and what the user sees is
@@ -1268,7 +1098,7 @@ Status: standing design decision. Source: PR #234 advisory verification,
 ## Deferred / future-batch candidates (Batch 18/19 audits)
 
 One-line cross-references; detailed bodies live in pre-Batch-20
-`FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
+`docs/agents/FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
 audits; 2026-03-04 load-test data is in the findings archive.
 
 - F-B18-1: orchestrator monolith -- promoted to F-B20-2, resolved 2026-09-21.

@@ -74,7 +74,13 @@ def branch_label(branch: str | None, fallback: str) -> str:
 
 
 def missing_base_remediation(base_ref: str) -> str:
-    """Preserve default recovery while keeping custom-base guidance neutral."""
+    """Preserve default recovery while keeping custom-base guidance neutral.
+
+    The branch decision reads the raw `base_ref` so a display-unsafe value
+    (whose `/` the label strips) still lands in the branch its real shape
+    deserves; only the rendered text substitutes `label`, never the raw ref.
+    """
+    label = base_ref_label(base_ref)
     if base_ref == "origin/main":
         return (
             "When network access is available, run git fetch --prune origin, "
@@ -83,11 +89,11 @@ def missing_base_remediation(base_ref: str) -> str:
         )
     if "/" not in base_ref or base_ref.startswith("refs/"):
         return (
-            f"Verify the local base ref {base_ref} exists and is current, then rerun "
+            f"Verify the local base ref {label} exists and is current, then rerun "
             "the guard. This guard does not fetch."
         )
     return (
-        f"Refresh or otherwise verify the selected base ref {base_ref} exists locally "
+        f"Refresh or otherwise verify the selected base ref {label} exists locally "
         "and is current, then rerun the guard. This guard does not fetch."
     )
 
@@ -113,7 +119,7 @@ def metadata_unavailable_diagnostic(detail: str) -> Diagnostic:
     return issue(
         "ERROR",
         "WT002",
-        "PLAYBOOK.md",
+        "docs/agents/PLAYBOOK.md",
         f"active batch metadata is unavailable: {detail}",
         "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
     )
@@ -127,7 +133,7 @@ def missing_base_diagnostic(base_ref: str) -> Diagnostic:
         "WT007",
         label,
         "comparison base ref is missing from the local repository.",
-        missing_base_remediation(label),
+        missing_base_remediation(base_ref),
     )
 
 

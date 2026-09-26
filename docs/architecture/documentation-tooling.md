@@ -5,9 +5,9 @@ worktree-guard, pre-commit, and CI relationships.
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>rules + Agent skills] --> H[HANDOFF_PROMPT.md]
-    A --> P[PLAYBOOK.md<br/>work order + execution log]
-    A --> F[FINDINGS.md<br/>open defects]
+    A[AGENTS.md<br/>rules + Agent skills] --> H[docs/agents/HANDOFF_PROMPT.md]
+    A --> P[docs/agents/PLAYBOOK.md<br/>work order + execution log]
+    A --> F[docs/agents/FINDINGS.md<br/>open defects]
     A --> SK[docs/agents/<br/>issue-tracker, domain]
     P --> B[BATCHN_DEFINITION.md<br/>scope + acceptance criteria]
     P --> S[SESSION_CONTEXT.md<br/>current-state dashboard]
@@ -30,7 +30,7 @@ flowchart TD
     CLI --> Findings[docsync.findings]
     CLI --> Archives[docsync.archives]
     CLI --> Transaction[docsync.transaction<br/>publish]
-    TOML[.docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
+    TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
     Integrity --> Decl
     Integrity --> Closeout
     Integrity --> MD[docsync.markdown]
@@ -127,9 +127,9 @@ The facade re-exports all six guard modules. `doc_state_sync.py` imports only
 
 **What this machinery is for.** docsync, the worktree guard, and the
 frontend gate are an extractable control plane, not a ScrobbleScope quirk
--- see `AGENT_NOTES.md` "This repository is also a template being
+-- see `docs/agents/AGENT_NOTES.md` "This repository is also a template being
 extracted" for why. Each mechanism reads its facts from repository-local
-configuration (`.docsync.toml`'s declarations, the `[closeout]` and
+configuration (`config/docsync.toml`'s declarations, the `[closeout]` and
 `[archives]` tables, options like DOC011's struck-through convention)
 rather than assuming them, so strictness is a dial this repository sets,
 not a property of the code: which batches face close-out standards, how
@@ -141,20 +141,21 @@ find where to pick up from PLAYBOOK, SESSION_CONTEXT, and what the gate
 currently reports, without depending on continuity from whatever session
 came before it.
 
-## The DOC001-DOC024 catalogue
+## The DOC code catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC024` issues and exits 1 on any
-error-severity one; a warning -- `DOC024`, and `DOC023`'s
-grandfathered-finding count -- prints and leaves the exit code alone. In
-practice the codes that bite most often are `DOC001` (a backticked path
-must resolve in `git ls-files`, so an ignored or untracked document cannot
-be linked to), `DOC006` (every named session test count must match the
-newest full-suite run) and `DOC008` (the findings header count must match
-that same run). Dated log entries are exempt below a declared marker.
+blocks.** It returns typed `DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025` issues
+and exits 1 on any error-severity one; a warning -- `DOC024`, `DOC025`, and
+`DOC023`'s grandfathered-finding count -- prints and leaves the exit code
+alone. In practice the codes that bite most often are `DOC001` (a
+backticked path must resolve in `git ls-files`, so an ignored or untracked
+document cannot be linked to), `DOC006` (every named session test count
+must match the count pinned in `config/docsync.toml`, or the newest
+full-suite run if none has been pinned) and `DOC008` (the same, for the
+findings header). Dated log entries are exempt below a declared marker.
 
 **DOC009 to DOC011 are declared, not hard-coded.** They read
-`.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
+`config/docsync.toml`, so `scripts/docsync/declarations.py`
 is repository-independent and only the declarations are local. Three kinds:
 
 - **DOC009 -- value.** One fact written in several places must still be
@@ -212,7 +213,7 @@ way. Below the boundary a batch is admitted as it stands; its closure is
 never asked for retroactively. The boundary is one integer, not a list of
 managed batches: a list can be opted out of by omission, and a boundary
 cannot, because a new batch lands above it by arithmetic. This repository
-sets `admit_from_batch = 22` in `.docsync.toml`, because Batches 0-21 closed
+sets `admit_from_batch = 22` in `config/docsync.toml`, because Batches 0-21 closed
 before the six close-out signals existed and requiring them retroactively
 would mean fabricating evidence rather than checking it.
 
@@ -224,7 +225,7 @@ page carries its own header. The gate reports the disagreement and stops; it
 never resolves one by deleting a page or rewriting an index, because either
 side may be the history worth keeping. Bounded archives page at 500 lines
 (`[archives] max_lines`); both that and `[archives] cold_days` are
-`.docsync.toml` defaults, not hard-coded. A finalized page -- one that is
+`config/docsync.toml` defaults, not hard-coded. A finalized page -- one that is
 not the writable tail -- becomes cold-storage eligible only once it is not
 oversized and every entry on it carries an explicit date more than
 `cold_days` days before `--as-of`; a page holding even one undated entry
@@ -244,6 +245,13 @@ oversized page. Neither warning
 writes anything; both are read only by `--check`/`--fix`, which never
 paginate or age a file on their own.
 
+**DOC025 is a warning-only pin-staleness check**, implemented in
+`scripts/docsync/integrity.py`. It fires only when exactly one Section 4
+entry (across every source `latest_test_count_authority` reads) carries the
+newest date and its count disagrees with `config/docsync.toml`'s
+`[test_count]` pin; a same-date tie or an absent pin stays silent. It never
+blocks (Q1 ruling, 2026-09-25).
+
 **DOC023 is the finding-rot code**, implemented in
 `scripts/docsync/findings.py`. DOC013 to DOC018 only ever examine findings
 written in the canonical `- [ ] **Status:**` shape, so a findings file where
@@ -260,7 +268,7 @@ remedy is still a `resolved` record. F-B21-13 sat unrotated for weeks written
 that way.
 
 The findings that predate the rule are listed by id under `[findings]
-grandfathered` in `.docsync.toml`, and reported once as a non-blocking
+grandfathered` in `config/docsync.toml`, and reported once as a non-blocking
 warning carrying their live count, derived on every run. A list of ids
 rather than a batch boundary: ids are not ordered, so a source tag like
 `F-DOCSYNC-9` has no batch number to compare and any boundary would
@@ -294,6 +302,14 @@ beyond `--check`/`--fix`:
   cold storage as of the given date. The date is always explicit and always
   ISO; there is no implicit "as of today" mode, so a maintenance run cannot
   silently age files by whatever day it happens to execute.
+
+**`--config PATH`** is an option, not a mode: it overrides which declarations
+file every mode and every check reads, in place of the repository default.
+The path must resolve inside the repository because writing modes include it
+in the publication transaction's source snapshot. An outside path or a path
+that is not a file is refused with exit 2. A missing repository default still
+means nothing is declared. The `[documents]` paths must also stay inside the
+repository and resolve to five distinct live files, including `AGENTS.md`.
 
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by
@@ -332,11 +348,15 @@ modes, both wrapping the same real `scripts/doc_state_sync.py --check`:
 **Trusted-execution refusal.** Both modes refuse, before any check runs, a
 commit that touches the docsync control plane itself (`scripts/docsync/`,
 `scripts/doc_state_sync.py`, `scripts/dev/docsync_preflight.py`,
-`.docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
+`config/docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
 in CI, where the index already equals `HEAD`. Grading a corpus against a
 checker mid-change to its own rules is a correctness/trust mismatch, not
 merely a risk to be documented away, so the tool refuses rather than
-guessing which version of the rules should govern.
+guessing which version of the rules should govern. A staged
+`config/docsync.toml` whose only change is the `[test_count]` pin is exempt
+from this refusal (owner ruling 2026-09-26): every ordinary commit that adds
+a test also pins a new count there, and that alone does not change the
+checker's rules.
 
 **The one named escape for that refusal is `SKIP=doc-state-sync-check git
 commit`** -- pre-commit's own built-in per-hook skip, naming this hook's id
@@ -388,9 +408,15 @@ the check to run even before pre-commit's own stash isolation exists.
 `_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
-proposed stays a deferred candidate; it would change representation rather
-than location. It starts its own server on an ephemeral loopback port and
-shuts it down in a `finally`, so it needs no separately running app.
+proposed has landed (foundation plan Task 8): a manifest under `config/`
+(`config/frontend_gate_checks.toml`) selects
+which of `CHECKS` run, by name, refusing an unknown name or a disabled
+required check before a browser launches. The decomposition's goal was
+isolating what executes from how it executes, not shrinking
+`_frontend_gate_layout.py`'s size -- selection is a repository fact under
+`config/`, execution stays inside the `_frontend_gate_*` siblings. It starts its
+own server on an ephemeral loopback port and shuts it down in a `finally`,
+so it needs no separately running app.
 
 Pre-commit runs the ten hooks above, including `doc-state-sync-check` (now
 the first hook in the file); CI runs the docsync preflight explicitly, then

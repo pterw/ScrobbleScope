@@ -2,45 +2,73 @@
 
 import pytest
 
-from scripts.dev.worktree_guard import CommandResult, inspect_worktree
+from scripts.dev.worktree_guard import CommandResult, GuardError, inspect_worktree
 from tests.scripts.dev.worktree_guard_fakes import (
     FakeGit,
     codes,
+    fail,
+    ok,
     repository,
     venv_tools,
 )
 
 
 @pytest.mark.parametrize(
-    ("environ", "expected"),
+    ("environ", "expected", "last_call"),
     [
-        ({"CI": "YeS"}, "WT011"),
-        ({"GITHUB_ACTIONS": "1"}, "WT011"),
-        ({}, "WT012"),
+        (
+            {"CI": "YeS"},
+            "WT011",
+            ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ),
+        (
+            {"GITHUB_ACTIONS": "1"},
+            "WT011",
+            ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ),
+        ({}, "WT012", ("status", "--porcelain")),
     ],
     ids=("recognized-ci", "recognized-github-actions", "local"),
 )
 def test_detached_checkout_stops_before_local_topology_checks(
-    tmp_path, environ, expected
+    tmp_path, environ, expected, last_call
 ):
-    """Detached CI skips cleanly while detached local work fails safely."""
+    """Detached CI skips cleanly while detached local work is measured for
+    dirtiness (F-WORKTREE-3) before failing safely."""
     repo, responses = repository(tmp_path)
     responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
     runner = FakeGit(responses)
     diagnostics = inspect_worktree(repo, environ=environ, runner=runner)
     assert codes(diagnostics) == [expected]
-    assert [args for _, args in runner.calls][-1] == (
-        "symbolic-ref",
-        "--quiet",
-        "--short",
-        "HEAD",
-    )
+    assert [args for _, args in runner.calls][-1] == last_call
+
+
+def test_detached_dirty_local_reports_wt012_and_wt010(tmp_path):
+    """F-WORKTREE-3: a detached, dirty, non-CI worktree must not hide its
+    dirty state behind WT012 alone through the real inspection path."""
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+    responses[("status", "--porcelain")] = ok(" M scripts/dev/foo.py\n")
+    diagnostics = inspect_worktree(repo, environ={}, runner=FakeGit(responses))
+    assert codes(diagnostics) == ["WT012", "WT010"]
+
+
+def test_detached_local_status_call_failure_raises_guard_error(tmp_path):
+    """A detached, non-CI worktree whose status call fails raises rather than
+    guessing dirtiness (mirrors the attached path's equivalent failure)."""
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+    responses[("status", "--porcelain")] = fail("fatal: not a git repository")
+    with pytest.raises(GuardError, match="status"):
+        inspect_worktree(repo, environ={}, runner=FakeGit(responses), debug=True)
 
 
 def test_detached_ci_skips_before_playbook_metadata_is_required(tmp_path):
     """A CI checkout skips topology even when PLAYBOOK cannot be parsed."""
     repo, responses = repository(tmp_path)
-    repo.joinpath("PLAYBOOK.md").write_text("# PLAYBOOK\n\nno sections\n", "utf-8")
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
+        "# PLAYBOOK\n\nno sections\n", "utf-8"
+    )
     responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
 
     diagnostics = inspect_worktree(
@@ -63,6 +91,23 @@ def test_summary_reports_checkout_kind_and_primary_tools(tmp_path, linked):
     tools = venv_tools(tmp_path / "primary" / ".venv")
     for tool in tools.values():
         assert str(tool) in summary
+
+
+def test_detached_local_reports_wt015_for_a_missing_declared_essential(tmp_path):
+    """CR3: WT015 must also run on the detached-HEAD return path.
+
+    Before the fix, the detached branch returned via `finish_diagnostics`
+    before `essentials_diagnostics` ran, so a declared but missing
+    untracked-essential file never surfaced in a detached (scratch) worktree.
+    """
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, environ={}, runner=FakeGit(responses))
+    assert "WT015" in codes(diagnostics)
 
 
 def test_inspection_accepts_simulated_posix_tool_layout(tmp_path):

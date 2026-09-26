@@ -1,4 +1,4 @@
-"""Tests for docsync.logic: _collect_wp_numbers and _sync integration."""
+"""Tests for docsync.logic._sync integration."""
 
 from __future__ import annotations
 
@@ -6,180 +6,8 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from docsync.logic import (
-    _dedup_sorted,
-    _latest_test_count_from_entries,
-    _merge_entries_into_log,
-    _split_archive,
-    _sync,
-)
-from docsync.models import Entry, SyncError
-from docsync.parser import _collect_wp_numbers, _fingerprint, _parse_active_batch_state
-
-# ---------------------------------------------------------------------------
-# _collect_wp_numbers -- edge cases
-# ---------------------------------------------------------------------------
-
-
-class TestCollectWpNumbers:
-    def test_no_wp_tags(self):
-        entry = Entry(
-            heading="### 2026-01-01 - Side fix",
-            date="2026-01-01",
-            title="Side fix",
-            lines=("### 2026-01-01 - Side fix",),
-            start_idx=0,
-            fingerprint="abc",
-        )
-        assert _collect_wp_numbers([entry]) == []
-
-    def test_multiple_wp_tags(self):
-        e1 = Entry(
-            heading="### 2026-01-01 - WP-1 work (Batch 11 WP-1)",
-            date="2026-01-01",
-            title="WP-1 work (Batch 11 WP-1)",
-            lines=("### 2026-01-01 - WP-1 work (Batch 11 WP-1)",),
-            start_idx=0,
-            fingerprint="a",
-        )
-        e2 = Entry(
-            heading="### 2026-01-02 - WP-3 work (Batch 11 WP-3)",
-            date="2026-01-02",
-            title="WP-3 work (Batch 11 WP-3)",
-            lines=("### 2026-01-02 - WP-3 work (Batch 11 WP-3)",),
-            start_idx=0,
-            fingerprint="b",
-        )
-        assert _collect_wp_numbers([e1, e2]) == [1, 3]
-
-
-class TestLatestTestCount:
-    def _minimal_playbook(self, entry_body_lines: list[str]) -> list[str]:
-        """Wrap entry_body_lines inside a minimal PLAYBOOK with Section 4 markers."""
-        return [
-            "# PLAYBOOK",
-            "",
-            "## 3. Active batch",
-            "",
-            "Batch 11 is active.",
-            "",
-            "## 4. Execution log",
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
-            "",
-            "### 2026-02-20 - Work (Batch 11 WP-1)",
-            "",
-            *entry_body_lines,
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
-        ]
-
-    def test_no_markers_returns_none(self):
-        """Flat playbook with no Section 4 markers returns None."""
-        playbook = ["# PLAYBOOK", "", "## 4. Execution log", "", "Some content."]
-        assert _latest_test_count_from_entries(playbook) is None
-
-    def test_entry_with_count_returns_count(self):
-        """Bold test count in a current-batch entry body is extracted."""
-        playbook = self._minimal_playbook(["Validated: **142 passed**"])
-        assert _latest_test_count_from_entries(playbook) == 142
-
-    def test_entry_without_count_returns_none(self):
-        """Entry with no bold count produces None."""
-        playbook = self._minimal_playbook(["No count here."])
-        assert _latest_test_count_from_entries(playbook) is None
-
-    def test_multiple_entries_uses_newest(self):
-        """With two entries inside markers, the newest (last appended) entry's count is used."""
-        playbook = [
-            "# PLAYBOOK",
-            "",
-            "## 3. Active batch",
-            "",
-            "Batch 11 is active.",
-            "",
-            "## 4. Execution log",
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
-            "",
-            "### 2026-02-20 - Older work (Batch 11 WP-1)",
-            "",
-            "**190 tests passing**",
-            "",
-            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
-            "",
-            "**200 tests passing**",
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
-        ]
-        # Parser returns entries in file order (append-ordered, oldest first);
-        # _latest_test_count_from_entries scans in reverse to find newest.
-        result = _latest_test_count_from_entries(playbook)
-        assert result == 200
-
-    def test_newest_first_file_order_still_returns_last(self):
-        """When entries are in reverse chronological file order, the last
-        entry in the file is still treated as newest (append convention)."""
-        playbook = [
-            "# PLAYBOOK",
-            "",
-            "## 3. Active batch",
-            "",
-            "Batch 11 is active.",
-            "",
-            "## 4. Execution log",
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
-            "",
-            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
-            "",
-            "**200 tests passing**",
-            "",
-            "### 2026-02-20 - Older work (Batch 11 WP-1)",
-            "",
-            "**190 tests passing**",
-            "",
-            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
-        ]
-        assert _latest_test_count_from_entries(playbook) == 190
-
-    def test_newest_side_task_full_suite_count_is_authoritative(self):
-        """The top side-task full-suite result supersedes the Batch WP baseline."""
-        playbook = self._minimal_playbook(["`pytest -q` -- **390 passed**."])
-        playbook.extend(
-            [
-                "",
-                "### 2026-08-05 - Review remediation (side-task)",
-                "",
-                "Focused docsync suite -- **112 passed**. `pytest -q` --",
-                "**420 passed**.",
-            ]
-        )
-
-        assert _latest_test_count_from_entries(playbook) == 420
-
-    def test_focused_side_task_does_not_override_full_suite_count(self):
-        """A focused-only result cannot become the repository test authority."""
-        playbook = self._minimal_playbook(["`pytest -q` -- **390 passed**."])
-        playbook.extend(
-            [
-                "",
-                "### 2026-08-06 - Focused follow-up (side-task)",
-                "",
-                "Validation: focused docsync suite -- **112 passed**.",
-                "",
-                "### 2026-08-05 - Full validation (side-task)",
-                "",
-                "Validation: `pytest -q` -- **420 passed**.",
-            ]
-        )
-
-        assert _latest_test_count_from_entries(playbook) == 420
-
-
-# ---------------------------------------------------------------------------
-# _sync integration tests -- filesystem-based, isolated via sync_env
-# ---------------------------------------------------------------------------
+from docsync.logic import _sync
+from docsync.models import SyncError
 
 
 class TestSyncIntegration:
@@ -386,6 +214,11 @@ class TestSyncIntegration:
 
     def test_session_status_uses_active_definition_plan(self, sync_env: Path):
         """The sync path passes the finite plan through to the renderer."""
+        playbook_path = sync_env / "PLAYBOOK.md"
+        playbook_text = playbook_path.read_text(encoding="utf-8").replace(
+            "Did some work.", "**Status:** WP-1 complete.\n\nDid some work."
+        )
+        playbook_path.write_text(playbook_text, encoding="utf-8")
         playbook, archive, session = self._files(sync_env)
 
         result = _sync(
@@ -418,6 +251,59 @@ class TestSyncIntegration:
         result = _sync(playbook, archive, session, keep_non_current=4)
 
         assert "- Latest validated test count: **420 passed**." in result.session_lines
+
+    def test_three_tagged_commits_do_not_claim_the_package_done_until_the_last(
+        self, sync_env: Path
+    ):
+        """Reproduces docs/history/logs/BATCH22_LOG.md: three (Batch 22 WP-4)
+        entries landed before WP-4 was actually finished (F-DOCSYNC-15)."""
+        first_two_commits = dedent(
+            """\
+            # PLAYBOOK
+
+            ## 3. Active batch
+
+            Batch 22 is active.
+
+            ## 4. Execution log
+
+            Preamble.
+
+            <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+            ### 2026-09-20 - (Batch 22 WP-4) first commit
+
+            Progress.
+
+            ### 2026-09-20 - (Batch 22 WP-4) second commit
+
+            More progress.
+
+            <!-- DOCSYNC:CURRENT-BATCH-END -->
+        """
+        )
+        (sync_env / "PLAYBOOK.md").write_text(first_two_commits, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+
+        # Before the third commit lands, the tag alone must not claim WP-4 done.
+        result = _sync(playbook, archive, session, keep_non_current=4)
+        status = "\n".join(result.session_lines)
+        assert "Completed work packages in current-batch entries: none." in status
+
+        third_commit = first_two_commits.replace(
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+            "### 2026-09-20 - (Batch 22 WP-4) third commit\n\n"
+            "**Status:** WP-4 complete\n\n"
+            "Done.\n\n"
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        )
+        (sync_env / "PLAYBOOK.md").write_text(third_commit, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+
+        # Only the explicit completion line on the third commit closes WP-4.
+        result = _sync(playbook, archive, session, keep_non_current=4)
+        status = "\n".join(result.session_lines)
+        assert "Completed work packages in current-batch entries: WP-4." in status
 
     def test_session_context_missing_status_markers_raises(self, sync_env: Path):
         session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
@@ -579,199 +465,3 @@ class TestSyncIntegration:
         assert result.batch_log_updates == {}
         archive_text = "\n".join(result.archive_lines)
         assert "Untagged old entry" in archive_text
-
-
-# ---------------------------------------------------------------------------
-# _merge_entries_into_log -- unit tests
-# ---------------------------------------------------------------------------
-
-
-class TestMergeEntriesIntoLog:
-    def _make_entry(self, date: str, batch: int, wp: int, body: str) -> Entry:
-        """Build a minimal Entry with a properly computed fingerprint."""
-        heading = f"### {date} - Work done (Batch {batch} WP-{wp})"
-        lines = (heading, "", body)
-        return Entry(
-            heading=heading,
-            date=date,
-            title=f"Work done (Batch {batch} WP-{wp})",
-            lines=lines,
-            start_idx=0,
-            fingerprint=_fingerprint(lines),
-        )
-
-    def test_empty_existing_creates_header(self):
-        """GIVEN no existing log, WHEN an entry is merged,
-        THEN a batch header line is created."""
-        entry = self._make_entry("2026-01-01", 5, 1, "Some work.")
-        result = _merge_entries_into_log([], [entry], 5)
-        result_text = "\n".join(result)
-        assert "# Batch 5 Execution Log" in result_text
-        assert "Batch 5 WP-1" in result_text
-
-    def test_deduplicates_by_fingerprint(self):
-        """GIVEN an entry already in the log, WHEN merged again with same entry,
-        THEN the heading appears exactly once."""
-        entry = self._make_entry("2026-01-01", 5, 1, "Unique content.")
-        first_pass = _merge_entries_into_log([], [entry], 5)
-        result = _merge_entries_into_log(first_pass, [entry], 5)
-        result_text = "\n".join(result)
-        assert result_text.count("Batch 5 WP-1") == 1
-
-    def test_newest_entry_appears_first(self):
-        """GIVEN an older and a newer entry, WHEN merged,
-        THEN the newer date appears before the older date in the output."""
-        older = self._make_entry("2026-01-01", 5, 1, "Older work.")
-        newer = self._make_entry("2026-01-02", 5, 2, "Newer work.")
-        result = _merge_entries_into_log([], [older, newer], 5)
-        text = "\n".join(result)
-        assert text.index("2026-01-02") < text.index("2026-01-01")
-
-
-# ---------------------------------------------------------------------------
-# _split_archive -- unit tests
-# ---------------------------------------------------------------------------
-
-
-class TestSplitArchive:
-    def test_tagged_entries_routed_by_batch(self):
-        """GIVEN archive with a Batch 10 tagged entry,
-        WHEN split, THEN the entry is in batch_groups[10] and not in remaining."""
-        monolith = [
-            "# Archive",
-            "",
-            "### 2026-01-05 - Work done (Batch 10 WP-1)",
-            "",
-            "Some content.",
-            "",
-        ]
-        remaining, batch_groups = _split_archive(monolith)
-        assert 10 in batch_groups
-        assert len(batch_groups[10]) == 1
-        remaining_text = "\n".join(remaining)
-        assert "Batch 10 WP-1" not in remaining_text
-
-    def test_untagged_entries_remain_in_monolith(self):
-        """GIVEN archive with an untagged entry,
-        WHEN split, THEN batch_groups is empty and entry stays in remaining."""
-        monolith = [
-            "# Archive",
-            "",
-            "### 2026-01-05 - Side task fix",
-            "",
-            "Some content.",
-            "",
-        ]
-        remaining, batch_groups = _split_archive(monolith)
-        assert batch_groups == {}
-        remaining_text = "\n".join(remaining)
-        assert "Side task fix" in remaining_text
-
-    def test_mixed_entries_split_correctly(self):
-        """GIVEN archive with both tagged and untagged entries,
-        WHEN split, THEN each routes to the correct destination."""
-        monolith = [
-            "# Archive",
-            "",
-            "### 2026-01-06 - Tagged work (Batch 9 WP-2)",
-            "",
-            "Tagged content.",
-            "",
-            "### 2026-01-05 - Untagged side task",
-            "",
-            "Untagged content.",
-            "",
-        ]
-        remaining, batch_groups = _split_archive(monolith)
-        assert 9 in batch_groups
-        assert len(batch_groups[9]) == 1
-        remaining_text = "\n".join(remaining)
-        assert "Untagged side task" in remaining_text
-        assert "Tagged work" not in remaining_text
-
-
-# ---------------------------------------------------------------------------
-# _dedup_sorted -- fingerprint deduplication
-# ---------------------------------------------------------------------------
-
-
-class TestDedupSorted:
-    def test_same_fingerprint_keeps_newest(self):
-        """When two entries have the same fingerprint, only the newest survives."""
-        shared_lines = ("### 2026-01-01 - Duplicate entry", "Same content")
-        fp = _fingerprint(shared_lines)
-        older = Entry(
-            heading="### 2026-01-01 - Duplicate entry",
-            date="2026-01-01",
-            title="Duplicate entry",
-            lines=shared_lines,
-            start_idx=0,
-            fingerprint=fp,
-        )
-        newer = Entry(
-            heading="### 2026-01-01 - Duplicate entry",
-            date="2026-02-15",
-            title="Duplicate entry",
-            lines=shared_lines,
-            start_idx=10,
-            fingerprint=fp,
-        )
-        result = _dedup_sorted([older, newer])
-        assert len(result) == 1
-        assert result[0].date == "2026-02-15"
-
-
-# ---------------------------------------------------------------------------
-# _parse_active_batch_state -- conflicting signals
-# ---------------------------------------------------------------------------
-
-
-class TestParseActiveBatchStateConflicting:
-    def test_conflicting_complete_and_active_same_batch(self):
-        """When a batch is marked both complete and active, active wins."""
-        lines = [
-            "## 3. Active batch",
-            "- Batch 10 is complete.",
-            "- Batch 10 is active.",
-        ]
-        state = _parse_active_batch_state(lines)
-        # Active signal should override complete for the same batch number.
-        assert state.current_batch == 10
-        assert state.last_completed_batch == 10
-
-
-def test_unbold_full_suite_does_not_publish_focused_or_older_authority():
-    from docsync.logic import latest_test_count_authority
-
-    lines = [
-        "## 4. Execution log",
-        "<!-- DOCSYNC:CURRENT-BATCH-START -->",
-        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
-        "### 2026-09-15 - Newest",
-        "Focused: **12 passed**.",
-        "Validation: `pytest -q` -- 1154 passed.",
-        "### 2026-09-14 - Older",
-        "Validation: `pytest -q` -- **1153 passed**.",
-    ]
-    result = latest_test_count_authority(lines)
-    assert result.count is None
-    assert result.ambiguous
-
-
-def test_wrapped_unbold_full_suite_suppresses_focused_and_older_authority():
-    from docsync.logic import latest_test_count_authority
-
-    lines = [
-        "## 4. Execution log",
-        "<!-- DOCSYNC:CURRENT-BATCH-START -->",
-        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
-        "### 2026-09-15 - Newest",
-        "Focused: **12 passed**.",
-        "Validation: `pytest -q` --",
-        "1154 passed.",
-        "### 2026-09-14 - Older",
-        "Validation: `pytest -q` -- **1153 passed**.",
-    ]
-    result = latest_test_count_authority(lines)
-    assert result.count is None
-    assert result.ambiguous

@@ -20,6 +20,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+from docsync.declarations import DECLARATIONS_FILENAME
 
 from scripts.dev import docsync_preflight as preflight
 
@@ -149,7 +150,8 @@ def test_staged_paths_expands_rename_to_both_names():
         ("scripts/docsync/sub/deep.py", True),
         ("scripts/doc_state_sync.py", True),
         ("scripts/dev/docsync_preflight.py", True),
-        (".docsync.toml", True),
+        ("config/docsync.toml", True),
+        (".docsync.toml", False),
         ("AGENTS.md", False),
         ("scripts/dev/other_tool.py", False),
         ("docs/docsync/not_code.md", False),
@@ -157,7 +159,7 @@ def test_staged_paths_expands_rename_to_both_names():
         # starts with a control-plane file's name must not match. Directory
         # entries (scripts/docsync/) still match by prefix, since a nested
         # file's exact name cannot be enumerated in advance.
-        (".docsync.tomlx", False),
+        ("config/docsync.tomlx", False),
         ("scripts/doc_state_sync.py.bak", False),
         ("scripts/dev/docsync_preflight.py2", False),
     ],
@@ -165,11 +167,151 @@ def test_staged_paths_expands_rename_to_both_names():
 def test_control_plane_prefix_matching(path, expected):
     """Only the checker's own code and its config are treated as control-plane."""
     record = f"M\0{path}\0"
-    runner = _responses(
-        {("diff", "--cached", "--name-status", "-M", "-z"): (0, record, "")}
-    )
+    table = {("diff", "--cached", "--name-status", "-M", "-z"): (0, record, "")}
+    if path == "config/docsync.toml":
+        # A non-pin-only change, so this case still exercises the ordinary
+        # control-plane path rather than the [test_count] exemption
+        # (test_docsync_toml_pin_only_* below cover the exemption itself).
+        table[("show", "HEAD:config/docsync.toml")] = (0, "[options]\na = 1\n", "")
+        table[("show", ":config/docsync.toml")] = (0, "[options]\na = 2\n", "")
+    runner = _responses(table)
     result = preflight.staged_control_plane_paths(Path("/repo"), runner=runner)
     assert (path in result) is expected
+
+
+# --------------------------------------------------------------------- #
+# config/docsync.toml pin-only exemption (owner ruling 2026-09-26)       #
+# --------------------------------------------------------------------- #
+
+
+def _pin_only_responses(head_toml, index_toml, *, extra_staged=""):
+    """Build a fake-runner table staging ``config/docsync.toml`` alone,
+    with the given HEAD and index blobs, plus any extra staged record.
+    """
+    record = f"M\0config/docsync.toml\0{extra_staged}"
+    return {
+        ("diff", "--cached", "--name-status", "-M", "-z"): (0, record, ""),
+        ("show", "HEAD:config/docsync.toml"): (0, head_toml, ""),
+        ("show", ":config/docsync.toml"): (0, index_toml, ""),
+    }
+
+
+def test_docsync_toml_pin_only_change_is_not_control_plane():
+    """A [test_count] pin edit alone is exempt (owner ruling 2026-09-26)."""
+    runner = _responses(
+        _pin_only_responses(
+            "[test_count]\npinned = 1897\n", "[test_count]\npinned = 1898\n"
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == []
+
+
+def test_docsync_toml_pin_change_plus_another_table_is_control_plane():
+    """A pin edit alongside a change to another table is still refused."""
+    runner = _responses(
+        _pin_only_responses(
+            "[test_count]\npinned = 1897\n\n[options]\nstrikethrough_exempt = true\n",
+            "[test_count]\npinned = 1898\n\n[options]\nstrikethrough_exempt = false\n",
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
+def test_docsync_toml_change_outside_test_count_only_is_control_plane():
+    """A change confined to another table, with the pin untouched, is refused."""
+    runner = _responses(
+        _pin_only_responses(
+            "[test_count]\npinned = 1897\n\n[options]\nstrikethrough_exempt = true\n",
+            "[test_count]\npinned = 1897\n\n[options]\nstrikethrough_exempt = false\n",
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
+def test_docsync_toml_test_count_table_added_is_still_pin_only():
+    """HEAD having no [test_count] table at all is still a pin-only add."""
+    runner = _responses(
+        _pin_only_responses(
+            "[options]\nstrikethrough_exempt = true\n",
+            "[options]\nstrikethrough_exempt = true\n\n[test_count]\npinned = 1898\n",
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == []
+
+
+def test_docsync_toml_absent_at_head_is_control_plane():
+    """A new config/docsync.toml (no HEAD blob) fails closed as control-plane."""
+    record = "A\0config/docsync.toml\0"
+    runner = _responses(
+        {
+            ("diff", "--cached", "--name-status", "-M", "-z"): (0, record, ""),
+            ("show", "HEAD:config/docsync.toml"): (
+                128,
+                "",
+                "fatal: path 'config/docsync.toml' does not exist in 'HEAD'",
+            ),
+        }
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
+def test_docsync_toml_absent_from_index_is_control_plane():
+    """A staged deletion (or rename-away) of config/docsync.toml -- a valid
+    blob at HEAD, but no blob in the index -- fails closed as control-plane.
+    """
+    record = "D\0config/docsync.toml\0"
+    runner = _responses(
+        {
+            ("diff", "--cached", "--name-status", "-M", "-z"): (0, record, ""),
+            ("show", "HEAD:config/docsync.toml"): (
+                0,
+                "[test_count]\npinned = 1897\n",
+                "",
+            ),
+            ("show", ":config/docsync.toml"): (
+                128,
+                "",
+                "fatal: path 'config/docsync.toml' does not exist in the index",
+            ),
+        }
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
+def test_docsync_toml_invalid_index_toml_is_control_plane():
+    """An unparsable index blob fails closed as control-plane, not a crash."""
+    runner = _responses(
+        _pin_only_responses(
+            "[test_count]\npinned = 1897\n", "[test_count\npinned = 1898\n"
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
+def test_docsync_toml_pin_only_alongside_other_control_plane_file_is_per_path():
+    """The exemption is per path: a pin-only docsync.toml staged with a real
+    control-plane code change still refuses on the code change alone.
+    """
+    runner = _responses(
+        _pin_only_responses(
+            "[test_count]\npinned = 1897\n",
+            "[test_count]\npinned = 1898\n",
+            extra_staged="M\0scripts/docsync/cli.py\0",
+        )
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "scripts/docsync/cli.py"
+    ]
 
 
 def test_require_python_fails_closed_when_missing(tmp_path):
@@ -627,7 +769,9 @@ def test_staged_preflight_against_real_docsync_checker(tmp_path):
     (repo / ".claude" / "SESSION_CONTEXT.md").write_text(
         MINIMAL_SESSION_CONTEXT, encoding="utf-8"
     )
-    (repo / ".docsync.toml").write_text(
+    declarations_path = repo / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         "[closeout]\nadmit_from_batch = 22\n", encoding="utf-8"
     )
     (repo / "BATCH11_DEFINITION.md").write_text(
@@ -646,7 +790,7 @@ def test_staged_preflight_against_real_docsync_checker(tmp_path):
         "PLAYBOOK.md",
         "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md",
         ".claude/SESSION_CONTEXT.md",
-        ".docsync.toml",
+        DECLARATIONS_FILENAME,
         "BATCH11_DEFINITION.md",
         "AGENTS.md",
         "HANDOFF_PROMPT.md",

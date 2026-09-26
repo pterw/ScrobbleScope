@@ -33,6 +33,7 @@ for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
 # same way. Tests that need a contact patch the module attribute explicitly.
 os.environ["MUSICBRAINZ_CONTACT"] = ""
 
+from docsync.declarations import DECLARATIONS_FILENAME  # noqa: E402
 from docsync.renderer import SIDE_ARCHIVE_PREFIX  # noqa: E402
 
 from app import create_app  # noqa: E402
@@ -138,7 +139,6 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import docsync.cli as cli_module
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli_module, "PLAYBOOK_PATH", tmp_path / "PLAYBOOK.md")
     monkeypatch.setattr(
         cli_module,
         "ARCHIVE_PATH",
@@ -159,7 +159,9 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # managed and DOC019 would fire on every CLI test that uses this corpus.
     # The repository's own boundary (22) admits it the same way it admits the
     # real Batches 0-21: closed before the close-out signals existed.
-    (tmp_path / ".docsync.toml").write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         "[closeout]\nadmit_from_batch = 22\n", encoding="utf-8"
     )
 

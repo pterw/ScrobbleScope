@@ -47,16 +47,16 @@ these failure modes.
 ## The Orchestration Architecture
 
 The external-memory layer consists of five core tracked files, the advisory
-read-on-demand `FINDINGS.md`, and two archive directories. Each has a primary
+read-on-demand `docs/agents/FINDINGS.md`, and two archive directories. Each has a primary
 concern, and the design goal is that canonical facts live in exactly one
 place.
 
-`HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
+`docs/agents/HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
 session. It links to `AGENTS.md` for rules rather than summarising them:
 earlier versions did condense the rules into a cold-start checklist, and
 every summary eventually drifted from the text it summarised.
 
-`AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
+`docs/agents/AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
 restating them. `README.md` is excluded from the agent memory layer; it
 exists for *people* to read and is explicitly not used for orchestration.
 
@@ -71,7 +71,7 @@ current state, nor does it contain history. It is rarely subject to change.
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
 because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-scoped commit.
 
-### `HANDOFF_PROMPT.md` -- Session Start and Handoff
+### `docs/agents/HANDOFF_PROMPT.md` -- Session Start and Handoff
 
 Given to any agent beginning work, and intended to be passed verbatim as
 context when delegating to a new session. It holds the two things that
@@ -84,7 +84,7 @@ now live only in `AGENTS.md`. Each restatement had drifted from the
 canonical text -- in one case a copy silently outlived the rule it
 described -- so the copies were replaced with pointers.
 
-### `AGENT_NOTES.md` -- Owner Context
+### `docs/agents/AGENT_NOTES.md` -- Owner Context
 
 Tracks facts that belong to no other file: owner workflow preferences,
 local dev setup (Docker, Postgres, Browser MCP), architectural
@@ -92,7 +92,7 @@ constraints discovered during development, and known open issues. Tracked
 in git so every agent -- regardless of tool or machine -- reads the same
 preferences.
 
-### `PLAYBOOK.md` -- Work Orders
+### `docs/agents/PLAYBOOK.md` -- Work Orders
 
 The source of truth for what work is in progress, what is next, and what
 was just completed. Structured as:
@@ -125,8 +125,8 @@ Prompt" below.
 A machine-managed snapshot: current test count, branch, known risks,
 module structure, dependency graph, architecture overview. It is not
 a rules file and not a history file. It exists so a new agent session can read
-one file and understand the current runtime state without parsing PLAYBOOK.md
-or running tests.
+one file and understand the current runtime state without parsing
+`docs/agents/PLAYBOOK.md` or running tests.
 
 This file lives in `.claude/` and is committed to the repo (tracked via
 an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
@@ -156,7 +156,7 @@ decisions without loading them into the active context.
 The archive is organized into subdirectories:
 - `docs/history/definitions/`: archived batch definition files (`BATCHN_DEFINITION.md`)
 - `docs/history/logs/`: per-batch execution logs rotated from PLAYBOOK Section 4
-- `docs/history/findings/`: resolved findings rotated out of `FINDINGS.md`
+- `docs/history/findings/`: resolved findings rotated out of `docs/agents/FINDINGS.md`
 - `docs/history/reports/`: the dated one-off documents -- audits, changelogs,
   refactor plans, the worker ADR, and the SESSION_CONTEXT format snapshot
 - `docs/logarchive/`: auto-managed monolith archive for non-batch (side-task) entries
@@ -192,7 +192,7 @@ edit them out or misplace them.
 
 `doc_state_sync.py` makes the rotation deterministic:
 
-1. **Parses** Section 4 of PLAYBOOK.md into typed `Entry` dataclasses
+1. **Parses** Section 4 of `docs/agents/PLAYBOOK.md` into typed `Entry` dataclasses
    (date, title, content lines, SHA-256 fingerprint of the full block).
 2. **Partitions** entries into current-batch (inside the DOCSYNC markers)
    and non-current (outside) buckets.
@@ -212,7 +212,9 @@ edit them out or misplace them.
    guess at semantic repairs.
 
 The script runs as a pre-commit hook (`doc-state-sync-check` in
-`.pre-commit-config.yaml`) in `--check` mode. This means any commit that
+`.pre-commit-config.yaml`) in `--check` mode, through
+`scripts/dev/docsync_preflight.py --worktree`, which also refuses a commit
+that stages the docsync control plane itself. This means any commit that
 leaves deterministic drift or a proven live-document contradiction is rejected
 at the gate, before it reaches CI.
 
@@ -227,19 +229,22 @@ package. This made each concern independently testable.
 Batch 22 added six more modules, because the same discipline was extended to
 the things a batch close-out has to get right: `declarations.py` (the
 declared-duplicate and retired-claim checker, `[[value]]` / `[[anchor]]` /
-`[[retired]]`, reading its facts from `.docsync.toml` rather than hard-coding
-them), `closeout.py` (the six close-out signals a managed batch must satisfy),
+`[[retired]]`, reading its facts from `config/docsync.toml` rather than
+hard-coding them), `closeout.py` (the six close-out signals a managed batch must satisfy),
 `archives.py` (bounded paginated archives), `findings.py` (finding lifecycle
 and rotation), `transaction.py` (crash-safe publication), and `markdown.py`
 (the shared fenced-block scanner that keeps a quoted example from parsing as
 real content).
 
-Twelve modules, and twelve matching test files in `tests/`
-(`test_docsync_archives.py`, `test_docsync_cli.py`, `test_docsync_closeout.py`,
+Twelve modules, and sixteen test files in `tests/`
+(`test_docsync_archives.py`, `test_docsync_archive_split.py`,
+`test_docsync_cli.py`, `test_docsync_closeout.py`,
 `test_docsync_declarations.py`, `test_docsync_findings.py`,
-`test_docsync_integrity.py`, `test_docsync_logic.py`, `test_docsync_markdown.py`,
-`test_docsync_parser.py`, `test_docsync_renderer.py`,
-`test_docsync_test_count.py`, `test_docsync_transaction.py`), plus
+`test_docsync_integrity.py`, `test_docsync_log_merging.py`,
+`test_docsync_markdown.py`, `test_docsync_parser.py`,
+`test_docsync_renderer.py`, `test_docsync_section3_parsing.py`,
+`test_docsync_sync_integration.py`, `test_docsync_test_count.py`,
+`test_docsync_transaction.py`, `test_docsync_wp_numbers.py`), plus
 `tests/scripts/dev/test_docsync_preflight.py` and `test_docsync_hook.py` for
 the two entry points that live under `scripts/dev/`. Run
 `pytest tests/test_docsync_*.py -q` for the current measured count rather than
@@ -281,7 +286,7 @@ the system clock: it happens only under an explicit `--cold-storage --as-of
 <ISO date>`, because a check that aged files using today's date would make the
 same commit produce different results on different days.
 
-The full module-by-module treatment, the DOC001-DOC023 diagnostic catalogue,
+The full module-by-module treatment, the DOC diagnostic catalogue,
 and the commit-preflight and hook-installer design live in
 `docs/architecture/documentation-tooling.md`. That file is the owner; this
 section is the methodology narrative around it and deliberately does not
@@ -511,14 +516,14 @@ and the difference matters to anyone planning to lift them.
 
 **1. The documentation control plane (`scripts/docsync/`).** The most portable
 of the three, and the closest to finished. Its integrity checks are generic
-apart from the document names in `_LIVE_DOCUMENT_PATHS`, and its facts live in
-`.docsync.toml` rather than in the code -- `declarations.py` carries no
+apart from the document names in `LIVE_DOCUMENT_RELATIVE_PATHS`, and its facts live in
+`config/docsync.toml` rather than in the code -- `declarations.py` carries no
 ScrobbleScope value at all. It publishes atomically, diagnoses with typed codes
 and a remediation, and runs from a pre-commit hook and from CI.
 
 **2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** Structurally
 complete: a public facade (`worktree_guard.py`), a thin CLI entry point, and
-the checks spread across seven modules by concern -- inspection, lineage,
+the checks spread across six modules by concern -- inspection, lineage,
 diagnostics, runner, venv, types. It reports `WT000`-`WT014`, each code naming
 its own remediation. It runs as an advisory pre-commit hook rather than a gate,
 and deliberately so: `WT003` fires for any branch the active batch does not
@@ -528,20 +533,26 @@ leaves, so gating on it would refuse every commit on a feature branch.
 **3. The frontend gate (`scripts/dev/frontend_gate.py`).** Generic in
 structure -- serve the app, drive a browser, run checks per device profile --
 and specific in its checks, which is the right split and the part that stays
-behind. The decomposition split (F-B21-51) has landed: the facade measures
-535 lines, and the checks are grouped by concern across ten `_frontend_gate_*`
-siblings -- eight own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
+behind. The decomposition split (F-B21-51) has landed: the facade stays
+under the decomposition plan's 700-line threshold
+(`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`), and the
+checks are grouped by concern across ten `_frontend_gate_*` siblings --
+eight own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
 `_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
 `_frontend_gate_runtime`, `_frontend_gate_theme`, `_frontend_gate_unmatched`),
 one holds pure colour maths (`_frontend_gate_colour`), and one holds shared
 state rather than a concern of its own (`_frontend_gate_shared`, the page
 inventories and other objects several slices read). The
-`frontend_gate_checks.toml` registry stays a deferred candidate.
+`frontend_gate_checks.toml` registry F-B21-51 proposed has also landed
+(foundation plan Task 8): a manifest under `config/`
+(`config/frontend_gate_checks.toml`) selects which of `CHECKS`
+run, by name, refusing an unknown name or a disabled required check before
+a browser launches.
 
 Two things that are *not* portable and should not try to be: the design system
 under `docs/design/`, and every path constant that names a ScrobbleScope file.
 
-**`.docsync.toml` was written for extraction, and it is the clearest example of
+**`config/docsync.toml` was written for extraction, and it is the clearest example of
 how far that has gone and how far it has not.** The file exists as a separate
 declaration layer specifically so a second repository can supply its own
 without touching the mechanism: the checks read what to verify from it rather
@@ -556,22 +567,22 @@ to say and hard to act on:
 |---|---|---|
 | Document paths | `[[value.sites]]` and `[[anchor]]` entries | They name `docs/design/README.md`, `docs/design/RECONCILIATION.md`, `docs/history/definitions/BATCH21_DEFINITION.md`, `docs/architecture/documentation-tooling.md`, `docs/agents/ui-accessibility.md` |
 | Scanned corpus | `scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]` and its `allow_files` list | The document inventory a repository has is a policy choice, not a universal |
-| Section anchors | `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"` | PLAYBOOK and its section names are this workflow's vocabulary |
+| Section anchors | `[retired.allow_after] "docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"` | PLAYBOOK and its section names are this workflow's vocabulary |
 | Batch vocabulary | `[closeout] admit_from_batch = 22` | Batching is the portable idea; *which* batch is the local fact |
 | Design tokens | the `[[value]]` entries for the page background and muted text | These are ScrobbleScope's visual system, and one of them straddles source CSS, a legacy shell bridge and exact tests |
-| Live-document list | `_LIVE_DOCUMENT_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
+| Live-document list | `LIVE_DOCUMENT_RELATIVE_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
 
 The pattern is consistent: **the mechanism is generic and the facts are
 local**, which is the intended end state. The unfinished half is that those
 local facts currently live *inside this repository's config* rather than in a
 config a second repository would write for itself. That is what the deferred
 kernel plan addresses, and it is why the plan's constraint is that the new
-kernel modules "must not contain `ScrobbleScope`, `PLAYBOOK.md`, `Batch`, `WP`,
+kernel modules "must not contain `ScrobbleScope`, `docs/agents/PLAYBOOK.md`, `Batch`, `WP`,
 or `docs/superpowers/` policy literals".
 
 **Why this is deliberately unfinished.** Two reasons, both of which are
 engineering rather than scheduling. First, some of it is *not* extractable
-without loss: `.docsync.toml`, the design system and the path constants encode
+without loss: `config/docsync.toml`, the design system and the path constants encode
 this repository's own rules, and the honest description of a control plane for
 a repository is that it must know which documents that repository owns. Forcing
 genericity before there is a second consumer produces configuration indirection
@@ -603,7 +614,7 @@ The two extraction plans and their current status are
 `docs/superpowers/plans/2026-09-12-reusable-frontend-ci-verification-components.md`
 (the gate components). Both carry explicit "do not execute until" conditions;
 neither is current work. Owner intent and the reasoning behind the constraint
-are owned by `AGENT_NOTES.md`, which is the authority if this section and that
+are owned by `docs/agents/AGENT_NOTES.md`, which is the authority if this section and that
 one ever disagree.
 
 ---
@@ -616,9 +627,9 @@ locally and are not tracked in this repository (`.gitignore` excludes `.claude/`
 except `SESSION_CONTEXT.md`); this section documents their purpose for context.
 
 **`scrobblescope-bootstrap`** runs the canonical session bootstrap in a fixed
-read order: `AGENTS.md`, then `PLAYBOOK.md` Sections 3-4, the active batch
+read order: `AGENTS.md`, then `docs/agents/PLAYBOOK.md` Sections 3-4, the active batch
 definition named there, `.claude/SESSION_CONTEXT.md` Sections 1-2, and
-`AGENT_NOTES.md`, finishing with a git-state and test-baseline check against
+`docs/agents/AGENT_NOTES.md`, finishing with a git-state and test-baseline check against
 what those files claim. If PLAYBOOK Section 3 and SESSION_CONTEXT Section 1
 agree on the current batch and next work package, the agent has enough
 context to start. Invoke it at the start of any
@@ -678,8 +689,8 @@ or start over.
 
 ScrobbleScope's orchestration layer inverts that assumption: state is never
 allowed to live only in a conversation. It is externalized into a small,
-strictly-scoped set of files (`AGENTS.md`, `HANDOFF_PROMPT.md`,
-`AGENT_NOTES.md`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
+strictly-scoped set of files (`AGENTS.md`, `docs/agents/HANDOFF_PROMPT.md`,
+`docs/agents/AGENT_NOTES.md`, `docs/agents/PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
 `docs/history/` archive) with each file assigned exactly one concern, so
 that any agent -- regardless of vendor or context length -- can bootstrap
 full working context from a fixed, small reading list rather than from
@@ -704,7 +715,7 @@ practice follow from this:
   auto-applied.** Section "On Rejecting Code Review Suggestions" below is
   the direct consequence: a review tool (or agent) that only sees the
   current diff, with no causal history, will sometimes recommend reverting
-  a deliberate fix. Preserving the reasoning in `PLAYBOOK.md`/`docs/history/`
+  a deliberate fix. Preserving the reasoning in `docs/agents/PLAYBOOK.md`/`docs/history/`
   means the next agent (or reviewer) doesn't repeat the same wrong
   suggestion, which a purely conversational workflow has no mechanism to
   prevent.
@@ -780,7 +791,7 @@ If you have cloned this repository and want to understand any decision:
 
 1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md` to see what the
    acceptance criteria were before work started.
-2. Search `PLAYBOOK.md` Section 4 and
+2. Search `docs/agents/PLAYBOOK.md` Section 4 and
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
    covering the relevant date range.
 3. Search `docs/history/logs/` and `docs/logarchive/` for older dated entries.

@@ -40,6 +40,7 @@ from docsync.renderer import (
     _render_section4,
     _render_side_archive,
     _trim_trailing_blank,
+    rewrite_recorded_counts,
 )
 
 
@@ -118,6 +119,8 @@ def _sync(
     keep_non_current: int,
     batch_log_lines: dict[int, list[str]] | None = None,
     planned_wp_numbers: tuple[int, ...] | None = None,
+    pinned: int | None = None,
+    explicit_test_count: int | None = None,
 ) -> SyncResult:
     section_3_start, section_3_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -260,8 +263,12 @@ def _sync(
         # a superseded count and then fail its own consistency check.
         # The batch logs are part of that fact too -- tagged entries rotate
         # there rather than into the monolith -- so they travel with it.
-        count_authority = latest_test_count_authority(
-            playbook_lines, new_archive_lines, effective_batch_log_lines
+        count_authority = resolved_test_count_authority(
+            playbook_lines,
+            new_archive_lines,
+            effective_batch_log_lines,
+            pinned=pinned,
+            explicit_test_count=explicit_test_count,
         )
         status_block = _build_status_block(
             section_3_state=section_3_state,
@@ -275,6 +282,15 @@ def _sync(
             + status_block
             + session_lines[status_end:]
         )
+        if count_authority.count is not None:
+            # One pass covers the STATUS line, the Section 1 `Tests` row and
+            # the Section 6 heading at once, closing F-DOCSYNC-12 for all
+            # three SESSION_CONTEXT sites in a single mechanism.
+            new_session_lines = rewrite_recorded_counts(
+                new_session_lines,
+                count_authority.count,
+                list(SESSION_CURRENT_COUNT_RES),
+            )
 
     return SyncResult(
         playbook_lines=new_playbook_lines,
@@ -384,52 +400,19 @@ def _newest_count(
     return None
 
 
-def _latest_test_count_from_entries(
-    playbook_lines: list[str], archive_lines: list[str] | None = None
-) -> int | None:
-    """Return the newest full-suite count, discarding why it may be absent.
-
-    Callers that must distinguish "no count recorded" from "the newest
-    entry is ambiguous" need ``latest_test_count_authority`` instead. No
-    production caller remains; this wrapper is exercised only by its own
-    unit tests, and its removal is tracked in FINDINGS as F-DOCSYNC-7.
-    """
-    return latest_test_count_authority(playbook_lines, archive_lines).count
-
-
-def latest_test_count_authority(
+def _ordered_test_count_candidates(
     playbook_lines: list[str],
     archive_lines: list[str] | None = None,
     batch_log_lines: Mapping[int, list[str]] | None = None,
-) -> TestCountAuthority:
-    """Return the newest full-suite count recorded anywhere in the log.
+) -> list[tuple[Entry, int, int]] | None:
+    """Build the one total ordering both count readers below walk.
 
-    Authority is decided by one total ordering over every candidate entry --
-    date descending, then source precedence descending -- which is walked once.
-    The sources are the live side-task entries after the end marker
-    (newest-first as written), the rotated entries in ``archive_lines``, the
-    rotated entries in the per-batch logs (``batch_log_lines``), and the
-    current-batch entries between the markers (append-ordered, so reversed
-    here). Precedence breaks same-date ties only, in this order: live side task,
-    then rotated monolith, then current batch, then per-batch logs. The
-    per-batch logs rank below the current batch because their entries always
-    belong to a completed batch -- even on a shared date they are older work
-    than the active batch's entries. The monolith ranks above the current
-    batch because a rotated side-task entry genuinely can be newer than the
-    batch entry it follows.
-
-    Within that ordering, an explicit ``pytest -q`` result wins; an entry
-    quoting several bold counts without one is ambiguous and makes the count
-    unknown rather than deferring to an older entry; a sole bold count is
-    accepted only on a second pass, when no entry anywhere carries an explicit
-    result.
-
-    The test count is a fact about the repository, so it must not change when
-    the retention window moves an entry out of PLAYBOOK: the documented
-    close-out command purges that window entirely, which would otherwise revive
-    a superseded count. Tagged entries rotate into their per-batch log rather
-    than the monolith, so those logs are part of the same fact and are scanned
-    here too.
+    Returns ``None`` when PLAYBOOK's own Section 4 structure cannot be
+    parsed, so every caller treats "not parseable" the same way instead of
+    each carrying its own ``try``/``except SyncError``. The sources, the
+    precedence order and the clamped-date sort are exactly what
+    ``latest_test_count_authority`` documents; this function only builds the
+    ordering, it does not decide a winner.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -444,7 +427,7 @@ def latest_test_count_authority(
         )
         entries, _ = _parse_entries(section_4_lines)
     except SyncError:
-        return TestCountAuthority(count=None, ambiguous=False)
+        return None
 
     current_entries = [
         entry for entry in entries if marker_start < entry.start_idx < marker_end
@@ -504,6 +487,125 @@ def latest_test_count_authority(
         for entry, date_key in zip(source, _monotonic_dates(source), strict=True)
     ]
     ordered_candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
+    return ordered_candidates
+
+
+def _newest_dated_test_count(
+    playbook_lines: list[str],
+    archive_lines: list[str] | None = None,
+    batch_log_lines: Mapping[int, list[str]] | None = None,
+) -> int | None:
+    """Return the count of the single entry carrying the newest date, or None.
+
+    DOC025's own reading, distinct from ``latest_test_count_authority``:
+    that function breaks a same-date tie with source precedence so `--fix`
+    always has one answer to render; this one refuses to break the tie at
+    all, because a same-date tie is exactly the F-DOCSYNC-22 shape a pin
+    exists to protect, and nudging the author to reorder same-date entries
+    would fight the ruling rather than serve it (Q1, 2026-09-25). ``None``
+    covers three different states the caller treats alike: nothing parses,
+    more than one entry shares the newest date, or the sole newest entry
+    carries no parseable count -- there is nothing to disagree with the pin
+    about in any of them.
+
+    "Unambiguous" here means "not ``_AMBIGUOUS_COUNT``" from either pass of
+    ``_newest_count``, never "matched only by the strict full-suite pattern":
+    the legacy fallback pass runs too, so an entry recording its count as a
+    sole bold number with no `` `pytest -q` `` text still resolves.
+    """
+    ordered_candidates = _ordered_test_count_candidates(
+        playbook_lines, archive_lines, batch_log_lines
+    )
+    if not ordered_candidates:
+        return None
+    newest_date = ordered_candidates[0][2]
+    newest = [
+        candidate for candidate in ordered_candidates if candidate[2] == newest_date
+    ]
+    if len(newest) != 1:
+        return None
+    count = _newest_count(newest, allow_legacy_fallback=False)
+    if count is None:
+        count = _newest_count(newest, allow_legacy_fallback=True)
+    return count if isinstance(count, int) else None
+
+
+def resolved_test_count_authority(
+    playbook_lines: list[str],
+    archive_lines: list[str] | None = None,
+    batch_log_lines: Mapping[int, list[str]] | None = None,
+    *,
+    pinned: int | None = None,
+    explicit_test_count: int | None = None,
+) -> TestCountAuthority:
+    """Return the count every dashboard field should show, in one place.
+
+    Every caller that needs "the count a dashboard field should show" --
+    `_sync`'s STATUS block render and every DOC005/006/008 check in
+    `integrity.py` -- goes through this function, so `--fix` and `--check`
+    can never compute two different answers to the same question.
+
+    Precedence: an explicit `--test-count N` always wins, because it is the
+    one just measured; failing that, a pin already recorded in
+    `config/docsync.toml` wins over prose, because F-DOCSYNC-11 and
+    F-DOCSYNC-22 are both cases where prose position picked the wrong entry;
+    failing that, `latest_test_count_authority`'s prose-derived answer is the
+    cold-start fallback for a repository that has never pinned anything.
+
+    The pin itself is read by each caller (via
+    `declarations.load_test_count_config`), not by this function, so
+    `logic.py` gains no dependency on `declarations.py`.
+    """
+    if explicit_test_count is not None:
+        return TestCountAuthority(count=explicit_test_count, ambiguous=False)
+    if pinned is not None:
+        return TestCountAuthority(count=pinned, ambiguous=False)
+    return latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines)
+
+
+def latest_test_count_authority(
+    playbook_lines: list[str],
+    archive_lines: list[str] | None = None,
+    batch_log_lines: Mapping[int, list[str]] | None = None,
+) -> TestCountAuthority:
+    """Return the newest full-suite count recorded anywhere in the log.
+
+    Authority is decided by one total ordering over every candidate entry --
+    date descending, then source precedence descending -- which is walked once
+    by ``_ordered_test_count_candidates``. The sources are the live side-task
+    entries after the end marker (newest-first as written), the rotated
+    entries in ``archive_lines``, the rotated entries in the per-batch logs
+    (``batch_log_lines``), and the current-batch entries between the markers
+    (append-ordered, so reversed here). Precedence breaks same-date ties only,
+    in this order: live side task, then rotated monolith, then current batch,
+    then per-batch logs. The per-batch logs rank below the current batch
+    because their entries always belong to a completed batch -- even on a
+    shared date they are older work than the active batch's entries. The
+    monolith ranks above the current batch because a rotated side-task entry
+    genuinely can be newer than the batch entry it follows.
+
+    Within that ordering, an explicit ``pytest -q`` result wins; an entry
+    quoting several bold counts without one is ambiguous and makes the count
+    unknown rather than deferring to an older entry; a sole bold count is
+    accepted only on a second pass, when no entry anywhere carries an explicit
+    result.
+
+    The test count is a fact about the repository, so it must not change when
+    the retention window moves an entry out of PLAYBOOK: the documented
+    close-out command purges that window entirely, which would otherwise revive
+    a superseded count. Tagged entries rotate into their per-batch log rather
+    than the monolith, so those logs are part of the same fact and are scanned
+    here too.
+
+    This is the cold-start fallback now: ``resolved_test_count_authority``
+    is what every production caller uses, and defers to this function only
+    when `config/docsync.toml` has no `[test_count]` pin at all.
+    """
+    ordered_candidates = _ordered_test_count_candidates(
+        playbook_lines, archive_lines, batch_log_lines
+    )
+    if ordered_candidates is None:
+        return TestCountAuthority(count=None, ambiguous=False)
 
     count = _newest_count(ordered_candidates, allow_legacy_fallback=False)
     if isinstance(count, _AmbiguousCount):
@@ -516,3 +618,15 @@ def latest_test_count_authority(
         legacy = legacy if isinstance(legacy, int) else None
         return TestCountAuthority(count=legacy, ambiguous=False)
     return TestCountAuthority(count=count, ambiguous=False)
+
+
+# Deferred past this module's own names, not placed with the imports at the
+# top: integrity.py imports FULL_SUITE_RESULT_RE, latest_test_count_authority
+# and resolved_test_count_authority from this module, and this is the one
+# name this module needs back from integrity.py (DOC006 already owns it).
+# Importing it before those three exist here -- or before integrity.py's own
+# copy of SESSION_CURRENT_COUNT_RES is defined -- would deadlock the circular
+# import between the two modules, whichever one a caller happens to import
+# first. Placing both deferred imports after the names the other side reads
+# lets either import order succeed.
+from docsync.integrity import SESSION_CURRENT_COUNT_RES  # noqa: E402

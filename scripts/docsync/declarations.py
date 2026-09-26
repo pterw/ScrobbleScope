@@ -30,15 +30,16 @@ import fnmatch
 import re
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import tomllib
 
 from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
+from docsync.transaction import resolve_within
 
 #: Where the repository's own declarations live, relative to the repo root.
-DECLARATIONS_FILENAME = ".docsync.toml"
+DECLARATIONS_FILENAME = "config/docsync.toml"
 
 #: A heading in a Markdown document: one to six hashes, then the text.
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*$")
@@ -216,7 +217,7 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
 #:
 #: `archives` and `closeout` are listed so the unknown-table guard recognizes
 #: them: a table the guard has not heard of is refused, and the real
-#: `.docsync.toml` would start raising the moment one of them appeared. Their
+#: `config/docsync.toml` would start raising the moment one of them appeared. Their
 #: keys are checked by `_validate_archives` and `_validate_closeout` rather than
 #: by the generic walker, because they are values a maintenance run consumes,
 #: not facts a check compares.
@@ -225,6 +226,17 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
     "findings": {"required": {"grandfathered": list}, "optional": {}},
+    "test_count": {"required": {}, "optional": {"pinned": int}},
+    "untracked_essentials": {"required": {}, "optional": {"paths": _ListOf(str)}},
+    "documents": {
+        "required": {},
+        "optional": {
+            "playbook": str,
+            "findings": str,
+            "agent_notes": str,
+            "handoff_prompt": str,
+        },
+    },
 }
 
 
@@ -394,9 +406,128 @@ def _archive_config(declarations: Mapping) -> ArchiveConfig:
     return _validate_archives(declarations["archives"])
 
 
-def load_archive_config(repo_root: Path) -> ArchiveConfig:
+def load_archive_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> ArchiveConfig:
     """Read the repository's archive thresholds, defaults included."""
-    return _archive_config(load_declarations(repo_root))
+    return _archive_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class TestCountConfig:
+    """The test count a human has explicitly pinned, from [test_count] or absent.
+
+    Not a declaration: nothing else in the repository is compared against
+    it, it is the fact itself. `resolved_test_count_authority`
+    (`docsync.logic`) reads it in preference to re-deriving a count from
+    Section 4 prose position, which is what let a same-date tie or a
+    correction to an older entry (F-DOCSYNC-11, F-DOCSYNC-22) silently
+    shadow the true count. Only `--fix --test-count N` writes this table
+    (`cli._rewrite_test_count_pin`); nothing else may hand-edit it.
+    """
+
+    pinned: int | None = None
+
+
+def _validate_test_count(table: object) -> TestCountConfig:
+    """Check a declared [test_count] table and return its pin.
+
+    The single optional key is validated the same way every other table's
+    keys are: an unknown key is refused rather than ignored, and the pin
+    itself is checked with the same ``_positive_int`` every other numeric
+    table uses, so a typo or a quoted number cannot silently pin nothing.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(f"[test_count] is {type(table).__name__}, not a table.")
+    known = _TOP_LEVEL_SCHEMA["test_count"]["optional"]
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[test_count] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    if "pinned" not in table:
+        return TestCountConfig()
+    return TestCountConfig(
+        pinned=_positive_int("[test_count]", "pinned", table["pinned"])
+    )
+
+
+def _test_count_config(declarations: Mapping) -> TestCountConfig:
+    """Return the pinned test count for an already-read declarations file.
+
+    Absence of the table is not an error, and returns no pin: a repository
+    that has never run `--fix --test-count N` falls all the way back to
+    `latest_test_count_authority`'s prose-derived cold-start answer.
+    """
+    if "test_count" not in declarations:
+        return TestCountConfig()
+    return _validate_test_count(declarations["test_count"])
+
+
+def load_test_count_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> TestCountConfig:
+    """Read the repository's pinned test count, or no pin at all."""
+    return _test_count_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class UntrackedEssentialsConfig:
+    """Gitignored files the workflow depends on but Git cannot protect.
+
+    Not a declaration: nothing compares a document against these paths. They
+    are the files the worktree guard's WT015 check looks for on disk, since
+    Git offers no protection for anything `.gitignore` excludes (F-B21-25:
+    "what was lost was gitignored").
+    """
+
+    paths: tuple[str, ...] = ()
+
+
+def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
+    """Check a declared [untracked_essentials] table and return its paths.
+
+    The single optional key is validated the same way every other table's
+    keys are: an unknown key is refused rather than ignored.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(
+            f"[untracked_essentials] is {type(table).__name__}, not a table."
+        )
+    known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[untracked_essentials] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    if "paths" not in table:
+        return UntrackedEssentialsConfig()
+    bad = _mismatch(known["paths"], table["paths"])
+    if bad:
+        raise DeclarationError(f"[untracked_essentials] gives 'paths' as {bad}.")
+    return UntrackedEssentialsConfig(paths=tuple(table["paths"]))
+
+
+def _untracked_essentials_config(declarations: Mapping) -> UntrackedEssentialsConfig:
+    """Return the declared untracked-essential paths for an already-read file.
+
+    Absence of the table is not an error: a repository that declares none is
+    the common case, and returns an empty tuple.
+    """
+    if "untracked_essentials" not in declarations:
+        return UntrackedEssentialsConfig()
+    return _validate_untracked_essentials(declarations["untracked_essentials"])
+
+
+def load_untracked_essentials_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> UntrackedEssentialsConfig:
+    """Read the repository's declared untracked-essential paths, if any."""
+    return _untracked_essentials_config(
+        load_declarations(repo_root, config_path=config_path)
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -458,9 +589,11 @@ def _closeout_config(declarations: Mapping) -> CloseoutConfig:
     return _validate_closeout(declarations["closeout"])
 
 
-def load_closeout_config(repo_root: Path) -> CloseoutConfig:
+def load_closeout_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> CloseoutConfig:
     """Read the repository's close-out admission boundary."""
-    return _closeout_config(load_declarations(repo_root))
+    return _closeout_config(load_declarations(repo_root, config_path=config_path))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -524,9 +657,94 @@ def _findings_config(declarations: Mapping) -> FindingsConfig:
     return _validate_findings(declarations["findings"])
 
 
-def load_findings_config(repo_root: Path) -> FindingsConfig:
+def load_findings_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> FindingsConfig:
     """Read the repository's grandfathered finding ids."""
-    return _findings_config(load_declarations(repo_root))
+    return _findings_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class DocumentsConfig:
+    """Where docsync's own live documents live, from [documents] or defaults.
+
+    The defaults are docsync's generic vocabulary -- true for any repository that adopts
+    the tool unmodified (docs/agents/AGENT_NOTES.md "This repository is also a template
+    being extracted"). This repository overrides every field in its own declarations
+    file, since the four documents moved under docs/agents/.
+    """
+
+    playbook: str = "PLAYBOOK.md"
+    findings: str = "FINDINGS.md"
+    agent_notes: str = "AGENT_NOTES.md"
+    handoff_prompt: str = "HANDOFF_PROMPT.md"
+
+
+def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
+    """Check that each document role names one distinct in-repository path."""
+    if not isinstance(documents, Mapping):
+        raise DeclarationError(
+            f"[documents] is {type(documents).__name__}, not a table."
+        )
+    schema = _TOP_LEVEL_SCHEMA["documents"]["optional"]
+    kwargs: dict[str, str] = {}
+    for key, value in documents.items():
+        if key not in schema:
+            raise DeclarationError(
+                f"[documents] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(schema))}."
+            )
+        if not isinstance(value, str) or not value:
+            raise DeclarationError(
+                f"[documents] gives {key!r} as {type(value).__name__}, not a string."
+            )
+        kwargs[key] = value
+    result = DocumentsConfig(**kwargs)
+    seen: dict[str, str] = {}
+    for role, value in (
+        ("agents", "AGENTS.md"),
+        ("handoff_prompt", result.handoff_prompt),
+        ("agent_notes", result.agent_notes),
+        ("playbook", result.playbook),
+        ("findings", result.findings),
+    ):
+        if Path(value).is_absolute() or PureWindowsPath(value).anchor or "\\" in value:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            )
+        try:
+            path = resolve_within(repo_root, value)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            ) from exc
+        if path.is_dir():
+            raise DeclarationError(
+                f"[documents] {role!r} names a directory, not a document: {value!r}."
+            )
+        key = path.as_posix().casefold()
+        if key in seen:
+            raise DeclarationError(
+                f"[documents] {role!r} and {seen[key]!r} resolve to the same path: {value!r}."
+            )
+        seen[key] = role
+    return result
+
+
+def _documents_config(declarations: Mapping, repo_root: Path) -> DocumentsConfig:
+    """Return the document paths for an already-read declarations file."""
+    if "documents" not in declarations:
+        return DocumentsConfig()
+    return _validate_documents(declarations["documents"], repo_root)
+
+
+def load_documents_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> DocumentsConfig:
+    """Read the repository's document paths, defaults included."""
+    return _documents_config(
+        load_declarations(repo_root, config_path=config_path), repo_root
+    )
 
 
 def _issue(
@@ -543,21 +761,29 @@ def _issue(
     )
 
 
-def load_declarations(repo_root: Path) -> dict:
+def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
     """Read the declarations file, or return nothing if there is none.
 
-    A repository with no declarations is not an error. That is the state every
-    repository starts in, and the checks simply have nothing to say.
+    A repository with no declarations file at the default path is not an error.
+    An explicit ``config_path`` that does not exist is: a mistyped --config
+    would otherwise run every check with nothing declared, and pass.
     """
-    path = repo_root / DECLARATIONS_FILENAME
+    path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
+    if config_path is not None:
+        try:
+            path = resolve_within(repo_root, path)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"--config path {config_path} must be inside the repository."
+            ) from exc
     if not path.is_file():
+        if config_path is not None:
+            raise DeclarationError(f"--config names {path}, which is not a file.")
         return {}
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise DeclarationError(
-            f"{DECLARATIONS_FILENAME} is not valid TOML: {exc}"
-        ) from exc
+        raise DeclarationError(f"{path} is not valid TOML: {exc}") from exc
 
 
 class _Files:
@@ -1214,10 +1440,13 @@ def _effective_scan(
 
 
 def collect_declaration_issues(
-    *, repo_root: Path, live_documents: Mapping[str, list[str]]
+    *,
+    repo_root: Path,
+    live_documents: Mapping[str, list[str]],
+    config_path: Path | None = None,
 ) -> list[IntegrityIssue]:
     """Run every declared check and return the diagnostics in a stable order."""
-    declarations = load_declarations(repo_root)
+    declarations = load_declarations(repo_root, config_path=config_path)
     if not declarations:
         return []
 
@@ -1225,10 +1454,14 @@ def collect_declaration_issues(
     # never read, and leaves the gate green with one fewer check running.
     known_tables = set(_DECLARATION_SCHEMA) | set(_TOP_LEVEL_SCHEMA)
     known_tables.discard("site")
+    # Under --config the file actually read is config_path, not the
+    # repository default: naming DECLARATIONS_FILENAME here would point the
+    # reader at a file this run never opened.
+    source = config_path if config_path is not None else DECLARATIONS_FILENAME
     for table in declarations:
         if table not in known_tables:
             raise DeclarationError(
-                f"{DECLARATIONS_FILENAME} has an unknown table {table!r}. "
+                f"{source} has an unknown table {table!r}. "
                 f"Known tables: {', '.join(sorted(known_tables))}."
             )
     _validate_options(declarations.get("options", {}))
@@ -1237,6 +1470,8 @@ def collect_declaration_issues(
     # that happens to consume the thresholds.
     _archive_config(declarations)
     _closeout_config(declarations)
+    _documents_config(declarations, repo_root)
+    _untracked_essentials_config(declarations)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot

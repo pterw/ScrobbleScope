@@ -151,6 +151,24 @@ def test_detached_ci_skips_and_detached_local_fails():
     assert [issue.code for issue in local] == ["WT012"]
 
 
+def test_detached_and_dirty_reports_both_wt012_and_wt010():
+    """F-WORKTREE-3: a detached, dirty, local worktree must not hide its
+    dirty state behind WT012 alone -- both are independent facts a reader
+    needs before touching history."""
+    issues = classify_lineage(_snapshot(actual_branch=None, detached=True, dirty=True))
+    assert [issue.code for issue in issues] == ["WT012", "WT010"]
+
+
+def test_detached_ci_dirty_still_only_reports_wt011():
+    """A recognized CI checkout is not local work in progress; its
+    dirtiness (if any -- typically build artifacts) is not the same signal
+    WT010 exists to protect (F-WORKTREE-3 names the local case only)."""
+    issues = classify_lineage(
+        _snapshot(actual_branch=None, detached=True, recognized_ci=True, dirty=True)
+    )
+    assert [issue.code for issue in issues] == ["WT011"]
+
+
 def test_dirty_identical_divergence_keeps_lineage_error():
     """Dirty state warns first without erasing the rebase-artifact error."""
     issues = classify_lineage(_snapshot(dirty=True, behind=3, ahead=3))

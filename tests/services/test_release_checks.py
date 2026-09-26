@@ -671,7 +671,9 @@ async def test_run_release_checks_without_a_db_connection_survives_a_lookup_erro
 
 
 @pytest.mark.asyncio
-async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies():
+async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies(
+    caplog,
+):
     """
     GIVEN a finished job with no results and no movable exclusion
     WHEN the worker runs
@@ -697,6 +699,8 @@ async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualif
         "moved_out": 0,
         "moved_in": 0,
     }
+    assert f"Release checks starting for job {job_id}: 0 candidates" in caplog.text
+    assert f"Release checks finished for job {job_id}: 0 checked" in caplog.text
 
 
 @pytest.mark.asyncio

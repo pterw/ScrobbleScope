@@ -4,7 +4,7 @@
 `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`. **This charter is
 retired.** It is kept as the record of what the audit was asked to do, not as
 live work. Chartered 2026-07-31, amended 2026-08-19 after a preflight review.
-FINDINGS.md F-SWE-1 is resolved. The audit returned *migration blocked by
+docs/agents/FINDINGS.md F-SWE-1 is resolved. The audit returned *migration blocked by
 F-SWE-2*; that decision is the owner's and is stated in the report.
 **Executor contract:** any dedicated, single-purpose agent session (Claude,
 Codex, or equivalent) can run this cold. The judgment is front-loaded into
@@ -70,7 +70,7 @@ filled.
   audit that `BATCH21_DEFINITION.md` now requires; it is no longer optional.
 - `scripts/docsync/` -- carries the freshest dedicated audits and is not on the
   Batch 21 migration path. Its known boundaries are already tracked as
-  F-DOCSYNC-6 and F-DOCSYNC-7 in `FINDINGS.md`.
+  F-DOCSYNC-6 and F-DOCSYNC-7 in `docs/agents/FINDINGS.md`.
 - `scripts/dev/` -- the worktree-guard family, shipped and reviewed through
   PR #169 and PR #170. Its size problems are already tracked as F-WORKTREE-3
   and F-WORKTREE-4. Named here because the earlier charter left it neither in
@@ -80,7 +80,7 @@ filled.
 - **No code changes of any kind.** This is a read-only audit. Findings become
   F-SWE-N entries; fixes are future batch work.
 
-**Matrix size:** 13 graded modules x the principle count in `AGENT_NOTES.md`.
+**Matrix size:** 13 graded modules x the principle count in `docs/agents/AGENT_NOTES.md`.
 That count is ten at this writing, giving 130 cells -- confirm it at audit time
 per Section 3 and use the live product, not the number written here. There is
 no permission to cut coverage. If the audit cannot fit a single session, split
@@ -112,7 +112,7 @@ to their rows rather than leaving a reader to discover it.
 
 ## 3. The mandated principles (grade each)
 
-The canonical list and its definitions live in `AGENT_NOTES.md` Owner
+The canonical list and its definitions live in `docs/agents/AGENT_NOTES.md` Owner
 Preferences. Grade every principle named there, using that wording --
 do not keep a second copy in this file.
 
@@ -138,7 +138,7 @@ Two need audit-specific method:
 Re-reporting a known item is audit failure, not thoroughness. The baseline is
 not a list to memorise -- it is a corpus to read:
 
-1. **All of `FINDINGS.md`.** Every open item, whatever its severity.
+1. **All of `docs/agents/FINDINGS.md`.** Every open item, whatever its severity.
 2. **All of `docs/history/findings/FINDINGS_ARCHIVE.md`.** Resolved and
    no-action items stay part of the baseline and must not be re-raised.
 3. **These five reports, and only these five.** `docs/history/reports/` holds
@@ -165,7 +165,7 @@ gone stale: it omitted F-B21-1, F-DATA-1, F-WORKTREE-3/4/5, F-DOCSYNC-6/7 and
 F-AUDIT-1, several of which sit in modules this audit grades.
 
 **Standing design decisions are choices, not findings:** F-LOAD-3/4/5 and the
-`AGENT_NOTES.md` Architectural Constraints -- in-memory REQUEST_CACHE,
+`docs/agents/AGENT_NOTES.md` Architectural Constraints -- in-memory REQUEST_CACHE,
 single-worker JOBS dict, TTL-on-write cache, ProactorEventLoop guard.
 
 The audit's value is NET-NEW findings and a defensible per-module grade,
@@ -207,7 +207,7 @@ not volume.
    reckoning with `REPOSITORY_SYNTHESIS_2026-08-11.md` rather than treating
    February as the last word. Scope this answer the same way.
 7. Collect test-vacuity evidence while reading. Tests are not graded cells,
-   but `AGENT_NOTES.md` mandates that every test must fail if the function
+   but `docs/agents/AGENT_NOTES.md` mandates that every test must fail if the function
    under test is deleted. Any test that would survive deletion of its subject
    is a net-new finding in its own right, filed against the module it covers.
 
@@ -318,7 +318,7 @@ Classify every net-new finding, then apply this policy:
 
 | Net-new finding | Effect on WP-1 |
 |---|---|
-| **P0** by the FINDINGS.md severity key | **Stop.** Fix before WP-1 begins. |
+| **P0** by the docs/agents/FINDINGS.md severity key | **Stop.** Fix before WP-1 begins. |
 | Correctness defect in a module any Batch 21 WP modifies -- currently `routes.py` and `orchestrator.py` via WP-7 | **Stop.** Fix, or obtain an explicit owner waiver, before WP-1 begins. |
 | P1 maintainability, not correctness, in a module Batch 21 modifies | **Record and continue**, and name it in the verdict line. WP-7 touches that code anyway, so it is cheapest to fix there -- reference it from the WP-7 commit. |
 | P1 in a module Batch 21 does not touch | Record and continue. |
@@ -343,7 +343,7 @@ decision to the owner.
 - Report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_<YYYY-MM-DD>.md` -- the
   provenance block, the migration verdict, the matrix, per-cell evidence, the
   two prose answers, and a net-new findings list.
-- FINDINGS.md: append net-new F-SWE-N entries (start at F-SWE-2;
+- docs/agents/FINDINGS.md: append net-new F-SWE-N entries (start at F-SWE-2;
   F-SWE-1 is this charter's tracking entry). Update F-SWE-1 to
   `Status: resolved -- report at <path>`.
 - **Retire this charter in the same commit.** Change the Status line at the
