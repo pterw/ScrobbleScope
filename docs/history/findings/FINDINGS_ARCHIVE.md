@@ -30,10 +30,12 @@ Source: load testing 2026-03-04.
 
 - [x] **Status:** resolved
 **Completed:** 2026-09-26
-`tests/test_pipeline_integration.py` drives `/results_loading` through the real
-`worker.start_job_thread`, `background_task` and job store, mocking only the Last.fm,
-Spotify and MusicBrainz network boundaries, and asserting the Spotify phase was
-actually reached.
+`tests/test_pipeline_integration.py` drives the real `/results_loading ->
+/progress -> /results_complete` route sequence through the Flask test client, joins
+the real `worker.start_job_thread` background thread before trusting anything past
+its terminal `/progress` state, and asserts the MusicBrainz hand-off ran under mock,
+the job's concurrency slot is fully released, and `/results_complete` renders the
+album that survived the Spotify phase.
 
 ### F-B21-18: browser JavaScript has no automated unit coverage -- RESOLVED
 

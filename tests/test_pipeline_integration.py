@@ -1,15 +1,28 @@
+import threading
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
-from scrobblescope.repositories import get_job_progress
+from scrobblescope import worker
+from scrobblescope.config import MAX_ACTIVE_JOBS
+from scrobblescope.orchestrator import background_task
+
+#: Bounds both the /progress poll loop and the background-thread join: long
+#: enough for a real (mocked-network) pipeline run, short enough that a
+#: genuine hang still fails the test promptly.
+_JOB_TIMEOUT_SECONDS = 10
 
 
 def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
     """
     GIVEN a real POST to /results_loading, with only network calls mocked
-    WHEN the test polls the real /progress endpoint, as a browser does
+    WHEN the test polls the real GET /progress route through the Flask test
+        client, as a browser does, then joins the real background thread
     THEN the job reaches its terminal state through the real thread, event
-    loop and job-store lock, and actually reaches the Spotify phase (F-LOAD-2).
+        loop and job-store lock, the MusicBrainz hand-off runs while the
+        network mocks are still active, the job's concurrency slot is fully
+        released, and the real POST /results_complete route renders the
+        album that survived the Spotify phase (F-LOAD-2).
     """
     # 2025-06-15T12:00:00Z: inside fetch_top_albums_async's year=2025 window
     # (orchestrator/__init__.py:118-119); an out-of-window uts is silently
@@ -33,7 +46,26 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
     mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
     o = "scrobblescope.orchestrator."
 
+    # Captures the real threading.Thread that start_job_thread creates for
+    # *this* job, so the test can join it before leaving the `with` block
+    # (CR1/CR2): the helper itself never returns or exposes the Thread it
+    # builds, so this is the least invasive seam that still runs a genuine
+    # daemon thread. Patching threading.Thread patches the one process-wide
+    # `threading` module, so other real threads started meanwhile (the
+    # registration-year check's own worker thread, asyncio's proactor
+    # helper) are also constructed through this subclass; filtering on
+    # ``target is background_task`` is what picks out the right one.
+    created_threads = []
+    real_thread = threading.Thread
+
+    class _CapturingThread(real_thread):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if kwargs.get("target") is background_task:
+                created_threads.append(self)
+
     with (
+        patch("scrobblescope.worker.threading.Thread", _CapturingThread),
         patch(
             "scrobblescope.routes.check_user_exists",
             return_value={"registered_year": 2000},
@@ -68,7 +100,7 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         patch(o + "_batch_persist_metadata", new_callable=AsyncMock),
         # Closes the unconditional MusicBrainz call (orchestrator/__init__.py:619)
         # by mock, not by accident of MUSICBRAINZ_ENABLED/_CONTACT in this env.
-        patch(o + "enqueue_release_check"),
+        patch(o + "enqueue_release_check") as mock_enqueue,
     ):
         resp = client.post(
             "/results_loading",
@@ -80,27 +112,76 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
                 "year": "2025",
                 "min_plays": "1",
                 "min_tracks": "1",
+                # "same" (the route's default) would filter Rumours (1977)
+                # out of the final results, before /results_complete ever
+                # gets a chance to render it.
+                "release_scope": "all",
             },
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        job_id = resp.headers["Location"].rsplit("job_id=", 1)[-1]
+        location = resp.headers["Location"]
+        job_id = parse_qs(urlparse(location).query)["job_id"][0]
 
-        deadline = time.time() + 10
-        progress = get_job_progress(job_id)
-        while (
-            progress is not None
-            and progress.get("progress", 0) < 100
-            and not progress.get("error")
+        deadline = time.time() + _JOB_TIMEOUT_SECONDS
+        progress_payload = client.get(
+            "/progress", query_string={"job_id": job_id}
+        ).get_json()
+        while progress_payload.get("progress", 0) < 100 and not progress_payload.get(
+            "error"
         ):
             assert time.time() < deadline, "background thread did not finish in time"
             time.sleep(0.05)
-            progress = get_job_progress(job_id)
+            progress_payload = client.get(
+                "/progress", query_string={"job_id": job_id}
+            ).get_json()
 
-    assert progress is not None
-    assert progress.get("error") is not True, progress
-    assert progress["progress"] == 100
-    # The point of this test: the album survived filtering and actually
-    # reached the Spotify phase, not just a job that completed emptily.
-    mock_search.assert_awaited_once()
-    mock_details.assert_awaited_once()
+        # CR1/CR2: set_job_progress(100) runs before enqueue_release_check in
+        # _process_filtered_albums (orchestrator/__init__.py:607-619), so
+        # /progress reporting 100 does not prove the MusicBrainz hand-off has
+        # happened yet. Join the real background thread -- still inside the
+        # `with` block, so the network/MusicBrainz mocks are still active for
+        # whatever the thread does next -- before trusting anything past this
+        # point.
+        assert created_threads, "start_job_thread did not start a real thread"
+        background_thread = created_threads[0]
+        background_thread.join(timeout=_JOB_TIMEOUT_SECONDS)
+        assert not background_thread.is_alive(), (
+            "background thread did not finish within "
+            f"{_JOB_TIMEOUT_SECONDS}s of /progress reporting completion"
+        )
+
+        assert progress_payload.get("error") is not True, progress_payload
+        assert progress_payload["progress"] == 100
+        # The point of this test: the album survived filtering and actually
+        # reached the Spotify phase, not just a job that completed emptily.
+        mock_search.assert_awaited_once()
+        mock_details.assert_awaited_once()
+        # The MusicBrainz hand-off ran on the happy path, and it ran while
+        # this mock was still active (the join above is what guarantees
+        # that), not after the `with` block tore it down.
+        mock_enqueue.assert_called_once_with(job_id)
+
+    # CR2: the concurrency slot acquire_job_slot() granted for this job must
+    # be fully released by the time the background thread (joined above) has
+    # finished -- release_job_slot runs in run_coroutine_in_new_loop's
+    # `finally`, on the same thread. Drain the semaphore to prove every slot,
+    # including this job's, is free, then give them all back.
+    acquired = 0
+    while worker.acquire_job_slot():
+        acquired += 1
+    for _ in range(acquired):
+        worker.release_job_slot()
+    assert acquired == MAX_ACTIVE_JOBS, (
+        f"expected all {MAX_ACTIVE_JOBS} job slots free after the job finished, "
+        f"only {acquired} were"
+    )
+
+    # F-LOAD-2's roadmap line names the real /results_loading -> /progress ->
+    # /results_complete path: finish it by requesting the real completion
+    # route and checking the album actually reached the page.
+    results_resp = client.post(
+        "/results_complete", data={"job_id": job_id}, follow_redirects=False
+    )
+    assert results_resp.status_code == 200
+    assert b"Rumours" in results_resp.data
