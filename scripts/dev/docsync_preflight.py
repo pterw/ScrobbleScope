@@ -47,6 +47,8 @@ import tempfile
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 
+import tomllib
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
@@ -85,12 +87,58 @@ CONTROL_PLANE_FILES: tuple[str, ...] = (
     "config/docsync.toml",
 )
 
+#: The one control-plane file with a narrower exemption (owner ruling
+#: 2026-09-26): see ``_docsync_toml_pin_only_change``.
+DOCSYNC_TOML_PATH = "config/docsync.toml"
+
 
 def _is_control_plane_path(path: str) -> bool:
     """Whether ``path`` is part of the checker's own control-plane code."""
     return path in CONTROL_PLANE_FILES or any(
         path.startswith(directory) for directory in CONTROL_PLANE_DIRECTORIES
     )
+
+
+def _docsync_toml_pin_only_change(
+    root: Path, *, runner: Runner = subprocess.run
+) -> bool:
+    """Whether the staged change to ``config/docsync.toml`` touches only the
+    ``[test_count]`` table's pin.
+
+    Task 1 (``8f56c17``) put the test-count pin in ``config/docsync.toml``
+    ``[test_count]``, but ``config/docsync.toml`` is also listed in
+    ``CONTROL_PLANE_FILES``, so every ordinary commit that adds a test (and
+    therefore pins a new count) staged a "control-plane" file and was
+    refused. This compares the HEAD and index blobs of the file with their
+    top-level ``test_count`` key removed from each parsed copy: if the
+    remainders are equal, the change is pin-only.
+
+    Comparing parsed TOML, not text, is deliberate: reformatting inside
+    ``[test_count]`` (e.g. spacing around ``=``) is pin-only, and a comment
+    or whitespace change elsewhere is not a behaviour change either --
+    parsed equality accepts both without treating them as control-plane.
+
+    Fails closed (returns ``False``, meaning "control-plane") when the file
+    is absent at HEAD (new) or absent from the index (deleted/renamed),
+    either blob fails to parse, or either ``git show`` exits nonzero: an
+    ambiguous case is refused, never waved through.
+    """
+    head_result = _run_git(
+        ["show", f"HEAD:{DOCSYNC_TOML_PATH}"], cwd=root, runner=runner
+    )
+    if head_result.returncode != 0:
+        return False
+    index_result = _run_git(["show", f":{DOCSYNC_TOML_PATH}"], cwd=root, runner=runner)
+    if index_result.returncode != 0:
+        return False
+    try:
+        head_doc = tomllib.loads(head_result.stdout)
+        index_doc = tomllib.loads(index_result.stdout)
+    except tomllib.TOMLDecodeError:
+        return False
+    head_doc.pop("test_count", None)
+    index_doc.pop("test_count", None)
+    return head_doc == index_doc
 
 
 EXIT_OK = 0
@@ -197,14 +245,24 @@ def staged_paths(root: Path, *, runner: Runner = subprocess.run) -> list[str]:
 def staged_control_plane_paths(
     root: Path, *, runner: Runner = subprocess.run
 ) -> list[str]:
-    """Return staged paths that would change the checker's own behaviour."""
-    return sorted(
-        {
-            path
-            for path in staged_paths(root, runner=runner)
-            if _is_control_plane_path(path)
-        }
-    )
+    """Return staged paths that would change the checker's own behaviour.
+
+    ``config/docsync.toml`` is exempted when the staged change touches only
+    the ``[test_count]`` pin (owner ruling 2026-09-26; see
+    ``_docsync_toml_pin_only_change``). The exemption is evaluated per
+    path, so a pin-only ``config/docsync.toml`` staged alongside a real
+    control-plane code change still leaves that other path refused.
+    """
+    control_plane: set[str] = set()
+    for path in staged_paths(root, runner=runner):
+        if not _is_control_plane_path(path):
+            continue
+        if path == DOCSYNC_TOML_PATH and _docsync_toml_pin_only_change(
+            root, runner=runner
+        ):
+            continue
+        control_plane.add(path)
+    return sorted(control_plane)
 
 
 def _print_control_plane_refusal(control_plane: Sequence[str], *, stderr) -> None:

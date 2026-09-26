@@ -291,7 +291,10 @@ per-batch log files). Exit codes: 0 clean; 1 drift or an integrity error;
 2 malformed input or an invocation error. A commit staging docsync
 control-plane code is refused; the one escape is
 `SKIP=doc-state-sync-check git commit`, never `--no-verify` -- see
-`docs/architecture/documentation-tooling.md`.
+`docs/architecture/documentation-tooling.md`. A staged `config/docsync.toml`
+whose only change is the `[test_count]` pin is not control-plane (owner
+ruling 2026-09-26), so an ordinary `--fix --test-count N` commit runs every
+hook.
 
 Three further operator modes -- `--close-batch`, `--paginate-archives` and
 `--cold-storage` -- are documented in `docs/architecture/documentation-tooling.md`

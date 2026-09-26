@@ -79,7 +79,8 @@ See FINDINGS F-DOCSYNC-3.
   control-plane, frontend, then test infrastructure and dependencies.
   The control-plane plan is written and reviewed:
   `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
-  it task by task, then write the frontend plan. Tasks 1-4 have landed. Write
+  it task by task, then write the frontend plan. Tasks 1-4 have landed, and
+  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Write
   each specialized plan before implementing its cluster. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -112,6 +113,46 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - A pin-only docsync.toml change is not control-plane
+
+Side task, no batch tag: Task 8 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** Task 1 (`8f56c17`) put the test-count pin in
+  `config/docsync.toml` `[test_count]`, but `scripts/dev/docsync_preflight.py`
+  also lists `config/docsync.toml` in `CONTROL_PLANE_FILES`, so every
+  ordinary commit that adds a test (and therefore pins a new count) staged a
+  "control-plane" file and was refused, forcing `SKIP=doc-state-sync-check`
+  on routine commits. Owner ruling, 2026-09-26: keep the pin where it is,
+  and change the preflight so a staged `config/docsync.toml` counts as
+  control-plane only when something outside `[test_count]` changed.
+  `staged_control_plane_paths` (`scripts/dev/docsync_preflight.py`) gained a
+  new `_docsync_toml_pin_only_change` helper: it compares the HEAD and index
+  blobs of `config/docsync.toml`, each parsed with stdlib `tomllib` and with
+  its top-level `test_count` key removed, and treats the change as pin-only
+  only when the remainders are equal. It fails closed (treats the change as
+  control-plane) when the file is absent at HEAD or the index, either blob
+  fails to parse, or either `git show` exits nonzero. The exemption is
+  evaluated per path, so a pin-only `config/docsync.toml` staged alongside a
+  real control-plane code change still leaves that other path refused.
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), reverting `staged_control_plane_paths` to its pre-Task-8 body
+  made the three tests whose outcome the exemption changes fail
+  (`test_docsync_toml_pin_only_change_is_not_control_plane`,
+  `test_docsync_toml_test_count_table_added_is_still_pin_only`,
+  `test_docsync_toml_pin_only_alongside_other_control_plane_file_is_per_path`);
+  the four unchanged-behaviour cases still passed.
+- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
+
+  | Probe | Command | Result |
+  |---|---|---|
+  | Red (BASE preflight) | pin-only edit staged, `docsync_preflight.py --staged` | exit 3, control-plane refusal |
+  | Green (task preflight overlaid) | same staged edit | exit 1 (the checker's own doc-drift result), no refusal |
+  | Near-miss (task preflight overlaid) | pin edit plus an `[options]` edit staged | exit 3, control-plane refusal |
+
+- **Validation.** `pytest -q` -- **1905 passed**.
 
 ### 2026-09-25 - BATCH* discovery becomes case-consistent
 
@@ -266,57 +307,3 @@ lands.
   replacing it with the five new files also required correcting the list's
   own "twelve matching" count to "sixteen" to stay internally consistent.
 - **Validation.** `pytest -q` -- **1891 passed**.
-
-### 2026-09-25 - An explicit test count pins config/docsync.toml
-
-Side task, no batch tag: Task 1 of the control-plane plan, part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope and result.** `--fix --test-count N` now pins `N` in
-  `config/docsync.toml`'s new `[test_count]` table
-  (`declarations.TestCountConfig`, `load_test_count_config`) and writes the
-  SESSION_CONTEXT STATUS block, the Section 1 `Tests` row, the Section 6
-  heading and the FINDINGS.md header from that one number in one pass
-  (`renderer.rewrite_recorded_counts`, `cli._rewrite_findings_header_count`,
-  `cli._rewrite_test_count_pin`). `logic.resolved_test_count_authority`
-  (explicit > pinned > `latest_test_count_authority` cold-start fallback) is
-  now the one function every DOC005/006/008 check and the STATUS render go
-  through, so a same-date tie or an out-of-position correction
-  (F-DOCSYNC-11, F-DOCSYNC-22) can never shadow a pinned count again.
-  `latest_test_count_authority` itself is unchanged and still the cold-start
-  path. A new warning, DOC025 (`logic._newest_dated_test_count`), fires only
-  when exactly one Section 4 entry carries the newest date and disagrees
-  with the pin; a same-date tie or no pin stays silent, and it never blocks
-  (Q1 ruling). Closes F-DOCSYNC-11, -12, -13, -22.
-- **Deviation.** `FINDINGS_HEADER_COUNT_RE` (`scripts/docsync/integrity.py`)
-  required bare "test modules.", but the repository's real FINDINGS.md
-  header reads "... tracked test modules.", so DOC008 never checked it and
-  `--fix --test-count N` never rewrote it. Fixed in this commit (an
-  under-20-line regex change, AGENTS.md "Proposal and Design Rules" item 2):
-  the pattern now accepts an optional "tracked " before "test modules.",
-  every existing fixture wording still matches, and a new regression test
-  (`tests/test_docsync_cli.py::TestTestCountPin::
-  test_findings_header_count_regex_matches_the_real_tracked_wording`) proves
-  both legs -- DOC008 fires on a drifted real-wording header, and
-  `_rewrite_findings_header_count` rewrites it -- against the regex reverted
-  (mutation proof in `task-1-report.md`). No new finding ID; fixed in the
-  same commit that built the mechanism. Also tightened
-  `test_negative_test_count_returns_2` to assert the Step 14 CLI guard's own
-  message text, isolating it from `declarations._positive_int`'s
-  independent downstream rejection of the same value (mutation-proved: the
-  test now fails if only the CLI guard is removed).
-- **Validation.** `pytest -q` -- **1891 passed**.
-- **Step 19 live probe** (full detail and every command in
-  `.superpowers/sdd/2026-09-25-batch23-wp0-control-plane/task-1-audit.md`
-  Section 4, gathered by the audit dispatch at `/c/ssprobe`):
-
-  | # | Probe | Corpus | Steps | Exit | Codes |
-  |---|---|---|---|---|---|
-  | 1 | Red, prior behaviour | `f8fb8e9` (no Task 1 code) | Insert same-date pair (window entry 1850, side-task entry 1849, both 2026-09-25) -> bare `--fix` -> `--check` | 1 | `ERROR DOC006` (STATUS block rewritten to the wrong tie-break winner 1849) |
-  | 2 | Red, planted | task tree, pinned=1873 (clean) | Hand-edit Section 1 Tests row to 1874, leave the pin at 1873 | 1 | `ERROR DOC005`, `ERROR DOC006` |
-  | 3 | Green, real workflow | task tree, fresh | New dated entry **999 passed** -> `--fix --test-count 999` -> `--check` | 0 | Pin=999; STATUS/Section 1/Section 6 all show 999 |
-  | 4 | Near-miss green | same tree | Bare `--fix` again -> `--check` | 0 | No changes found; pin and all sites unchanged at 999 |
-  | 5 | DOC025 (warning only) | same tree, pinned=999 | Add a strictly-newer sole entry (2026-09-26, **1000 passed**) -> bare `--fix` -> `--check` | 0 | `WARNING DOC025` printed, pin stays at 999, exit 0 |
-- **Forward guidance.** Task 2 repoints `TestLatestTestCount`'s callers and
-  splits `tests/test_docsync_logic.py` along F-MAS-3's seven concerns.

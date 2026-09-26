@@ -50,6 +50,11 @@ Tasks 1-4 stage files under `scripts/docsync/` and are refused by the commit pre
   case, stays silent. The warning never changes the exit code.
 - **Q2.** A dirty tree adds WT010 only on the local detached branch (WT012), not on a
   recognized-CI checkout (WT011).
+- **2026-09-26.** Q-PIN's cost was underestimated: `config/docsync.toml` is also listed in
+  `CONTROL_PLANE_FILES`, so every ordinary commit that adds a test (and therefore pins a
+  new count) refused itself at the preflight. The pin stays in `config/docsync.toml`
+  `[test_count]`; the preflight is changed instead so a staged `config/docsync.toml` counts
+  as control-plane only when something outside `[test_count]` changed (Task 8).
 
 ## Global Constraints
 
@@ -65,9 +70,11 @@ Every task's requirements include this section.
   `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md` Global Constraints,
   "A commit that changes the docsync control plane is refused by design"): Any task
   touching `scripts/docsync/`, `scripts/doc_state_sync.py`, `scripts/dev/docsync_preflight.py`,
-  or the declarations file (`config/docsync.toml`) exits 3 at the preflight. Run
-  `doc_state_sync.py --check` directly at exit 0 first, then commit with
-  `SKIP=doc-state-sync-check git commit ...`. Never `--no-verify`.
+  or the declarations file (`config/docsync.toml`) exits 3 at the preflight -- except a
+  `config/docsync.toml` change confined to the `[test_count]` pin, which is not
+  control-plane (owner ruling 2026-09-26; Task 8). Run `doc_state_sync.py --check`
+  directly at exit 0 first, then commit with `SKIP=doc-state-sync-check git commit ...`.
+  Never `--no-verify`.
 - **Logging (owner ruling, 2026-09-23, WP-0).** Every commit logs an **untagged**
   `docs/agents/PLAYBOOK.md` Section 4 entry, placed directly after the
   `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker (top of the non-current list). The heading
@@ -1796,6 +1803,36 @@ both paragraphs below the numbered list.
 missing declared untracked-essential file prints `WT015` at WARNING severity and never
 blocks; a present one is silent; F-B21-25 gains a dated note recording items 1-2 done and
 stays `partly closed`.
+
+---
+
+### Task 8: A pin-only `config/docsync.toml` change is not control-plane (owner ruling 2026-09-26)
+
+Ran before Task 5, since the plan had no Task 8 text until it landed. Task 1 (`8f56c17`)
+put the test-count pin in `config/docsync.toml` `[test_count]`; because the preflight's
+`CONTROL_PLANE_FILES` also lists that file, every ordinary commit that adds a test staged a
+"control-plane" file and was refused, forcing `SKIP=` on routine commits. Owner ruling: keep
+the pin in `config/docsync.toml`, change the preflight so a staged `config/docsync.toml`
+counts as control-plane only when something outside `[test_count]` changed.
+
+**Files:** `scripts/dev/docsync_preflight.py` (`staged_control_plane_paths`, a new
+`_docsync_toml_pin_only_change` helper); `tests/scripts/dev/test_docsync_preflight.py`;
+`AGENTS.md`, `docs/architecture/documentation-tooling.md` (prose); this plan.
+
+- [x] Step 1: Failing tests for the seven cases (pin-only, pin plus another table, another
+      table only, table added where HEAD had none, absent at HEAD, invalid index TOML,
+      pin-only alongside a real control-plane file).
+- [x] Step 2: Implement per Design (fail closed on any ambiguous case).
+- [x] Step 3: Green -- the preflight test file, then the full suite.
+- [x] Step 4: Mutation proof (L14) in a scratch copy.
+- [x] Step 5: Live probe in an independent clone -- Red/Green/near-miss.
+- [x] Step 6: Prose in `AGENTS.md` and `documentation-tooling.md`; swept sibling claims.
+- [x] Step 7: This section and the owner-rulings bullet.
+- [x] Step 8: Commit.
+
+**Acceptance:** a commit whose only control-plane change is the `[test_count]` pin passes
+`doc-state-sync-check` without `SKIP=`; any other `config/docsync.toml` change, and every
+other control-plane path, is still refused; every ambiguous case fails closed.
 
 ---
 

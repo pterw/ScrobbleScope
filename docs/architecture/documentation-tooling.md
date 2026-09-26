@@ -352,7 +352,11 @@ commit that touches the docsync control plane itself (`scripts/docsync/`,
 in CI, where the index already equals `HEAD`. Grading a corpus against a
 checker mid-change to its own rules is a correctness/trust mismatch, not
 merely a risk to be documented away, so the tool refuses rather than
-guessing which version of the rules should govern.
+guessing which version of the rules should govern. A staged
+`config/docsync.toml` whose only change is the `[test_count]` pin is exempt
+from this refusal (owner ruling 2026-09-26): every ordinary commit that adds
+a test also pins a new count there, and that alone does not change the
+checker's rules.
 
 **The one named escape for that refusal is `SKIP=doc-state-sync-check git
 commit`** -- pre-commit's own built-in per-hook skip, naming this hook's id

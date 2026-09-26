@@ -9,6 +9,60 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - An explicit test count pins config/docsync.toml
+
+Side task, no batch tag: Task 1 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `--fix --test-count N` now pins `N` in
+  `config/docsync.toml`'s new `[test_count]` table
+  (`declarations.TestCountConfig`, `load_test_count_config`) and writes the
+  SESSION_CONTEXT STATUS block, the Section 1 `Tests` row, the Section 6
+  heading and the FINDINGS.md header from that one number in one pass
+  (`renderer.rewrite_recorded_counts`, `cli._rewrite_findings_header_count`,
+  `cli._rewrite_test_count_pin`). `logic.resolved_test_count_authority`
+  (explicit > pinned > `latest_test_count_authority` cold-start fallback) is
+  now the one function every DOC005/006/008 check and the STATUS render go
+  through, so a same-date tie or an out-of-position correction
+  (F-DOCSYNC-11, F-DOCSYNC-22) can never shadow a pinned count again.
+  `latest_test_count_authority` itself is unchanged and still the cold-start
+  path. A new warning, DOC025 (`logic._newest_dated_test_count`), fires only
+  when exactly one Section 4 entry carries the newest date and disagrees
+  with the pin; a same-date tie or no pin stays silent, and it never blocks
+  (Q1 ruling). Closes F-DOCSYNC-11, -12, -13, -22.
+- **Deviation.** `FINDINGS_HEADER_COUNT_RE` (`scripts/docsync/integrity.py`)
+  required bare "test modules.", but the repository's real FINDINGS.md
+  header reads "... tracked test modules.", so DOC008 never checked it and
+  `--fix --test-count N` never rewrote it. Fixed in this commit (an
+  under-20-line regex change, AGENTS.md "Proposal and Design Rules" item 2):
+  the pattern now accepts an optional "tracked " before "test modules.",
+  every existing fixture wording still matches, and a new regression test
+  (`tests/test_docsync_cli.py::TestTestCountPin::
+  test_findings_header_count_regex_matches_the_real_tracked_wording`) proves
+  both legs -- DOC008 fires on a drifted real-wording header, and
+  `_rewrite_findings_header_count` rewrites it -- against the regex reverted
+  (mutation proof in `task-1-report.md`). No new finding ID; fixed in the
+  same commit that built the mechanism. Also tightened
+  `test_negative_test_count_returns_2` to assert the Step 14 CLI guard's own
+  message text, isolating it from `declarations._positive_int`'s
+  independent downstream rejection of the same value (mutation-proved: the
+  test now fails if only the CLI guard is removed).
+- **Validation.** `pytest -q` -- **1891 passed**.
+- **Step 19 live probe** (full detail and every command in
+  `.superpowers/sdd/2026-09-25-batch23-wp0-control-plane/task-1-audit.md`
+  Section 4, gathered by the audit dispatch at `/c/ssprobe`):
+
+  | # | Probe | Corpus | Steps | Exit | Codes |
+  |---|---|---|---|---|---|
+  | 1 | Red, prior behaviour | `f8fb8e9` (no Task 1 code) | Insert same-date pair (window entry 1850, side-task entry 1849, both 2026-09-25) -> bare `--fix` -> `--check` | 1 | `ERROR DOC006` (STATUS block rewritten to the wrong tie-break winner 1849) |
+  | 2 | Red, planted | task tree, pinned=1873 (clean) | Hand-edit Section 1 Tests row to 1874, leave the pin at 1873 | 1 | `ERROR DOC005`, `ERROR DOC006` |
+  | 3 | Green, real workflow | task tree, fresh | New dated entry **999 passed** -> `--fix --test-count 999` -> `--check` | 0 | Pin=999; STATUS/Section 1/Section 6 all show 999 |
+  | 4 | Near-miss green | same tree | Bare `--fix` again -> `--check` | 0 | No changes found; pin and all sites unchanged at 999 |
+  | 5 | DOC025 (warning only) | same tree, pinned=999 | Add a strictly-newer sole entry (2026-09-26, **1000 passed**) -> bare `--fix` -> `--check` | 0 | `WARNING DOC025` printed, pin stays at 999, exit 0 |
+- **Forward guidance.** Task 2 repoints `TestLatestTestCount`'s callers and
+  splits `tests/test_docsync_logic.py` along F-MAS-3's seven concerns.
+
 ### 2026-09-25 - The control-plane plan is written and reviewed
 
 Side task, no batch tag: adds WP-0 Part C's first follow-on plan.
