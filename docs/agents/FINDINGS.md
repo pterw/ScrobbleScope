@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1891 tests across 68 tracked test modules.
+1891 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -387,19 +387,6 @@ detached, dirty worktree and the doubled base-ref label stay open; the
 control-plane plan fixes both.
 Status: open. Source: PR #169 independent review.
 
-### F-DOCSYNC-7: `_latest_test_count_from_entries` has no production caller
-
-The bare-count wrapper lost its last production caller when the integrity gate
-moved to `latest_test_count_authority`. It is now exercised only by its own
-unit tests in `tests/test_docsync_logic.py`, which is the same condition that
-led to `_cross_validate` being removed rather than kept.
-
-Deliberately not removed in the review round that created the condition:
-deleting it also rewrites eight test call sites, which is a refactor rather
-than a review fix. Remove it and repoint those tests at
-`latest_test_count_authority` in a hygiene pass.
-Status: open. Source: PR #169 review round 5.
-
 ### F-LOAD-2: no integration tests in CI
 
 All tests mock dependencies; an in-process `/results_loading ->
@@ -410,23 +397,6 @@ Status: open. Source: load testing 2026-03-04.
 
 No contract tests or recorded API fixtures; upstream format changes would
 pass mocked tests. Status: open. Source: MULTI_AGENT_SWEEP.
-
-### F-MAS-3: test_docsync_logic.py covers several unrelated seams
-
-One module holds WP collection, test-count authority, whole-sync
-integration, log merging, archive splitting, dedup, and Section 3 parsing.
-Splitting along those class boundaries stays worthwhile. The originally
-suggested `cross-validate` seam no longer exists -- that helper and its
-tests were removed on this branch. Count authority is now split across two
-files rather than extracted from this one: `TestLatestTestCount` still holds
-the unit cases here, while `tests/test_docsync_test_count.py` covers the
-behaviour through `_sync`. Consolidating them is part of the same split.
-
-No line count is quoted here deliberately: the figure in the original
-finding went stale as soon as the file changed, and size was never the
-defect. Compare against the largest peer in the directory when deciding
-whether the split is due.
-Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
 

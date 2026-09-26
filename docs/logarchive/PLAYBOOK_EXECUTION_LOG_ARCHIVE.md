@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - Section 3 states the live WP-0 work order
+
+Side task, no batch tag: Batch 23 WP-0 Part B's final documentation cleanup.
+
+- **Scope and result.** Section 3 now names the active batch, the next work
+  package, Part C's three follow-on plans, and the close-out gate. The
+  paragraph-to-owner crosswalk is
+  `docs/history/reports/BATCH23_WP0_SECTION3_CROSSWALK_2026-09-25.md`.
+  The 2026-09-24 handoff is marked as a historical snapshot so its old
+  root-cleanup resume point cannot be mistaken for the current order. The
+  Batch 23 definition marks Part B's Section 3 cleanup done.
+- **History retained.** PR #234 merged the Batch 22 branch through
+  `f6d5926` as `88f6e27` on 2026-09-20; PR #236 later merged eight more
+  commits as `fc9098d`. The old Section 3 attached 05:06 to `f6d5926`;
+  Git dates that commit at 05:01 and the PR #234 merge at 05:06. This
+  post-close-out chronology was not otherwise owned by a dated record.
+  The old Section 3 also recorded the owner's 2026-09-21 setting of
+  `MUSICBRAINZ_CONTACT` on Fly.io and in the local `.env` to the project's
+  GitHub URL; this is retained as a point-in-time report, not a current
+  configuration check.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Pre-commit and docsync check pass with the four
+  standing DOC024 warnings and the expected active-definition warning.
+- **Forward guidance.** Write and execute the control-plane, frontend, and
+  test-infrastructure follow-on plans in the reconcile plan's order. Review
+  the remaining Part C findings before the single tagged WP-0 close-out.
+
 ### 2026-09-25 - The Batch 23 review reconciles completed records
 
 Side task, no batch tag: the completed-work review compared the Batch 23

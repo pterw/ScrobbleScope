@@ -9,6 +9,51 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-7: `_latest_test_count_from_entries` has no production caller -- RESOLVED
+
+The bare-count wrapper lost its last production caller when the integrity gate
+moved to `latest_test_count_authority`. It is now exercised only by its own
+unit tests in `tests/test_docsync_test_count.py`, which is the same condition
+that led to `_cross_validate` being removed rather than kept.
+
+Deliberately not removed in the review round that created the condition:
+deleting it also rewrites eight test call sites, which is a refactor rather
+than a review fix. Remove it and repoint those tests at
+`latest_test_count_authority` in a hygiene pass.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+The eight `TestLatestTestCount` call sites now call
+`latest_test_count_authority(...).count` directly; the wrapper
+`_latest_test_count_from_entries` is deleted from `scripts/docsync/logic.py`.
+
+Source: PR #169 review round 5.
+
+### F-MAS-3: test_docsync_logic.py covers several unrelated seams -- RESOLVED
+
+One module holds WP collection, test-count authority, whole-sync
+integration, log merging, archive splitting, dedup, and Section 3 parsing.
+Splitting along those class boundaries stays worthwhile. The originally
+suggested `cross-validate` seam no longer exists -- that helper and its
+tests were removed on this branch. Count authority is now split across two
+files rather than extracted from this one: `TestLatestTestCount` still holds
+the unit cases here, while `tests/test_docsync_test_count.py` covers the
+behaviour through `_sync`. Consolidating them is part of the same split.
+
+No line count is quoted here deliberately: the figure in the original
+finding went stale as soon as the file changed, and size was never the
+defect. Compare against the largest peer in the directory when deciding
+whether the split is due.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+`tests/test_docsync_logic.py` is split along its seven seams: WP collection,
+test-count authority (consolidated into `tests/test_docsync_test_count.py`),
+whole-sync integration, log merging, archive splitting plus dedup, and
+Section 3 parsing.
+
+Source: MULTI_AGENT_SWEEP.
+
 ### F-DOCSYNC-13: the test count is parsed from prose when it could be measured -- RESOLVED
 
 `--fix` cannot publish a measured test count, and `--check` refuses a

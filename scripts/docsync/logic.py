@@ -400,19 +400,6 @@ def _newest_count(
     return None
 
 
-def _latest_test_count_from_entries(
-    playbook_lines: list[str], archive_lines: list[str] | None = None
-) -> int | None:
-    """Return the newest full-suite count, discarding why it may be absent.
-
-    Callers that must distinguish "no count recorded" from "the newest
-    entry is ambiguous" need ``latest_test_count_authority`` instead. No
-    production caller remains; this wrapper is exercised only by its own
-    unit tests, and its removal is tracked in FINDINGS as F-DOCSYNC-7.
-    """
-    return latest_test_count_authority(playbook_lines, archive_lines).count
-
-
 def _ordered_test_count_candidates(
     playbook_lines: list[str],
     archive_lines: list[str] | None = None,

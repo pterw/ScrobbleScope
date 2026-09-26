@@ -790,7 +790,7 @@ requirement `AGENTS.md` Rule 4 (refactor requires parity tests) exists for, and 
 what F-MAS-3's file split needs: repointing the eight call sites first, in the file they
 already live in, proves the replacement behaves identically before anything moves.
 
-- [ ] **Step 1: Confirm nothing outside tests calls the wrapper.**
+- [x] **Step 1: Confirm nothing outside tests calls the wrapper.**
 
   ```bash
   git grep -n "_latest_test_count_from_entries" -- '*.py'
@@ -801,7 +801,7 @@ already live in, proves the replacement behaves identically before anything move
   `TestLatestTestCount`, per the finding). Any other hit means a live caller exists: stop
   and report NEEDS_CONTEXT.
 
-- [ ] **Step 2: Repoint the eight call sites, in place.** In `tests/test_docsync_logic.py`:
+- [x] **Step 2: Repoint the eight call sites, in place.** In `tests/test_docsync_logic.py`:
   - Change the import from `from docsync.logic import (_dedup_sorted,
     _latest_test_count_from_entries, _merge_entries_into_log, _split_archive, _sync)` to
     the same list with `latest_test_count_authority` in place of
@@ -813,7 +813,7 @@ already live in, proves the replacement behaves identically before anything move
     instead (the scan-in-reverse behaviour itself is unchanged, only the entry point's
     name).
 
-- [ ] **Step 3: Run to verify parity.**
+- [x] **Step 3: Run to verify parity.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py -q -k TestLatestTestCount
@@ -822,7 +822,7 @@ already live in, proves the replacement behaves identically before anything move
   Expected: PASS, same assertions, same count. This is the parity proof Rule 4 requires
   before the split below moves anything.
 
-- [ ] **Step 4: Delete the wrapper.** Remove `_latest_test_count_from_entries` whole from
+- [x] **Step 4: Delete the wrapper.** Remove `_latest_test_count_from_entries` whole from
   `scripts/docsync/logic.py`.
 
   ```
@@ -831,7 +831,7 @@ already live in, proves the replacement behaves identically before anything move
 
   Expected: PASS (the file no longer imports the deleted name).
 
-- [ ] **Step 5: Split the file along F-MAS-3's seven concerns.** Move each class, its
+- [x] **Step 5: Split the file along F-MAS-3's seven concerns.** Move each class, its
   class-local imports, and any module-level helper it alone uses, into the file named
   above. `TestLatestTestCount` (now testing `latest_test_count_authority`), and Task 1's two
   own additions to this file -- `TestRewriteRecordedCounts` and
@@ -847,7 +847,7 @@ already live in, proves the replacement behaves identically before anything move
   `TestTestCountConfig` (Task 1) is not part of this move: it was already appended to its
   permanent home.
 
-- [ ] **Step 6: Collect and run every new file.**
+- [x] **Step 6: Collect and run every new file.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_wp_numbers.py tests/test_docsync_test_count.py tests/test_docsync_sync_integration.py tests/test_docsync_log_merging.py tests/test_docsync_archive_split.py tests/test_docsync_section3_parsing.py -v
@@ -857,7 +857,7 @@ already live in, proves the replacement behaves identically before anything move
   `tests/test_docsync_test_count.py` carried before the split (no test gained or lost by
   the move itself).
 
-- [ ] **Step 7: Delete the now-empty original and run the full docsync corpus.**
+- [x] **Step 7: Delete the now-empty original and run the full docsync corpus.**
 
   ```bash
   git rm tests/test_docsync_logic.py
@@ -870,7 +870,7 @@ already live in, proves the replacement behaves identically before anything move
   Expected: PASS, same total suite count as before this task (the split moves tests, it
   does not add or remove any).
 
-- [ ] **Step 8: Update the module count.** The suite gained roughly five tracked test
+- [x] **Step 8: Update the module count.** The suite gained roughly five tracked test
   modules net (six new files minus the one deleted, `test_docsync_test_count.py` already
   existed so does not count as new). Recompute the real number
   (`AGENTS.md` anti-pattern 10 -- re-measure, do not guess) and record it via
@@ -879,7 +879,7 @@ already live in, proves the replacement behaves identically before anything move
   Section 6 heading text names modules too -- confirm the exact rendered wording matches
   what `--fix` produces before hand-checking anything).
 
-- [ ] **Step 9: Gates and commit.** This touches `scripts/docsync/logic.py`
+- [x] **Step 9: Gates and commit.** This touches `scripts/docsync/logic.py`
   (R7 applies).
 
   ```
@@ -891,7 +891,7 @@ already live in, proves the replacement behaves identically before anything move
   git rm tests/test_docsync_logic.py
   ```
 
-- [ ] **Step 10: Resolve both findings.** F-DOCSYNC-7's reason: "the eight
+- [x] **Step 10: Resolve both findings.** F-DOCSYNC-7's reason: "the eight
   `TestLatestTestCount` call sites now call `latest_test_count_authority(...).count`
   directly; the wrapper `_latest_test_count_from_entries` is deleted from
   `scripts/docsync/logic.py`." F-MAS-3's reason: "`tests/test_docsync_logic.py` is split

@@ -236,12 +236,15 @@ and rotation), `transaction.py` (crash-safe publication), and `markdown.py`
 (the shared fenced-block scanner that keeps a quoted example from parsing as
 real content).
 
-Twelve modules, and twelve matching test files in `tests/`
-(`test_docsync_archives.py`, `test_docsync_cli.py`, `test_docsync_closeout.py`,
+Twelve modules, and sixteen test files in `tests/`
+(`test_docsync_archives.py`, `test_docsync_archive_split.py`,
+`test_docsync_cli.py`, `test_docsync_closeout.py`,
 `test_docsync_declarations.py`, `test_docsync_findings.py`,
-`test_docsync_integrity.py`, `test_docsync_logic.py`, `test_docsync_markdown.py`,
-`test_docsync_parser.py`, `test_docsync_renderer.py`,
-`test_docsync_test_count.py`, `test_docsync_transaction.py`), plus
+`test_docsync_integrity.py`, `test_docsync_log_merging.py`,
+`test_docsync_markdown.py`, `test_docsync_parser.py`,
+`test_docsync_renderer.py`, `test_docsync_section3_parsing.py`,
+`test_docsync_sync_integration.py`, `test_docsync_test_count.py`,
+`test_docsync_transaction.py`, `test_docsync_wp_numbers.py`), plus
 `tests/scripts/dev/test_docsync_preflight.py` and `test_docsync_hook.py` for
 the two entry points that live under `scripts/dev/`. Run
 `pytest tests/test_docsync_*.py -q` for the current measured count rather than
