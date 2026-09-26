@@ -2,10 +2,11 @@
 
 import pytest
 
-from scripts.dev.worktree_guard import CommandResult, inspect_worktree
+from scripts.dev.worktree_guard import CommandResult, GuardError, inspect_worktree
 from tests.scripts.dev.worktree_guard_fakes import (
     FakeGit,
     codes,
+    fail,
     ok,
     repository,
     venv_tools,
@@ -50,6 +51,16 @@ def test_detached_dirty_local_reports_wt012_and_wt010(tmp_path):
     responses[("status", "--porcelain")] = ok(" M scripts/dev/foo.py\n")
     diagnostics = inspect_worktree(repo, environ={}, runner=FakeGit(responses))
     assert codes(diagnostics) == ["WT012", "WT010"]
+
+
+def test_detached_local_status_call_failure_raises_guard_error(tmp_path):
+    """A detached, non-CI worktree whose status call fails raises rather than
+    guessing dirtiness (mirrors the attached path's equivalent failure)."""
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+    responses[("status", "--porcelain")] = fail("fatal: not a git repository")
+    with pytest.raises(GuardError, match="status"):
+        inspect_worktree(repo, environ={}, runner=FakeGit(responses), debug=True)
 
 
 def test_detached_ci_skips_before_playbook_metadata_is_required(tmp_path):

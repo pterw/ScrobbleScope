@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - A pin-only docsync.toml change is not control-plane
+
+Side task, no batch tag: Task 8 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** Task 1 (`8f56c17`) put the test-count pin in
+  `config/docsync.toml` `[test_count]`, but `scripts/dev/docsync_preflight.py`
+  also lists `config/docsync.toml` in `CONTROL_PLANE_FILES`, so every
+  ordinary commit that adds a test (and therefore pins a new count) staged a
+  "control-plane" file and was refused, forcing `SKIP=doc-state-sync-check`
+  on routine commits. Owner ruling, 2026-09-26: keep the pin where it is,
+  and change the preflight so a staged `config/docsync.toml` counts as
+  control-plane only when something outside `[test_count]` changed.
+  `staged_control_plane_paths` (`scripts/dev/docsync_preflight.py`) gained a
+  new `_docsync_toml_pin_only_change` helper: it compares the HEAD and index
+  blobs of `config/docsync.toml`, each parsed with stdlib `tomllib` and with
+  its top-level `test_count` key removed, and treats the change as pin-only
+  only when the remainders are equal. It fails closed (treats the change as
+  control-plane) when the file is absent at HEAD or the index, either blob
+  fails to parse, or either `git show` exits nonzero. The exemption is
+  evaluated per path, so a pin-only `config/docsync.toml` staged alongside a
+  real control-plane code change still leaves that other path refused.
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), reverting `staged_control_plane_paths` to its pre-Task-8 body
+  made the three tests whose outcome the exemption changes fail
+  (`test_docsync_toml_pin_only_change_is_not_control_plane`,
+  `test_docsync_toml_test_count_table_added_is_still_pin_only`,
+  `test_docsync_toml_pin_only_alongside_other_control_plane_file_is_per_path`);
+  the four unchanged-behaviour cases still passed.
+- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
+
+  | Probe | Command | Result |
+  |---|---|---|
+  | Red (BASE preflight) | pin-only edit staged, `docsync_preflight.py --staged` | exit 3, control-plane refusal |
+  | Green (task preflight overlaid) | same staged edit | exit 1 (the checker's own doc-drift result), no refusal |
+  | Near-miss (task preflight overlaid) | pin edit plus an `[options]` edit staged | exit 3, control-plane refusal |
+
+- **Validation.** `pytest -q` -- **1905 passed**.
+
 ### 2026-09-25 - BATCH* discovery becomes case-consistent
 
 Side task, no batch tag: Task 4 of the control-plane plan, part of Batch 23

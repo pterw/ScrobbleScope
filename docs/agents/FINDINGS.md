@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1910 tests across 72 tracked test modules.
+1911 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -502,11 +502,11 @@ branch cut from `test` reads as diverged or behind until the agent knows to
 pass `--base-ref origin/test` by hand. It is worse since PR #241 merged
 into `main` on 2026-09-24: against `origin/main` the guard now reports
 WT006 (behind) while the branch has nothing past the merge, and WT005
-(diverged) once it does, with an empty merge-base diff. Checked against
-F-WORKTREE-3: its three open items are the between-batch ancestry skip, a
-dirty detached worktree missing WT010, and the doubled base-ref label --
-none is this defect, so this is a separate finding rather than an addition
-to that record.
+(diverged) once it does, with an empty merge-base diff. When this was filed,
+F-WORKTREE-3's open items were the between-batch ancestry skip, a dirty
+detached worktree missing WT010, and the doubled base-ref label -- none was
+this defect, so this is a separate finding. F-WORKTREE-3 has since been
+archived.
 - [ ] **Status:** open (P2). Source: found opening Batch 23, 2026-09-21;
   sharpened by `docs/history/reports/HANDOFF_2026-09-24.md` section 2 after
   PR #241 merged, 2026-09-24.
