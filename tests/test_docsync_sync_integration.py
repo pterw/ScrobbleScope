@@ -214,6 +214,11 @@ class TestSyncIntegration:
 
     def test_session_status_uses_active_definition_plan(self, sync_env: Path):
         """The sync path passes the finite plan through to the renderer."""
+        playbook_path = sync_env / "PLAYBOOK.md"
+        playbook_text = playbook_path.read_text(encoding="utf-8").replace(
+            "Did some work.", "**Status:** WP-1 complete.\n\nDid some work."
+        )
+        playbook_path.write_text(playbook_text, encoding="utf-8")
         playbook, archive, session = self._files(sync_env)
 
         result = _sync(
@@ -246,6 +251,59 @@ class TestSyncIntegration:
         result = _sync(playbook, archive, session, keep_non_current=4)
 
         assert "- Latest validated test count: **420 passed**." in result.session_lines
+
+    def test_three_tagged_commits_do_not_claim_the_package_done_until_the_last(
+        self, sync_env: Path
+    ):
+        """Reproduces docs/history/logs/BATCH22_LOG.md: three (Batch 22 WP-4)
+        entries landed before WP-4 was actually finished (F-DOCSYNC-15)."""
+        first_two_commits = dedent(
+            """\
+            # PLAYBOOK
+
+            ## 3. Active batch
+
+            Batch 22 is active.
+
+            ## 4. Execution log
+
+            Preamble.
+
+            <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+            ### 2026-09-20 - (Batch 22 WP-4) first commit
+
+            Progress.
+
+            ### 2026-09-20 - (Batch 22 WP-4) second commit
+
+            More progress.
+
+            <!-- DOCSYNC:CURRENT-BATCH-END -->
+        """
+        )
+        (sync_env / "PLAYBOOK.md").write_text(first_two_commits, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+
+        # Before the third commit lands, the tag alone must not claim WP-4 done.
+        result = _sync(playbook, archive, session, keep_non_current=4)
+        status = "\n".join(result.session_lines)
+        assert "Completed work packages in current-batch entries: none." in status
+
+        third_commit = first_two_commits.replace(
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+            "### 2026-09-20 - (Batch 22 WP-4) third commit\n\n"
+            "**Status:** WP-4 complete\n\n"
+            "Done.\n\n"
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        )
+        (sync_env / "PLAYBOOK.md").write_text(third_commit, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+
+        # Only the explicit completion line on the third commit closes WP-4.
+        result = _sync(playbook, archive, session, keep_non_current=4)
+        status = "\n".join(result.session_lines)
+        assert "Completed work packages in current-batch entries: WP-4." in status
 
     def test_session_context_missing_status_markers_raises(self, sync_env: Path):
         session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"

@@ -165,7 +165,10 @@ validated -- a gate that runs before the doc update cannot check it, and
 
 1. Update PLAYBOOK Section 3 + Section 4. Batch log entries carry a
    `(Batch N WP-X)` tag in the heading; side-task entries are untagged
-   (see Side-Task Handling).
+   (see Side-Task Handling). A tagged heading identifies which work package
+   an entry belongs to; only an explicit `**Status:** WP-N complete` line in
+   the entry body marks that package done (F-DOCSYNC-15). A multi-commit
+   work package's earlier commits carry the tag without that line.
 2. `pytest -q` -- all tests pass; measure and note N.
 3. `python scripts/doc_state_sync.py --fix --test-count N` -- rotates and
    refreshes the managed blocks from the text you just wrote, and pins N

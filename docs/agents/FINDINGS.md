@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1891 tests across 72 tracked test modules.
+1897 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -31,12 +31,6 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
 ## Resolved this batch
 
 ## P1 -- Next batch candidates
-
-### F-DOCSYNC-15: a work package reads as complete on its first tagged log entry
-
-`scripts/docsync/parser.py` `_collect_wp_numbers` counts every `WP-<n>` token in a current-batch entry heading as a completed work package, so the first commit of a multi-commit work package already makes the dashboard name the next one. `docs/history/logs/BATCH22_LOG.md` shows it happened: three `(Batch 22 WP-4)` entries landed on 2026-09-20 before WP-4 was done. Nothing went red, because DOC007 compares only against a claim someone wrote, and nobody wrote "WP-5 is next" in that window. Batch 23 WP-0 works around it by logging untagged until the package closes (owner ruling, 2026-09-23). The fix shape is Q4 of `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The owner chose the fix shape on 2026-09-23 -- a work package closes only on an entry carrying an explicit `**Status:** WP-N complete` line -- and the control-plane follow-on plan implements it.
-
-- [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
 
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 

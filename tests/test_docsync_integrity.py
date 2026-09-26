@@ -35,6 +35,8 @@ def _valid_inputs(tmp_path: Path) -> dict[str, object]:
         "",
         "### 2026-08-05 - Current work (Batch 21 WP-0)",
         "",
+        "**Status:** WP-0 complete.",
+        "",
         "Validation: **390 passed**.",
         "",
         "<!-- DOCSYNC:CURRENT-BATCH-END -->",
@@ -549,7 +551,7 @@ def test_definition_label_outside_section_3_is_not_exempt(tmp_path: Path):
     issues = collect_integrity_issues(**inputs)
 
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
-        ("DOC001", "PLAYBOOK.md", 20)
+        ("DOC001", "PLAYBOOK.md", 22)
     ]
 
 
@@ -566,7 +568,7 @@ def test_playbook_reference_after_dated_entry_keeps_original_line_number(
     issues = collect_integrity_issues(**inputs)
 
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
-        ("DOC001", "PLAYBOOK.md", 20)
+        ("DOC001", "PLAYBOOK.md", 22)
     ]
 
 
@@ -860,11 +862,13 @@ def test_doc007_completed_wp_summary_does_not_steal_the_claim(tmp_path: Path):
     avoid.
     """
     inputs = _valid_inputs(tmp_path)
-    # Insert inside the current-batch markers (end marker is at index 15)
+    # Insert inside the current-batch markers (end marker is at index 17)
     # so PLAYBOOK computes WP-2.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-06 - First step done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **400 passed**.",
     ]
@@ -910,9 +914,11 @@ def test_doc007_gap_in_completed_wps_picks_lowest_missing(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
     # Insert WP-2 before the current-batch end marker. Together with the
     # fixture's WP-0, this creates the claimed live gap at WP-1.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-06 - Another step (Batch 21 WP-2)",
+        "",
+        "**Status:** WP-2 complete.",
         "",
         "Validation: `pytest -q` -- **400 passed**.",
     ]
@@ -1316,25 +1322,35 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
     # Insert WP-1 through WP-5 inside the current-batch markers. The fixture
     # already supplies WP-0, so every member of the asserted range is present.
-    inputs["playbook_lines"][14:14] = [
+    inputs["playbook_lines"][16:16] = [
         "",
         "### 2026-08-22 - Preflight done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **690 passed**.",
         "",
         "### 2026-08-23 - Shell done (Batch 21 WP-2)",
         "",
+        "**Status:** WP-2 complete.",
+        "",
         "Validation: `pytest -q` -- **695 passed**.",
         "",
         "### 2026-08-24 - Index done (Batch 21 WP-3)",
+        "",
+        "**Status:** WP-3 complete.",
         "",
         "Validation: `pytest -q` -- **700 passed**.",
         "",
         "### 2026-08-25 - Loading done (Batch 21 WP-4)",
         "",
+        "**Status:** WP-4 complete.",
+        "",
         "Validation: `pytest -q` -- **705 passed**.",
         "",
         "### 2026-08-26 - Leaderboard done (Batch 21 WP-5)",
+        "",
+        "**Status:** WP-5 complete.",
         "",
         "Validation: `pytest -q` -- **710 passed**.",
     ]
@@ -1407,9 +1423,11 @@ def test_doc007_all_planned_wps_reject_stale_numeric_claims(tmp_path: Path):
         6,
         "- **Next action:** **WP-1 is next**: close out the completed batch.",
     )
-    inputs["playbook_lines"][15:15] = [
+    inputs["playbook_lines"][17:17] = [
         "",
         "### 2026-08-24 - Only package done (Batch 21 WP-1)",
+        "",
+        "**Status:** WP-1 complete.",
         "",
         "Validation: `pytest -q` -- **704 passed**.",
     ]

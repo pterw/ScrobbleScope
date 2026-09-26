@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - Owner rulings: no GitHub mirror, and F-DOCSYNC-22 joins Part C
+
+Side task, no batch tag: records two owner rulings given on 2026-09-25.
+
+- **Scope and result.** F-DOCSYNC-22 is filed at P1: a count corrected in an
+  older same-date side-task entry stays shadowed until the entry is moved. It
+  was found in root-cleanup Task 6's fix round 1 (`c959237`) and held until now
+  as a candidate in a gitignored SDD ledger. The owner amended Part C's set to
+  include it, in the definition and in the reconcile plan's control-plane
+  follow-on, where it joins the F-DOCSYNC-11, -12 and -13 task. The owner also
+  ruled that findings are not mirrored to GitHub. F-B21-9 closes as no action
+  and rotates to the archive. `AGENTS.md` and `docs/agents/issue-tracker.md`
+  now say the `finding` issues are a frozen snapshot.
+- **Deviations.** None. The Q15 row of the reconcile plan's rulings table and
+  its triage table are point-in-time records and stay as written. The
+  follow-on list carries the change.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Docsync check and pre-commit pass.
+- **Forward guidance.** The control-plane plan's count task must test a
+  corrected count in an older same-date entry.
+
 ### 2026-09-25 - Section 3 states the live WP-0 work order
 
 Side task, no batch tag: Batch 23 WP-0 Part B's final documentation cleanup.

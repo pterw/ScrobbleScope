@@ -212,6 +212,13 @@ class TestMainArgs:
             "### WP-3 -- Next\n",
             encoding="utf-8",
         )
+        playbook_path = sync_env / "PLAYBOOK.md"
+        playbook_path.write_text(
+            playbook_path.read_text(encoding="utf-8").replace(
+                "Did some work.", "**Status:** WP-1 complete.\n\nDid some work."
+            ),
+            encoding="utf-8",
+        )
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
 
         assert cli_mod.main() == 0

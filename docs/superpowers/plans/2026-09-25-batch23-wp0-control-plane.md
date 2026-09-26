@@ -934,7 +934,7 @@ reproduction. Q4's ruling: close on an explicit `**Status:** WP-N complete` body
 instead. `_extract_entry_batch`, `_merge_entries_into_log` and the rotation split in `_sync`
 all key off the heading tag already, not off completion, so they are unaffected.
 
-- [ ] **Step 1: Write the failing tests.** In `tests/test_docsync_wp_numbers.py` (created
+- [x] **Step 1: Write the failing tests.** In `tests/test_docsync_wp_numbers.py` (created
   by Task 2), extend `TestCollectWpNumbers`:
 
   ```python
@@ -987,7 +987,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   `lines=tuple(body.splitlines())` and a `fingerprint` computed the same way
   `parser._fingerprint` does (import and call it, do not hand-write a hash).
 
-- [ ] **Step 2: Run to verify they fail.**
+- [x] **Step 2: Run to verify they fail.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_wp_numbers.py -q`
   Expected: the first test (heading-tag-alone) already passes today by accident only if the
@@ -996,7 +996,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   this test should FAIL today, since today's code reads `WP-4` straight out of the heading.
   The remaining four tests FAIL: today's code never looks at the body at all.
 
-- [ ] **Step 3: Implement the new rule.** In `scripts/docsync/parser.py`, add a compiled
+- [x] **Step 3: Implement the new rule.** In `scripts/docsync/parser.py`, add a compiled
   pattern `WP_COMPLETE_STATUS_RE = re.compile(r"^\s*\*\*Status:\*\*\s+WP-(\d+)\s+complete\b",
   re.IGNORECASE)` near `_collect_wp_numbers` itself (not `NEXT_WP_CLAIM_RE`, which lives in
   `scripts/docsync/integrity.py`, not in this file). Replace `_collect_wp_numbers`'s body:
@@ -1008,12 +1008,12 @@ all key off the heading tag already, not off completion, so they are unaffected.
   `_extract_entry_batch` for rotation); it no longer, by itself, means that package is done
   (F-DOCSYNC-15, Q4 = a).
 
-- [ ] **Step 4: Run to verify they pass.**
+- [x] **Step 4: Run to verify they pass.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_wp_numbers.py -q`
   Expected: PASS.
 
-- [ ] **Step 5: Sweep every existing test that built a heading-tagged entry expecting it
+- [x] **Step 5: Sweep every existing test that built a heading-tagged entry expecting it
   to read as complete.** This is the change's real blast radius: any fixture in
   `tests/test_docsync_sync_integration.py` and `tests/test_docsync_integrity.py` that
   asserts a `_next_wp_number`/DOC007 outcome from a `(Batch N WP-X)` heading alone, with no
@@ -1028,7 +1028,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   `WP_COMPLETE_STATUS_RE` to match a bare heading tag again, since that is precisely the
   bug. Name every changed fixture/test in the commit body.
 
-- [ ] **Step 6: A regression test reproducing the exact BATCH22_LOG.md shape.** Append to
+- [x] **Step 6: A regression test reproducing the exact BATCH22_LOG.md shape.** Append to
   `tests/test_docsync_sync_integration.py`:
 
   ```python
@@ -1055,7 +1055,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   Expected: PASS after Step 3 (this specific case never needed a fixture fix in Step 5,
   since it names its own completion line correctly by construction).
 
-- [ ] **Step 7: Update the prose.** In `AGENTS.md` "Side-Task Handling" or the
+- [x] **Step 7: Update the prose.** In `AGENTS.md` "Side-Task Handling" or the
   Commit Rules section (wherever the `(Batch N WP-X)` tag is documented), add one sentence:
   "A tagged heading identifies which work package an entry belongs to; only an explicit
   `**Status:** WP-N complete` line in the entry body marks that package done (F-DOCSYNC-15).
@@ -1063,7 +1063,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   any other place `AGENTS.md` or `docs/architecture/documentation-tooling.md` describes
   "a WP-tagged heading is complete" and correct it in the same commit (Anti-Pattern 11).
 
-- [ ] **Step 8: Gates and live probe.** This touches `scripts/docsync/parser.py` and
+- [x] **Step 8: Gates and live probe.** This touches `scripts/docsync/parser.py` and
   `renderer.py` (R7 applies). Per the verification standard, in `/c/ssprobe/corpus`:
   - **Red:** BATCH22_LOG.md shape, one `(Batch N WP-X)` heading, no completion line -> the
     STATUS block (and DOC007, if Section 3 claims `WP-<X+1>` next) disagrees with the true
@@ -1073,7 +1073,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   - **Near-miss green:** heading tag, body mentions "WP-4" in ordinary prose, not the exact
     `**Status:** WP-4 complete` shape -> NOT read as complete.
 
-- [ ] **Step 9: Resolve F-DOCSYNC-15 and commit.** Reason: "`_collect_wp_numbers`
+- [x] **Step 9: Resolve F-DOCSYNC-15 and commit.** Reason: "`_collect_wp_numbers`
   (`scripts/docsync/parser.py`) now requires an explicit `**Status:** WP-N complete` line
   in an entry's body; a heading's `(Batch N WP-X)` tag alone no longer marks that package
   done (Q4 = a)."

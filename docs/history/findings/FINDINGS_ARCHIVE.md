@@ -9,6 +9,18 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-15: a work package reads as complete on its first tagged log entry -- RESOLVED
+
+`scripts/docsync/parser.py` `_collect_wp_numbers` counts every `WP-<n>` token in a current-batch entry heading as a completed work package, so the first commit of a multi-commit work package already makes the dashboard name the next one. `docs/history/logs/BATCH22_LOG.md` shows it happened: three `(Batch 22 WP-4)` entries landed on 2026-09-20 before WP-4 was done. Nothing went red, because DOC007 compares only against a claim someone wrote, and nobody wrote "WP-5 is next" in that window. Batch 23 WP-0 works around it by logging untagged until the package closes (owner ruling, 2026-09-23). The fix shape is Q4 of `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The owner chose the fix shape on 2026-09-23 -- a work package closes only on an entry carrying an explicit `**Status:** WP-N complete` line -- and the control-plane follow-on plan implements it.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+`_collect_wp_numbers` (`scripts/docsync/parser.py`) now requires an explicit
+`**Status:** WP-N complete` line in an entry's body; a heading's
+`(Batch N WP-X)` tag alone no longer marks that package done (Q4 = a).
+
+Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
+
 ### F-DOCSYNC-7: `_latest_test_count_from_entries` has no production caller -- RESOLVED
 
 The bare-count wrapper lost its last production caller when the integrity gate

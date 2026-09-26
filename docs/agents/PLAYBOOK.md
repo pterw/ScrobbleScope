@@ -79,7 +79,7 @@ See FINDINGS F-DOCSYNC-3.
   control-plane, frontend, then test infrastructure and dependencies.
   The control-plane plan is written and reviewed:
   `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
-  it task by task, then write the frontend plan. Tasks 1-2 have landed. Write
+  it task by task, then write the frontend plan. Tasks 1-3 have landed. Write
   each specialized plan before implementing its cluster. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -111,6 +111,67 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-25 - A work package closes only on an explicit completion line
+
+Side task, no batch tag: Task 3 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `_collect_wp_numbers` (`scripts/docsync/parser.py`)
+  no longer reads a `(Batch N WP-X)` heading tag alone as completing that
+  package (F-DOCSYNC-15, Q4 = a): it now scans each entry's body for an
+  explicit `**Status:** WP-N complete` line
+  (`WP_COMPLETE_STATUS_RE`, case- and spacing-tolerant) and collects only
+  the numbers that line names. `renderer._next_wp_number` and
+  `renderer._build_status_block` are unaffected by signature, only by the
+  set of numbers `_collect_wp_numbers` now returns; `integrity._computed_next_wp`
+  reaches the same change through `_next_wp_number`. A regression test
+  reproducing `docs/history/logs/BATCH22_LOG.md`'s three-commit shape
+  (`tests/test_docsync_sync_integration.py::
+  test_three_tagged_commits_do_not_claim_the_package_done_until_the_last`)
+  proves the STATUS block reads "none" complete after the first two tagged
+  commits and "WP-4" only once the third carries the completion line.
+  Existing fixtures that relied on a bare heading tag reading as complete
+  were updated to carry the explicit line: `tests/test_docsync_wp_numbers.py`
+  (`TestCollectWpNumbers::test_multiple_wp_tags`, plus five new cases);
+  `tests/test_docsync_integrity.py` (`_valid_inputs`'s base WP-0 entry, and
+  the fixtures built by `test_doc007_completed_wp_summary_does_not_steal_the_claim`,
+  `test_doc007_gap_in_completed_wps_picks_lowest_missing`,
+  `test_doc007_absorbed_wp_is_not_demanded`,
+  `test_doc007_all_planned_wps_reject_stale_numeric_claims`);
+  `tests/test_docsync_sync_integration.py::TestSyncIntegration::
+  test_session_status_uses_active_definition_plan`;
+  `tests/test_docsync_cli.py::TestMainArgs::
+  test_fix_renders_next_wp_from_active_definition_plan`; and
+  `tests/test_docsync_renderer.py` (`TestBuildStatusBlock::test_entries_with_wp_gap`,
+  `test_planned_wp_gap_skips_absorbed_number`,
+  `test_all_planned_wps_complete_renders_no_next_package`,
+  `test_preflight_only_plan_can_complete_at_wp_zero`,
+  `test_authoritative_count_shows_count`;
+  `TestBuildStatusBlockBoundary::test_zero_batch_number`;
+  `TestNextWpNumberCountsWpZero::test_wp_zero_done_moves_to_wp_one`,
+  `test_legacy_rule_without_a_plan_still_starts_at_one`) -- named in the
+  brief's file list only as `renderer.py`'s production code, not its test
+  file, and found by re-grepping `_collect_wp_numbers`/`_next_wp_number`/
+  `_build_status_block` usage across `tests/` (L15) after the brief's own
+  three named test files first came back green. AGENTS.md's commit-procedure
+  bullet 1 now states the same rule (F-DOCSYNC-15 closed; see
+  `docs/agents/FINDINGS.md`'s archive).
+- **Deviation.** `_valid_inputs`'s base fixture in `tests/test_docsync_integrity.py`
+  grew by two lines to mark its WP-0 entry complete, which shifted the
+  hard-coded insertion indices several other tests in the same file used
+  (`playbook_lines[14:14]` etc.) and the absolute line numbers two DOC001
+  tests asserted (`test_definition_label_outside_section_3_is_not_exempt`,
+  `test_playbook_reference_after_dated_entry_keeps_original_line_number`,
+  now 22 instead of 20); all were updated in place, none weakened. The
+  brief's own Step 6 regression test, as written, passed unchanged with the
+  Step 3 fix reverted (all three commits share the same heading tag, so the
+  old heading-only rule also read the final state as WP-4 complete); it was
+  rewritten to assert the intermediate state (after only the first two
+  commits, before the completion line lands) so the test actually fails
+  without the fix (L14, mutation-proved in a `git stash create` scratch copy).
+- **Validation.** `pytest -q` -- **1897 passed**.
 
 ### 2026-09-25 - The count wrapper's tests are repointed, then the file is split
 
@@ -225,24 +286,3 @@ Side task, no batch tag: adds WP-0 Part C's first follow-on plan.
   mutation tests excluded. Docsync check and pre-commit pass.
 - **Forward guidance.** Task 1 reorders the commit procedure so the suite
   is measured before `--fix --test-count N`.
-
-### 2026-09-25 - Owner rulings: no GitHub mirror, and F-DOCSYNC-22 joins Part C
-
-Side task, no batch tag: records two owner rulings given on 2026-09-25.
-
-- **Scope and result.** F-DOCSYNC-22 is filed at P1: a count corrected in an
-  older same-date side-task entry stays shadowed until the entry is moved. It
-  was found in root-cleanup Task 6's fix round 1 (`c959237`) and held until now
-  as a candidate in a gitignored SDD ledger. The owner amended Part C's set to
-  include it, in the definition and in the reconcile plan's control-plane
-  follow-on, where it joins the F-DOCSYNC-11, -12 and -13 task. The owner also
-  ruled that findings are not mirrored to GitHub. F-B21-9 closes as no action
-  and rotates to the archive. `AGENTS.md` and `docs/agents/issue-tracker.md`
-  now say the `finding` issues are a frozen snapshot.
-- **Deviations.** None. The Q15 row of the reconcile plan's rulings table and
-  its triage table are point-in-time records and stay as written. The
-  follow-on list carries the change.
-- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
-  mutation tests excluded. Docsync check and pre-commit pass.
-- **Forward guidance.** The control-plane plan's count task must test a
-  corrected count in an older same-date entry.

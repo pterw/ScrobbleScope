@@ -236,11 +236,28 @@ def _extract_entry_batch(entry: Entry) -> int | None:
     return int(match.group(1)) if match else None
 
 
+WP_COMPLETE_STATUS_RE = re.compile(
+    r"^\s*\*\*Status:\*\*\s+WP-(\d+)\s+complete\b", re.IGNORECASE
+)
+
+
 def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
+    """Return every work-package number an entry's body explicitly closes.
+
+    A heading's ``(Batch N WP-X)`` tag still identifies which package an
+    entry belongs to (still read by `_extract_entry_batch` for rotation); it
+    no longer, by itself, means that package is done. Only an explicit
+    ``**Status:** WP-N complete`` line in the entry body marks WP-N done
+    (F-DOCSYNC-15, Q4 = a): a multi-commit work package's earlier commits
+    carry the tag without that line and must not claim the whole package
+    finished.
+    """
     numbers: set[int] = set()
     for entry in entries:
-        for raw in re.findall(r"\bWP-(\d+)\b", entry.heading):
-            numbers.add(int(raw))
+        for line in entry.lines:
+            match = WP_COMPLETE_STATUS_RE.match(line)
+            if match is not None:
+                numbers.add(int(match.group(1)))
     return sorted(numbers)
 
 
