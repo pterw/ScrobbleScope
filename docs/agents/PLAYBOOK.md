@@ -201,6 +201,12 @@ working `p-[14px] -m-[14px]` arbitrary values instead. Evidence, including
 the height measurements and `after-card-clamped-{short,long}-mobile.png`,
 is in `task-5-report.md`.
 
+**Casing fix, 2026-09-26:** the card's `<h3 class="results-rail-title">` heading read
+"Artist Spotlight", but its sibling rail headings ("Sort leaderboard", "Albums outside
+your filters") are sentence case in source -- `.results-rail-title` uppercases them
+visually, but screen readers read the source text. Changed to "Artist spotlight" in
+`templates/results.html`; grepped `tests/`/`scripts/` first, nothing keys on the old text.
+
 Validation: `pytest -q` -- **1958 passed**.
 
 ### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
