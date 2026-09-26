@@ -9,6 +9,19 @@ Newest rotation first.
 
 ---
 
+### F-MAS-1: mocks may drift from API reality -- RESOLVED
+
+No contract tests or recorded API fixtures; upstream format changes would
+pass mocked tests. Source: MULTI_AGENT_SWEEP.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-26
+`tests/fixtures/` holds Spotify and Last.fm response shapes transcribed
+from each provider's published reference; `tests/test_provider_fixtures.py`
+pins the app's own field reads against them and checks one existing mock
+for drift -- a weaker guarantee than a live contract test, recorded as
+such (Q7 answer a).
+
 ### F-LOAD-2: no integration tests in CI -- RESOLVED
 
 All tests mock dependencies; an in-process `/results_loading ->

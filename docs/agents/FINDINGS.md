@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1940 tests across 75 tracked test modules.
+1943 tests across 76 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -245,11 +245,6 @@ origin-narrative defect stays open.
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
-
-### F-MAS-1: mocks may drift from API reality
-
-No contract tests or recorded API fixtures; upstream format changes would
-pass mocked tests. Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
 

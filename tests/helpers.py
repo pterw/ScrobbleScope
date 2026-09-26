@@ -25,6 +25,17 @@ TEST_JOB_PARAMS = {
 }
 
 
+#: The album object `fetch_spotify_album_details_batch` returns for "sp1" in
+#: test_process_albums_persists_a_spotify_row_through_the_contract. Shared so
+#: tests/test_provider_fixtures.py can check it for drift against the
+#: doc-transcribed fixture without keeping its own stale copy (F-MAS-1).
+SPOTIFY_ALBUM_DETAILS_MOCK = {
+    "release_date": "2025-01-01",
+    "images": [{"url": "https://img.example.com/a.jpg"}],
+    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
+}
+
+
 class NoopAsyncContext:
     """A no-op async context manager for patching rate limiters in tests."""
 

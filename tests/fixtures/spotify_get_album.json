@@ -1,0 +1,31 @@
+{
+  "album_type": "compilation",
+  "total_tracks": 1,
+  "available_markets": ["US"],
+  "external_urls": {
+    "spotify": "https://open.spotify.com/album/sp1"
+  },
+  "href": "https://api.spotify.com/v1/albums/sp1",
+  "id": "sp1",
+  "images": [
+    {
+      "url": "https://i.scdn.co/image/ab67616d00001e02ff9ca10b55ce82ae553c8228",
+      "height": 300,
+      "width": 300
+    }
+  ],
+  "name": "Sample Album",
+  "release_date": "1981-12-01",
+  "release_date_precision": "day",
+  "type": "album",
+  "uri": "spotify:album:sp1",
+  "artists": [],
+  "tracks": {
+    "items": [
+      {
+        "name": "Track One",
+        "duration_ms": 240000
+      }
+    ]
+  }
+}

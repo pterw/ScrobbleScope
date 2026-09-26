@@ -258,10 +258,10 @@ the app's *own* code reading a field the docs don't promise, or missing one they
 cannot catch Spotify or Last.fm silently changing their real response -- that needs a
 recording library or a live contract test, which Q7's answer explicitly declines for now.
 
-- [ ] **Step 1: Write the two fixture files** as plain JSON, following the field lists
+- [x] **Step 1: Write the two fixture files** as plain JSON, following the field lists
   above. Keep each under 40 lines; this is a documentation artifact, not a full payload.
 
-- [ ] **Step 2: Write the shape tests.**
+- [x] **Step 2: Write the shape tests.**
 
 ```python
 import json
@@ -318,12 +318,12 @@ def test_existing_spotify_mocks_do_not_drift_from_the_transcribed_shape():
   reconcile plan) -- read that literal and use its real keys, so the assertion is
   checking the suite's own mock, not a copy invented for this test.
 
-- [ ] **Step 3: Run the new tests.**
+- [x] **Step 3: Run the new tests.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_provider_fixtures.py -q`
 Expected: 4 passed.
 
-- [ ] **Step 4: Run the full suite once**, count N for the landing.
+- [x] **Step 4: Run the full suite once**, count N for the landing.
 
 **Resolves:** F-MAS-1. Landing's reason sentence: "`tests/fixtures/` holds Spotify and
 Last.fm response shapes transcribed from each provider's published reference;

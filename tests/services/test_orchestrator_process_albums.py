@@ -13,7 +13,7 @@ from scrobblescope.repositories import (
     get_job_progress,
     get_job_unmatched,
 )
-from tests.helpers import TEST_JOB_PARAMS
+from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK, TEST_JOB_PARAMS
 
 
 @pytest.mark.asyncio
@@ -1122,13 +1122,7 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         await process_albums(job_id, filtered, 2025, "playcount", "same")

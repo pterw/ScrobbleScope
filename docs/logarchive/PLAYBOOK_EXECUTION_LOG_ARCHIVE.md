@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Plan the frontend and test-infrastructure work
+
+Side task, no batch tag: plan the WP-0 frontend and test-infrastructure work,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Scope and result.** Two follow-on plans drafted and reviewed against the
+  code, then revised. `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md`
+  covers the frontend cluster: F-B21-18's Chromium harness for `heatmap.js`,
+  F-B21-14, F-B21-22, F-B21-23, and F-B21-60 part 1.
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` covers
+  the test-infrastructure and dependency cluster: F-LOAD-2, F-MAS-1, F-B21-3's
+  remainder, and adding `requirements-dev.txt` to the CI pip-audit step. Both
+  drafts passed a read-only review against the code, then were revised.
+- **Findings the reviews caught.** The frontend harness's test hooks sat
+  inside a `DOMContentLoaded` listener and could never be reached (proven
+  red/green in a scratch copy); CI's pytest step runs before the browser
+  install, so the harness is marked `browser` and runs in the frontend-gate
+  step instead. The test-infrastructure integration test's fixture was dated
+  2030 and below the play threshold, so it never reached Spotify.
+
+Validation: `pytest -q` -- **1926 passed**.
+
 ### 2026-09-26 - Correct the dashboard's test-module count
 
 Side task, no batch tag: follow-up on the Task 7 fix round's CR8, part of
