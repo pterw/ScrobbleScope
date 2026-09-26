@@ -117,7 +117,7 @@ would start a real MusicBrainz worker thread and live lookup whenever
 `.process_albums`, and every `repositories.py` job-store function -- exactly the code
 F-LOAD-2 says nothing exercises.
 
-- [ ] **Step 1: Write the test.** One scrobble, one album, no cover art needed on the
+- [x] **Step 1: Write the test.** One scrobble, one album, no cover art needed on the
   Spotify side (a details payload with only `release_date` is enough, since Task 4 of
   the reconcile plan already proved a sparse payload degrades cleanly).
 
@@ -205,20 +205,20 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
   `album_flow.py`'s `redirect(url_for(...))` call), read `job_id` from wherever it really
   is -- do not change what the test proves, only how it reads the id.
 
-- [ ] **Step 2: Run it to verify it fails for the right reason first.** Temporarily
+- [x] **Step 2: Run it to verify it fails for the right reason first.** Temporarily
   revert one mock (e.g. `check_user_exists`) and confirm the test fails on a real network
   call, not by accident; restore it. Then temporarily drop the `min_plays`/`min_tracks`
   override and confirm it fails on `mock_search.assert_awaited_once()`, proving the
   threshold override is load-bearing too; restore it.
 
-- [ ] **Step 3: Run it for real.**
+- [x] **Step 3: Run it for real.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_pipeline_integration.py -q`
 Expected: 1 passed. If it hangs, the semaphore in `tests/conftest.py`'s `fresh_job_slots`
 fixture already resets `MAX_ACTIVE_JOBS` per test, so a hang means a mock is missing, not
 a leaked slot from an earlier test -- add whichever provider call the traceback names.
 
-- [ ] **Step 4: Run the full suite once**, to confirm the new thread does not race any
+- [x] **Step 4: Run the full suite once**, to confirm the new thread does not race any
   other test's shared state (`JOBS`, `REQUEST_CACHE`):
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" -q --ignore=tests/scripts/dev/test_mutation_test.py -p no:cacheprovider`

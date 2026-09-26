@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Correct the dashboard's test-module count
+
+Side task, no batch tag: follow-up on the Task 7 fix round's CR8, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of
+WP-0 lands.
+
+- **Scope and result.** The prior CR8 fix corrected `docs/agents/FINDINGS.md`'s
+  hand-maintained header (72 -> 73 tracked test modules) but left
+  `.claude/SESSION_CONTEXT.md`'s own copy of the same figure stale, because
+  `--fix` only rewrites the test-*count* digit there, never the module-count
+  digit (`AGENTS.md` anti-pattern 10: re-measure rather than copy a number
+  forward). Re-measured
+  (`git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` -> 73,
+  unchanged) and corrected SESSION_CONTEXT's Section 1 Tests row from 72 to
+  73, leaving its test count exactly as `--fix` last wrote it (1926).
+  `git grep -n -i "tracked test module" -- ':!docs/history' ':!docs/logarchive'
+  ':!docs/superpowers/plans'` found no other live-doc copy showing a stale
+  figure: `tests/test_docsync_cli.py` and `tests/test_docsync_test_count.py`
+  only quote fixture text (68), not a live claim.
+
+Validation: `pytest -q` -- **1926 passed**.
+
 ### 2026-09-26 - Keep the essentials warning from failing the worktree guard
 
 Side task, no batch tag: fix round on Task 7's code review, part of Batch 23

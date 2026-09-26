@@ -83,7 +83,8 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Task 1 has landed. Next
+  frontend plan: Task 1 has landed. Test-infrastructure plan: Task 1 has
+  landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -116,6 +117,17 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - A real thread runs the album pipeline end to end
+
+Side task, no batch tag: a real thread runs the album pipeline end to end, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands. `tests/test_pipeline_integration.py` drives `/results_loading` through the real
+`worker.start_job_thread`, `background_task` and job store, mocking only the Last.fm,
+Spotify and MusicBrainz network boundaries, and asserting the Spotify phase was
+actually reached.
+
+Validation: `pytest -q` -- **1940 passed**.
 
 ### 2026-09-26 - A Chromium harness for heatmap.js's pure-function seam
 
@@ -163,27 +175,5 @@ whole of WP-0 lands.
   install, so the harness is marked `browser` and runs in the frontend-gate
   step instead. The test-infrastructure integration test's fixture was dated
   2030 and below the play threshold, so it never reached Spotify.
-
-Validation: `pytest -q` -- **1926 passed**.
-
-### 2026-09-26 - Correct the dashboard's test-module count
-
-Side task, no batch tag: follow-up on the Task 7 fix round's CR8, part of
-Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of
-WP-0 lands.
-
-- **Scope and result.** The prior CR8 fix corrected `docs/agents/FINDINGS.md`'s
-  hand-maintained header (72 -> 73 tracked test modules) but left
-  `.claude/SESSION_CONTEXT.md`'s own copy of the same figure stale, because
-  `--fix` only rewrites the test-*count* digit there, never the module-count
-  digit (`AGENTS.md` anti-pattern 10: re-measure rather than copy a number
-  forward). Re-measured
-  (`git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` -> 73,
-  unchanged) and corrected SESSION_CONTEXT's Section 1 Tests row from 72 to
-  73, leaving its test count exactly as `--fix` last wrote it (1926).
-  `git grep -n -i "tracked test module" -- ':!docs/history' ':!docs/logarchive'
-  ':!docs/superpowers/plans'` found no other live-doc copy showing a stale
-  figure: `tests/test_docsync_cli.py` and `tests/test_docsync_test_count.py`
-  only quote fixture text (68), not a live claim.
 
 Validation: `pytest -q` -- **1926 passed**.

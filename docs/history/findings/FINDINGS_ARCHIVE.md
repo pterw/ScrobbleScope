@@ -9,6 +9,19 @@ Newest rotation first.
 
 ---
 
+### F-LOAD-2: no integration tests in CI -- RESOLVED
+
+All tests mock dependencies; an in-process `/results_loading ->
+/progress -> /results_complete` test is on the README roadmap.
+Source: load testing 2026-03-04.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-26
+`tests/test_pipeline_integration.py` drives `/results_loading` through the real
+`worker.start_job_thread`, `background_task` and job store, mocking only the Last.fm,
+Spotify and MusicBrainz network boundaries, and asserting the Spotify phase was
+actually reached.
+
 ### F-B21-18: browser JavaScript has no automated unit coverage -- RESOLVED
 
 There are more than 2,400 lines under `static/js/`, with no `package.json`,

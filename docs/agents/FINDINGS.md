@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1939 tests across 74 tracked test modules.
+1940 tests across 75 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -245,12 +245,6 @@ origin-narrative defect stays open.
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
-
-### F-LOAD-2: no integration tests in CI
-
-All tests mock dependencies; an in-process `/results_loading ->
-/progress -> /results_complete` test is on the README roadmap.
-Status: open. Source: load testing 2026-03-04.
 
 ### F-MAS-1: mocks may drift from API reality
 
