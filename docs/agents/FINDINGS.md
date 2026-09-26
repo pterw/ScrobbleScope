@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1873 tests across 68 tracked test modules.
+1891 tests across 68 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -37,67 +37,6 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
 `scripts/docsync/parser.py` `_collect_wp_numbers` counts every `WP-<n>` token in a current-batch entry heading as a completed work package, so the first commit of a multi-commit work package already makes the dashboard name the next one. `docs/history/logs/BATCH22_LOG.md` shows it happened: three `(Batch 22 WP-4)` entries landed on 2026-09-20 before WP-4 was done. Nothing went red, because DOC007 compares only against a claim someone wrote, and nobody wrote "WP-5 is next" in that window. Batch 23 WP-0 works around it by logging untagged until the package closes (owner ruling, 2026-09-23). The fix shape is Q4 of `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The owner chose the fix shape on 2026-09-23 -- a work package closes only on an entry carrying an explicit `**Status:** WP-N complete` line -- and the control-plane follow-on plan implements it.
 
 - [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
-
-### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
-
-`--fix` cannot publish a measured test count, and `--check` refuses a
-hand-written one. Both follow from the same design: `latest_test_count_authority`
-(`scripts/docsync/logic.py`) resolves the count by parsing `**N passed**` out
-of dated log entries under a total ordering, and DOC005, DOC006 and DOC008
-recompute that ordering and compare the named fields against it. A field
-edited to the number a real run produced is therefore drift, and is rejected.
-
-Measured 2026-09-20: the suite was 1522 passing while every dashboard field
-read 1497, because two entries dated the same day each carry a count and
-same-date precedence ranks the untagged side-task entry above the batch
-entries regardless of which was written later. That tie is F-DOCSYNC-11; this
-finding is the reason it cannot simply be overridden by hand.
-
-**Why `--fix` does not just run pytest.** `docs/agents/global-rules.md` Rule 7
-lets the engine rewrite only what it can derive deterministically from facts a
-human already authored. Running a test suite is measuring the world, not
-deriving from an authored fact, and it would put a minute of test execution
-inside a documentation tool that the pre-commit hook calls.
-
-**Proposed shape, for the owner to rule on.** Let the author supply the
-measurement instead of the tool taking it: an explicit input --
-`--test-count N`, or a small machine-written artifact a test run drops -- that
-`--fix` writes into the managed block *and* the three hand-maintained fields
-(SESSION_CONTEXT Section 1's Tests row, its Section 6 heading, and the
-FINDINGS header), with `--check` comparing against the same input. The
-measurement stays human-authored, the copies stop being hand-typed, and the
-same-date tie stops mattering for every field a reader actually looks at.
-F-DOCSYNC-12 already records that `--fix` rewrites none of those three today.
-
-- [ ] **Status:** open (P1, owner-gated -- needs a decision on the input shape)
-
-Source: Batch 22 close-out, 2026-09-20.
-
-### F-DOCSYNC-22: a count corrected in an older same-date entry stays shadowed until the entry is moved
-
-`latest_test_count_authority` (`scripts/docsync/logic.py`) orders live
-side-task entries newest-first by their position in PLAYBOOK Section 4. When
-two entries share a date, the upper one is authoritative. Position records
-when an entry was written. It does not record when its count was last edited.
-F-DOCSYNC-11 assumes the opposite ("Position within each source already
-encodes recency"). Its tie is between two sources; this one is inside one.
-
-Reproduced 2026-09-24, root-cleanup Task 6 fix round 1 (`c959237`). The Task 6
-entry and the Task 7 entry above it both recorded **1849 passed**. The fix
-round added one test and corrected the Task 6 entry to **1850 passed**. The
-authority still read 1849 from the Task 7 entry, so DOC006 and DOC008 rejected
-the true count in `.claude/SESSION_CONTEXT.md` and the FINDINGS header. The
-only compliant remedy was to move the Task 6 entry above Task 7's. That makes
-Section 4 misstate the order in which the work was done.
-
-The Q3 fix for F-DOCSYNC-11, -12 and -13 (an explicit `--fix --test-count N`
-input, in `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
-covers this case only if `--check` stops recomputing the count from entry
-position. The control-plane plan fixes it in that same task and tests this
-case. It joined WP-0 Part C's set by owner amendment on 2026-09-25.
-
-- [ ] **Status:** open (P1). Source: Batch 23 WP-0 root-cleanup ledger,
-  2026-09-24; filed on owner instruction, 2026-09-25.
 
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 
@@ -426,65 +365,6 @@ file counting as tracked are accepted design boundaries, not defects, and
 stay as documented. F-DOCSYNC-21 addresses the outside-root `ValueError`.
 The case-inconsistent glob discovery remains open for the control-plane plan.
 Status: open. Source: PR #169 independent review.
-
-### F-DOCSYNC-11: same-date precedence hides a batch count recorded after a side task
-
-`latest_test_count_authority` in `scripts/docsync/logic.py` orders candidates by
-date, then by source precedence, and ranks a live side-task entry above a
-current-batch entry on a shared date. Its docstring states the assumption: "A
-side-task entry is written after the batch entry it follows."
-
-The assumption fails whenever batch work resumes on the same day as a side
-task. Reproduced 2026-09-12: the side-task entry "Planning records preserved"
-recorded **1026 passed** that morning, and the WP-7 entry written hours later
-recorded **1028 passed** after two tests were added. The older count stayed
-authoritative, so SESSION_CONTEXT and the FINDINGS header, both correct at 1028,
-failed DOC006 and DOC008. The only compliant remedies were to publish a
-superseded number or to restate the count in a side-task entry.
-
-Position within each source already encodes recency; the cross-source tie-break
-is where it is lost. A fix needs a design decision about what "newer" means
-across the two lists, so it is recorded rather than patched.
-
-**Reproduced again, 2026-09-14 (Batch 22 Task 8):** the
-DB-connect-timeout side-task entry (same day) recorded **1081 passed**;
-Task 8's own current-batch entry, written later that day, recorded
-**1085 passed**. The authority stayed at 1081. Unlike the 2026-09-12
-case, hand-correcting SESSION_CONTEXT/FINDINGS to the true count (1085)
-was tried and rejected by `--check` outright (DOC005/DOC006/DOC008
-recompute the same authority and compare against it), where the earlier
-case's fix (F-DOCSYNC-12) only ever applied to fields the renderer never
-recomputes. Confirms the same mechanism generalizes: a current-batch entry
-written on a day that already has a side-task entry can have its count
-silently shadowed until this is fixed.
-
-Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12; reproduced
-Batch 22 Task 8, 2026-09-14.
-
-### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
-
-`doc_state_sync.py --fix` only ever writes the "Latest validated test
-count" line inside `.claude/SESSION_CONTEXT.md`'s `DOCSYNC:STATUS` block
-(`scripts/docsync/renderer.py`). DOC006
-(`scripts/docsync/integrity.py::SESSION_CURRENT_COUNT_RES`) checks that
-line plus two more: the Section 1 "Tests" dashboard row and the Section 6
-"Test structure (N tests)" heading. Neither of those two is ever rewritten
-by `--fix`, so they can drift indefinitely -- reproduced 2026-09-14: both
-sat at a hand-written "1036" untouched since 2026-09-11 through several
-`--fix` runs across three later PLAYBOOK entries (1069, 1079, 1081
-passed), each of which apparently updated the STATUS block correctly
-without tripping DOC006. Why those earlier checks did not already fail on
-the same mismatch is not established here -- worth checking before
-assuming the mechanism above is the whole story. `docs/agents/FINDINGS.md`'s header
-count line has the identical problem under DOC008: also hand-written,
-also never rewritten by `--fix`.
-
-Fix candidates: extend the renderer to also rewrite the Section 1 row,
-the Section 6 heading, and the FINDINGS header from the same authoritative
-count, or fold all three into one place `--fix` actually owns.
-
-Status: open. Source: Batch 22 WP-1, DB-connect-timeout side task,
-2026-09-14 (fix commit `c724ebc`).
 
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 

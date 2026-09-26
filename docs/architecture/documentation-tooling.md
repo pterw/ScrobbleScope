@@ -144,14 +144,15 @@ came before it.
 ## The DOC code catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC020`, `DOC023` and `DOC024` issues
-and exits 1 on any error-severity one; a warning -- `DOC024`, and `DOC023`'s
-grandfathered-finding count -- prints and leaves the exit code alone. In
-practice the codes that bite most often are `DOC001` (a backticked path
-must resolve in `git ls-files`, so an ignored or untracked document cannot
-be linked to), `DOC006` (every named session test count must match the
-newest full-suite run) and `DOC008` (the findings header count must match
-that same run). Dated log entries are exempt below a declared marker.
+blocks.** It returns typed `DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025` issues
+and exits 1 on any error-severity one; a warning -- `DOC024`, `DOC025`, and
+`DOC023`'s grandfathered-finding count -- prints and leaves the exit code
+alone. In practice the codes that bite most often are `DOC001` (a
+backticked path must resolve in `git ls-files`, so an ignored or untracked
+document cannot be linked to), `DOC006` (every named session test count
+must match the count pinned in `config/docsync.toml`, or the newest
+full-suite run if none has been pinned) and `DOC008` (the same, for the
+findings header). Dated log entries are exempt below a declared marker.
 
 **DOC009 to DOC011 are declared, not hard-coded.** They read
 `config/docsync.toml`, so `scripts/docsync/declarations.py`
@@ -243,6 +244,13 @@ above -- the writable tail is never checked, and neither is a cold or
 oversized page. Neither warning
 writes anything; both are read only by `--check`/`--fix`, which never
 paginate or age a file on their own.
+
+**DOC025 is a warning-only pin-staleness check**, implemented in
+`scripts/docsync/integrity.py`. It fires only when exactly one Section 4
+entry (across every source `latest_test_count_authority` reads) carries the
+newest date and its count disagrees with `config/docsync.toml`'s
+`[test_count]` pin; a same-date tie or an absent pin stays silent. It never
+blocks (Q1 ruling, 2026-09-25).
 
 **DOC023 is the finding-rot code**, implemented in
 `scripts/docsync/findings.py`. DOC013 to DOC018 only ever examine findings

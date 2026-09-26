@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import re
+from collections.abc import Iterable, Sequence
 
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import (
@@ -110,6 +111,35 @@ def _next_wp_number(
     while candidate in completed:
         candidate += 1
     return candidate
+
+
+def rewrite_recorded_counts(
+    lines: list[str], count: int, patterns: Sequence[re.Pattern[str]]
+) -> list[str]:
+    """Rewrite every hand-maintained test-count field to the same number.
+
+    Used only when an operator has explicitly asserted the true count (`--fix
+    --test-count N`), rewriting every hand-maintained field that carries a
+    copy of it from the same number in one pass, so the four sites this
+    repository keeps (F-DOCSYNC-12) can never drift from each other again.
+
+    Pure: for each line, the first pattern in ``patterns`` that matches has
+    its captured group 1 span replaced with ``str(count)``; every other
+    character of the line -- label text, punctuation, bold markers -- is
+    left untouched. A line no pattern matches passes through unchanged.
+    """
+    rewritten: list[str] = []
+    for line in lines:
+        new_line = line
+        for pattern in patterns:
+            match = pattern.search(line)
+            if match is None:
+                continue
+            start, end = match.span(1)
+            new_line = line[:start] + str(count) + line[end:]
+            break
+        rewritten.append(new_line)
+    return rewritten
 
 
 def _count_line(latest_test_count: int | None, count_is_ambiguous: bool) -> str:

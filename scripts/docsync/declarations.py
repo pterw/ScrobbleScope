@@ -226,6 +226,7 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
     "findings": {"required": {"grandfathered": list}, "optional": {}},
+    "test_count": {"required": {}, "optional": {"pinned": int}},
     "documents": {
         "required": {},
         "optional": {
@@ -409,6 +410,65 @@ def load_archive_config(
 ) -> ArchiveConfig:
     """Read the repository's archive thresholds, defaults included."""
     return _archive_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class TestCountConfig:
+    """The test count a human has explicitly pinned, from [test_count] or absent.
+
+    Not a declaration: nothing else in the repository is compared against
+    it, it is the fact itself. `resolved_test_count_authority`
+    (`docsync.logic`) reads it in preference to re-deriving a count from
+    Section 4 prose position, which is what let a same-date tie or a
+    correction to an older entry (F-DOCSYNC-11, F-DOCSYNC-22) silently
+    shadow the true count. Only `--fix --test-count N` writes this table
+    (`cli._rewrite_test_count_pin`); nothing else may hand-edit it.
+    """
+
+    pinned: int | None = None
+
+
+def _validate_test_count(table: object) -> TestCountConfig:
+    """Check a declared [test_count] table and return its pin.
+
+    The single optional key is validated the same way every other table's
+    keys are: an unknown key is refused rather than ignored, and the pin
+    itself is checked with the same ``_positive_int`` every other numeric
+    table uses, so a typo or a quoted number cannot silently pin nothing.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(f"[test_count] is {type(table).__name__}, not a table.")
+    known = _TOP_LEVEL_SCHEMA["test_count"]["optional"]
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[test_count] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    if "pinned" not in table:
+        return TestCountConfig()
+    return TestCountConfig(
+        pinned=_positive_int("[test_count]", "pinned", table["pinned"])
+    )
+
+
+def _test_count_config(declarations: Mapping) -> TestCountConfig:
+    """Return the pinned test count for an already-read declarations file.
+
+    Absence of the table is not an error, and returns no pin: a repository
+    that has never run `--fix --test-count N` falls all the way back to
+    `latest_test_count_authority`'s prose-derived cold-start answer.
+    """
+    if "test_count" not in declarations:
+        return TestCountConfig()
+    return _validate_test_count(declarations["test_count"])
+
+
+def load_test_count_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> TestCountConfig:
+    """Read the repository's pinned test count, or no pin at all."""
+    return _test_count_config(load_declarations(repo_root, config_path=config_path))
 
 
 @dataclasses.dataclass(frozen=True)

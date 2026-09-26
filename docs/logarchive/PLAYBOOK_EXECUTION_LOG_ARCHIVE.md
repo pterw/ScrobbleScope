@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - The Batch 23 review reconciles completed records
+
+Side task, no batch tag: the completed-work review compared the Batch 23
+definition, the reconcile plan and the root-cleanup plan with the current
+tree. The report is
+`docs/history/reports/BATCH23_WP0_COMPLETED_WORK_REVIEW_2026-09-25.md`.
+
+- **Scope and fix.** F-B23-8 records that the definition pointed six rotated
+  findings at the active file and left two completed Part B bullets unchecked.
+  It now points to the archive and checks the foundation and root-cleanup
+  bullets. The Section 3 cleanup bullet stays unchecked; Parts B and C are
+  not complete, so no tagged batch entry was written.
+- **Validation.** `pytest -q` -- **1873 passed** with the untracked mutation
+  tests excluded. The frontend gate passed 30 checks in 52 Chromium and
+  Firefox runs. Pre-commit and docsync check exited 0, with the standing
+  DOC024 warnings and expected active-definition warning.
+- **Forward guidance.** Return to the uncompleted Section 3 cleanup and
+  Part C follow-on plans before closing the work package. The report notes
+  the shared provider-log privacy work required before export integration.
+
 ### 2026-09-25 - Empty release checks log their finish
 
 Side task, no batch tag: the Batch 23 WP-0 reconciliation review found that

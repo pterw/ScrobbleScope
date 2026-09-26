@@ -735,3 +735,6 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 # empty, and it has. It stays declared so the next repository to adopt this
 # gate starts strict, with somewhere to put its own history.
 grandfathered = []
+
+[test_count]
+pinned = 1891

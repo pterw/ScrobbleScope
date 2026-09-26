@@ -1887,7 +1887,8 @@ def test_stated_catalogue_helper_rejects_a_mismatched_list():
     # (a) a code raised but not listed: drop DOC024 from the stated list while
     # `scripts/docsync/archives.py` still raises it.
     dropped_doc024 = catalogue.replace(
-        "DOC001`-`DOC020`, `DOC023` and `DOC024", "DOC001`-`DOC020` and `DOC023"
+        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
+        "DOC001`-`DOC020`, `DOC023` and `DOC025",
     )
     assert dropped_doc024 != catalogue, "fixture no longer matches the real sentence"
     assert _catalogue_matches_raised_codes(dropped_doc024, sources) is False
@@ -1895,8 +1896,8 @@ def test_stated_catalogue_helper_rejects_a_mismatched_list():
     # (b) a code listed but not raised: add DOC021 to the stated list. It is
     # reserved by the spec-guards plan above but no source raises it yet.
     added_doc021 = catalogue.replace(
-        "DOC001`-`DOC020`, `DOC023` and `DOC024",
-        "DOC001`-`DOC021`, `DOC023` and `DOC024",
+        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
+        "DOC001`-`DOC021`, `DOC023`, `DOC024` and `DOC025",
     )
     assert added_doc021 != catalogue, "fixture no longer matches the real sentence"
     assert _catalogue_matches_raised_codes(added_doc021, sources) is False
@@ -2259,3 +2260,65 @@ def test_definition_line_skip_is_honoured_under_an_overridden_playbook_path(
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
         ("DOC002", "docs/agents/PLAYBOOK.md", 5)
     ]
+
+
+# ---------------------------------------------------------------------------
+# DOC025 -- a pin disagreeing with the sole newest-dated entry (Task 1,
+# F-DOCSYNC-11/-12/-13/-22, Q1 ruling 2026-09-25)
+# ---------------------------------------------------------------------------
+
+
+def test_pin_disagreeing_with_the_sole_newest_entry_warns(tmp_path: Path):
+    """_valid_inputs's one entry reads `Validation: **390 passed**.` -- no
+    `pytest -q` text -- so this only fires if the helper's legacy-fallback
+    pass actually parses it to 390 and compares that against the pin."""
+    inputs = _valid_inputs(tmp_path)
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 400\n", encoding="utf-8")
+
+    issues = [i for i in collect_integrity_issues(**inputs) if i.code == "DOC025"]
+
+    assert len(issues) == 1
+    assert issues[0].severity == "warning"
+
+
+def test_pin_agreeing_with_the_sole_newest_entry_is_silent(tmp_path: Path):
+    """Silent because 390 was parsed (via the legacy fallback pass -- this
+    fixture has no `pytest -q` text) and matches the pin, not because
+    nothing parsed: test_pin_disagreeing_with_the_sole_newest_entry_warns
+    uses this identical fixture shape and requires the same parse to
+    succeed for DOC025 to fire there, so a helper that silently failed to
+    parse anything would fail that test, not this one."""
+    inputs = _valid_inputs(tmp_path)
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 390\n", encoding="utf-8")
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]
+
+
+def test_a_same_date_tie_stays_silent(tmp_path: Path):
+    """F-DOCSYNC-22 shape: two entries share the newest date, so DOC025
+    never pushes anyone to reorder them (Q1 ruling)."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-05 - A second same-date entry",
+            "",
+            "Validation: **500 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    config_path = tmp_path / DECLARATIONS_FILENAME
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("[test_count]\npinned = 400\n", encoding="utf-8")
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]
+
+
+def test_no_pin_is_silent(tmp_path: Path):
+    inputs = _valid_inputs(tmp_path)
+
+    assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]

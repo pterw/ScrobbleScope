@@ -166,9 +166,11 @@ validated -- a gate that runs before the doc update cannot check it, and
 1. Update PLAYBOOK Section 3 + Section 4. Batch log entries carry a
    `(Batch N WP-X)` tag in the heading; side-task entries are untagged
    (see Side-Task Handling).
-2. `python scripts/doc_state_sync.py --fix` -- rotates and refreshes the
-   managed blocks from the text you just wrote.
-3. `pytest -q` -- all tests pass.
+2. `pytest -q` -- all tests pass; measure and note N.
+3. `python scripts/doc_state_sync.py --fix --test-count N` -- rotates and
+   refreshes the managed blocks from the text you just wrote, and pins N
+   in `config/docsync.toml`. Bare `--fix` remains documented for a commit
+   that does not change the count.
 4. `pre-commit run --all-files` -- all hooks pass.
 5. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
    state (the root `BATCHN_DEFINITION.md` warning is expected while a
@@ -229,8 +231,10 @@ where that entry goes and how it is tagged:
    top placement keeps it out of the staleness filter and out of the next
    `--fix` run's rotation (`--keep-non-current`, default 4), which would
    otherwise archive a bottom-appended entry as oldest.
-2. Run `doc_state_sync.py --fix`, then update SESSION_CONTEXT Section 1 if
-   test count or project state changed.
+2. Run `doc_state_sync.py --fix --test-count N` (N =
+   the just-measured `pytest -q` result) when the count changed, bare `--fix` otherwise;
+   update SESSION_CONTEXT Section 1's batch-status row by hand if project state changed --
+   the test-count field is rendered, never hand-edited.
 
 ---
 
@@ -273,6 +277,7 @@ drifts (`F-B21-17` is the tally that motivated this).
 
 ```bash
 python scripts/doc_state_sync.py --fix          # after any Section 4 / SESSION_CONTEXT edit
+python scripts/doc_state_sync.py --fix --test-count N   # after measuring the suite; pins N and writes all four count sites
 pre-commit run --all-files
 python scripts/doc_state_sync.py --fix --keep-non-current 0   # at batch close-out
 ```
@@ -301,14 +306,16 @@ The DOC diagnostic catalogue and owning modules are in
 `docs/architecture/documentation-tooling.md`; each WT code is defined by
 the guard module that owns its check, spread across
 `scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.
-**Which test count is authoritative.** The newest full-suite `pytest -q`
-result wins, even from a side-task entry outside the current-batch markers,
-and stays authoritative after rotation archives that entry. It is read in
-one form only -- `` `pytest -q` -- **N passed** ``, nothing between the
-command and the count; put any qualifier after it. Any other wording is
-skipped (DOC012 names the entry). An entry quoting several bold counts
-without a `pytest -q` result reads as unknown rather than deferring to an
-older one.
+**Which test count is authoritative.** `--fix --test-count N` is how a measured count
+enters the corpus: it pins `N` in `config/docsync.toml`'s `[test_count]` table and writes
+the SESSION_CONTEXT STATUS block, the Section 1 `Tests` row, the Section 6 heading and the
+FINDINGS.md header from the same number, in one command. Once a count is pinned, it stays
+authoritative across every later `--fix` (with no `--test-count`) and `--check` --
+Section 4 prose is not re-scanned for it, so a same-date tie or an out-of-position
+correction (F-DOCSYNC-11, F-DOCSYNC-22) can never shadow the true count again. `--check`
+prints a non-blocking DOC025 warning if the single newest dated log entry disagrees with
+the pin. A repository with no pin falls back to the newest full-suite `pytest -q` result
+found in the log, exactly as before.
 
 ### What to update after a WP or side-task commit
 
@@ -319,7 +326,8 @@ recorded decision or a date collision. Then update:
 
 - PLAYBOOK Section 3 + Section 4 (inside markers for batch work, after the
   end marker for side-tasks; see Side-Task Handling).
-- SESSION_CONTEXT Section 1 (test count, batch status) if changed, and
+- SESSION_CONTEXT Section 1's batch-status row by hand if changed (the test-count field is
+  rendered by `--fix --test-count N`, never hand-edited), and
   Sections 3-4 (structure, dependency graph) if modules change.
 - `README.md` for user/developer-visible changes (a batch's dedicated
   README WP may absorb updates from earlier WPs instead).
@@ -345,7 +353,9 @@ When all WPs in the active batch are committed and validated:
    Section 4`) at `docs/history/definitions/BATCHN_DEFINITION.md` and
    `docs/history/logs/BATCHN_LOG.md`; add a new row only if the batch has none.
 4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done. Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
-5. **Run `--fix` again** to refresh the STATUS block.
+5. **Run `--fix --test-count N`** (N = the
+   just-measured `pytest -q` result) if the count changed since step 1's sync, bare `--fix`
+   otherwise, to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` exits 0 with
    no integrity errors (the root BATCH file warning disappears once step 2
    archives the definition).

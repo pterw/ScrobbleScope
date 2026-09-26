@@ -90,6 +90,28 @@ class TestMainArgs:
         )
         assert cli_mod.main() == 2
 
+    def test_test_count_without_fix_returns_2(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--check", "--test-count", "1850"]
+        )
+        assert cli_mod.main() == 2
+
+    def test_negative_test_count_returns_2(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """Isolates the Step 14 CLI-level guard (main()'s own `args.test_count
+        < 0` check) from declarations._positive_int's independent downstream
+        rejection: asserting the guard's own message means removing only the
+        CLI check (while _positive_int stays) still fails this test, because
+        the message that reaches the negative value first differs."""
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "-1"]
+        )
+        assert cli_mod.main() == 2
+        assert "--test-count must be >= 0." in capsys.readouterr().err
+
     def test_no_mode_defaults_to_check(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
@@ -431,6 +453,124 @@ class TestBatchLogHelpers:
         batch_log = logs_dir / "BATCH10_LOG.md"
         assert batch_log.exists()
         assert "Batch 10 WP-5" in batch_log.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# --fix --test-count N -- Task 1, F-DOCSYNC-11/-12/-13/-22
+# ---------------------------------------------------------------------------
+
+
+def _append_same_date_entries(
+    sync_env: Path, *, newer_count: int, older_count: int
+) -> None:
+    """Grow sync_env's PLAYBOOK with the exact F-DOCSYNC-22 shape.
+
+    An upper, newer-written side-task entry sits below the end marker with
+    ``newer_count``; a lower, current-batch entry sits inside the window
+    with ``older_count``, sharing the side-task entry's date. Before a pin
+    exists, ``latest_test_count_authority``'s same-date tie-break (live
+    side-task outranks current batch) picks ``newer_count`` even when
+    ``older_count`` is the one an author just corrected -- the exact shape
+    F-DOCSYNC-22 named.
+    """
+    playbook_path = sync_env / "PLAYBOOK.md"
+    text = playbook_path.read_text(encoding="utf-8")
+    text = text.replace(
+        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        (
+            "### 2026-02-25 - Corrected count (Batch 11 WP-2)\n\n"
+            f"Validation: `pytest -q` -- **{older_count} passed**.\n\n"
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->\n\n"
+            "### 2026-02-25 - Side task correction\n\n"
+            f"Validation: `pytest -q` -- **{newer_count} passed**.\n"
+        ),
+    )
+    playbook_path.write_text(text, encoding="utf-8")
+
+
+class TestTestCountPin:
+    def test_fix_test_count_survives_a_same_date_correction_to_an_older_entry(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """F-DOCSYNC-22: correcting an OLDER same-date entry's count, after the
+        newer entry above it already recorded a different one, must not make
+        --check reject the true count once it has been pinned with --test-count.
+
+        sync_env's MINIMAL_SESSION_CONTEXT and FINDINGS.md fixtures are
+        deliberately minimal and carry neither a Section 1 Tests row, a
+        Section 6 heading, nor a findings header count line -- confirmed by
+        running a real --fix over this fixture during Step 19's live probe --
+        so this test adds them itself; otherwise rewrite_recorded_counts
+        would have nothing to rewrite and the assertions below could not
+        distinguish a real rewrite from a no-op.
+        """
+        _append_same_date_entries(sync_env, newer_count=1849, older_count=1850)
+
+        session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
+        session_path.write_text(
+            session_path.read_text(encoding="utf-8").replace(
+                "More content.",
+                "| Tests | **142 passing** across 68 tracked test modules |\n\n"
+                "## 6. Test structure (142 tests)\n\n"
+                "More content.",
+            ),
+            encoding="utf-8",
+        )
+        findings_path = sync_env / "FINDINGS.md"
+        findings_path.write_text(
+            "# Findings\n\n> **142 tests across 68 test modules.**\n", encoding="utf-8"
+        )
+
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "1850"]
+        )
+        assert cli_mod.main() == 0
+
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 0
+
+        session = session_path.read_text(encoding="utf-8")
+        findings = findings_path.read_text(encoding="utf-8")
+        config = (sync_env / cli_mod.DECLARATIONS_FILENAME).read_text(encoding="utf-8")
+        assert "**1850 passed**" in session
+        assert "**1850 passing**" in session
+        assert "## 6. Test structure (1850 tests)" in session
+        assert "1850 tests across" in findings
+        assert "[test_count]" in config and "pinned = 1850" in config
+
+    def test_findings_header_count_regex_matches_the_real_tracked_wording(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """Deviation (task-1 finish rulings): the repository's real
+        FINDINGS.md header reads "N tests across M tracked test modules."
+        (confirmed at f8fb8e9 via Step 19's live probe), but
+        FINDINGS_HEADER_COUNT_RE required bare "test modules.", so DOC008
+        could never fire against it and --fix --test-count N could never
+        rewrite it. Both legs, proven directly:
+
+        1. DOC008 fires when the pin and this real-wording header disagree.
+        2. _rewrite_findings_header_count corrects that header in place,
+           leaving the word "tracked" and the module count untouched.
+        """
+        config_path = sync_env / cli_mod.DECLARATIONS_FILENAME
+        config_path.write_text(
+            config_path.read_text(encoding="utf-8") + "\n[test_count]\npinned = 1873\n",
+            encoding="utf-8",
+        )
+        findings_path = sync_env / "FINDINGS.md"
+        findings_path.write_text(
+            "# Findings\n\n1800 tests across 68 tracked test modules.\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 1
+        assert "ERROR DOC008" in capsys.readouterr().err
+
+        rewritten = cli_mod._rewrite_findings_header_count(
+            findings_path.read_text(encoding="utf-8"), 1873
+        )
+        assert "1873 tests across 68 tracked test modules." in rewritten
 
 
 # ---------------------------------------------------------------------------

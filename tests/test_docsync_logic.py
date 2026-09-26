@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from textwrap import dedent
 
@@ -12,9 +13,12 @@ from docsync.logic import (
     _merge_entries_into_log,
     _split_archive,
     _sync,
+    resolved_test_count_authority,
 )
 from docsync.models import Entry, SyncError
+from docsync.models import TestCountAuthority as CountAuthority
 from docsync.parser import _collect_wp_numbers, _fingerprint, _parse_active_batch_state
+from docsync.renderer import rewrite_recorded_counts
 
 # ---------------------------------------------------------------------------
 # _collect_wp_numbers -- edge cases
@@ -775,3 +779,108 @@ def test_wrapped_unbold_full_suite_suppresses_focused_and_older_authority():
     result = latest_test_count_authority(lines)
     assert result.count is None
     assert result.ambiguous
+
+
+# ---------------------------------------------------------------------------
+# rewrite_recorded_counts -- Task 1, F-DOCSYNC-12
+# ---------------------------------------------------------------------------
+
+
+class TestRewriteRecordedCounts:
+    def test_replaces_only_the_digits_in_a_matching_line(self):
+        lines = ["| Tests | **1849 passing** across 68 tracked test modules |"]
+        pattern = re.compile(
+            r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"
+        )
+        assert rewrite_recorded_counts(lines, 1850, [pattern]) == [
+            "| Tests | **1850 passing** across 68 tracked test modules |"
+        ]
+
+    def test_leaves_a_non_matching_line_untouched(self):
+        pattern = re.compile(r"^## 6\.")
+        assert rewrite_recorded_counts(["some other line"], 5, [pattern]) == [
+            "some other line"
+        ]
+
+    def test_first_matching_pattern_wins(self):
+        lines = ["## 6. Test structure (1849 tests)"]
+        heading = re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$")
+        decoy = re.compile(r"nomatch")
+        assert rewrite_recorded_counts(lines, 1900, [decoy, heading]) == [
+            "## 6. Test structure (1900 tests)"
+        ]
+
+
+# ---------------------------------------------------------------------------
+# resolved_test_count_authority -- Task 1, F-DOCSYNC-11/-22
+# ---------------------------------------------------------------------------
+
+
+def _playbook(active_line: str, body: str) -> list[str]:
+    lines = [
+        "# PLAYBOOK",
+        "",
+        "## 3. Active batch",
+        "",
+        active_line,
+        "",
+        "## 4. Execution log",
+        "",
+        "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+        "",
+    ]
+    lines.extend(body.splitlines())
+    if "<!-- DOCSYNC:CURRENT-BATCH-END -->" not in body:
+        lines.append("")
+        lines.append("<!-- DOCSYNC:CURRENT-BATCH-END -->")
+    return lines
+
+
+def _playbook_with_entry(bold_count: str) -> list[str]:
+    return _playbook(
+        "- **Batch 1 is active.**",
+        f"### 2026-09-20 - one entry\n\nBody.\n\n`pytest -q` -- {bold_count}\n",
+    )
+
+
+def _playbook_two_same_date_entries(older: str, newer: str) -> list[str]:
+    # "newer" sits below the end marker (a live side-task entry, the
+    # highest-precedence source on a same-date tie) and "older" sits inside
+    # the current-batch window -- so an unpinned, prose-only scan picks
+    # "newer", not "older", on this same date. Naming still follows
+    # F-DOCSYNC-22: "older" is the entry an author corrected after the fact,
+    # and only a pin -- not a reordering of same-date prose -- can make the
+    # correction stick.
+    return _playbook(
+        "- **Batch 1 is active.**",
+        f"### 2026-09-20 - current-batch entry\n\nBody.\n\n`pytest -q` -- **{older}**\n"
+        f"<!-- DOCSYNC:CURRENT-BATCH-END -->\n\n"
+        f"### 2026-09-20 - side task\n\nBody.\n\n`pytest -q` -- **{newer}**\n",
+    )
+
+
+class TestResolvedTestCountAuthority:
+    def test_explicit_count_always_wins(self):
+        playbook = _playbook_with_entry("**999 passed**")
+        result = resolved_test_count_authority(
+            playbook, pinned=1, explicit_test_count=1850
+        )
+        assert result == CountAuthority(count=1850, ambiguous=False)
+
+    def test_a_pinned_count_outranks_fresh_prose(self):
+        """F-DOCSYNC-22: an entry corrected out of position must not shadow
+        a value already pinned in config/docsync.toml."""
+        # Two same-date entries, the classic F-DOCSYNC-11/-22 tie: the
+        # position-based scan alone would pick 1849, not 1850.
+        playbook = _playbook_two_same_date_entries(
+            older="1850 passed", newer="1849 passed"
+        )
+        result = resolved_test_count_authority(playbook, pinned=1850)
+        assert result == CountAuthority(count=1850, ambiguous=False)
+
+    def test_falls_back_to_prose_when_nothing_is_pinned_yet(self):
+        """Cold start: no [test_count] table still resolves from the
+        entries, exactly as latest_test_count_authority always has."""
+        playbook = _playbook_with_entry("**142 passed**")
+        result = resolved_test_count_authority(playbook, pinned=None)
+        assert result == CountAuthority(count=142, ambiguous=False)

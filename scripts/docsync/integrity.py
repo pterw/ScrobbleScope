@@ -14,8 +14,8 @@ from docsync.declarations import (
     collect_declaration_issues,
     load_closeout_config,
     load_findings_config,
+    load_test_count_config,
 )
-from docsync.logic import FULL_SUITE_RESULT_RE, latest_test_count_authority
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
@@ -77,7 +77,7 @@ def _definition_wp_numbers(definition_lines: list[str]) -> tuple[int, ...]:
 
 
 FINDINGS_HEADER_COUNT_RE = re.compile(
-    r"^>?\s*\*{0,2}(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\*{0,2}\s*$"
+    r"^>?\s*\*{0,2}(\d+)\s+tests\s+across\s+(\d+)\s+(?:tracked\s+)?test\s+modules\.\*{0,2}\s*$"
 )
 # The count line lives in FINDINGS.md's header block, before the first
 # section heading. Scanning the whole file let a historical example or an
@@ -104,6 +104,19 @@ SESSION_CURRENT_COUNT_RES = (
         r"(?:tests?\s+)?pass(?:ing|ed)\*\*\.\s*$"
     ),
     re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
+)
+
+# Deferred past SESSION_CURRENT_COUNT_RES's own definition, not grouped with
+# the imports at the top of the file: logic.py imports that constant from
+# this module (DOC006 already owns it), and this is what this module needs
+# back from logic.py. Importing it before SESSION_CURRENT_COUNT_RES exists
+# here -- or before logic.py's own three names exist there -- would deadlock
+# the circular import between these two modules, whichever a caller happens
+# to import first. See the matching comment in logic.py.
+from docsync.logic import (  # noqa: E402
+    FULL_SUITE_RESULT_RE,
+    _newest_dated_test_count,
+    resolved_test_count_authority,
 )
 
 # The canonical list of this repository's always-scanned live documents, plus
@@ -957,6 +970,7 @@ def collect_integrity_issues(
 ) -> list[IntegrityIssue]:
     """Return deterministic live-document integrity issues."""
     issues: list[IntegrityIssue] = []
+    test_count_config = load_test_count_config(repo_root, config_path=config_path)
     (
         current_batch,
         definition_path,
@@ -1103,8 +1117,11 @@ def collect_integrity_issues(
                     "Run doc_state_sync.py --fix to refresh the managed session block.",
                 )
             )
-        authority = latest_test_count_authority(
-            playbook_lines, archive_lines, batch_log_lines
+        authority = resolved_test_count_authority(
+            playbook_lines,
+            archive_lines,
+            batch_log_lines,
+            pinned=test_count_config.pinned,
         )
         session_count_fields = [
             (line_number, int(match.group(1)))
@@ -1181,11 +1198,44 @@ def collect_integrity_issues(
 
     findings_count_issue = _check_findings_header_count(
         live_documents.get(findings_relative_path),
-        latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines),
+        resolved_test_count_authority(
+            playbook_lines,
+            archive_lines,
+            batch_log_lines,
+            pinned=test_count_config.pinned,
+        ),
         findings_relative_path=findings_relative_path,
     )
     if findings_count_issue is not None:
         issues.append(findings_count_issue)
+
+    # DOC025 (warning-only, Q1 ruling 2026-09-25): the single Section 4 entry
+    # carrying the newest date (across every source latest_test_count_authority
+    # reads) disagrees with the pin. Silent on a same-date tie -- that is the
+    # F-DOCSYNC-22 shape the pin exists to protect against, and DOC025 must
+    # never push an author to reorder same-date entries to silence it -- and
+    # silent when nothing is pinned at all.
+    if test_count_config.pinned is not None:
+        newest_dated_count = _newest_dated_test_count(
+            playbook_lines, archive_lines, batch_log_lines
+        )
+        if (
+            newest_dated_count is not None
+            and newest_dated_count != test_count_config.pinned
+        ):
+            issues.append(
+                IntegrityIssue(
+                    "DOC025",
+                    "warning",
+                    playbook_relative_path,
+                    None,
+                    "The single Section 4 entry carrying the newest date "
+                    f"records {newest_dated_count}, which disagrees with the "
+                    f"count pinned in config/docsync.toml ({test_count_config.pinned}).",
+                    f"Run `--fix --test-count {newest_dated_count}` if that "
+                    "entry is right, or ignore this warning if the pin still is.",
+                )
+            )
 
     # DOC009 to DOC011. Declared rather than hard-coded, so the mechanism is
     # repository-independent and only config/docsync.toml is local. See F-B21-17.

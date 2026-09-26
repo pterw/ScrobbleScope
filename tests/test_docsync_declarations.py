@@ -1966,3 +1966,42 @@ def test_findings_config_rejects_a_non_id_entry(tmp_path: Path) -> None:
     root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = [21]\n")
     with pytest.raises(DeclarationError, match="finding id"):
         load_findings_config(root)
+
+
+# ---------------------------------------------------------------------------
+# [test_count] -- the pinned test count (Batch 23 WP-0 Task 1, F-DOCSYNC-11/-22)
+# ---------------------------------------------------------------------------
+
+
+class TestTestCountConfig:
+    def test_absent_table_returns_no_pin(self, tmp_path: Path):
+        from docsync.declarations import TestCountConfig, load_test_count_config
+
+        assert load_test_count_config(tmp_path) == TestCountConfig()
+        assert TestCountConfig().pinned is None
+
+    def test_a_declared_pin_is_read(self, tmp_path: Path):
+        from docsync.declarations import load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[test_count]\npinned = 1850\n", encoding="utf-8")
+        assert load_test_count_config(tmp_path).pinned == 1850
+
+    def test_a_non_integer_pin_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[test_count]\npinned = "1850"\n', encoding="utf-8")
+        with pytest.raises(DeclarationError):
+            load_test_count_config(tmp_path)
+
+    def test_an_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[test_count]\ncount = 1850\n", encoding="utf-8")
+        with pytest.raises(DeclarationError, match="unknown key 'count'"):
+            load_test_count_config(tmp_path)

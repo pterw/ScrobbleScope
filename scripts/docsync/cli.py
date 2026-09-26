@@ -54,8 +54,11 @@ from docsync.declarations import (
     load_archive_config,
     load_closeout_config,
     load_documents_config,
+    load_test_count_config,
 )
 from docsync.integrity import (
+    _FINDINGS_HEADER_END_RE,
+    FINDINGS_HEADER_COUNT_RE,
     LIVE_DOCUMENT_RELATIVE_PATHS,
     SESSION_CONTEXT_RELATIVE_PATH,
     _active_definition_reference,
@@ -79,7 +82,11 @@ from docsync.parser import (
     _parse_entries,
     root_definition_pattern,
 )
-from docsync.renderer import _remove_marker_lines, _trim_trailing_blank
+from docsync.renderer import (
+    _remove_marker_lines,
+    _trim_trailing_blank,
+    rewrite_recorded_counts,
+)
 from docsync.transaction import publish
 
 REPO_ROOT = Path(".")
@@ -473,6 +480,76 @@ def _plan_text(path: Path, text: str) -> dict[Path, bytes | None]:
     return _plan_document(path, text.splitlines())
 
 
+#: Where an existing `[test_count]` table's own heading line sits.
+_TEST_COUNT_TABLE_RE = re.compile(r"^\[test_count\]\s*$", re.MULTILINE)
+#: The `pinned =` line inside that table, however it is indented.
+_TEST_COUNT_PINNED_LINE_RE = re.compile(r"^\s*pinned\s*=.*$", re.MULTILINE)
+
+
+def _rewrite_test_count_pin(text: str, count: int) -> str:
+    """Return config/docsync.toml's text with `[test_count]` pinned to count.
+
+    A targeted find-or-append of one line, not a general TOML writer,
+    because the stdlib `tomllib` this repository already relies on is
+    read-only and no new dependency is allowed. Replaces an existing
+    `[test_count]` table's `pinned =` line in place, or inserts one right
+    after the table heading when the table exists but carries no pin yet.
+    Appends a new `[test_count]\\npinned = N\\n` block at the end of the
+    file's text when the table is absent entirely -- never between existing
+    `[[value]]` blocks, since a single-bracket table opens and closes no
+    array scope but a wrong insertion point beside one has bitten this file
+    before (F-DOCSYNC-8's scoping notice).
+    """
+    table_match = _TEST_COUNT_TABLE_RE.search(text)
+    if table_match is None:
+        if not text.strip():
+            return f"[test_count]\npinned = {count}\n"
+        prefix = text if text.endswith("\n") else text + "\n"
+        if not prefix.endswith("\n\n"):
+            prefix += "\n"
+        return f"{prefix}[test_count]\npinned = {count}\n"
+
+    header_end = table_match.end()
+    body_start = (
+        header_end + 1 if text[header_end : header_end + 1] == "\n" else header_end
+    )
+    next_heading = re.search(r"^\[", text[body_start:], re.MULTILINE)
+    body_end = body_start + next_heading.start() if next_heading else len(text)
+    body = text[body_start:body_end]
+
+    pinned_match = _TEST_COUNT_PINNED_LINE_RE.search(body)
+    if pinned_match is not None:
+        new_body = (
+            body[: pinned_match.start()]
+            + f"pinned = {count}"
+            + body[pinned_match.end() :]
+        )
+    else:
+        new_body = f"pinned = {count}\n" + body
+    return text[:body_start] + new_body + text[body_end:]
+
+
+def _rewrite_findings_header_count(text: str, count: int) -> str:
+    """Return FINDINGS.md's text with its header test-count line rewritten.
+
+    Mirrors `_check_findings_header_count`'s own header-boundary rule
+    (`_FINDINGS_HEADER_END_RE`, the first heading line) so the writer and
+    the DOC008 checker agree on where "the header" ends -- a count quoted
+    in running prose below the header is never touched.
+    """
+    lines = text.splitlines()
+    header_end = len(lines)
+    for line_number, line in enumerate(lines, start=1):
+        if line_number > 1 and _FINDINGS_HEADER_END_RE.match(line):
+            header_end = line_number - 1
+            break
+    new_lines = (
+        rewrite_recorded_counts(lines[:header_end], count, [FINDINGS_HEADER_COUNT_RE])
+        + lines[header_end:]
+    )
+    return "\n".join(new_lines) + "\n"
+
+
 def _publish(
     updates: Mapping[Path, bytes | None], expected: Mapping[Path, bytes | None]
 ) -> None:
@@ -486,7 +563,10 @@ def _publish(
 
 
 def _drift_updates(
-    corpus: _Corpus, result, rotation: findings_module.FindingRotation
+    corpus: _Corpus,
+    result,
+    rotation: findings_module.FindingRotation,
+    explicit_test_count: int | None = None,
 ) -> dict[Path, bytes | None]:
     """Return every write the deterministic renderer and rotation would make."""
     store = corpus.store
@@ -531,6 +611,29 @@ def _drift_updates(
                 paginate=False,
             )
         )
+    if explicit_test_count is not None:
+        # An operator has just asserted the true count with --test-count: pin
+        # it in config/docsync.toml and rewrite the FINDINGS.md header from
+        # it, the two sites SESSION_CONTEXT's rewrite pass above does not
+        # reach. rewrite_recorded_counts already covers the STATUS block, the
+        # Section 1 Tests row and the Section 6 heading inside `_sync` itself.
+        findings_text = (
+            rotation.active_text if rotation.rotated_ids else corpus.findings_text
+        )
+        new_findings_text = _rewrite_findings_header_count(
+            findings_text, explicit_test_count
+        )
+        updates.update(_plan_text(REPO_ROOT / documents.findings, new_findings_text))
+
+        declarations_text = (
+            corpus.declarations_path.read_text(encoding="utf-8")
+            if corpus.declarations_path.is_file()
+            else ""
+        )
+        new_declarations_text = _rewrite_test_count_pin(
+            declarations_text, explicit_test_count
+        )
+        updates.update(_plan_text(corpus.declarations_path, new_declarations_text))
     return updates
 
 
@@ -584,8 +687,11 @@ def _report(issues: Sequence[IntegrityIssue]) -> bool:
     return any(issue.severity == "error" for issue in issues)
 
 
-def _sync_corpus(corpus: _Corpus, keep_non_current: int):
+def _sync_corpus(
+    corpus: _Corpus, keep_non_current: int, explicit_test_count: int | None = None
+):
     """Run the deterministic renderer over one already-read corpus."""
+    config = load_test_count_config(REPO_ROOT, config_path=CONFIG_PATH)
     return _sync(
         playbook_lines=corpus.playbook_lines,
         archive_lines=corpus.archive_lines,
@@ -593,6 +699,8 @@ def _sync_corpus(corpus: _Corpus, keep_non_current: int):
         keep_non_current=keep_non_current,
         batch_log_lines=corpus.batch_log_lines,
         planned_wp_numbers=_read_active_planned_wp_numbers(corpus.playbook_lines),
+        pinned=config.pinned,
+        explicit_test_count=explicit_test_count,
     )
 
 
@@ -1069,6 +1177,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="How many non-current entries to keep in PLAYBOOK section 4 (default: 4).",
     )
     parser.add_argument(
+        "--test-count",
+        type=int,
+        metavar="N",
+        help=(
+            "The measured `pytest -q` result. Valid only with --fix: pins N in "
+            "config/docsync.toml's [test_count] table and writes the STATUS "
+            "block, the SESSION_CONTEXT Section 1 Tests row, the Section 6 "
+            "heading and the FINDINGS.md header from it, in one command."
+        ),
+    )
+    parser.add_argument(
         "--config",
         metavar="PATH",
         help=(
@@ -1109,6 +1228,14 @@ def main() -> int:
         if args.keep_non_current < 0:
             print("--keep-non-current must be >= 0.", file=sys.stderr)
             return 2
+
+        if args.test_count is not None:
+            if not args.fix:
+                print("--test-count requires --fix.", file=sys.stderr)
+                return 2
+            if args.test_count < 0:
+                print("--test-count must be >= 0.", file=sys.stderr)
+                return 2
 
         as_of: dt.date | None = None
         if args.as_of is not None:
@@ -1181,9 +1308,13 @@ def main() -> int:
             if corpus.issues:
                 _report(corpus.issues)
                 return 1
-            result = _sync_corpus(corpus, args.keep_non_current)
+            result = _sync_corpus(
+                corpus, args.keep_non_current, explicit_test_count=args.test_count
+            )
             rotation = corpus.rotation()
-            updates = _drift_updates(corpus, result, rotation)
+            updates = _drift_updates(
+                corpus, result, rotation, explicit_test_count=args.test_count
+            )
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)
             return 2
@@ -1229,9 +1360,16 @@ def main() -> int:
                 print("doc_state_sync --fix found no changes.")
 
             final_corpus = _Corpus(store)
-            final_result = _sync_corpus(final_corpus, args.keep_non_current)
+            final_result = _sync_corpus(
+                final_corpus, args.keep_non_current, explicit_test_count=args.test_count
+            )
             final_rotation = final_corpus.rotation()
-            final_updates = _drift_updates(final_corpus, final_result, final_rotation)
+            final_updates = _drift_updates(
+                final_corpus,
+                final_result,
+                final_rotation,
+                explicit_test_count=args.test_count,
+            )
             issues = _collect_issues(final_corpus, final_result, final_rotation)
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)

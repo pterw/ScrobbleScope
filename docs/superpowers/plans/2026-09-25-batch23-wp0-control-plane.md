@@ -83,10 +83,15 @@ Every task's requirements include this section.
   defect, green on its near miss, run in a scratch copy made with `git archive` outside
   the repository (verification standard below). A task's own unit tests are written
   first as the regression guard; the probe is the proof, not a substitute.
-- **Commit procedure, in this order** (`AGENTS.md` "Commit Rules"):
-  1. the Section 4 entry;
-  2. `doc_state_sync.py --fix` (Task 1 onward: `--fix --test-count N`, see Task 1);
-  3. the full suite;
+- **Commit procedure, in this order** (`AGENTS.md` "Commit Rules"; corrected by Task 1,
+  R3 of the workspace's `constraints.md`, which overrides the order below -- the count
+  must be measured before `--fix` can pin it):
+  1. write the Section 4 entry (its Validation line quotes the count measured in step 2;
+     leave a placeholder and fill it after);
+  2. the full suite, to read N;
+  3. before Task 1 lands: hand-update the count sites and run `doc_state_sync.py --fix`.
+     From Task 1 onward, including Task 1's own commit: `doc_state_sync.py --fix
+     --test-count N`, and hand-edit no count site;
   4. stage the changed paths by name;
   5. `pre-commit run --all-files`;
   6. `frontend_gate.py`, only if a task touches `static/`, `templates/` or
@@ -135,7 +140,7 @@ accepted only on a live probe:
 
 1. Build a throwaway corpus from the committed tree, at a short path:
    ```bash
-   mkdir -p /tmp/ssprobe && cd /tmp/ssprobe && rm -rf corpus && mkdir corpus
+   mkdir -p /c/ssprobe && cd /c/ssprobe && rm -rf corpus && mkdir corpus
    git -C "C:/Users/peter/.config/superpowers/worktrees/ScrobbleScope/batch-21/impeccable-init" archive HEAD | tar -x -C corpus
    cd corpus && git init -q && git config core.longpaths true && git add -A
    git -c user.email=p@l -c user.name=p commit -qm base && git tag base
@@ -149,7 +154,7 @@ accepted only on a live probe:
    expected unchanged behaviour).
 5. Reset with `git reset -q --hard base && git clean -qfd` between probes.
 6. Paste the probe table (probe, expected, exit, codes) into the task report and the
-   Section 4 entry. Delete `/tmp/ssprobe` afterwards.
+   Section 4 entry. Delete `/c/ssprobe` afterwards.
 
 ## Gates
 
@@ -244,7 +249,7 @@ in two places"), with `ArchiveConfig` already the proven pattern for one declare
 Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml` has no
 `[test_count]` table at all.
 
-- [ ] **Step 1: Write the failing tests for `rewrite_recorded_counts`.** Append to
+- [x] **Step 1: Write the failing tests for `rewrite_recorded_counts`.** Append to
   `tests/test_docsync_logic.py` (Task 2 moves this class to
   `tests/test_docsync_test_count.py`):
 
@@ -275,12 +280,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
           ]
   ```
 
-- [ ] **Step 2: Run to verify they fail.**
+- [x] **Step 2: Run to verify they fail.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py -q -k RewriteRecordedCounts`
   Expected: `ImportError` -- `rewrite_recorded_counts` does not exist yet.
 
-- [ ] **Step 3: Implement `rewrite_recorded_counts` in `renderer.py`,** beside
+- [x] **Step 3: Implement `rewrite_recorded_counts` in `renderer.py`,** beside
   `_count_line`, matching the signature in the Interfaces block above. For each line, try
   each pattern in order and stop at the first match; replace that match's captured group 1
   span with `str(count)`, leaving every other character of the line (label text,
@@ -293,12 +298,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   Add `import re` and `from collections.abc import Sequence` to `renderer.py` if not
   already present.
 
-- [ ] **Step 4: Run to verify it passes.**
+- [x] **Step 4: Run to verify it passes.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py -q -k RewriteRecordedCounts`
   Expected: PASS.
 
-- [ ] **Step 5: Write the failing tests for `TestCountConfig`.** Append to
+- [x] **Step 5: Write the failing tests for `TestCountConfig`.** Append to
   `tests/test_docsync_declarations.py`, following the file's existing
   `tmp_path / DECLARATIONS_FILENAME` convention (`DECLARATIONS_FILENAME` is already
   imported at the top of this file):
@@ -338,12 +343,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
               load_test_count_config(tmp_path)
   ```
 
-- [ ] **Step 6: Run to verify they fail.**
+- [x] **Step 6: Run to verify they fail.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_declarations.py -q -k TestCountConfig`
   Expected: `ImportError` -- neither name exists yet.
 
-- [ ] **Step 7: Implement `TestCountConfig` in `declarations.py`,** mirroring
+- [x] **Step 7: Implement `TestCountConfig` in `declarations.py`,** mirroring
   `ArchiveConfig` / `_validate_archives` / `_archive_config` / `load_archive_config`
   (`declarations.py:328,364,393,407`) field for field: a frozen dataclass with one field
   (`pinned: int | None = None`), a `_validate_test_count(table: object) -> TestCountConfig`
@@ -355,12 +360,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   `_test_count_config`. Add `"test_count": {"required": {}, "optional": {"pinned": int}}`
   to the `_TOP_LEVEL_SCHEMA` dict literal, next to `"archives"`.
 
-- [ ] **Step 8: Run to verify they pass.**
+- [x] **Step 8: Run to verify they pass.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_declarations.py -q -k TestCountConfig`
   Expected: PASS.
 
-- [ ] **Step 9: Write the failing tests for `resolved_test_count_authority`.** Append to
+- [x] **Step 9: Write the failing tests for `resolved_test_count_authority`.** Append to
   `tests/test_docsync_logic.py` (Task 2 moves this class to
   `tests/test_docsync_test_count.py`, alongside `TestRewriteRecordedCounts`):
 
@@ -421,12 +426,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   (Adapt to whatever `_playbook`/marker-building helper the file already exports; do not
   invent a second one if `TestSyncIntegration` already has an equivalent.)
 
-- [ ] **Step 10: Run to verify they fail.**
+- [x] **Step 10: Run to verify they fail.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py -q -k ResolvedTestCountAuthority`
   Expected: `ImportError` -- the name does not exist yet.
 
-- [ ] **Step 11: Implement `resolved_test_count_authority` in `logic.py`,** directly above
+- [x] **Step 11: Implement `resolved_test_count_authority` in `logic.py`,** directly above
   `latest_test_count_authority`, matching the signature in the Interfaces block above
   (`playbook_lines, archive_lines=None, batch_log_lines=None, *, pinned=None,
   explicit_test_count=None`). Three `if`/`return` lines in precedence order: return
@@ -443,12 +448,12 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   `TestCountAuthority` is already imported into `logic.py` from `docsync.models`; add
   `Mapping` to the existing `from collections.abc import ...` import if not already there.
 
-- [ ] **Step 12: Run to verify they pass.**
+- [x] **Step 12: Run to verify they pass.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py -q -k ResolvedTestCountAuthority`
   Expected: PASS.
 
-- [ ] **Step 13: Wire `_sync` and `_sync_corpus` to thread the pin through.** In
+- [x] **Step 13: Wire `_sync` and `_sync_corpus` to thread the pin through.** In
   `scripts/docsync/logic.py`, `_sync`'s signature gains `pinned: int | None = None` and
   `explicit_test_count: int | None = None`. Inside the `if session_lines is not None:`
   block, replace the `latest_test_count_authority(...)` call that builds `count_authority`
@@ -471,7 +476,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   `load_test_count_config` at the top of `cli.py`, alongside the existing
   `load_archive_config` import.
 
-- [ ] **Step 14: Add `--test-count` to the CLI and validate it.** In `cli.py`
+- [x] **Step 14: Add `--test-count` to the CLI and validate it.** In `cli.py`
   `_build_parser()`, add a `--test-count` `int` argument (`metavar="N"`), documented as the
   measured `pytest -q` result that `--fix` writes to `config/docsync.toml` and all four
   count sites. In `main()`, after the existing mode-exclusivity check and before the
@@ -482,7 +487,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   verification call) -- the second call re-derives from the now-pinned config, so passing
   the flag there too is harmless and keeps both calls symmetric.
 
-- [ ] **Step 15: `_drift_updates` writes the FINDINGS header and the config pin.**
+- [x] **Step 15: `_drift_updates` writes the FINDINGS header and the config pin.**
   `_drift_updates` gains a parameter `explicit_test_count: int | None = None`, threaded into
   both of `main()`'s two call sites (the one whose `updates` actually reaches `_publish`,
   and the post-publish `final_updates` verification call) -- only the first is what the
@@ -505,7 +510,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   Import `_FINDINGS_HEADER_END_RE`, `FINDINGS_HEADER_COUNT_RE` and `rewrite_recorded_counts`
   at the top of `cli.py`.
 
-- [ ] **Step 16: Change DOC005/006/008 to use `resolved_test_count_authority`, and add
+- [x] **Step 16: Change DOC005/006/008 to use `resolved_test_count_authority`, and add
   DOC025.** In `scripts/docsync/integrity.py`, inside `collect_integrity_issues`, load
   `config = load_test_count_config(repo_root, config_path=config_path)` once near the top
   of the function, and replace every `latest_test_count_authority(playbook_lines,
@@ -605,7 +610,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   as an unambiguous `390` once read -- confirm against the actual DOC006 fixtures already in
   this file first.
 
-- [ ] **Step 17: Run every affected test file and fix fixtures the pinning change breaks.**
+- [x] **Step 17: Run every affected test file and fix fixtures the pinning change breaks.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_logic.py tests/test_docsync_declarations.py tests/test_docsync_cli.py tests/test_docsync_integrity.py tests/scripts/dev/test_docsync_preflight.py -v
@@ -619,7 +624,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   `resolved_test_count_authority`. Name every changed test in the commit body per Global
   Constraints.
 
-- [ ] **Step 18: F-DOCSYNC-22's exact reproduction, as a regression test.** Append to
+- [x] **Step 18: F-DOCSYNC-22's exact reproduction, as a regression test.** Append to
   `tests/test_docsync_cli.py` (an end-to-end case through `main()`, not just `logic.py`
   directly -- this is the shape the root-cleanup ledger actually hit):
 
@@ -662,8 +667,8 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_cli.py -q -k same_date_correction`
   Expected: FAIL before Steps 11-16, PASS after.
 
-- [ ] **Step 19: Gates and live probe.** `doc_state_sync.py --check` at exit 0 first (this
-  touches `scripts/docsync/`), then per the verification standard, in `/tmp/ssprobe/corpus`:
+- [x] **Step 19: Gates and live probe.** `doc_state_sync.py --check` at exit 0 first (this
+  touches `scripts/docsync/`), then per the verification standard, in `/c/ssprobe/corpus`:
   - **Red, prior behaviour (documented, not this task's pair):** from `base` with this
     task's commit reverted, the F-DOCSYNC-22 shape (two same-date entries, older corrected)
     -> bare `--fix` then `--check` -> DOC006/DOC008.
@@ -678,7 +683,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
     a different count -> `--check` -> DOC025 printed, exit 0.
   - Paste the probe table into the Section 4 entry.
 
-- [ ] **Step 20: Update the prose.** In `AGENTS.md`, "Doc Sync Rules" > "Integrity
+- [x] **Step 20: Update the prose.** In `AGENTS.md`, "Doc Sync Rules" > "Integrity
   diagnostics", replace the "Which test count is authoritative" paragraph with:
 
   ```
@@ -735,7 +740,7 @@ Task 2) and becomes the cold-start fallback, used only when `config/docsync.toml
   and its count disagrees with `config/docsync.toml`'s `[test_count]` pin; a same-date tie
   or an absent pin stays silent. It never blocks (Q1 ruling, 2026-09-25)."
 
-- [ ] **Step 21: Resolve all four findings and commit.** Reason, shared across the four
+- [x] **Step 21: Resolve all four findings and commit.** Reason, shared across the four
   records: "an explicit `--fix --test-count N` (`scripts/docsync/cli.py`) pins the count in
   `config/docsync.toml`'s `[test_count]` table (`scripts/docsync/declarations.py`
   `TestCountConfig`), which `resolved_test_count_authority` (`scripts/docsync/logic.py`)
@@ -1059,7 +1064,7 @@ all key off the heading tag already, not off completion, so they are unaffected.
   "a WP-tagged heading is complete" and correct it in the same commit (Anti-Pattern 11).
 
 - [ ] **Step 8: Gates and live probe.** This touches `scripts/docsync/parser.py` and
-  `renderer.py` (R7 applies). Per the verification standard, in `/tmp/ssprobe/corpus`:
+  `renderer.py` (R7 applies). Per the verification standard, in `/c/ssprobe/corpus`:
   - **Red:** BATCH22_LOG.md shape, one `(Batch N WP-X)` heading, no completion line -> the
     STATUS block (and DOC007, if Section 3 claims `WP-<X+1>` next) disagrees with the true
     state -- before this fix, the tool would have already called WP-X complete.
@@ -1201,7 +1206,7 @@ is to record the evidence; it makes no code change for it.
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" -q --ignore=tests/scripts/dev/test_mutation_test.py -p no:cacheprovider
   ```
 
-- [ ] **Step 6: Gates and live probe.** In `/tmp/ssprobe/corpus`:
+- [ ] **Step 6: Gates and live probe.** In `/c/ssprobe/corpus`:
   - **Red:** create a lower-case `batch99_definition.md` inside
     `docs/history/definitions/`; before this task's fix, whether it is discovered depends
     on the probe host's OS (this repository's CI and the owner's machine are different
@@ -1386,7 +1391,7 @@ current".
 
   Live probe, per the verification standard, using
   `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe"
-  scripts/dev/check_worktree_alignment.py --advisory` directly in `/tmp/ssprobe/corpus`
+  scripts/dev/check_worktree_alignment.py --advisory` directly in `/c/ssprobe/corpus`
   (this check has no docsync preflight involvement, so the probe runs the real CLI entry
   point rather than `doc_state_sync.py`):
   - **Red (WT010/detached):** `git checkout --detach HEAD` plus an unstaged edit, pre-fix
@@ -1471,7 +1476,7 @@ for the hook to compare against yet.
   not by number, so a future reorder cannot silently strand the citation again.
 
 - [ ] **Step 3: Live probe against the real hook.** Per the verification standard, in
-  `/tmp/ssprobe/corpus`:
+  `/c/ssprobe/corpus`:
   - **Red (old order):** make a legitimate source edit to `static/css/tailwind.src.css`
     (one token value change) and rebuild `static/css/tailwind.css` from it by running
     `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe"
@@ -1752,7 +1757,7 @@ both paragraphs below the numbered list.
 
   Live probe, per the verification standard, using
   `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe"
-  scripts/dev/check_worktree_alignment.py --advisory` in `/tmp/ssprobe/corpus`:
+  scripts/dev/check_worktree_alignment.py --advisory` in `/c/ssprobe/corpus`:
   - **Red:** no `skills-lock.json` (a fresh `git archive` checkout has no gitignored files
     by default) -> `WARNING WT015 skills-lock.json -- declared untracked-essential file is
     missing.` prints, exit 0 (confirm 0 without `--advisory` too: WARNING severity never
