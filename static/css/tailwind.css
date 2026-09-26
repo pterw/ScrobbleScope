@@ -1317,6 +1317,9 @@
       max-width: 96rem;
     }
   }
+  .-m-\[14px\] {
+    margin: calc(14px * -1);
+  }
   .mx-auto {
     margin-inline: auto;
   }
@@ -1472,9 +1475,6 @@
   }
   .flex-wrap {
     flex-wrap: wrap;
-  }
-  .items-baseline {
-    align-items: baseline;
   }
   .items-center {
     align-items: center;
@@ -1642,6 +1642,9 @@
   }
   .p-8 {
     padding: var(--spacing-8);
+  }
+  .p-\[14px\] {
+    padding: 14px;
   }
   .px-1 {
     padding-inline: var(--spacing-1);

@@ -401,26 +401,32 @@
 
 /* Artist Spotlight card: a square, uncropped photo beside its details.
    No scrim, no overlay -- the photo is never drawn under anything else
-   (F-B21-60). */
+   (F-B21-60). Padding matches the sibling rail cards' own utility classes
+   (p-4 md:p-[calc(1.25rem*var(--results-scale))]), not a bespoke value. */
 .spotlight-card-bleed {
     width: 100%;
     background-color: var(--results-surface);
-    padding: calc(0.75rem * var(--results-scale));
 }
 
 .spotlight-card-content {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: flex-start;
     gap: calc(0.75rem * var(--results-scale));
 }
 
 .spotlight-image-box {
     position: relative;
-    width: 100%;
+    /* Beside the text at every width (never full rail width on mobile),
+       roughly 112px -- proportionate to the card, between the results-table
+       thumbnail (4rem/4.5rem) and this card's own 8px-corner desktop size
+       (9rem). */
+    width: calc(7rem * var(--results-scale));
     aspect-ratio: 1 / 1;
     border-radius: 4px;
     overflow: hidden;
     background-color: var(--results-surface);
+    border: 1px solid var(--ss-border-default);
     flex-shrink: 0;
 }
 
@@ -437,24 +443,14 @@
     flex-direction: column;
     justify-content: center;
     gap: calc(0.375rem * var(--results-scale));
+    flex: 1;
     min-width: 0;
 }
 
 @media (min-width: 768px) {
-    .spotlight-card-content {
-        flex-direction: row;
-        align-items: flex-start;
-    }
-
     .spotlight-image-box {
         width: calc(9rem * var(--results-scale));
         border-radius: 8px;
-        flex-shrink: 0;
-    }
-
-    .spotlight-details {
-        flex: 1;
-        min-width: 0;
     }
 }
 

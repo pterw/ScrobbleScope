@@ -151,6 +151,29 @@ in `task-5-report.md`. Also names the third existing test this task edited,
 `test_spotlight_rotation_wraps_and_preserves_input` (`tests/test_routes.py`'s two
 edits were already named in 699bec2's body), which the original commit omitted.
 
+**Polish round, 2026-09-26:** a design review plus the controller's own read of
+every screenshot found the compliant-but-plain spotlight card needed five more
+fixes to match its sibling rail blocks: `.spotlight-image-box`
+(`static/css/results.css`) gains the same `1px solid var(--ss-border-default)`
+border every other thumbnail on the page already carries, so a dark photo
+never melts into a dark card; `.spotlight-card-bleed`'s bespoke padding is
+dropped in favour of the sibling cards' own `p-4
+md:p-[calc(1.25rem*var(--results-scale))]` classes on `#artist-spotlight-card`
+(`templates/results.html`), matching their rhythm exactly; "Artist Spotlight"
+moves from a muted inline label into its own `<h3 class="results-rail-title">`
+heading row at the top of the card, the same shared class and position the
+"Sort leaderboard" and "Albums outside your filters" headings use; the photo
+stays beside the text below 768px too, at a proportionate ~112px (was full
+rail width), keeping 4px corners under 768px and 8px at/above; and the
+artist's name drops `truncate` so a long name wraps instead of clipping. The
+Spotify link's tap target grows from 16x16 to 44x44 via padding and a
+matching negative margin, with no change to the glyph. The one-time card
+reveal's layout shift stays parked (owner ruling: no fade/reserve, since the
+card must stay hidden until a photo confirms and Spotify forbids animating
+artwork), as does the interim Spotify link's icon/attribution work (F-B21-60
+part 2). AFTER screenshots and measurements confirming all five fixes are in
+`design-fe5/after-*.png` and `after-measurements.json` in the SDD workspace.
+
 Validation: `pytest -q` -- **1958 passed**.
 
 ### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
