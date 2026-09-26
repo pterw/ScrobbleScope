@@ -114,6 +114,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-26 - Correct the dashboard's test-module count
+
+Side task, no batch tag: follow-up on the Task 7 fix round's CR8, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of
+WP-0 lands.
+
+- **Scope and result.** The prior CR8 fix corrected `docs/agents/FINDINGS.md`'s
+  hand-maintained header (72 -> 73 tracked test modules) but left
+  `.claude/SESSION_CONTEXT.md`'s own copy of the same figure stale, because
+  `--fix` only rewrites the test-*count* digit there, never the module-count
+  digit (`AGENTS.md` anti-pattern 10: re-measure rather than copy a number
+  forward). Re-measured
+  (`git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` -> 73,
+  unchanged) and corrected SESSION_CONTEXT's Section 1 Tests row from 72 to
+  73, leaving its test count exactly as `--fix` last wrote it (1926).
+  `git grep -n -i "tracked test module" -- ':!docs/history' ':!docs/logarchive'
+  ':!docs/superpowers/plans'` found no other live-doc copy showing a stale
+  figure: `tests/test_docsync_cli.py` and `tests/test_docsync_test_count.py`
+  only quote fixture text (68), not a live claim.
+
+Validation: `pytest -q` -- **1926 passed**.
+
 ### 2026-09-26 - Keep the essentials warning from failing the worktree guard
 
 Side task, no batch tag: fix round on Task 7's code review, part of Batch 23
@@ -221,41 +243,3 @@ of WP-0 lands.
   'scripts.dev._worktree_guard_types.GuardError'>`); the other 8 tests in
   the file still passed.
 - **Validation.** `pytest -q` -- **1911 passed**.
-
-### 2026-09-26 - Stage before running pre-commit in the commit procedure
-
-Side task, no batch tag: Task 6 of the control-plane plan, part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope and result.** `AGENTS.md`'s "Commit Rules" > "Procedure before
-  every commit" ran `pre-commit run --all-files` (step 4) before "Stage
-  specific paths by name" (step 6): the `tailwind-css-drift` hook rebuilds
-  `static/css/tailwind.css` from source and diffs it against the index, so
-  an unstaged, correctly rebuilt CSS change read as drift for the same
-  reason a genuinely stale build would (F-B21-20). The two steps are
-  swapped: staging is now step 4 and `pre-commit run --all-files` is step 5,
-  with `--check` moved to step 6 and Commit to step 7. The staging step now
-  says why staging must happen first (F-B21-20), and the pre-commit step
-  notes that a hook rewriting a file leaves the tree ahead of the index
-  again, so the touched paths need re-staging before `--check`.
-- **Step 2 sweep.** `git grep -n "step 4\|step 6\|procedure.*step" -- '*.md'
-  ':!docs/history' ':!docs/logarchive'` finds no live document citing the
-  old step numbers of this procedure by number: the one non-plan,
-  non-archive hit outside this task's own files is
-  `.superpowers/cloud-kit/agents/gate-runner.md`'s own "Step 4 --
-  postflight" heading (its own numbering, not a citation of AGENTS.md).
-- **Live probe** (`/c/ssprobe6`, independent clone at BASE `4ece23a`,
-  deleted afterwards; run by a probe-only dispatch and spot-checked by the
-  controller, recorded in `task-6-probe-report.md`).
-
-  | Case | Result | Exit |
-  |---|---|---|
-  | Red (old order): correct rebuild, left unstaged | `tailwind-css-drift` Failed | 1 |
-  | Green (new order): correct rebuild, staged first | `tailwind-css-drift` Passed | 0 |
-  | Near-miss: stale build (not rebuilt), staged anyway | `tailwind-css-drift` Failed | 1 |
-
-  A correct rebuild passes under the new order and fails under the old one;
-  a genuinely stale build still correctly fails either way.
-- F-B21-20 is resolved.
-- **Validation.** `pytest -q` -- **1910 passed**.
