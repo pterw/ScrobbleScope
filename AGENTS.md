@@ -174,15 +174,22 @@ validated -- a gate that runs before the doc update cannot check it, and
    refreshes the managed blocks from the text you just wrote, and pins N
    in `config/docsync.toml`. Bare `--fix` remains documented for a commit
    that does not change the count.
-4. `pre-commit run --all-files` -- all hooks pass.
-5. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
-   state (the root `BATCHN_DEFINITION.md` warning is expected while a
-   batch is active).
-6. Stage specific paths by name. **Never `git add -A` or `git add .`** --
+4. Stage specific paths by name. **Never `git add -A` or `git add .`** --
    the prohibition is on the command, since it silently picks up whatever
    else is in the tree, even when every changed file belongs to this WP.
    Stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever it
-   changed; do not leave it modified and unstaged.
+   changed; do not leave it modified and unstaged. Staging now, before
+   `pre-commit run --all-files`, is required: the `tailwind-css-drift` hook
+   rebuilds the compiled stylesheet and diffs it against the index, so an
+   unstaged source edit always reads as drift whether or not the rebuild is
+   correct (F-B21-20).
+5. `pre-commit run --all-files` -- all hooks pass. A hook that rewrites a
+   file, for example `tailwind-css-drift` itself or an auto-formatter,
+   leaves the working tree ahead of the index again; re-stage the paths it
+   touched before the next step.
+6. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
+   state (the root `BATCHN_DEFINITION.md` warning is expected while a
+   batch is active).
 7. Commit after each WP (never batch multiple into one commit). Do not push
    without explicit owner instruction; pause after each commit for review.
    **Standing exception (Claude Code and Codex only, granted 2026-07-31):**

@@ -175,32 +175,6 @@ gate.
 Source: Batch 21 WP-3 review analysis, 2026-08-25. Scheduled by owner
 ruling, 2026-08-26.
 
-### F-B21-20: the Tailwind hook and commit procedure disagree on staging order
-
-`AGENTS.md` requires `pre-commit run --all-files` to pass before any path is
-staged. The `tailwind-css-drift` hook rebuilds `static/css/tailwind.css`, then
-runs `git diff --exit-code` against the index. A correct source-and-output edit
-therefore fails before staging for the same reason a stale output fails: both
-make the generated file differ from the index. Rebuilding again does not
-change that answer.
-
-The hook passes at commit time after the source and generated output are
-staged, which is the state its Batch 21 acceptance criterion describes. The
-manual commit procedure demands the opposite state. This review had to run
-all hooks with an exact-name staged candidate, compare the index tree before
-and after, and restore the index afterward; otherwise the final gate could
-never be green.
-
-Do not silently reorder the repository-wide commit procedure or rewrite the
-hook inside a UI review. The owner needs to choose one contract: stage named
-paths before pre-commit, or make `--check` compare the freshly built bytes with
-the bytes present before the build instead of comparing the working file with
-the index. Either choice needs a regression test for an intentionally changed,
-already rebuilt stylesheet.
-
-Status: open. Owner decision required; not assigned to a work package.
-Source: PR #218 final verification, 2026-08-25.
-
 ### F-B21-22: theme follows the system only until the toggle is first used
 
 `templates/base.html` picks the pre-paint theme with

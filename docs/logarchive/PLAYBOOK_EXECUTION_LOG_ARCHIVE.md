@@ -9,6 +9,62 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - BATCH* discovery becomes case-consistent
+
+Side task, no batch tag: Task 4 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `_batch_filename_candidates` (`scripts/docsync/cli.py`)
+  replaces every `directory.glob("BATCH...")` call in the module --
+  `_check_root_batch_files`, both `LOGS_DIR.glob("BATCH*_LOG.md")` sites
+  (`_read_batch_log_lines` and `_managed_archive_paths`), `_archived_definitions`
+  and `_read_live_documents` -- with a directory-listing scan matched by the
+  same case-insensitive regex glob's candidates were already filtered with
+  (`_BATCH_LOG_RE`, `root_definition_pattern`), so batch discovery no longer
+  depends on the host filesystem's case sensitivity (F-DOCSYNC-6).
+  `git grep -n 'glob("BATCH' -- scripts/docsync` now returns nothing.
+  F-DOCSYNC-6's outside-root item was confirmed already fixed:
+  `_Files._path`/`_relative` (`scripts/docsync/declarations.py`) already raise
+  `DeclarationError` -- caught by `main()`'s `except SyncError` clause, since
+  `DeclarationError` subclasses `SyncError` -- with "... resolves outside the
+  repository root", instead of letting a bare `ValueError` propagate;
+  `docs/agents/FINDINGS.md`'s own F-DOCSYNC-6 entry already names F-DOCSYNC-21
+  (`88f0514`) as the fix for this item, and `88f0514`'s `_validate_documents`
+  closes the same class of escape for the `[documents]` config roles. This
+  finding is now fully resolved (5 of 5 items accounted for); the three
+  remaining items are the owner's 2026-09-23 accepted design boundaries and
+  stay as documented.
+- **Live probe** (`/c/ssprobe`, deleted afterwards). `fsutil file
+  setCaseSensitiveInfo` was denied (`0x00000005 Access is denied`) on this
+  host, so the brief's "before" red could not be produced under a simulated
+  POSIX case-sensitive directory; per the controller, this was tried once and
+  not retried another way.
+
+  | Probe | Result |
+  |---|---|
+  | Before (BASE tree, this NTFS host, lower-case `batch99_definition.md` added) | `--check` passes; `_archived_definitions()` finds it (host-dependent, as expected) |
+  | After (task tree, same fixture) | `--check` passes identically; `_archived_definitions()` finds it |
+  | Near-miss (correctly-cased `BATCH13_DEFINITION.md`) | Found identically in both trees |
+  | Mutation (scratch copy): `_batch_filename_candidates` body swapped for `sorted(directory.glob("BATCH*", case_sensitive=True))` filtered by `name_re`, simulating POSIX | The Step 2 unit test fails, missing `batch24_definition.md` and `Batch25_Definition.md` -- this substitutes for the host-dependent red |
+
+- **Deviation.** The brief's Step 1 instructed `git show 88f0514 --
+  scripts/docsync/declarations.py | grep -n "resolves outside"`, expecting
+  that literal string in the diff; it is not there. `88f0514` validates the
+  `[documents]` config table with different wording ("must be a
+  repository-relative path", "must be inside the repository"); the "resolves
+  outside the repository root" wording belongs to `_Files._path`/`_relative`,
+  added earlier (`54fecbfb`) and already in the tree. Both mechanisms raise
+  `DeclarationError` -> exit 2 through the same `except SyncError` path, so
+  the finding's outside-root item is still confirmed fixed; this entry cites
+  the evidence actually found rather than the brief's unmatched grep. Per the
+  controller's task context, both `LOGS_DIR.glob(...)` sites were converted
+  (not gated on the live probe, which cannot reproduce a platform mismatch on
+  this host) and the Section 3 WP-0 close-out bullet picks up a carried
+  review item from Task 3: its tagged entry must carry `**Status:** WP-0
+  complete`, or DOC007 blocks the close-out.
+- **Validation.** `pytest -q` -- **1898 passed**.
+
 ### 2026-09-25 - A work package closes only on an explicit completion line
 
 Side task, no batch tag: Task 3 of the control-plane plan, part of Batch 23

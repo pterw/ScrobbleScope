@@ -80,8 +80,8 @@ See FINDINGS F-DOCSYNC-3.
   The control-plane plan is written and reviewed:
   `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
   it task by task, then write the frontend plan. Tasks 1-4 have landed, and
-  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Task 5
-  has now landed. Write each specialized plan before implementing its cluster. The
+  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Tasks 5
+  and 6 have now landed. Write each specialized plan before implementing its cluster. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -113,6 +113,44 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - Stage before running pre-commit in the commit procedure
+
+Side task, no batch tag: Task 6 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `AGENTS.md`'s "Commit Rules" > "Procedure before
+  every commit" ran `pre-commit run --all-files` (step 4) before "Stage
+  specific paths by name" (step 6): the `tailwind-css-drift` hook rebuilds
+  `static/css/tailwind.css` from source and diffs it against the index, so
+  an unstaged, correctly rebuilt CSS change read as drift for the same
+  reason a genuinely stale build would (F-B21-20). The two steps are
+  swapped: staging is now step 4 and `pre-commit run --all-files` is step 5,
+  with `--check` moved to step 6 and Commit to step 7. The staging step now
+  says why staging must happen first (F-B21-20), and the pre-commit step
+  notes that a hook rewriting a file leaves the tree ahead of the index
+  again, so the touched paths need re-staging before `--check`.
+- **Step 2 sweep.** `git grep -n "step 4\|step 6\|procedure.*step" -- '*.md'
+  ':!docs/history' ':!docs/logarchive'` finds no live document citing the
+  old step numbers of this procedure by number: the one non-plan,
+  non-archive hit outside this task's own files is
+  `.superpowers/cloud-kit/agents/gate-runner.md`'s own "Step 4 --
+  postflight" heading (its own numbering, not a citation of AGENTS.md).
+- **Live probe** (`/c/ssprobe6`, independent clone at BASE `4ece23a`,
+  deleted afterwards; run by a probe-only dispatch and spot-checked by the
+  controller, recorded in `task-6-probe-report.md`).
+
+  | Case | Result | Exit |
+  |---|---|---|
+  | Red (old order): correct rebuild, left unstaged | `tailwind-css-drift` Failed | 1 |
+  | Green (new order): correct rebuild, staged first | `tailwind-css-drift` Passed | 0 |
+  | Near-miss: stale build (not rebuilt), staged anyway | `tailwind-css-drift` Failed | 1 |
+
+  A correct rebuild passes under the new order and fails under the old one;
+  a genuinely stale build still correctly fails either way.
+- F-B21-20 is resolved.
+- **Validation.** `pytest -q` -- **1910 passed**.
 
 ### 2026-09-26 - Two worktree-guard bugs are fixed
 
@@ -228,59 +266,3 @@ lands.
   | Near-miss (task preflight overlaid) | pin edit plus an `[options]` edit staged | exit 3, control-plane refusal |
 
 - **Validation.** `pytest -q` -- **1905 passed**.
-
-### 2026-09-25 - BATCH* discovery becomes case-consistent
-
-Side task, no batch tag: Task 4 of the control-plane plan, part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope and result.** `_batch_filename_candidates` (`scripts/docsync/cli.py`)
-  replaces every `directory.glob("BATCH...")` call in the module --
-  `_check_root_batch_files`, both `LOGS_DIR.glob("BATCH*_LOG.md")` sites
-  (`_read_batch_log_lines` and `_managed_archive_paths`), `_archived_definitions`
-  and `_read_live_documents` -- with a directory-listing scan matched by the
-  same case-insensitive regex glob's candidates were already filtered with
-  (`_BATCH_LOG_RE`, `root_definition_pattern`), so batch discovery no longer
-  depends on the host filesystem's case sensitivity (F-DOCSYNC-6).
-  `git grep -n 'glob("BATCH' -- scripts/docsync` now returns nothing.
-  F-DOCSYNC-6's outside-root item was confirmed already fixed:
-  `_Files._path`/`_relative` (`scripts/docsync/declarations.py`) already raise
-  `DeclarationError` -- caught by `main()`'s `except SyncError` clause, since
-  `DeclarationError` subclasses `SyncError` -- with "... resolves outside the
-  repository root", instead of letting a bare `ValueError` propagate;
-  `docs/agents/FINDINGS.md`'s own F-DOCSYNC-6 entry already names F-DOCSYNC-21
-  (`88f0514`) as the fix for this item, and `88f0514`'s `_validate_documents`
-  closes the same class of escape for the `[documents]` config roles. This
-  finding is now fully resolved (5 of 5 items accounted for); the three
-  remaining items are the owner's 2026-09-23 accepted design boundaries and
-  stay as documented.
-- **Live probe** (`/c/ssprobe`, deleted afterwards). `fsutil file
-  setCaseSensitiveInfo` was denied (`0x00000005 Access is denied`) on this
-  host, so the brief's "before" red could not be produced under a simulated
-  POSIX case-sensitive directory; per the controller, this was tried once and
-  not retried another way.
-
-  | Probe | Result |
-  |---|---|
-  | Before (BASE tree, this NTFS host, lower-case `batch99_definition.md` added) | `--check` passes; `_archived_definitions()` finds it (host-dependent, as expected) |
-  | After (task tree, same fixture) | `--check` passes identically; `_archived_definitions()` finds it |
-  | Near-miss (correctly-cased `BATCH13_DEFINITION.md`) | Found identically in both trees |
-  | Mutation (scratch copy): `_batch_filename_candidates` body swapped for `sorted(directory.glob("BATCH*", case_sensitive=True))` filtered by `name_re`, simulating POSIX | The Step 2 unit test fails, missing `batch24_definition.md` and `Batch25_Definition.md` -- this substitutes for the host-dependent red |
-
-- **Deviation.** The brief's Step 1 instructed `git show 88f0514 --
-  scripts/docsync/declarations.py | grep -n "resolves outside"`, expecting
-  that literal string in the diff; it is not there. `88f0514` validates the
-  `[documents]` config table with different wording ("must be a
-  repository-relative path", "must be inside the repository"); the "resolves
-  outside the repository root" wording belongs to `_Files._path`/`_relative`,
-  added earlier (`54fecbfb`) and already in the tree. Both mechanisms raise
-  `DeclarationError` -> exit 2 through the same `except SyncError` path, so
-  the finding's outside-root item is still confirmed fixed; this entry cites
-  the evidence actually found rather than the brief's unmatched grep. Per the
-  controller's task context, both `LOGS_DIR.glob(...)` sites were converted
-  (not gated on the live probe, which cannot reproduce a platform mismatch on
-  this host) and the Section 3 WP-0 close-out bullet picks up a carried
-  review item from Task 3: its tagged entry must carry `**Status:** WP-0
-  complete`, or DOC007 blocks the close-out.
-- **Validation.** `pytest -q` -- **1898 passed**.

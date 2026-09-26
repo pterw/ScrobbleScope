@@ -9,6 +9,31 @@ Newest rotation first.
 
 ---
 
+### F-B21-20: the Tailwind hook and commit procedure disagree on staging order -- RESOLVED
+
+`AGENTS.md` requires `pre-commit run --all-files` to pass before any path is
+staged. The `tailwind-css-drift` hook rebuilds `static/css/tailwind.css`, then
+runs `git diff --exit-code` against the index. A correct source-and-output edit
+therefore fails before staging for the same reason a stale output fails: both
+make the generated file differ from the index. Rebuilding again does not
+change that answer.
+
+The hook passes at commit time after the source and generated output are
+staged, which is the state its Batch 21 acceptance criterion describes. The
+manual commit procedure demands the opposite state. This review had to run
+all hooks with an exact-name staged candidate, compare the index tree before
+and after, and restore the index afterward; otherwise the final gate could
+never be green.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-26
+`AGENTS.md`'s commit procedure now stages named paths (step 4) before
+`pre-commit run --all-files` (step 5), so the `tailwind-css-drift` hook's
+index comparison sees the change being committed instead of the prior
+commit's bytes (Q5 = a).
+
+Source: PR #218 final verification, 2026-08-25.
+
 ### F-WORKTREE-3: guard boundaries outside the design decision table -- RESOLVED
 
 Confirmed but unaddressed: between batches the guard skips every ancestry

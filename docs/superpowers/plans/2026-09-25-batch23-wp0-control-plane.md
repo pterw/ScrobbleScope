@@ -1447,7 +1447,7 @@ reads as drift and the hook fails for the same reason a genuinely stale build wo
 there is no way to tell the two apart from inside step 4, because nothing has been staged
 for the hook to compare against yet.
 
-- [ ] **Step 1: Reorder the procedure, starting from the list as Task 1 left it.** Task 1
+- [x] **Step 1: Reorder the procedure, starting from the list as Task 1 left it.** Task 1
   already swapped `--fix` and `pytest -q` and added `--test-count N`, so the numbered list
   reads: `1` PLAYBOOK, `2` `pytest -q`, `3` `--fix --test-count N` (bare `--fix` when the
   count is unchanged), `4` `pre-commit run --all-files`, `5` `--check`, `6` Stage specific
@@ -1473,7 +1473,7 @@ for the hook to compare against yet.
   this task is implemented, apply both reorders in one pass instead and say so in the commit
   body.
 
-- [ ] **Step 2: Grep for stale numeric citations elsewhere.**
+- [x] **Step 2: Grep for stale numeric citations elsewhere.**
 
   ```bash
   git grep -n "step 4\|step 6\|procedure.*step" -- '*.md' ':!docs/history' ':!docs/logarchive'
@@ -1482,7 +1482,7 @@ for the hook to compare against yet.
   Correct any live document citing the old step numbers by name of the step (its verb),
   not by number, so a future reorder cannot silently strand the citation again.
 
-- [ ] **Step 3: Live probe against the real hook.** Per the verification standard, in
+- [x] **Step 3: Live probe against the real hook.** Per the verification standard, in
   `/c/ssprobe/corpus`:
   - **Red (old order):** make a legitimate source edit to `static/css/tailwind.src.css`
     (one token value change) and rebuild `static/css/tailwind.css` from it by running
@@ -1502,7 +1502,7 @@ for the hook to compare against yet.
     failure, not a real drift defect.
   - Reset the probe corpus between each (`git reset -q --hard base && git clean -qfd`).
 
-- [ ] **Step 4: Section 4 entry and commit.** This task touches only `AGENTS.md`; no R7
+- [x] **Step 4: Section 4 entry and commit.** This task touches only `AGENTS.md`; no R7
   concern.
 
   ```bash
@@ -1513,7 +1513,7 @@ for the hook to compare against yet.
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe" scripts/doc_state_sync.py --check
   ```
 
-- [ ] **Step 5: Resolve F-B21-20 and commit.** Reason: "`AGENTS.md`'s commit procedure now
+- [x] **Step 5: Resolve F-B21-20 and commit.** Reason: "`AGENTS.md`'s commit procedure now
   stages named paths (step 4) before `pre-commit run --all-files` (step 5), so the
   `tailwind-css-drift` hook's index comparison sees the change being committed instead of
   the prior commit's bytes (Q5 = a)."
