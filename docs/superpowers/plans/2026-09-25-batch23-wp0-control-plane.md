@@ -1115,7 +1115,7 @@ at lines 684-705 of the current tree) now raise `DeclarationError` -- which `cli
 `test_explicit_missing_path_is_refused`-style coverage). This task's only job for that item
 is to record the evidence; it makes no code change for it.
 
-- [ ] **Step 1: Confirm the outside-root fix, with evidence, and record it.** Run:
+- [x] **Step 1: Confirm the outside-root fix, with evidence, and record it.** Run:
 
   ```bash
   git log --format="%H %s" -1 88f0514
@@ -1128,7 +1128,7 @@ is to record the evidence; it makes no code change for it.
   "F-DOCSYNC-6's outside-root item was confirmed already fixed by `88f0514`
   (F-DOCSYNC-21); no code change made for it here."
 
-- [ ] **Step 2: Write the failing test for case-consistent discovery.** Append to
+- [x] **Step 2: Write the failing test for case-consistent discovery.** Append to
   `tests/test_docsync_cli.py`:
 
   ```python
@@ -1169,12 +1169,12 @@ is to record the evidence; it makes no code change for it.
   "batch23_definition.md"` would be the *same* file, so a same-number variant would corrupt
   the fixture rather than test discovery.
 
-- [ ] **Step 3: Run to verify it fails.**
+- [x] **Step 3: Run to verify it fails.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_cli.py -q -k case_consistent`
   Expected: `ImportError` -- `_batch_filename_candidates` does not exist yet.
 
-- [ ] **Step 4: Implement the case-insensitive scan.** In `scripts/docsync/cli.py`, add near
+- [x] **Step 4: Implement the case-insensitive scan.** In `scripts/docsync/cli.py`, add near
   `_BATCH_LOG_RE`: `_batch_filename_candidates(directory: Path, name_re: re.Pattern[str]) ->
   list[Path]` -- return `[]` when `directory` is not a directory, otherwise the sorted list
   of files in `directory.iterdir()` whose name matches `name_re`. Docstring: `Path.glob`'s
@@ -1199,14 +1199,14 @@ is to record the evidence; it makes no code change for it.
   the same platform mismatch there. Check first; if it reproduces, convert them with the
   same helper and say so in the commit body.
 
-- [ ] **Step 5: Run to verify it passes, then the full docsync corpus.**
+- [x] **Step 5: Run to verify it passes, then the full docsync corpus.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_cli.py -q
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" -q --ignore=tests/scripts/dev/test_mutation_test.py -p no:cacheprovider
   ```
 
-- [ ] **Step 6: Gates and live probe.** In `/c/ssprobe/corpus`:
+- [x] **Step 6: Gates and live probe.** In `/c/ssprobe/corpus`:
   - **Red:** create a lower-case `batch99_definition.md` inside
     `docs/history/definitions/`; before this task's fix, whether it is discovered depends
     on the probe host's OS (this repository's CI and the owner's machine are different
@@ -1222,7 +1222,7 @@ is to record the evidence; it makes no code change for it.
     lower-case-named fixture file, and confirming both report seeing it.
   - **Near-miss green:** a correctly-cased file; unaffected either way.
 
-- [ ] **Step 7: Resolve F-DOCSYNC-6 and commit.** Reason: "the case-inconsistent-glob item
+- [x] **Step 7: Resolve F-DOCSYNC-6 and commit.** Reason: "the case-inconsistent-glob item
   is fixed by `_batch_filename_candidates` (`scripts/docsync/cli.py`), matched with the
   same case-insensitive regex every other discovery site already uses; the outside-root
   item was confirmed already fixed by `88f0514` (F-DOCSYNC-21); the three remaining items

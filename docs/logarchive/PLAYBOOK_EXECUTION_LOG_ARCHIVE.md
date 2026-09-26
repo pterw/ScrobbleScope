@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - The control-plane plan is written and reviewed
+
+Side task, no batch tag: adds WP-0 Part C's first follow-on plan.
+
+- **Scope and result.** The plan covers F-DOCSYNC-6, -7, -11, -12, -13, -15
+  and -22, F-MAS-3, F-WORKTREE-3, F-B21-20 and F-B21-25 items 1-2, in seven
+  tasks. Two read-only reviews checked it against the code. The first found
+  that the draft kept the pinned test count in the SESSION_CONTEXT STATUS
+  block, which is rendered output. It also found that the draft claimed the
+  commit procedure already passes `--test-count`, which it does not. Both
+  are fixed.
+- **Owner rulings.** The plan records three: the pin lives in
+  `config/docsync.toml`; a new warning, DOC025, fires only when one newest
+  entry disagrees with the pin; and a dirty tree adds WT010 only on a local
+  detached checkout.
+- **Deviations.** The plan is 1834 lines, above the review's estimate. The
+  pin redesign and DOC025 added test bodies that the length rule does not
+  allow cutting.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Docsync check and pre-commit pass.
+- **Forward guidance.** Task 1 reorders the commit procedure so the suite
+  is measured before `--fix --test-count N`.
+
 ### 2026-09-25 - Owner rulings: no GitHub mirror, and F-DOCSYNC-22 joins Part C
 
 Side task, no batch tag: records two owner rulings given on 2026-09-25.

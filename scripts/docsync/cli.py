@@ -108,6 +108,22 @@ _BATCH_LOG_RE = re.compile(r"^BATCH(\d+)_LOG\.md$", re.IGNORECASE)
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
+def _batch_filename_candidates(directory: Path, name_re: re.Pattern[str]) -> list[Path]:
+    """Scan a directory listing for BATCH* files, matched the same way everywhere.
+
+    `Path.glob`'s case sensitivity follows the OS (insensitive on Windows,
+    sensitive on POSIX) while every regex this module already filters glob's
+    candidates with (`_BATCH_LOG_RE`, `root_definition_pattern`) is
+    `re.IGNORECASE` -- that mismatch meant a lower-case batch file was visible
+    to discovery on Windows and invisible on Linux (F-DOCSYNC-6); scanning the
+    listing directly with the same regex everywhere makes discovery identical
+    on every platform.
+    """
+    if not directory.is_dir():
+        return []
+    return sorted(path for path in directory.iterdir() if name_re.match(path.name))
+
+
 def _get_batch_log_path(batch_num: int) -> Path:
     """Return the canonical path for a per-batch execution log file."""
     return LOGS_DIR / f"BATCH{batch_num}_LOG.md"
@@ -116,7 +132,9 @@ def _get_batch_log_path(batch_num: int) -> Path:
 def _check_root_batch_files(root: Path) -> list[str]:
     """Scan root for unarchived BATCH*.md files and return warning strings."""
     warnings = []
-    for f in sorted(root.glob("BATCH*.md")):
+    for f in _batch_filename_candidates(
+        root, re.compile(r"^BATCH.*\.md$", re.IGNORECASE)
+    ):
         warnings.append(
             f"Root BATCH file detected: {f.name} should be archived under docs/history/definitions/."
         )
@@ -228,7 +246,7 @@ def _read_batch_log_lines(
     issues: list[IntegrityIssue] = []
     if not LOGS_DIR.exists():
         return result, issues
-    for batch_log_path in sorted(LOGS_DIR.glob("BATCH*_LOG.md")):
+    for batch_log_path in _batch_filename_candidates(LOGS_DIR, _BATCH_LOG_RE):
         match = _BATCH_LOG_RE.match(batch_log_path.name)
         if match is None:
             continue
@@ -253,7 +271,9 @@ def _archived_definitions() -> dict[str, list[str]]:
         return {}
     return {
         _repository_relative(path): _read_lines(path)
-        for path in sorted(directory.glob("BATCH*_DEFINITION.md"))
+        for path in _batch_filename_candidates(
+            directory, re.compile(r"^BATCH\d+_DEFINITION\.md$", re.IGNORECASE)
+        )
     }
 
 
@@ -263,7 +283,9 @@ def _read_live_documents() -> dict[str, list[str]]:
         _repository_relative(REPO_ROOT / relative): _read_lines(REPO_ROOT / relative)
         for relative in resolved_live_document_paths(_documents())
     }
-    for definition_path in REPO_ROOT.glob("BATCH*.md"):
+    for definition_path in _batch_filename_candidates(
+        REPO_ROOT, re.compile(r"^BATCH.*\.md$", re.IGNORECASE)
+    ):
         live_documents[_repository_relative(definition_path)] = _read_lines(
             definition_path
         )
@@ -1056,7 +1078,7 @@ def _managed_archive_paths() -> list[Path]:
     """Return every archive entry point this repository maintains."""
     paths = [ARCHIVE_PATH, FINDINGS_ARCHIVE_PATH]
     if LOGS_DIR.exists():
-        paths.extend(sorted(LOGS_DIR.glob("BATCH*_LOG.md")))
+        paths.extend(_batch_filename_candidates(LOGS_DIR, _BATCH_LOG_RE))
     return [path for path in paths if path.is_file()]
 
 

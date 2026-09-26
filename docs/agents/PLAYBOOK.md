@@ -79,15 +79,16 @@ See FINDINGS F-DOCSYNC-3.
   control-plane, frontend, then test infrastructure and dependencies.
   The control-plane plan is written and reviewed:
   `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
-  it task by task, then write the frontend plan. Tasks 1-3 have landed. Write
+  it task by task, then write the frontend plan. Tasks 1-4 have landed. Write
   each specialized plan before implementing its cluster. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
   branch, verify Part C's listed findings member by member, and run the
   final gates in the definition. Then write one tagged `(Batch 23 WP-0)`
-  Section 4 entry. Earlier WP-0 commits remain untagged by the owner's
-  2026-09-23 ruling in the definition.
+  Section 4 entry, carrying an explicit `**Status:** WP-0 complete` line
+  (DOC007 requires it before the package reads done). Earlier WP-0 commits
+  remain untagged by the owner's 2026-09-23 ruling in the definition.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 
@@ -111,6 +112,62 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-25 - BATCH* discovery becomes case-consistent
+
+Side task, no batch tag: Task 4 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `_batch_filename_candidates` (`scripts/docsync/cli.py`)
+  replaces every `directory.glob("BATCH...")` call in the module --
+  `_check_root_batch_files`, both `LOGS_DIR.glob("BATCH*_LOG.md")` sites
+  (`_read_batch_log_lines` and `_managed_archive_paths`), `_archived_definitions`
+  and `_read_live_documents` -- with a directory-listing scan matched by the
+  same case-insensitive regex glob's candidates were already filtered with
+  (`_BATCH_LOG_RE`, `root_definition_pattern`), so batch discovery no longer
+  depends on the host filesystem's case sensitivity (F-DOCSYNC-6).
+  `git grep -n 'glob("BATCH' -- scripts/docsync` now returns nothing.
+  F-DOCSYNC-6's outside-root item was confirmed already fixed:
+  `_Files._path`/`_relative` (`scripts/docsync/declarations.py`) already raise
+  `DeclarationError` -- caught by `main()`'s `except SyncError` clause, since
+  `DeclarationError` subclasses `SyncError` -- with "... resolves outside the
+  repository root", instead of letting a bare `ValueError` propagate;
+  `docs/agents/FINDINGS.md`'s own F-DOCSYNC-6 entry already names F-DOCSYNC-21
+  (`88f0514`) as the fix for this item, and `88f0514`'s `_validate_documents`
+  closes the same class of escape for the `[documents]` config roles. This
+  finding is now fully resolved (5 of 5 items accounted for); the three
+  remaining items are the owner's 2026-09-23 accepted design boundaries and
+  stay as documented.
+- **Live probe** (`/c/ssprobe`, deleted afterwards). `fsutil file
+  setCaseSensitiveInfo` was denied (`0x00000005 Access is denied`) on this
+  host, so the brief's "before" red could not be produced under a simulated
+  POSIX case-sensitive directory; per the controller, this was tried once and
+  not retried another way.
+
+  | Probe | Result |
+  |---|---|
+  | Before (BASE tree, this NTFS host, lower-case `batch99_definition.md` added) | `--check` passes; `_archived_definitions()` finds it (host-dependent, as expected) |
+  | After (task tree, same fixture) | `--check` passes identically; `_archived_definitions()` finds it |
+  | Near-miss (correctly-cased `BATCH13_DEFINITION.md`) | Found identically in both trees |
+  | Mutation (scratch copy): `_batch_filename_candidates` body swapped for `sorted(directory.glob("BATCH*", case_sensitive=True))` filtered by `name_re`, simulating POSIX | The Step 2 unit test fails, missing `batch24_definition.md` and `Batch25_Definition.md` -- this substitutes for the host-dependent red |
+
+- **Deviation.** The brief's Step 1 instructed `git show 88f0514 --
+  scripts/docsync/declarations.py | grep -n "resolves outside"`, expecting
+  that literal string in the diff; it is not there. `88f0514` validates the
+  `[documents]` config table with different wording ("must be a
+  repository-relative path", "must be inside the repository"); the "resolves
+  outside the repository root" wording belongs to `_Files._path`/`_relative`,
+  added earlier (`54fecbfb`) and already in the tree. Both mechanisms raise
+  `DeclarationError` -> exit 2 through the same `except SyncError` path, so
+  the finding's outside-root item is still confirmed fixed; this entry cites
+  the evidence actually found rather than the brief's unmatched grep. Per the
+  controller's task context, both `LOGS_DIR.glob(...)` sites were converted
+  (not gated on the live probe, which cannot reproduce a platform mismatch on
+  this host) and the Section 3 WP-0 close-out bullet picks up a carried
+  review item from Task 3: its tagged entry must carry `**Status:** WP-0
+  complete`, or DOC007 blocks the close-out.
+- **Validation.** `pytest -q` -- **1898 passed**.
 
 ### 2026-09-25 - A work package closes only on an explicit completion line
 
@@ -263,26 +320,3 @@ lands.
   | 5 | DOC025 (warning only) | same tree, pinned=999 | Add a strictly-newer sole entry (2026-09-26, **1000 passed**) -> bare `--fix` -> `--check` | 0 | `WARNING DOC025` printed, pin stays at 999, exit 0 |
 - **Forward guidance.** Task 2 repoints `TestLatestTestCount`'s callers and
   splits `tests/test_docsync_logic.py` along F-MAS-3's seven concerns.
-
-### 2026-09-25 - The control-plane plan is written and reviewed
-
-Side task, no batch tag: adds WP-0 Part C's first follow-on plan.
-
-- **Scope and result.** The plan covers F-DOCSYNC-6, -7, -11, -12, -13, -15
-  and -22, F-MAS-3, F-WORKTREE-3, F-B21-20 and F-B21-25 items 1-2, in seven
-  tasks. Two read-only reviews checked it against the code. The first found
-  that the draft kept the pinned test count in the SESSION_CONTEXT STATUS
-  block, which is rendered output. It also found that the draft claimed the
-  commit procedure already passes `--test-count`, which it does not. Both
-  are fixed.
-- **Owner rulings.** The plan records three: the pin lives in
-  `config/docsync.toml`; a new warning, DOC025, fires only when one newest
-  entry disagrees with the pin; and a dirty tree adds WT010 only on a local
-  detached checkout.
-- **Deviations.** The plan is 1834 lines, above the review's estimate. The
-  pin redesign and DOC025 added test bodies that the length rule does not
-  allow cutting.
-- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
-  mutation tests excluded. Docsync check and pre-commit pass.
-- **Forward guidance.** Task 1 reorders the commit procedure so the suite
-  is measured before `--fix --test-count N`.

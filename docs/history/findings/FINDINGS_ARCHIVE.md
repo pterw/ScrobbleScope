@@ -9,6 +9,37 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-6: known DOC001 and count-derivation boundaries -- RESOLVED
+
+Cases the PR #169 review round confirmed and deliberately left unfixed
+because each needs a design decision rather than a patch:
+four-space indented blocks are still scanned for references, because the
+canonical documents use that indentation for list continuations and
+excluding it would silently disable DOC001 across much of AGENTS.md;
+prose added after the last Section 4 entry is never reference-checked;
+`cli.py` glob discovery is case-insensitive on Windows and case-sensitive
+on Linux while candidate matching uses `re.IGNORECASE`; a live document
+resolving outside the working directory raises `ValueError` rather than
+the documented exit 2; and a file deleted on disk with the deletion
+unstaged still counts as tracked.
+
+**Owner ruling, 2026-09-23:** the four-space indentation scan, the no-check
+on prose added after the last Section 4 entry, and the deleted-but-unstaged
+file counting as tracked are accepted design boundaries, not defects, and
+stay as documented. F-DOCSYNC-21 addresses the outside-root `ValueError`.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-25
+The case-inconsistent-glob item is fixed by `_batch_filename_candidates`
+(`scripts/docsync/cli.py`), matched with the same case-insensitive regex
+every other discovery site already uses; the outside-root item was
+confirmed already fixed by `88f0514` (F-DOCSYNC-21); the three remaining
+items (four-space indentation scan, no-check on trailing prose,
+deleted-but-unstaged files) are the owner's 2026-09-23 accepted design
+boundaries and stay as documented.
+
+Source: PR #169 independent review.
+
 ### F-DOCSYNC-15: a work package reads as complete on its first tagged log entry -- RESOLVED
 
 `scripts/docsync/parser.py` `_collect_wp_numbers` counts every `WP-<n>` token in a current-batch entry heading as a completed work package, so the first commit of a multi-commit work package already makes the dashboard name the next one. `docs/history/logs/BATCH22_LOG.md` shows it happened: three `(Batch 22 WP-4)` entries landed on 2026-09-20 before WP-4 was done. Nothing went red, because DOC007 compares only against a claim someone wrote, and nobody wrote "WP-5 is next" in that window. Batch 23 WP-0 works around it by logging untagged until the package closes (owner ruling, 2026-09-23). The fix shape is Q4 of `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. The owner chose the fix shape on 2026-09-23 -- a work package closes only on an entry carrying an explicit `**Status:** WP-N complete` line -- and the control-plane follow-on plan implements it.

@@ -461,6 +461,42 @@ class TestBatchLogHelpers:
         assert batch_log.exists()
         assert "Batch 10 WP-5" in batch_log.read_text(encoding="utf-8")
 
+    def test_batch_definition_discovery_is_case_consistent_across_platforms(
+        self, tmp_path: Path
+    ):
+        """F-DOCSYNC-6: Path.glob's case sensitivity follows the OS (insensitive
+        on Windows, sensitive on POSIX). A directory-listing scan matched with
+        the same case-insensitive regex used everywhere else in this module
+        finds the same files on both, instead of one platform silently missing
+        a lower-case batch definition the other would see."""
+        from docsync.cli import _batch_filename_candidates
+        from docsync.parser import root_definition_pattern
+
+        names = [
+            "BATCH23_DEFINITION.md",
+            "batch24_definition.md",
+            "Batch25_Definition.md",
+            "not_a_batch.md",
+            "BATCH26_PROPOSAL.md",
+        ]
+        for name in names:
+            (tmp_path / name).write_text("x", encoding="utf-8")
+
+        found = set()
+        for n in (23, 24, 25, 26):
+            found.update(
+                p.name
+                for p in _batch_filename_candidates(
+                    tmp_path, root_definition_pattern(n)
+                )
+            )
+        assert found == {
+            "BATCH23_DEFINITION.md",
+            "batch24_definition.md",
+            "Batch25_Definition.md",
+            "BATCH26_PROPOSAL.md",
+        }
+
 
 # ---------------------------------------------------------------------------
 # --fix --test-count N -- Task 1, F-DOCSYNC-11/-12/-13/-22

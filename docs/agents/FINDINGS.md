@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1897 tests across 72 tracked test modules.
+1898 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -338,27 +338,6 @@ entry point moved to F-B21-63.
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
-
-### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
-
-Cases the PR #169 review round confirmed and deliberately left unfixed
-because each needs a design decision rather than a patch:
-four-space indented blocks are still scanned for references, because the
-canonical documents use that indentation for list continuations and
-excluding it would silently disable DOC001 across much of AGENTS.md;
-prose added after the last Section 4 entry is never reference-checked;
-`cli.py` glob discovery is case-insensitive on Windows and case-sensitive
-on Linux while candidate matching uses `re.IGNORECASE`; a live document
-resolving outside the working directory raises `ValueError` rather than
-the documented exit 2; and a file deleted on disk with the deletion
-unstaged still counts as tracked.
-
-**Owner ruling, 2026-09-23:** the four-space indentation scan, the no-check
-on prose added after the last Section 4 entry, and the deleted-but-unstaged
-file counting as tracked are accepted design boundaries, not defects, and
-stay as documented. F-DOCSYNC-21 addresses the outside-root `ValueError`.
-The case-inconsistent glob discovery remains open for the control-plane plan.
-Status: open. Source: PR #169 independent review.
 
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 
