@@ -139,6 +139,19 @@ def _inspect_worktree(
         resolved_root, ("symbolic-ref", "--quiet", "--short", "HEAD")
     )
     if branch_result.returncode == 1:
+        # A recognized CI checkout's dirtiness (if any -- typically build
+        # artifacts) is not the "local work in progress" signal WT010 exists
+        # to protect, so no status call is made on that branch (F-WORKTREE-3,
+        # owner ruling 2026-09-23 on the between-batch boundary; owner Q2 on
+        # CI). A local detached checkout is measured the same way the
+        # attached path below measures it, so its dirty state is not hidden
+        # behind WT012 alone.
+        detached_dirty = False
+        if not is_recognized_ci:
+            detached_status_result = runner(resolved_root, ("status", "--porcelain"))
+            if detached_status_result.returncode != 0:
+                raise GuardError("Git could not inspect the worktree status.")
+            detached_dirty = bool(detached_status_result.stdout)
         return finish_diagnostics(
             classify_lineage(
                 LineageSnapshot(
@@ -150,7 +163,7 @@ def _inspect_worktree(
                     0,
                     None,
                     None,
-                    False,
+                    detached_dirty,
                     True,
                     is_recognized_ci,
                 )

@@ -1271,7 +1271,7 @@ This task does not touch `scripts/docsync/`, `config/docsync.toml` or
 `if snapshot.dirty:` check further down, both of which live only in the non-detached path,
 so a detached, dirty, non-CI worktree today reports WT012 alone.
 
-- [ ] **Step 1: Write the failing test.** In `tests/scripts/dev/test_worktree_guard.py`,
+- [x] **Step 1: Write the failing test.** In `tests/scripts/dev/test_worktree_guard.py`,
   extend `test_detached_ci_skips_and_detached_local_fails` or add beside it:
 
   ```python
@@ -1292,12 +1292,12 @@ so a detached, dirty, non-CI worktree today reports WT012 alone.
       assert [issue.code for issue in issues] == ["WT011"]
   ```
 
-- [ ] **Step 2: Run to verify the first fails.**
+- [x] **Step 2: Run to verify the first fails.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard.py -q -k detached_and_dirty`
   Expected: FAIL -- today's result is `["WT012"]`, not `["WT012", "WT010"]`.
 
-- [ ] **Step 3: Fix it.** In `scripts/dev/_worktree_guard_lineage.py`, `classify_lineage`,
+- [x] **Step 3: Fix it.** In `scripts/dev/_worktree_guard_lineage.py`, `classify_lineage`,
   the WT012 branch currently returns a one-element list built from a single `issue(...)`
   call immediately. Change it to build that same list under a name (`issues = [...]`),
   append `_dirty(snapshot)` to it when `snapshot.dirty` is true, and `return issues` --
@@ -1306,7 +1306,7 @@ so a detached, dirty, non-CI worktree today reports WT012 alone.
   work in progress" state WT010 exists to flag, and the finding names the detached *local*
   case specifically.
 
-- [ ] **Step 4: Run to verify it passes.**
+- [x] **Step 4: Run to verify it passes.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard.py -q`
   Expected: PASS, including the existing `test_detached_ci_skips_and_detached_local_fails`
@@ -1320,7 +1320,7 @@ regardless of the real ref's shape, and that branch's template substitutes the s
 pre-labelled string again, rendering "the local base ref configured base ref exists and is
 current".
 
-- [ ] **Step 5: Write the failing test.** In `tests/scripts/dev/test_worktree_guard_base_ref.py`,
+- [x] **Step 5: Write the failing test.** In `tests/scripts/dev/test_worktree_guard_base_ref.py`,
   extend the `test_missing_base_remediation_matches_selected_ref` parametrize table with a
   case whose ref is display-unsafe (so `base_ref_label` substitutes it) *and* contains a
   `/` (so the branch-decision bug is observable, not just the label text):
@@ -1365,12 +1365,12 @@ current".
   base ref ..."`), not the "local ref" one -- today's bug picks the wrong branch and the
   message reads "Verify the local base ref configured base ref exists...".
 
-- [ ] **Step 6: Run to verify it fails.**
+- [x] **Step 6: Run to verify it fails.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard_base_ref.py -q -k unsafe_remote_like`
   Expected: FAIL -- today's message is the doubled, wrong-branch text.
 
-- [ ] **Step 7: Fix it.** In `scripts/dev/_worktree_guard_diagnostics.py`,
+- [x] **Step 7: Fix it.** In `scripts/dev/_worktree_guard_diagnostics.py`,
   `missing_base_remediation(base_ref: str) -> str` keeps its signature and its three-way
   branch (`origin/main`; no `/` or starts with `refs/`, "local ref" phrasing; otherwise
   "custom remote" phrasing) unchanged in shape, but every branch decision and every
@@ -1383,14 +1383,14 @@ current".
   now passes the raw `base_ref` instead of the already-computed `label` (the diagnostic's
   own `subject` field keeps using `label`, unchanged).
 
-- [ ] **Step 8: Run to verify it passes.**
+- [x] **Step 8: Run to verify it passes.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard_base_ref.py -q`
   Expected: PASS, all three cases, including the two pre-existing ones (both display-safe
   refs, where `label == base_ref`, so this change is a no-op for them -- confirming no
   regression).
 
-- [ ] **Step 9: Full worktree-guard corpus, gates and live probe.**
+- [x] **Step 9: Full worktree-guard corpus, gates and live probe.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard*.py -q
@@ -1411,7 +1411,7 @@ current".
     selected base ref configured base ref exists locally..." (correct branch, single
     mention of the placeholder).
 
-- [ ] **Step 10: Resolve F-WORKTREE-3 and commit.** Reason: "WT010 now fires for a
+- [x] **Step 10: Resolve F-WORKTREE-3 and commit.** Reason: "WT010 now fires for a
   detached, dirty, local (non-CI) worktree (`classify_lineage`,
   `scripts/dev/_worktree_guard_lineage.py`); `missing_base_remediation` now branches on the
   raw base ref instead of an already-labelled placeholder, so an unsafe ref's remediation

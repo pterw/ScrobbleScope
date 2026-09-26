@@ -9,6 +9,43 @@ Newest rotation first.
 
 ---
 
+### F-WORKTREE-3: guard boundaries outside the design decision table -- RESOLVED
+
+Confirmed but unaddressed: between batches the guard skips every ancestry
+check by design, which is exactly when the rebase-merge artifact appears,
+so a genuinely diverged branch passes silently; WT010 never fires for a
+detached dirty worktree, which returns WT012 alone; and
+`missing_base_remediation` receives an already-labelled ref, so an unsafe
+ref name renders as "the local base ref configured base ref".
+
+The fourth item originally listed here -- `resolve_venv` deriving the primary
+checkout from the common Git directory's parent -- was fixed in an earlier
+PR's round-2 remediation, which discovers the main working tree with
+`git worktree list --porcelain` and passes it in. The remaining three were
+the between-batch ancestry skip, the missing WT010 on a detached dirty
+worktree, and the doubled base-ref label.
+
+**Owner ruling, 2026-09-23:** the between-batch ancestry skip is an accepted
+design boundary, not a defect, and stays as documented. WT010 on a
+detached, dirty worktree and the doubled base-ref label stayed open until
+this fix.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-26
+WT010 now fires for a detached, dirty, local (non-CI) worktree:
+`classify_lineage` (`scripts/dev/_worktree_guard_lineage.py`) appends the
+dirty diagnostic instead of returning early, and the detached, non-CI
+branch of `inspect_worktree` (`scripts/dev/_worktree_guard_inspection.py`)
+now measures dirtiness with the same status call the attached path uses,
+so the fix reaches the real CLI, not only the classifier in isolation.
+`missing_base_remediation` now branches on the raw base ref instead of an
+already-labelled placeholder, so an unsafe ref's remediation text names the
+placeholder once, in the correct branch
+(`scripts/dev/_worktree_guard_diagnostics.py`). The between-batch ancestry
+skip remains the owner's 2026-09-23 accepted design boundary.
+
+Source: PR #169 independent review.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries -- RESOLVED
 
 Cases the PR #169 review round confirmed and deliberately left unfixed

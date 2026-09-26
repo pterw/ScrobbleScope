@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1906 tests across 72 tracked test modules.
+1910 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -338,27 +338,6 @@ entry point moved to F-B21-63.
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
-
-### F-WORKTREE-3: guard boundaries outside the design decision table
-
-Confirmed but unaddressed: between batches the guard skips every ancestry
-check by design, which is exactly when the rebase-merge artifact appears,
-so a genuinely diverged branch passes silently; WT010 never fires for a
-detached dirty worktree, which returns WT012 alone; and
-`missing_base_remediation` receives an already-labelled ref, so an unsafe
-ref name renders as "the local base ref configured base ref".
-
-The fourth item originally listed here -- `resolve_venv` deriving the primary
-checkout from the common Git directory's parent -- was fixed in this PR's
-round-2 remediation, which discovers the main working tree with
-`git worktree list --porcelain` and passes it in. The remaining three are
-unchanged.
-
-**Owner ruling, 2026-09-23:** the between-batch ancestry skip is an accepted
-design boundary, not a defect, and stays as documented. WT010 on a
-detached, dirty worktree and the doubled base-ref label stay open; the
-control-plane plan fixes both.
-Status: open. Source: PR #169 independent review.
 
 ### F-LOAD-2: no integration tests in CI
 
