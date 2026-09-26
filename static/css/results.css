@@ -445,12 +445,29 @@
     gap: calc(0.375rem * var(--results-scale));
     flex: 1;
     min-width: 0;
+    /* Reserve room for the worst case (a 2-line clamped name, a 2-line
+       play-time/scrobble line, the rank line, and the two 0.375rem gaps
+       between them) so the card is the same height for every candidate,
+       not just the current one -- otherwise a short-to-long rotation tick
+       jumps the rail below by however much the name grows (F-B21-60
+       polish round 2, P1). text-2xl name, leading-tight (1.25): two lines
+       is 2 * 1.5rem * 1.25 = 3.75rem. text-xs (subtitle/rank) resolves to
+       a 1rem line-height at this theme's own --text-xs value, so two
+       subtitle lines plus one rank line is 3rem. Scaled by
+       --results-scale like every other spotlight measurement. */
+    min-height: calc((3.75rem + 3rem + 0.75rem) * var(--results-scale));
 }
 
 @media (min-width: 768px) {
     .spotlight-image-box {
         width: calc(9rem * var(--results-scale));
         border-radius: 8px;
+    }
+
+    .spotlight-details {
+        /* text-3xl name, leading-tight: two lines is
+           2 * 1.875rem * 1.25 = 4.6875rem. */
+        min-height: calc((4.6875rem + 3rem + 0.75rem) * var(--results-scale));
     }
 }
 

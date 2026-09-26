@@ -174,6 +174,33 @@ artwork), as does the interim Spotify link's icon/attribution work (F-B21-60
 part 2). AFTER screenshots and measurements confirming all five fixes are in
 `design-fe5/after-*.png` and `after-measurements.json` in the SDD workspace.
 
+**Polish round 2, 2026-09-26:** a scoped re-review found the polish round's own
+`truncate` removal let a long artist name wrap without bounding the details
+column, so the card's height changed on every rotation tick between a short-
+and a long-named candidate and jumped the rail below -- the same jank the
+parked reveal item names, now recurring on every tick, not just the first
+load. Fixed: `#spotlight-artist-name` gains Tailwind's `line-clamp-2` (two
+lines, ellipsis, full name still in `title`; `renderText` in
+`static/js/results-spotlight.js` already set both), and `.spotlight-details`
+(`static/css/results.css`) gains a `min-height` sized to the clamped worst
+case (2 name lines + a 2-line play-time/scrobble allowance + the rank line +
+gaps, in rem units scaled by `--results-scale`, per breakpoint) so the card
+is the same height for every candidate at a given width; the photo stays
+112px/144px, top-aligned. Measured `#artist-spotlight-card` height across a
+rotation between "A" and "The Bloomington Municipal Philharmonic Marching
+Ensemble": identical at both 390x844 (185.59px) and 1280x800 (218.14px).
+Folded in two deferred minors: `#spotlight-artist-name` is now a `<p>`, not
+a second `<h3>` sharing a heading level with the card's own "Artist
+Spotlight" title (grepped `tests/`/`scripts/` first -- nothing keys on its
+tag). The suggested `p-3.5 -m-3.5` swap for the Spotify link's tap-target
+padding was tried and reverted: this theme's spacing-scale reset (the same
+one `templates/unmatched.html`'s own comment documents for `w-24`/`w-28`)
+means `--spacing-3.5` is never emitted, so those classes compiled to
+nothing and silently dropped the 44x44 tap target back to 16x16; kept the
+working `p-[14px] -m-[14px]` arbitrary values instead. Evidence, including
+the height measurements and `after-card-clamped-{short,long}-mobile.png`,
+is in `task-5-report.md`.
+
 Validation: `pytest -q` -- **1958 passed**.
 
 ### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
