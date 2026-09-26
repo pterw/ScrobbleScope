@@ -15,6 +15,7 @@ from scripts.dev._worktree_guard_diagnostics import (
     metadata_unavailable_diagnostic,
     missing_base_diagnostic,
 )
+from scripts.dev._worktree_guard_essentials import essentials_diagnostics
 from scripts.dev._worktree_guard_lineage import classify_lineage, parse_batch_branch
 from scripts.dev._worktree_guard_runner import (
     optional_output,
@@ -260,6 +261,7 @@ def _inspect_worktree(
         os_name=os_name,
     )
     diagnostics.extend(venv_diagnostics)
+    diagnostics.extend(essentials_diagnostics(resolved_root))
     if venv is not None and not any(
         diagnostic.severity == "ERROR" for diagnostic in diagnostics
     ):

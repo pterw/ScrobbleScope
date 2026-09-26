@@ -81,15 +81,16 @@ DOCSYNC_ENTRY_POINT = Path("scripts/doc_state_sync.py")
 # ``startswith``, since a file nested inside one cannot be enumerated here
 # in advance.
 CONTROL_PLANE_DIRECTORIES: tuple[str, ...] = ("scripts/docsync/",)
-CONTROL_PLANE_FILES: tuple[str, ...] = (
-    "scripts/doc_state_sync.py",
-    "scripts/dev/docsync_preflight.py",
-    "config/docsync.toml",
-)
 
 #: The one control-plane file with a narrower exemption (owner ruling
 #: 2026-09-26): see ``_docsync_toml_pin_only_change``.
 DOCSYNC_TOML_PATH = "config/docsync.toml"
+
+CONTROL_PLANE_FILES: tuple[str, ...] = (
+    "scripts/doc_state_sync.py",
+    "scripts/dev/docsync_preflight.py",
+    DOCSYNC_TOML_PATH,
+)
 
 
 def _is_control_plane_path(path: str) -> bool:

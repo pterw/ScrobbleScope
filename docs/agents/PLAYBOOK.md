@@ -80,8 +80,8 @@ See FINDINGS F-DOCSYNC-3.
   The control-plane plan is written and reviewed:
   `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
   it task by task, then write the frontend plan. Tasks 1-4 have landed, and
-  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Tasks 5
-  and 6 have now landed. Write each specialized plan before implementing its cluster. The
+  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Tasks 5,
+  6 and 7 have now landed. Write each specialized plan before implementing its cluster. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -113,6 +113,49 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - Bootstrap fast-paths move below the list; skills-lock.json gets a warn-only manifest
+
+Side task, no batch tag: bootstrap fast-path reorder and the skills-lock.json
+untracked-essentials warning, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope and result.** `AGENTS.md`'s "Session Bootstrap (in order)" moved
+  its two fast-path paragraphs below the numbered bootstrap list, so a skim
+  finds the obligation before the exemption (F-B21-25 item 1). A new
+  `docsync.declarations.UntrackedEssentialsConfig` /
+  `load_untracked_essentials_config` reads a `[untracked_essentials]` table
+  from `config/docsync.toml`, which now declares `paths = ["skills-lock.json"]`.
+  A new `scripts/dev/_worktree_guard_essentials.py::essentials_diagnostics`
+  raises `WT015` at WARNING severity for each declared, gitignored path that
+  is missing, silent when present or undeclared; it is wired into
+  `inspect_worktree` and re-exported from `scripts/dev/worktree_guard.py`
+  (F-B21-25 item 2, partial -- the findings/issues sync stays out per owner
+  ruling 2026-09-25). `scripts/dev/_worktree_guard_essentials.py` imports the
+  bare `docsync.declarations` name after inserting `scripts/` onto
+  `sys.path`, mirroring `scripts/doc_state_sync.py`'s existing convention,
+  rather than the brief's `scripts.docsync.declarations` path: that path
+  loads under pytest's own `sys.path` setup but double-loads the module
+  under two names elsewhere, and `check_worktree_alignment.py` / the
+  pre-commit hook only put the repository root on `sys.path`, not `scripts/`.
+  Also folded a literal duplication (carried Minor from Task 8's review):
+  `scripts/dev/docsync_preflight.py`'s `CONTROL_PLANE_FILES` tuple now
+  references `DOCSYNC_TOML_PATH` instead of repeating the `"config/docsync.toml"`
+  literal; no behavior change.
+- **Mutation proof (L14).** In a scratch copy, deleting
+  `diagnostics.extend(essentials_diagnostics(resolved_root))` made the wiring
+  test fail (`AssertionError: assert 'WT015' in ['WT000']`); mutating
+  `essentials_diagnostics`'s `for relative in config.paths:` to iterate an
+  empty tuple made `test_a_missing_declared_path_warns` fail
+  (`assert [] == [('WT015', 'WARNING')]`).
+- **Live probe.** In an independent clone, a fresh checkout (no
+  `skills-lock.json`) printed `WARNING WT015 skills-lock.json -- declared
+  untracked-essential file is missing.` at exit 0 (WARNING never blocks);
+  creating an empty `skills-lock.json` silenced it, still exit 0.
+- **After this task:** `skills-lock.json` remains absent from this worktree,
+  so `WT015` now prints on every guard run here, including in pre-commit
+  output below -- the intended warning, not a defect (constraints.md R5).
+- **Validation.** `pytest -q` -- **1919 passed**.
 
 ### 2026-09-26 - Past-tense the F-WORKTREE-3 note; test a guard error path
 
@@ -238,22 +281,3 @@ lands.
   between-batch ancestry skip remains the owner's 2026-09-23 accepted design
   boundary.
 - **Validation.** `pytest -q` -- **1910 passed**.
-
-### 2026-09-26 - Test the staged-deletion case of the docsync.toml exemption
-
-Side task, no batch tag: fix round on Task 8 of the control-plane plan, part
-of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
-of WP-0 lands.
-
-- **Scope and result.** `_docsync_toml_pin_only_change`
-  (`scripts/dev/docsync_preflight.py`) fails closed when `config/docsync.toml`
-  is absent from the index (a staged deletion or rename-away): `git show
-  :config/docsync.toml` exits nonzero, so the function returns `False` and
-  the path counts as control-plane. No test covered that branch.
-  `test_docsync_toml_absent_from_index_is_control_plane`
-  (`tests/scripts/dev/test_docsync_preflight.py`) now does, with a valid
-  HEAD blob and a nonzero-exit index lookup.
-- **Mutation proof (L14).** In a scratch copy (`git archive HEAD`), inverting
-  `index_result.returncode != 0` to `== 0` made the new test FAIL
-  (`assert [] == ['config/docsync.toml']`); restoring the check made it PASS.
-- **Validation.** `pytest -q` -- **1906 passed**.

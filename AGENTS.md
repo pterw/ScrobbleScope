@@ -54,18 +54,6 @@ The binding architectural invariants every code change must hold. See
 
 ## Session Bootstrap (in order)
 
-**Fast-path for Copilot comment jobs:** With no direct review-comment link,
-fetch comments first and check for actionable new `@copilot` comments --
-stop immediately if none. A single actionable comment scoped to a known
-file/section needs only that file plus directly related test/config files.
-Actionable means a concrete request, question, or correction addressed to
-`@copilot`; praise, status updates, and rejected suggestions are not.
-
-**Fast-path for targeted review-comment jobs:** For a single review comment
-or `discussion_r...` URL: fetch that thread first, work from the linked
-file/lines, and read only the minimum bootstrap/context files needed. Open
-batch definitions or history docs only if the comment depends on them.
-
 1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
    anti-patterns.
 2. `docs/agents/global-rules.md` -- the binding architectural invariants
@@ -81,6 +69,18 @@ batch definitions or history docs only if the comment depends on them.
    about to raise a defect, or you are reviewing a diff. Raise a known
    defect again only with new evidence. Not mirrored to GitHub: the
    `finding` issues are a frozen 2026-08-22 snapshot. Not part of the bootstrap set.
+
+**Fast-path for Copilot comment jobs:** With no direct review-comment link,
+fetch comments first and check for actionable new `@copilot` comments --
+stop immediately if none. A single actionable comment scoped to a known
+file/section needs only that file plus directly related test/config files.
+Actionable means a concrete request, question, or correction addressed to
+`@copilot`; praise, status updates, and rejected suggestions are not.
+
+**Fast-path for targeted review-comment jobs:** For a single review comment
+or `discussion_r...` URL: fetch that thread first, work from the linked
+file/lines, and read only the minimum bootstrap/context files needed. Open
+batch definitions or history docs only if the comment depends on them.
 
 This is the single canonical bootstrap order (`docs/agents/HANDOFF_PROMPT.md` adds only
 post-read verification and the edge cases below). Bootstrap is complete when

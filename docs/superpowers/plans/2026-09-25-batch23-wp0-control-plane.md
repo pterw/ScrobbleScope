@@ -1563,7 +1563,7 @@ for targeted review-comment jobs:** ..." *above* the numbered bootstrap list (it
 F-B21-25's finding: "a skim finds the exemption before the obligation." Q15's fix: move
 both paragraphs below the numbered list.
 
-- [ ] **Step 1: Move the two paragraphs.** In `AGENTS.md`, cut both fast-path paragraphs
+- [x] **Step 1: Move the two paragraphs.** In `AGENTS.md`, cut both fast-path paragraphs
   (from `**Fast-path for Copilot comment jobs:**` through the end of `**Fast-path for
   targeted review-comment jobs:**`'s paragraph) from their current position immediately
   above item `1. AGENTS.md (this file) -- rules, ...` and paste them immediately after item
@@ -1572,7 +1572,7 @@ both paragraphs below the numbered list.
   change either paragraph's wording -- this is a placement fix only, per Q15's scope
   ("MINUS the findings/issues sync" and nothing else added).
 
-- [ ] **Step 2: Grep for anything that assumed the old position.**
+- [x] **Step 2: Grep for anything that assumed the old position.**
 
   ```bash
   git grep -n "Fast-path" -- '*.md' ':!docs/history' ':!docs/logarchive'
@@ -1583,7 +1583,7 @@ both paragraphs below the numbered list.
 
 **Part B: the `skills-lock.json` warn-only manifest.**
 
-- [ ] **Step 3: Write the failing declarations test.** Append to
+- [x] **Step 3: Write the failing declarations test.** Append to
   `tests/test_docsync_declarations.py`:
 
   ```python
@@ -1631,12 +1631,12 @@ both paragraphs below the numbered list.
               load_untracked_essentials_config(tmp_path)
   ```
 
-- [ ] **Step 4: Run to verify it fails.**
+- [x] **Step 4: Run to verify it fails.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_declarations.py -q -k UntrackedEssentialsConfig`
   Expected: `ImportError`.
 
-- [ ] **Step 5: Implement `UntrackedEssentialsConfig` in `declarations.py`,** mirroring
+- [x] **Step 5: Implement `UntrackedEssentialsConfig` in `declarations.py`,** mirroring
   `ArchiveConfig` / `_validate_archives` / `_archive_config` / `load_archive_config`
   (`declarations.py:328,364,393,407`) and Task 1's `TestCountConfig` field for field: a
   frozen dataclass with one field (`paths: tuple[str, ...] = ()`), a
@@ -1650,12 +1650,12 @@ both paragraphs below the numbered list.
   `_TOP_LEVEL_SCHEMA` dict literal. `_ListOf` and `_mismatch` already exist in
   `declarations.py`; reuse them, do not redefine.
 
-- [ ] **Step 6: Run to verify it passes.**
+- [x] **Step 6: Run to verify it passes.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_docsync_declarations.py -q -k UntrackedEssentialsConfig`
   Expected: PASS.
 
-- [ ] **Step 7: Declare `skills-lock.json` in `config/docsync.toml`.** Add, after the
+- [x] **Step 7: Declare `skills-lock.json` in `config/docsync.toml`.** Add, after the
   `[documents]` table:
 
   ```toml
@@ -1671,7 +1671,7 @@ both paragraphs below the numbered list.
   paths = ["skills-lock.json"]
   ```
 
-- [ ] **Step 8: Write the failing worktree-guard test.** Create
+- [x] **Step 8: Write the failing worktree-guard test.** Create
   `tests/scripts/dev/test_worktree_guard_essentials.py`:
 
   ```python
@@ -1705,12 +1705,12 @@ both paragraphs below the numbered list.
       assert essentials_diagnostics(tmp_path) == []
   ```
 
-- [ ] **Step 9: Run to verify it fails.**
+- [x] **Step 9: Run to verify it fails.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard_essentials.py -q`
   Expected: `ImportError` -- the module does not exist yet.
 
-- [ ] **Step 10: Implement `essentials_diagnostics`.** Create
+- [x] **Step 10: Implement `essentials_diagnostics`.** Create
   `scripts/dev/_worktree_guard_essentials.py`, importing `issue` from
   `scripts.dev._worktree_guard_diagnostics`, `Diagnostic` from
   `scripts.dev._worktree_guard_types`, and `load_untracked_essentials_config` from
@@ -1722,12 +1722,12 @@ both paragraphs below the numbered list.
   gitignored by design (F-B21-25), so no gate before this one even looks; WARNING only,
   since this guard cannot restore a missing one either.
 
-- [ ] **Step 11: Run to verify it passes.**
+- [x] **Step 11: Run to verify it passes.**
 
   Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard_essentials.py -q`
   Expected: PASS.
 
-- [ ] **Step 12: Wire it into `inspect_worktree`.** In
+- [x] **Step 12: Wire it into `inspect_worktree`.** In
   `scripts/dev/_worktree_guard_inspection.py`, import `essentials_diagnostics` from
   `scripts.dev._worktree_guard_essentials`, and after the existing
   `diagnostics.extend(venv_diagnostics)` line, add:
@@ -1741,20 +1741,20 @@ both paragraphs below the numbered list.
   `scripts/dev/worktree_guard.py`, add `essentials_diagnostics` to the import from
   `scripts.dev._worktree_guard_essentials` and to `__all__`, alphabetically.
 
-- [ ] **Step 13: Write the failing wiring test.** In
+- [x] **Step 13: Write the failing wiring test.** In
   `tests/scripts/dev/test_worktree_guard_inspection.py`, add a case (using whatever fixture
   helper the file already builds a repo with, per its existing parametrize table -- the
   one already covering `("wip/batch-21", "0\t0\n", "?? notes.txt\n", ["WT010", "WT000"])`)
   where `config/docsync.toml` declares an untracked-essential path that the fixture
   repository does not create, and asserts `WT015` appears in the returned codes.
 
-- [ ] **Step 14: Run the full worktree-guard corpus.**
+- [x] **Step 14: Run the full worktree-guard corpus.**
 
   ```
   "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/scripts/dev/test_worktree_guard*.py -q
   ```
 
-- [ ] **Step 15: Gates and live probe.** This task stages `config/docsync.toml` and
+- [x] **Step 15: Gates and live probe.** This task stages `config/docsync.toml` and
   `scripts/docsync/declarations.py` (R7 applies to the whole commit, even though the
   worktree-guard files alone would not trigger it).
 
@@ -1772,13 +1772,13 @@ both paragraphs below the numbered list.
   - **Green (near-miss):** create an empty `skills-lock.json` in the probe corpus root;
     re-run; confirm WT015 no longer prints.
 
-- [ ] **Step 16: Update `AGENTS.md`'s note about the manifest, if F-B21-25's own prose in
+- [x] **Step 16: Update `AGENTS.md`'s note about the manifest, if F-B21-25's own prose in
   `AGENTS.md` needs it.** Check whether `AGENTS.md` currently says anything about
   `skills-lock.json` being unprotected; if so, add one sentence pointing to the new
   `config/docsync.toml` `[untracked_essentials]` table and the `WT015` warning, per the
   Anti-duplication rule (link, do not restate the mechanism).
 
-- [ ] **Step 17: Record the partial progress on F-B21-25 and commit.** F-B21-25 is not
+- [x] **Step 17: Record the partial progress on F-B21-25 and commit.** F-B21-25 is not
   fully resolved by this task (the remaining "origin narrative" `AGENTS.md` defect and any
   other open items stay open); add a dated note under its existing entry, per the pattern
   the reconcile plan's Task 12 used for F-DOCSYNC-6/F-WORKTREE-3's partial rulings:

@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Test the staged-deletion case of the docsync.toml exemption
+
+Side task, no batch tag: fix round on Task 8 of the control-plane plan, part
+of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Scope and result.** `_docsync_toml_pin_only_change`
+  (`scripts/dev/docsync_preflight.py`) fails closed when `config/docsync.toml`
+  is absent from the index (a staged deletion or rename-away): `git show
+  :config/docsync.toml` exits nonzero, so the function returns `False` and
+  the path counts as control-plane. No test covered that branch.
+  `test_docsync_toml_absent_from_index_is_control_plane`
+  (`tests/scripts/dev/test_docsync_preflight.py`) now does, with a valid
+  HEAD blob and a nonzero-exit index lookup.
+- **Mutation proof (L14).** In a scratch copy (`git archive HEAD`), inverting
+  `index_result.returncode != 0` to `== 0` made the new test FAIL
+  (`assert [] == ['config/docsync.toml']`); restoring the check made it PASS.
+- **Validation.** `pytest -q` -- **1906 passed**.
+
 ### 2026-09-26 - A pin-only docsync.toml change is not control-plane
 
 Side task, no batch tag: Task 8 of the control-plane plan, part of Batch 23

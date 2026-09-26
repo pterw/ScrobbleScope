@@ -37,6 +37,17 @@ agent_notes = "docs/agents/AGENT_NOTES.md"
 handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"
 
 # ----------------------------------------------------------------------
+# Untracked-essential files
+# ----------------------------------------------------------------------
+
+# Gitignored files the workflow depends on but Git cannot protect
+# (F-B21-25 item 3 of its causes: "what was lost was gitignored"). WARNING
+# only -- the worktree guard cannot create or fetch a missing one, it can
+# only tell the reader it is gone.
+[untracked_essentials]
+paths = ["skills-lock.json"]
+
+# ----------------------------------------------------------------------
 # Archive thresholds
 # ----------------------------------------------------------------------
 
@@ -737,4 +748,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 1911
+pinned = 1919

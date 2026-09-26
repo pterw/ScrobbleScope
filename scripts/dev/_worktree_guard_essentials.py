@@ -1,0 +1,52 @@
+"""Warn about a missing, gitignored file the workflow depends on (F-B21-25).
+
+These files are gitignored by design -- `skills-lock.json` is the first one
+-- so every gate that runs before this one is looking at tracked content and
+never even sees them go missing. This check is WARNING only: unlike a
+tracked file, the worktree guard cannot restore or fetch a missing one
+either, so it can only tell the reader it is gone.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from scripts.dev._worktree_guard_diagnostics import issue
+from scripts.dev._worktree_guard_types import Diagnostic
+
+# `scripts/docsync/declarations.py` imports its sibling modules by the bare
+# `docsync.` package name, so loading it requires `scripts/` itself on
+# sys.path -- the same shape `scripts/doc_state_sync.py` already uses for the
+# same reason. Without this, the bare import below fails whenever this
+# module is reached through an entry point (the CLI, pre-commit) that has
+# only put the repository root on sys.path.
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from docsync.declarations import load_untracked_essentials_config  # noqa: E402
+
+
+def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
+    """Return one WT015 WARNING per declared path missing from disk.
+
+    Silent when nothing is declared, and silent for any declared path that
+    is present. Never ERROR: this guard has no way to create or fetch a
+    missing untracked-essential file, so it never blocks on one.
+    """
+    config = load_untracked_essentials_config(repo_root)
+    diagnostics: list[Diagnostic] = []
+    for relative in config.paths:
+        if not (repo_root / relative).is_file():
+            diagnostics.append(
+                issue(
+                    "WARNING",
+                    "WT015",
+                    relative,
+                    "declared untracked-essential file is missing.",
+                    "Restore it or ask the owner where its current copy lives; "
+                    "this guard does not create or fetch it.",
+                )
+            )
+    return diagnostics

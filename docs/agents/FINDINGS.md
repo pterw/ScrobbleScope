@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1911 tests across 72 tracked test modules.
+1919 tests across 72 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -308,6 +308,14 @@ Remaining, and not started: a declared manifest of untracked-but-essential
 files, in the shape of `config/docsync.toml` so the mechanism carries no
 repository facts; and the two `AGENTS.md` defects above. The Codex/Copilot
 entry point moved to F-B21-63.
+
+**2026-09-25 (control-plane plan).** Items 1-2 are done: the two fast-path
+paragraphs moved below the numbered bootstrap list, and `skills-lock.json`
+is declared in `config/docsync.toml` `[untracked_essentials]`, warned about
+(WT015) by `scripts/dev/_worktree_guard_essentials.py` when missing. The
+findings/issues sync (item 2's other half) is not built: findings are not
+mirrored to GitHub (owner ruling, 2026-09-25). The remaining AGENTS.md
+origin-narrative defect stays open.
 
 Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.

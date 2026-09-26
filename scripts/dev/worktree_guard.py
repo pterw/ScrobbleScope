@@ -9,6 +9,7 @@ from scripts.dev._worktree_guard_diagnostics import (
     inspection_failure_diagnostics,
     is_display_safe_ref,
 )
+from scripts.dev._worktree_guard_essentials import essentials_diagnostics
 from scripts.dev._worktree_guard_inspection import inspect_worktree
 from scripts.dev._worktree_guard_lineage import (
     ACTIVE_BATCH_RE,
@@ -45,6 +46,7 @@ __all__ = [
     "VenvPaths",
     "WINDOWS_TOOLS",
     "classify_lineage",
+    "essentials_diagnostics",
     "inspect_worktree",
     "inspection_failure_diagnostics",
     "is_display_safe_ref",

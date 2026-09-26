@@ -137,6 +137,17 @@ def test_offline_venv_error_includes_local_ref_context(tmp_path):
     assert codes(diagnostics) == ["WT009", "WT013"]
 
 
+def test_missing_declared_untracked_essential_warns(tmp_path):
+    """A declared untracked-essential file absent from disk raises WT015 (F-B21-25)."""
+    repo, responses = repository(tmp_path)
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+    assert "WT015" in codes(diagnostics)
+
+
 @pytest.mark.parametrize(
     ("branch", "counts", "status", "expected"),
     [

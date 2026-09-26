@@ -227,6 +227,7 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
     "findings": {"required": {"grandfathered": list}, "optional": {}},
     "test_count": {"required": {}, "optional": {"pinned": int}},
+    "untracked_essentials": {"required": {}, "optional": {"paths": _ListOf(str)}},
     "documents": {
         "required": {},
         "optional": {
@@ -469,6 +470,64 @@ def load_test_count_config(
 ) -> TestCountConfig:
     """Read the repository's pinned test count, or no pin at all."""
     return _test_count_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class UntrackedEssentialsConfig:
+    """Gitignored files the workflow depends on but Git cannot protect.
+
+    Not a declaration: nothing compares a document against these paths. They
+    are the files the worktree guard's WT015 check looks for on disk, since
+    Git offers no protection for anything `.gitignore` excludes (F-B21-25:
+    "what was lost was gitignored").
+    """
+
+    paths: tuple[str, ...] = ()
+
+
+def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
+    """Check a declared [untracked_essentials] table and return its paths.
+
+    The single optional key is validated the same way every other table's
+    keys are: an unknown key is refused rather than ignored.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(
+            f"[untracked_essentials] is {type(table).__name__}, not a table."
+        )
+    known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[untracked_essentials] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    if "paths" not in table:
+        return UntrackedEssentialsConfig()
+    bad = _mismatch(known["paths"], table["paths"])
+    if bad:
+        raise DeclarationError(f"[untracked_essentials] gives 'paths' as {bad}.")
+    return UntrackedEssentialsConfig(paths=tuple(table["paths"]))
+
+
+def _untracked_essentials_config(declarations: Mapping) -> UntrackedEssentialsConfig:
+    """Return the declared untracked-essential paths for an already-read file.
+
+    Absence of the table is not an error: a repository that declares none is
+    the common case, and returns an empty tuple.
+    """
+    if "untracked_essentials" not in declarations:
+        return UntrackedEssentialsConfig()
+    return _validate_untracked_essentials(declarations["untracked_essentials"])
+
+
+def load_untracked_essentials_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> UntrackedEssentialsConfig:
+    """Read the repository's declared untracked-essential paths, if any."""
+    return _untracked_essentials_config(
+        load_declarations(repo_root, config_path=config_path)
+    )
 
 
 @dataclasses.dataclass(frozen=True)

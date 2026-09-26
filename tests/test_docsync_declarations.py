@@ -2005,3 +2005,55 @@ class TestTestCountConfig:
         path.write_text("[test_count]\ncount = 1850\n", encoding="utf-8")
         with pytest.raises(DeclarationError, match="unknown key 'count'"):
             load_test_count_config(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# [untracked_essentials] -- gitignored files the workflow depends on
+# (Batch 23 WP-0 Task 7, F-B21-25)
+# ---------------------------------------------------------------------------
+
+
+class TestUntrackedEssentialsConfig:
+    def test_absent_table_returns_an_empty_tuple(self, tmp_path: Path):
+        from docsync.declarations import (
+            UntrackedEssentialsConfig,
+            load_untracked_essentials_config,
+        )
+
+        assert load_untracked_essentials_config(tmp_path) == UntrackedEssentialsConfig()
+        assert UntrackedEssentialsConfig().paths == ()
+
+    def test_declared_paths_are_read(self, tmp_path: Path):
+        from docsync.declarations import load_untracked_essentials_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+        )
+        config = load_untracked_essentials_config(tmp_path)
+        assert config.paths == ("skills-lock.json",)
+
+    def test_a_non_string_entry_is_refused(self, tmp_path: Path):
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[untracked_essentials]\npaths = [1]\n", encoding="utf-8")
+        with pytest.raises(DeclarationError):
+            load_untracked_essentials_config(tmp_path)
+
+    def test_an_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[untracked_essentials]\nfiles = ["x"]\n', encoding="utf-8")
+        with pytest.raises(DeclarationError, match="unknown key 'files'"):
+            load_untracked_essentials_config(tmp_path)
