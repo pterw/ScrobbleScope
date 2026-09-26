@@ -9,6 +9,49 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Bootstrap fast-paths move below the list; skills-lock.json gets a warn-only manifest
+
+Side task, no batch tag: bootstrap fast-path reorder and the skills-lock.json
+untracked-essentials warning, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope and result.** `AGENTS.md`'s "Session Bootstrap (in order)" moved
+  its two fast-path paragraphs below the numbered bootstrap list, so a skim
+  finds the obligation before the exemption (F-B21-25 item 1). A new
+  `docsync.declarations.UntrackedEssentialsConfig` /
+  `load_untracked_essentials_config` reads a `[untracked_essentials]` table
+  from `config/docsync.toml`, which now declares `paths = ["skills-lock.json"]`.
+  A new `scripts/dev/_worktree_guard_essentials.py::essentials_diagnostics`
+  raises `WT015` at WARNING severity for each declared, gitignored path that
+  is missing, silent when present or undeclared; it is wired into
+  `inspect_worktree` and re-exported from `scripts/dev/worktree_guard.py`
+  (F-B21-25 item 2, partial -- the findings/issues sync stays out per owner
+  ruling 2026-09-25). `scripts/dev/_worktree_guard_essentials.py` imports the
+  bare `docsync.declarations` name after inserting `scripts/` onto
+  `sys.path`, mirroring `scripts/doc_state_sync.py`'s existing convention,
+  rather than the brief's `scripts.docsync.declarations` path: that path
+  loads under pytest's own `sys.path` setup but double-loads the module
+  under two names elsewhere, and `check_worktree_alignment.py` / the
+  pre-commit hook only put the repository root on `sys.path`, not `scripts/`.
+  Also folded a literal duplication (carried Minor from Task 8's review):
+  `scripts/dev/docsync_preflight.py`'s `CONTROL_PLANE_FILES` tuple now
+  references `DOCSYNC_TOML_PATH` instead of repeating the `"config/docsync.toml"`
+  literal; no behavior change.
+- **Mutation proof (L14).** In a scratch copy, deleting
+  `diagnostics.extend(essentials_diagnostics(resolved_root))` made the wiring
+  test fail (`AssertionError: assert 'WT015' in ['WT000']`); mutating
+  `essentials_diagnostics`'s `for relative in config.paths:` to iterate an
+  empty tuple made `test_a_missing_declared_path_warns` fail
+  (`assert [] == [('WT015', 'WARNING')]`).
+- **Live probe.** In an independent clone, a fresh checkout (no
+  `skills-lock.json`) printed `WARNING WT015 skills-lock.json -- declared
+  untracked-essential file is missing.` at exit 0 (WARNING never blocks);
+  creating an empty `skills-lock.json` silenced it, still exit 0.
+- **After this task:** `skills-lock.json` remains absent from this worktree,
+  so `WT015` now prints on every guard run here, including in pre-commit
+  output below -- the intended warning, not a defect (constraints.md R5).
+- **Validation.** `pytest -q` -- **1919 passed**.
+
 ### 2026-09-26 - Past-tense the F-WORKTREE-3 note; test a guard error path
 
 Side task, no batch tag: fix round on Task 5 of the control-plane plan, part
