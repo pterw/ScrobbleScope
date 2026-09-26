@@ -78,10 +78,12 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`:
   control-plane, frontend, then test infrastructure and dependencies.
   The control-plane plan is written and reviewed:
-  `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Execute
-  it task by task, then write the frontend plan. Tasks 1-4 have landed, and
-  Task 8 landed out of order (before Task 5, owner ruling 2026-09-26). Tasks 5,
-  6 and 7 have now landed. Write each specialized plan before implementing its cluster. The
+  `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`. Its eight
+  tasks are all complete (Task 7 landed `8cf5fd4`..`c39da3c`). The frontend
+  and test-infrastructure/dependencies plans are now written and reviewed:
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. Next
+  action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -113,6 +115,29 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - Plan the WP-0 frontend and test-infrastructure work
+
+Side task, no batch tag: plan the WP-0 frontend and test-infrastructure work,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Scope and result.** Two follow-on plans drafted and reviewed against the
+  code, then revised. `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md`
+  covers the frontend cluster: F-B21-18's Chromium harness for `heatmap.js`,
+  F-B21-14, F-B21-22, F-B21-23, and F-B21-60 part 1.
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` covers
+  the test-infrastructure and dependency cluster: F-LOAD-2, F-MAS-1, F-B21-3's
+  remainder, and adding `requirements-dev.txt` to the CI pip-audit step. Both
+  drafts passed a read-only review against the code, then were revised.
+- **Findings the reviews caught.** The frontend harness's test hooks sat
+  inside a `DOMContentLoaded` listener and could never be reached (proven
+  red/green in a scratch copy); CI's pytest step runs before the browser
+  install, so the harness is marked `browser` and runs in the frontend-gate
+  step instead. The test-infrastructure integration test's fixture was dated
+  2030 and below the play threshold, so it never reached Spotify.
+
+Validation: `pytest -q` -- **1926 passed**.
 
 ### 2026-09-26 - Correct the dashboard's test-module count
 
@@ -212,34 +237,3 @@ owner ruling 2026-09-23 until the whole of WP-0 lands.
   so `WT015` now prints on every guard run here, including in pre-commit
   output below -- the intended warning, not a defect (constraints.md R5).
 - **Validation.** `pytest -q` -- **1919 passed**.
-
-### 2026-09-26 - Past-tense the F-WORKTREE-3 note; test a guard error path
-
-Side task, no batch tag: fix round on Task 5 of the control-plane plan, part
-of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
-of WP-0 lands.
-
-- **Scope and result.** `docs/agents/FINDINGS.md`'s F-WORKTREE-6 entry
-  described F-WORKTREE-3's three open items in the present tense; two of
-  those items were fixed by the worktree-guard Task 5 commit and
-  F-WORKTREE-3 itself has since been archived. The sentence now reads in the
-  past tense ("When this was filed, F-WORKTREE-3's open items were ...") and
-  notes the archival. A repo-wide grep for other present-tense "F-WORKTREE-3
-  is open" claims outside `docs/history/` and `docs/logarchive/` found none:
-  the remaining hits are frozen planning/audit-scope snapshots (a completed
-  plan's task list, a batch definition's frozen finding inventory, an
-  audit-scope note) or PLAYBOOK's own past-tense execution-log entries, none
-  of which claim F-WORKTREE-3 is currently open.
-  `tests/scripts/dev/test_worktree_guard_topology.py` gained
-  `test_detached_local_status_call_failure_raises_guard_error`, covering the
-  detached, non-CI branch's status-call failure path
-  (`scripts/dev/_worktree_guard_inspection.py`): a nonzero `status
-  --porcelain` result now raises `GuardError`, proven through the public
-  `inspect_worktree(..., debug=True)` boundary the same way the existing
-  detached-branch tests do.
-- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
-  create)`), removing the `detached_status_result.returncode != 0` check
-  made only the new test FAIL (`DID NOT RAISE <class
-  'scripts.dev._worktree_guard_types.GuardError'>`); the other 8 tests in
-  the file still passed.
-- **Validation.** `pytest -q` -- **1911 passed**.

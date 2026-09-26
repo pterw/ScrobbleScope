@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Past-tense the F-WORKTREE-3 note; test a guard error path
+
+Side task, no batch tag: fix round on Task 5 of the control-plane plan, part
+of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Scope and result.** `docs/agents/FINDINGS.md`'s F-WORKTREE-6 entry
+  described F-WORKTREE-3's three open items in the present tense; two of
+  those items were fixed by the worktree-guard Task 5 commit and
+  F-WORKTREE-3 itself has since been archived. The sentence now reads in the
+  past tense ("When this was filed, F-WORKTREE-3's open items were ...") and
+  notes the archival. A repo-wide grep for other present-tense "F-WORKTREE-3
+  is open" claims outside `docs/history/` and `docs/logarchive/` found none:
+  the remaining hits are frozen planning/audit-scope snapshots (a completed
+  plan's task list, a batch definition's frozen finding inventory, an
+  audit-scope note) or PLAYBOOK's own past-tense execution-log entries, none
+  of which claim F-WORKTREE-3 is currently open.
+  `tests/scripts/dev/test_worktree_guard_topology.py` gained
+  `test_detached_local_status_call_failure_raises_guard_error`, covering the
+  detached, non-CI branch's status-call failure path
+  (`scripts/dev/_worktree_guard_inspection.py`): a nonzero `status
+  --porcelain` result now raises `GuardError`, proven through the public
+  `inspect_worktree(..., debug=True)` boundary the same way the existing
+  detached-branch tests do.
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), removing the `detached_status_result.returncode != 0` check
+  made only the new test FAIL (`DID NOT RAISE <class
+  'scripts.dev._worktree_guard_types.GuardError'>`); the other 8 tests in
+  the file still passed.
+- **Validation.** `pytest -q` -- **1911 passed**.
+
 ### 2026-09-26 - Stage before running pre-commit in the commit procedure
 
 Side task, no batch tag: Task 6 of the control-plane plan, part of Batch 23
