@@ -261,6 +261,31 @@ def test_docsync_toml_absent_at_head_is_control_plane():
     ]
 
 
+def test_docsync_toml_absent_from_index_is_control_plane():
+    """A staged deletion (or rename-away) of config/docsync.toml -- a valid
+    blob at HEAD, but no blob in the index -- fails closed as control-plane.
+    """
+    record = "D\0config/docsync.toml\0"
+    runner = _responses(
+        {
+            ("diff", "--cached", "--name-status", "-M", "-z"): (0, record, ""),
+            ("show", "HEAD:config/docsync.toml"): (
+                0,
+                "[test_count]\npinned = 1897\n",
+                "",
+            ),
+            ("show", ":config/docsync.toml"): (
+                128,
+                "",
+                "fatal: path 'config/docsync.toml' does not exist in the index",
+            ),
+        }
+    )
+    assert preflight.staged_control_plane_paths(Path("/repo"), runner=runner) == [
+        "config/docsync.toml"
+    ]
+
+
 def test_docsync_toml_invalid_index_toml_is_control_plane():
     """An unparsable index blob fails closed as control-plane, not a crash."""
     runner = _responses(

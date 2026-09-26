@@ -9,6 +9,43 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-25 - The count wrapper's tests are repointed, then the file is split
+
+Side task, no batch tag: Task 2 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** The eight `TestLatestTestCount` call sites in
+  `tests/test_docsync_logic.py` now call
+  `latest_test_count_authority(...).count` directly instead of the removed
+  `_latest_test_count_from_entries` wrapper (`scripts/docsync/logic.py`),
+  proving parity before the file moved (Rule 4). `tests/test_docsync_logic.py`
+  (886 lines) is then split along its seven seams: `TestCollectWpNumbers` ->
+  `tests/test_docsync_wp_numbers.py`; `TestLatestTestCount` plus the two
+  module-level unbold-authority tests, `TestRewriteRecordedCounts` and
+  `TestResolvedTestCountAuthority` (Task 1's own additions) -> consolidated
+  into the existing `tests/test_docsync_test_count.py`; `TestSyncIntegration`
+  -> `tests/test_docsync_sync_integration.py`; `TestMergeEntriesIntoLog` ->
+  `tests/test_docsync_log_merging.py`; `TestSplitArchive` and
+  `TestDedupSorted` -> `tests/test_docsync_archive_split.py`;
+  `TestParseActiveBatchStateConflicting` ->
+  `tests/test_docsync_section3_parsing.py`. The three module-level helpers
+  `_playbook`, `_playbook_with_entry` and `_playbook_two_same_date_entries`
+  moved with `TestResolvedTestCountAuthority`; the first was renamed
+  `_authority_playbook` in its new home to avoid colliding with
+  `tests/test_docsync_test_count.py`'s own pre-existing `_playbook` helper.
+  `tests/test_docsync_logic.py` is deleted. Collected node IDs (path-stripped)
+  are identical before and after the split, 50 of them, and the full suite
+  count is unchanged. Closes F-DOCSYNC-7, F-MAS-3.
+- **Deviation.** The brief's own commit subject was 82 characters; shortened
+  per constraints.md R8. The `_playbook` name collision above is not named in
+  the brief; renaming the incoming helper was the smallest fix that kept both
+  sets of tests passing (no shared helper module, no duplication).
+  `DEVELOPMENT.md`'s docsync test-file list named `test_docsync_logic.py`;
+  replacing it with the five new files also required correcting the list's
+  own "twelve matching" count to "sixteen" to stay internally consistent.
+- **Validation.** `pytest -q` -- **1891 passed**.
+
 ### 2026-09-25 - An explicit test count pins config/docsync.toml
 
 Side task, no batch tag: Task 1 of the control-plane plan, part of Batch 23
