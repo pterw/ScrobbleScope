@@ -46,7 +46,7 @@ available run in the same browser session.
   - [The heatmap is a hand-built SVG](#the-heatmap-is-a-hand-built-svg)
   - [The pinwheel is an owned component](#the-pinwheel-is-an-owned-component)
   - [The results export renders desktop on purpose](#the-results-export-renders-desktop-on-purpose)
-  - [The artist spotlight is sampled, and never empty](#the-artist-spotlight-is-sampled-and-never-empty)
+  - [The artist spotlight shows only a confirmed photo, or stays hidden](#the-artist-spotlight-shows-only-a-confirmed-photo-or-stays-hidden)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
@@ -438,14 +438,16 @@ Two constraints are handled explicitly. `html2canvas` 1.4 cannot parse the
 to an `rgb()` string first. And the CSV export reads a `data-export` attribute
 rather than the cell's text, because the table rounds and the file should not.
 
-### The artist spotlight is sampled, and never empty
+### The artist spotlight shows only a confirmed photo, or stays hidden
 
 `spotlight.py` aggregates the results by artist, ranks by play count and play
 time, takes the top ten, and samples **five** -- seeded on the job id, so
 re-running the same search does not reshuffle the panel under the user while a
-fresh search does. It issues a separate request scoped to that sample, and if
-any single image fails to load the album artwork already on the page is the
-fallback, so the panel has no empty state to design for.
+fresh search does. It issues a separate request scoped to that sample; the
+client waits for every response to settle, then rotates only the candidates
+whose Spotify artist photo was confirmed. A candidate with no confirmed photo
+is dropped, and if none is confirmed the card stays hidden -- there is no
+album-art fallback and no faked photo.
 
 ## Getting Started
 

@@ -52,7 +52,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         }""")
         self.start(
             "results-spotlight.js",
-            '<div id="artist-spotlight-card"><div id="spotlight-card-content">'
+            '<div id="artist-spotlight-card" style="display:none"><div id="spotlight-card-content">'
             '<span id="spotlight-artist-name"></span>'
             '<span id="spotlight-artist-rank"></span>'
             '<span id="spotlight-playtime-badge"></span>'
@@ -78,9 +78,28 @@ class ResultsBehaviorTests(unittest.TestCase):
             },
         )
 
+    def resolve_pending(self, script):
+        """Run `script` (which resolves one or more `pending` fetches) and flush
+        the microtask queue far enough for the resulting `Promise.all(...)`
+        chain in `startArtistSpotlightRotation` to settle."""
+        self.page.evaluate(
+            "async () => { (" + script + ")(); "
+            "for (let i = 0; i < 20; i++) await Promise.resolve(); }"
+        )
+
     def test_spotlight_rotation_wraps_and_preserves_input(self):
         """Rotation uses the server order, wraps, and hides absent duration."""
         self.spotlight()
+        self.assertEqual(
+            self.page.locator("#artist-spotlight-card").evaluate(
+                "el => getComputedStyle(el).display"
+            ),
+            "none",
+        )
+        self.resolve_pending("""() => {
+            pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg'})});
+            pending[1].resolve({ok: true, json: async () => ({image_url: 'https://img/b.jpg'})});
+        }""")
         self.assertEqual(
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
@@ -107,37 +126,46 @@ class ResultsBehaviorTests(unittest.TestCase):
             ["A & B", "Second"],
         )
 
-    def test_late_hydration_does_not_replace_visible_artist(self):
-        """A previous artist's response is retained for its next turn only."""
+    def test_card_hidden_until_settle_then_drops_unconfirmed_candidates(self):
+        """The card stays hidden until every hydration settles, then rotation
+        never shows a candidate without a confirmed photo (F-B21-60)."""
         self.spotlight()
         self.assertEqual(
             self.page.evaluate("pending[0].url"),
             "/api/artist_spotlight?artist=A%20%26%20B",
         )
-        self.page.clock.run_for(7150)
-        self.page.evaluate("""async () => {
-            pending[0].resolve({ok: true, json: async () => ({spotify_url: 'https://open.spotify.com/artist/a'})});
-            await new Promise(resolve => queueMicrotask(resolve));
+        self.resolve_pending("""() => {
+            pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg', spotify_url: 'https://open.spotify.com/artist/a'})});
         }""")
         self.assertEqual(
-            self.page.locator("#spotlight-artist-name").inner_text(), "Second"
+            self.page.locator("#artist-spotlight-card").evaluate(
+                "el => getComputedStyle(el).display"
+            ),
+            "none",
         )
-        self.assertIsNone(
-            self.page.locator("#spotlight-spotify-link").get_attribute("href")
+        self.resolve_pending("""() => {
+            pending[1].resolve({ok: true, json: async () => ({image_url: ''})});
+        }""")
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
-        self.page.clock.run_for(7000)
         self.assertEqual(
             self.page.locator("#spotlight-spotify-link").get_attribute("href"),
             "https://open.spotify.com/artist/a",
         )
-        self.assertNotIn(
-            "spotify_url", self.page.evaluate("APP_DATA.spotlight_artists[0]")
+        self.page.clock.run_for(30000)
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
 
-    def test_reduced_motion_keeps_first_artist_after_failed_hydration(self):
-        """An API failure preserves text; reduced motion disables rotation."""
+    def test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration(self):
+        """A failed hydration drops its candidate; reduced motion keeps the
+        surviving confirmed artist still."""
         self.spotlight(reduced=True)
-        self.page.evaluate("pending.forEach(p => p.resolve({ok: false}))")
+        self.resolve_pending("""() => {
+            pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg'})});
+            pending[1].resolve({ok: false});
+        }""")
         self.page.clock.run_for(30000)
         self.assertEqual(
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"

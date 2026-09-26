@@ -235,7 +235,6 @@ def _render_results_page():
     top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
     top_artist_album_count = spotlight_artist.get("album_count", 0)
     top_artist_play_time = spotlight_artist.get("play_time", "")
-    top_artist_image = spotlight_artist.get("image_url", "")
 
     return render_template(
         "results.html",
@@ -256,7 +255,6 @@ def _render_results_page():
         top_artist_scrobbles=top_artist_scrobbles,
         top_artist_album_count=top_artist_album_count,
         top_artist_play_time=top_artist_play_time,
-        top_artist_image=top_artist_image,
         spotlight_artists=spotlight_artists,
         release_check=release_check,
     )

@@ -83,8 +83,8 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Task 1 has landed. Test-infrastructure plan: Tasks 1 and 2
-  have landed. Next
+  frontend plan: Tasks 1 and 5 have landed. Test-infrastructure plan: Tasks 1
+  and 2 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -117,6 +117,29 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-26 - Stop cropping, overlaying and faking the artist spotlight photo
+
+Side task, no batch tag: stop the artist spotlight photo from being cropped, overlaid,
+animated or faked with an unconfirmed album cover, part of Batch 23 WP-0 Part C. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands. `results.css`/`results.html`
+now show the photo whole and square (4px corners at small sizes, 8px at large), with the
+name, rank, playtime and summary beside or below it, never on top; the scrim overlay is
+gone. `results-spotlight.js` swaps candidates instantly, with no fade. The server- and
+client-side album-art fallback is gone: `scrobblescope/spotlight.py` no longer seeds
+`image_url` from an album cover, and `results-spotlight.js` waits for every candidate's
+photo to be confirmed by `/api/artist_spotlight` before revealing the card, dropping any
+candidate whose photo is never confirmed; if none is confirmed, the card stays hidden.
+`scripts/dev/_frontend_gate_spotlight_photo.py` adds two checks (`artist spotlight photo
+has no crop overlay or animation`, `artist spotlight card hidden with no photo`) and
+`scripts/dev/_frontend_gate_pipeline.py`'s `check_artist_spotlight_rotation` is
+rewritten to capture its rotation baseline after the (now deferred) reveal instead of at
+page load. `scripts/dev/results_behavior_tests.py` gains updated Chromium behaviour
+tests for the same design: the card stays hidden until every hydration settles, a
+candidate without a confirmed photo is dropped, and reduced motion keeps the surviving
+confirmed artist still.
+
+Validation: `pytest -q` -- **1958 passed**.
 
 ### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
 
@@ -157,16 +180,3 @@ a browser pytest marker so CI's pre-browser coverage step deselects it and the p
 frontend-gate step runs it instead.
 
 Validation: `pytest -q` -- **1939 passed**.
-
-### 2026-09-26 - Drop a work-package token from a log heading
-
-Side task, no batch tag: rename a log heading that carried a work-package
-token, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
-until the whole of WP-0 lands.
-
-- **Scope and result.** The previous entry's heading carried a `WP-0` token,
-  which the owner ruling keeps out of headings until WP-0 closes;
-  `--check` passed and treated it as untagged, so this fixes the
-  convention, not a docsync failure.
-
-Validation: `pytest -q` -- **1926 passed**.

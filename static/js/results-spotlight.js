@@ -56,21 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
         view.separator.classList.toggle('hidden', !visible);
     }
 
-    /** Remove a failed or absent image and restore the text-only treatment. */
+    /** Remove a portrait whose preload failed after all. */
     function hidePortrait(view) {
         view.image.removeAttribute('src');
         view.image.classList.add('hidden');
-        view.content?.classList.add('spotlight-no-image');
     }
 
     /** Preload portraits and ignore callbacks superseded by another candidate. */
     function renderPortrait(view, state, candidate, index) {
         if (!view.image) return;
         const revision = ++state.imageRevision;
-        if (!candidate.image_url) {
-            hidePortrait(view);
-            return;
-        }
         const current = () => revision === state.imageRevision && state.index === index;
         const preloader = new Image();
         preloader.onload = () => {
@@ -79,7 +74,6 @@ document.addEventListener('DOMContentLoaded', () => {
             view.image.alt = `Photograph of ${candidate.name}`;
             view.image.classList.remove('hidden', 'opacity-0');
             view.image.style.opacity = '1';
-            view.content?.classList.remove('spotlight-no-image');
         };
         preloader.onerror = () => {
             if (current()) hidePortrait(view);
@@ -100,29 +94,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** Apply the current candidate after its optional short opacity handoff. */
-    function renderCandidate(view, state, animate = true) {
+    /** Apply the current candidate. Swaps are instant: no fade, no delay. */
+    function renderCandidate(view, state) {
         const index = state.index;
         const candidate = state.candidates[index];
         if (!candidate) return;
-        const apply = () => {
-            renderText(view, candidate, index, state.candidates.length);
-            renderDuration(view, candidate);
-            renderPortrait(view, state, candidate, index);
-            renderLink(view, candidate);
-        };
-        if (!animate || state.reducedMotion || !view.content) {
-            apply();
-            return;
-        }
-        view.content.style.opacity = '0.15';
-        setTimeout(() => {
-            apply();
-            view.content.style.opacity = '1';
-        }, 150);
+        renderText(view, candidate, index, state.candidates.length);
+        renderDuration(view, candidate);
+        renderPortrait(view, state, candidate, index);
+        renderLink(view, candidate);
     }
 
-    /** Hydrate one candidate without allowing a late response to change the selection. */
+    /** Confirm one candidate's photo. Never renders itself -- every call settles
+     *  before the rotation reveals anything, so `startArtistSpotlightRotation`'s
+     *  own `Promise.all(...)` is the only place that decides what is shown. */
     async function hydrateCandidate(view, state, candidate, index) {
         const expectedName = candidate.name;
         try {
@@ -132,16 +117,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.candidates[index].name !== expectedName) return;
             state.candidates[index] = {
                 ...candidate,
-                image_url: data.image_url || candidate.image_url,
+                // Only a confirmed Spotify photo counts (F-B21-60): falling
+                // back to the seed here would let an unconfirmed album cover
+                // (or a stale one from a previous candidate) pass the
+                // rotation's `c => c.image_url` filter as if it were a
+                // photo of this artist.
+                image_url: data.image_url || '',
                 spotify_url: data.spotify_url || '',
             };
-            if (state.index === index) renderCandidate(view, state, false);
         } catch (error) {
             console.warn('Could not hydrate artist spotlight for', expectedName, ':', error);
         }
     }
 
-    /** Start the stable sample once; reduced motion keeps the first artist still. */
+    /** Wait for every candidate's confirmed photo, then rotate only those that
+     *  have one; reduced motion keeps the first artist still. A candidate with
+     *  no confirmed Spotify photo never enters the rotation, so the card
+     *  never fakes a photo it does not have. */
     function startArtistSpotlightRotation() {
         const view = spotlightView();
         const artists = window.APP_DATA?.spotlight_artists;
@@ -150,14 +142,25 @@ document.addEventListener('DOMContentLoaded', () => {
             candidates: artists.map(artist => ({ ...artist })), index: 0, imageRevision: 0,
             reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         };
-        renderCandidate(view, state, false);
-        state.candidates.forEach((candidate, index) => hydrateCandidate(view, state, candidate, index));
-        if (state.reducedMotion || state.candidates.length < 2) return;
-        setInterval(() => {
-            if (document.hidden) return;
-            state.index = (state.index + 1) % state.candidates.length;
+        // Every hydrateCandidate call settles (resolves or rejects into its own
+        // catch) before this .then() runs, and hydrateCandidate itself never
+        // calls renderCandidate -- so nothing can draw the card before this
+        // filter decides whether it is shown at all.
+        Promise.all(
+            state.candidates.map((candidate, index) => hydrateCandidate(view, state, candidate, index))
+        ).then(() => {
+            const withPhotos = state.candidates.filter(candidate => candidate.image_url);
+            if (!withPhotos.length) return;
+            state.candidates = withPhotos;
+            state.index = 0;
             renderCandidate(view, state);
-        }, 7000);
+            if (state.reducedMotion || state.candidates.length < 2) return;
+            setInterval(() => {
+                if (document.hidden) return;
+                state.index = (state.index + 1) % state.candidates.length;
+                renderCandidate(view, state);
+            }, 7000);
+        });
     }
     startArtistSpotlightRotation();
 });

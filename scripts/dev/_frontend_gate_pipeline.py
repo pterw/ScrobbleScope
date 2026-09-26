@@ -739,7 +739,22 @@ def check_pipeline_state_machines(page, base_url: str) -> list[str]:
 
 
 def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
-    """Render five sampled artists, hydrate them once, and observe rotation."""
+    """Render five sampled artists, hydrate them once, and observe rotation.
+
+    F-B21-60 part 1 (Batch 23 WP-0 Task 5) changed `startArtistSpotlightRotation`
+    to wait for every candidate's hydration to settle (`Promise.all(...)`)
+    before revealing anything, rather than rendering the first candidate
+    immediately and hydrating in the background. That retired the property
+    this check used to prove -- "a late-arriving hydration response does not
+    replace the already-visible artist" -- because nothing is visible until
+    every hydration, however slow, has already resolved; `hydrateCandidate`
+    no longer renders at all; it only writes into `state.candidates`, which
+    `startArtistSpotlightRotation`'s own `.then()` reads once, after the
+    fact. There is no "late" any more. The property this check now proves is
+    the one the new design actually promises: the card stays hidden while a
+    slow candidate's photo is still unconfirmed, then reveals once every
+    hydration -- fast and slow -- has settled, and then rotates normally.
+    """
     job_id = create_job(
         {
             "username": "frontend-gate",
@@ -787,14 +802,15 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
                         return nativeFetch(resource, options);
                     }
                     const requestIndex = window.__spotlightRequests.push(url) - 1;
+                    // Every candidate resolves with a confirmed photo -- the
+                    // slowest just takes longer -- so the filtered rotation
+                    // still has more than one candidate once revealed.
                     const response = {
                         ok: true,
-                        json: async () => requestIndex === 0
-                            ? {
-                                image_url: 'data:image/svg+xml,<svg/>',
-                                spotify_url: 'https://open.spotify.com/artist/stale',
-                            }
-                            : {image_url: null, spotify_url: null},
+                        json: async () => ({
+                            image_url: `data:image/svg+xml,<svg data-i="${requestIndex}"/>`,
+                            spotify_url: 'https://open.spotify.com/artist/rotation',
+                        }),
                     };
                     if (requestIndex !== 0) return Promise.resolve(response);
                     return new Promise((resolve) => {
@@ -831,6 +847,37 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
                 f"spotlight hydrated {len(spotlight_requests)} artists instead of 5"
             )
 
+        # The card stays hidden while the slowest candidate's photo is still
+        # unconfirmed: nothing may reveal before every hydration -- not just
+        # the fast ones -- has settled via Promise.all.
+        if page.evaluate("() => window.__spotlightFirstResolved"):
+            failures.append(
+                "the slow hydration already settled before this check could "
+                "observe the card hidden -- tighten the mocked delay"
+            )
+        display_while_pending = page.evaluate(
+            "() => getComputedStyle(document.querySelector('#artist-spotlight-card')).display"
+        )
+        if display_while_pending != "none":
+            failures.append(
+                "spotlight card revealed before its slowest hydration settled "
+                f"(display: {display_while_pending!r})"
+            )
+
+        try:
+            page.wait_for_function(
+                "() => document.querySelector('#artist-spotlight-card')?.dataset.spotlightIndex !== undefined",
+                timeout=2_000,
+            )
+        except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+            failures.append("artist spotlight never revealed after hydration settled")
+            return failures
+
+        if not page.evaluate("() => window.__spotlightFirstResolved"):
+            failures.append(
+                "artist spotlight revealed before its slowest hydration settled"
+            )
+
         initial_index = page.locator("#artist-spotlight-card").get_attribute(
             "data-spotlight-index"
         )
@@ -842,26 +889,6 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
             )
         except Exception:  # noqa: BLE001 - converted to an actionable gate failure
             failures.append("artist spotlight did not rotate through its sample")
-        else:
-            active_state = page.evaluate(
-                """() => {
-                    const card = document.querySelector('#artist-spotlight-card');
-                    return {index: card?.dataset.spotlightIndex, artist: card?.dataset.artist};
-                }"""
-            )
-            page.wait_for_function(
-                "() => window.__spotlightFirstResolved",
-                timeout=2_000,
-            )
-            if page.evaluate(
-                """expected => {
-                    const card = document.querySelector('#artist-spotlight-card');
-                    return card?.dataset.spotlightIndex !== expected.index
-                        || card?.dataset.artist !== expected.artist;
-                }""",
-                active_state,
-            ):
-                failures.append("late spotlight hydration replaced the active artist")
     finally:
         delete_job(job_id)
     return failures

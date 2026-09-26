@@ -9,6 +9,19 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Drop a work-package token from a log heading
+
+Side task, no batch tag: rename a log heading that carried a work-package
+token, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+- **Scope and result.** The previous entry's heading carried a `WP-0` token,
+  which the owner ruling keeps out of headings until WP-0 closes;
+  `--check` passed and treated it as untagged, so this fixes the
+  convention, not a docsync failure.
+
+Validation: `pytest -q` -- **1926 passed**.
+
 ### 2026-09-26 - Plan the frontend and test-infrastructure work
 
 Side task, no batch tag: plan the WP-0 frontend and test-infrastructure work,

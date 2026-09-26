@@ -29,8 +29,9 @@ def select_spotlight_artists(results, job_id):
         artist["scrobbles"] += album.get("play_count", 0) or 0
         artist["album_count"] += 1
         artist["play_time_seconds"] += album.get("play_time_seconds", 0) or 0
-        if not artist["image_url"] and album.get("album_image"):
-            artist["image_url"] = album["album_image"]
+        # image_url stays "" here (F-B21-60): an album cover is not a
+        # confirmed artist photo. The client only ever shows a Spotify
+        # artist photo it has confirmed through /api/artist_spotlight.
 
     ranked = sorted(
         by_artist.values(),

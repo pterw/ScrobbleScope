@@ -453,9 +453,10 @@ CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
 
 `python scripts/dev/results_behavior_tests.py` runs six isolated Chromium
 tests against the production Results scripts, using a controlled clock and
-no Flask server or external services. They cover Spotlight rotation and late
-hydration, reduced motion, leaderboard state, and tooltip timing and keyboard
-access. These browser tests run in CI after browser installation and before
+no Flask server or external services. They cover Spotlight rotation, the
+card staying hidden until every hydration settles and dropping any candidate
+without a confirmed photo, reduced motion, leaderboard state, and tooltip
+timing and keyboard access. These browser tests run in CI after browser installation and before
 the full-page gate; they are separate from the Python `pytest` test count.
 Sampling itself lives in `scrobblescope/spotlight.py` and is covered by the
 Results route regression in `tests/test_routes.py`.

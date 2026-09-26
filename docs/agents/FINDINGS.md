@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1943 tests across 76 tracked test modules.
+1958 tests across 77 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -308,6 +308,17 @@ no Spotify icon" gap in substance but not to the letter -- it is a text
 label, not either provider's official logo asset, so the ruling below is
 still open. The artist spotlight card is unchanged: still cropped, still
 overlaid, still animated. See F-B22-4 for the logo-asset gap.
+
+**Partial progress, 2026-09-26 (Batch 23 WP-0 Task 5):** crop, overlay,
+animation and the server- and client-side album-art fallback are fixed. The
+photo is shown whole and square (4px corners at small sizes, 8px at large),
+nothing draws on top of it, artist changes swap instantly with no fade, and
+a candidate with no Spotify-confirmed photo is dropped from rotation --
+`scrobblescope/spotlight.py` no longer seeds `image_url` from an album cover,
+and `results-spotlight.js` no longer falls back to that seed either. If no
+candidate has a confirmed photo, the card stays hidden. The Spotify icon and
+provider-attribution bullets stay open under this same finding; the logo
+asset gap is tracked separately as F-B22-4.
 
 Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.

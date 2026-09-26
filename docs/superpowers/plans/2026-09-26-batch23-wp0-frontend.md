@@ -545,7 +545,7 @@ Q11 answer a, part 1 only: crop, overlay, animation and fallback fixes. **No Spo
 provider-attribution work here** -- no asset was supplied, and F-B21-60's icon and attribution bullets
 stay open under the same finding ID (F-B22-4 already tracks the logo-asset gap separately).
 
-- [ ] **Step 1: Fix the crop.** Spotify artist photos are already square (F-B21-60's own text); the
+- [x] **Step 1: Fix the crop.** Spotify artist photos are already square (F-B21-60's own text); the
   defect is the wide `.spotlight-card-bleed` frame forcing `object-cover` to cut a square photo's top
   and bottom. In `results.css`, replace the wide-bleed image treatment with a square image box:
   `aspect-ratio: 1 / 1`, sized to the card, `border-radius: 4px` at the mobile/default breakpoint and
@@ -554,17 +554,17 @@ stay open under the same finding ID (F-B22-4 already tracks the logo-asset gap s
   column -- beside the image at `768px` and up, below it under that width -- never positioned over the
   photo.
 
-- [ ] **Step 2: Delete the overlay.** Remove `.spotlight-scrim-top`, `.spotlight-scrim-bottom` and
+- [x] **Step 2: Delete the overlay.** Remove `.spotlight-scrim-top`, `.spotlight-scrim-bottom` and
   `.spotlight-scrim-overlay` from `results.css`, and their corresponding `<div>`s from `results.html`.
   Nothing is drawn on top of the photo.
 
-- [ ] **Step 3: Delete the animation.** In `results-spotlight.js` `renderCandidate`, delete the
+- [x] **Step 3: Delete the animation.** In `results-spotlight.js` `renderCandidate`, delete the
   `view.content.style.opacity` fade and its `setTimeout`; call `apply()` directly every time,
   regardless of the `animate` argument or `state.reducedMotion`. An instant swap is explicitly
   acceptable per the ruling; reduced motion already keeps the first artist still, by never starting
   the rotation `setInterval` in `startArtistSpotlightRotation` -- that part is unchanged.
 
-- [ ] **Step 4: Delete the album-art fallback, server and client.** In `templates/results.html`,
+- [x] **Step 4: Delete the album-art fallback, server and client.** In `templates/results.html`,
   delete the `{% set spotlight_fallback_img = ... %}` line and the whole `{% if spotlight_fallback_img
   %}...{% else %}...{% endif %}` branch; the card becomes one shape, given `style="display:none"`
   initially (matching `results-spotlight.js`'s existing `view.card.style.display = ''` reveal
@@ -585,7 +585,7 @@ stay open under the same finding ID (F-B22-4 already tracks the logo-asset gap s
   existed only for the deleted fallback, and delete `.spotlight-no-image` and
   `.spotlight-card-bleed:has(.spotlight-no-image)` from `results.css`.
 
-- [ ] **Step 5: Update `tests/test_routes.py` -- two tests, named.**
+- [x] **Step 5: Update `tests/test_routes.py` -- two tests, named.**
   - **Delete `test_results_page_top_artist_image_from_first_available_album` whole** (its two-album
     fixture, one missing `album_image`, exists solely to assert
     `'src="https://example.com/thebends.jpg"' in html`, the album-art fallback Step 4 removes; there
@@ -599,7 +599,7 @@ stay open under the same finding ID (F-B22-4 already tracks the logo-asset gap s
     `data-artist="Radiohead"` and `"350 scrobbles across 2 albums in 2024"` assertions unchanged; they
     do not depend on the fallback. Name both edits in the commit body, per Global Constraints.
 
-- [ ] **Step 6: New slice module and check.** Create `scripts/dev/_frontend_gate_spotlight_photo.py`,
+- [x] **Step 6: New slice module and check.** Create `scripts/dev/_frontend_gate_spotlight_photo.py`,
   importing `create_job`, `set_job_progress` from `scrobblescope.repositories` and `MIGRATED_PAGES`
   from `scripts.dev._frontend_gate_shared` directly (not from `_frontend_gate_pipeline.py`). Seed a
   job the same way `_frontend_gate_pipeline.py`'s `check_artist_spotlight_rotation` does (results with
@@ -619,14 +619,14 @@ stay open under the same finding ID (F-B22-4 already tracks the logo-asset gap s
   `from scripts.dev._frontend_gate_spotlight_photo import (...)` import line, alphabetically among the
   other `_frontend_gate_*` imports.
 
-- [ ] **Step 7: Run the new checks and the full gate.** Confirm all pass.
+- [x] **Step 7: Run the new checks and the full gate.** Confirm all pass.
 
-- [ ] **Step 8: Live probe, twice.** In a scratch copy of `results-spotlight.js` (outside the
+- [x] **Step 8: Live probe, twice.** In a scratch copy of `results-spotlight.js` (outside the
   repository), reintroduce the opacity fade from Step 3; confirm the opacity assertion fails naming
   the observed change. In a scratch copy of `results.css`, revert the image box to
   `aspect-ratio: 16 / 10`; confirm the crop assertion fails. Delete both scratch copies once confirmed.
 
-- [ ] **Step 9: Update F-B21-60 with a dated note, not a resolved record.** It stays P1, `Status:`
+- [x] **Step 9: Update F-B21-60 with a dated note, not a resolved record.** It stays P1, `Status:`
   line unchanged, with a new dated line: crop, overlay, animation and the album-art fallback are
   fixed (this task); the Spotify icon and provider-attribution bullets stay open, no new finding ID
   (F-B22-4 already tracks the logo asset).
