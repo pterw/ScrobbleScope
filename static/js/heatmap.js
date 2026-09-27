@@ -1226,7 +1226,11 @@
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
     svg.setAttribute('width', '100%');
     svg.setAttribute('data-layout', 'desktop');
-    svg.setAttribute('role', 'img');
+    // role="group", not "img": an ARIA img prunes every presentational
+    // child from the accessibility tree, so a screen reader would never
+    // hear a cell's own role="img" + aria-label. The SVG's aria-label
+    // stays as the whole-grid summary.
+    svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label',
       'Scrobble heatmap for ' + data.username + ': ' +
       data.total_scrobbles + ' scrobbles from ' +
@@ -1294,7 +1298,9 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
-      rect.setAttribute('tabindex', '0');
+      // Roving tabindex, not every cell at once: only the most recent day
+      // (the last cell pushed below) starts as the grid's one Tab stop.
+      rect.setAttribute('tabindex', '-1');
       rect.setAttribute('role', 'img');
       rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
@@ -1310,6 +1316,7 @@
 
       svg.appendChild(rect);
     }
+    setRovingTabStop(cellData, cellData.length - 1);
 
     gridContainer.appendChild(svg);
 
@@ -1354,7 +1361,9 @@
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
     svg.setAttribute('width', '100%');
     svg.setAttribute('data-layout', 'mobile');
-    svg.setAttribute('role', 'img');
+    // See renderHeatmapDesktop: role="group" so cells' own role="img" +
+    // aria-label survive in the accessibility tree.
+    svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label',
       'Scrobble activity strip for ' + data.username + ': ' +
       data.total_scrobbles + ' scrobbles from ' +
@@ -1379,7 +1388,8 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
-      rect.setAttribute('tabindex', '0');
+      // Roving tabindex: see renderHeatmapDesktop.
+      rect.setAttribute('tabindex', '-1');
       rect.setAttribute('role', 'img');
       rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
@@ -1394,6 +1404,7 @@
 
       svg.appendChild(rect);
     }
+    setRovingTabStop(cellData, cellData.length - 1);
 
     gridContainer.appendChild(svg);
     legendBar.style.background = legendGradient();
@@ -1401,6 +1412,46 @@
     revealHeatmapResult();
 
     initTooltips(svg, cellData);
+  }
+
+  // ----------------------------------------------------------------
+  // Grid keyboard navigation (roving tabindex)
+  // ----------------------------------------------------------------
+  // Exactly one cell is a Tab stop at a time -- the rest carry
+  // tabindex="-1" -- so the grid costs one Tab press to enter and one to
+  // leave, whatever its day count. Date order is layout-independent
+  // (cellData is built in date order by both renderers), so one handler
+  // serves desktop columns and the mobile strip alike.
+  function setRovingTabStop(cellData, index) {
+    cellData.forEach(function (cd, i) {
+      cd.el.setAttribute('tabindex', i === index ? '0' : '-1');
+    });
+  }
+
+  function handleCellKeydown(cellData, index, event) {
+    var nextIndex;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = Math.min(index + 1, cellData.length - 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = Math.max(index - 1, 0);
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = cellData.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    if (nextIndex === index) return;
+    setRovingTabStop(cellData, nextIndex);
+    cellData[nextIndex].el.focus();
   }
 
   // ----------------------------------------------------------------
@@ -1416,7 +1467,7 @@
 
     var svgContainer = gridContainer;
 
-    cellData.forEach(function (cd) {
+    cellData.forEach(function (cd, index) {
       cd.el.addEventListener('mouseenter', function (e) {
         showTooltip(cd, e);
       });
@@ -1427,12 +1478,36 @@
         e.preventDefault();
         showTooltip(cd, e.touches[0]);
       }, { passive: false });
-      cd.el.addEventListener('focus', function () { showTooltip(cd, {clientX: 0, clientY: 0}); });
+      cd.el.addEventListener('focus', function () {
+        setRovingTabStop(cellData, index);
+        showTooltip(cd, {clientX: 0, clientY: 0});
+      });
       cd.el.addEventListener('blur', hideTooltip);
+      cd.el.addEventListener('keydown', function (e) {
+        handleCellKeydown(cellData, index, e);
+      });
     });
 
     document.addEventListener('touchend', hideTooltip);
-    document.addEventListener('scroll', hideTooltip, true);
+    // Capture-phase, because a focused cell's own scroll container (the
+    // mobile strip) does not bubble a scroll event to `document`. Focusing
+    // an off-screen cell scrolls it into view, which used to fire this
+    // listener and hide the tooltip the focus handler had just shown; now
+    // it repositions the same tooltip for the still-focused cell instead.
+    document.addEventListener('scroll', function () {
+      var active = document.activeElement;
+      var focused = cellData.filter(function (cd) { return cd.el === active; })[0];
+      if (!focused) {
+        hideTooltip();
+        return;
+      }
+      var reposition = function () { showTooltip(focused, { clientX: 0, clientY: 0 }); };
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(reposition);
+      } else {
+        reposition();
+      }
+    }, true);
   }
 
   function showTooltip(cd, event) {

@@ -6,6 +6,21 @@ sighted-but-mouseless reader, or a screen reader, got no equivalent of the
 tooltip. This drives a real Tab key press and reads what actually receives
 focus, because a class name on a `<rect>` says nothing about whether a
 keyboard can reach it.
+
+This check also proves three later fixes:
+
+* the SVG carries `role="group"`, not `role="img"`, in the browser's own
+  accessibility tree -- an ARIA `img` prunes every presentational child, so
+  a screen reader would never hear a cell's own `role="img"` +
+  `aria-label` if the SVG kept that role. Proven through
+  `Locator.aria_snapshot()`, the browser's computed tree, never
+  `getAttribute`.
+* the grid uses a roving tabindex (exactly one cell reachable by Tab, the
+  arrow keys move it, one more Tab leaves the grid), not every cell at
+  once.
+* focusing an off-screen cell -- the mobile strip's own scroll, or a page
+  scroll a focus jump causes -- repositions the tooltip instead of hiding
+  it.
 """
 
 from __future__ import annotations
@@ -55,6 +70,25 @@ _MONTHS = (
     "December",
 )
 
+#: Reads the currently-focused heatmap cell, or null if focus is elsewhere.
+_ACTIVE_CELL_JS = """() => {
+    const el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains('heatmap-cell')) {
+        return null;
+    }
+    const style = getComputedStyle(el);
+    return {
+        ariaLabel: el.getAttribute('aria-label'),
+        date: el.getAttribute('data-date'),
+        count: el.getAttribute('data-count'),
+        tabIndexAttr: el.getAttribute('tabindex'),
+        outlineWidth: style.outlineWidth,
+        outlineStyle: style.outlineStyle,
+        outlineOffset: style.outlineOffset,
+        outlineColor: style.outlineColor,
+    };
+}"""
+
 
 def _expected_cell_label(iso_date: str, count: int) -> str:
     """The exact string `cellAccessibleLabel` produces for one date/count.
@@ -73,16 +107,54 @@ def _expected_cell_label(iso_date: str, count: int) -> str:
     return f"{weekday} {day} {_MONTHS[month - 1]} {year} -- {count_str}"
 
 
+def _snapshot_root_role(snapshot: str) -> str | None:
+    """The role token of an `aria_snapshot()` string's top-level node.
+
+    `Locator.aria_snapshot()` renders `- role "name":`, but wraps the whole
+    `role "name"` pair in a single quote when the name needs YAML escaping
+    (any heatmap label does, since it embeds a colon) -- `- 'group "...":'`.
+    Reads the role out of either form rather than a fixed prefix, so the
+    escaping choice is not part of what this check asserts.
+    """
+    first_line = next(iter(snapshot.strip().splitlines()), "")
+    token = first_line[2:] if first_line.startswith("- ") else first_line
+    token = token.lstrip("'\"")
+    return token.split(" ", 1)[0] or None
+
+
+def _truncate_snapshot(snapshot: str, limit: int = 300) -> str:
+    """The snapshot's first `limit` characters, for a readable failure line.
+
+    A 500-day grid's `aria_snapshot()` is one line per cell; a failure that
+    quoted it whole would bury the one line that matters.
+    """
+    if len(snapshot) <= limit:
+        return snapshot
+    return snapshot[:limit] + "...(truncated)"
+
+
+def _shift_iso_date(iso_date: str, days: int) -> str:
+    """`iso_date` plus `days` (negative shifts back), as `YYYY-MM-DD`."""
+    year, month, day = (int(part) for part in iso_date.split("-"))
+    shifted = datetime.date(year, month, day) + datetime.timedelta(days=days)
+    return shifted.isoformat()
+
+
 def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str]:
-    """Tab reaches a heatmap cell whose aria-label and focus ring are real."""
+    """Tab reaches one cell; arrow keys rove it; scroll never hides its tip."""
     failures: list[str] = []
     job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    # A single-day range makes the "every .heatmap-cell carries tabindex=0"
-    # audit vacuous (1 of 1 always passes): seed a 14-day range instead, with
+    # A single-day range makes the "exactly one cell carries tabindex=0"
+    # audit vacuous (1 of 1 always passes): seed a wide range instead, with
     # one non-zero day so the aria-label assertion still exercises a real
-    # count.
+    # count. The mobile strip packs 10-28 columns into its container
+    # (MOBILE_MIN_COLUMNS/MOBILE_MAX_COLUMNS in heatmap.js), so it takes a
+    # wide range -- 500 days, measured against the MOBILE viewport -- before
+    # the strip's own height passes the viewport's, which is what the A3
+    # scroll/tooltip assertion below needs: on a shorter range every cell is
+    # already on screen and that assertion is vacuous.
     from_date = "2025-01-01"
-    to_date = "2025-01-14"
+    to_date = _shift_iso_date(from_date, 499)
     seeded_date = "2025-01-01"
     seeded_count = 5
     set_job_results(
@@ -99,29 +171,14 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
     set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}{HEATMAP_PATH}?job_id={job_id}", wait_until="load")
-        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        svg = page.locator("#heatmap-result-frame svg")
+        svg.wait_for(state="visible")
         page.locator("#heatmap-save-image").focus()
 
         landed = None
         for _ in range(_MAX_TAB_PRESSES):
             page.keyboard.press("Tab")
-            landed = page.evaluate(
-                """() => {
-                    const el = document.activeElement;
-                    if (!el || !el.classList.contains('heatmap-cell')) return null;
-                    const style = getComputedStyle(el);
-                    return {
-                        ariaLabel: el.getAttribute('aria-label'),
-                        date: el.getAttribute('data-date'),
-                        count: el.getAttribute('data-count'),
-                        tabIndexAttr: el.getAttribute('tabindex'),
-                        outlineWidth: style.outlineWidth,
-                        outlineStyle: style.outlineStyle,
-                        outlineOffset: style.outlineOffset,
-                        outlineColor: style.outlineColor,
-                    };
-                }"""
-            )
+            landed = page.evaluate(_ACTIVE_CELL_JS)
             if landed:
                 break
 
@@ -132,40 +189,120 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
             )
             return failures
 
-        expected_label = _expected_cell_label(landed["date"], int(landed["count"]))
+        landed_date = landed["date"]
+        expected_label = _expected_cell_label(landed_date, int(landed["count"]))
         if landed["ariaLabel"] != expected_label:
             failures.append(
                 f"heatmap cell aria-label was {landed['ariaLabel']!r}, "
                 f"expected {expected_label!r}"
             )
+        if landed_date != to_date:
+            failures.append(
+                "Tab landed on the cell for "
+                f"{landed_date!r}, expected the most recent day in range "
+                f"({to_date!r}) to be the grid's one Tab stop"
+            )
 
+        # -- A1: the accessibility tree, not getAttribute. --------------
+        # role="img" on the SVG would prune every presentational child, so
+        # a screen reader would never hear a cell's own role="img" +
+        # aria-label. Read what the browser actually computed. A Playwright
+        # failure here is a check-level fault, not a result to report:
+        # `_run_check` (frontend_gate.py) already reports an uncaught
+        # exception as its own failure line.
+        svg_snapshot = svg.aria_snapshot()
+        svg_role = _snapshot_root_role(svg_snapshot)
+        snapshot_head = _truncate_snapshot(svg_snapshot)
+        if svg_role != "group":
+            failures.append(
+                "the heatmap SVG's computed accessibility role is "
+                f"{svg_role!r}, expected 'group' (snapshot starts: "
+                f"{snapshot_head!r})"
+            )
+        if f'img "{expected_label}"' not in svg_snapshot:
+            failures.append(
+                "the focused cell's own accessible name is missing from "
+                "the SVG's accessibility tree (snapshot starts: "
+                f"{snapshot_head!r}), expected an img node named "
+                f"{expected_label!r}"
+            )
+
+        # -- A2: roving tabindex, not every cell at once. ----------------
         if landed["tabIndexAttr"] != "0":
             failures.append(
                 'heatmap cell reached by Tab does not carry tabindex="0" '
                 f"(was {landed['tabIndexAttr']!r})"
             )
 
-        cell_tabindex_audit = page.evaluate(
+        roving_audit = page.evaluate(
             """() => {
                 const cells = Array.from(document.querySelectorAll('.heatmap-cell'));
-                const missing = cells.filter(
-                    (c) => c.getAttribute('tabindex') !== '0'
+                const zeroTabindex = cells.filter(
+                    (c) => c.getAttribute('tabindex') === '0'
                 ).length;
-                return {total: cells.length, missing};
+                return {total: cells.length, zeroTabindex: zeroTabindex};
             }"""
         )
-        if cell_tabindex_audit["total"] <= 1:
+        if roving_audit["total"] <= 1:
             failures.append(
                 "heatmap grid rendered only "
-                f"{cell_tabindex_audit['total']} .heatmap-cell element(s); "
-                "the tabindex audit needs more than one cell to be "
+                f"{roving_audit['total']} .heatmap-cell element(s); the "
+                "roving-tabindex audit needs more than one cell to be "
                 "meaningful (seed a wider date range)"
             )
-        if cell_tabindex_audit["missing"]:
+        if roving_audit["zeroTabindex"] != 1:
             failures.append(
-                f"{cell_tabindex_audit['missing']} of "
-                f"{cell_tabindex_audit['total']} .heatmap-cell elements lack "
-                'tabindex="0"'
+                f"{roving_audit['zeroTabindex']} of {roving_audit['total']} "
+                '.heatmap-cell elements carry tabindex="0"; exactly one '
+                "should (a roving tabindex, not every cell at once)"
+            )
+
+        expected_prev_date = _shift_iso_date(landed_date, -1)
+        page.keyboard.press("ArrowLeft")
+        moved = page.evaluate(_ACTIVE_CELL_JS)
+        if not moved or moved["date"] != expected_prev_date:
+            failures.append(
+                "ArrowLeft from the most recent day's cell did not move "
+                f"focus to {expected_prev_date!r} "
+                f"(landed on {moved['date'] if moved else None!r})"
+            )
+        else:
+            if moved["tabIndexAttr"] != "0":
+                failures.append(
+                    "ArrowLeft moved focus but the new cell does not carry "
+                    f'tabindex="0" (was {moved["tabIndexAttr"]!r})'
+                )
+            previous_tabindex = page.evaluate(
+                "(date) => { const el = document.querySelector("
+                "'.heatmap-cell[data-date=\"' + date + '\"]'); "
+                "return el ? el.getAttribute('tabindex') : null; }",
+                landed_date,
+            )
+            if previous_tabindex != "-1":
+                failures.append(
+                    "ArrowLeft moved focus but the previously-focused cell "
+                    f"still carries tabindex={previous_tabindex!r} instead "
+                    'of "-1"'
+                )
+
+            page.keyboard.press("ArrowRight")
+            back = page.evaluate(_ACTIVE_CELL_JS)
+            if not back or back["date"] != landed_date:
+                failures.append(
+                    "ArrowRight did not move focus back to the next date's "
+                    f"cell ({landed_date!r}); landed on "
+                    f"{back['date'] if back else None!r}"
+                )
+
+        page.keyboard.press("Tab")
+        left_grid = page.evaluate(
+            "() => { const el = document.activeElement; "
+            "return !(el && el.classList && el.classList.contains('heatmap-cell')); }"
+        )
+        if not left_grid:
+            failures.append(
+                "the next Tab from a heatmap cell stayed inside the grid "
+                "(a roving tabindex should cost exactly one Tab to leave)"
             )
 
         # Resolve --shell-accent's computed colour via a throwaway probe
@@ -206,6 +343,90 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 f"{landed['outlineColor']!r}, expected {accent_color!r} "
                 "(computed --shell-accent)"
             )
+
+        # -- L1: a focus that did not come from Tab/arrow keys (a mouse
+        # click, or this programmatic el.focus()) must move the roving Tab
+        # stop too, else Tab-out-and-back lands on the stale stop instead of
+        # the cell a user just focused. -----------------------------------
+        first_cell_locator = page.locator(f'.heatmap-cell[data-date="{from_date}"]')
+        first_cell_locator.evaluate("(el) => el.focus()")
+        first_cell_tabindex = page.evaluate(
+            "(date) => { const el = document.querySelector("
+            "'.heatmap-cell[data-date=\"' + date + '\"]'); "
+            "return el ? el.getAttribute('tabindex') : null; }",
+            from_date,
+        )
+        if first_cell_tabindex != "0":
+            failures.append(
+                "focusing a non-stop heatmap cell (e.g. a mouse click) did "
+                "not move the roving Tab stop to it "
+                f"(tabindex was {first_cell_tabindex!r}, expected '0')"
+            )
+        else:
+            page.keyboard.press("Tab")
+            page.keyboard.press("Shift+Tab")
+            returned = page.evaluate(_ACTIVE_CELL_JS)
+            if not returned or returned["date"] != from_date:
+                failures.append(
+                    "Tab away and Shift+Tab back after focusing a non-stop "
+                    f"cell did not return focus to {from_date!r} (landed on "
+                    f"{returned['date'] if returned else None!r}); the "
+                    "roving Tab stop was not updated by the programmatic "
+                    "focus"
+                )
+
+        # -- A3: a scroll while a cell is focused repositions the tooltip,
+        # rather than hiding it, on the profile where a focused cell can
+        # need to scroll into view (the mobile strip). ------------------
+        layout = svg.get_attribute("data-layout")
+        if layout == "mobile":
+            page.evaluate(
+                "() => { if (document.activeElement) document.activeElement.blur(); }"
+            )
+            # Scroll away from wherever the earlier Tab/arrow-key traffic
+            # left the viewport, to the opposite end of the page, so
+            # re-focusing the cell below is guaranteed to actually move the
+            # scroll position (a same-position "scroll" never fires a
+            # scroll event at all, which would make this assertion
+            # vacuous).
+            page.evaluate("() => window.scrollTo(0, 0)")
+            cell_locator = page.locator(f'.heatmap-cell[data-date="{landed_date}"]')
+            cell_locator.evaluate("(el) => el.focus()")
+            # Give the browser's own scroll-into-view and the tooltip's
+            # requestAnimationFrame reposition a turn to settle, then let
+            # its 0.15s CSS opacity transition finish.
+            page.evaluate("() => new Promise((r) => requestAnimationFrame(r))")
+            page.wait_for_timeout(250)
+            tooltip_state = page.evaluate(
+                """() => {
+                    const tt = document.querySelector('.heatmap-tooltip');
+                    if (!tt) return null;
+                    return {
+                        opacity: getComputedStyle(tt).opacity,
+                        text: tt.textContent,
+                    };
+                }"""
+            )
+            if not tooltip_state:
+                failures.append(
+                    "no .heatmap-tooltip element exists after focusing an "
+                    "off-screen cell"
+                )
+            else:
+                if tooltip_state["opacity"] != "1":
+                    failures.append(
+                        "the tooltip was hidden (computed opacity "
+                        f"{tooltip_state['opacity']!r}) after a scroll "
+                        "brought the focused cell into view; a scroll "
+                        "while a heatmap cell is focused should reposition "
+                        "the tooltip, not hide it"
+                    )
+                if tooltip_state["text"] != expected_label:
+                    failures.append(
+                        "the tooltip visible after the scroll read "
+                        f"{tooltip_state['text']!r}, expected "
+                        f"{expected_label!r}"
+                    )
     finally:
         delete_job(job_id)
     return failures

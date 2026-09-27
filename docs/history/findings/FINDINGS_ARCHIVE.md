@@ -72,11 +72,16 @@ why no review caught it and no gate can.
 
 - [x] **Status:** resolved
 **Completed:** 2026-09-27
-Heatmap cells carry tabindex, role=img and an aria-label built by the same
-cellAccessibleLabel helper the mouse tooltip uses;
-check_heatmap_cells_are_keyboard_accessible (its own slice module) proves it
-live.
-Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24.
+Heatmap cells carry a roving tabindex (one cell reachable by Tab at a
+time, moved by the arrow keys or by any other focus, including a mouse
+click), role=img and an aria-label built by the same cellAccessibleLabel
+helper the mouse tooltip uses. The SVG itself carries role=group, not
+role=img, so a cell's own role and label are not pruned as presentational
+children of an image. check_heatmap_cells_are_keyboard_accessible (its
+own slice module) proves it live, through the browser's own accessibility
+tree.
+Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24; keyboard-model
+and accessibility-tree follow-up, 2026-09-27.
 
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production -- RESOLVED
 
