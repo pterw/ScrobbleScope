@@ -45,8 +45,8 @@ def test_lastfm_fixture_flows_through_aggregate_daily_counts():
 @pytest.mark.asyncio
 async def test_lastfm_fixture_flows_through_fetch_top_albums():
     """Runs the fixture through the real orchestrator pipeline: a fixture
-    missing `artist.#text`, `album.#text`, `name` or `date.uts` would fail
-    to produce an eligible album here."""
+    missing `artist.#text`, `album.#text` or `date.uts` would fail to
+    produce an eligible album here."""
     from scrobblescope.domain import normalize_name
     from scrobblescope.orchestrator import fetch_top_albums_async
 

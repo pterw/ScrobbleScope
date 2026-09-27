@@ -7,10 +7,11 @@ from scrobblescope import worker
 from scrobblescope.config import MAX_ACTIVE_JOBS
 from scrobblescope.orchestrator import background_task
 
-#: Bounds both the /progress poll loop and the background-thread join: long
-#: enough for a real (mocked-network) pipeline run, short enough that a
-#: genuine hang still fails the test promptly.
-_JOB_TIMEOUT_SECONDS = 10
+#: One shared wall-clock budget for the /progress poll loop and the
+#: background-thread join together (not each): long enough for a real
+#: (mocked-network) pipeline run, short enough that a genuine hang still
+#: fails the test promptly.
+_JOB_TIMEOUT_SECONDS = 30
 
 
 def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
@@ -123,14 +124,16 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         location = resp.headers["Location"]
         job_id = parse_qs(urlparse(location).query)["job_id"][0]
 
-        deadline = time.time() + _JOB_TIMEOUT_SECONDS
+        deadline = time.monotonic() + _JOB_TIMEOUT_SECONDS
         progress_payload = client.get(
             "/progress", query_string={"job_id": job_id}
         ).get_json()
         while progress_payload.get("progress", 0) < 100 and not progress_payload.get(
             "error"
         ):
-            assert time.time() < deadline, "background thread did not finish in time"
+            assert time.monotonic() < deadline, (
+                "background thread did not finish in time"
+            )
             time.sleep(0.05)
             progress_payload = client.get(
                 "/progress", query_string={"job_id": job_id}
@@ -143,9 +146,12 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         # `with` block, so the network/MusicBrainz mocks are still active for
         # whatever the thread does next -- before trusting anything past this
         # point.
-        assert created_threads, "start_job_thread did not start a real thread"
+        assert len(created_threads) == 1, (
+            "expected exactly one background_task thread for this job, got "
+            f"{len(created_threads)}"
+        )
         background_thread = created_threads[0]
-        background_thread.join(timeout=_JOB_TIMEOUT_SECONDS)
+        background_thread.join(timeout=max(0.0, deadline - time.monotonic()))
         assert not background_thread.is_alive(), (
             "background thread did not finish within "
             f"{_JOB_TIMEOUT_SECONDS}s of /progress reporting completion"

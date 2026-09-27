@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Heatmap grid cells are keyboard-focusable and labelled
+
+Side task, no batch tag: heatmap grid cells carry tabindex, role=img and an
+aria-label built by the same cellAccessibleLabel helper the mouse tooltip
+uses, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until
+the whole of WP-0 lands.
+
+Extracted `cellAccessibleLabel` in `static/js/heatmap.js` so the tooltip and
+each cell's `aria-label` share one source of truth, made every `.heatmap-cell`
+focusable with a visible `:focus-visible` ring, and added
+`check_heatmap_cells_are_keyboard_accessible` (its own frontend-gate slice,
+`scripts/dev/_frontend_gate_heatmap_access.py`) to prove it live. Resolves
+F-B21-14.
+
+Fix round 1: the check now asserts the reached cell's own `tabindex="0"`
+attribute and that every `.heatmap-cell` in the grid carries it (naming the
+count missing), and asserts the authored focus ring by its four computed
+properties -- `outline-width: 2px`, `outline-style: solid`,
+`outline-offset: 1px`, and `outline-color` equal to `--shell-accent`'s
+computed colour read via a probe element -- rather than the generic
+`outlineStyle !== 'none'` a bare UA default outline also satisfied.
+
+Fix round 2: the check is now registered for the desktop AND mobile
+profiles in `scripts/dev/frontend_gate.py` (previously desktop only, so a
+regression in `renderHeatmapMobile`'s own tabindex/role/aria-label lines
+went unseen), and seeds a 14-day range instead of one day, so the
+"every `.heatmap-cell` carries tabindex=0" audit sees more than one cell
+(it now fails outright on a grid of 1 or fewer, naming the count).
+
+Validation: `pytest -q` -- **1978 passed**.
+
 ### 2026-09-27 - Move four dev-only pins out of the production install
 
 Side task, no batch tag: move four dev-only pins out of the production install, part of
