@@ -30,7 +30,7 @@ import fnmatch
 import re
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import tomllib
 
@@ -429,23 +429,39 @@ class TestCountConfig:
     pinned: int | None = None
 
 
+def _validated_table(table: object, table_name: str, known: Iterable[str]) -> Mapping:
+    """Check that a declared table is a table, and every key in it is known.
+
+    Rule of Three (docs/agents/global-rules.md Rule 3): `_validate_closeout`,
+    `_validate_test_count` and `_validate_untracked_essentials` each wrote
+    this same is-a-table check and unknown-key walk by hand, one copy per
+    table, with only the table's name and its known keys changed between
+    them. Every message stays byte-identical to what each copy raised, so no
+    caller or test that matches on the exact text sees a difference.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(
+            f"[{table_name}] is {type(table).__name__}, not a table."
+        )
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[{table_name}] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    return table
+
+
 def _validate_test_count(table: object) -> TestCountConfig:
     """Check a declared [test_count] table and return its pin.
 
     The single optional key is validated the same way every other table's
-    keys are: an unknown key is refused rather than ignored, and the pin
-    itself is checked with the same ``_positive_int`` every other numeric
-    table uses, so a typo or a quoted number cannot silently pin nothing.
+    keys are (`_validated_table`), and the pin itself is checked with the
+    same ``_positive_int`` every other numeric table uses, so a typo or a
+    quoted number cannot silently pin nothing.
     """
-    if not isinstance(table, Mapping):
-        raise DeclarationError(f"[test_count] is {type(table).__name__}, not a table.")
     known = _TOP_LEVEL_SCHEMA["test_count"]["optional"]
-    for key in table:
-        if key not in known:
-            raise DeclarationError(
-                f"[test_count] has an unknown key {key!r}. Known keys: "
-                f"{', '.join(sorted(known))}."
-            )
+    table = _validated_table(table, "test_count", known)
     if "pinned" not in table:
         return TestCountConfig()
     return TestCountConfig(
@@ -485,28 +501,44 @@ class UntrackedEssentialsConfig:
     paths: tuple[str, ...] = ()
 
 
+def _escapes_repository(path: str) -> bool:
+    """Return whether ``path`` could resolve outside the repository root.
+
+    Rejects an absolute path in either POSIX form (``/etc/passwd``) or
+    Windows drive form (``C:\\Windows`` or ``C:/Windows``), and any path
+    carrying a ``..`` segment, so a declared untracked-essential can never
+    point the worktree guard at a file outside the repository it is meant to
+    protect. The check does not touch the filesystem: a `PurePosixPath` and a
+    `PureWindowsPath` reading of the same string suffice to reject both
+    absolute forms regardless of which platform runs the guard.
+    """
+    if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
+        return True
+    return ".." in PurePosixPath(path).parts
+
+
 def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
     """Check a declared [untracked_essentials] table and return its paths.
 
     The single optional key is validated the same way every other table's
-    keys are: an unknown key is refused rather than ignored.
+    keys are (`_validated_table`). Each declared path is additionally checked
+    for repository containment (CR5): an absolute path or one carrying a
+    `..` segment is refused rather than handed to the worktree guard, which
+    would otherwise echo it, and stat whatever it names, unchecked.
     """
-    if not isinstance(table, Mapping):
-        raise DeclarationError(
-            f"[untracked_essentials] is {type(table).__name__}, not a table."
-        )
     known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
-    for key in table:
-        if key not in known:
-            raise DeclarationError(
-                f"[untracked_essentials] has an unknown key {key!r}. Known keys: "
-                f"{', '.join(sorted(known))}."
-            )
+    table = _validated_table(table, "untracked_essentials", known)
     if "paths" not in table:
         return UntrackedEssentialsConfig()
     bad = _mismatch(known["paths"], table["paths"])
     if bad:
         raise DeclarationError(f"[untracked_essentials] gives 'paths' as {bad}.")
+    for path in table["paths"]:
+        if _escapes_repository(path):
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which must be a "
+                "path inside the repository: no absolute path and no '..' segment."
+            )
     return UntrackedEssentialsConfig(paths=tuple(table["paths"]))
 
 
@@ -550,19 +582,14 @@ class CloseoutConfig:
 def _validate_closeout(closeout: object) -> CloseoutConfig:
     """Check a declared [closeout] table and return its admission boundary.
 
-    The single key is required once the table exists. An empty table read as
-    "nothing is managed" would silently switch off every closure signal, which
-    is the same quiet failure [options] and [archives] already refuse.
+    The single key is validated the same way every other table's keys are
+    (`_validated_table`), and is then required once the table exists. An
+    empty table read as "nothing is managed" would silently switch off every
+    closure signal, which is the same quiet failure [options] and [archives]
+    already refuse.
     """
-    if not isinstance(closeout, Mapping):
-        raise DeclarationError(f"[closeout] is {type(closeout).__name__}, not a table.")
     known = _TOP_LEVEL_SCHEMA["closeout"]["required"]
-    for key in closeout:
-        if key not in known:
-            raise DeclarationError(
-                f"[closeout] has an unknown key {key!r}. Known keys: "
-                f"{', '.join(sorted(known))}."
-            )
+    closeout = _validated_table(closeout, "closeout", known)
     for key in known:
         if key not in closeout:
             raise DeclarationError(

@@ -118,6 +118,48 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-27 - Close out the control-plane plan's carried code items
+
+Side task, no batch tag: closed the carried docsync code items from
+`docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md` (all eight
+tasks landed), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- m1: `docsync.logic` and `docsync.integrity` each carried a deferred,
+  module-bottom import of one name from the other, guarded by a "would
+  deadlock" comment -- a same-module import cycle broken only by import
+  order. `SESSION_CURRENT_COUNT_RES` moved to `docsync.parser`, the leaf
+  module both already import at top level (still importable from
+  `docsync.integrity`, which re-exports it); `integrity.py`'s three names
+  from `logic.py` moved to its top imports now that nothing in `logic.py`
+  needs anything from `integrity.py`. Both deadlock comments are gone.
+- m4: `WP_COMPLETE_STATUS_RE` (`scripts/docsync/parser.py`) had no end
+  anchor, so `**Status:** WP-4 complete (pending review)` counted as WP-4
+  done. Anchored: the line may close with an optional `.` and trailing
+  whitespace only.
+- CR5: `[untracked_essentials]` paths were not contained to the repository
+  root. `declarations._validate_untracked_essentials` now rejects an
+  absolute path (POSIX or Windows drive form) or a `..` segment; the
+  worktree guard's directory diagnostic renders the declared path with
+  `repr()` rather than echoing it raw.
+- CR10: a declared `[untracked_essentials]` path that exists as a directory
+  read as "missing". `essentials_diagnostics` now distinguishes missing from
+  "exists but is not a file" (a new WT015 WARNING).
+- CR9: `_validate_test_count`, `_validate_untracked_essentials` and
+  `_validate_closeout` each hand-wrote the same is-a-table-plus-unknown-key
+  check. Extracted one `_validated_table` helper (Rule of Three); every
+  existing error message stays byte-identical.
+- CR4 (ruled, no code change): WT015 fires in every checkout because
+  `skills-lock.json` is truly absent; the warning is true, and where the
+  file lives is the owner's decision.
+- CR6 (ruled, no code change): the import-time `sys.path` insert in
+  `_worktree_guard_essentials.py` is the control-plane plan's
+  pre-accepted deviation, the same shape as `scripts/doc_state_sync.py`.
+- m6 (ruled, no code change): the hand-maintained module count is filed as
+  a finding in the close-out docs commit, not built here.
+
+Validation: `pytest -q` -- **1993 passed**.
+
 ### 2026-09-27 - Audit the dev requirements too (CI input gap)
 
 Side task, no batch tag: closed the scope item "add requirements-dev.txt
@@ -187,14 +229,3 @@ went unseen), and seeds a 14-day range instead of one day, so the
 (it now fails outright on a grid of 1 or fewer, naming the count).
 
 Validation: `pytest -q` -- **1978 passed**.
-
-### 2026-09-27 - Move four dev-only pins out of the production install
-
-Side task, no batch tag: move four dev-only pins out of the production install, part of
-Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-`virtualenv==20.36.1`, `distlib==0.3.9`, `filelock==3.20.3` and `platformdirs==4.3.6`
-moved from `requirements.txt` to `requirements-dev.txt` (F-B21-3 remainder); nothing in
-`scrobblescope/` imports them (`git grep` confirmed no hits). A live `pip-audit` recount
-on 2026-09-27 found 0 vulnerabilities in 0 packages against `requirements.txt` alone, 0
-against both files together.
-Validation: `pytest -q` -- **1965 passed**.

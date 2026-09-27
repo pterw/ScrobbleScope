@@ -8,6 +8,7 @@ and not only to a case invented to make it pass.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -1864,6 +1865,14 @@ def test_closeout_config_rejects_unknown_key(tmp_path: Path) -> None:
         load_closeout_config(root)
 
 
+def test_closeout_config_rejects_a_non_table(tmp_path: Path) -> None:
+    """CR9 parity: ``closeout`` written inline as a scalar is refused, not
+    silently ignored in favour of the permissive default."""
+    root = _closeout_repo(tmp_path, "closeout = 1\n")
+    with pytest.raises(DeclarationError, match="\\[closeout\\] is int, not a table"):
+        load_closeout_config(root)
+
+
 def test_closeout_config_requires_the_boundary(tmp_path: Path) -> None:
     """An empty table is refused rather than read as the permissive default.
 
@@ -2006,6 +2015,18 @@ class TestTestCountConfig:
         with pytest.raises(DeclarationError, match="unknown key 'count'"):
             load_test_count_config(tmp_path)
 
+    def test_a_non_table_is_refused(self, tmp_path: Path):
+        """CR9 parity: ``test_count`` written inline as a scalar is refused."""
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("test_count = 1\n", encoding="utf-8")
+        with pytest.raises(
+            DeclarationError, match="\\[test_count\\] is int, not a table"
+        ):
+            load_test_count_config(tmp_path)
+
 
 # ---------------------------------------------------------------------------
 # [untracked_essentials] -- gitignored files the workflow depends on
@@ -2058,6 +2079,22 @@ class TestUntrackedEssentialsConfig:
         with pytest.raises(DeclarationError, match="unknown key 'files'"):
             load_untracked_essentials_config(tmp_path)
 
+    def test_a_non_table_is_refused(self, tmp_path: Path):
+        """CR9 parity: ``untracked_essentials`` written inline as a scalar is
+        refused."""
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("untracked_essentials = 1\n", encoding="utf-8")
+        with pytest.raises(
+            DeclarationError, match="\\[untracked_essentials\\] is int, not a table"
+        ):
+            load_untracked_essentials_config(tmp_path)
+
 
 def test_collect_declaration_issues_rejects_a_string_paths_table(
     tmp_path: Path,
@@ -2085,6 +2122,44 @@ def test_collect_declaration_issues_rejects_an_unknown_essentials_key(
     )
     with pytest.raises(DeclarationError, match="unknown key 'files'"):
         collect_declaration_issues(repo_root=root, live_documents={})
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/etc/passwd", "C:\\Windows\\System32", "C:/Windows/System32", "../x", "a/../b"],
+)
+def test_untracked_essentials_rejects_a_path_that_escapes_the_repository(
+    tmp_path: Path, path: str
+) -> None:
+    """CR5: a declared path must not resolve outside the repository root.
+
+    Before the fix, an absolute path (either POSIX or Windows drive form) or
+    a `..` segment was handed straight to the worktree guard, which then
+    `stat`s and echoes whatever it names -- unbounded by the repository this
+    declaration is supposed to be local to.
+    """
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = path.replace("\\", "\\\\")
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError, match=re.escape(repr(path))):
+        load_untracked_essentials_config(root)
+
+
+def test_untracked_essentials_accepts_a_plain_relative_path(tmp_path: Path) -> None:
+    """The common case -- a bare repository-relative filename -- still passes."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["skills-lock.json"]\n'
+        },
+    )
+    assert load_untracked_essentials_config(root).paths == ("skills-lock.json",)
 
 
 def test_collect_declaration_issues_accepts_valid_untracked_essentials(

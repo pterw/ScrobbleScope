@@ -22,6 +22,7 @@ from docsync.parser import (
     CURRENT_BATCH_START_MARKER,
     SECTION_3_RE,
     SECTION_4_RE,
+    SESSION_CURRENT_COUNT_RES,
     SESSION_STATUS_END_MARKER,
     SESSION_STATUS_START_MARKER,
     TEST_COUNT_RE,
@@ -618,15 +619,3 @@ def latest_test_count_authority(
         legacy = legacy if isinstance(legacy, int) else None
         return TestCountAuthority(count=legacy, ambiguous=False)
     return TestCountAuthority(count=count, ambiguous=False)
-
-
-# Deferred past this module's own names, not placed with the imports at the
-# top: integrity.py imports FULL_SUITE_RESULT_RE, latest_test_count_authority
-# and resolved_test_count_authority from this module, and this is the one
-# name this module needs back from integrity.py (DOC006 already owns it).
-# Importing it before those three exist here -- or before integrity.py's own
-# copy of SESSION_CURRENT_COUNT_RES is defined -- would deadlock the circular
-# import between the two modules, whichever one a caller happens to import
-# first. Placing both deferred imports after the names the other side reads
-# lets either import order succeed.
-from docsync.integrity import SESSION_CURRENT_COUNT_RES  # noqa: E402

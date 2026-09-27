@@ -16,6 +16,11 @@ from docsync.declarations import (
     load_findings_config,
     load_test_count_config,
 )
+from docsync.logic import (
+    FULL_SUITE_RESULT_RE,
+    _newest_dated_test_count,
+    resolved_test_count_authority,
+)
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
@@ -23,6 +28,7 @@ from docsync.parser import (
     CURRENT_BATCH_START_MARKER,
     SECTION_3_RE,
     SECTION_4_RE,
+    SESSION_CURRENT_COUNT_RES,
     TEST_COUNT_RE,
     _find_marker_pair,
     _find_section,
@@ -97,27 +103,11 @@ SESSION_BATCH_STATUS_ROW_RE = re.compile(
 )
 SESSION_ACTIVE_STATUS_RE = re.compile(r"^\s*(?:\*\*)?Active\b", re.IGNORECASE)
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
-SESSION_CURRENT_COUNT_RES = (
-    re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
-    re.compile(
-        r"^- Latest validated test count:\s*\*\*(\d+)\s+"
-        r"(?:tests?\s+)?pass(?:ing|ed)\*\*\.\s*$"
-    ),
-    re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
-)
 
-# Deferred past SESSION_CURRENT_COUNT_RES's own definition, not grouped with
-# the imports at the top of the file: logic.py imports that constant from
-# this module (DOC006 already owns it), and this is what this module needs
-# back from logic.py. Importing it before SESSION_CURRENT_COUNT_RES exists
-# here -- or before logic.py's own three names exist there -- would deadlock
-# the circular import between these two modules, whichever a caller happens
-# to import first. See the matching comment in logic.py.
-from docsync.logic import (  # noqa: E402
-    FULL_SUITE_RESULT_RE,
-    _newest_dated_test_count,
-    resolved_test_count_authority,
-)
+# Re-exported from docsync.parser (the leaf module both this module and
+# docsync.logic import at top level) rather than defined here: a caller that
+# imports it from docsync.integrity, as this repository's own code does,
+# still finds it.
 
 # The canonical list of this repository's always-scanned live documents, plus
 # the dashboard path, both named here as plain repository-relative strings

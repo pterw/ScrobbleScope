@@ -43,3 +43,23 @@ def test_a_malformed_table_warns_instead_of_raising(tmp_path: Path):
     assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
     assert diagnostics[0].subject == "config/docsync.toml"
     assert "paths" in diagnostics[0].message
+
+
+def test_a_declared_path_that_is_a_directory_warns_distinctly(tmp_path: Path):
+    """CR10: a declared path that is a directory must not read as "missing".
+
+    Before the fix, `essentials_diagnostics` checked only `Path.is_file()`, so
+    a declared directory failed the same test as a genuinely absent path and
+    was reported "missing" -- sending the reader to restore something that
+    was there all along.
+    """
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["a_directory"]\n', encoding="utf-8"
+    )
+    (tmp_path / "a_directory").mkdir()
+    diagnostics = essentials_diagnostics(tmp_path)
+    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
+    assert diagnostics[0].subject == "a_directory"
+    assert "is a directory, not a file" in diagnostics[0].message
+    assert "missing" not in diagnostics[0].message

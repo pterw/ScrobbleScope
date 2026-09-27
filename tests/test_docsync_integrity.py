@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -2340,3 +2342,30 @@ def test_no_pin_is_silent(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
 
     assert "DOC025" not in [i.code for i in collect_integrity_issues(**inputs)]
+
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
+
+
+@pytest.mark.parametrize("first_module", ["docsync.integrity", "docsync.logic"])
+def test_logic_and_integrity_import_cleanly_in_either_order(first_module: str) -> None:
+    """A fresh interpreter can import either module first.
+
+    docsync.logic and docsync.integrity both used to carry a deferred,
+    module-bottom import of a name from the other (a same-module import
+    cycle), each guarded by a "would deadlock" comment naming the other's
+    top-level import as the trigger. SESSION_CURRENT_COUNT_RES now lives in
+    the leaf module docsync.parser that both import at top level instead, so
+    neither module needs anything from the other and both imports move back
+    to the top. This runs a fresh interpreter -- as scripts/doc_state_sync.py
+    does, with scripts/ on sys.path -- so a regression back to either
+    deferred import reproduces the ImportError this guards against.
+    """
+    result = subprocess.run(
+        [sys.executable, "-c", f"import {first_module}"],
+        cwd=str(_SCRIPTS_DIR.parent),
+        env={**os.environ, "PYTHONPATH": str(_SCRIPTS_DIR)},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

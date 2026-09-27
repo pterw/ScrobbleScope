@@ -78,10 +78,39 @@ class TestCollectWpNumbers:
         entries = [
             _entry(
                 heading="### 2026-09-20 - (Batch 22 WP-4)",
-                body="**Status:** WP-3 complete (an earlier package finished late)",
+                body="**Status:** WP-3 complete.",
             )
         ]
         assert _collect_wp_numbers(entries) == [3]
+
+    def test_a_trailing_parenthetical_does_not_complete_the_work_package(self):
+        """A qualifier after "complete" means it is not: `WP_COMPLETE_STATUS_RE`
+        must not read "complete (pending review)" as the genuine close."""
+        entries = [
+            _entry(
+                heading="### 2026-09-20 - (Batch 22 WP-4)",
+                body="**Status:** WP-4 complete (pending review)",
+            )
+        ]
+        assert _collect_wp_numbers(entries) == []
+
+    def test_trailing_text_after_complete_does_not_complete_the_work_package(self):
+        entries = [
+            _entry(
+                heading="### 2026-09-20 - (Batch 22 WP-4)",
+                body="**Status:** WP-4 complete and merged",
+            )
+        ]
+        assert _collect_wp_numbers(entries) == []
+
+    def test_a_trailing_period_after_complete_still_completes_the_work_package(self):
+        entries = [
+            _entry(
+                heading="### 2026-09-20 - (Batch 22 WP-4)",
+                body="**Status:** WP-4 complete.",
+            )
+        ]
+        assert _collect_wp_numbers(entries) == [4]
 
     def test_several_entries_each_contribute_their_own_completion(self):
         entries = [

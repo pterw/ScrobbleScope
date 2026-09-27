@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Move four dev-only pins out of the production install
+
+Side task, no batch tag: move four dev-only pins out of the production install, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`virtualenv==20.36.1`, `distlib==0.3.9`, `filelock==3.20.3` and `platformdirs==4.3.6`
+moved from `requirements.txt` to `requirements-dev.txt` (F-B21-3 remainder); nothing in
+`scrobblescope/` imports them (`git grep` confirmed no hits). A live `pip-audit` recount
+on 2026-09-27 found 0 vulnerabilities in 0 packages against `requirements.txt` alone, 0
+against both files together.
+Validation: `pytest -q` -- **1965 passed**.
+
 ### 2026-09-27 - A two-state toggle that reattaches to the system
 
 Side task, no batch tag: fixed the theme toggle so a choice matching the system preference

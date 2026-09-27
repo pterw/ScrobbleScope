@@ -38,13 +38,22 @@ from docsync.declarations import (  # noqa: E402
 def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
     """Return WT015 WARNINGs for declared untracked-essential files.
 
-    One per declared path missing from disk. Silent when nothing is
-    declared, and silent for any declared path that is present. Never
-    ERROR: this guard has no way to create or fetch a missing
-    untracked-essential file, so it never blocks on one. A malformed
-    `[untracked_essentials]` table itself is reported the same way, as a
-    single WT015 WARNING naming the config problem, rather than escaping to
-    `inspect_worktree`'s fail-closed WT014.
+    One per declared path that is missing, or that exists but is not a file
+    (CR10) -- a directory reported as "missing" sent the reader to restore
+    something already there. Silent when nothing is declared, and silent for
+    any declared path that is a present file. Never ERROR: this guard has no
+    way to create, fetch or reshape a declared path, so it never blocks on
+    one. A malformed `[untracked_essentials]` table itself is reported the
+    same way, as a single WT015 WARNING naming the config problem, rather
+    than escaping to `inspect_worktree`'s fail-closed WT014.
+
+    Every message that names the declared path renders it with `repr()`
+    (CR5): declarations.py's own containment check keeps the path inside the
+    repository, but the string itself is still author-controlled text this
+    guard did not choose, and a raw control character in it could otherwise
+    forge or repaint a line of the guard's own output. The `Diagnostic`'s
+    `path` field keeps the plain declared string -- callers that key off it
+    programmatically, rather than print it, need the value undecorated.
     """
     try:
         config = load_untracked_essentials_config(repo_root)
@@ -61,7 +70,8 @@ def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
         ]
     diagnostics: list[Diagnostic] = []
     for relative in config.paths:
-        if not (repo_root / relative).is_file():
+        target = repo_root / relative
+        if not target.exists():
             diagnostics.append(
                 issue(
                     "WARNING",
@@ -70,6 +80,18 @@ def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
                     "declared untracked-essential file is missing.",
                     "Restore it or ask the owner where its current copy lives; "
                     "this guard does not create or fetch it.",
+                )
+            )
+        elif not target.is_file():
+            diagnostics.append(
+                issue(
+                    "WARNING",
+                    "WT015",
+                    relative,
+                    f"declared untracked-essential path {relative!r} is a "
+                    "directory, not a file.",
+                    "Point [untracked_essentials] at the file this workflow "
+                    "depends on, not its containing directory.",
                 )
             )
     return diagnostics
