@@ -42,11 +42,16 @@
     if (darkSwitch) {
         darkSwitch.addEventListener('change', function () {
             applyTheme(this.checked);
+            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             try {
-                localStorage.setItem('darkMode', this.checked);
+                if (this.checked === systemDark) {
+                    localStorage.removeItem('darkMode');
+                } else {
+                    localStorage.setItem('darkMode', this.checked);
+                }
             } catch (error) {
-                // Storage can throw in private mode. The theme still applies
-                // for this page view; it just will not survive a reload.
+                // Storage can throw in private mode. The theme still applies for
+                // this page view; it just will not survive a reload.
             }
         });
     }

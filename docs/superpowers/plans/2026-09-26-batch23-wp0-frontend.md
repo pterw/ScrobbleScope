@@ -410,7 +410,7 @@ change. The defect is entirely that `theme.js` never lets `saved` become `null` 
 made. No other task in this plan touches `_frontend_gate_theme.py`, so this task's edit to it needs no
 new slice module.
 
-- [ ] **Step 1: Clear the key when the choice matches the system.** In `theme.js`'s `darkSwitch`
+- [x] **Step 1: Clear the key when the choice matches the system.** In `theme.js`'s `darkSwitch`
   `'change'` listener, replace the unconditional `localStorage.setItem('darkMode', this.checked);`
   with:
   ```javascript
@@ -430,7 +430,7 @@ new slice module.
   });
   ```
 
-- [ ] **Step 2: New gate check.** In `_frontend_gate_theme.py`, add `check_theme_reattaches_to_system`.
+- [x] **Step 2: New gate check.** In `_frontend_gate_theme.py`, add `check_theme_reattaches_to_system`.
   Open a browser context with `color_scheme="dark"` (the same `browser.new_context(color_scheme=...)`
   pattern the module already uses). Load a migrated page; click `[data-theme-toggle]` once to force
   light -- diverging from the emulated dark system -- and confirm after a reload that the page is
@@ -441,14 +441,14 @@ new slice module.
   `THEME_MOTION` group, beside `"theme persistence"`; add the check's name to the facade's
   `_frontend_gate_theme` import block.
 
-- [ ] **Step 3: Run the new check and the full gate.** Confirm both pass.
+- [x] **Step 3: Run the new check and the full gate.** Confirm both pass.
 
-- [ ] **Step 4: Live probe.** In a scratch copy of `theme.js` (outside the repository), revert Step 1
+- [x] **Step 4: Live probe.** In a scratch copy of `theme.js` (outside the repository), revert Step 1
   to the unconditional `setItem`. Run the new check against it; confirm it fails naming the stale
   `'true'`/`'false'` value still in `localStorage` after the matching click. Delete the scratch copy
   once confirmed.
 
-- [ ] **Step 5: Resolve F-B21-22 and commit.** Canonical reason: "the toggle's change handler clears
+- [x] **Step 5: Resolve F-B21-22 and commit.** Canonical reason: "the toggle's change handler clears
   darkMode when the chosen state matches the system query, so the pre-paint script's existing
   saved === null branch reattaches to the system; check_theme_reattaches_to_system proves it live."
   ```bash

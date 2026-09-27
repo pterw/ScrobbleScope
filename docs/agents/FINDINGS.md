@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1963 tests across 77 tracked test modules.
+1965 tests across 77 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -99,29 +99,6 @@ why no review caught it and no gate can.
 
 Status: open. Owner-ruled critical. Not scheduled to a work package.
 Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24.
-
-### F-B21-22: theme follows the system only until the toggle is first used
-
-`templates/base.html` picks the pre-paint theme with
-`saved === 'true' || (saved === null && matchMedia('(prefers-color-scheme: dark)').matches)`.
-That is correct for a first visit. But the toggle is a two-state switch that
-writes `'true'` or `'false'`, and `saved === null` is then never true again, so
-one click permanently detaches the page from the system preference. There is no
-way back to "follow the system" short of clearing site data.
-
-Owner reported being served light while their system default is dark, which
-this explains: a stored `'false'` from earlier review outranks the media query.
-`theme.js` writes only on `change`, so nothing persists a value the reader did
-not choose -- the mechanism is working, the model is missing a third state.
-
-Remedy: store `'system'` as a third value and default to it, or drop the key
-when the chosen state matches the system so the preference reattaches. Either
-needs the pre-paint script and `theme.js` to agree, and a gate check that a
-stored choice still survives a reload.
-
-Status: open, low severity. Owner decision on whether a three-state control is
-wanted before WP-8 retires the second theme write.
-Source: owner review of the deployed merge, 2026-08-26.
 
 ### F-B21-23: the inline marks diverge from the design contract on colour
 

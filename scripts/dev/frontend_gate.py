@@ -158,6 +158,7 @@ from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     check_index_entrance_motion,
     check_mark_follows_theme,
     check_theme_persistence,
+    check_theme_reattaches_to_system,
     check_theme_survives_blocked_storage,
     check_theme_tokens,
 )
@@ -248,6 +249,12 @@ CHECKS = (
         THEME_MOTION,
     ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
+    (
+        "theme reattaches to system",
+        check_theme_reattaches_to_system,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
     ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (
         "theme survives blocked storage",

@@ -18,6 +18,7 @@ CHECKS = (
     "check_theme_tokens",
     "check_index_design_tokens",
     "check_theme_persistence",
+    "check_theme_reattaches_to_system",
     "check_index_entrance_motion",
     "check_mark_follows_theme",
     "check_theme_survives_blocked_storage",

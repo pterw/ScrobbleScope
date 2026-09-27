@@ -83,7 +83,7 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Tasks 1 and 5 have landed. Test-infrastructure plan: Tasks 1
+  frontend plan: Tasks 1, 3 and 5 have landed. Test-infrastructure plan: Tasks 1
   and 2 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
@@ -117,6 +117,24 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - A two-state toggle that reattaches to the system
+
+Side task, no batch tag: fixed the theme toggle so a choice matching the system preference
+clears the stored value and lets the page reattach to the system, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. `theme.js`'s
+`darkSwitch` `change` listener now computes the system's preferred scheme via
+`matchMedia('(prefers-color-scheme: dark)')` and calls `localStorage.removeItem('darkMode')`
+when the chosen state matches it, instead of always writing the choice; `base.html`'s
+pre-paint script already treats a missing key as "follow the system", so no change was
+needed there. `scripts/dev/_frontend_gate_theme.py` adds
+`check_theme_reattaches_to_system` (registered in `frontend_gate.py`'s `CHECKS` tuple,
+`THEME_MOTION` group, beside "theme persistence"), which forces the toggle away from an
+emulated dark system, confirms the choice persists across a reload, then flips it back to
+match the system and confirms `localStorage.getItem('darkMode')` clears immediately and the
+page still resolves dark from the system query alone after a reload. Resolves F-B21-22.
+
+Validation: `pytest -q` -- **1965 passed**.
 
 ### 2026-09-26 - Stop cropping, overlaying and faking the artist spotlight photo
 
@@ -244,26 +262,3 @@ MusicBrainz hand-off ran under mock, the job's concurrency slot is fully release
 and `/results_complete` renders the album that survived the Spotify phase.
 
 Validation: `pytest -q` -- **1943 passed**.
-
-### 2026-09-26 - A Chromium harness for heatmap.js's pure-function seam
-
-Side task, no batch tag: added a Chromium harness for heatmap.js's pure-function seam, part of
-Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-rocketColor, countToNorm and the export header layout are exercised by a Chromium harness
-(tests/frontend/test_heatmap_pure_functions.py) through window.__scrobbleHeatmapTestHooks,
-exposed at the module's top level only when window.__scrobbleHeatmapTestMode is set before the
-script runs -- the guarded seam F-B21-18 asked for, so no production page load exposes the hook;
-computeStreak is WP-6's per Q14 answer a; the harness carries a browser pytest marker so CI's
-pre-browser coverage step deselects it and the post-browser frontend-gate step runs it instead.
-
-Fix round 1 (code review): added interior countToNorm cases so a linear count/maxCount cannot
-pass; a negative exportHeaderModel case (no text-transform leaves the text as written) with the
-model tests cleaning up their own DOM inserts; a test that a second page never setting the flag
-never sees the hooks; reused _launch_browser for the setup-guidance path; and corrected the
-seam's stale "these four functions are pure" comment (exportHeaderModel reads the DOM). Filed the
-harness scope's two residual F-B21-18 items (the 53x7 export contract deviation, the duplicated
-username validators) as F-B23-9, joining WP-0 Part C's set by controller ruling 2026-09-26
-(BATCH23_DEFINITION.md Part C); F-B21-18's archived record now points to it.
-
-Validation: `pytest -q` -- **1963 passed**.

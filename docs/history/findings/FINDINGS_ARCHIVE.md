@@ -9,6 +9,32 @@ Newest rotation first.
 
 ---
 
+### F-B21-22: theme follows the system only until the toggle is first used -- RESOLVED
+
+`templates/base.html` picks the pre-paint theme with
+`saved === 'true' || (saved === null && matchMedia('(prefers-color-scheme: dark)').matches)`.
+That is correct for a first visit. But the toggle is a two-state switch that
+writes `'true'` or `'false'`, and `saved === null` is then never true again, so
+one click permanently detaches the page from the system preference. There is no
+way back to "follow the system" short of clearing site data.
+
+Owner reported being served light while their system default is dark, which
+this explains: a stored `'false'` from earlier review outranks the media query.
+`theme.js` writes only on `change`, so nothing persists a value the reader did
+not choose -- the mechanism is working, the model is missing a third state.
+
+Remedy: store `'system'` as a third value and default to it, or drop the key
+when the chosen state matches the system so the preference reattaches. Either
+needs the pre-paint script and `theme.js` to agree, and a gate check that a
+stored choice still survives a reload.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-27
+The toggle's change handler clears darkMode when the chosen state matches the system
+query, so the pre-paint script's existing saved === null branch reattaches to the system;
+check_theme_reattaches_to_system proves it live.
+Source: owner review of the deployed merge, 2026-08-26.
+
 ### F-MAS-1: mocks may drift from API reality -- RESOLVED
 
 No contract tests or recorded API fixtures; upstream format changes would
