@@ -84,8 +84,10 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
   frontend plan and the test-infrastructure/dependencies plan are both fully
-  executed (every task in each has landed). Next action: the close-out code
-  review of the whole branch, then the WP-0 close-out below. The
+  executed (every task in each has landed). The three plans' carried items
+  are closed out, and their final code review of the whole branch ran on
+  2026-09-27; its one fix wave has landed and passed a scoped re-review
+  (see Section 4). Next action: the WP-0 close-out below. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -118,6 +120,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-27 - Record the follow-on plans' final code review
+
+Side task, no batch tag: record the outcome of the final code review of the
+three follow-on plans (control-plane, frontend, test infrastructure and
+dependencies), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. This does not close WP-0.
+
+The review covered `f8fb8e9^..18d95ae` and raised ten findings. The
+controller checked each against the code: eight were fixed in one fix wave
+(`6d217f4` docsync, `604d815` artist spotlight, `351c5fe` heatmap), one was
+already filed (F-DOCSYNC-23, the unchecked module count), and one was already
+ruled (WT015 fires in every checkout because `skills-lock.json` is absent;
+where that file lives is the owner's decision). The part of the spotlight
+finding asking for a text-only card when Spotify is down stays as the
+F-B21-60 ruling requires: no card. A scoped re-review approved the wave.
+
+Deviations: `6d217f4` and `604d815` carry subjects without the Conventional
+Commits type and scope; they were not rewritten, because history is rewritten
+only on the owner's instruction. Deferred minor: the heatmap tooltip follows
+the focused cell on scroll even when the mouse hovers a different one.
+
+Validation: `pytest -q` -- **1999 passed**.
+
 ### 2026-09-27 - Heatmap keyboard and screen-reader access follow-up
 
 Side task, no batch tag: give the heatmap grid a roving tabindex (one Tab
@@ -148,50 +173,3 @@ pin-rewrite regexes' heading-comment and blank-line misses, and add a
 owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 Validation: `pytest -q` -- **1999 passed**.
-
-### 2026-09-27 - Bring prose and diagrams in line with the three follow-on plans
-
-Side task, no batch tag: a documentation-only sweep so README.md,
-DEVELOPMENT.md, every `docs/architecture/*.md` Mermaid diagram,
-`.claude/SESSION_CONTEXT.md` and `docs/agents/PLAYBOOK.md` match the code the
-control-plane, frontend and test-infrastructure plans changed
-(`f8fb8e9^..HEAD`), part of Batch 23 WP-0 Part C. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-- `docs/architecture/documentation-tooling.md`: added the two new frontend
-  gate slices (`_frontend_gate_heatmap_access`, `_frontend_gate_spotlight_photo`)
-  to the Mermaid diagram and its facade-sibling count (twelve, ten own a
-  concern); added a `_worktree_guard_essentials` node/edges (WT015) and the
-  seventh guard-module count; added `config/docsync.toml`'s `[test_count]`
-  pin and `[untracked_essentials]` table to the TOML node; documented WT015
-  and the `docsync.logic`/`docsync.integrity` deferred-import removal (CO1).
-- `docs/architecture/development-cycle.md`: the "Run full validation gates"
-  node now names `--test-count N`, the `tests/frontend` browser marker and
-  `results_behavior_tests.py`; added a CI paragraph naming the docsync
-  preflight, `pytest -m "not browser"`, the browser-marked suite and
-  `frontend_gate.py`, and `pip-audit` against both requirements files.
-- `README.md`: "Running Tests" now names the `browser` marker and the local
-  Chromium requirement.
-- `DEVELOPMENT.md`: the frontend-gate facade's sibling count and the
-  worktree guard's module/WT-code counts (seven modules, `WT000`-`WT015`);
-  named this session's four new gate checks; added the `tests/frontend`
-  marker, its CI split and the wider `pip-audit` scope to the Frontend
-  Browser Gate section.
-- `.claude/SESSION_CONTEXT.md`: added the two new gate slices and
-  `_worktree_guard_essentials.py` to Section 3's structure listing and their
-  edges to Section 4's dependency graph; noted `tests/frontend/` and
-  `tests/fixtures/` in Section 6; bumped the "Last updated" date.
-- `docs/agents/PLAYBOOK.md` Section 3: the frontend and test-infrastructure
-  plans are both fully executed; the next action is the close-out code
-  review, then the WP-0 close-out. `**Next action:** WP-0 is next.` is
-  unchanged.
-- `docs/ARCHITECTURE.md`: bumped the "last verified" date after checking
-  every diagram against the current tree.
-- Checked and found already accurate, no change made: `AGENTS.md`,
-  `docs/architecture/runtime-system.md` (spotlight fallback prose already
-  fixed by Task 5), `docs/architecture/{heatmap,top-albums}-sequence.md`,
-  `docs/agents/ui-accessibility.md`, `docs/agents/AGENT_NOTES.md`, the three
-  plan files' checkboxes (already all ticked), `docs/design/*.md` (dated
-  audit/reconciliation documents, out of the live-prescriptive-doc scope).
-
-Validation: `pytest -q` -- **1993 passed**.
