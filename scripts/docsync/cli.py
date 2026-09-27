@@ -502,10 +502,18 @@ def _plan_text(path: Path, text: str) -> dict[Path, bytes | None]:
     return _plan_document(path, text.splitlines())
 
 
-#: Where an existing `[test_count]` table's own heading line sits.
-_TEST_COUNT_TABLE_RE = re.compile(r"^\[test_count\]\s*$", re.MULTILINE)
-#: The `pinned =` line inside that table, however it is indented.
-_TEST_COUNT_PINNED_LINE_RE = re.compile(r"^\s*pinned\s*=.*$", re.MULTILINE)
+#: Where an existing `[test_count]` table's own heading line sits. A trailing
+#: comment (`[test_count]  # pinned by --fix`) is still the same heading: the
+#: old `\s*$` anchor allowed only whitespace after the heading, so a heading
+#: carrying a trailing comment never matched and `_rewrite_test_count_pin`
+#: appended a second `[test_count]` table underneath the first -- which
+#: `tomllib` then refuses to load.
+_TEST_COUNT_TABLE_RE = re.compile(r"^\[test_count\][ \t]*(?:#.*)?$", re.MULTILINE)
+#: The `pinned =` line inside that table, however it is indented. `[ \t]`
+#: rather than `\s`: `\s` matches a newline too, so the old pattern could
+#: match across a blank line separating the heading from `pinned =` and
+#: delete that blank line along with replacing the value.
+_TEST_COUNT_PINNED_LINE_RE = re.compile(r"^[ \t]*pinned[ \t]*=.*$", re.MULTILINE)
 
 
 def _rewrite_test_count_pin(text: str, count: int) -> str:
@@ -1255,8 +1263,13 @@ def main() -> int:
             if not args.fix:
                 print("--test-count requires --fix.", file=sys.stderr)
                 return 2
-            if args.test_count < 0:
-                print("--test-count must be >= 0.", file=sys.stderr)
+            if args.test_count < 1:
+                print(
+                    "--test-count must be >= 1: a test count of 0 is refused "
+                    "the same way declarations._positive_int refuses a "
+                    "non-positive pin.",
+                    file=sys.stderr,
+                )
                 return 2
 
         as_of: dt.date | None = None

@@ -28,6 +28,7 @@ from __future__ import annotations
 import dataclasses
 import fnmatch
 import re
+import unicodedata
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -517,6 +518,19 @@ def _escapes_repository(path: str) -> bool:
     return ".." in PurePosixPath(path).parts
 
 
+def _has_control_character(path: str) -> bool:
+    """Return whether ``path`` carries a Unicode control character (Cc).
+
+    `scripts/dev/check_worktree_alignment.py` prints a declared path verbatim
+    in a `Diagnostic.subject` -- a raw newline, escape sequence or other
+    control character in there could forge a second diagnostic line or an
+    escape sequence in whatever reads the guard's output. Refusing it here,
+    at declaration time, means that raw print never has to sanitize what it
+    is handed.
+    """
+    return any(unicodedata.category(char) == "Cc" for char in path)
+
+
 def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
     """Check a declared [untracked_essentials] table and return its paths.
 
@@ -538,6 +552,12 @@ def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
             raise DeclarationError(
                 f"[untracked_essentials] declares {path!r}, which must be a "
                 "path inside the repository: no absolute path and no '..' segment."
+            )
+        if _has_control_character(path):
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which carries a "
+                "control character: it must be printable, since the worktree "
+                "guard echoes it verbatim in a diagnostic."
             )
     return UntrackedEssentialsConfig(paths=tuple(table["paths"]))
 

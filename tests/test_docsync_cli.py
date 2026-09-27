@@ -110,7 +110,25 @@ class TestMainArgs:
             "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "-1"]
         )
         assert cli_mod.main() == 2
-        assert "--test-count must be >= 0." in capsys.readouterr().err
+        assert "--test-count must be >= 1" in capsys.readouterr().err
+
+    def test_zero_test_count_returns_2_and_writes_nothing(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """C1: `--test-count 0` used to pass the CLI's own `< 0` guard and pin
+        0 in config/docsync.toml, which `_validate_test_count`
+        (`_positive_int`) then refuses on every later load -- breaking every
+        subsequent `--check`/`--fix` run. The CLI must refuse 0 itself,
+        before anything is written.
+        """
+        declarations_path = sync_env / DECLARATIONS_FILENAME
+        before = declarations_path.read_text(encoding="utf-8")
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "0"]
+        )
+        assert cli_mod.main() == 2
+        assert "--test-count must be >= 1" in capsys.readouterr().err
+        assert declarations_path.read_text(encoding="utf-8") == before
 
     def test_no_mode_defaults_to_check(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
@@ -614,6 +632,31 @@ class TestTestCountPin:
             findings_path.read_text(encoding="utf-8"), 1873
         )
         assert "1873 tests across 68 tracked test modules." in rewritten
+
+
+class TestRewriteTestCountPin:
+    """C2: `_rewrite_test_count_pin`'s own two regexes, in isolation.
+
+    `_TEST_COUNT_TABLE_RE` used to require the heading line to hold nothing
+    but `[test_count]`, so a trailing comment on it made the finder miss the
+    existing table and append a second one -- which `tomllib` then refuses to
+    parse. `_TEST_COUNT_PINNED_LINE_RE` used to anchor on `\\s`, which matches
+    a newline, so it could consume a blank line separating the heading from
+    `pinned =` and delete that blank line along with replacing the value.
+    """
+
+    def test_heading_with_trailing_comment_is_still_found_in_place(self):
+        text = "[test_count]  # pinned by --fix\npinned = 100\n"
+        rewritten = cli_mod._rewrite_test_count_pin(text, 200)
+        assert rewritten.count("[test_count]") == 1
+        assert "pinned = 200" in rewritten
+        assert "pinned = 100" not in rewritten
+        assert "# pinned by --fix" in rewritten
+
+    def test_blank_line_before_pinned_survives_the_rewrite(self):
+        text = "[test_count]\n\npinned = 100\n"
+        rewritten = cli_mod._rewrite_test_count_pin(text, 200)
+        assert rewritten == "[test_count]\n\npinned = 200\n"
 
 
 # ---------------------------------------------------------------------------

@@ -2126,7 +2126,14 @@ def test_collect_declaration_issues_rejects_an_unknown_essentials_key(
 
 @pytest.mark.parametrize(
     "path",
-    ["/etc/passwd", "C:\\Windows\\System32", "C:/Windows/System32", "../x", "a/../b"],
+    [
+        "/etc/passwd",
+        "C:\\Windows\\System32",
+        "C:/Windows/System32",
+        "../x",
+        "a/../b",
+        "C:foo",
+    ],
 )
 def test_untracked_essentials_rejects_a_path_that_escapes_the_repository(
     tmp_path: Path, path: str
@@ -2146,6 +2153,27 @@ def test_untracked_essentials_rejects_a_path_that_escapes_the_repository(
         {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
     )
     with pytest.raises(DeclarationError, match=re.escape(repr(path))):
+        load_untracked_essentials_config(root)
+
+
+@pytest.mark.parametrize("path", ["skills\nlock.json", "skills\x1block.json"])
+def test_untracked_essentials_rejects_a_path_with_a_control_character(
+    tmp_path: Path, path: str
+) -> None:
+    """C4: `scripts/dev/check_worktree_alignment.py` prints a declared path
+    verbatim in a `Diagnostic.subject`; a raw control character in it (a
+    newline, an escape) must never reach that path unsanitized, so the
+    declaration itself refuses one, the same way an absolute path or a `..`
+    segment already does.
+    """
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = path.replace("\\", "\\\\").replace("\n", "\\n").replace("\x1b", "\\u001b")
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError, match="control character"):
         load_untracked_essentials_config(root)
 
 
