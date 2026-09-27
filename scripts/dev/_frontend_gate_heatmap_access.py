@@ -77,14 +77,20 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
     """Tab reaches a heatmap cell whose aria-label and focus ring are real."""
     failures: list[str] = []
     job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    # A single-day range makes the "every .heatmap-cell carries tabindex=0"
+    # audit vacuous (1 of 1 always passes): seed a 14-day range instead, with
+    # one non-zero day so the aria-label assertion still exercises a real
+    # count.
+    from_date = "2025-01-01"
+    to_date = "2025-01-14"
     seeded_date = "2025-01-01"
     seeded_count = 5
     set_job_results(
         job_id,
         {
             "username": "frontend-gate",
-            "from_date": seeded_date,
-            "to_date": seeded_date,
+            "from_date": from_date,
+            "to_date": to_date,
             "total_scrobbles": seeded_count,
             "max_count": seeded_count,
             "daily_counts": {seeded_date: seeded_count},
@@ -148,6 +154,13 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 return {total: cells.length, missing};
             }"""
         )
+        if cell_tabindex_audit["total"] <= 1:
+            failures.append(
+                "heatmap grid rendered only "
+                f"{cell_tabindex_audit['total']} .heatmap-cell element(s); "
+                "the tabindex audit needs more than one cell to be "
+                "meaningful (seed a wider date range)"
+            )
         if cell_tabindex_audit["missing"]:
             failures.append(
                 f"{cell_tabindex_audit['missing']} of "

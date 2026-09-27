@@ -362,7 +362,7 @@ CHECKS = (
     (
         "heatmap cells keyboard access",
         check_heatmap_cells_are_keyboard_accessible,
-        (DESKTOP,),
+        (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),
     (

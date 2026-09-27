@@ -158,6 +158,13 @@ properties -- `outline-width: 2px`, `outline-style: solid`,
 computed colour read via a probe element -- rather than the generic
 `outlineStyle !== 'none'` a bare UA default outline also satisfied.
 
+Fix round 2: the check is now registered for the desktop AND mobile
+profiles in `scripts/dev/frontend_gate.py` (previously desktop only, so a
+regression in `renderHeatmapMobile`'s own tabindex/role/aria-label lines
+went unseen), and seeds a 14-day range instead of one day, so the
+"every `.heatmap-cell` carries tabindex=0" audit sees more than one cell
+(it now fails outright on a grid of 1 or fewer, naming the count).
+
 Validation: `pytest -q` -- **1978 passed**.
 
 ### 2026-09-27 - Move four dev-only pins out of the production install
