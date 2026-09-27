@@ -30,7 +30,7 @@ flowchart TD
     CLI --> Findings[docsync.findings]
     CLI --> Archives[docsync.archives]
     CLI --> Transaction[docsync.transaction<br/>publish]
-    TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
+    TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables,<br/>test_count pin,<br/>untracked_essentials] --> Decl[docsync.declarations]
     Integrity --> Decl
     Integrity --> Closeout
     Integrity --> MD[docsync.markdown]
@@ -84,6 +84,11 @@ flowchart TD
     Venv --> Types
     Runner --> Types
     Diag[_worktree_guard_diagnostics] --> Types[_worktree_guard_types<br/>stdlib-only leaf]
+    Guard --> EG
+    Inspect --> EG[_worktree_guard_essentials<br/>WT015 untracked-essentials]
+    EG --> Diag
+    EG --> Types
+    EG --> Decl
     Guard -. parses Branch metadata from .-> P
 
     PC[pre-commit<br/>10 hooks] -. first hook, runs .-> PF
@@ -104,12 +109,16 @@ flowchart TD
     FG --> FGLY[_frontend_gate_layout]
     FG --> FGPI[_frontend_gate_pipeline]
     FG --> FGRU[_frontend_gate_runtime]
+    FG --> FGHA[_frontend_gate_heatmap_access]
+    FG --> FGSP[_frontend_gate_spotlight_photo]
     FGA --> FGS
     FGFM --> FGS
     FGT --> FGS
     FGLY --> FGS
     FGPI --> FGS
     FGRU --> FGS
+    FGHA --> FGS
+    FGSP --> FGS
     FG -. owns its lifecycle .-> APP[Flask on an<br/>ephemeral loopback port]
     FG -. drives .-> CHR[Chromium: every group]
     FG -. drives .-> FFX[Firefox: assets canary]
@@ -118,11 +127,11 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
-The facade re-exports all six guard modules. `doc_state_sync.py` imports only
+The facade re-exports all seven guard modules. `doc_state_sync.py` imports only
 `docsync.cli`; the lower-level package remains acyclic.
 
 **What this machinery is for.** docsync, the worktree guard, and the
@@ -286,6 +295,25 @@ The DOC codes are defined with their invariants where their checks live:
 that owns its check, spread across `scripts/dev/_worktree_guard_*.py` --
 grep for the code itself instead of assuming a module.
 
+**WT015 warns on a declared, gitignored file the workflow depends on but Git
+cannot protect** (F-B21-25), implemented in
+`scripts/dev/_worktree_guard_essentials.py` and read from
+`config/docsync.toml`'s `[untracked_essentials]` table via
+`docsync.declarations.load_untracked_essentials_config`. It is WARNING-only
+in both directions this guard cannot repair: a missing declared file, and a
+declared path that exists but is a directory rather than a file (CR10) --
+reported distinctly, rather than as "missing", so the reader is not sent to
+restore something already there. A malformed `[untracked_essentials]` table
+is reported the same way instead of escaping to `inspect_worktree`'s
+fail-closed WT014.
+
+`docsync.logic` and `docsync.integrity` no longer need the deferred,
+deadlock-guarded circular import the two modules once required for
+`SESSION_CURRENT_COUNT_RES` (F-DOCSYNC control-plane close-out): the constant
+now lives in `docsync.parser`, the leaf module both already import at the
+top of the file, so `docsync.integrity` imports `docsync.logic` like any
+other dependency.
+
 ## CLI surface added by the close-out and bounded-archives plan
 
 `scripts/doc_state_sync.py` (via `docsync.cli`) gained three operator modes
@@ -401,11 +429,12 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: the checks are grouped by concern across ten
+`dev/worktree_guard.py`: the checks are grouped by concern across twelve
 `_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
-`_frontend_gate_forms`, `_frontend_gate_layout`, `_frontend_gate_pipeline`,
-`_frontend_gate_results`, `_frontend_gate_runtime`, `_frontend_gate_shared`,
-`_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
+`_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
+`_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
+`_frontend_gate_shared`, `_frontend_gate_spotlight_photo`, `_frontend_gate_theme`,
+and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
 proposed has landed (foundation plan Task 8): a manifest under `config/`

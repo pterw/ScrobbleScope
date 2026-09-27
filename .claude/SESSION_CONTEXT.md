@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-20
+Last updated: 2026-09-27
 
 ---
 
@@ -95,15 +95,18 @@ scripts/
     _frontend_gate_assets.py # stylesheet isolation
     _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
     _frontend_gate_forms.py # form validation, validator races, initial visibility
+    _frontend_gate_heatmap_access.py # heatmap cell keyboard reachability, aria-label and focus ring
     _frontend_gate_layout.py # fonts, text scaling, touch targets, scale parity
     _frontend_gate_pipeline.py # loading composition, progress state machines, spotlight
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _frontend_gate_runtime.py # Playwright loading, browser launch, served app, route policy
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
+    _frontend_gate_spotlight_photo.py # artist spotlight photo: no crop, overlay, animation, or fake
     _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
     _frontend_gate_unmatched.py # unmatched report contract and width sweep
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
+    _worktree_guard_essentials.py # WT015: declared, gitignored files the workflow depends on
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
     _worktree_guard_runner.py # sanitized Git runner and discovery parsing
     _worktree_guard_inspection.py # read-only collection orchestration
@@ -168,25 +171,28 @@ docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
 doc_state_sync.py    <- docsync/cli
 dev/_worktree_guard_types.py <- (leaf; standard library only)
 dev/_worktree_guard_diagnostics.py <- dev/_worktree_guard_types
+dev/_worktree_guard_essentials.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types; docsync/declarations
 dev/_worktree_guard_lineage.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
 dev/_worktree_guard_runner.py <- dev/_worktree_guard_types
 dev/_worktree_guard_venv.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
-dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
-dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
+dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_essentials, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
+dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_essentials, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
+dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
 dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_results.py <- repositories
 dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
+dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_unmatched.py <- repositories
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---
@@ -255,6 +261,15 @@ and `doc_state_sync.py --fix` writes it; see PLAYBOOK Section 4.
 
 Layout: `tests/` mirrors the package, with `tests/scripts/dev/` covering the
 developer tooling and `tests/services/` the Last.fm and Spotify paths.
+`tests/frontend/` is a Chromium-backed harness for pure JS functions
+(`heatmap.js` today), collected by `pytest` under the `browser` marker
+registered in `pyproject.toml`; CI's coverage step deselects it with
+`-m "not browser"` and runs it separately after installing the browsers.
+`tests/fixtures/` holds provider response bodies transcribed from Last.fm's
+and Spotify's own docs (`lastfm_recenttracks_page.json`,
+`spotify_get_album.json`), read by `tests/test_provider_fixtures.py`'s shape
+tests. `tests/test_pipeline_integration.py` runs the album pipeline on a
+real background thread instead.
 
 ---
 

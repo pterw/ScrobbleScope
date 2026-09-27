@@ -585,6 +585,12 @@ pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
+`pytest -q` includes a Chromium-backed harness under `tests/frontend/`,
+marked `browser` in `pyproject.toml`, so a local run needs the Playwright
+Chromium build installed (see below). CI's coverage step deselects those
+cases with `pytest -m "not browser"` and runs them separately in the
+frontend-gate job step, after installing both browsers.
+
 Browser setup and execution are documented in the
 [frontend browser gate procedure](DEVELOPMENT.md#frontend-browser-gate).
 The automated gate runs the complete Chromium matrix and a Firefox static

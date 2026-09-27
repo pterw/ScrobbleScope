@@ -83,9 +83,9 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Tasks 1, 2, 3, 4 and 5 have landed. Test-infrastructure plan: Tasks 1,
-  2, 3 and 4 have landed. Next
-  action: execute these two plans, then the WP-0 close-out. The
+  frontend plan and the test-infrastructure/dependencies plan are both fully
+  executed (every task in each has landed). Next action: the close-out code
+  review of the whole branch, then the WP-0 close-out below. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -117,6 +117,53 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - Bring prose and diagrams in line with the three follow-on plans
+
+Side task, no batch tag: a documentation-only sweep so README.md,
+DEVELOPMENT.md, every `docs/architecture/*.md` Mermaid diagram,
+`.claude/SESSION_CONTEXT.md` and `docs/agents/PLAYBOOK.md` match the code the
+control-plane, frontend and test-infrastructure plans changed
+(`f8fb8e9^..HEAD`), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- `docs/architecture/documentation-tooling.md`: added the two new frontend
+  gate slices (`_frontend_gate_heatmap_access`, `_frontend_gate_spotlight_photo`)
+  to the Mermaid diagram and its facade-sibling count (twelve, ten own a
+  concern); added a `_worktree_guard_essentials` node/edges (WT015) and the
+  seventh guard-module count; added `config/docsync.toml`'s `[test_count]`
+  pin and `[untracked_essentials]` table to the TOML node; documented WT015
+  and the `docsync.logic`/`docsync.integrity` deferred-import removal (CO1).
+- `docs/architecture/development-cycle.md`: the "Run full validation gates"
+  node now names `--test-count N`, the `tests/frontend` browser marker and
+  `results_behavior_tests.py`; added a CI paragraph naming the docsync
+  preflight, `pytest -m "not browser"`, the browser-marked suite and
+  `frontend_gate.py`, and `pip-audit` against both requirements files.
+- `README.md`: "Running Tests" now names the `browser` marker and the local
+  Chromium requirement.
+- `DEVELOPMENT.md`: the frontend-gate facade's sibling count and the
+  worktree guard's module/WT-code counts (seven modules, `WT000`-`WT015`);
+  named this session's four new gate checks; added the `tests/frontend`
+  marker, its CI split and the wider `pip-audit` scope to the Frontend
+  Browser Gate section.
+- `.claude/SESSION_CONTEXT.md`: added the two new gate slices and
+  `_worktree_guard_essentials.py` to Section 3's structure listing and their
+  edges to Section 4's dependency graph; noted `tests/frontend/` and
+  `tests/fixtures/` in Section 6; bumped the "Last updated" date.
+- `docs/agents/PLAYBOOK.md` Section 3: the frontend and test-infrastructure
+  plans are both fully executed; the next action is the close-out code
+  review, then the WP-0 close-out. `**Next action:** WP-0 is next.` is
+  unchanged.
+- `docs/ARCHITECTURE.md`: bumped the "last verified" date after checking
+  every diagram against the current tree.
+- Checked and found already accurate, no change made: `AGENTS.md`,
+  `docs/architecture/runtime-system.md` (spotlight fallback prose already
+  fixed by Task 5), `docs/architecture/{heatmap,top-albums}-sequence.md`,
+  `docs/agents/ui-accessibility.md`, `docs/agents/AGENT_NOTES.md`, the three
+  plan files' checkboxes (already all ticked), `docs/design/*.md` (dated
+  audit/reconciliation documents, out of the live-prescriptive-doc scope).
+
+Validation: `pytest -q` -- **1993 passed**.
 
 ### 2026-09-27 - File the carried close-out findings and amend Part C
 
@@ -212,24 +259,3 @@ tasks landed), part of Batch 23 WP-0 Part C. Untagged by owner ruling
   a finding in the close-out docs commit, not built here.
 
 Validation: `pytest -q` -- **1993 passed**.
-
-### 2026-09-27 - Audit the dev requirements too (CI input gap)
-
-Side task, no batch tag: closed the scope item "add requirements-dev.txt
-to the CI audit's inputs", part of Batch 23 WP-0 Part C. Untagged by
-owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The "Security audit (pip-audit)" step in `.github/workflows/test.yml`
-passed `inputs: requirements.txt` only, so a vulnerable pin anywhere in
-`requirements-dev.txt` was never flagged. `pypa/gh-action-pip-audit@v1.1.0`
-documents `inputs:` as a whitespace-separated list (its own README example:
-`inputs: requirements.txt dev-requirements.txt`), so the step now reads
-`inputs: requirements.txt requirements-dev.txt`.
-
-Live probe in a scratch copy: pinning `virtualenv==20.26.5` in a scratch
-`requirements-dev.txt` made `pip-audit -r requirements.txt -r <scratch>`
-report PYSEC-2024-187 (exit 1); reverting to the real, pinned
-`virtualenv==20.36.1` made the advisory disappear (exit 0, "No known
-vulnerabilities found"), confirming the dev file is now audited.
-
-Validation: `pytest -q` -- **1978 passed**.

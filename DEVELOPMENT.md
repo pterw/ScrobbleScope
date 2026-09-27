@@ -409,9 +409,9 @@ decisions. The detailed design lives in
 Operational behavior is owned by `AGENTS.md` and the guard itself --
 `scripts/dev/check_worktree_alignment.py` is the CLI entry point, and the
 checks live across `scripts/dev/_worktree_guard_*.py` (inspection, lineage,
-diagnostics, runner, venv, types) behind the `scripts/dev/worktree_guard.py`
-facade. Each `WT000`-`WT014` code names its own remediation. This section is
-human methodology documentation only.
+diagnostics, essentials, runner, venv, types) behind the
+`scripts/dev/worktree_guard.py` facade. Each `WT000`-`WT015` code names its
+own remediation. This section is human methodology documentation only.
 
 ---
 
@@ -460,6 +460,28 @@ timing and keyboard access. These browser tests run in CI after browser installa
 the full-page gate; they are separate from the Python `pytest` test count.
 Sampling itself lives in `scrobblescope/spotlight.py` and is covered by the
 Results route regression in `tests/test_routes.py`.
+
+`tests/frontend/` is a second, `pytest`-collected Chromium harness, for pure
+functions rather than a served page: its cases carry the `browser` marker
+registered in `pyproject.toml`, and `pytest -q` runs them locally alongside
+everything else, so a local run needs the same Playwright Chromium build as
+the gate above. CI's coverage step runs `pytest -m "not browser"` instead and
+runs the marked tests separately, in the "Run frontend gate" job step, after
+installing both browsers -- see `.github/workflows/test.yml` for the exact
+invocations. Advisory `pip-audit` now scans both `requirements.txt` and
+`requirements-dev.txt`, since `virtualenv`, `distlib`, `filelock` and
+`platformdirs` moved out of the production install into the dev-only file.
+
+This session added four checks worth naming because each closes a gap the
+existing ones could not see: `check_theme_reattaches_to_system` (a toggle
+choice matching the OS preference clears the stored key, so the pre-paint
+script can re-derive it again), `check_heatmap_cells_are_keyboard_accessible`
+(a real Tab press reaches a heatmap cell whose `aria-label` and focus ring
+are real), `check_inline_marks_need_no_wrapper_list` (the inline mark SVGs
+colour themselves through `currentColor` and a CSS custom property, so no
+wrapper has to list them), and the artist-spotlight photo pair in
+`_frontend_gate_spotlight_photo.py` (no crop, no overlay, no animation, and
+the card stays hidden with no faked photo).
 
 Run `python -m playwright install chromium firefox` once after installing the
 pinned development requirements, then `python scripts/dev/frontend_gate.py`.
@@ -524,9 +546,9 @@ and a remediation, and runs from a pre-commit hook and from CI.
 
 **2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** Structurally
 complete: a public facade (`worktree_guard.py`), a thin CLI entry point, and
-the checks spread across six modules by concern -- inspection, lineage,
-diagnostics, runner, venv, types. It reports `WT000`-`WT014`, each code naming
-its own remediation. It runs as an advisory pre-commit hook rather than a gate,
+the checks spread across seven modules by concern -- inspection, lineage,
+diagnostics, essentials, runner, venv, types. It reports `WT000`-`WT015`, each
+code naming its own remediation. It runs as an advisory pre-commit hook rather than a gate,
 and deliberately so: `WT003` fires for any branch the active batch does not
 name and `WT004` for the identical-tree divergence a rebase merge always
 leaves, so gating on it would refuse every commit on a feature branch.
@@ -537,13 +559,15 @@ and specific in its checks, which is the right split and the part that stays
 behind. The decomposition split (F-B21-51) has landed: the facade stays
 under the decomposition plan's 700-line threshold
 (`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`), and the
-checks are grouped by concern across ten `_frontend_gate_*` siblings --
-eight own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
-`_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
-`_frontend_gate_runtime`, `_frontend_gate_theme`, `_frontend_gate_unmatched`),
-one holds pure colour maths (`_frontend_gate_colour`), and one holds shared
-state rather than a concern of its own (`_frontend_gate_shared`, the page
-inventories and other objects several slices read). The
+checks are grouped by concern across twelve `_frontend_gate_*` siblings --
+ten own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
+`_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
+`_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
+`_frontend_gate_spotlight_photo`, `_frontend_gate_theme`,
+`_frontend_gate_unmatched`), one holds pure colour maths
+(`_frontend_gate_colour`), and one holds shared state rather than a concern
+of its own (`_frontend_gate_shared`, the page inventories and other objects
+several slices read). The
 `frontend_gate_checks.toml` registry F-B21-51 proposed has also landed
 (foundation plan Task 8): a manifest under `config/`
 (`config/frontend_gate_checks.toml`) selects which of `CHECKS`
