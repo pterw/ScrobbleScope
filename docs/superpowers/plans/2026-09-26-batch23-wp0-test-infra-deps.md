@@ -350,7 +350,7 @@ its other two problems (`pypdf`/`pdf2image`/`pillow`/`ipinfo`/`cachetools` remov
 `requests`/`urllib3` upgraded past their advisories) are already fixed on `main`
 (`0f5b2468`, `c1620a9d`) and are not touched again here.
 
-- [ ] **Step 1: Confirm nothing imports them.**
+- [x] **Step 1: Confirm nothing imports them.**
 
 ```bash
 git grep -n -e "^import virtualenv" -e "^import distlib" -e "^import filelock" -e "^import platformdirs" -e "from virtualenv" -e "from distlib" -e "from filelock" -e "from platformdirs" -- '*.py'
@@ -359,14 +359,14 @@ git grep -n -e "^import virtualenv" -e "^import distlib" -e "^import filelock" -
 Expected: no hits. If any exist, stop and report NEEDS_CONTEXT -- the finding's premise
 (dev tooling, not a runtime import) would be wrong for that package.
 
-- [ ] **Step 2: Move the four lines.** Delete `distlib==0.3.9`, `filelock==3.20.3`,
+- [x] **Step 2: Move the four lines.** Delete `distlib==0.3.9`, `filelock==3.20.3`,
   `platformdirs==4.3.6` and `virtualenv==20.36.1` from `requirements.txt`, keeping the
   remaining lines' alphabetical order intact. Add the same four pins to
   `requirements-dev.txt`, in alphabetical position among its existing seven package lines
   (`pip-audit`, `ruff`, `pre-commit`, `playwright`, `pytest`, `pytest-asyncio`,
   `pytest-cov`, below its `-r requirements.txt` line).
 
-- [ ] **Step 3: Reinstall and confirm nothing production-facing broke.**
+- [x] **Step 3: Reinstall and confirm nothing production-facing broke.**
 
 ```bash
 "C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pip.exe" install -r requirements-dev.txt
@@ -376,7 +376,7 @@ Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" -q
 Expected: all pass -- these four were already installed as transitive tooling
 dependencies, so moving their pin file changes nothing importable.
 
-- [ ] **Step 4: Record a live `pip-audit` recount**, both before and after, so the
+- [x] **Step 4: Record a live `pip-audit` recount**, both before and after, so the
   finding's resolution states a real number rather than repeating the 2026-08-21 one:
 
 ```bash

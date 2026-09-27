@@ -9,6 +9,21 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - A real thread runs the album pipeline end to end
+
+Side task, no batch tag: a real thread runs the album pipeline end to end, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands. `tests/test_pipeline_integration.py` drives the real `/results_loading ->
+/progress -> /results_complete` route sequence through the Flask test client, joins
+the real `worker.start_job_thread` background thread before trusting anything past
+its terminal `/progress` state (an owner-requested review found the prior version
+raced ahead of the MusicBrainz hand-off and never joined the thread, so a leftover
+job slot or a live MusicBrainz call could survive the test), and asserts the
+MusicBrainz hand-off ran under mock, the job's concurrency slot is fully released,
+and `/results_complete` renders the album that survived the Spotify phase.
+
+Validation: `pytest -q` -- **1943 passed**.
+
 ### 2026-09-26 - A Chromium harness for heatmap.js's pure-function seam
 
 Side task, no batch tag: added a Chromium harness for heatmap.js's pure-function seam, part of

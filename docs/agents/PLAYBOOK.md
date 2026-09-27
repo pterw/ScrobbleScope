@@ -83,8 +83,8 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Tasks 1, 3 and 5 have landed. Test-infrastructure plan: Tasks 1
-  and 2 have landed. Next
+  frontend plan: Tasks 1, 3 and 5 have landed. Test-infrastructure plan: Tasks 1,
+  2 and 3 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -117,6 +117,17 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - Move four dev-only pins out of the production install
+
+Side task, no batch tag: move four dev-only pins out of the production install, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`virtualenv==20.36.1`, `distlib==0.3.9`, `filelock==3.20.3` and `platformdirs==4.3.6`
+moved from `requirements.txt` to `requirements-dev.txt` (F-B21-3 remainder); nothing in
+`scrobblescope/` imports them (`git grep` confirmed no hits). A live `pip-audit` recount
+on 2026-09-27 found 0 vulnerabilities in 0 packages against `requirements.txt` alone, 0
+against both files together.
+Validation: `pytest -q` -- **1965 passed**.
 
 ### 2026-09-27 - A two-state toggle that reattaches to the system
 
@@ -247,18 +258,3 @@ Replaced it with two tests that run the fixture through the app's real consumers
 `album.#text` fails the orchestrator one.
 
 Validation: `pytest -q` -- **1959 passed**.
-
-### 2026-09-26 - A real thread runs the album pipeline end to end
-
-Side task, no batch tag: a real thread runs the album pipeline end to end, part of
-Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands. `tests/test_pipeline_integration.py` drives the real `/results_loading ->
-/progress -> /results_complete` route sequence through the Flask test client, joins
-the real `worker.start_job_thread` background thread before trusting anything past
-its terminal `/progress` state (an owner-requested review found the prior version
-raced ahead of the MusicBrainz hand-off and never joined the thread, so a leftover
-job slot or a live MusicBrainz call could survive the test), and asserts the
-MusicBrainz hand-off ran under mock, the job's concurrency slot is fully released,
-and `/results_complete` renders the album that survived the Spotify phase.
-
-Validation: `pytest -q` -- **1943 passed**.
