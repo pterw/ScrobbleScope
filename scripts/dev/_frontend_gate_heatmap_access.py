@@ -103,11 +103,16 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 """() => {
                     const el = document.activeElement;
                     if (!el || !el.classList.contains('heatmap-cell')) return null;
+                    const style = getComputedStyle(el);
                     return {
                         ariaLabel: el.getAttribute('aria-label'),
                         date: el.getAttribute('data-date'),
                         count: el.getAttribute('data-count'),
-                        outlineStyle: getComputedStyle(el).outlineStyle,
+                        tabIndexAttr: el.getAttribute('tabindex'),
+                        outlineWidth: style.outlineWidth,
+                        outlineStyle: style.outlineStyle,
+                        outlineOffset: style.outlineOffset,
+                        outlineColor: style.outlineColor,
                     };
                 }"""
             )
@@ -127,9 +132,66 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 f"heatmap cell aria-label was {landed['ariaLabel']!r}, "
                 f"expected {expected_label!r}"
             )
-        if landed["outlineStyle"] == "none":
+
+        if landed["tabIndexAttr"] != "0":
             failures.append(
-                "heatmap cell reaches keyboard focus with no visible outline"
+                'heatmap cell reached by Tab does not carry tabindex="0" '
+                f"(was {landed['tabIndexAttr']!r})"
+            )
+
+        cell_tabindex_audit = page.evaluate(
+            """() => {
+                const cells = Array.from(document.querySelectorAll('.heatmap-cell'));
+                const missing = cells.filter(
+                    (c) => c.getAttribute('tabindex') !== '0'
+                ).length;
+                return {total: cells.length, missing};
+            }"""
+        )
+        if cell_tabindex_audit["missing"]:
+            failures.append(
+                f"{cell_tabindex_audit['missing']} of "
+                f"{cell_tabindex_audit['total']} .heatmap-cell elements lack "
+                'tabindex="0"'
+            )
+
+        # Resolve --shell-accent's computed colour via a throwaway probe
+        # element, so the assertion below compares computed rgb strings
+        # (what the browser actually paints) rather than the raw custom
+        # property text.
+        accent_color = page.evaluate(
+            """() => {
+                const probe = document.createElement('div');
+                probe.style.position = 'absolute';
+                probe.style.visibility = 'hidden';
+                probe.style.color = 'var(--shell-accent)';
+                document.body.appendChild(probe);
+                const rgb = getComputedStyle(probe).color;
+                probe.remove();
+                return rgb;
+            }"""
+        )
+
+        if landed["outlineWidth"] != "2px":
+            failures.append(
+                "heatmap cell focus outline-width was "
+                f"{landed['outlineWidth']!r}, expected '2px'"
+            )
+        if landed["outlineStyle"] != "solid":
+            failures.append(
+                "heatmap cell focus outline-style was "
+                f"{landed['outlineStyle']!r}, expected 'solid'"
+            )
+        if landed["outlineOffset"] != "1px":
+            failures.append(
+                "heatmap cell focus outline-offset was "
+                f"{landed['outlineOffset']!r}, expected '1px'"
+            )
+        if landed["outlineColor"] != accent_color:
+            failures.append(
+                "heatmap cell focus outline-color was "
+                f"{landed['outlineColor']!r}, expected {accent_color!r} "
+                "(computed --shell-accent)"
             )
     finally:
         delete_job(job_id)

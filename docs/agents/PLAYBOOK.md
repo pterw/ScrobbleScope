@@ -150,7 +150,15 @@ focusable with a visible `:focus-visible` ring, and added
 `scripts/dev/_frontend_gate_heatmap_access.py`) to prove it live. Resolves
 F-B21-14.
 
-Validation: `pytest -q` -- **1974 passed**.
+Fix round 1: the check now asserts the reached cell's own `tabindex="0"`
+attribute and that every `.heatmap-cell` in the grid carries it (naming the
+count missing), and asserts the authored focus ring by its four computed
+properties -- `outline-width: 2px`, `outline-style: solid`,
+`outline-offset: 1px`, and `outline-color` equal to `--shell-accent`'s
+computed colour read via a probe element -- rather than the generic
+`outlineStyle !== 'none'` a bare UA default outline also satisfied.
+
+Validation: `pytest -q` -- **1978 passed**.
 
 ### 2026-09-27 - Move four dev-only pins out of the production install
 
