@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,12 @@ MOVED = (
     "_stylesheet_hrefs",
     "check_stylesheet_isolation",
 )
-REEXPORTED = ("BOOTSTRAP_MARKER", "TAILWIND_MARKER", "check_stylesheet_isolation")
+REEXPORTED = (
+    "BOOTSTRAP_MARKER",
+    "TAILWIND_MARKER",
+    "check_stylesheet_isolation",
+    "check_inline_marks_need_no_wrapper_list",
+)
 
 
 @pytest.mark.parametrize("name", MOVED)
@@ -67,3 +73,31 @@ def test_isolation_passes_one_tailwind_sheet_beside_other_css() -> None:
             )
             == []
         )
+
+
+def test_inline_marks_pass_on_the_real_templates() -> None:
+    assert (
+        _frontend_gate_assets.check_inline_marks_need_no_wrapper_list(
+            MagicMock(), "http://127.0.0.1:0"
+        )
+        == []
+    )
+
+
+def test_inline_marks_fail_on_a_literal_hex_colour(tmp_path: Path) -> None:
+    broken = tmp_path / "scrobble_scope_inline.svg"
+    broken.write_text(
+        _frontend_gate_assets.INLINE_MARK_TEMPLATES[0]
+        .read_text(encoding="utf-8")
+        .replace("stroke: var(--bars-color);", "stroke: #6a4baf;"),
+        encoding="utf-8",
+    )
+    other = _frontend_gate_assets.INLINE_MARK_TEMPLATES[1]
+    with patch(
+        "scripts.dev._frontend_gate_assets.INLINE_MARK_TEMPLATES", (broken, other)
+    ):
+        failures = _frontend_gate_assets.check_inline_marks_need_no_wrapper_list(
+            MagicMock(), "http://127.0.0.1:0"
+        )
+    assert any("scrobble_scope_inline.svg" in failure for failure in failures)
+    assert any("literal hex colour" in failure for failure in failures)

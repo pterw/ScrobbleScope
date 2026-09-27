@@ -68,6 +68,7 @@ for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
 from scripts.dev._frontend_gate_assets import (  # noqa: E402, F401
     BOOTSTRAP_MARKER,
     TAILWIND_MARKER,
+    check_inline_marks_need_no_wrapper_list,
     check_stylesheet_isolation,
 )
 from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
@@ -228,6 +229,12 @@ LAYOUT_PIPELINE = "layout & pipeline"
 #: pointer capability rather than window width is the contract.
 CHECKS = (
     ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,), STATIC_ASSETS),
+    (
+        "inline marks need no wrapper list",
+        check_inline_marks_need_no_wrapper_list,
+        (DESKTOP,),
+        STATIC_ASSETS,
+    ),
     ("fonts", check_fonts, (DESKTOP,), STATIC_ASSETS),
     ("body font", check_body_font, (DESKTOP, MOBILE), STATIC_ASSETS),
     ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE), STATIC_ASSETS),

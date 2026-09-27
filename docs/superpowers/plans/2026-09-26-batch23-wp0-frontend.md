@@ -470,7 +470,7 @@ F-B21-23 cites was global.css's retired `.dark-mode` token (gone since WP-8). Un
 no value decision. No other task in this plan touches `_frontend_gate_assets.py`, so this task's edit
 to it needs no new slice module.
 
-- [ ] **Step 1: Colour the assets themselves.** In both
+- [x] **Step 1: Colour the assets themselves.** In both
   `templates/inline/scrobble_scope_inline.svg` and `scrobble_scope_lockup_inline.svg`:
   - Change the embedded `<style>` block's `.cls-1 { fill: none; stroke: #6a4baf; ... }` so `stroke` is
     `var(--bars-color)`. Keep `fill: none` and the rest of the block unchanged.
@@ -478,7 +478,7 @@ to it needs no new slice module.
     `<path>` elements carry no fill rule of their own today and will inherit this; `.cls-1`'s own
     `fill: none` keeps the bar paths from picking it up too.
 
-- [ ] **Step 2: Collapse the per-wrapper CSS list.** In `static/css/shell.css`, delete the two rules
+- [x] **Step 2: Collapse the per-wrapper CSS list.** In `static/css/shell.css`, delete the two rules
   ```css
   .site-header__mark svg .cls-1,
   .index-hero__mark svg .cls-1 {
@@ -503,7 +503,7 @@ to it needs no new slice module.
   `svg .cls-1` / `svg #logo-text path` already and needs no change -- it was asserting the right
   outcome all along, against a mechanism this task simplifies.
 
-- [ ] **Step 3: New gate check, on the assets themselves.** In `_frontend_gate_assets.py` (the module
+- [x] **Step 3: New gate check, on the assets themselves.** In `_frontend_gate_assets.py` (the module
   that already audits which stylesheet a page loads), add `check_inline_marks_need_no_wrapper_list`.
   This is an asset-content fact, not a rendered one: read both SVG template files directly off disk
   (`Path(...).read_text()`, not a live page) and assert each contains `fill="currentColor"` on its
@@ -512,16 +512,16 @@ to it needs no new slice module.
   `CHECKS`, `STATIC_ASSETS` group, beside `"stylesheet isolation"`; add the check's name to the
   facade's `_frontend_gate_assets` import block.
 
-- [ ] **Step 4: Run the new check, `check_mark_follows_theme`, and the full gate.** Confirm all pass.
+- [x] **Step 4: Run the new check, `check_mark_follows_theme`, and the full gate.** Confirm all pass.
 
-- [ ] **Step 5: Live probe.** In scratch copies outside the repository, put a literal hex colour back
+- [x] **Step 5: Live probe.** In scratch copies outside the repository, put a literal hex colour back
   in one SVG's `<style>` block. Run the new check; confirm it names that file. Separately, in a
   scratch copy of `shell.css`, remove the `.ss-mark { color: ... }` rule added in Step 2 and confirm
   `check_mark_follows_theme` now fails (the letterforms lose their `currentColor` source) -- this
   proves the new rule is load-bearing, not redundant with something else. Delete both scratch copies
   once confirmed.
 
-- [ ] **Step 6: Resolve F-B21-23 and commit.** Canonical reason: "the inline marks carry
+- [x] **Step 6: Resolve F-B21-23 and commit.** Canonical reason: "the inline marks carry
   fill=currentColor and stroke: var(--bars-color) themselves; shell.css's five-rule per-wrapper list
   collapses to one color declaration on .ss-mark; check_inline_marks_need_no_wrapper_list reads the
   assets directly."

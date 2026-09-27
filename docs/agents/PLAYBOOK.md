@@ -83,7 +83,7 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Tasks 1, 2, 3 and 5 have landed. Test-infrastructure plan: Tasks 1,
+  frontend plan: Tasks 1, 2, 3, 4 and 5 have landed. Test-infrastructure plan: Tasks 1,
   2 and 3 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
@@ -117,6 +117,24 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - Let the inline marks colour themselves
+
+Side task, no batch tag: fixed F-B21-23, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Both inline mark SVGs now carry fill="currentColor" and stroke: var(--bars-color)
+in their own <style> block, so shell.css's five-rule per-wrapper CSS list
+(F-B21-21's fix) collapses to one `.ss-mark { color: var(--shell-ink); }`
+declaration. `check_inline_marks_need_no_wrapper_list` in
+scripts/dev/_frontend_gate_assets.py reads both SVG templates off disk and
+fails on a missing fill/stroke rule or any literal hex colour.
+`tests/test_template_shell.py::test_migrated_wordmarks_use_theme_ink_for_letterforms`
+was rewritten (controller ruling, task-4-context.md, widening this task's
+Touches) to assert the new mechanism instead of the deleted per-wrapper
+selectors, keeping its name and docstring intent.
+
+Validation: `pytest -q` -- **1978 passed**.
 
 ### 2026-09-27 - Heatmap grid cells are keyboard-focusable and labelled
 
@@ -162,94 +180,3 @@ match the system and confirms `localStorage.getItem('darkMode')` clears immediat
 page still resolves dark from the system query alone after a reload. Resolves F-B21-22.
 
 Validation: `pytest -q` -- **1965 passed**.
-
-### 2026-09-26 - Stop cropping, overlaying and faking the artist spotlight photo
-
-Side task, no batch tag: stop the artist spotlight photo from being cropped, overlaid,
-animated or faked with an unconfirmed album cover, part of Batch 23 WP-0 Part C. Untagged
-by owner ruling 2026-09-23 until the whole of WP-0 lands. `results.css`/`results.html`
-now show the photo whole and square (4px corners at small sizes, 8px at large), with the
-name, rank, playtime and summary beside or below it, never on top; the scrim overlay is
-gone. `results-spotlight.js` swaps candidates instantly, with no fade. The server- and
-client-side album-art fallback is gone: `scrobblescope/spotlight.py` no longer seeds
-`image_url` from an album cover, and `results-spotlight.js` waits for every candidate's
-photo to be confirmed by `/api/artist_spotlight` before revealing the card, dropping any
-candidate whose photo is never confirmed; if none is confirmed, the card stays hidden.
-`scripts/dev/_frontend_gate_spotlight_photo.py` adds two checks (`artist spotlight photo
-has no crop overlay or animation`, `artist spotlight card hidden with no photo`) and
-`scripts/dev/_frontend_gate_pipeline.py`'s `check_artist_spotlight_rotation` is
-rewritten to capture its rotation baseline after the (now deferred) reveal instead of at
-page load. `scripts/dev/results_behavior_tests.py` gains updated Chromium behaviour
-tests for the same design: the card stays hidden until every hydration settles, a
-candidate without a confirmed photo is dropped, and reduced motion keeps the surviving
-confirmed artist still.
-
-**Fix round 1, 2026-09-26:** two of the `results_behavior_tests.py` rewrites above
-could not fail if the rotation's `c => c.image_url` filter were deleted --
-`test_card_hidden_until_settle_then_drops_unconfirmed_candidates`'s 30s/7s-tick math
-happened to land back on the same artist either way, and
-`test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration`'s confirmed
-candidate was already the one shown regardless of filtering. Both now assert the
-filtered-list rank (`01 / 01`) and put the failing hydration on the first candidate so
-the surviving, filtered name ("Second") only appears if the filter runs; R14 proof
-in `task-5-report.md`. Also names the third existing test this task edited,
-`test_spotlight_rotation_wraps_and_preserves_input` (`tests/test_routes.py`'s two
-edits were already named in 699bec2's body), which the original commit omitted.
-
-**Polish round, 2026-09-26:** a design review plus the controller's own read of
-every screenshot found the compliant-but-plain spotlight card needed five more
-fixes to match its sibling rail blocks: `.spotlight-image-box`
-(`static/css/results.css`) gains the same `1px solid var(--ss-border-default)`
-border every other thumbnail on the page already carries, so a dark photo
-never melts into a dark card; `.spotlight-card-bleed`'s bespoke padding is
-dropped in favour of the sibling cards' own `p-4
-md:p-[calc(1.25rem*var(--results-scale))]` classes on `#artist-spotlight-card`
-(`templates/results.html`), matching their rhythm exactly; "Artist Spotlight"
-moves from a muted inline label into its own `<h3 class="results-rail-title">`
-heading row at the top of the card, the same shared class and position the
-"Sort leaderboard" and "Albums outside your filters" headings use; the photo
-stays beside the text below 768px too, at a proportionate ~112px (was full
-rail width), keeping 4px corners under 768px and 8px at/above; and the
-artist's name drops `truncate` so a long name wraps instead of clipping. The
-Spotify link's tap target grows from 16x16 to 44x44 via padding and a
-matching negative margin, with no change to the glyph. The one-time card
-reveal's layout shift stays parked (owner ruling: no fade/reserve, since the
-card must stay hidden until a photo confirms and Spotify forbids animating
-artwork), as does the interim Spotify link's icon/attribution work (F-B21-60
-part 2). AFTER screenshots and measurements confirming all five fixes are in
-`design-fe5/after-*.png` and `after-measurements.json` in the SDD workspace.
-
-**Polish round 2, 2026-09-26:** a scoped re-review found the polish round's own
-`truncate` removal let a long artist name wrap without bounding the details
-column, so the card's height changed on every rotation tick between a short-
-and a long-named candidate and jumped the rail below -- the same jank the
-parked reveal item names, now recurring on every tick, not just the first
-load. Fixed: `#spotlight-artist-name` gains Tailwind's `line-clamp-2` (two
-lines, ellipsis, full name still in `title`; `renderText` in
-`static/js/results-spotlight.js` already set both), and `.spotlight-details`
-(`static/css/results.css`) gains a `min-height` sized to the clamped worst
-case (2 name lines + a 2-line play-time/scrobble allowance + the rank line +
-gaps, in rem units scaled by `--results-scale`, per breakpoint) so the card
-is the same height for every candidate at a given width; the photo stays
-112px/144px, top-aligned. Measured `#artist-spotlight-card` height across a
-rotation between "A" and "The Bloomington Municipal Philharmonic Marching
-Ensemble": identical at both 390x844 (185.59px) and 1280x800 (218.14px).
-Folded in two deferred minors: `#spotlight-artist-name` is now a `<p>`, not
-a second `<h3>` sharing a heading level with the card's own "Artist
-Spotlight" title (grepped `tests/`/`scripts/` first -- nothing keys on its
-tag). The suggested `p-3.5 -m-3.5` swap for the Spotify link's tap-target
-padding was tried and reverted: this theme's spacing-scale reset (the same
-one `templates/unmatched.html`'s own comment documents for `w-24`/`w-28`)
-means `--spacing-3.5` is never emitted, so those classes compiled to
-nothing and silently dropped the 44x44 tap target back to 16x16; kept the
-working `p-[14px] -m-[14px]` arbitrary values instead. Evidence, including
-the height measurements and `after-card-clamped-{short,long}-mobile.png`,
-is in `task-5-report.md`.
-
-**Casing fix, 2026-09-26:** the card's `<h3 class="results-rail-title">` heading read
-"Artist Spotlight", but its sibling rail headings ("Sort leaderboard", "Albums outside
-your filters") are sentence case in source -- `.results-rail-title` uppercases them
-visually, but screen readers read the source text. Changed to "Artist spotlight" in
-`templates/results.html`; grepped `tests/`/`scripts/` first, nothing keys on the old text.
-
-Validation: `pytest -q` -- **1958 passed**.

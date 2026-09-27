@@ -9,6 +9,42 @@ Newest rotation first.
 
 ---
 
+### F-B21-23: the inline marks diverge from the design contract on colour -- RESOLVED
+
+`docs/design/README.md` "Assets" specifies the two inline variants as
+**theme-reactive: text `currentColor`, bars `var(--bars-color)`**. Neither
+shipped asset does it. `templates/inline/scrobble_scope_lockup_inline.svg` and
+`scrobble_scope_inline.svg` contain zero occurrences of `currentColor`; the
+letterforms carry no fill rule at all and the bars are pinned by an embedded
+`<style>` to a literal `#6a4baf`.
+
+This is the real cause of F-B21-21, which was fixed at the symptom. Because
+the asset does not react to anything, every wrapper that displays it has to be
+named explicitly in a stylesheet, and the index hero was the wrapper somebody
+forgot. The list will need extending again for every mark WP-4 through WP-8
+adds, and the gate check added with F-B21-21 exists only to catch that.
+
+Doing what the contract says removes the class. Give the letterforms
+`fill="currentColor"` and the bars `stroke: var(--bars-color)`, then any
+wrapper that sets `color` and defines that token gets a correct mark with no
+selector naming it. The per-wrapper list in `shell.css` collapses to nothing.
+
+Two reasons it was not done in the F-B21-21 fix. The assets are shared with the
+four Bootstrap pages, which currently colour them through `global.css`
+`.dark-mode`, and those pages render only from a POST with session state, so no
+gate can show the result. And `--bars-color` is a `global.css` token while the
+migrated pages use `--shell-accent`; the two carry different dark values
+(`#9370DB` against `#b39dde`), so unifying the asset means first deciding which
+value wins.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-27
+The inline marks carry fill=currentColor and stroke: var(--bars-color)
+themselves; shell.css's five-rule per-wrapper list collapses to one color
+declaration on .ss-mark; check_inline_marks_need_no_wrapper_list reads the
+assets directly.
+Source: F-B21-21 follow-up, 2026-08-26.
+
 ### F-B21-14: the heatmap has no path to its data that is not colour -- RESOLVED
 
 Every value in the grid is encoded once, as a fill. The only way to read a
