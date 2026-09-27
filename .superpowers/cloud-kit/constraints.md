@@ -63,23 +63,30 @@ Validation: `pytest -q` -- **N passed**.
 Nothing but ` -- ` may sit between `` `pytest -q` `` and the bold count
 (DOC012). Quote only one bold count per entry.
 
-**R5 -- procedure before every commit:** write the Section 4 entry, run
-`doc_state_sync.py --fix`, then run the gates in section 2b in the order
-listed there. Section 2b owns the commands, the order, the frontend gate's
-condition and the expected warnings; this rule does not repeat them.
+**R5 -- procedure before every commit:** write the Section 4 entry (Validation
+line placeholder), run the `suite` gate and read N, run `doc_state_sync.py
+--fix --test-count N` (never hand-edit a count site), stage by name, then run
+the remaining gates in section 2b in the order listed there. Section 2b owns
+the commands, the order, the frontend gate's condition and the expected
+warnings; this rule does not repeat them.
 
 **R6 -- expected pre-commit noise, not a failure.** The `worktree-alignment`
 hook runs `--advisory` and prints `ERROR WT005 ... origin/main` (the branch
-is cut from `test`), and `WARNING WT010` whenever the tree is dirty. It
-still reports Passed. Do not act on it. If it prints `ERROR WT007`, the
-clone lacks `origin/main` or `origin/test`: run `git fetch origin main test`.
+is cut from `test`), `WARNING WT010` whenever the tree is dirty, and
+`WARNING WT015` when `skills-lock.json` is absent. It still reports Passed.
+Do not act on it. If it prints `ERROR WT007`, the clone lacks `origin/main`
+or `origin/test`: run `git fetch origin main test`.
 
 **R7 -- docsync control plane.** A task that stages anything under
 `scripts/docsync/`, `scripts/doc_state_sync.py`,
 `scripts/dev/docsync_preflight.py` or `config/docsync.toml` is refused by the
-preflight (exit 3) by design: run `doc_state_sync.py --check` at exit 0
-first, then commit with `SKIP=doc-state-sync-check git commit ...`. Any
-other task must commit with every hook. `--no-verify` is forbidden outright.
+preflight (exit 3) by design, except a staged `config/docsync.toml` change
+whose only change is the `[test_count]` pin, which is not control-plane
+(owner ruling 2026-09-26): run `doc_state_sync.py --check` at exit 0 first,
+then commit an actual control-plane change with
+`SKIP=doc-state-sync-check git commit ...`; a pin-only change commits with
+every hook. Any other task must commit with every hook. `--no-verify` is
+forbidden outright.
 
 **R8 -- commit message:** use the plan's subject line verbatim. Add a short
 body explaining why (wrap at 72). **No `Co-authored-by` trailer and no other

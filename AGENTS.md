@@ -366,9 +366,8 @@ When all WPs in the active batch are committed and validated:
    Section 4`) at `docs/history/definitions/BATCHN_DEFINITION.md` and
    `docs/history/logs/BATCHN_LOG.md`; add a new row only if the batch has none.
 4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done. Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
-5. **Run `--fix --test-count N`** (N = the
-   just-measured `pytest -q` result) if the count changed since step 1's sync, bare `--fix`
-   otherwise, to refresh the STATUS block.
+5. **Run `pytest -q`**, then `--fix --test-count N` with that N (always --
+   `--test-count` with an unchanged N is harmless), to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` exits 0 with
    no integrity errors (the root BATCH file warning disappears once step 2
    archives the definition).

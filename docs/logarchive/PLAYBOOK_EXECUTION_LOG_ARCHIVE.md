@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Let the inline marks colour themselves
+
+Side task, no batch tag: fixed F-B21-23, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Both inline mark SVGs now carry fill="currentColor" and stroke: var(--bars-color)
+in their own <style> block, so shell.css's five-rule per-wrapper CSS list
+(F-B21-21's fix) collapses to one `.ss-mark { color: var(--shell-ink); }`
+declaration. `check_inline_marks_need_no_wrapper_list` in
+scripts/dev/_frontend_gate_assets.py reads both SVG templates off disk and
+fails on a missing fill/stroke rule or any literal hex colour.
+`tests/test_template_shell.py::test_migrated_wordmarks_use_theme_ink_for_letterforms`
+was rewritten (controller ruling, task-4-context.md, widening this task's
+Touches) to assert the new mechanism instead of the deleted per-wrapper
+selectors, keeping its name and docstring intent.
+
+Validation: `pytest -q` -- **1978 passed**.
+
 ### 2026-09-27 - Heatmap grid cells are keyboard-focusable and labelled
 
 Side task, no batch tag: heatmap grid cells carry tabindex, role=img and an

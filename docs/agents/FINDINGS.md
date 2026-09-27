@@ -303,6 +303,29 @@ remain.
   triage list, and `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
   Task 7 / DoD row 32.
 
+### F-DOCSYNC-23: the tracked test-module count is hand-maintained and unchecked
+
+`.claude/SESSION_CONTEXT.md` Section 1 ("across N tracked test modules") and the
+`docs/agents/FINDINGS.md` header carry the same count, but `doc_state_sync.py
+--fix --test-count N` writes only the test count to both -- nothing derives or
+checks the module count, and nothing checks that the two copies agree.
+Batch 23 control-plane Task 7 needed a hand fix, 72 -> 73 (`c39da3c`), because
+`--fix` had left SESSION_CONTEXT's copy stale after FINDINGS.md's was
+corrected.
+
+Measured now (2026-09-27) the way the current number is counted -- `git
+ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` -- gives 78,
+matching both SESSION_CONTEXT's and FINDINGS.md's current copies: **both
+sites are right today.** (`tests/scripts/dev/test_mutation_test.py` is
+untracked, per F-SWE-8, so it does not count.)
+
+Proposal, not yet built: derive the module count in `--fix` from `git
+ls-files 'tests/**/test_*.py'` instead of hand-editing it, or declare it as a
+value fact in `config/docsync.toml` so a mismatch is caught the way DOC008
+catches a stale test count.
+
+- [ ] **Status:** open (P2). Source: Batch 23 WP-0 close-out CO2, 2026-09-27.
+
 ### F-WORKTREE-6: the guard's base ref is a flag default, not a fact PLAYBOOK declares
 
 `check_worktree_alignment.py --base-ref` defaults to `origin/main`, and
@@ -628,6 +651,37 @@ closure. Joins WP-0 Part C's set by controller ruling 2026-09-26
 
 Status: open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
 review, 2026-09-27.
+
+### F-B23-10: three frontend-gate failures were gate defects, each green on an immediate rerun
+
+Three intermittent `frontend_gate.py` failures during the WP-0 frontend
+plan's landings, none reproducing on a rerun of the same tree, so each is a
+gate defect rather than a code regression:
+
+1. **`chromium: divider contrast [desktop]/dark`** failed once in the
+   frontend Task 1 landing (2026-09-26); clean on rerun, and clean on a
+   fresh `git archive` of the base commit (`9523603`). See the frontend
+   plan's Task 1 landing report, evidence held in the plan's SDD workspace.
+2. **The gate hung** once in the frontend Task 4 landing (2026-09-27), on an
+   apparently stalled `Thread-2 (runner)` after a mocked Spotify 400; the two
+   Python processes were killed and a clean rerun finished normally. See
+   the frontend plan's Task 4 landing report.
+3. **`chromium: pipeline state machines [desktop]`** raised `Error:
+   Page.evaluate: Execution context was destroyed, most likely because of a
+   navigation` once in the frontend Task 2 fix-round-2 landing (2026-09-27);
+   green again on an immediate rerun. See the frontend plan's Task 2 fix
+   round 2 report.
+
+Each check currently relies on timing (a fixed wait, or none) rather than an
+explicit condition, and nothing in the gate enforces a per-check timeout, so
+a stall hangs the whole run instead of failing loudly.
+
+Proposal, not yet built: rewrite each of the three checks to wait on an
+explicit condition instead of a timer, and add a per-check timeout to the
+gate runner so a stalled check fails fast rather than hanging.
+
+- [ ] **Status:** open (P2). Source: Batch 23 WP-0 frontend Task 1, Task 4
+  and Task 2 fix round 2 landings, 2026-09-26/27; close-out CO2, 2026-09-27.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

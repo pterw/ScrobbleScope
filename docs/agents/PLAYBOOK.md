@@ -118,6 +118,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-27 - File the carried close-out findings and amend Part C
+
+Side task, no batch tag: filed two carried findings, amended
+`BATCH23_DEFINITION.md`, and fixed three rule/record docs, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- Filed `F-DOCSYNC-23` (the tracked test-module count is hand-maintained and
+  unchecked) and `F-B23-10` (three frontend-gate failures were gate defects,
+  each green on an immediate rerun), both P2, in `docs/agents/FINDINGS.md`.
+  Re-measured the module count now: `git ls-tree -r --name-only HEAD tests |
+  grep -c '/test_[^/]*\.py$'` gives 78, matching both `.claude/
+  SESSION_CONTEXT.md` and the `FINDINGS.md` header -- both sites are right
+  today, so no correction was needed.
+- `BATCH23_DEFINITION.md`: recorded the three approved WP-0 follow-on plan
+  paths as executed; recorded F-B21-60's Spotify-icon/attribution part as
+  remaining, unscheduled work (it stays in Part C's set and open); added
+  `scripts/dev/results_behavior_tests.py` to Part C's acceptance gate list.
+- `AGENTS.md` Batch Close-Out Procedure step 5 now says to run `pytest -q`
+  before `--fix --test-count N`, since no earlier close-out step measured
+  the count.
+- `.superpowers/cloud-kit/constraints.md` (tracked, generic): brought its R5
+  commit procedure, R6 expected warnings and R7 docsync-control-plane
+  exemption in line with the control-plane workspace's later rulings.
+- `docs/history/findings/FINDINGS_ARCHIVE.md` F-B21-3: reworded the
+  pip-audit recount from "found 0 vulnerabilities in 0 packages" to
+  "reported no known vulnerabilities".
+
+Validation: `pytest -q` -- **1993 passed**.
+
 ### 2026-09-27 - Close out the test-infrastructure plan's carried test minors
 
 Side task, no batch tag: closed the carried test minors from
@@ -201,23 +231,5 @@ Live probe in a scratch copy: pinning `virtualenv==20.26.5` in a scratch
 report PYSEC-2024-187 (exit 1); reverting to the real, pinned
 `virtualenv==20.36.1` made the advisory disappear (exit 0, "No known
 vulnerabilities found"), confirming the dev file is now audited.
-
-Validation: `pytest -q` -- **1978 passed**.
-
-### 2026-09-27 - Let the inline marks colour themselves
-
-Side task, no batch tag: fixed F-B21-23, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Both inline mark SVGs now carry fill="currentColor" and stroke: var(--bars-color)
-in their own <style> block, so shell.css's five-rule per-wrapper CSS list
-(F-B21-21's fix) collapses to one `.ss-mark { color: var(--shell-ink); }`
-declaration. `check_inline_marks_need_no_wrapper_list` in
-scripts/dev/_frontend_gate_assets.py reads both SVG templates off disk and
-fails on a missing fill/stroke rule or any literal hex colour.
-`tests/test_template_shell.py::test_migrated_wordmarks_use_theme_ink_for_letterforms`
-was rewritten (controller ruling, task-4-context.md, widening this task's
-Touches) to assert the new mechanism instead of the deleted per-wrapper
-selectors, keeping its name and docstring intent.
 
 Validation: `pytest -q` -- **1978 passed**.

@@ -122,8 +122,8 @@ dependency graph before removing anything -- `pillow` is plausibly present as
 the unused PDF-adjacent packages were already removed and `requests`/`urllib3` already
 upgraded past their advisories (`0f5b2468`, `c1620a9d`); the remaining unused-tooling
 pins (`virtualenv`, `distlib`, `filelock`, `platformdirs`) are now moved to
-`requirements-dev.txt`, still pinned; a live `pip-audit` recount on 2026-09-27 found 0
-vulnerabilities in 0 packages against `requirements.txt` alone, 0 against both files
+`requirements-dev.txt`, still pinned; a live `pip-audit` recount on 2026-09-27 reported
+no known vulnerabilities against `requirements.txt` alone, and none against both files
 together.
 Source: Quality Gate run 32444711411, 2026-08-21.
 

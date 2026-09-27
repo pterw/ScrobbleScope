@@ -43,9 +43,13 @@ covers Part A and most of Part B, and
 Part A's loop protocol. The rest of Part B and all of Part C run from
 `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. It
 holds the owner questions, one disposition per finding, and the tasks. Its
-control-plane and frontend clusters get follow-on plans once the rulings
-are in. This file carries the scope, the intended outcome, the work
-packages and their acceptance criteria.
+control-plane and frontend clusters each got a follow-on plan once the
+rulings were in, and all three are executed (amended 2026-09-27,
+controller): `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`,
+`docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
+`docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. This file
+carries the scope, the intended outcome, the work packages and their
+acceptance criteria.
 
 ---
 
@@ -294,6 +298,11 @@ does not silently leave:
   F-MAS-1, F-MAS-2, F-MAS-3, F-STYLE-1, F-STYLE-2, F-SWE-5, F-WORKTREE-3,
   F-WORKTREE-4.
 
+**Amendment, 2026-09-27 (controller).** F-B21-60's part 2 -- the Spotify
+icon and the results-row provider-attribution bullets from the owner's
+2026-09-13 ruling -- is in no WP-0 or later plan. It is recorded here as
+remaining, unscheduled work. F-B21-60 stays in the set above and stays open.
+
 A finding leaves the set in one of three ways, and only these:
 
 1. **Fixed.** It carries a canonical resolved record with a completion date
@@ -347,8 +356,9 @@ On 2026-09-24 the owner added a fifth P2:
 - **Acceptance:**
   - Each ID in the set is checked, member by member, and has left it in one of
     the three ways.
-  - The full test suite, the frontend gate, pre-commit and
-    `doc_state_sync.py --check` pass on the final tree.
+  - The full test suite, `scripts/dev/results_behavior_tests.py` (the CI
+    "Run frontend gate" step's second command), the frontend gate,
+    pre-commit and `doc_state_sync.py --check` pass on the final tree.
   - Every edited existing test is named in its commit body.
 
 **WP-0 acceptance:** Parts A, B and C each meet their own acceptance. Then
