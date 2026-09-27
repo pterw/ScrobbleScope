@@ -1,5 +1,9 @@
 import json
+from datetime import date
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK
 
@@ -24,15 +28,47 @@ def test_spotify_fixture_has_every_field_the_app_reads():
     assert meta.track_durations  # at least one track survived translation
 
 
-def test_lastfm_fixture_has_every_field_the_app_reads():
-    """The recenttracks fixture carries every field callers key off of."""
+def test_lastfm_fixture_flows_through_aggregate_daily_counts():
+    """Runs the fixture through the heatmap's real aggregator instead of just
+    asserting the fixture has fields nobody reads: `date.uts` is what
+    `_aggregate_daily_counts` keys scrobbles off of, so a fixture that drops
+    or renames it fails here, not just in a hand-written field check."""
+    from scrobblescope.heatmap import _aggregate_daily_counts
+
+    page = _load("lastfm_recenttracks_page.json")
+
+    counts = _aggregate_daily_counts([page], date(2008, 6, 9), date(2008, 6, 9))
+
+    assert counts == {"2008-06-09": 1}
+
+
+@pytest.mark.asyncio
+async def test_lastfm_fixture_flows_through_fetch_top_albums():
+    """Runs the fixture through the real orchestrator pipeline: a fixture
+    missing `artist.#text`, `album.#text`, `name` or `date.uts` would fail
+    to produce an eligible album here."""
+    from scrobblescope.domain import normalize_name
+    from scrobblescope.orchestrator import fetch_top_albums_async
+
     page = _load("lastfm_recenttracks_page.json")
     track = page["recenttracks"]["track"][0]
 
-    assert track["artist"]["#text"]
-    assert track["album"]["#text"]
-    assert track["name"]
-    assert track["date"]["uts"].isdigit()
+    with patch(
+        "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+        new_callable=AsyncMock,
+        return_value=(
+            [page],
+            {"status": "ok", "pages_expected": 1, "pages_received": 1},
+        ),
+    ):
+        eligible, _, _ = await fetch_top_albums_async(
+            "RJ", 2008, min_plays=1, min_tracks=1
+        )
+
+    key = normalize_name(track["artist"]["#text"], track["album"]["#text"])
+    assert eligible[key]["original_artist"] == track["artist"]["#text"]
+    assert eligible[key]["original_album"] == track["album"]["#text"]
+    assert eligible[key]["play_count"] == 1
 
 
 def test_existing_spotify_mocks_do_not_drift_from_the_transcribed_shape():

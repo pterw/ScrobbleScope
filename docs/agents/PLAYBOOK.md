@@ -219,7 +219,16 @@ and Last.fm response shapes transcribed from each provider's published reference
 one existing mock for drift -- a weaker guarantee than a live contract test, recorded as
 such (Q7 answer a).
 
-Validation: `pytest -q` -- **1943 passed**.
+**Fix round 1, 2026-09-26:** the Last.fm shape test only re-asserted the fixture's own
+field literals, so no app code reading a field the docs don't promise could ever fail it.
+Replaced it with two tests that run the fixture through the app's real consumers:
+`scrobblescope.heatmap._aggregate_daily_counts`, which keys off `date.uts`, and
+`scrobblescope.orchestrator.fetch_top_albums_async` (with only
+`fetch_all_recent_tracks_async` patched), which reads `artist.#text`, `album.#text` and
+`name`. Verified in a scratch copy: renaming `uts` to `ts` fails both new tests; renaming
+`album.#text` fails the orchestrator one.
+
+Validation: `pytest -q` -- **1959 passed**.
 
 ### 2026-09-26 - A real thread runs the album pipeline end to end
 
