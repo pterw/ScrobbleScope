@@ -86,6 +86,19 @@
     return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
   }
 
+  /**
+   * Build the accessible name for a heatmap cell.
+   *
+   * The mouse tooltip and each cell's aria-label read this same string, so
+   * they can never drift apart.
+   */
+  function cellAccessibleLabel(date, count) {
+    var countStr = count === 0
+      ? 'No scrobbles'
+      : count + ' scrobble' + (count !== 1 ? 's' : '');
+    return formatDateLong(date) + ' -- ' + countStr;
+  }
+
   /** Add N days to a Date (returns new Date). */
   function addDays(d, n) {
     const r = new Date(d);
@@ -1281,6 +1294,9 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
+      rect.setAttribute('tabindex', '0');
+      rect.setAttribute('role', 'img');
+      rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
@@ -1363,6 +1379,9 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
+      rect.setAttribute('tabindex', '0');
+      rect.setAttribute('role', 'img');
+      rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
@@ -1408,6 +1427,8 @@
         e.preventDefault();
         showTooltip(cd, e.touches[0]);
       }, { passive: false });
+      cd.el.addEventListener('focus', function () { showTooltip(cd, {clientX: 0, clientY: 0}); });
+      cd.el.addEventListener('blur', hideTooltip);
     });
 
     document.addEventListener('touchend', hideTooltip);
@@ -1415,11 +1436,7 @@
   }
 
   function showTooltip(cd, event) {
-    var dateStr = formatDateLong(cd.date);
-    var countStr = cd.count === 0
-      ? 'No scrobbles'
-      : cd.count + ' scrobble' + (cd.count !== 1 ? 's' : '');
-    tooltip.textContent = dateStr + ' -- ' + countStr;
+    tooltip.textContent = cellAccessibleLabel(cd.date, cd.count);
     tooltip.classList.add('visible');
 
     // Position near the cell

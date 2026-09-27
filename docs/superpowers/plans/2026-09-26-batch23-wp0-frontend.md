@@ -325,7 +325,7 @@ The new check lives in its own slice module, not in `_frontend_gate_pipeline.py`
 phase shares no file with Task 5's beyond the one-line registration in `frontend_gate.py` (Global
 Constraints' landing rule covers that).
 
-- [ ] **Step 1: Extract the tooltip text into a shared helper**, so the accessible name and the mouse
+- [x] **Step 1: Extract the tooltip text into a shared helper**, so the accessible name and the mouse
   tooltip can never drift. In `heatmap.js`, add:
   ```javascript
   function cellAccessibleLabel(date, count) {
@@ -338,7 +338,7 @@ Constraints' landing rule covers that).
   Replace `showTooltip`'s inline `dateStr`/`countStr` construction and its `tooltip.textContent` line
   with `tooltip.textContent = cellAccessibleLabel(cd.date, cd.count);`.
 
-- [ ] **Step 2: Make every cell focusable and labelled.** In both `renderHeatmap`'s and
+- [x] **Step 2: Make every cell focusable and labelled.** In both `renderHeatmap`'s and
   `renderHeatmapMobile`'s grid-cell loops, immediately after `rect.setAttribute('class',
   'heatmap-cell');`, add:
   ```javascript
@@ -347,7 +347,7 @@ Constraints' landing rule covers that).
   rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
   ```
 
-- [ ] **Step 3: Wire keyboard focus to the same tooltip a mouse gets.** In `initTooltips`, alongside
+- [x] **Step 3: Wire keyboard focus to the same tooltip a mouse gets.** In `initTooltips`, alongside
   the existing `mouseenter`/`mouseleave`/`touchstart` listeners on each `cd.el`, add:
   ```javascript
   cd.el.addEventListener('focus', function () { showTooltip(cd, {clientX: 0, clientY: 0}); });
@@ -356,7 +356,7 @@ Constraints' landing rule covers that).
   (The `aria-label` already carries the text to a screen reader that never paints the tooltip; this
   gives a sighted keyboard user the same visible cue a mouse gets.)
 
-- [ ] **Step 4: Add the focus ring.** `static/css/heatmap.css` has no `.heatmap-cell` rule today; a
+- [x] **Step 4: Add the focus ring.** `static/css/heatmap.css` has no `.heatmap-cell` rule today; a
   bare SVG `<rect>`'s user-agent focus outline is inconsistent across browsers. Add:
   ```css
   .heatmap-cell:focus-visible {
@@ -365,7 +365,7 @@ Constraints' landing rule covers that).
   }
   ```
 
-- [ ] **Step 5: New slice module and check.** Create `scripts/dev/_frontend_gate_heatmap_access.py`,
+- [x] **Step 5: New slice module and check.** Create `scripts/dev/_frontend_gate_heatmap_access.py`,
   following the header/docstring convention of the other `_frontend_gate_*.py` slices, importing
   `create_job`, `set_job_progress` (and whatever job-repository helpers it needs) directly from
   `scrobblescope.repositories`, and `MIGRATED_PAGES`/`GATE_JOB_IDS` from
@@ -384,14 +384,14 @@ Constraints' landing rule covers that).
   `from scripts.dev._frontend_gate_heatmap_access import (...)` import line, alphabetically among the
   other `_frontend_gate_*` imports.
 
-- [ ] **Step 6: Run the new check and the full gate.** Confirm both pass.
+- [x] **Step 6: Run the new check and the full gate.** Confirm both pass.
 
-- [ ] **Step 7: Live probe.** In a scratch copy of `_frontend_gate_heatmap_access.py` and a scratch
+- [x] **Step 7: Live probe.** In a scratch copy of `_frontend_gate_heatmap_access.py` and a scratch
   copy of `heatmap.js` (outside the repository), comment out the `tabindex`/`role`/`aria-label` lines
   added in Step 2. Run the gate against the scratch pair; confirm the new check fails naming the
   missing focusable cell or the empty label. Delete both scratch copies once confirmed.
 
-- [ ] **Step 8: Resolve F-B21-14 and commit.** Canonical reason: "heatmap cells carry tabindex,
+- [x] **Step 8: Resolve F-B21-14 and commit.** Canonical reason: "heatmap cells carry tabindex,
   role=img and an aria-label built by the same cellAccessibleLabel helper the mouse tooltip uses;
   check_heatmap_cells_are_keyboard_accessible (its own slice module) proves it live."
   ```bash

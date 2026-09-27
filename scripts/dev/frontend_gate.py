@@ -90,6 +90,9 @@ from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
     check_validation_feedback,
     check_validator_outage_is_recoverable,
 )
+from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
+    check_heatmap_cells_are_keyboard_accessible,
+)
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
     FONTS_READY_EXPRESSION,
@@ -346,6 +349,12 @@ CHECKS = (
     (
         "artist spotlight rotation",
         check_artist_spotlight_rotation,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap cells keyboard access",
+        check_heatmap_cells_are_keyboard_accessible,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

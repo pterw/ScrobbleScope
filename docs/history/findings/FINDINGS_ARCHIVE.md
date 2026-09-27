@@ -9,6 +9,39 @@ Newest rotation first.
 
 ---
 
+### F-B21-14: the heatmap has no path to its data that is not colour -- RESOLVED
+
+Every value in the grid is encoded once, as a fill. The only way to read a
+day is a mouse hover: the cells are `<rect>` elements with no `tabindex`, so
+a keyboard reader cannot reach any of them, and there is no table view.
+
+The ramp itself is sound. Measured in OKLab, `rocket_r` runs strictly
+monotonic in lightness from 0.13 to 0.884 in steps of 0.107 to 0.144 -- a
+reader who cannot separate the hues can still separate the values, which is
+what a sequential ramp has to do. The `dataviz` skill's validator fails it,
+but that validator is scoped to categorical palettes by its own footer, and
+lightness monotonicity is the right test here.
+
+The defect is at the ends, against their own surface. `#f9d576` sits at
+1.34:1 on the light frame and `#03051a` at 1.12:1 on the dark one, so the
+busiest and quietest days both disappear into the background they are drawn
+on. The ramp is fixed by the design contract, so the fix is relief and not
+re-tinting: make the cells focusable and give each an accessible name, or
+ship a table view, or both.
+
+**Owner ruled this critical on 2026-08-24**, while noting that a sighted
+mouse user sees no problem. Both halves of that are the finding: it is
+severe for the readers it affects and invisible to everyone else, which is
+why no review caught it and no gate can.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-27
+Heatmap cells carry tabindex, role=img and an aria-label built by the same
+cellAccessibleLabel helper the mouse tooltip uses;
+check_heatmap_cells_are_keyboard_accessible (its own slice module) proves it
+live.
+Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24.
+
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production -- RESOLVED
 
 The Quality Gate's `pip-audit` step reported `Found 115 known vulnerabilities

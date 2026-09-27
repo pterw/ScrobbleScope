@@ -432,6 +432,14 @@
   color: var(--ss-text-muted);
 }
 
+/* A bare SVG <rect>'s user-agent focus outline is inconsistent across
+   browsers, so the keyboard-focus cue for a grid cell (F-B21-14) is drawn
+   here instead. */
+.heatmap-cell:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 1px;
+}
+
 /* ------------------------------------------------------------------ */
 /* Legend                                                              */
 /* ------------------------------------------------------------------ */

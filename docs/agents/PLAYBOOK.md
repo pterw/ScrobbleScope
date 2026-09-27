@@ -83,7 +83,7 @@ See FINDINGS F-DOCSYNC-3.
   and test-infrastructure/dependencies plans are now written and reviewed:
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
-  frontend plan: Tasks 1, 3 and 5 have landed. Test-infrastructure plan: Tasks 1,
+  frontend plan: Tasks 1, 2, 3 and 5 have landed. Test-infrastructure plan: Tasks 1,
   2 and 3 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
@@ -117,6 +117,22 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - Heatmap grid cells are keyboard-focusable and labelled
+
+Side task, no batch tag: heatmap grid cells carry tabindex, role=img and an
+aria-label built by the same cellAccessibleLabel helper the mouse tooltip
+uses, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until
+the whole of WP-0 lands.
+
+Extracted `cellAccessibleLabel` in `static/js/heatmap.js` so the tooltip and
+each cell's `aria-label` share one source of truth, made every `.heatmap-cell`
+focusable with a visible `:focus-visible` ring, and added
+`check_heatmap_cells_are_keyboard_accessible` (its own frontend-gate slice,
+`scripts/dev/_frontend_gate_heatmap_access.py`) to prove it live. Resolves
+F-B21-14.
+
+Validation: `pytest -q` -- **1974 passed**.
 
 ### 2026-09-27 - Move four dev-only pins out of the production install
 
@@ -237,24 +253,3 @@ visually, but screen readers read the source text. Changed to "Artist spotlight"
 `templates/results.html`; grepped `tests/`/`scripts/` first, nothing keys on the old text.
 
 Validation: `pytest -q` -- **1958 passed**.
-
-### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
-
-Side task, no batch tag: added Spotify and Last.fm fixtures transcribed from each
-provider's published reference plus shape tests, part of Batch 23 WP-0 Part C. Untagged
-by owner ruling 2026-09-23 until the whole of WP-0 lands. `tests/fixtures/` holds Spotify
-and Last.fm response shapes transcribed from each provider's published reference;
-`tests/test_provider_fixtures.py` pins the app's own field reads against them and checks
-one existing mock for drift -- a weaker guarantee than a live contract test, recorded as
-such (Q7 answer a).
-
-**Fix round 1, 2026-09-26:** the Last.fm shape test only re-asserted the fixture's own
-field literals, so no app code reading a field the docs don't promise could ever fail it.
-Replaced it with two tests that run the fixture through the app's real consumers:
-`scrobblescope.heatmap._aggregate_daily_counts`, which keys off `date.uts`, and
-`scrobblescope.orchestrator.fetch_top_albums_async` (with only
-`fetch_all_recent_tracks_async` patched), which reads `artist.#text`, `album.#text` and
-`name`. Verified in a scratch copy: renaming `uts` to `ts` fails both new tests; renaming
-`album.#text` fails the orchestrator one.
-
-Validation: `pytest -q` -- **1959 passed**.

@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
+
+Side task, no batch tag: added Spotify and Last.fm fixtures transcribed from each
+provider's published reference plus shape tests, part of Batch 23 WP-0 Part C. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands. `tests/fixtures/` holds Spotify
+and Last.fm response shapes transcribed from each provider's published reference;
+`tests/test_provider_fixtures.py` pins the app's own field reads against them and checks
+one existing mock for drift -- a weaker guarantee than a live contract test, recorded as
+such (Q7 answer a).
+
+**Fix round 1, 2026-09-26:** the Last.fm shape test only re-asserted the fixture's own
+field literals, so no app code reading a field the docs don't promise could ever fail it.
+Replaced it with two tests that run the fixture through the app's real consumers:
+`scrobblescope.heatmap._aggregate_daily_counts`, which keys off `date.uts`, and
+`scrobblescope.orchestrator.fetch_top_albums_async` (with only
+`fetch_all_recent_tracks_async` patched), which reads `artist.#text`, `album.#text` and
+`name`. Verified in a scratch copy: renaming `uts` to `ts` fails both new tests; renaming
+`album.#text` fails the orchestrator one.
+
+Validation: `pytest -q` -- **1959 passed**.
+
 ### 2026-09-26 - A real thread runs the album pipeline end to end
 
 Side task, no batch tag: a real thread runs the album pipeline end to end, part of
