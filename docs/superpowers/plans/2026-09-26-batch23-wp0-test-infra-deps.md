@@ -411,12 +411,12 @@ Today's step (`.github/workflows/test.yml:130-134`) passes `inputs: requirements
 only, so a vulnerable pin anywhere in `requirements-dev.txt` -- including the four Task 3
 just added -- is never flagged by CI, `continue-on-error` or not.
 
-- [ ] **Step 1: Confirm the pinned action's syntax for multiple input files.** Check
+- [x] **Step 1: Confirm the pinned action's syntax for multiple input files.** Check
   `pypa/gh-action-pip-audit@v1.1.0`'s `action.yml` (fetch the tag, or read the runner's
   cached copy from a prior CI run) for whether `inputs:` takes a newline- or
   space-separated list, and use whichever it documents.
 
-- [ ] **Step 2: Edit the step.**
+- [x] **Step 2: Edit the step.**
 
 ```yaml
       - name: Security audit (pip-audit)
@@ -429,7 +429,7 @@ just added -- is never flagged by CI, `continue-on-error` or not.
   (Replace the `inputs:` value with the newline-separated form from Step 1 if that is
   what v1.1.0 documents instead.)
 
-- [ ] **Step 3: Live probe, red on a planted defect.** In a scratch copy of
+- [x] **Step 3: Live probe, red on a planted defect.** In a scratch copy of
   `requirements-dev.txt` (never committed), pin one existing dev package to a version
   `pip-audit` currently reports as vulnerable (find a real, current CVE/GHSA id by
   running `pip-audit -r <scratch file>` first -- the advisory feed changes over time, so
@@ -443,11 +443,11 @@ just added -- is never flagged by CI, `continue-on-error` or not.
   locally; this local invocation with the same two inputs is the proof that the change
   under test -- auditing the dev file at all -- works.
 
-- [ ] **Step 4: Live probe, green on the near miss.** Revert the scratch file to the
+- [x] **Step 4: Live probe, green on the near miss.** Revert the scratch file to the
   real, pinned `requirements-dev.txt` and rerun the same command. Expected: that
   package's advisory no longer appears.
 
-- [ ] **Step 5: Run the full suite once**, count N for the landing (unchanged from
+- [x] **Step 5: Run the full suite once**, count N for the landing (unchanged from
   Task 3's, since this task changes no Python).
 
 **Resolves:** no finding by itself -- it closes the scope item "add requirements-dev.txt

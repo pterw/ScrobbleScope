@@ -131,5 +131,5 @@ jobs:
       - name: Security audit (pip-audit)
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          inputs: requirements.txt
+          inputs: requirements.txt requirements-dev.txt
         continue-on-error: true

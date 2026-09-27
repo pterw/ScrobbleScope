@@ -84,7 +84,7 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
   `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. The
   frontend plan: Tasks 1, 2, 3, 4 and 5 have landed. Test-infrastructure plan: Tasks 1,
-  2 and 3 have landed. Next
+  2, 3 and 4 have landed. Next
   action: execute these two plans, then the WP-0 close-out. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
@@ -117,6 +117,27 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-27 - Audit the dev requirements too (CI input gap)
+
+Side task, no batch tag: closed the scope item "add requirements-dev.txt
+to the CI audit's inputs", part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The "Security audit (pip-audit)" step in `.github/workflows/test.yml`
+passed `inputs: requirements.txt` only, so a vulnerable pin anywhere in
+`requirements-dev.txt` was never flagged. `pypa/gh-action-pip-audit@v1.1.0`
+documents `inputs:` as a whitespace-separated list (its own README example:
+`inputs: requirements.txt dev-requirements.txt`), so the step now reads
+`inputs: requirements.txt requirements-dev.txt`.
+
+Live probe in a scratch copy: pinning `virtualenv==20.26.5` in a scratch
+`requirements-dev.txt` made `pip-audit -r requirements.txt -r <scratch>`
+report PYSEC-2024-187 (exit 1); reverting to the real, pinned
+`virtualenv==20.36.1` made the advisory disappear (exit 0, "No known
+vulnerabilities found"), confirming the dev file is now audited.
+
+Validation: `pytest -q` -- **1978 passed**.
 
 ### 2026-09-27 - Let the inline marks colour themselves
 
@@ -176,22 +197,4 @@ moved from `requirements.txt` to `requirements-dev.txt` (F-B21-3 remainder); not
 `scrobblescope/` imports them (`git grep` confirmed no hits). A live `pip-audit` recount
 on 2026-09-27 found 0 vulnerabilities in 0 packages against `requirements.txt` alone, 0
 against both files together.
-Validation: `pytest -q` -- **1965 passed**.
-
-### 2026-09-27 - A two-state toggle that reattaches to the system
-
-Side task, no batch tag: fixed the theme toggle so a choice matching the system preference
-clears the stored value and lets the page reattach to the system, part of Batch 23 WP-0
-Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. `theme.js`'s
-`darkSwitch` `change` listener now computes the system's preferred scheme via
-`matchMedia('(prefers-color-scheme: dark)')` and calls `localStorage.removeItem('darkMode')`
-when the chosen state matches it, instead of always writing the choice; `base.html`'s
-pre-paint script already treats a missing key as "follow the system", so no change was
-needed there. `scripts/dev/_frontend_gate_theme.py` adds
-`check_theme_reattaches_to_system` (registered in `frontend_gate.py`'s `CHECKS` tuple,
-`THEME_MOTION` group, beside "theme persistence"), which forces the toggle away from an
-emulated dark system, confirms the choice persists across a reload, then flips it back to
-match the system and confirms `localStorage.getItem('darkMode')` clears immediately and the
-page still resolves dark from the system query alone after a reload. Resolves F-B21-22.
-
 Validation: `pytest -q` -- **1965 passed**.

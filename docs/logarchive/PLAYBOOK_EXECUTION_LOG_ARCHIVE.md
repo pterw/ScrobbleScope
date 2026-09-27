@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - A two-state toggle that reattaches to the system
+
+Side task, no batch tag: fixed the theme toggle so a choice matching the system preference
+clears the stored value and lets the page reattach to the system, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. `theme.js`'s
+`darkSwitch` `change` listener now computes the system's preferred scheme via
+`matchMedia('(prefers-color-scheme: dark)')` and calls `localStorage.removeItem('darkMode')`
+when the chosen state matches it, instead of always writing the choice; `base.html`'s
+pre-paint script already treats a missing key as "follow the system", so no change was
+needed there. `scripts/dev/_frontend_gate_theme.py` adds
+`check_theme_reattaches_to_system` (registered in `frontend_gate.py`'s `CHECKS` tuple,
+`THEME_MOTION` group, beside "theme persistence"), which forces the toggle away from an
+emulated dark system, confirms the choice persists across a reload, then flips it back to
+match the system and confirms `localStorage.getItem('darkMode')` clears immediately and the
+page still resolves dark from the system query alone after a reload. Resolves F-B21-22.
+
+Validation: `pytest -q` -- **1965 passed**.
+
 ### 2026-09-26 - Stop cropping, overlaying and faking the artist spotlight photo
 
 Side task, no batch tag: stop the artist spotlight photo from being cropped, overlaid,
