@@ -281,7 +281,8 @@ WP-0 did.
 
 The set is every finding open at P0 or P1 in `docs/agents/FINDINGS.md` on 2026-09-23,
 plus the docsync gap Part B files (F-DOCSYNC-15) and F-DOCSYNC-22, added by
-owner amendment on 2026-09-25. That is 38 IDs plus two,
+owner amendment on 2026-09-25, and F-B23-9, added by controller ruling
+2026-09-26: the unfixed remainder of F-B21-18. That is 38 IDs plus three,
 listed so that a finding filed later does not silently join, and a listed one
 does not silently leave:
 

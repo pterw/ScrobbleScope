@@ -252,8 +252,18 @@ Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-
 
 rocketColor, countToNorm and the export header layout are exercised by a Chromium harness
 (tests/frontend/test_heatmap_pure_functions.py) through window.__scrobbleHeatmapTestHooks,
-exposed at the module's top level; computeStreak is WP-6's per Q14 answer a; the harness carries
-a browser pytest marker so CI's pre-browser coverage step deselects it and the post-browser
-frontend-gate step runs it instead.
+exposed at the module's top level only when window.__scrobbleHeatmapTestMode is set before the
+script runs -- the guarded seam F-B21-18 asked for, so no production page load exposes the hook;
+computeStreak is WP-6's per Q14 answer a; the harness carries a browser pytest marker so CI's
+pre-browser coverage step deselects it and the post-browser frontend-gate step runs it instead.
 
-Validation: `pytest -q` -- **1939 passed**.
+Fix round 1 (code review): added interior countToNorm cases so a linear count/maxCount cannot
+pass; a negative exportHeaderModel case (no text-transform leaves the text as written) with the
+model tests cleaning up their own DOM inserts; a test that a second page never setting the flag
+never sees the hooks; reused _launch_browser for the setup-guidance path; and corrected the
+seam's stale "these four functions are pure" comment (exportHeaderModel reads the DOM). Filed the
+harness scope's two residual F-B21-18 items (the 53x7 export contract deviation, the duplicated
+username validators) as F-B23-9, joining WP-0 Part C's set by controller ruling 2026-09-26
+(BATCH23_DEFINITION.md Part C); F-B21-18's archived record now points to it.
+
+Validation: `pytest -q` -- **1963 passed**.

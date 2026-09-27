@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.frontend.conftest import HEATMAP_JS
+
 pytestmark = pytest.mark.browser
 
 STUB_CTX_JS = "({ font: '', measureText(text) { return { width: text.length * 7 }; } })"
@@ -45,8 +47,10 @@ def test_rocket_color(js_page, t, expected):
         (0, 100, 0),
         (100, 100, 1),
         (-5, 100, 0),
-        (5, 0, 0),
-    ],  # the two guard clauses, then the ends
+        (5, 0, 0),  # the two guard clauses, then the ends
+        (9, 99, pytest.approx(0.5)),  # log10(10)/log10(100) == 1/2 exactly
+        (99, 999, pytest.approx(2 / 3)),  # log10(100)/log10(1000) == 2/3 exactly
+    ],
 )
 def test_count_to_norm(js_page, count, max_count, expected):
     assert (
@@ -58,17 +62,61 @@ def test_count_to_norm(js_page, count, max_count, expected):
     )
 
 
-def test_export_header_model_uppercases_only_when_the_css_says_to(js_page):
+def _insert_eyebrow(js_page, style: str) -> None:
     js_page.evaluate(
-        """() => document.body.insertAdjacentHTML('beforeend',
+        """(style) => document.body.insertAdjacentHTML('beforeend',
             '<div class="heatmap-head__titles">' +
-            '<span class="eyebrow" style="text-transform:uppercase">test eyebrow</span>' +
-            '</div>')"""
+            '<span class="eyebrow" style="' + style + '">test eyebrow</span>' +
+            '</div>')""",
+        style,
     )
-    model = js_page.evaluate(
-        "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
+
+
+def _remove_eyebrows(js_page) -> None:
+    js_page.evaluate(
+        """() => {
+            document.querySelectorAll('.heatmap-head__titles').forEach(
+                (el) => el.remove()
+            );
+        }"""
     )
-    assert model["eyebrow"] == "TEST EYEBROW"
+
+
+def test_export_header_model_uppercases_only_when_the_css_says_to(js_page):
+    _insert_eyebrow(js_page, "text-transform:uppercase")
+    try:
+        model = js_page.evaluate(
+            "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
+        )
+        assert model["eyebrow"] == "TEST EYEBROW"
+    finally:
+        _remove_eyebrows(js_page)
+
+
+def test_export_header_model_leaves_text_as_written_without_text_transform(js_page):
+    _insert_eyebrow(js_page, "")
+    try:
+        model = js_page.evaluate(
+            "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
+        )
+        assert model["eyebrow"] == "test eyebrow"
+    finally:
+        _remove_eyebrows(js_page)
+
+
+def test_hooks_absent_without_test_mode_flag(js_browser):
+    """A page that never sets ``window.__scrobbleHeatmapTestMode`` before the
+    script tag loads never sees the guarded seam (F-B21-18). A second page
+    on the shared ``js_browser`` starts with a clean global scope, so this
+    does not depend on ``js_page`` never having set the flag."""
+    page = js_browser.new_page()
+    try:
+        page.set_content("<!doctype html><html><body></body></html>")
+        page.add_script_tag(path=str(HEATMAP_JS))
+        hooks = page.evaluate("() => window.__scrobbleHeatmapTestHooks")
+    finally:
+        page.close()
+    assert hooks is None
 
 
 @pytest.mark.parametrize(

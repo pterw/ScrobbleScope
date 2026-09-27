@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1959 tests across 77 tracked test modules.
+1963 tests across 77 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -722,6 +722,36 @@ the state it measures, not add a retry. Source: the gate-runner's run for
 Batch 23 WP-0 reconcile Task 7 (2026-09-23). Its logs are in a git-ignored
 SDD workspace on the owner's machine; the failure lines above are quoted
 from them.
+
+### F-B23-9: F-B21-18's residual items -- export contract deviation and duplicated validators
+
+Batch 23 WP-0 frontend Task 1 built the harness for F-B21-18's `rocketColor`,
+`countToNorm` and export-header scope, but F-B21-18's text also carried two
+more items that harness does not touch, and no live register now covers
+either (checked: `git grep` outside `docs/history/`, `docs/logarchive/` and
+`docs/superpowers/`):
+
+**(a) The export contract deviation.**
+`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
+to render the desktop 53x7 grid at every viewport, while `saveHeatmapImage()`
+still serializes whichever mobile or desktop SVG is on screen at export
+time. Its own docstring records the deviation, but no owner ruling adds it
+to `docs/design/RECONCILIATION.md`.
+
+**(b) The duplicated validators.** `static/js/index.js` and
+`static/js/heatmap.js` each own their own username-validation state machine.
+Both now compare request generations to avoid the A-to-B-to-A staleness bug
+an earlier review found, but centralising the shared base is deferred until
+broader browser parity checks cover both consumers -- refactoring it sooner
+would trade a demonstrated shotgun-surgery bug for an unproved rewrite.
+
+Origin: F-B21-18 (`docs/history/findings/FINDINGS_ARCHIVE.md`), archived
+2026-09-26 for its harness scope only; these two items were not part of that
+closure. Joins WP-0 Part C's set by controller ruling 2026-09-26
+(`BATCH23_DEFINITION.md` Part C).
+
+Status: open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
+review, 2026-09-27.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

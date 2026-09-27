@@ -97,6 +97,7 @@ Chromium harness (tests/frontend/test_heatmap_pure_functions.py) through
 window.__scrobbleHeatmapTestHooks, exposed at the module's top level;
 computeStreak is WP-6's per Q14 answer a (docs/superpowers/
 plans/2026-09-23-batch23-wp0-reconcile-and-clear.md, Owner answers 2026-09-23, Q14 answer a).
+Residual items (53x7 export contract, duplicated validators) moved to F-B23-9.
 
 The timing is the reason for that position. WP-5 and WP-7 are the two
 remaining JavaScript-heavy pages, so a seam built before WP-5 still guards
