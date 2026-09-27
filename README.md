@@ -443,11 +443,19 @@ rather than the cell's text, because the table rounds and the file should not.
 `spotlight.py` aggregates the results by artist, ranks by play count and play
 time, takes the top ten, and samples **five** -- seeded on the job id, so
 re-running the same search does not reshuffle the panel under the user while a
-fresh search does. It issues a separate request scoped to that sample; the
-client waits for every response to settle, then rotates only the candidates
-whose Spotify artist photo was confirmed. A candidate with no confirmed photo
-is dropped, and if none is confirmed the card stays hidden -- there is no
-album-art fallback and no faked photo.
+fresh search does. It issues a separate request scoped to that sample, each bounded by its own
+8-second timeout that covers the request, its response body and the photo's
+own preload together, so one hung request or one hung photo cannot keep the
+card hidden; the client preloads and waits for every response (and its
+photo) to settle, then rotates only the candidates whose Spotify artist
+photo was confirmed and actually loaded. A candidate with no confirmed
+photo, a request that times out, or a photo that fails to load or never
+finishes loading within that same budget is dropped, and if none is
+confirmed the card stays hidden -- there is no album-art fallback and no
+faked photo. The photo itself is shown whole (`object-fit: contain`,
+letterboxed on the card's surface if it is not square) rather than cropped to
+fill the box, and text and photo swap together on rotation, so the photo
+never lags a name change under a stale image.
 
 ## Getting Started
 

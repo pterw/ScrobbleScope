@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Close out the test-infrastructure plan's carried test minors
+
+Side task, no batch tag: closed the carried test minors from
+`docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` Task 1,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- `tests/test_pipeline_integration.py`: the /progress poll loop and the
+  background-thread join each had their own 10s deadline, so a genuine
+  hang could take up to 20s to fail. `_JOB_TIMEOUT_SECONDS` (now 30, still
+  bounded) is one `time.monotonic()` deadline computed once; `join()`
+  spends only what is left of it. `created_threads[0]` assumed the first
+  captured `background_task` thread was this job's; the test now asserts
+  `len(created_threads) == 1`, naming the count, before using it.
+- `tests/test_provider_fixtures.py`'s
+  `test_lastfm_fixture_flows_through_fetch_top_albums` docstring claimed a
+  fixture missing `name` would fail the test, but
+  `scrobblescope/orchestrator/__init__.py` reads `t.get("name", "...")`, so
+  a missing name still yields an eligible album. The docstring now names
+  only the fields the test actually catches.
+
+Validation: `pytest -q` -- **1993 passed**.
+
 ### 2026-09-27 - Close out the control-plane plan's carried code items
 
 Side task, no batch tag: closed the carried docsync code items from

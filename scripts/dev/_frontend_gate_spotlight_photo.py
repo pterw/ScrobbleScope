@@ -32,6 +32,17 @@ SQUARE_PHOTO_DATA_URL = (
     "fill='%23888'/%3E%3C/svg%3E"
 )
 
+#: A non-square photo (3:2), the shape most real Spotify artist photos are
+#: not -- the photo box itself stays square (`.spotlight-image-box`), so this
+#: is what actually exercises the "whole photo, letterboxed, never cropped"
+#: rule (F-B21-60 / B1). The square fixture above cannot: in a square box a
+#: square photo looks the same whether it is cropped or contained.
+NON_SQUARE_PHOTO_DATA_URL = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
+    "width='300' height='200'%3E%3Crect width='300' height='200' "
+    "fill='%23888'/%3E%3C/svg%3E"
+)
+
 
 def _seed_spotlight_job() -> str:
     """Create a job with several artists, so `spotlight_artists` samples more
@@ -195,6 +206,69 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
         if len(distinct) > 1:
             failures.append(
                 f"spotlight photo opacity changed during a rotation tick: {opacity_samples}"
+            )
+    finally:
+        delete_job(job_id)
+    return failures
+
+
+def check_artist_spotlight_photo_not_cropped_when_non_square(
+    page, base_url: str
+) -> list[str]:
+    """A non-square confirmed photo is shown whole, not cropped to fill the
+    square photo box (F-B21-60 / B1): `object-fit` is `contain`, and the
+    photo's own aspect ratio -- not the box's -- decides its rendered size."""
+    job_id = _seed_spotlight_job()
+    failures = []
+    try:
+        _install_spotlight_fetch_mock(page, NON_SQUARE_PHOTO_DATA_URL)
+        page.goto(
+            f"{base_url}{RESULTS_PATH}?job_id={job_id}",
+            wait_until="domcontentloaded",
+            timeout=10_000,
+        )
+        try:
+            page.wait_for_function(
+                "() => document.querySelector('#spotlight-artist-img')?.src",
+                timeout=5_000,
+            )
+        except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+            failures.append("spotlight photo never loaded a confirmed image")
+            return failures
+
+        geometry = page.evaluate(
+            """() => {
+                const img = document.querySelector('#spotlight-artist-img');
+                const rect = img.getBoundingClientRect();
+                return {
+                    objectFit: getComputedStyle(img).objectFit,
+                    naturalWidth: img.naturalWidth,
+                    naturalHeight: img.naturalHeight,
+                    width: rect.width,
+                    height: rect.height,
+                };
+            }"""
+        )
+        if geometry["objectFit"] != "contain":
+            failures.append(
+                f"spotlight photo object-fit is {geometry['objectFit']!r}, not 'contain'"
+            )
+
+        natural_ratio = geometry["naturalWidth"] / geometry["naturalHeight"]
+        box_width = geometry["width"]
+        box_height = geometry["height"]
+        # The whole-photo content box `object-fit: contain` paints, scaled to
+        # fit inside the element's own box while keeping the photo's ratio.
+        if natural_ratio >= (box_width / box_height):
+            content_width, content_height = box_width, box_width / natural_ratio
+        else:
+            content_width, content_height = box_height * natural_ratio, box_height
+        epsilon = 0.5
+        if content_width > box_width + epsilon or content_height > box_height + epsilon:
+            failures.append(
+                "spotlight photo's whole-image content box "
+                f"({content_width:.1f}x{content_height:.1f}) does not fit inside its "
+                f"element box ({box_width:.1f}x{box_height:.1f})"
             )
     finally:
         delete_job(job_id)

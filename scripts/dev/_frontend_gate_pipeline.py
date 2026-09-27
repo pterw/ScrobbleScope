@@ -805,10 +805,14 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
                     // Every candidate resolves with a confirmed photo -- the
                     // slowest just takes longer -- so the filtered rotation
                     // still has more than one candidate once revealed.
+                    // Percent-encoded (B2: a confirmed photo is now preloaded
+                    // for real before it counts as confirmed, so the fixture
+                    // must actually load as an image, not just be a string).
                     const response = {
                         ok: true,
                         json: async () => ({
-                            image_url: `data:image/svg+xml,<svg data-i="${requestIndex}"/>`,
+                            image_url: `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' `
+                                + `width='10' height='10' data-i='${requestIndex}'%3E%3C/svg%3E`,
                             spotify_url: 'https://open.spotify.com/artist/rotation',
                         }),
                     };

@@ -118,6 +118,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-27 - Artist spotlight photo shown whole, swaps stay in sync, hydrate requests time out
+
+Side task, no batch tag: fixed the artist spotlight card's non-square photo
+crop, the stale-photo-under-a-new-name swap on rotation, and the missing
+hydrate-request timeout (now covering the image preload too, not just the
+fetch), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
 ### 2026-09-27 - Docsync CLI and declarations edge cases
 
 Side task, no batch tag: fix docsync's `--test-count 0` acceptance, the
@@ -202,28 +212,5 @@ lands.
 - `docs/history/findings/FINDINGS_ARCHIVE.md` F-B21-3: reworded the
   pip-audit recount from "found 0 vulnerabilities in 0 packages" to
   "reported no known vulnerabilities".
-
-Validation: `pytest -q` -- **1993 passed**.
-
-### 2026-09-27 - Close out the test-infrastructure plan's carried test minors
-
-Side task, no batch tag: closed the carried test minors from
-`docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` Task 1,
-part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands.
-
-- `tests/test_pipeline_integration.py`: the /progress poll loop and the
-  background-thread join each had their own 10s deadline, so a genuine
-  hang could take up to 20s to fail. `_JOB_TIMEOUT_SECONDS` (now 30, still
-  bounded) is one `time.monotonic()` deadline computed once; `join()`
-  spends only what is left of it. `created_threads[0]` assumed the first
-  captured `background_task` thread was this job's; the test now asserts
-  `len(created_threads) == 1`, naming the count, before using it.
-- `tests/test_provider_fixtures.py`'s
-  `test_lastfm_fixture_flows_through_fetch_top_albums` docstring claimed a
-  fixture missing `name` would fail the test, but
-  `scrobblescope/orchestrator/__init__.py` reads `t.get("name", "...")`, so
-  a missing name still yields an eligible album. The docstring now names
-  only the fields the test actually catches.
 
 Validation: `pytest -q` -- **1993 passed**.

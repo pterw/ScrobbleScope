@@ -62,23 +62,35 @@ document.addEventListener('DOMContentLoaded', () => {
         view.image.classList.add('hidden');
     }
 
-    /** Preload portraits and ignore callbacks superseded by another candidate. */
-    function renderPortrait(view, state, candidate, index) {
+    /** Resolve once `url` has loaded (or failed) in a throwaway Image, so a
+     *  confirmed candidate's photo is already in the browser cache before it
+     *  is ever shown -- a swap can then set the visible <img>'s src and the
+     *  text together, synchronously, with no stale photo under a new name
+     *  (F-B21-60 / B2). A load failure resolves to `''`, the same as an
+     *  unconfirmed candidate, rather than rejecting. */
+    function preloadImage(url) {
+        return new Promise(resolve => {
+            const preloader = new Image();
+            preloader.onload = () => resolve(url);
+            preloader.onerror = () => resolve('');
+            preloader.src = url;
+        });
+    }
+
+    /** Show the current candidate's already-cached photo. Never itself
+     *  preloads: every confirmed candidate's photo settled before the
+     *  rotation reveals anything (see `hydrateCandidate`), so this only
+     *  ever assigns an `<img>` src that is already in cache. */
+    function renderPortrait(view, candidate) {
         if (!view.image) return;
-        const revision = ++state.imageRevision;
-        const current = () => revision === state.imageRevision && state.index === index;
-        const preloader = new Image();
-        preloader.onload = () => {
-            if (!current()) return;
-            view.image.src = candidate.image_url;
-            view.image.alt = `Photograph of ${candidate.name}`;
-            view.image.classList.remove('hidden', 'opacity-0');
-            view.image.style.opacity = '1';
-        };
-        preloader.onerror = () => {
-            if (current()) hidePortrait(view);
-        };
-        preloader.src = candidate.image_url;
+        if (!candidate.image_url) {
+            hidePortrait(view);
+            return;
+        }
+        view.image.src = candidate.image_url;
+        view.image.alt = `Photograph of ${candidate.name}`;
+        view.image.classList.remove('hidden', 'opacity-0');
+        view.image.style.opacity = '1';
     }
 
     /** Keep the link and its accessible name attached to the visible artist. */
@@ -101,32 +113,60 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!candidate) return;
         renderText(view, candidate, index, state.candidates.length);
         renderDuration(view, candidate);
-        renderPortrait(view, state, candidate, index);
+        renderPortrait(view, candidate);
         renderLink(view, candidate);
     }
+
+    //: One hung `/api/artist_spotlight` request must never keep the whole
+    //  card hidden (F-B21-60 / B3): each hydrate attempt is bounded, and a
+    //  timed-out candidate is dropped like an unconfirmed one.
+    const HYDRATE_TIMEOUT_MS = 8000;
 
     /** Confirm one candidate's photo. Never renders itself -- every call settles
      *  before the rotation reveals anything, so `startArtistSpotlightRotation`'s
      *  own `Promise.all(...)` is the only place that decides what is shown. */
     async function hydrateCandidate(view, state, candidate, index) {
         const expectedName = candidate.name;
+        const controller = new AbortController();
+        // One budget covers the fetch, its json body and the image preload
+        // together: an image URL that never answers must still drop the
+        // candidate, not just the request that fetched its URL (F-B21-60 /
+        // B3 follow-up). `deadline` resolves `''` -- the same as a failed
+        // preload -- when the whole hydrate has run past its budget.
+        let resolveDeadline;
+        const deadline = new Promise(resolve => { resolveDeadline = resolve; });
+        const timeout = setTimeout(() => {
+            controller.abort();
+            resolveDeadline('');
+        }, HYDRATE_TIMEOUT_MS);
         try {
-            const response = await fetch(`/api/artist_spotlight?artist=${encodeURIComponent(expectedName)}`);
+            const response = await fetch(
+                `/api/artist_spotlight?artist=${encodeURIComponent(expectedName)}`,
+                { signal: controller.signal }
+            );
             if (!response.ok || state.candidates[index].name !== expectedName) return;
             const data = await response.json();
             if (state.candidates[index].name !== expectedName) return;
+            // Only a confirmed Spotify photo counts (F-B21-60): falling back
+            // to the seed here would let an unconfirmed album cover (or a
+            // stale one from a previous candidate) pass the rotation's
+            // `c => c.image_url` filter as if it were a photo of this
+            // artist. A photo that fails to actually load is dropped the
+            // same way (B2): a confirmed URL is worthless if the browser
+            // never manages to fetch the image itself, and a photo that
+            // never even answers is dropped the same way as one that fails
+            // (B3 follow-up): both race against the same `deadline`.
+            const imageUrl = data.image_url ? await Promise.race([preloadImage(data.image_url), deadline]) : '';
+            if (state.candidates[index].name !== expectedName) return;
             state.candidates[index] = {
                 ...candidate,
-                // Only a confirmed Spotify photo counts (F-B21-60): falling
-                // back to the seed here would let an unconfirmed album cover
-                // (or a stale one from a previous candidate) pass the
-                // rotation's `c => c.image_url` filter as if it were a
-                // photo of this artist.
-                image_url: data.image_url || '',
+                image_url: imageUrl,
                 spotify_url: data.spotify_url || '',
             };
         } catch (error) {
             console.warn('Could not hydrate artist spotlight for', expectedName, ':', error);
+        } finally {
+            clearTimeout(timeout);
         }
     }
 
@@ -139,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const artists = window.APP_DATA?.spotlight_artists;
         if (!view.card || !Array.isArray(artists) || !artists.length) return;
         const state = {
-            candidates: artists.map(artist => ({ ...artist })), index: 0, imageRevision: 0,
+            candidates: artists.map(artist => ({ ...artist })), index: 0,
             reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         };
         // Every hydrateCandidate call settles (resolves or rejects into its own

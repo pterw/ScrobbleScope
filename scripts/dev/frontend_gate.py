@@ -150,6 +150,7 @@ from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
 from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
     check_artist_spotlight_card_hidden_with_no_photo,
     check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
+    check_artist_spotlight_photo_not_cropped_when_non_square,
 )
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     FORBIDDEN_SURFACES,
@@ -374,6 +375,12 @@ CHECKS = (
     (
         "artist spotlight card hidden with no photo",
         check_artist_spotlight_card_hidden_with_no_photo,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight photo not cropped when non-square",
+        check_artist_spotlight_photo_not_cropped_when_non_square,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

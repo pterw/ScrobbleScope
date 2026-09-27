@@ -196,6 +196,19 @@ candidate has a confirmed photo, the card stays hidden. The Spotify icon and
 provider-attribution bullets stay open under this same finding; the logo
 asset gap is tracked separately as F-B22-4.
 
+**Partial progress, 2026-09-27 (Batch 23 WP-0 fix wave, Group B):** the
+photo box's `object-fit` is `contain`, not `cover` -- a non-square Spotify
+photo is shown whole, letterboxed on the card's own surface token, instead
+of cropped to fill the square box. Every confirmed candidate's photo is now
+preloaded and cached before the rotation ever reveals anything, and a swap
+sets the visible `<img>`'s src and alt together with the text, synchronously
+-- no stale photo under a new artist's name. Each hydrate request -- the
+fetch, its json body and the image preload together -- is bounded by one
+8-second timeout; a request or a photo that never answers within that budget
+is dropped like an unconfirmed candidate rather than keeping the whole card
+hidden. The Spotify icon and provider-attribution bullets stay open under
+this same finding; the logo asset gap is still tracked as F-B22-4.
+
 Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 

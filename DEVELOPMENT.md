@@ -451,12 +451,16 @@ CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
 
 ## Frontend Browser Gate
 
-`python scripts/dev/results_behavior_tests.py` runs six isolated Chromium
+`python scripts/dev/results_behavior_tests.py` runs nine isolated Chromium
 tests against the production Results scripts, using a controlled clock and
 no Flask server or external services. They cover Spotlight rotation, the
 card staying hidden until every hydration settles and dropping any candidate
-without a confirmed photo, reduced motion, leaderboard state, and tooltip
-timing and keyboard access. These browser tests run in CI after browser installation and before
+without a confirmed photo, reduced motion, leaderboard state, tooltip
+timing and keyboard access, a rotation swap keeping the visible photo and
+name together (no stale photo under a new name), a stalled hydrate request
+being dropped once its own timeout elapses instead of keeping the card
+hidden forever, and a confirmed candidate's photo itself hanging past that
+same timeout budget being dropped the same way. These browser tests run in CI after browser installation and before
 the full-page gate; they are separate from the Python `pytest` test count.
 Sampling itself lives in `scrobblescope/spotlight.py` and is covered by the
 Results route regression in `tests/test_routes.py`.
@@ -479,9 +483,11 @@ script can re-derive it again), `check_heatmap_cells_are_keyboard_accessible`
 (a real Tab press reaches a heatmap cell whose `aria-label` and focus ring
 are real), `check_inline_marks_need_no_wrapper_list` (the inline mark SVGs
 colour themselves through `currentColor` and a CSS custom property, so no
-wrapper has to list them), and the artist-spotlight photo pair in
-`_frontend_gate_spotlight_photo.py` (no crop, no overlay, no animation, and
-the card stays hidden with no faked photo).
+wrapper has to list them), and the artist-spotlight photo checks in
+`_frontend_gate_spotlight_photo.py` (no crop, no overlay, no animation, a
+non-square photo shown whole via `object-fit: contain` rather than cropped
+to fill the square photo box, and the card stays hidden with no faked
+photo).
 
 Run `python -m playwright install chromium firefox` once after installing the
 pinned development requirements, then `python scripts/dev/frontend_gate.py`.
