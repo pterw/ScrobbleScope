@@ -101,6 +101,7 @@ scripts/
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _frontend_gate_runtime.py # Playwright loading, browser launch, served app, route policy
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
+    _frontend_gate_spotify_icon.py # official Spotify icon: size, file, clear space, link target
     _frontend_gate_spotlight_photo.py # artist spotlight photo: no crop, overlay, animation, or fake
     _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
     _frontend_gate_unmatched.py # unmatched report contract, width sweep, portraits and artwork corners
@@ -116,10 +117,15 @@ scripts/
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError
+    markdown.py             # shared scanner: prose lines and markers outside fences and comments
+    transaction.py          # locked, journalled multi-file publication and path containment
     parser.py               # Markdown sections, markers, entries, and batch state
     renderer.py             # managed status, PLAYBOOK, and archive rendering
     logic.py                # rotation, deduplication, and authoritative test count
     declarations.py         # declared DOC009-DOC011 value, anchor, and retired-claim checks
+    archives.py             # bounded, paginated archives and cold storage
+    closeout.py             # batch close-out records and their diagnostics
+    findings.py             # finding lifecycle parsing and rotation planning
     integrity.py            # live-document semantic integrity diagnostics
     cli.py                  # file I/O, final-state enforcement, and exit codes
   testing/
@@ -161,13 +167,18 @@ routes/api.py           <- domain, release_checks, repositories, spotify, utils;
 app.py           <- routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
+docsync/markdown.py  <- (leaf; standard library only)
 docsync/models.py    <- (leaf)
-docsync/parser.py    <- docsync/models
+docsync/transaction.py <- docsync/models
+docsync/parser.py    <- docsync/markdown, docsync/models
 docsync/renderer.py  <- docsync/models, docsync/parser
-docsync/logic.py     <- docsync/models, docsync/parser, docsync/renderer
-docsync/declarations.py <- docsync/models
-docsync/integrity.py <- docsync/declarations, docsync/logic, docsync/models, docsync/parser, docsync/renderer
-docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
+docsync/logic.py     <- docsync/markdown, docsync/models, docsync/parser, docsync/renderer
+docsync/declarations.py <- docsync/markdown, docsync/models, docsync/transaction
+docsync/archives.py  <- docsync/declarations, docsync/markdown, docsync/models, docsync/transaction
+docsync/closeout.py  <- docsync/declarations, docsync/markdown, docsync/models, docsync/parser
+docsync/findings.py  <- docsync/archives, docsync/declarations, docsync/markdown, docsync/models
+docsync/integrity.py <- docsync/closeout, docsync/declarations, docsync/findings, docsync/logic, docsync/markdown, docsync/models, docsync/parser, docsync/renderer
+docsync/cli.py       <- docsync/archives, docsync/closeout, docsync/declarations, docsync/findings, docsync/integrity, docsync/logic, docsync/models, docsync/parser, docsync/renderer, docsync/transaction
 doc_state_sync.py    <- docsync/cli
 dev/_worktree_guard_types.py <- (leaf; standard library only)
 dev/_worktree_guard_diagnostics.py <- dev/_worktree_guard_types
@@ -186,13 +197,14 @@ dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
 dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_results.py <- repositories
+dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; repositories
 dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
+dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; repositories
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_results; repositories
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---

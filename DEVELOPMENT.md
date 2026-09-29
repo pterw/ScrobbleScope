@@ -476,8 +476,8 @@ invocations. Advisory `pip-audit` now scans both `requirements.txt` and
 `requirements-dev.txt`, since `virtualenv`, `distlib`, `filelock` and
 `platformdirs` moved out of the production install into the dev-only file.
 
-This session added four checks worth naming because each closes a gap the
-existing ones could not see: `check_theme_reattaches_to_system` (a toggle
+Four checks are worth naming because each closes a gap the earlier ones
+could not see: `check_theme_reattaches_to_system` (a toggle
 choice matching the OS preference clears the stored key, so the pre-paint
 script can re-derive it again), `check_heatmap_cells_are_keyboard_accessible`
 (a real Tab press reaches a heatmap cell whose `aria-label` and focus ring

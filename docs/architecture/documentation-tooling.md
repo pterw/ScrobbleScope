@@ -113,6 +113,10 @@ flowchart TD
     FG --> FGSP[_frontend_gate_spotlight_photo]
     FG --> FGSI[_frontend_gate_spotify_icon]
     FGSI --> FGSP
+    FGR --> FGSI
+    FGR --> FGC
+    FGT --> FGC
+    FGLY --> FGC
     FGU --> FGR
     FGA --> FGS
     FGFM --> FGS
@@ -130,7 +134,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 

@@ -143,6 +143,51 @@ Status: open (P1). Filed 2026-09-28, not in the Part C set (filed after
 F-B21-60 was fixed); owner to schedule. Source: F-B21-60 "To check", Task 1
 of the 2026-09-28 review workspace.
 
+### F-B23-18: unmatched artist portraits show Spotify photos with no link back to Spotify
+
+A release-scope or no-match row without album artwork loads the artist's photo from
+`/api/artist_spotlight` into `.unmatched-artist-image` (`static/js/unmatched.js`,
+`fetchArtistImage`). The reply carries `spotify_url`; the script discards it, so the photo
+links nowhere. The results page's spotlight links its photo's artist to Spotify
+(`results-spotlight.js`, `renderLink`), and the unmatched banner says the page shows
+"artist photos from Spotify". Spotify's design guidelines ask for content to link back to
+Spotify. Grouped with F-B23-11 (also P1, Spotify metadata presentation) for the owner:
+adding a link makes each portrait a Tab stop and changes the row's reading order, which is a
+design decision for the page the owner delegated.
+
+- [ ] **Status:** open (P1). Source: second /code-review of PR #245, Section F, finding F5,
+  2026-09-29.
+
+### F-B23-9: F-B21-18's residual items -- export contract deviation and duplicated validators
+
+Batch 23 WP-0 frontend Task 1 built the harness for F-B21-18's `rocketColor`,
+`countToNorm` and export-header scope, but F-B21-18's text also carried two
+more items that harness does not touch, and no live register now covers
+either (checked: `git grep` outside `docs/history/`, `docs/logarchive/` and
+`docs/superpowers/`):
+
+**(a) The export contract deviation.**
+`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
+to render the desktop 53x7 grid at every viewport, while `saveHeatmapImage()`
+still serializes whichever mobile or desktop SVG is on screen at export
+time. Its own docstring records the deviation, but no owner ruling adds it
+to `docs/design/RECONCILIATION.md`.
+
+**(b) The duplicated validators.** `static/js/index.js` and
+`static/js/heatmap.js` each own their own username-validation state machine.
+Both now compare request generations to avoid the A-to-B-to-A staleness bug
+an earlier review found, but centralising the shared base is deferred until
+broader browser parity checks cover both consumers -- refactoring it sooner
+would trade a demonstrated shotgun-surgery bug for an unproved rewrite.
+
+Origin: F-B21-18 (`docs/history/findings/FINDINGS_ARCHIVE.md`), archived
+2026-09-26 for its harness scope only; these two items were not part of that
+closure. Joins WP-0 Part C's set by controller ruling 2026-09-26
+(`BATCH23_DEFINITION.md` Part C).
+
+Status: open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
+review, 2026-09-27.
+
 ## P2 -- Scaling roadmap
 
 ### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
@@ -572,36 +617,6 @@ Batch 23 WP-0 reconcile Task 7 (2026-09-23). Its logs are in a git-ignored
 SDD workspace on the owner's machine; the failure lines above are quoted
 from them.
 
-### F-B23-9: F-B21-18's residual items -- export contract deviation and duplicated validators
-
-Batch 23 WP-0 frontend Task 1 built the harness for F-B21-18's `rocketColor`,
-`countToNorm` and export-header scope, but F-B21-18's text also carried two
-more items that harness does not touch, and no live register now covers
-either (checked: `git grep` outside `docs/history/`, `docs/logarchive/` and
-`docs/superpowers/`):
-
-**(a) The export contract deviation.**
-`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
-to render the desktop 53x7 grid at every viewport, while `saveHeatmapImage()`
-still serializes whichever mobile or desktop SVG is on screen at export
-time. Its own docstring records the deviation, but no owner ruling adds it
-to `docs/design/RECONCILIATION.md`.
-
-**(b) The duplicated validators.** `static/js/index.js` and
-`static/js/heatmap.js` each own their own username-validation state machine.
-Both now compare request generations to avoid the A-to-B-to-A staleness bug
-an earlier review found, but centralising the shared base is deferred until
-broader browser parity checks cover both consumers -- refactoring it sooner
-would trade a demonstrated shotgun-surgery bug for an unproved rewrite.
-
-Origin: F-B21-18 (`docs/history/findings/FINDINGS_ARCHIVE.md`), archived
-2026-09-26 for its harness scope only; these two items were not part of that
-closure. Joins WP-0 Part C's set by controller ruling 2026-09-26
-(`BATCH23_DEFINITION.md` Part C).
-
-Status: open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
-review, 2026-09-27.
-
 ### F-B23-10: three frontend-gate failures were gate defects, each green on an immediate rerun
 
 Three intermittent `frontend_gate.py` failures during the WP-0 frontend
@@ -659,6 +674,62 @@ page's "Save image" JPEG export clips the artist line under each album
 title. Pre-existing, not Spotify-specific.
 
 Status: open (P2). Source: Task 1 code report, 2026-09-28.
+
+### F-B23-16: the error classifier matches bare substrings
+
+`scrobblescope/errors.py` `classify_exception_to_error_code` answers `user_not_found` for any
+exception message that contains both "not found" and "user", in any case, and
+`spotify_rate_limited` or `lastfm_rate_limited` for any message holding "Too Many
+Requests". Both pipelines call it on every unhandled exception before falling back to
+`internal_error`: the album pipeline (`orchestrator/__init__.py`, `_fetch_and_process`)
+and, since this branch, the heatmap pipeline (`heatmap.py`, `_report_heatmap_failure`). No
+current raise site produces a colliding message, so nothing is misreported today; an
+unrelated exception whose text happens to hold both words would be blamed on the user. The
+fix is a typed exception for the Last.fm 404 (and the rate limits), classified by type, which
+is larger than a fix-wave change.
+
+- [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section A, finding A3,
+  2026-09-29.
+
+### F-B23-17: a Section 4 Validation line with no number passes --check
+
+Two landings on 2026-09-29 committed the entry template's placeholder,
+`` Validation: `pytest -q` -- **N passed**. ``, with the letter N in place of the count
+(36ade83 and 95973fd; filled in by 931828d). `doc_state_sync.py --check` exited 0 on both.
+DOC012 (`scripts/docsync/integrity.py`, `_check_unbolded_test_counts` and
+`_unpaired_result_issue`) looks only for digits: `_EXPLICIT_CLAIM_RE`, `TEST_COUNT_RE`,
+`_UNPAIRED_RESULT_RE` and `_UNBOLDED_COUNT_RE` all need one, so an entry whose only count is
+a letter records nothing and raises nothing. With the count pinned in
+`config/docsync.toml`, Section 4 is not re-scanned for the number, so the dashboards stay
+right; what is lost is the entry's own evidence, silently. Fix: DOC012 flags a
+Validation-trigger line whose bold count holds no digit.
+
+- [ ] **Status:** open (P2). Source: controller check of the 36ade83 and 95973fd landings
+  and the Task 9 sdd-reviewer, 2026-09-29.
+
+### F-B23-19: a non-square spotlight photo is letterboxed inside a rounded box, so the photo's own corners are square
+
+`.spotlight-artist-photo` uses `object-fit: contain` inside `.spotlight-image-box`, which
+rounds and clips (`static/css/results.css`). A non-square Spotify artist photo (Spotify
+often serves 640x427) is letterboxed: the rounded corners fall on the empty band and the
+visible photo keeps square corners. RECONCILIATION section 18 rejected exactly this for the
+unmatched portraits and sized them by their own ratio instead (`data-portrait`). The
+spotlight's "square, uncropped photo" is an owner ruling (F-B21-60), so rounding the photo
+rather than its box is the owner's call. Album covers are square and unaffected.
+
+- [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section F, finding F4,
+  2026-09-29.
+
+### F-B23-20: the spotlight card waits for every candidate before showing any
+
+`results-spotlight.js` hydrates every candidate with `Promise.all` and reveals the card only
+when all have settled, so one slow artist holds the card back for up to `HYDRATE_TIMEOUT_MS`
+(8s) after the first confirmed photo is ready, and the card then appears late in the sticky
+rail and pushes the rail's content down. Showing the first confirmed candidate at once and
+adding the rest to the rotation as they settle would avoid both.
+
+- [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section F, finding F8,
+  2026-09-29.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
@@ -833,19 +904,19 @@ Status: open (P2). Source: PR #163 review round 3; second instance
 
 ### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
 
-`scripts/docsync/declarations.py:743` names the outer loop's target `index`
-(`for index, declaration in enumerate(declarations)`), and `:763` rebinds the
-same name to a line number inside the scan (`for index, line in enumerate(lines,
+`check_retired` (`scripts/docsync/declarations.py`) names the outer loop's
+target `index` (`for index, declaration in enumerate(declarations)`), and its
+inner scan rebinds the same name to a line number inside the scan (`for index, line in enumerate(lines,
 start=1)`), so one name carries two meanings in one function.
 
 Measured 2026-09-11: the reuse is latent, not live. `_validate("retired", index,
-declaration)` at `:744` runs before the inner loop of its own iteration, and the
+declaration)` at the top of the outer loop runs before the inner loop of its own iteration, and the
 `for` statement reassigns `index` at the top of each outer iteration, so the
 declaration index is restored before it is read again. Calling `check_retired`
 with two declarations -- the first scanning `docs/agents/PLAYBOOK.md` behind an
 `allow_after` marker, so its inner loop ran and rebound the name, and the second
 carrying an unknown key -- named the fault `retired 1`, the declaration index
-rather than a line. Nothing reads `index` after `:765`.
+rather than a line. Nothing reads `index` after the inner loop's comparison.
 
 It is filed anyway, because the message is correct only by statement order:
 moving `_validate` below the scan, or reading `index` after it, turns a
@@ -879,18 +950,19 @@ Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-SWE-3: a Spotify server error bypasses the configured retries
 
-`spotify.py:67-68` returns `(None, None, True)` for every non-200, non-429
+`search_for_spotify_album_id` (`spotify.py`, its inner `search_once`) returns
+`(None, None, True)` for every non-200, non-429
 response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
 or 503 therefore ends the attempt loop after one try, while
 `SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
 only ever fire for 429. `fetch_spotify_album_details_batch` has the same
-shape at `spotify.py:129-132`.
+shape in the `fetch_once` inside it.
 
 The consequence is narrow: an album that _is_ on Spotify can be recorded as
 unmatched when a second attempt would have found it.
 
 **Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
-The audit first filed this as a user-facing mislabelling -- `spotify.py:75`
+The audit first filed this as a user-facing mislabelling -- `search_once`'s final branch
 returns the same value for a genuine empty result, so
 `_run_spotify_search_phase` (`orchestrator.py` at the time, now
 `scrobblescope/orchestrator/_search.py`) records the album with the reason
@@ -910,10 +982,13 @@ Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
 ### F-SWE-7: utils.py holds five unrelated concerns
 
-One 346-line module carries API rate limiting (`utils.py:29-121`), aiohttp
-session construction (`:155-188`), an in-memory response cache
-(`:192-242`), duration formatting for display (`:245-283`) and a generic
-async retry loop (`:286-346`). Nothing binds them together except the file
+One module (346 lines when filed; 423 on 2026-09-29) carries API rate
+limiting (`_GlobalThrottle` and the `get_*_limiter` functions), aiohttp
+session construction (`create_optimized_session`), an in-memory response
+cache (`get_cached_response`, `set_cached_response`,
+`cleanup_expired_cache`), duration formatting for display (`format_seconds`,
+`format_seconds_mobile`) and a generic async retry loop
+(`retry_with_semaphore`). Nothing binds them together except the file
 name, and `utils` is the name that accretes.
 
 Each function is individually clean, which is why SRP grades B while SoC
@@ -993,7 +1068,7 @@ Status: standing design decision. Source: load testing 2026-03-04.
 
 ### F-DOCSYNC-14: DOC023 fires on prose that quotes the outcome vocabulary
 
-`_claims_a_terminal_outcome` (`scripts/docsync/findings.py:371`) suppresses a
+`_claims_a_terminal_outcome` (`scripts/docsync/findings.py`) suppresses a
 claim when a `not` directly qualifies the outcome word, including the
 tab-separated and uppercase spellings and the Markdown-emphasised form. Two
 classes of prose therefore still block, and both are deliberate.

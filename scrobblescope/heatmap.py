@@ -285,8 +285,10 @@ def heatmap_task(job_id, username):
     The build-run-close-release protocol, including that the loop is built inside
     the ``try`` so the slot is released in the ``finally``, lives in
     ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed
-    run is reported as ``internal_error`` rather than raised, the same answer
-    the album entry point gives (F-SWE-5).
+    run is reported rather than raised, classified by
+    ``errors.classify_exception_to_error_code`` first and falling back to
+    ``internal_error`` (see ``_report_heatmap_failure``), the same answer the
+    album entry point gives (F-SWE-5).
     """
     run_coroutine_in_new_loop(
         _fetch_and_process_heatmap(job_id, username),

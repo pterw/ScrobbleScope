@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - docsync refuses a path that leaves the repository by a junction
+
+Side task, no batch tag: docsync's path boundary and its declared-path spelling, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The Task 10 review raised two Minors, and the controller's probe widened the first. On Windows a directory junction is not a symlink to `Path.is_symlink()`, so `resolve_within` walked straight through one, and its containment test ran only when the leaf existed. A new file reached through a junction was accepted and resolved outside the root; the same path with an existing leaf was refused. A publish creating that file would have written outside the repository.
+
+`resolve_within` now refuses a junction wherever it refuses a symlink, and tests containment on the deepest existing ancestor, so a leaf that does not exist yet is no longer a way round. Either change alone closes the probe; a mount point is the same class. `_validate_documents` turns the `ValueError` from `relative_to` into the `DeclarationError` it already raises for a path outside the repository, so the CLI prints a typed diagnostic, not a traceback. `[untracked_essentials]` now refuses a path not written in normalised form, naming the spelling to write, as `[documents]` does, so `./x.json` and `x.json` are no longer reported as two files.
+
+The tests build real junctions with `mklink /J` and remove them with `os.rmdir`. Each change was proved by mutation.
+Validation: `pytest -q` -- **2126 passed**.
+
 ### 2026-09-29 - Heatmap focus ring paints whole; grid keys leave shortcuts alone
 
 Side task, no batch tag: second code-review findings E1, E2, E3, E4, E5, E7 and E10 on the heatmap grid, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

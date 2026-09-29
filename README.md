@@ -691,7 +691,8 @@ and each provider gets a summary when its session closes, such as
 `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`: the
 span and the time actually spent waiting differ because calls are throttled
 apart or run in parallel. These lines never carry a query string, a request
-body or an artist or album name.
+body or an artist or album name; the one exception is Last.fm's `method`
+value (for example `user.getrecenttracks`), which says which call it was.
 
 ### Next: importing a Spotify listening history
 

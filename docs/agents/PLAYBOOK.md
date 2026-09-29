@@ -120,6 +120,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Stale dashboards corrected and the review's findings filed
+
+Side task, no batch tag: a documentation truth wave and five new findings from the second code review of PR #245 (Section H, and the findings to file from every section), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+SESSION_CONTEXT's structure list and dependency graph now match the source: the Spotify icon slice of the frontend gate and its edges (from `frontend_gate.py` and `_frontend_gate_results.py`), the results slice's other imports, and the docsync modules `markdown`, `transaction`, `archives`, `closeout` and `findings` with every edge read from each module's own import lines. The control-plane diagram in `docs/architecture/documentation-tooling.md` gains the icon slice's class and the edges from the results slice to it and from the results, theme and layout slices to the colour slice.
+
+Smaller corrections: the README's provider-log sentence names Last.fm's `method` value as the one query parameter a line carries; the `heatmap_task` docstring says a failure is classified before it falls back to `internal_error`; the results spotlight comment says its 8px corner starts at 1024px; DEVELOPMENT.md no longer says "This session". FINDINGS.md: F-B23-9 (open, P1) moved under the P1 heading, and the line-number citations in F-B21-57, F-SWE-3, F-SWE-7 and F-DOCSYNC-14 are now names.
+
+Filed: F-B23-16 (the error classifier's bare substrings), F-B23-17 (a Validation line with no digit passes `--check`), F-B23-18 (unmatched portraits with no link to Spotify, P1), F-B23-19 (letterboxed spotlight photo corners) and F-B23-20 (the spotlight waits for every candidate).
+
+Validation: `pytest -q` -- **2167 passed**.
+
 ### 2026-09-29 - Frontend gate checks that could not fail now fail on their defects
 
 Side task, no batch tag: ten frontend-gate checks and tests made to fail on the defects they name (second code review, findings D1 to D10; D1 is the earlier E6), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -153,14 +165,3 @@ The fault came from the controller's keyboard check of the rebuilt page (owner r
 The frontend gate's unmatched check now reaches both links by real Tab presses and judges each ring on painted pixels: a focused screenshot against a blurred one, each side outside the box. A cut ring computes the same outline as a whole one, so no computed style is read. Its fixture gains one Deezer row, still twelve rows, so a badge renders. Live probes: red with the class planted back and red with the clip moved into CSS, green on the fix.
 
 Validation: `pytest -q` -- **2130 passed**.
-
-### 2026-09-29 - docsync refuses a path that leaves the repository by a junction
-
-Side task, no batch tag: docsync's path boundary and its declared-path spelling, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The Task 10 review raised two Minors, and the controller's probe widened the first. On Windows a directory junction is not a symlink to `Path.is_symlink()`, so `resolve_within` walked straight through one, and its containment test ran only when the leaf existed. A new file reached through a junction was accepted and resolved outside the root; the same path with an existing leaf was refused. A publish creating that file would have written outside the repository.
-
-`resolve_within` now refuses a junction wherever it refuses a symlink, and tests containment on the deepest existing ancestor, so a leaf that does not exist yet is no longer a way round. Either change alone closes the probe; a mount point is the same class. `_validate_documents` turns the `ValueError` from `relative_to` into the `DeclarationError` it already raises for a path outside the repository, so the CLI prints a typed diagnostic, not a traceback. `[untracked_essentials]` now refuses a path not written in normalised form, naming the spelling to write, as `[documents]` does, so `./x.json` and `x.json` are no longer reported as two files.
-
-The tests build real junctions with `mklink /J` and remove them with `os.rmdir`. Each change was proved by mutation.
-Validation: `pytest -q` -- **2126 passed**.
