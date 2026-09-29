@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -479,3 +480,179 @@ async def test_fetch_all_first_page_missing_attr_returns_error_metadata():
 
     assert pages == []
     assert meta == {"status": "error", "reason": "lastfm_unavailable"}
+
+
+# --- page cache: only a well-formed page is cached (review A1) ---
+
+
+@pytest.fixture
+def empty_request_cache():
+    """Run a test against an empty REQUEST_CACHE, restored afterwards."""
+    with patch.dict("scrobblescope.utils.REQUEST_CACHE", clear=True) as cache:
+        yield cache
+
+
+def _page_session(*payloads):
+    """A session whose successive GETs answer 200 with each of *payloads*."""
+    session = MagicMock()
+    contexts = []
+    for payload in payloads:
+        resp = AsyncMock()
+        resp.status = 200
+        resp.json = AsyncMock(return_value=payload)
+        contexts.append(make_response_context(resp))
+    session.get.side_effect = contexts
+    return session
+
+
+async def _fetch_page_once(session):
+    with patch(
+        "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+    ):
+        return await fetch_recent_tracks_page_async(
+            session, "flounder14", 1, 2, page=1, retries=1
+        )
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_network(
+    empty_request_cache,
+):
+    """
+    GIVEN a first response that is JSON but has no recenttracks.@attr
+    AND a second, well-formed response
+    WHEN fetch_recent_tracks_page_async is called twice
+    THEN the malformed page is returned but not cached, so the second call
+    reaches the network and returns the good page (review A1).
+    """
+    malformed = {"recenttracks": {"track": []}}
+    good = _make_page(1)
+    session = _page_session(malformed, good)
+
+    first = await _fetch_page_once(session)
+    second = await _fetch_page_once(session)
+
+    assert first == malformed
+    assert second == good
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bad_payload",
+    [
+        {"error": 6, "message": "User not found"},
+        {"recenttracks": {"track": []}},
+        {"recenttracks": {"@attr": {"totalPages": "many"}, "track": []}},
+        {"recenttracks": {"@attr": {}, "track": []}},
+        {"recenttracks": []},
+        [],
+    ],
+    ids=[
+        "error-payload",
+        "no-attr",
+        "non-integer-total-pages",
+        "attr-without-total-pages",
+        "recenttracks-not-a-mapping",
+        "body-not-a-mapping",
+    ],
+)
+async def test_fetch_recent_tracks_page_does_not_cache_a_malformed_page(
+    bad_payload, empty_request_cache
+):
+    """
+    GIVEN Last.fm serves a 200 whose body is not a well-formed page
+    WHEN fetch_recent_tracks_page_async runs
+    THEN the body is returned unchanged and REQUEST_CACHE stays empty.
+    """
+    session = _page_session(bad_payload)
+
+    result = await _fetch_page_once(session)
+
+    assert result == bad_payload
+    assert empty_request_cache == {}
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_tracks_page_still_caches_a_well_formed_page(
+    empty_request_cache,
+):
+    """
+    GIVEN a well-formed page was fetched
+    WHEN the same page is requested again
+    THEN it is answered from REQUEST_CACHE with no second network call.
+    """
+    good = _make_page(4)
+    session = _page_session(good)
+
+    first = await _fetch_page_once(session)
+    second = await _fetch_page_once(session)
+
+    assert first == good
+    assert second == good
+    assert session.get.call_count == 1
+    assert len(empty_request_cache) == 1
+
+
+# --- a raising page fetch leaves no sibling running (review A2) ---
+
+
+class _PageFetchLedger:
+    """Fake page fetcher recording how many fetches started and settled.
+
+    Page 1 reports six pages. Page 3 raises the mid-job 404 ValueError;
+    every other later page waits far longer than the test runs, so it is
+    still in flight when page 3 raises unless something cancels it.
+    """
+
+    def __init__(self):
+        self.started = 0
+        self.settled = 0
+
+    async def __call__(self, session, username, from_ts, to_ts, page, **kwargs):
+        if page == 1:
+            return _make_page(6)
+        self.started += 1
+        try:
+            if page == 3:
+                await asyncio.sleep(0.01)
+                raise ValueError("User 'ghost' not found on Last.fm")
+            await asyncio.sleep(30)
+            return _make_page(6)
+        finally:
+            self.settled += 1
+
+
+async def _run_fetch_all_with_raising_page(ledger, progress_cb):
+    with (
+        patch("scrobblescope.lastfm.fetch_recent_tracks_page_async", new=ledger),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+        with pytest.raises(ValueError) as excinfo:
+            await fetch_all_recent_tracks_async("ghost", 0, 1, progress_cb=progress_cb)
+    return excinfo.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "progress_cb",
+    [MagicMock(), None],
+    ids=["as-completed-path", "batch-gather-path"],
+)
+async def test_fetch_all_cancels_sibling_fetches_when_one_page_raises(progress_cb):
+    """
+    GIVEN a six-page fetch where page 3 raises the 404 ValueError
+    WHEN fetch_all_recent_tracks_async runs, with or without progress_cb
+    THEN the same ValueError reaches the caller unwrapped, and every page
+    fetch that started has settled (none left pending) (review A2).
+    """
+    ledger = _PageFetchLedger()
+
+    exc = await _run_fetch_all_with_raising_page(ledger, progress_cb)
+
+    assert type(exc) is ValueError
+    assert str(exc) == "User 'ghost' not found on Last.fm"
+    assert ledger.started == 5
+    assert ledger.settled == ledger.started

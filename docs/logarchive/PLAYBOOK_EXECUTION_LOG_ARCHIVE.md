@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
+
+Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The spotlight's Spotify link now shows Spotify's own icon, from
+https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip,
+committed byte-for-byte: Primary_Logo_Black_RGB.svg (SHA-256
+5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05) on the light
+theme and Primary_Logo_White_RGB.svg (SHA-256
+8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1) on the dark
+theme. Neither theme's surface is pure white or black, so the green icon is not
+allowed. The icon is 24px with 12px of clear space; the link target is 48px.
+Results and unmatched lists attribute Spotify once, with the icon; only
+non-Spotify rows keep a text badge. No Deezer logo could be taken from Deezer's
+own domains, so F-B22-4 stays open for Deezer only. The "Save image" JPEG
+dropped the SVG icon (html2canvas 1.4), so the export now swaps in a raster of
+the same file. New frontend-gate check "spotlight spotify icon size and link
+target", and a JPEG-icon step in "results provider attribution". Edited test:
+test_results_complete_links_each_row_to_its_own_provider.
+Validation: `pytest -q` -- **2050 passed**.
+
 ### 2026-09-28 - Heatmap arrow keys follow the layout; document listeners attach once
 
 Side task, no batch tag: the 2026-09-28 /code-review's findings 2 and 4 on the heatmap grid,

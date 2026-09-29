@@ -120,6 +120,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
+
+Side task, no batch tag: the second code-review findings A1 and A2 (Last.fm page cache and orphaned fetches), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+A1: `fetch_recent_tracks_page_async` cached any 200 that parsed as JSON, so a first page
+with no `@attr`, or an error payload served as a 200, was replayed to every retry for
+REQUEST_CACHE_TIMEOUT. A new `_is_well_formed_page` predicate (a `recenttracks` mapping with
+an integer `@attr.totalPages`) now gates `set_cached_response`. The body is still returned
+unchanged.
+A2: when one page raised (the mid-job 404 `ValueError`), sibling page fetches stayed
+pending on a closing session. `_cancel_and_drain` now cancels and awaits them before the
+unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
+Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
+Validation: `pytest -q` -- **N passed**.
+
 ### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
 
 Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -156,23 +170,3 @@ declarations file could not be read, keeping the underlying error text, instead 
 file) was refuted on reachability: `_read_live_documents` already requires FINDINGS.md before
 that code runs, so no fix was made for it.
 Validation: `pytest -q` -- **2055 passed**.
-
-### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
-
-Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-The spotlight's Spotify link now shows Spotify's own icon, from
-https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip,
-committed byte-for-byte: Primary_Logo_Black_RGB.svg (SHA-256
-5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05) on the light
-theme and Primary_Logo_White_RGB.svg (SHA-256
-8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1) on the dark
-theme. Neither theme's surface is pure white or black, so the green icon is not
-allowed. The icon is 24px with 12px of clear space; the link target is 48px.
-Results and unmatched lists attribute Spotify once, with the icon; only
-non-Spotify rows keep a text badge. No Deezer logo could be taken from Deezer's
-own domains, so F-B22-4 stays open for Deezer only. The "Save image" JPEG
-dropped the SVG icon (html2canvas 1.4), so the export now swaps in a raster of
-the same file. New frontend-gate check "spotlight spotify icon size and link
-target", and a JPEG-icon step in "results provider attribution". Edited test:
-test_results_complete_links_each_row_to_its_own_provider.
-Validation: `pytest -q` -- **2050 passed**.

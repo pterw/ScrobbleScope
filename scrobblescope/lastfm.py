@@ -104,12 +104,52 @@ async def check_profile_is_public(username: str) -> bool:
             return True
 
 
+def _is_well_formed_page(data: Any) -> bool:
+    """Return True if *data* has the shape the fetch pipeline reads.
+
+    That is a ``recenttracks`` mapping carrying ``@attr.totalPages`` that
+    parses as an integer. It guards REQUEST_CACHE: a page that fails this
+    (an error payload Last.fm serves as a 200, or a page with no ``@attr``)
+    must not be cached, or every retry within REQUEST_CACHE_TIMEOUT would be
+    answered with the same bad page and never reach the network.
+    """
+    if not isinstance(data, dict):
+        return False
+    recenttracks = data.get("recenttracks")
+    if not isinstance(recenttracks, dict):
+        return False
+    attr = recenttracks.get("@attr")
+    if not isinstance(attr, dict):
+        return False
+    try:
+        int(attr["totalPages"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return True
+
+
+async def _cancel_and_drain(tasks) -> None:
+    """Cancel every unfinished task in *tasks* and wait for all to settle.
+
+    Called before an exception leaves a fan-out, so no page fetch is left
+    pending on a session that is about to close. Results and exceptions of
+    the settled tasks are discarded (retrieved, so asyncio does not log
+    them); the caller re-raises the original exception unchanged.
+    """
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def fetch_recent_tracks_page_async(
     session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):
     """Fetch a single page of Last.fm scrobbles with retry and rate limiting.
 
     Returns parsed JSON on success or None after all retries are exhausted.
+    Only a well-formed page (see ``_is_well_formed_page``) is cached; any
+    other parsed body is returned but not cached.
     Raises ``ValueError`` if the user is not found (HTTP 404).
     """
     url = "https://ws.audioscrobbler.com/2.0/"
@@ -166,7 +206,10 @@ async def fetch_recent_tracks_page_async(
                         f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
                     )
                     return None, None
-                set_cached_response(url, data, params)
+                # Returned as-is either way; only a well-formed page is cached,
+                # so a bad 200 is not replayed to every retry for an hour.
+                if _is_well_formed_page(data):
+                    set_cached_response(url, data, params)
                 return data, None
 
     return await retry_with_semaphore(
@@ -188,7 +231,8 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     Fetch Last.fm pages with controlled concurrency to respect rate limits.
     Semaphore (MAX_CONCURRENT_LASTFM) caps in-flight requests; rate limiter
     (_LASTFM_LIMITER) caps throughput. Called once with all pages rather than
-    in sequential batches to avoid idle gaps.
+    in sequential batches to avoid idle gaps. If one page raises, the other
+    page fetches are cancelled and awaited before the exception propagates.
     """
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
 
@@ -197,8 +241,11 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
             session, username, from_ts, to_ts, page, semaphore=semaphore
         )
 
-    tasks = [fetch_with_semaphore(p) for p in pages]
-    results = await asyncio.gather(*tasks)
+    tasks = [asyncio.ensure_future(fetch_with_semaphore(p)) for p in pages]
+    try:
+        results = await asyncio.gather(*tasks)
+    finally:
+        await _cancel_and_drain(tasks)
 
     successful = sum(1 for r in results if r is not None)
     logging.debug(f"Batch {min(pages)}-{max(pages)}: {successful}/{len(results)} pages")
@@ -306,14 +353,19 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
                     for p in remaining
                 ]
                 completed = 1  # page 1 already done
-                for fut in asyncio.as_completed(tasks):
-                    result = await fut
-                    completed += 1
-                    if result is not None:
-                        all_pages.append(result)
-                    _notify_progress_cb(
-                        progress_cb, completed, total_pages, len(all_pages)
-                    )
+                try:
+                    for fut in asyncio.as_completed(tasks):
+                        result = await fut
+                        completed += 1
+                        if result is not None:
+                            all_pages.append(result)
+                        _notify_progress_cb(
+                            progress_cb, completed, total_pages, len(all_pages)
+                        )
+                finally:
+                    # An exception (the mid-job 404) must not leave sibling
+                    # fetches pending on a session that is about to close.
+                    await _cancel_and_drain(tasks)
             else:
                 results = await fetch_pages_batch_async(
                     session, username, from_ts, to_ts, remaining
