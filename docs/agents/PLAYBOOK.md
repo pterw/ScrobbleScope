@@ -120,6 +120,17 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - docsync refuses a path that leaves the repository by a junction
+
+Side task, no batch tag: docsync's path boundary and its declared-path spelling, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The Task 10 review raised two Minors, and the controller's probe widened the first. On Windows a directory junction is not a symlink to `Path.is_symlink()`, so `resolve_within` walked straight through one, and its containment test ran only when the leaf existed. A new file reached through a junction was accepted and resolved outside the root; the same path with an existing leaf was refused. A publish creating that file would have written outside the repository.
+
+`resolve_within` now refuses a junction wherever it refuses a symlink, and tests containment on the deepest existing ancestor, so a leaf that does not exist yet is no longer a way round. Either change alone closes the probe; a mount point is the same class. `_validate_documents` turns the `ValueError` from `relative_to` into the `DeclarationError` it already raises for a path outside the repository, so the CLI prints a typed diagnostic, not a traceback. `[untracked_essentials]` now refuses a path not written in normalised form, naming the spelling to write, as `[documents]` does, so `./x.json` and `x.json` are no longer reported as two files.
+
+The tests build real junctions with `mklink /J` and remove them with `os.rmdir`. Each change was proved by mutation.
+Validation: `pytest -q` -- **2126 passed**.
+
 ### 2026-09-29 - Heatmap focus ring paints whole; grid keys leave shortcuts alone
 
 Side task, no batch tag: second code-review findings E1, E2, E3, E4, E5, E7 and E10 on the heatmap grid, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -153,17 +164,3 @@ C2, C4: WT015's read-failure warning carries the failure class only, never the a
 B6, B8: the preflight's pin-only exemption decodes `git show` as UTF-8 and fails closed on a blob that is not. DOC025 and the close-out admission refusal name the `--config` file actually read.
 `docs/architecture/documentation-tooling.md` is updated to match.
 Validation: `pytest -q` -- **2111 passed**.
-
-### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
-
-Side task, no batch tag: the second code-review findings A1 and A2 (Last.fm page cache and orphaned fetches), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-A1: `fetch_recent_tracks_page_async` cached any 200 that parsed as JSON, so a first page
-with no `@attr`, or an error payload served as a 200, was replayed to every retry for
-REQUEST_CACHE_TIMEOUT. A new `_is_well_formed_page` predicate (a `recenttracks` mapping with
-an integer `@attr.totalPages`) now gates `set_cached_response`. The body is still returned
-unchanged.
-A2: when one page raised (the mid-job 404 `ValueError`), sibling page fetches stayed
-pending on a closing session. `_cancel_and_drain` now cancels and awaits them before the
-unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
-Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
-Validation: `pytest -q` -- **2083 passed**.

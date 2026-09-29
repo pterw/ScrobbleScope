@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
+
+Side task, no batch tag: the second code-review findings A1 and A2 (Last.fm page cache and orphaned fetches), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+A1: `fetch_recent_tracks_page_async` cached any 200 that parsed as JSON, so a first page
+with no `@attr`, or an error payload served as a 200, was replayed to every retry for
+REQUEST_CACHE_TIMEOUT. A new `_is_well_formed_page` predicate (a `recenttracks` mapping with
+an integer `@attr.totalPages`) now gates `set_cached_response`. The body is still returned
+unchanged.
+A2: when one page raised (the mid-job 404 `ValueError`), sibling page fetches stayed
+pending on a closing session. `_cancel_and_drain` now cancels and awaits them before the
+unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
+Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
+Validation: `pytest -q` -- **2083 passed**.
+
 ### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
 
 Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

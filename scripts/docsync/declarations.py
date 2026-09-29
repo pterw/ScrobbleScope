@@ -548,7 +548,9 @@ def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
     repository containment, so no absolute path and no `..` segment (CR5);
     something below the root, since an empty path or `.` names the
     repository itself (C5); and printable, so the echo cannot forge a line
-    (C1). A path declared twice is kept once, so it is reported once.
+    (C1). It must also be written in normalised form (no `./`, no doubled
+    slash), so a path declared twice is an exact duplicate, kept once and
+    reported once.
     """
     known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
     table = _validated_table(table, "untracked_essentials", known)
@@ -573,6 +575,12 @@ def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
             raise DeclarationError(
                 f"[untracked_essentials] declares {path!r}, which names the "
                 "repository root: name the file this workflow depends on."
+            )
+        if PurePosixPath(path).as_posix() != path:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which is not the "
+                f"normalised repository-relative path. Write "
+                f"{PurePosixPath(path).as_posix()!r}."
             )
         if _has_unprintable_character(path):
             raise DeclarationError(
@@ -810,7 +818,12 @@ def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
         # silently did not run while `--check` stayed green (review B1).
         # Only a declared value is held to this: `AGENTS.md` and the
         # defaults are docsync's own spellings.
-        canonical = path.resolve().relative_to(root_real).as_posix()
+        try:
+            canonical = path.resolve().relative_to(root_real).as_posix()
+        except ValueError as exc:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            ) from exc
         if role in kwargs and canonical != value:
             raise DeclarationError(
                 f"[documents] {role!r} is written {value!r}, which is not the "

@@ -319,7 +319,10 @@ cannot protect** (F-B21-25), implemented in
 in both directions this guard cannot repair: a missing declared file, and a
 declared path that exists but is a directory rather than a file (CR10) --
 reported distinctly, rather than as "missing", so the reader is not sent to
-restore something already there. A malformed `[untracked_essentials]` table,
+restore something already there. A declared path must be written in the
+normalised repository-relative POSIX form (`x.json`, not `./x.json` or
+`a//b.json`); anything else is refused with the spelling to write, so a file
+declared two ways is never reported twice. A malformed `[untracked_essentials]` table,
 or a declarations file that cannot be read or parsed at all (an unreadable
 path, bytes that are not valid UTF-8, or a directory where the file belongs,
 all converted to `DeclarationError` inside `load_declarations` itself so
@@ -370,6 +373,14 @@ repository-relative POSIX form every reader keys documents by: a spelling
 such as `./docs/agents/PLAYBOOK.md` or `docs//agents/PLAYBOOK.md` is refused
 with the spelling to write, because it would miss every lookup and silently
 skip the checks that depend on one. An empty value is refused as empty.
+
+`docsync.transaction.resolve_within` is the publication boundary for every
+path an editable index can name. It refuses `..`, an absolute path outside
+the root, a symlink and, on Windows, a directory junction (which
+`Path.is_symlink()` does not see) at any component, whether or not the leaf
+exists yet; the deepest existing ancestor of the result must also resolve
+inside the root. A `[documents]` path that fails it is a `DeclarationError`,
+never a traceback.
 
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by

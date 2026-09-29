@@ -2396,3 +2396,86 @@ def test_collect_declaration_issues_accepts_an_absent_essentials_table(
         tmp_path, {DECLARATIONS_FILENAME: "[archives]\nmax_lines = 1\ncold_days = 1\n"}
     )
     assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+def _documents_repo(tmp_path: Path, playbook: str) -> Path:
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
+        f'[documents]\nplaybook = "{playbook}"\n', encoding="utf-8"
+    )
+    return tmp_path
+
+
+def test_a_document_path_through_a_junction_is_a_typed_error(tmp_path: Path):
+    """A `[documents]` path through a junction out of the repository raised a
+    bare `ValueError` from `relative_to` (Task 10 review, Minor 2)."""
+    import os
+    import subprocess
+
+    from docsync.declarations import load_documents_config
+
+    if os.name != "nt":
+        pytest.skip("directory junctions exist only on Windows")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = repo / "j"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+        check=True,
+        capture_output=True,
+    )
+    try:
+        _documents_repo(repo, "j/new.md")
+        with pytest.raises(DeclarationError, match="repository-relative path"):
+            load_documents_config(repo)
+    finally:
+        os.rmdir(link)
+
+
+def test_a_document_path_resolving_outside_the_root_is_a_typed_error(
+    tmp_path: Path, monkeypatch
+):
+    """The `relative_to` guard: whatever lets a path through
+    `resolve_within`, an escape is a `DeclarationError`, not a traceback."""
+    from docsync import declarations
+
+    repo = _documents_repo(tmp_path / "repo", "docs/x.md")
+    monkeypatch.setattr(
+        declarations, "resolve_within", lambda root, value: tmp_path / "elsewhere.md"
+    )
+    with pytest.raises(DeclarationError, match="repository-relative path"):
+        declarations.load_documents_config(repo)
+
+
+@pytest.mark.parametrize(
+    ("path", "written"),
+    [("./x.json", "x.json"), ("a//b.json", "a/b.json")],
+)
+def test_untracked_essentials_refuses_a_path_not_in_normalised_form(
+    tmp_path: Path, path: str, written: str
+) -> None:
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{path}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which is not the "
+        f"normalised repository-relative path. Write {written!r}."
+    )
+
+
+def test_untracked_essentials_accepts_the_normalised_form(tmp_path: Path) -> None:
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["a/b.json"]\n'},
+    )
+    assert load_untracked_essentials_config(root).paths == ("a/b.json",)

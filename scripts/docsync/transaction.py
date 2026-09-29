@@ -48,10 +48,16 @@ def resolve_within(root: Path, candidate: Path | str) -> Path:
 
     This is a real security boundary, not a tidiness check: a page reference
     or a managed path comes out of a Markdown index that anyone can edit, and
-    a `..`, an absolute path, or a symlink would let that text direct a write
-    anywhere the process can reach. Each component between the root and the
-    target is inspected, because a symlinked *directory* redirects a path
-    whose own final component is perfectly ordinary.
+    a `..`, an absolute path, a symlink or a Windows directory junction would
+    let that text direct a write anywhere the process can reach. Each
+    component between the root and the target is inspected, because a
+    symlinked or junctioned *directory* redirects a path whose own final
+    component is perfectly ordinary. A junction is not a symlink to
+    `Path.is_symlink()`, so it is refused on its own (`Path.is_junction()`
+    is False off Windows). The containment test does not depend on the leaf
+    existing: the deepest existing ancestor of the result must resolve
+    inside the root, which also catches a reparse point of another kind,
+    such as a mount point.
     """
     root_real = Path(root).resolve()
     if not root_real.is_dir():
@@ -83,7 +89,14 @@ def resolve_within(root: Path, candidate: Path | str) -> Path:
             raise SyncError(
                 f"Refusing to follow a symlink inside the archive: {walked}"
             )
-    if walked.exists() and not walked.resolve().is_relative_to(root_real):
+        if walked.is_junction():
+            raise SyncError(
+                f"Refusing to follow a junction inside the archive: {walked}"
+            )
+    anchor = walked
+    while not anchor.exists() and anchor != root_real:
+        anchor = anchor.parent
+    if not anchor.resolve().is_relative_to(root_real):
         raise SyncError(f"Path escapes the archive root: {candidate}")
     return walked
 
