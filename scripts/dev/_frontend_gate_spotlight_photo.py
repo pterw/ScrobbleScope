@@ -46,9 +46,11 @@ NON_SQUARE_PHOTO_DATA_URL = (
 )
 
 
-def _seed_spotlight_job() -> str:
+def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None) -> str:
     """Create a job with several artists, so `spotlight_artists` samples more
-    than one candidate. Each album carries a non-empty, distinguishable
+    than one candidate. `artists` is `(name, albums, seconds per album)` for
+    each one, when a check needs particular names or text lengths; the default
+    is ten artists with one album each. Each album carries a non-empty, distinguishable
     `album_image` -- not a `""` placeholder -- so a check that seeds a job
     this way exercises the real path a live job takes: an album cover exists
     and must never leak into `image_url` as a fake artist photo (F-B21-60,
@@ -66,27 +68,34 @@ def _seed_spotlight_job() -> str:
             "mode": "album",
         }
     )
+    if artists is None:
+        artists = tuple(
+            (f"Photo Artist {index}", 1, 2520 - index) for index in range(10)
+        )
     set_job_results(
         job_id,
         [
             {
-                "artist": f"Photo Artist {index}",
-                "album": f"Photo Album {index}",
-                "play_count": 20 - index,
+                "artist": name,
+                "album": f"{name} Album {album}",
+                "play_count": 200 - 10 * index - album,
                 "play_time": "42m",
-                "play_time_seconds": 2520 - index,
+                "play_time_seconds": seconds,
                 "release_date": "2025-01-01",
-                "album_image": f"https://example.com/photo-album-{index}-cover.jpg",
-                "spotify_id": f"photo-album-{index}",
+                "album_image": f"https://example.com/photo-album-{index}-{album}-cover.jpg",
+                "spotify_id": f"photo-album-{index}-{album}",
             }
-            for index in range(10)
+            for index, (name, albums, seconds) in enumerate(artists)
+            for album in range(albums)
         ],
     )
     set_job_progress(job_id, progress=100, message="Done", error=False)
     return job_id
 
 
-def _install_spotlight_fetch_mock(page, image_url: str | None) -> None:
+def _install_spotlight_fetch_mock(
+    page, image_url: str | None, *, keep_rotating: bool = False
+) -> None:
     """Mock `/api/artist_spotlight` and speed up the 7s rotation interval.
 
     Unlike the mock `check_artist_spotlight_rotation` installs (one slow
@@ -94,7 +103,9 @@ def _install_spotlight_fetch_mock(page, image_url: str | None) -> None:
     the same `image_url` (a photo, or `null`), which is all these checks need.
     It counts what the page asked for and what it read back
     (`window.__spotlightRequests` / `__spotlightResponses`), so a check can
-    prove hydration ran instead of waiting a fixed time and hoping."""
+    prove hydration ran instead of waiting a fixed time and hoping. The sped-up
+    interval fires once by default; `keep_rotating` keeps it repeating, for a
+    check that must see every candidate."""
     page.add_init_script(
         f"""(() => {{
             const nativeInterval = window.setInterval;
@@ -102,7 +113,11 @@ def _install_spotlight_fetch_mock(page, image_url: str | None) -> None:
             window.__spotlightPhotoUrl = {json.dumps(image_url)};
             window.__spotlightRequests = 0;
             window.__spotlightResponses = 0;
+            const keepRotating = {json.dumps(keep_rotating)};
             window.setInterval = (callback, delay, ...args) => {{
+                if (delay === 7000 && keepRotating) {{
+                    return nativeInterval(callback, 200, ...args);
+                }}
                 if (delay === 7000) return window.setTimeout(callback, 200, ...args);
                 return nativeInterval(callback, delay, ...args);
             }};
@@ -465,6 +480,172 @@ def check_artist_spotlight_card_hidden_with_no_photo(page, base_url: str) -> lis
         if display != "none":
             failures.append(
                 f"spotlight card is visible ({display!r}) with no confirmed photo"
+            )
+    finally:
+        delete_job(job_id)
+    return failures
+
+
+#: Five artists that break a narrow name column and a guessed card height:
+#: nine-, eleven- and fourteen-letter words, a name long enough to clamp, and
+#: many albums with a long play time, which is what wraps the subtitle to
+#: four lines. `(name, albums, seconds per album)`.
+LAYOUT_ARTISTS = (
+    ("Radiohead", 8, 51_000),
+    ("Sufjan Stevens", 1, 900),
+    ("Godspeed You! Black Emperor", 12, 46_000),
+    ("Springsteen", 1, 1_200),
+    ("Ludwig van Beethoven", 3, 8_000),
+)
+
+#: Widths of the rail card's container at these viewports: a phone, the
+#: 1024px breakpoint where the rail is 4/12 of the page (its narrowest
+#: desktop card), a 1180px laptop, and a wide monitor.
+LAYOUT_VIEWPORTS = (
+    {"width": 320, "height": 800},
+    {"width": 390, "height": 844},
+    {"width": 1024, "height": 768},
+    {"width": 1180, "height": 800},
+    {"width": 1920, "height": 1000},
+)
+
+#: True once the card is revealed, after scrolling it into view.
+_REVEAL_CARD_JS = """() => {
+    const card = document.querySelector('#artist-spotlight-card');
+    if (!card || getComputedStyle(card).display === 'none') return false;
+    card.scrollIntoView();
+    return true;
+}"""
+
+#: Resolves once the page's web fonts have loaded and a frame has drawn them.
+_FONTS_SETTLED_JS = """() => document.fonts.ready.then(
+    () => new Promise(resolve => requestAnimationFrame(() => resolve(true))))"""
+
+#: Samples the card as the rotation steps through every candidate: which
+#: artist is shown, the card's height, and every word of the name the browser
+#: has broken in the middle. A word is broken when its own characters sit on
+#: more than one line, which a Range over the word shows from its client rects.
+_LAYOUT_SAMPLE_JS = """() => new Promise(resolve => {
+    const card = document.querySelector('#artist-spotlight-card');
+    const name = document.querySelector('#spotlight-artist-name');
+    const brokenWords = () => {
+        const text = name.firstChild;
+        const broken = [];
+        for (const match of text.textContent.matchAll(/\\S+/g)) {
+            const range = document.createRange();
+            range.setStart(text, match.index);
+            range.setEnd(text, match.index + match[0].length);
+            const lines = new Set([...range.getClientRects()]
+                .map(rect => Math.round(rect.top)));
+            if (lines.size > 1) broken.push(match[0]);
+        }
+        return broken;
+    };
+    const samples = [];
+    const sample = () => samples.push({
+        artist: card.dataset.artist,
+        height: card.getBoundingClientRect().height,
+        broken: brokenWords(),
+    });
+    sample();
+    const interval = window.setInterval(sample, 40);
+    window.setTimeout(() => {
+        window.clearInterval(interval);
+        resolve(samples);
+    }, 1800);
+})"""
+
+#: A rendering tolerance for sub-pixel rounding in either browser.
+_LAYOUT_EPSILON = 0.5
+
+
+def spotlight_layout_failures(
+    samples: list[dict], where: str, expected: int
+) -> list[str]:
+    """Judge the samples of `_LAYOUT_SAMPLE_JS` taken at one width.
+
+    Every candidate must have been on screen (or the rotation never ran and
+    nothing was compared), the card must keep one height across them, and the
+    artist name's column must be at least as wide as its widest word.
+    """
+    failures = []
+    artists = {sample["artist"] for sample in samples}
+    if len(artists) < expected:
+        failures.append(
+            f"{where}: only {len(artists)} of {expected} spotlight candidates "
+            "were on screen, so the card height was not compared"
+        )
+    heights = sorted({round(sample["height"], 1) for sample in samples})
+    if heights and heights[-1] - heights[0] > _LAYOUT_EPSILON:
+        failures.append(
+            f"{where}: the card height changes between candidates: {heights}"
+        )
+    broken = sorted(
+        {(sample["artist"], word) for sample in samples for word in sample["broken"]}
+    )
+    failures.extend(
+        f"{where}: the name of {artist!r} breaks inside the word {word!r}"
+        for artist, word in broken
+    )
+    return failures
+
+
+def _open_spotlight_card(page, url: str, viewport: dict, where: str) -> str | None:
+    """Load the results page at `viewport` and wait until its spotlight card is
+    revealed, its photo decoded and its fonts settled. Returns a failure, or
+    None when the card is ready to be sampled."""
+    page.set_viewport_size(viewport)
+    page.goto(url, wait_until="domcontentloaded", timeout=10_000)
+    # On a narrow screen the rail sits far below the fold, and a lazy photo
+    # below the fold is never fetched: bring the card into view once it is
+    # revealed, as a reader scrolling to it would.
+    try:
+        page.wait_for_function(_REVEAL_CARD_JS, timeout=5_000)
+    except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+        return f"{where}: the spotlight card was never revealed"
+    if not _wait_for_decoded_photo(page):
+        return f"{where}: photo never loaded a confirmed image"
+    # Fonts load once the card first draws text and change every line's
+    # height; the page settles once they have, and only the rotation is
+    # judged from there.
+    page.evaluate(_FONTS_SETTLED_JS)
+    return None
+
+
+def check_artist_spotlight_name_whole_and_card_height_fixed(
+    page, base_url: str
+) -> list[str]:
+    """The spotlight's artist name is never broken inside a word, and the
+    card is one height for every candidate, from a phone to a wide monitor
+    (S2-1, S2-10). 1024px and 1180px are where the rail is narrowest. The
+    card is also judged after a resize with no reload, because its reserved
+    height is measured per layout."""
+    job_id = _seed_spotlight_job(LAYOUT_ARTISTS)
+    url = f"{base_url}{RESULTS_PATH}?job_id={job_id}"
+    failures = []
+    try:
+        _install_spotlight_fetch_mock(page, SQUARE_PHOTO_DATA_URL, keep_rotating=True)
+        narrow, wide = LAYOUT_VIEWPORTS[2], LAYOUT_VIEWPORTS[-1]
+        steps = [(viewport, f"{viewport['width']}px") for viewport in LAYOUT_VIEWPORTS]
+        steps.append(
+            (wide, f"{wide['width']}px after a resize from {narrow['width']}px")
+        )
+        for index, (viewport, label) in enumerate(steps):
+            where = f"spotlight card at {label}"
+            if index == len(steps) - 1:
+                # No reload: the page was left at `wide`, so start it at
+                # `narrow` and widen it in place.
+                error = _open_spotlight_card(page, url, narrow, where)
+                page.set_viewport_size(wide)
+                page.evaluate(_FONTS_SETTLED_JS)
+            else:
+                error = _open_spotlight_card(page, url, viewport, where)
+            if error:
+                failures.append(error)
+                continue
+            samples = page.evaluate(_LAYOUT_SAMPLE_JS)
+            failures.extend(
+                spotlight_layout_failures(samples, where, len(LAYOUT_ARTISTS))
             )
     finally:
         delete_job(job_id)

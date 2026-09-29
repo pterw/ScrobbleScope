@@ -649,6 +649,9 @@ Four checks show what each closes:
 - The artist-spotlight photo checks in `_frontend_gate_spotlight_photo.py`:
   no crop, no overlay, no animation, a non-square photo shown whole through
   `object-fit: contain`, and the card hidden when there is no real photo.
+  A layout check from 320px to 1920px (and after a resize) requires that no
+  artist name breaks inside a word and that the card is one height for every
+  candidate.
 
 `_frontend_gate_spotify_icon.py` adds the official Spotify icon check: the file
 each theme shows, at least 21px, half its height of clear space, and the

@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - README corrected on where the Spotify icon appears
+
+Side task, no batch tag: correcting the README's claim about where the Spotify icon appears, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The README's feature list said Spotify content is attributed "once per list". The icon partial is included twice in `results.html` (the list and the artist spotlight) and once in `unmatched.html`, so the bullet now names the Results and Unmatched pages and the artist spotlight. No code changed.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - Architecture diagrams re-verified against source
 
 Side task, no batch tag: re-verifying the architecture diagrams against the source, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

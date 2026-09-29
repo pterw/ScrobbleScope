@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Spotlight artist name reads whole at every width; card height fixed
+
+Side task, no batch tag: giving the spotlight artist name a whole line and holding the card height, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+From 1024px to about 1230px the name got a 46-110px column beside the fixed photo and broke inside words (S2-1), and the card changed height between candidates so the sticky rail jumped every 7s (S2-10). `.spotlight-card-content` now wraps and `.spotlight-details` has a flex basis, so the details drop under the photo whenever the card cannot give the name that column; the line-count `min-height` is deleted. `results-spotlight.js` `reserveCardHeight` renders each candidate once, measures the card and holds the tallest as `min-height`; `watchCardLayout` re-runs it when the card width changes and when fonts load. Photo rules and the 4px/8px radius step are unchanged. A new frontend-gate check, `artist spotlight name whole and card height fixed`, runs at 320, 390, 1024, 1180 and 1920px plus a 1024 to 1920 resize and fails on a mid-word break or a card height that varies across candidates. Live probe: with the old CSS the check fails in both browsers (`the name of 'Radiohead' breaks inside the word 'Radiohead'` at 1024px); with the old JS it fails (`the card height changes between candidates`); with `watchCardLayout` removed it fails after the resize. Tests: 7 new in `test_frontend_gate_spotlight_photo.py`, no existing test edited. A name needing more than two lines at the narrowest widths is still clamped (`line-clamp-2`, full name in `title`).
+
+Validation: `pytest -q` -- **2207 passed**.
+
 ### 2026-09-29 - Heatmap strip scrolls under a swipe; one owner for the tooltip
 
 Side task, no batch tag: letting a swipe scroll the heatmap strip and giving its tooltip one owner, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -141,13 +149,5 @@ Validation: `pytest -q` -- **2191 passed**.
 Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 Eleven findings filed from the third review of PR #245: F-B23-21 to F-B23-31. They cover the Last.fm `reraise` breadth, the album pipeline's unclassified fallback (owner decision), the privacy-verdict caching and missing `private_profile` code, the Deezer null title, the mobile heatmap sizing, the unverified spotlight artist name, the two results and unmatched column defects, one cleanup bundle, the single-object Last.fm page, and the tests that survive their defect. F-B23-16 and F-B23-20 gain cross-references. Nothing closed; the archive is untouched. Docs only.
-
-Validation: `pytest -q` -- **2187 passed**.
-
-### 2026-09-29 - README corrected on where the Spotify icon appears
-
-Side task, no batch tag: correcting the README's claim about where the Spotify icon appears, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The README's feature list said Spotify content is attributed "once per list". The icon partial is included twice in `results.html` (the list and the artist spotlight) and once in `unmatched.html`, so the bullet now names the Results and Unmatched pages and the artist spotlight. No code changed.
 
 Validation: `pytest -q` -- **2187 passed**.

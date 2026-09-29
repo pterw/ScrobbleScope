@@ -261,3 +261,105 @@ def test_the_overlay_and_motion_probes_read_pseudo_elements_and_motion() -> None
     assert "['::before', '::after']" in overlay
     assert "animationName" in motion
     assert "'transform', 'filter'" in motion
+
+
+def _samples(*rows) -> list[dict]:
+    return [
+        {"artist": artist, "height": height, "broken": broken}
+        for artist, height, broken in rows
+    ]
+
+
+def test_a_steady_card_with_no_broken_word_passes() -> None:
+    samples = _samples(("A", 200.0, []), ("B", 200.2, []))
+    assert (
+        _frontend_gate_spotlight_photo.spotlight_layout_failures(
+            samples, "at 1024px", 2
+        )
+        == []
+    )
+
+
+def test_a_card_that_changes_height_between_candidates_fails() -> None:
+    samples = _samples(("A", 224.6, []), ("B", 240.6, []))
+    failures = _frontend_gate_spotlight_photo.spotlight_layout_failures(
+        samples, "at 1024px", 2
+    )
+    assert failures == [
+        "at 1024px: the card height changes between candidates: [224.6, 240.6]"
+    ]
+
+
+def test_a_word_broken_inside_the_name_fails_once_per_artist_and_word() -> None:
+    samples = _samples(
+        ("Radiohead", 200.0, ["Radiohead"]),
+        ("Radiohead", 200.0, ["Radiohead"]),
+        ("Other", 200.0, []),
+    )
+    failures = _frontend_gate_spotlight_photo.spotlight_layout_failures(
+        samples, "at 1180px", 2
+    )
+    assert failures == [
+        "at 1180px: the name of 'Radiohead' breaks inside the word 'Radiohead'"
+    ]
+
+
+def test_a_rotation_that_never_showed_every_candidate_fails() -> None:
+    failures = _frontend_gate_spotlight_photo.spotlight_layout_failures(
+        _samples(("A", 200.0, [])), "at 320px", 5
+    )
+    assert failures == [
+        "at 320px: only 1 of 5 spotlight candidates were on screen, so the "
+        "card height was not compared"
+    ]
+
+
+def test_the_layout_probe_reads_words_by_the_lines_their_characters_sit_on() -> None:
+    script = _frontend_gate_spotlight_photo._LAYOUT_SAMPLE_JS
+    assert "createRange()" in script
+    assert "getClientRects()" in script
+
+
+def test_the_layout_check_keeps_the_rotation_going_and_sees_every_width() -> None:
+    page = MagicMock()
+    steady = _samples(*((f"A{i}", 200.0, []) for i in range(5)))
+    page.evaluate.side_effect = lambda script, *a: (
+        steady if script is _frontend_gate_spotlight_photo._LAYOUT_SAMPLE_JS else None
+    )
+    check = _frontend_gate_spotlight_photo.check_artist_spotlight_name_whole_and_card_height_fixed
+    assert _run_layout(check, page) == []
+    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
+    widths = [call.args[0]["width"] for call in page.set_viewport_size.call_args_list]
+    assert widths[:5] == [320, 390, 1024, 1180, 1920]
+    assert 1024 in widths[5:] and widths[-1] == 1920
+
+
+def _run_layout(check, page):
+    with (
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
+            return_value="job-1",
+        ) as seed,
+        patch("scripts.dev._frontend_gate_spotlight_photo.delete_job") as delete_job,
+    ):
+        failures = check(page, "http://127.0.0.1:0")
+    seed.assert_called_once_with(_frontend_gate_spotlight_photo.LAYOUT_ARTISTS)
+    delete_job.assert_called_once_with("job-1")
+    return failures
+
+
+def test_the_seed_can_give_an_artist_several_albums() -> None:
+    with (
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo.create_job", return_value="j"
+        ),
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo.set_job_results"
+        ) as set_job_results,
+        patch("scripts.dev._frontend_gate_spotlight_photo.set_job_progress"),
+    ):
+        _frontend_gate_spotlight_photo._seed_spotlight_job((("Radiohead", 3, 900),))
+    rows = set_job_results.call_args.args[1]
+    assert [row["artist"] for row in rows] == ["Radiohead"] * 3
+    assert len({row["album"] for row in rows}) == 3
+    assert {row["play_time_seconds"] for row in rows} == {900}

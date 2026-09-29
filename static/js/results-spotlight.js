@@ -107,6 +107,45 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLink(view, candidate);
     }
 
+    /** Hold the card at the height of its tallest candidate, so the sticky
+     *  rail below it never moves when the rotation swaps candidates (S2-10).
+     *  Each candidate is rendered once and the card's own rendered height is
+     *  read back -- no line-count arithmetic -- and all of it happens in one
+     *  synchronous pass, so nothing but the current candidate is ever
+     *  painted. Called once the candidates are settled, again whenever the
+     *  card's width (and so its layout) changes, and once fonts have loaded. */
+    function reserveCardHeight(view, state) {
+        const card = view.card;
+        card.style.minHeight = '';
+        let tallest = 0;
+        state.candidates.forEach((_, index) => {
+            renderCandidate(view, { ...state, index });
+            tallest = Math.max(tallest, card.getBoundingClientRect().height);
+        });
+        card.style.minHeight = `${tallest}px`;
+        renderCandidate(view, state);
+    }
+
+    /** Keep the reserved height right as the card's layout changes. */
+    function watchCardLayout(view, state) {
+        let width = view.card.getBoundingClientRect().width;
+        const remeasure = () => reserveCardHeight(view, state);
+        if (typeof ResizeObserver === 'function') {
+            new ResizeObserver(() => {
+                const next = view.card.getBoundingClientRect().width;
+                if (next === width) return;
+                width = next;
+                remeasure();
+            }).observe(view.card);
+        }
+        // Web fonts load lazily, once the card first draws text: a font that
+        // arrives after the first pass changes every line's height.
+        if (document.fonts) {
+            document.fonts.addEventListener('loadingdone', remeasure);
+            document.fonts.ready.then(remeasure);
+        }
+    }
+
     //: One hung `/api/artist_spotlight` request must never keep the whole
     //  card hidden (F-B21-60 / B3): each hydrate attempt is bounded, and a
     //  timed-out candidate is dropped like an unconfirmed one.
@@ -184,6 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
             state.candidates = withPhotos;
             state.index = 0;
             renderCandidate(view, state);
+            reserveCardHeight(view, state);
+            watchCardLayout(view, state);
             if (state.reducedMotion || state.candidates.length < 2) return;
             setInterval(() => {
                 if (document.hidden) return;

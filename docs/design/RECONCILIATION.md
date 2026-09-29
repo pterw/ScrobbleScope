@@ -799,7 +799,12 @@ name another provider" only when such a row exists.
 one-word name such as "Superorganism" was cut mid-word with no ellipsis; the
 name now wraps (`overflow-wrap: anywhere`) inside its two-line clamp. At 1280px
 the same name was also cut in the narrow rail and now wraps there too; a short
-name is unchanged at every width.
+name is unchanged at every width. The name also keeps a column of its own: when
+the card is too narrow to put the photo and an 11rem (15rem from 768px) name
+column side by side, the details wrap under the photo and take the card's full
+width, so a word is only broken when it alone is wider than the card. The card
+holds the height of its tallest candidate, measured in the browser, so the rail
+below it does not move when the rotation swaps artists.
 
 **The portrait.** It is sized at its own proportions: the longer side fills
 the slot, the other follows the photo, and the rounded corner and hairline are
