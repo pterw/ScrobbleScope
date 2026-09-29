@@ -9,7 +9,7 @@ Last updated: 2026-09-27
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2001 passing** across 78 tracked test modules |
+| Tests | **2004 passing** across 78 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -41,7 +41,7 @@ Last updated: 2026-09-27
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2001 passed**.
+- Latest validated test count: **2004 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -53,7 +53,7 @@ Last updated: 2026-09-27
 app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
-  errors.py                 # SpotifyUnavailableError, ERROR_CODES
+  errors.py                 # SpotifyUnavailableError, ERROR_CODES, classify_exception_to_error_code
   domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary
   utils.py                  # rate limiters, session pooling, request caching
@@ -151,7 +151,7 @@ orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, fo
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
 orchestrator/_cache.py    <- orchestrator (facade)
 orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
-heatmap.py       <- lastfm, repositories, utils, worker
+heatmap.py       <- errors, lastfm, repositories, utils, worker
 spotlight.py     <- utils
 routes/__init__.py     <- config, domain, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 routes/pages.py         <- routes (facade)
@@ -245,7 +245,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2001 tests)
+## 6. Test structure (2004 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

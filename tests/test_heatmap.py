@@ -647,6 +647,29 @@ class TestHeatmapTask:
         assert progress["error_source"] == "internal"
         assert progress["retryable"] is False
 
+    def test_user_not_found_crash_publishes_user_not_found(self):
+        """A Last.fm 404 ValueError escaping the pipeline is classified as
+        user_not_found, not blamed on the app as internal_error (Finding 1)."""
+        from scrobblescope.repositories import create_job, get_job_progress
+        from tests.helpers import TEST_JOB_PARAMS
+
+        job_id = create_job(TEST_JOB_PARAMS)
+        with (
+            patch("scrobblescope.heatmap.release_job_slot"),
+            patch(
+                "scrobblescope.heatmap._fetch_and_process_heatmap",
+                new_callable=AsyncMock,
+                side_effect=ValueError("User 'ghost' not found on Last.fm"),
+            ),
+        ):
+            heatmap_task(job_id, "ghost")
+
+        progress = get_job_progress(job_id)
+        assert progress["error"] is True
+        assert progress["error_code"] == "user_not_found"
+        assert progress["error_source"] == "lastfm"
+        assert progress["retryable"] is False
+
 
 # ===========================================================================
 # Error code registry

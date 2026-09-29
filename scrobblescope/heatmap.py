@@ -7,7 +7,7 @@ fetch infrastructure (``lastfm.fetch_all_recent_tracks_async``), the job state
 machine (``repositories.*``), and the concurrency slot system (``worker.*``).
 
 Dependency chain (leaf-ward):
-    heatmap <- lastfm, repositories, utils, worker
+    heatmap <- errors, lastfm, repositories, utils, worker
 
 No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
 deals only with raw scrobble counts per day.
@@ -19,6 +19,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 
+from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.repositories import (
     cleanup_expired_jobs,
@@ -259,17 +260,23 @@ async def _fetch_and_process_heatmap(job_id, username):
     logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
 
-def _report_heatmap_failure(job_id, username):
+def _report_heatmap_failure(job_id, username, exc):
     """Log the crash and publish this pipeline's terminal state.
 
     Called from inside the helper's ``except`` block, so ``logging.exception``
-    still sees the active exception. A fault that reaches this backstop is
-    ours: ``internal_error`` says so, where ``lastfm_unavailable`` blamed an
-    upstream that never failed (F-SWE-5). The inner, status-based Last.fm
-    path inside ``_fetch_and_process_heatmap`` still publishes its own code.
+    still sees the active exception. ``exc`` is classified the same way the
+    album pipeline classifies its own unhandled exceptions (one owner,
+    ``errors.classify_exception_to_error_code`` -- F-SWE-5), so a known
+    upstream failure that escapes ``_fetch_and_process_heatmap`` (a Last.fm
+    404, a rate limit) is blamed on its actual source. An exception the
+    classifier does not recognize is still ours: it publishes
+    ``internal_error``, where ``lastfm_unavailable`` would blame an upstream
+    that never failed. The inner, status-based Last.fm path inside
+    ``_fetch_and_process_heatmap`` still publishes its own code.
     """
     logging.exception(f"Unhandled error in heatmap task for {username}")
-    set_job_error(job_id, "internal_error", username=username)
+    error_code = classify_exception_to_error_code(str(exc)) or "internal_error"
+    set_job_error(job_id, error_code, username=username)
 
 
 def heatmap_task(job_id, username):
@@ -287,5 +294,5 @@ def heatmap_task(job_id, username):
         # ``scrobblescope.heatmap.release_job_slot`` and ``...heatmap.set_job_error``.
         make_loop=new_thread_event_loop,
         release_slot=release_job_slot,
-        on_run_error=lambda _exc: _report_heatmap_failure(job_id, username),
+        on_run_error=lambda exc: _report_heatmap_failure(job_id, username, exc),
     )

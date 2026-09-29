@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from scrobblescope.domain import release_window
+from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.orchestrator import (
     _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
     _apply_post_slice,
     _apply_pre_slice,
     _build_results,
-    _classify_exception_to_error_code,
     _detect_enrichment_total_failure,
     _get_user_friendly_reason,
     _lookup_cached_original_release,
@@ -104,6 +104,27 @@ def test_matches_release_criteria_parity_before_release_window(
         release_date, release_scope, year, decade, release_year
     )
     assert result is expected
+
+
+def test_matches_release_criteria_logs_actual_bad_input_under_custom(caplog):
+    """
+    GIVEN a "custom" scope whose release_year cannot be parsed as a year
+    WHEN `_matches_release_criteria` catches `release_window`'s ValueError
+    THEN the warning names the scope and every input `release_window`
+        received -- including the actual bad value, `release_year` -- rather
+        than always blaming `decade` (Finding 7).
+    """
+    with caplog.at_level(logging.WARNING):
+        result = _matches_release_criteria(
+            "2025-06-01",
+            release_scope="custom",
+            year=2025,
+            decade=None,
+            release_year="nope",
+        )
+    assert result is False
+    assert "custom" in caplog.text
+    assert "nope" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -526,7 +547,7 @@ def test_apply_post_slice_malformed_limit_no_error(caplog):
 def test_classify_exception_to_error_code_spotify_rate_limited():
     """'Too Many Requests' + 'spotify' -> 'spotify_rate_limited'."""
     assert (
-        _classify_exception_to_error_code("spotify Too Many Requests")
+        classify_exception_to_error_code("spotify Too Many Requests")
         == "spotify_rate_limited"
     )
 
@@ -534,14 +555,14 @@ def test_classify_exception_to_error_code_spotify_rate_limited():
 def test_classify_exception_to_error_code_user_not_found():
     """'user not found' -> 'user_not_found'."""
     assert (
-        _classify_exception_to_error_code("User not found on Last.fm")
+        classify_exception_to_error_code("User not found on Last.fm")
         == "user_not_found"
     )
 
 
 def test_classify_exception_to_error_code_unclassified_returns_none():
     """'connection timeout' -> None."""
-    assert _classify_exception_to_error_code("connection timeout") is None
+    assert classify_exception_to_error_code("connection timeout") is None
 
 
 def test_detect_enrichment_total_failure_fires_when_all_unmatched():

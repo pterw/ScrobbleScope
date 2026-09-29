@@ -52,3 +52,25 @@ ERROR_CODES = {
 
 class SpotifyUnavailableError(RuntimeError):
     """Raised when Spotify metadata is required but unavailable for cache misses."""
+
+
+def classify_exception_to_error_code(error_message):
+    """Map an exception message to a classified error code, or None.
+
+    The one classifier both background pipelines use to answer an
+    unhandled exception (F-SWE-5): the album pipeline's ``_fetch_and_process``
+    and the heatmap pipeline's ``_report_heatmap_failure`` each call this
+    before falling back to ``internal_error``, so a known upstream failure
+    (a Last.fm 404, a provider's rate limit) is blamed on the source that
+    actually failed rather than on the app.
+
+    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
+    or None for unclassified errors.
+    """
+    if "Too Many Requests" in error_message:
+        if "spotify" in error_message.lower():
+            return "spotify_rate_limited"
+        return "lastfm_rate_limited"
+    if "not found" in error_message.lower() and "user" in error_message.lower():
+        return "user_not_found"
+    return None

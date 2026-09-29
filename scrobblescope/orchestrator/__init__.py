@@ -34,7 +34,10 @@ from scrobblescope.cache import (
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
 from scrobblescope.domain import normalize_name, normalize_track_name
-from scrobblescope.errors import SpotifyUnavailableError
+from scrobblescope.errors import (
+    SpotifyUnavailableError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.release_checks import enqueue_release_check
 from scrobblescope.repositories import (
@@ -428,21 +431,6 @@ def _apply_post_slice(results, limit_results):
     return results
 
 
-def _classify_exception_to_error_code(error_message):
-    """Map an exception message to a classified error code, or None.
-
-    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
-    or None for unclassified errors.
-    """
-    if "Too Many Requests" in error_message:
-        if "spotify" in error_message.lower():
-            return "spotify_rate_limited"
-        return "lastfm_rate_limited"
-    if "not found" in error_message.lower() and "user" in error_message.lower():
-        return "user_not_found"
-    return None
-
-
 async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
     """Fetch Last.fm albums and finish upstream-error or empty jobs in place.
 
@@ -674,7 +662,7 @@ async def _fetch_and_process(
 
     except Exception as exc:
         error_message = str(exc)
-        error_code = _classify_exception_to_error_code(error_message)
+        error_code = classify_exception_to_error_code(error_message)
 
         if error_code:
             set_job_error(job_id, error_code, username=username)
@@ -781,7 +769,6 @@ __all__ = [
     "_batch_lookup_original_release",
     "_batch_persist_metadata",
     "_build_results",
-    "_classify_exception_to_error_code",
     "_cleanup_stale_metadata",
     "_detect_enrichment_total_failure",
     "_fetch_and_process",

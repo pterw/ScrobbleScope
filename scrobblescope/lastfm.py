@@ -270,7 +270,16 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
             }
             return [], error_meta
 
-        total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
+        # A well-formed page missing @attr.totalPages (seen from Last.fm as a
+        # malformed first page, valid JSON but not the shape expected) is the
+        # same upstream failure as no page at all: report it the same way
+        # instead of letting KeyError/TypeError/ValueError reach the caller.
+        try:
+            total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
+        except (KeyError, TypeError, ValueError):
+            logging.error("Malformed initial page from Last.fm (missing totalPages)")
+            error_meta = {"status": "error", "reason": "lastfm_unavailable"}
+            return [], error_meta
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 

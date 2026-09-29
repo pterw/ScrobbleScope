@@ -452,3 +452,30 @@ async def test_progress_cb_provides_received_count_for_extended_callbacks():
     assert recorded[1] == (2, 3, 2)
     # Page 3 failed: 3 attempts, 3 total, still 2 received!
     assert recorded[2] == (3, 3, 2)
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_first_page_missing_attr_returns_error_metadata():
+    """
+    GIVEN a first page that is valid JSON but has no recenttracks.@attr.totalPages
+    WHEN fetch_all_recent_tracks_async runs
+    THEN it returns the same lastfm_unavailable error metadata as no page at
+    all, instead of letting KeyError escape (Finding 1b).
+    """
+    malformed_page = {"recenttracks": {"track": []}}
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            return_value=malformed_page,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1)
+
+    assert pages == []
+    assert meta == {"status": "error", "reason": "lastfm_unavailable"}

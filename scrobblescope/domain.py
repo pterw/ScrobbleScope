@@ -113,7 +113,14 @@ def _matches_release_criteria(
     try:
         window = release_window(release_scope, year, decade, release_year)
     except ValueError:
-        logging.warning(f"Couldn't parse release year from: {decade}")
+        logging.warning(
+            "Couldn't parse release window for scope=%r year=%r decade=%r "
+            "release_year=%r",
+            release_scope,
+            year,
+            decade,
+            release_year,
+        )
         return False
 
     if window is None:
