@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Repo Assist pins the count it measures and skips browser tests
+
+Side task, no batch tag: Repo Assist's rules and file grant, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Review findings G1-G3: Repo Assist's rules predated the pinned test count and the browser marker, so a PR from it could not pass. Rule 4 now runs `--fix --test-count N` and never edits a count by hand. Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files.") allowed the widened grant: both `allowed-files` lists gain `config/docsync.toml`, and the lock was regenerated with `gh aw compile repo-assist`, not edited.
+Rule 5 runs `-m "not browser"` and counts the 43 browser tests by `--collect-only`, so N is still the whole suite. Task 4 audits both requirements files. `test.yml` runs `-m browser` without the directory, so the marker decides what runs; the same 43 tests run either way.
+The new `tests/test_ci_workflows.py` checks that the compiled lock grants every file the procedure writes and that the source and the lock agree.
+Validation: `pytest -q` -- **2117 passed**.
+
 ### 2026-09-29 - docsync refuses declared paths and pin rewrites it cannot trust
 
 Side task, no batch tag: the second-review fix wave for the docsync declarations, the test-count pin writer and the worktree guard (review findings B1-B6, B8, B9 and C1-C5), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

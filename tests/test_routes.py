@@ -2538,3 +2538,104 @@ def test_unmatched_view_with_only_deezer_rows_shows_no_spotify_attribution(clien
         },
     )
     assert 'id="unmatched-spotify-attribution"' not in html
+
+
+def test_results_deezer_row_without_a_url_still_names_its_provider(client):
+    """
+    GIVEN a completed job with a Spotify row and a Deezer row that has artwork
+          but no album_url
+    WHEN the results page renders
+    THEN the Deezer row names Deezer as plain text (no link), the Spotify row
+         names no provider, and the banner still excepts rows that name
+         another provider, so the Deezer artwork is never read as Spotify's.
+    """
+    deezer = _provider_row("deezer", 1)
+    deezer["album_url"] = ""
+    html = _render_results(client, [_provider_row("spotify"), deezer])
+    assert re.search(r"<span[^>]*provider-badge[^>]*>\s*deezer\s*</span>", html)
+    assert "www.deezer.com" not in html
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+    assert ", except rows that name another provider" in html
+
+
+def test_results_clause_is_absent_when_every_row_is_spotify(client):
+    """
+    GIVEN a completed job whose rows are all Spotify-sourced
+    WHEN the results page renders
+    THEN the banner does not mention rows that name another provider.
+    """
+    html = _render_results(
+        client, [_provider_row("spotify"), _provider_row("spotify", 1)]
+    )
+    assert "Album artwork and links from Spotify<" in html
+    assert "except rows that name another provider" not in html
+
+
+def _unmatched_release_scope_item(provider, index, url=True):
+    """One unmatched release-scope item sourced from `provider`."""
+    host = "open.spotify.com" if provider == "spotify" else "www.deezer.com"
+    return {
+        "artist": f"{provider.title()} Artist {index}",
+        "album": f"{provider.title()} Album {index}",
+        "reason": "Released in 2018 (filter requires 2024)",
+        "reason_code": "release_scope",
+        "album_image": f"https://example.com/{provider}-{index}.jpg",
+        "spotify_id": f"sp-{index}" if provider == "spotify" else None,
+        "provider": provider,
+        "album_url": f"https://{host}/album/{provider}-{index}" if url else "",
+    }
+
+
+def _unmatched_html_for(client, items):
+    """Render /unmatched_view for a job holding several unmatched `items`."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    for index, item in enumerate(items):
+        add_job_unmatched(job_id, f"{item['provider']}|{index}", item)
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_unmatched_view_clause_appears_only_when_a_row_names_another_provider(
+    client,
+):
+    """
+    GIVEN one job of Spotify rows only and one that adds a Deezer row
+    WHEN POST /unmatched_view is submitted for each
+    THEN only the second banner excepts rows that name another provider.
+    """
+    spotify_only = _unmatched_html_for(
+        client, [_unmatched_release_scope_item("spotify", 0)]
+    )
+    assert 'id="unmatched-spotify-attribution"' in spotify_only
+    assert "artist photos from Spotify<" in spotify_only
+    assert "except rows that name another provider" not in spotify_only
+
+    mixed = _unmatched_html_for(
+        client,
+        [
+            _unmatched_release_scope_item("spotify", 0),
+            _unmatched_release_scope_item("deezer", 1),
+        ],
+    )
+    assert "artist photos from Spotify, except rows that name another provider" in mixed
+
+
+def test_unmatched_view_deezer_row_without_a_url_still_names_its_provider(client):
+    """
+    GIVEN an unmatched Deezer row with artwork and no album_url next to a
+          Spotify row
+    WHEN POST /unmatched_view is submitted
+    THEN the Deezer row names Deezer as plain text, so the banner's Spotify
+         claim never covers it.
+    """
+    html = _unmatched_html_for(
+        client,
+        [
+            _unmatched_release_scope_item("spotify", 0),
+            _unmatched_release_scope_item("deezer", 1, url=False),
+        ],
+    )
+    assert re.search(r"<span[^>]*provider-badge[^>]*>\s*deezer\s*</span>", html)
+    assert "www.deezer.com" not in html
+    assert "except rows that name another provider" in html

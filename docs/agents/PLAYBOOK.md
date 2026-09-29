@@ -120,6 +120,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Artwork corners, provider names and spotlight name fixed
+
+Side task, no batch tag: review fix wave for the results and unmatched pages (review findings F1, F2, F3 and F7), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+F7: the album artwork corner radius now steps to 8px at 1024px, not 768px. Spotify's rule gives small and medium devices 4px and large devices 8px, and a tablet is medium. This corrects the controller's own Task 7 call (8px from 768px) to Spotify's device classes. The frontend gate now measures the results page at 768, 1023 and 1024px, and it is red with the old step planted back. RECONCILIATION section 18 and DESIGN.md carry the new width and a dated correction note.
+
+F2: a non-Spotify row with no album URL used to show no provider name, so its artwork read as Spotify's. Both pages now name the provider on every non-Spotify row: a link when the row has a URL, the same badge as plain text when it has none. F3: the unmatched banner's exception clause ("except rows that name another provider") is now conditional, so both pages word the same situation the same way.
+
+F1: at 320px a long one-word artist name in the spotlight card was cut mid-word with no ellipsis. The name may now break inside a long word and keeps two lines with an ellipsis. At 1280px the rail is 125px wide, so a long name wraps inside the word there too; short names are unchanged. No gate check was added for it, because the spotlight photo fixtures and the check registry belong to Task 14. A new test module, `tests/scripts/dev/test_frontend_gate_results.py`, covers the changed radius check.
+
+Validation: `pytest -q` -- **2142 passed**.
+
 ### 2026-09-29 - Show the whole focus ring on the unmatched album links
 
 Side task, no batch tag: the album title link and the provider badge on the unmatched report now show their whole keyboard focus ring, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -155,11 +167,3 @@ Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, 
 
 Live probes: base code, ring painted first, no room in the grid's clip, a clipping SVG, the grid-moving viewBox padding, and each single fix reverted all went red; the fix stayed green.
 Validation: `pytest -q` -- **2118 passed**.
-
-### 2026-09-29 - Repo Assist pins the count it measures and skips browser tests
-
-Side task, no batch tag: Repo Assist's rules and file grant, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-Review findings G1-G3: Repo Assist's rules predated the pinned test count and the browser marker, so a PR from it could not pass. Rule 4 now runs `--fix --test-count N` and never edits a count by hand. Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files.") allowed the widened grant: both `allowed-files` lists gain `config/docsync.toml`, and the lock was regenerated with `gh aw compile repo-assist`, not edited.
-Rule 5 runs `-m "not browser"` and counts the 43 browser tests by `--collect-only`, so N is still the whole suite. Task 4 audits both requirements files. `test.yml` runs `-m browser` without the directory, so the marker decides what runs; the same 43 tests run either way.
-The new `tests/test_ci_workflows.py` checks that the compiled lock grants every file the procedure writes and that the source and the lock agree.
-Validation: `pytest -q` -- **2117 passed**.

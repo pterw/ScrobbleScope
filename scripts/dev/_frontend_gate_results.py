@@ -17,16 +17,24 @@ from scrobblescope.repositories import (
     set_job_results,
 )
 
-#: Spotify's corner radius for its artwork: 4px on small and medium screens,
-#: 8px on large ones (F-B23-12). The step is the design's one breakpoint.
-ARTWORK_RADIUS_STEP_MIN = 768
+#: Spotify's corner radius for its artwork: 4px on small and medium devices,
+#: 8px on large ones (F-B23-12). A tablet (768px) is a medium device, so the
+#: step is the repository's large breakpoint, 1024px, not 768px.
+ARTWORK_RADIUS_STEP_MIN = 1024
 
 #: Small text on these pages, the attribution included, is at least 12px: the
 #: floor RECONCILIATION section 1 records. The attribution shipped at 11px.
 ATTRIBUTION_TEXT_FLOOR = 12.0
 
-#: Widths the results row covers are measured at, one each side of the step.
-RESULTS_ARTWORK_WIDTHS = (390, 1280)
+#: Widths the results row covers are measured at: a phone, a tablet and the
+#: pixel below the step (all 4px), the step itself and a desktop (both 8px).
+RESULTS_ARTWORK_WIDTHS = (
+    390,
+    768,
+    ARTWORK_RADIUS_STEP_MIN - 1,
+    ARTWORK_RADIUS_STEP_MIN,
+    1280,
+)
 
 #: Takes {kind: selector}; returns {kind: [computed radius in px, ...]}.
 ARTWORK_RADII_JS = """selectors => Object.fromEntries(
@@ -60,7 +68,7 @@ def artwork_radius_failures(
 
 
 def _results_artwork_failures(page) -> list[str]:
-    """Row cover corners at a phone and a desktop width; attribution size.
+    """Row cover corners at phone, tablet and desktop widths; attribution size.
 
     Restores the original viewport before returning.
     """

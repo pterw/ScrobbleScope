@@ -199,7 +199,7 @@ ScrobbleScope is flat by default. Depth is communicated tonally—by layering ca
 Geometry is crisp, rational, and restrained. Rounded corners scale strictly according to container size.
 
 ### Corner Radius Scale
-- **`xs` (4px):** Tiny pill tags and sub-metric chips. Provider artwork (album covers, artist photos and their placeholders) follows Spotify's rule instead: 4px below 768px and 8px from it, one `--artwork-radius` value (`docs/design/RECONCILIATION.md` section 18).
+- **`xs` (4px):** Tiny pill tags and sub-metric chips. Provider artwork (album covers, artist photos and their placeholders) follows Spotify's rule instead: 4px below 1024px and 8px from it (a tablet is a medium device in Spotify's terms), one `--artwork-radius` value (`docs/design/RECONCILIATION.md` section 18).
 - **`sm` (8px):** Form input fields, dropdown select triggers, and secondary action buttons.
 - **`md` (10px):** Primary submit buttons and stat block containers.
 - **`lg` (14px):** Interactive cards, modal panels, and the heatmap canvas frame.

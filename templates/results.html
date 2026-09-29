@@ -224,6 +224,9 @@
                                         {# Per-row provider attribution (Batch 22 WP-2 Task 6), now for
                                            non-Spotify rows only: Spotify rows are attributed once for the
                                            whole list by the official icon above the table (F-B21-60).
+                                           A non-Spotify row always names its provider: a link when it has
+                                           a URL, the same badge as plain text when it has none, so the
+                                           banner's Spotify claim never covers it.
                                            Deezer requires "a clearly visible Deezer Logo" on any app using
                                            its API (developers.deezer.com/guidelines/logo), but its logo
                                            files are published only through the deezerbrand.com portal,
@@ -231,10 +234,14 @@
                                            so no official file could be taken from Deezer's own domains.
                                            Until one is supplied this text link stands in for Deezer's logo
                                            (F-B22-4, open for Deezer only). #}
-                                        {% if album.provider and album.provider != 'spotify' and album.album_url %}
+                                        {% if album.provider and album.provider != 'spotify' %}
+                                        {% if album.album_url %}
                                         <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
                                             {{ album.provider }}
                                         </a>
+                                        {% else %}
+                                        <span class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">{{ album.provider }}</span>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -303,7 +310,7 @@
                         </div>
                         <div class="spotlight-details">
                             <div class="flex items-start justify-between gap-2">
-                                <p id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                                <p id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2 [overflow-wrap:anywhere]" title="{{ top_artist_name|default(album_list[0].artist) }}">
                                     {{ top_artist_name|default(album_list[0].artist) }}
                                 </p>
                                 {# The official Spotify icon, linking to the artist on Spotify

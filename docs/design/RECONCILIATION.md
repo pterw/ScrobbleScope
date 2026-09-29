@@ -778,8 +778,28 @@ Sites: `CATEGORY_METADATA` in `scrobblescope/unmatched.py`.
 `.provider-artwork` in `static/css/results.css`, carries the corner radius,
 the fit and the surface behind it, for every cover, portrait and placeholder
 on the Results and unmatched pages. The radius is `--artwork-radius` on
-`.results-page`: 4px, and 8px from 768px. The spotlight's image box reads the
+`.results-page`: 4px, and 8px from 1024px. The spotlight's image box reads the
 same variable, so the two values are written once.
+
+*Corrected 2026-09-29.* This section first put the step at 768px. That was the
+controller's own judgement in Task 7 (c11570b), not the owner's ruling, and it
+was wrong: Spotify's design page ("Using our content", fetched 2026-09-29) says
+"Small & medium devices should use a 4px corner radius, whereas large devices
+should use a 8px corner radius", and a tablet is a medium device. The step is
+now the repository's large breakpoint, 1024px, where the side rail also goes
+sticky. The frontend gate measures 768px and 1023px at 4px and 1024px at 8px.
+
+**9. A non-Spotify row always names its provider.** A row from another provider
+shows its name as a link when it has an album URL and as the same badge in
+plain text when it has none, on both pages, so the page's "from Spotify" line
+never covers artwork it did not supply. Both pages add ", except rows that
+name another provider" only when such a row exists.
+
+**10. The spotlight artist name may break inside a long word.** At 320px a
+one-word name such as "Superorganism" was cut mid-word with no ellipsis; the
+name now wraps (`overflow-wrap: anywhere`) inside its two-line clamp. At 1280px
+the same name was also cut in the narrow rail and now wraps there too; a short
+name is unchanged at every width.
 
 **The portrait.** It is sized at its own proportions: the longer side fills
 the slot, the other follows the photo, and the rounded corner and hairline are

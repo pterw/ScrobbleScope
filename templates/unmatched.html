@@ -63,19 +63,23 @@
        Spotify album artwork, album links and artist portraits (the
        data-artist-image slots below fetch Spotify photos), and the guidelines
        ask for Spotify's icon with that content, not a mark on every row. Rows
-       from any other provider name it on their own row. #}
-    {% set attribution = namespace(spotify=false) %}
+       from any other provider name it on their own row, and the clause that
+       says so appears only when such a row exists. #}
+    {% set attribution = namespace(spotify=false, other=false) %}
     {% for reason_key, albums in reasons.items() %}
         {% for item in albums %}
             {% if item.provider == 'spotify' or (reason_key != 'below_threshold' and not item.album_image) %}
                 {% set attribution.spotify = true %}
+            {% endif %}
+            {% if item.provider and item.provider != 'spotify' %}
+                {% set attribution.other = true %}
             {% endif %}
         {% endfor %}
     {% endfor %}
     {% if attribution.spotify %}
     <div id="unmatched-spotify-attribution" class="provider-attribution provider-attribution--page">
         {% include "partials/_spotify_icon.html" %}
-        <span class="provider-attribution__text">Album artwork, links and artist photos from Spotify, except rows that name another provider</span>
+        <span class="provider-attribution__text">Album artwork, links and artist photos from Spotify{% if attribution.other %}, except rows that name another provider{% endif %}</span>
     </div>
     {% endif %}
     {# The panel count drives the track count from CSS, keyed on this attribute.
@@ -214,10 +218,14 @@
                                         {# Per-row provider attribution for non-Spotify rows (Batch 22
                                            WP-1 Task 6); full rule in templates/results.html next to the
                                            same markup. Spotify rows are covered by the page-level icon. #}
-                                        {% if item.provider and item.provider != 'spotify' and item.album_url %}
+                                        {% if item.provider and item.provider != 'spotify' %}
+                                        {% if item.album_url %}
                                         <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ item.album }} on {{ item.provider|capitalize }}">
                                             {{ item.provider }}
                                         </a>
+                                        {% else %}
+                                        <span class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">{{ item.provider }}</span>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>

@@ -27,9 +27,11 @@
     --text-4xl: calc(2.25rem * var(--results-scale));
     --text-5xl: calc(3rem * var(--results-scale));
     /* Corner radius for provider artwork: Spotify asks for 4px on small and
-       medium screens and 8px on large ones. One value, read by
-       `.provider-artwork` and the spotlight's image box; it steps up once,
-       in the media query under `.provider-artwork`. */
+       medium devices and 8px on large ones. A tablet is a medium device, so
+       the step is at 1024px, this page's large breakpoint (the side rail goes
+       sticky there too), not at 768px. One value, read by `.provider-artwork`
+       and the spotlight's image box; it steps up once, in the media query
+       under `.provider-artwork`. */
     --artwork-radius: 4px;
     width: 100%;
     max-width: 90rem;
@@ -318,7 +320,8 @@
 /* Provider artwork: every album cover and artist photo on the results and
    unmatched pages, and the placeholder that stands in for one. Spotify's
    "Using our content" rules (F-B21-60, F-B23-12): never crop the artwork, and
-   round its corners 4px on small and medium screens, 8px on large ones.
+   round its corners 4px on small and medium devices, 8px on large ones
+   (large starts at 1024px; a tablet at 768px is medium).
 
    `contain`, not `cover`: artwork that is not square is shown whole on the
    surface token behind it, the same letterbox the spotlight uses. The size
@@ -329,7 +332,7 @@
     background-color: var(--results-surface);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
     .results-page {
         --artwork-radius: 8px;
     }
