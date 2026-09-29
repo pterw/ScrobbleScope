@@ -91,7 +91,7 @@ def test_sweep_covers_two_phone_widths_with_their_own_title_floors() -> None:
 
 
 def test_sweep_reports_a_desktop_corner_radius_on_a_phone() -> None:
-    """8px everywhere is wrong only below 768px, and each artwork kind is named."""
+    """8px is wrong below ARTWORK_RADIUS_STEP_MIN (1024px); each kind is named."""
     page = _sweeping_page(columns=1, title_width=300.0, radius=8.0)
     failures = _frontend_gate_unmatched._unmatched_panel_width_sweep(page)
     radius = [f for f in failures if "corner radius" in f]
@@ -185,3 +185,65 @@ def test_sweep_restores_the_viewport_when_measurement_raises() -> None:
     with pytest.raises(RuntimeError):
         _frontend_gate_unmatched._unmatched_panel_width_sweep(page)
     assert page.set_viewport_size.call_args.args[0] == {"width": 1280, "height": 800}
+
+
+def test_the_placeholder_kind_counts_only_visible_nodes() -> None:
+    """The onerror fallbacks share the placeholder selector and stay hidden."""
+    script = _frontend_gate_unmatched._ARTWORK_RADII_JS
+    assert "borderTopLeftRadius" in script
+    assert '!["placeholder"].includes(kind)' in script
+    assert "node.getClientRects().length > 0" in script
+    assert _frontend_gate_unmatched._VISIBLE_ONLY_ARTWORK_KINDS == ("placeholder",)
+
+
+def test_a_missing_visible_placeholder_is_a_failure_not_a_pass() -> None:
+    """With only hidden fallbacks the visible-only query returns no nodes."""
+    failures = _frontend_gate_results.artwork_radius_failures(
+        {"cover": [8.0], "placeholder": [], "portrait": [8.0]}, 1280, "unmatched"
+    )
+    assert failures == ["unmatched page at 1280px renders no placeholder artwork"]
+
+
+def _focus_page() -> MagicMock:
+    page = MagicMock()
+    page.viewport_size = {"width": 1280, "height": 720}
+
+    def evaluate(script, *args):
+        if "scrollIntoView" in script:
+            return {"target": True, "start": True}
+        if "focus-visible" in script:
+            return {
+                "reached": True,
+                "active": "A album-link",
+                "visible": True,
+                "box": {"left": 100, "top": 100, "right": 300, "bottom": 124},
+                "viewport": {"width": 1280, "height": 720},
+            }
+        if "createImageBitmap" in script:
+            return {side: 60 for side in ("top", "right", "bottom", "left")}
+        return None
+
+    page.evaluate.side_effect = evaluate
+    page.screenshot.return_value = b"png"
+    return page
+
+
+def test_focus_ring_parks_the_pointer_and_settles_before_each_screenshot() -> None:
+    page = _focus_page()
+    assert _frontend_gate_unmatched._focus_ring_failures(page) == []
+    names = [call[0] for call in page.method_calls]
+    shots = [i for i, name in enumerate(names) if name == "screenshot"]
+    parks = [i for i, name in enumerate(names) if name == "mouse.move"]
+    assert len(shots) == 4
+    assert page.mouse.move.call_args_list[0].args == (0, 0)
+    for shot in shots[::2]:
+        assert any(park < shot for park in parks)
+    settles = [
+        i
+        for i, call in enumerate(page.method_calls)
+        if call[0] == "evaluate" and call.args[0] is _frontend_gate_unmatched._SETTLE_JS
+    ]
+    for first, second in zip(shots[::2], shots[1::2], strict=True):
+        # a settle after the pointer is parked, and another after the blur
+        assert any(park < s < first for park in parks for s in settles)
+        assert any(first < s < second for s in settles)

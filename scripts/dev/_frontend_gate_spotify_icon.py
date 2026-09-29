@@ -74,6 +74,26 @@ _ICON_PROBE = """([containerSelector, clearScopeSelector]) => {
     return report;
 }"""
 
+#: True once every icon file that is displayed inside the container has been
+#: fetched and decoded. `img.complete` is also true for a file that failed, so
+#: a natural width above zero is what says it loaded.
+_ICON_LOADED_JS = """containerSelector => {
+    const container = document.querySelector(containerSelector);
+    if (!container) return true;
+    return [...container.querySelectorAll('img.spotify-icon')]
+        .filter(img => getComputedStyle(img).display !== 'none')
+        .every(img => img.complete && img.naturalWidth > 0);
+}"""
+
+#: The displayed icon files' paths, to name the one that did not load.
+_ICON_NAMES_JS = """containerSelector => [...document.querySelector(containerSelector)
+    .querySelectorAll('img.spotify-icon')]
+    .filter(img => getComputedStyle(img).display !== 'none')
+    .map(img => new URL(img.currentSrc || img.src).pathname)"""
+
+#: How long an icon file may take to load before it counts as not loading.
+ICON_LOAD_TIMEOUT_MS = 5_000
+
 
 def spotify_icon_failures(
     page, container: str, where: str, clear_scope: str | None = None
@@ -91,8 +111,21 @@ def spotify_icon_failures(
             "theme => document.documentElement.setAttribute('data-theme', theme)",
             theme,
         )
-        report = page.evaluate(_ICON_PROBE, [container, clear_scope])
         label = f"{where} [{theme}]"
+        # The theme decides which file shows, and a file that has only just
+        # been chosen may still be loading: judge it once it has, not before.
+        try:
+            page.wait_for_function(
+                _ICON_LOADED_JS, arg=container, timeout=ICON_LOAD_TIMEOUT_MS
+            )
+        except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+            names = page.evaluate(_ICON_NAMES_JS, container)
+            failures.append(
+                f"{label}: Spotify icon file {names!r} did not load within "
+                f"{ICON_LOAD_TIMEOUT_MS}ms"
+            )
+            continue
+        report = page.evaluate(_ICON_PROBE, [container, clear_scope])
         if report["missing"]:
             failures.append(f"{label}: no {container} element to hold the Spotify icon")
             return failures

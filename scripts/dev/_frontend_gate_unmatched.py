@@ -21,10 +21,7 @@ import base64
 import json
 from urllib.parse import parse_qs, urlparse
 
-from scripts.dev._frontend_gate_results import (
-    ARTWORK_RADII_JS,
-    artwork_radius_failures,
-)
+from scripts.dev._frontend_gate_results import artwork_radius_failures
 from scrobblescope.repositories import add_job_unmatched, create_job, delete_job
 
 #: Narrowest window at which two unmatched panels share a row. Below it each
@@ -103,7 +100,7 @@ _FOCUS_RING_MIN_PIXELS = 4
 _RING_SIDES = ("top", "right", "bottom", "left")
 
 #: The release-scope fixture row served from Deezer (23 plays, the panel's
-#: second row), so the report renders a provider badge.
+#: third row by plays), so the report renders a provider badge.
 _DEEZER_SCOPE_ROW = 4
 
 #: Decodes the focused and blurred screenshots in the page (the gate has no
@@ -198,7 +195,7 @@ def _unmatched_panel_width_sweep(page) -> list[str]:
                 )
             failures.extend(
                 artwork_radius_failures(
-                    page.evaluate(ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
+                    page.evaluate(_ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
                     width,
                     "unmatched",
                 )
@@ -215,6 +212,40 @@ _UNMATCHED_ARTWORK_SELECTORS = {
     "placeholder": "div.unmatched-artwork:not([data-artist-image])",
     "portrait": ".unmatched-artist-image",
 }
+
+#: Kinds whose selector also matches elements the page keeps hidden. The
+#: cover's `onerror` fallback is a `div.unmatched-artwork` that stays hidden
+#: until its image fails, so the placeholder selector matches it whether or
+#: not the visible below-threshold placeholder still exists.
+_VISIBLE_ONLY_ARTWORK_KINDS = ("placeholder",)
+
+#: `ARTWORK_RADII_JS` from the results slice, except that a kind in
+#: `_VISIBLE_ONLY_ARTWORK_KINDS` counts only the nodes that generate a box.
+#: A kind with no visible node is reported absent by `artwork_radius_failures`.
+_ARTWORK_RADII_JS = """selectors => Object.fromEntries(
+    Object.entries(selectors).map(([kind, selector]) => [kind,
+        [...document.querySelectorAll(selector)]
+            .filter(node => !VISIBLE_ONLY_KINDS.includes(kind)
+                || node.getClientRects().length > 0)
+            .map(node =>
+            Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0)]))""".replace(
+    "VISIBLE_ONLY_KINDS", json.dumps(list(_VISIBLE_ONLY_ARTWORK_KINDS))
+)
+
+#: Lets any transition or animation finish, so two screenshots differ only by
+#: the focus ring and not by a state still moving toward its final value.
+_SETTLE_JS = """() => new Promise(resolve => {
+    const deadline = performance.now() + 1500;
+    const tick = () => {
+        if (document.getAnimations().every(a => a.playState !== 'running')
+                || performance.now() > deadline) {
+            requestAnimationFrame(() => resolve());
+        } else {
+            requestAnimationFrame(tick);
+        }
+    };
+    tick();
+})"""
 
 
 def _portrait_failures(page, spotlight_requests: list[str]) -> list[str]:
@@ -507,8 +538,15 @@ def _focus_ring_failures(page) -> list[str]:
         x1 = min(float(view["width"]), box["right"] + _FOCUS_RING_MARGIN)
         y1 = min(float(view["height"]), box["bottom"] + _FOCUS_RING_MARGIN)
         clip = {"x": x0, "y": y0, "width": x1 - x0, "height": y1 - y0}
+        # The pointer would otherwise rest wherever the last click left it,
+        # and a row's hover state changing between the two shots would be
+        # counted as a ring. Park it away from the table and let any
+        # transition settle before each shot.
+        page.mouse.move(0, 0)
+        page.evaluate(_SETTLE_JS)
         focused = page.screenshot(clip=clip, animations="disabled")
         page.evaluate("selector => document.querySelector(selector).blur()", selector)
+        page.evaluate(_SETTLE_JS)
         blurred = page.screenshot(clip=clip, animations="disabled")
         counts = page.evaluate(
             _RING_PIXELS_JS,
@@ -585,7 +623,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         )
         play_counts = (5, 29, 11, 23, 7, 17, 13, 19, 3, 2, 27, 9)
         for index in range(1, 13):
-            # One Deezer row, second by plays, so a provider badge renders in
+            # One Deezer row, third by plays, so a provider badge renders in
             # the ten rows shown before the disclosure.
             if index == _DEEZER_SCOPE_ROW:
                 provider, spotify_id = "deezer", None
@@ -868,7 +906,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         # its slot marked, as a reader sees it.
         failures.extend(
             artwork_radius_failures(
-                page.evaluate(ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
+                page.evaluate(_ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
                 width,
                 "unmatched",
             )

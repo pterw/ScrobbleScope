@@ -19,14 +19,25 @@ class _ThemedPage:
     """A page stand-in: remembers the theme the helper sets and answers the
     icon probe with the report given for that theme."""
 
-    def __init__(self, reports):
+    def __init__(self, reports, load_times_out=()):
         self.reports = reports
+        self.load_times_out = load_times_out
         self.theme = None
+        self.calls = []
+
+    def wait_for_function(self, expression, arg=None, timeout=None):
+        self.calls.append(("wait", self.theme, arg, timeout))
+        if self.theme in self.load_times_out:
+            raise TimeoutError("icon never loaded")
 
     def evaluate(self, expression, argument=None):
         if "setAttribute('data-theme'" in expression:
             self.theme = argument
+            self.calls.append(("theme", argument))
             return None
+        if "pathname)" in expression and "map(" in expression:
+            return [self.reports[self.theme]["src"]]
+        self.calls.append(("probe", self.theme))
         return dict(self.reports[self.theme])
 
 
@@ -128,3 +139,43 @@ def test_a_missing_container_fails_once(theme: str) -> None:
     assert failures == [
         f"icon [{theme}]: no #icon-holder element to hold the Spotify icon"
     ]
+
+
+def test_each_theme_waits_for_its_icon_to_load_before_it_is_judged() -> None:
+    page = _ThemedPage({"light": _report("light"), "dark": _report("dark")})
+    assert (
+        _frontend_gate_spotify_icon.spotify_icon_failures(page, "#icon-holder", "icon")
+        == []
+    )
+    timeout = _frontend_gate_spotify_icon.ICON_LOAD_TIMEOUT_MS
+    assert page.calls == [
+        ("theme", "light"),
+        ("wait", "light", "#icon-holder", timeout),
+        ("probe", "light"),
+        ("theme", "dark"),
+        ("wait", "dark", "#icon-holder", timeout),
+        ("probe", "dark"),
+    ]
+
+
+def test_an_icon_that_never_loads_is_reported_by_name_and_not_judged() -> None:
+    page = _ThemedPage(
+        {"light": _report("light"), "dark": _report("dark")},
+        load_times_out=("dark",),
+    )
+    failures = _frontend_gate_spotify_icon.spotify_icon_failures(
+        page, "#icon-holder", "icon"
+    )
+    assert failures == [
+        "icon [dark]: Spotify icon file "
+        "['/static/images/brand/spotify/Primary_Logo_White_RGB.svg'] "
+        "did not load within 5000ms"
+    ]
+    assert ("probe", "dark") not in page.calls
+    assert ("probe", "light") in page.calls
+
+
+def test_the_load_wait_reads_naturalwidth_not_complete_alone() -> None:
+    script = _frontend_gate_spotify_icon._ICON_LOADED_JS
+    assert "img.complete && img.naturalWidth > 0" in script
+    assert "display !== 'none'" in script

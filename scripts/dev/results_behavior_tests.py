@@ -157,6 +157,15 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.evaluate("APP_DATA.spotlight_artists.map(a => a.name)"),
             ["A & B", "Second"],
         )
+        # Hydration builds its own candidates; it never writes a photo or a
+        # Spotify link back into the server's `spotlight_artists` entries.
+        self.assertEqual(
+            self.page.evaluate(
+                "APP_DATA.spotlight_artists.map(a => "
+                "['image_url', 'spotify_url'].filter(key => key in a))"
+            ),
+            [[], []],
+        )
 
     def test_card_hidden_until_settle_then_drops_unconfirmed_candidates(self):
         """The card stays hidden until every hydration settles, then rotation
