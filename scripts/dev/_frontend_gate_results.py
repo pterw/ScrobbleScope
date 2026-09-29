@@ -17,6 +17,83 @@ from scrobblescope.repositories import (
     set_job_results,
 )
 
+#: Spotify's corner radius for its artwork: 4px on small and medium screens,
+#: 8px on large ones (F-B23-12). The step is the design's one breakpoint.
+ARTWORK_RADIUS_STEP_MIN = 768
+
+#: Small text on these pages, the attribution included, is at least 12px: the
+#: floor RECONCILIATION section 1 records. The attribution shipped at 11px.
+ATTRIBUTION_TEXT_FLOOR = 12.0
+
+#: Widths the results row covers are measured at, one each side of the step.
+RESULTS_ARTWORK_WIDTHS = (390, 1280)
+
+#: Takes {kind: selector}; returns {kind: [computed radius in px, ...]}.
+ARTWORK_RADII_JS = """selectors => Object.fromEntries(
+    Object.entries(selectors).map(([kind, selector]) => [kind,
+        [...document.querySelectorAll(selector)].map(node =>
+            Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0)]))"""
+
+
+def expected_artwork_radius(width: int) -> float:
+    """The corner radius provider artwork must have at a window `width`."""
+    return 8.0 if width >= ARTWORK_RADIUS_STEP_MIN else 4.0
+
+
+def artwork_radius_failures(
+    radii: dict[str, list[float]], width: int, page_name: str
+) -> list[str]:
+    """Name every kind of artwork that is absent or has the wrong radius."""
+    wanted = expected_artwork_radius(width)
+    failures = []
+    for kind, values in radii.items():
+        if not values:
+            failures.append(f"{page_name} page at {width}px renders no {kind} artwork")
+            continue
+        wrong = sorted({value for value in values if abs(value - wanted) > 0.25})
+        if wrong:
+            failures.append(
+                f"{page_name} {kind} artwork at {width}px has corner radius "
+                f"{wrong!r}px, expected {wanted:.0f}px"
+            )
+    return failures
+
+
+def _results_artwork_failures(page) -> list[str]:
+    """Row cover corners at a phone and a desktop width; attribution size.
+
+    Restores the original viewport before returning.
+    """
+    failures = []
+    size = page.evaluate(
+        """() => Number.parseFloat(getComputedStyle(document.querySelector(
+            '#results-spotify-attribution .provider-attribution__text')).fontSize)"""
+    )
+    if size < ATTRIBUTION_TEXT_FLOOR:
+        failures.append(
+            f"results Spotify attribution text is {size}px, "
+            f"expected at least {ATTRIBUTION_TEXT_FLOOR:.0f}px"
+        )
+    original = page.viewport_size
+    try:
+        for width in RESULTS_ARTWORK_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            failures.extend(
+                artwork_radius_failures(
+                    page.evaluate(
+                        ARTWORK_RADII_JS, {"row cover": "#results-table tbody tr img"}
+                    ),
+                    width,
+                    "results",
+                )
+            )
+    finally:
+        page.set_viewport_size(original)
+    return failures
+
 
 def check_results_interactions(page, base_url: str) -> list[str]:
     """Exercise real controls with reversed ranks and markup-shaped metric text.
@@ -212,6 +289,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
             )
             for theme in ("light", "dark"):
                 failures.extend(_check_export_keeps_spotify_icon(probe, theme))
+            failures.extend(_results_artwork_failures(probe))
 
         with probe.expect_download() as downloaded:
             probe.locator("#export-csv").click()

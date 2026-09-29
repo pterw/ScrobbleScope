@@ -87,9 +87,10 @@ available run in the same browser session.
 - Open an album on Spotify from its title; a delayed tooltip explains the link.
 - Export CSV with the current ordering and full release dates, or save the
   complete leaderboard as a JPEG, including from a mobile viewport.
-- Open the Unmatched report to inspect available exclusion reasons, such as
-  release filters and missing Spotify matches. Albums dropped by the minimum
-  listening thresholds are not retained as a separate near-miss list.
+- Open the Unmatched report to see every album left out of your results, in
+  up to three groups: not enough listening, a release outside your filter, and
+  no match on Spotify or Deezer. Each album says why it was left out, and each
+  group names the change that would include its albums.
 
 ### Scrobble Heatmap
 

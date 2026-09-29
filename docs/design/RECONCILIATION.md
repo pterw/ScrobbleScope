@@ -698,3 +698,106 @@ results render, so the owner's ruling is that a corrected row stays in place,
 marked, and the list re-sorts only on reload. Sites:
 `docs/architecture/runtime-system.md` (the runtime view and the reason the
 pass runs late), `templates/results.html`, `static/js/results-release-checks.js`.
+
+---
+
+## 18. The unmatched report's rows and heading block, 2026-09-28
+
+Recorded in the same change as the code. On 2026-09-28 the owner asked for an
+audit of this page's presentation and delegated the changes: "judge it -- you
+should make changes as you see fit". Every item below is a judgement made
+under that delegation, not an owner ruling. Each names what reverts it.
+
+**Section 16's owner rulings all stand.** One panel column below 1280px and
+two from it, never three. The 4rem and 4.5rem cover. The accent on the
+threshold panel's fix line only. The 12px fix line and count label. The title
+"Not enough listening". The disclosure control of section 15. What changed is
+the table inside each panel, and the block above the panels.
+
+**How it was judged.** The page was rendered from a seeded job holding 33
+albums in three groups, at 390px, 768px, 1024px, 1280px, 1440px and 1920px, in
+both themes, and compared with the Results page at the same widths.
+
+**What was wrong, measured.**
+
+- At 390px the album title had 51px in the threshold panel and 67px in the
+  other two. "Butterfly" broke after the "l". A row was 185px high.
+- The reason column took 26% to 30% of the panel. On the threshold panel it
+  printed the same seventeen-word sentence on every row, in ten lines at
+  390px, restating both minimums the panel's own heading already states.
+- The artist portraits never appeared. See "The portrait" below.
+- The line under the headline and the filter bar under it stated the same
+  filter twice.
+- The Spotify attribution was a bordered card the full width of the page,
+  above three panels with the same border. Its text was 11px.
+- Two of three panel titles, and the headline, were in Title Case.
+- The metric header read "Plays / tracks" over a column that held plays only.
+
+**1. Three columns, not four.** Rank, album, metric. What is particular to a
+row is a line under the artist (`.unmatched-row-note`), in the mono face the
+page gives exact figures. The album title now has 144px to 160px at 390px and
+291px at 1280px; a row at 390px is 89px to 99px high. The design README's own
+card spec asked for rows of album and artist "with a mono note", so this is
+also closer to the snapshot than the table it replaces. Reverts by restoring
+the fourth `th` and `td` in `templates/unmatched.html` and their widths in
+`static/css/unmatched.css`.
+
+**2. The threshold row says how far it fell short.** "1 play short", "2
+tracks short", "3 plays and 1 track short". `describe_shortfall` in
+`scrobblescope/unmatched.py` writes it, and `partition_albums_by_threshold`
+stores it as `shortfall` beside the full `reason` sentence, which the JSON
+endpoint and the row's `title` still carry. A row without `shortfall` prints
+its `reason`. Reverts by printing `item.reason` in the template.
+
+**3. A row that only restates its panel says nothing.** Every "No match
+found" row carried "No match on Spotify or Deezer", which is the panel's
+description. Those rows have no note.
+
+**4. The metric header names what the column holds.** "Plays", and "Plays /
+tracks" on the threshold panel only. The two threshold figures stack, one to a
+line; the slash between them is still in the text and is hidden from view,
+because it wrapped onto a line of its own.
+
+**5. The heading block says each thing once.** The headline is sentence case,
+as the Results headline is. The line under it is the listening year and the
+count: "33 albums left out of your results". The bar under that is the
+filter: "Filter:", the release filter, and both minimums. The listening year
+and "Total unmatched" left the bar, because the line above now carries them.
+
+**6. The attribution is a line, not a card.** No border and no fill; the icon
+keeps its 12px of clear space. Its text is 0.75rem on this page and on the
+Results page, the 12px floor section 1 records; it shipped at 0.6875rem.
+
+**7. Panel copy is sentence case and names the control.** "Outside release
+filter" and "No match found". The description reads "Albums released outside
+your release filter", because the search form labels that control "Release
+filter"; it used to say "release-date scope", which the content rules forbid.
+Sites: `CATEGORY_METADATA` in `scrobblescope/unmatched.py`.
+
+**8. Artwork is shown whole, with Spotify's corners (F-B23-12).** One class,
+`.provider-artwork` in `static/css/results.css`, carries the corner radius,
+the fit and the surface behind it, for every cover, portrait and placeholder
+on the Results and unmatched pages. The radius is `--artwork-radius` on
+`.results-page`: 4px, and 8px from 768px. The spotlight's image box reads the
+same variable, so the two values are written once.
+
+**The portrait.** It is sized at its own proportions: the longer side fills
+the slot, the other follows the photo, and the rounded corner and hairline are
+on the photograph. `static/js/unmatched.js` marks the slot `wide` or `tall`
+when the photo loads.
+
+It had never loaded. The `<img>` was hidden and `loading="lazy"`, and a hidden
+lazy image is never fetched: the browser waits for it to come near the
+viewport, and an element with no box never does. Its `load` event is what
+revealed it. Measured in Chromium and in Firefox, with a portrait URL of its
+own, as in production: never loaded. The frontend gate passed because its
+fixture gave the portrait the same URL as the album covers already on the
+page, which Chromium serves from the document's own image list whatever
+`loading` says. The attribute is removed, and the gate's portrait now has a
+URL no other image uses. F-B23-14 is the record.
+
+**Reported to the owner, not changed.** Section 16 calls the 4rem and 4.5rem
+cover "the Results size". Results rows are 3rem and 3.5rem. The larger figures
+are `.album-cover-img` in `static/css/results.css`, a class no template uses.
+The ruling's numbers are explicit and the gate pins them, so they stand until
+the owner decides. F-B23-15 is the record.

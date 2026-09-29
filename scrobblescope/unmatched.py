@@ -22,18 +22,49 @@ CATEGORY_METADATA = {
         "fix_hint": "Lower either minimum on a new search to include these albums.",
     },
     REASON_RELEASE_SCOPE: {
-        "title": "Outside Release Filter",
-        "description": "Albums released outside your selected release-date scope.",
+        "title": "Outside release filter",
+        "description": "Albums released outside your release filter.",
         "badge": "Release date",
         "fix_hint": 'Choose "All years (no filter)" on a new search to include these releases.',
     },
     REASON_NO_SPOTIFY_MATCH: {
-        "title": "No Match Found",
+        "title": "No match found",
         "description": "Albums found in your Last.fm history that could not be matched on Spotify or Deezer.",
         "badge": "Not Found",
         "fix_hint": "Check album title formatting or artist naming on Last.fm.",
     },
 }
+
+
+def describe_shortfall(
+    play_count: int, track_count: int, min_plays: int, min_tracks: int
+) -> str:
+    """Say how far an album fell short of the listening minimums.
+
+    The unmatched report prints this on the album's own row, where the full
+    ``reason`` sentence would repeat both minimums on every row of a panel
+    whose heading already states them. Only the measures that fell short are
+    named, each with its exact gap: ``"1 play short"``, ``"2 tracks short"``,
+    ``"3 plays and 1 track short"``.
+
+    Args:
+        play_count: Plays the album received in the listening year.
+        track_count: Unique tracks played from the album.
+        min_plays: Inclusive minimum play count.
+        min_tracks: Inclusive minimum unique-track count.
+
+    Returns:
+        The shortfall phrase, or an empty string when the album met both
+        minimums and so has no shortfall to describe.
+    """
+    gaps = []
+    for gap, unit in (
+        (min_plays - play_count, "play"),
+        (min_tracks - track_count, "track"),
+    ):
+        if gap > 0:
+            gaps.append(f"{gap} {unit}" if gap == 1 else f"{gap} {unit}s")
+    return f"{' and '.join(gaps)} short" if gaps else ""
 
 
 def partition_albums_by_threshold(
@@ -87,6 +118,9 @@ def partition_albums_by_threshold(
             "reason": (
                 f"Played {play_count} times across {track_count} unique tracks; "
                 f"minimum is {min_plays} plays and {min_tracks} unique tracks"
+            ),
+            "shortfall": describe_shortfall(
+                play_count, track_count, min_plays, min_tracks
             ),
         }
 

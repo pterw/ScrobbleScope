@@ -26,6 +26,11 @@
     --text-3xl: calc(1.875rem * var(--results-scale));
     --text-4xl: calc(2.25rem * var(--results-scale));
     --text-5xl: calc(3rem * var(--results-scale));
+    /* Corner radius for provider artwork: Spotify asks for 4px on small and
+       medium screens and 8px on large ones. One value, read by
+       `.provider-artwork` and the spotlight's image box; it steps up once,
+       in the media query under `.provider-artwork`. */
+    --artwork-radius: 4px;
     width: 100%;
     max-width: 90rem;
 }
@@ -310,6 +315,26 @@
     }
 }
 
+/* Provider artwork: every album cover and artist photo on the results and
+   unmatched pages, and the placeholder that stands in for one. Spotify's
+   "Using our content" rules (F-B21-60, F-B23-12): never crop the artwork, and
+   round its corners 4px on small and medium screens, 8px on large ones.
+
+   `contain`, not `cover`: artwork that is not square is shown whole on the
+   surface token behind it, the same letterbox the spotlight uses. The size
+   stays with each page's own rule. */
+.provider-artwork {
+    border-radius: var(--artwork-radius);
+    object-fit: contain;
+    background-color: var(--results-surface);
+}
+
+@media (min-width: 768px) {
+    .results-page {
+        --artwork-radius: 8px;
+    }
+}
+
 /* The rail remains available after the document header scrolls away. */
 @media (min-width: 1024px) {
     .results-side-rail {
@@ -423,7 +448,7 @@
        (9rem). */
     width: calc(7rem * var(--results-scale));
     aspect-ratio: 1 / 1;
-    border-radius: 4px;
+    border-radius: var(--artwork-radius);
     overflow: hidden;
     background-color: var(--results-surface);
     border: 1px solid var(--ss-border-default);
@@ -465,7 +490,6 @@
 @media (min-width: 768px) {
     .spotlight-image-box {
         width: calc(9rem * var(--results-scale));
-        border-radius: 8px;
     }
 
     .spotlight-details {
@@ -509,7 +533,9 @@
 }
 
 /* One Spotify attribution for the whole results list, inside the export
-   wrapper. The padding and gap are the icon's 12px clear space. */
+   wrapper. The padding and gap are the icon's 12px clear space. The text is
+   0.75rem, the 12px floor docs/design/RECONCILIATION.md section 1 records for
+   small labels; it shipped at 0.6875rem, 11px. */
 .provider-attribution {
     display: flex;
     align-items: center;
@@ -517,17 +543,20 @@
     padding: 12px;
     border-bottom: 1px solid var(--ss-border-default);
     font-family: var(--font-mono-narrow);
-    font-size: calc(0.6875rem * var(--results-scale));
+    font-size: calc(0.75rem * var(--results-scale));
     letter-spacing: 0.03em;
     color: var(--ss-text-muted);
 }
 
-/* The unmatched report's page-level attribution stands alone, so it takes
-   the card treatment instead of a divider. */
+/* The unmatched report's page-level attribution is a line of the page's
+   heading block, not a panel. It shipped as a bordered card the full width of
+   the page, which read as a fourth reason group above the three real ones.
+   No border and no fill. The icon keeps its 12px of clear space above, below
+   and to the right; to its left is the page's own margin. */
 .provider-attribution--page {
-    border: 1px solid var(--ss-border-default);
-    border-radius: var(--radius-sm);
-    background-color: var(--results-surface);
+    padding: 12px 0;
+    border-bottom: 0;
+    margin-bottom: calc(0.5rem * var(--results-scale));
 }
 
 /* Micro-data filter bar: tucked left, text in mono-narrow, no bold, no pills */

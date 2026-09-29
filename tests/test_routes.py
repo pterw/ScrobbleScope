@@ -1027,10 +1027,9 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
-    assert b"Albums That Didn't Match Your Filter" in response.data
-    assert (
-        b"Outside Release Filter" in response.data or b"release_scope" in response.data
-    )
+    assert b"Albums that didn't match your filter" in response.data
+    assert b"Outside release filter" in response.data
+    assert b"No match found" in response.data
     assert b"Artist B" in response.data
     assert b"Artist C" in response.data
     assert b"Audit &amp; Discovery" not in response.data
@@ -1042,6 +1041,208 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
         < response.data.index(b'data-reason="release_scope"')
         < response.data.index(b'data-reason="no_spotify_match"')
     )
+
+
+def _unmatched_panel(html, reason_key):
+    """The markup of one reason panel, from its section to the next one."""
+    start = html.index(f'data-reason="{reason_key}"')
+    end = html.find("<section", start)
+    return html[start : end if end != -1 else len(html)]
+
+
+def _unmatched_row(html, album):
+    """The markup of the table row that names `album`."""
+    name = html.index(album)
+    start = html.rindex("<tr", 0, name)
+    return html[start : html.index("</tr>", name)]
+
+
+def _unmatched_row_note(row):
+    """The row note's text, or None when the row prints no note."""
+    match = re.search(
+        r'class="unmatched-row-note[^"]*"[^>]*>\s*(.*?)\s*</span>', row, re.S
+    )
+    return match.group(1) if match else None
+
+
+THRESHOLD_REASON = (
+    "Played 7 times across 2 unique tracks; minimum is 10 plays and 3 unique tracks"
+)
+
+
+def _seed_every_unmatched_reason(job_id):
+    """One row per note rule: shortfall, legacy threshold, release, no match."""
+    add_job_unmatched(
+        job_id,
+        "threshold|shortfall",
+        {
+            "artist": "Short Artist",
+            "album": "Shortfall Album",
+            "play_count": 8,
+            "track_count": 3,
+            "reason": (
+                "Played 8 times across 3 unique tracks; minimum is 10 plays and "
+                "3 unique tracks"
+            ),
+            "shortfall": "2 plays short",
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "threshold|legacy",
+        {
+            "artist": "Legacy Artist",
+            "album": "Legacy Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "reason": THRESHOLD_REASON,
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "release|album",
+        {
+            "artist": "Release Artist",
+            "album": "Release Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "nomatch|album",
+        {
+            "artist": "Nomatch Artist",
+            "album": "Nomatch Album",
+            "reason": "No match on Spotify or Deezer",
+            "reason_code": "no_spotify_match",
+        },
+    )
+
+
+def test_unmatched_view_row_note_says_what_is_particular_to_the_row(client):
+    """
+    GIVEN a threshold row with a shortfall, a legacy threshold row without one,
+          a release row and a no-match row
+    WHEN POST /unmatched_view is submitted
+    THEN the note is the shortfall, the reason, the reason, and absent, and
+         the shortfall note keeps the full sentence on its `title`.
+
+    The fourth "Reason detail" column is gone: its sentence repeated the
+    panel's heading on every row (docs/design/RECONCILIATION.md section 18).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    shortfall_row = _unmatched_row(html, "Shortfall Album")
+    assert _unmatched_row_note(shortfall_row) == "2 plays short"
+    assert 'title="Played 8 times across 3 unique tracks;' in shortfall_row
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Legacy Threshold Album"))
+        == THRESHOLD_REASON
+    )
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Release Album"))
+        == "Released in 2018 (filter requires 2024)"
+    )
+    assert _unmatched_row_note(_unmatched_row(html, "Nomatch Album")) is None
+    assert "Reason detail" not in html
+    assert "unmatched-reason-detail" not in html
+
+
+def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
+    """
+    GIVEN one album in each reason panel
+    WHEN POST /unmatched_view is submitted
+    THEN only the threshold panel's metric header says "Plays / tracks"; the
+         other panels hold a bare play count and say "Plays".
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    header = re.compile(r'<th scope="col"[^>]*text-right[^>]*>([^<]*)</th>')
+    assert header.findall(_unmatched_panel(html, "below_threshold")) == [
+        "Plays / tracks"
+    ]
+    for reason_key in ("release_scope", "no_spotify_match"):
+        assert header.findall(_unmatched_panel(html, reason_key)) == ["Plays"]
+    assert html.count("Plays / tracks") == 1
+
+
+@pytest.mark.parametrize(
+    ("albums", "expected"),
+    [
+        pytest.param(1, "2025 \u00b7 1 album left out of your results", id="singular"),
+        pytest.param(2, "2025 \u00b7 2 albums left out of your results", id="plural"),
+    ],
+)
+def test_unmatched_view_subtitle_counts_the_albums_left_out(client, albums, expected):
+    """
+    GIVEN a job with one or two unmatched albums
+    WHEN POST /unmatched_view is submitted
+    THEN the line under the headline is the year and the count, and the
+         filter bar states the filter once, with no "Listening year" and no
+         "Total unmatched" (both moved to the line above).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    for index in range(albums):
+        add_job_unmatched(
+            job_id,
+            f"artist|album-{index}",
+            {
+                "artist": f"Artist {index}",
+                "album": f"Album {index}",
+                "reason": "Released in 2018 (filter requires 2024)",
+                "reason_code": "release_scope",
+            },
+        )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
+    text = " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
+    assert text == expected
+    assert "Total unmatched" not in html
+    assert "Listening year" not in html
+    filter_bar = re.search(r'class="results-filter-bar">(.*?)</div>', html, re.S)
+    bar_text = " ".join(re.sub(r"<[^>]+>", "", filter_bar.group(1)).split())
+    assert bar_text.startswith("Filter: ")
+    assert bar_text.endswith("\u226510 plays \u00b7 \u22653 unique tracks")
+
+
+def test_unmatched_view_portrait_image_is_not_lazy(client):
+    """
+    GIVEN release and no-match rows with no album artwork
+    WHEN POST /unmatched_view is submitted
+    THEN each hidden portrait `<img>` carries no `loading` attribute.
+
+    A hidden lazy image is never fetched, so the `load` event that reveals it
+    never fired and the portrait never appeared (F-B23-14). unmatched.js
+    already defers the request until the row nears the viewport.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    # The release and no-match rows have no album artwork, so both get a slot.
+    portraits = re.findall(r"<img[^>]*unmatched-artist-image[^>]*>", html)
+    assert len(portraits) == 2
+    assert [tag for tag in portraits if "loading" in tag] == []
 
 
 def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):

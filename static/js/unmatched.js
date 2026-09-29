@@ -52,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
             image.alt = `${artistName} artist portrait`;
             image.style.display = 'block';
             fallback.style.display = 'none';
+            // The photo is shown whole at its own proportions: its longer
+            // side fills the slot (unmatched.css reads this attribute).
+            artwork.dataset.portrait =
+                image.naturalWidth >= image.naturalHeight ? 'wide' : 'tall';
         }, { once: true });
         image.src = imageUrl;
     }

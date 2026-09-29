@@ -3,13 +3,23 @@
 A slice of the frontend gate (F-B21-51). The sweep exists because none of the
 gate's viewport profiles lands between 1024px and the two-panel breakpoint,
 which is how a 20-36px album title shipped at 1024px (owner ruling
-2026-09-13).
+2026-09-13). It also covers two phone widths, where a fourth column once left
+the title 51px.
+
+The artist portraits are checked as loaded, shown whole and in their slots,
+from URLs of their own: the check once passed while no portrait could ever
+load (F-B23-14).
 """
 
 from __future__ import annotations
 
 import json
+from urllib.parse import parse_qs, urlparse
 
+from scripts.dev._frontend_gate_results import (
+    ARTWORK_RADII_JS,
+    artwork_radius_failures,
+)
 from scrobblescope.repositories import add_job_unmatched, create_job, delete_job
 
 #: Narrowest window at which two unmatched panels share a row. Below it each
@@ -17,20 +27,61 @@ from scrobblescope.repositories import add_job_unmatched, create_job, delete_job
 #: left the album title 20-36px beside a Results-sized cover.
 UNMATCHED_TWO_PANEL_MIN = 1280
 
-#: Widths either side of the two-panel breakpoint, and the old breakpoint. None
-#: of the gate's profiles lands here, which is how the 1024px defect shipped.
-UNMATCHED_SWEEP_WIDTHS = (1024, UNMATCHED_TWO_PANEL_MIN - 1, UNMATCHED_TWO_PANEL_MIN)
+#: Two phone widths, then either side of the two-panel breakpoint and the old
+#: breakpoint. None of the gate's profiles lands between 1024px and 1280px,
+#: which is how the 1024px defect shipped; 320px is narrower than any profile.
+UNMATCHED_SWEEP_WIDTHS = (
+    320,
+    390,
+    1024,
+    UNMATCHED_TWO_PANEL_MIN - 1,
+    UNMATCHED_TWO_PANEL_MIN,
+)
 
 #: Least width an album title may get beside its cover. At 1280px two panels
-#: give 103-119px; the defect gave 20-36px.
+#: gave 103-119px with four columns and give 291px with three; the defect
+#: gave 20-36px.
 UNMATCHED_MIN_TITLE_WIDTH = 96
+
+#: Phone floors for the album title, which override the one above. A fourth
+#: "Reason detail" column took 26-30% of the panel and left the title 51px at
+#: 390px; three columns give it 144-160px there (RECONCILIATION section 18).
+UNMATCHED_PHONE_TITLE_FLOORS = {320: 70, 390: 140}
+
+#: The two portraits the report's fixture serves. Each has a URL no other
+#: image on the page uses: Chromium serves an image whose URL is already in
+#: the document's image list whatever `loading` says, so a portrait that
+#: shared the covers' URL loaded even while `loading="lazy"` kept every real
+#: portrait from ever loading (F-B23-14). Neither is square, so a portrait
+#: forced into the square slot changes its proportions.
+UNMATCHED_PORTRAITS = {
+    "Wide Portrait Artist": (
+        "wide",
+        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' "
+        "height='200'><rect width='300' height='200' fill='%23c43'/></svg>",
+    ),
+    "Tall Portrait Artist": (
+        "tall",
+        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' "
+        "height='300'><rect width='200' height='300' fill='%2334c'/></svg>",
+    ),
+}
+
+#: Least computed size, in px, of the row note and the attribution text: the
+#: 12px floor RECONCILIATION section 1 records for small labels.
+UNMATCHED_SMALL_TEXT_FLOOR = 12.0
+
+#: How long the portraits get to load once their rows are in view.
+_PORTRAIT_WAIT_MS = 5000
 
 
 def _unmatched_panel_width_sweep(page) -> list[str]:
-    """Resize across the two-panel breakpoint and check the album title's room.
+    """Resize across the phone widths and the two-panel breakpoint.
 
-    Restores the original viewport before returning, so later checks on the
-    same page are unaffected.
+    At each width: the panel column count, the album title's room, and the
+    corner radius of every cover, placeholder and portrait. Restores the
+    original viewport before returning, so later checks on the same page are
+    unaffected.
     """
     failures = []
     original = page.viewport_size
@@ -55,14 +106,241 @@ def _unmatched_panel_width_sweep(page) -> list[str]:
                     f"unmatched report at {width}px has {sweep['columns']} panel "
                     f"columns, expected {expected_columns}"
                 )
+            floor = UNMATCHED_PHONE_TITLE_FLOORS.get(width, UNMATCHED_MIN_TITLE_WIDTH)
             narrowest = min(sweep["titles"])
-            if narrowest < UNMATCHED_MIN_TITLE_WIDTH:
+            if narrowest < floor:
                 failures.append(
                     f"unmatched album title at {width}px is {narrowest:.0f}px wide, "
-                    f"expected at least {UNMATCHED_MIN_TITLE_WIDTH}px"
+                    f"expected at least {floor}px"
                 )
+            failures.extend(
+                artwork_radius_failures(
+                    page.evaluate(ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
+                    width,
+                    "unmatched",
+                )
+            )
     finally:
         page.set_viewport_size(original)
+    return failures
+
+
+#: Every kind of provider artwork on the unmatched page, by kind. Each kind
+#: must be present, so a selector that stops matching cannot pass vacuously.
+_UNMATCHED_ARTWORK_SELECTORS = {
+    "cover": "img.unmatched-artwork",
+    "placeholder": "div.unmatched-artwork:not([data-artist-image])",
+    "portrait": ".unmatched-artist-image",
+}
+
+
+def _portrait_failures(page, spotlight_requests: list[str]) -> list[str]:
+    """Both portraits load, show whole at their own proportions, in their slots.
+
+    The portrait `<img>` starts hidden, and its `load` event is what reveals
+    it. It shipped `loading="lazy"`: a hidden lazy image is never fetched, so
+    no portrait ever appeared, and this check passed only because its fixture
+    reused the covers' URL (F-B23-14).
+    """
+    failures = []
+    slots = page.locator('[data-reason="no_spotify_match"] [data-artist-image]')
+    for index in range(slots.count()):
+        slots.nth(index).scroll_into_view_if_needed()
+    page.evaluate(
+        """timeout => new Promise(resolve => {
+            const deadline = performance.now() + timeout;
+            const tick = () => {
+                const slots = [...document.querySelectorAll(
+                    '[data-reason="no_spotify_match"] [data-artist-image]')];
+                if (slots.every(slot => slot.dataset.portrait)
+                        || performance.now() > deadline) {
+                    resolve();
+                } else {
+                    setTimeout(tick, 50);
+                }
+            };
+            tick();
+        })""",
+        _PORTRAIT_WAIT_MS,
+    )
+    portraits = slots.evaluate_all(
+        """slots => slots.map(slot => {
+            const image = slot.querySelector('.unmatched-artist-image');
+            const style = getComputedStyle(image);
+            const box = image.getBoundingClientRect();
+            const frame = slot.getBoundingClientRect();
+            const px = side => Number.parseFloat(style[side]) || 0;
+            return {
+                artist: slot.dataset.artistName,
+                portrait: slot.dataset.portrait ?? null,
+                alt: image.alt,
+                naturalWidth: image.naturalWidth,
+                naturalHeight: image.naturalHeight,
+                display: style.display,
+                fallbackDisplay: getComputedStyle(
+                    slot.querySelector('.unmatched-artwork-fallback')).display,
+                width: box.width,
+                height: box.height,
+                // The drawn picture is the content box: the image carries a
+                // 1px hairline, which is not part of the photograph.
+                contentWidth: box.width - px('borderLeftWidth') - px('borderRightWidth')
+                    - px('paddingLeft') - px('paddingRight'),
+                contentHeight: box.height - px('borderTopWidth') - px('borderBottomWidth')
+                    - px('paddingTop') - px('paddingBottom'),
+                inside: box.left >= frame.left - 0.5 && box.right <= frame.right + 0.5
+                    && box.top >= frame.top - 0.5 && box.bottom <= frame.bottom + 0.5,
+            };
+        })"""
+    )
+    seen = {portrait["artist"] for portrait in portraits}
+    if seen != set(UNMATCHED_PORTRAITS):
+        failures.append(
+            f"unmatched report portrait slots are {sorted(seen)!r}, "
+            f"expected {sorted(UNMATCHED_PORTRAITS)!r}"
+        )
+    for portrait in portraits:
+        artist = portrait["artist"]
+        if artist not in UNMATCHED_PORTRAITS:
+            continue
+        shape, _ = UNMATCHED_PORTRAITS[artist]
+        if portrait["naturalWidth"] <= 0:
+            failures.append(
+                f"unmatched portrait for {artist!r} never loaded "
+                f"(naturalWidth 0, display {portrait['display']!r})"
+            )
+            continue
+        shown = (
+            portrait["display"] != "none"
+            and portrait["width"] > 0
+            and portrait["height"] > 0
+            and portrait["fallbackDisplay"] == "none"
+            and portrait["alt"] == f"{artist} artist portrait"
+        )
+        if not shown:
+            failures.append(
+                f"unmatched portrait for {artist!r} loaded but is not shown: {portrait!r}"
+            )
+            continue
+        natural = portrait["naturalWidth"] / portrait["naturalHeight"]
+        drawn = portrait["contentWidth"] / max(portrait["contentHeight"], 0.01)
+        if abs(drawn - natural) > 0.03 * natural:
+            failures.append(
+                f"unmatched portrait for {artist!r} is drawn "
+                f"{portrait['contentWidth']:.1f}x{portrait['contentHeight']:.1f}px "
+                f"from a {portrait['naturalWidth']}x{portrait['naturalHeight']} photo; "
+                "expected its own proportions"
+            )
+        if not portrait["inside"]:
+            failures.append(
+                f"unmatched portrait for {artist!r} spills out of its slot: "
+                f"{portrait['width']:.1f}x{portrait['height']:.1f}px"
+            )
+        if portrait["portrait"] != shape:
+            failures.append(
+                f"unmatched portrait slot for {artist!r} is marked "
+                f"{portrait['portrait']!r}, expected {shape!r}"
+            )
+
+    requested = sorted(
+        parse_qs(urlparse(url).query).get("artist", [""])[0]
+        for url in spotlight_requests
+    )
+    if requested != sorted(UNMATCHED_PORTRAITS):
+        failures.append(
+            "unmatched report did not hydrate each missing artwork once through "
+            f"/api/artist_spotlight: {requested!r}"
+        )
+    return failures
+
+
+def _row_layout_failures(page) -> list[str]:
+    """The row note, the stacked threshold figures, and the attribution text.
+
+    The fourth "Reason detail" column is gone (RECONCILIATION section 18): what
+    is particular to a row is a note under its artist, and a no-match row,
+    whose reason only restates its panel, has none.
+    """
+    failures = []
+    layout = page.evaluate(
+        """() => {
+            const firstRow = reason => document.querySelector(
+                `[data-reason="${reason}"] tbody tr`);
+            const note = row => {
+                const node = row?.querySelector('.unmatched-row-note');
+                if (!node) return null;
+                const box = node.getBoundingClientRect();
+                const artist = node.previousElementSibling;
+                return {
+                    text: node.textContent.replaceAll(/\\s+/g, ' ').trim(),
+                    size: Number.parseFloat(getComputedStyle(node).fontSize),
+                    height: box.height,
+                    underArtist: !!artist && artist.classList.contains('truncate')
+                        && box.top >= artist.getBoundingClientRect().bottom - 0.5,
+                };
+            };
+            const figures = [...document.querySelectorAll(
+                '[data-reason="below_threshold"] .unmatched-threshold')]
+                .map(node => node.getBoundingClientRect());
+            const separator = document.querySelector(
+                '[data-reason="below_threshold"] .unmatched-threshold-sep');
+            const attribution = document.querySelector(
+                '#unmatched-spotify-attribution .provider-attribution__text');
+            return {
+                threshold: note(firstRow('below_threshold')),
+                release: note(firstRow('release_scope')),
+                noMatchNotes: document.querySelectorAll(
+                    '[data-reason="no_spotify_match"] .unmatched-row-note').length,
+                figures: figures.map(box => ({top: box.top, bottom: box.bottom})),
+                separatorWidth: separator ? separator.getBoundingClientRect().width : null,
+                attributionSize: attribution
+                    ? Number.parseFloat(getComputedStyle(attribution).fontSize) : null,
+            };
+        }"""
+    )
+    for panel, wanted in (
+        ("threshold", "3 plays and 1 track short"),
+        ("release", "Outside selected release scope"),
+    ):
+        note = layout[panel]
+        if note is None:
+            failures.append(f"unmatched {panel} row prints no row note")
+            continue
+        if note["text"] != wanted:
+            failures.append(
+                f"unmatched {panel} row note is {note['text']!r}, expected {wanted!r}"
+            )
+        if note["size"] < UNMATCHED_SMALL_TEXT_FLOOR or note["height"] <= 0:
+            failures.append(
+                f"unmatched {panel} row note is {note['size']}px and "
+                f"{note['height']:.1f}px high; expected visible and at least "
+                f"{UNMATCHED_SMALL_TEXT_FLOOR:.0f}px"
+            )
+        if not note["underArtist"]:
+            failures.append(f"unmatched {panel} row note is not under the artist")
+    if layout["noMatchNotes"]:
+        failures.append(
+            f"unmatched no-match panel prints {layout['noMatchNotes']} row notes; "
+            "its reason only restates the panel"
+        )
+
+    figures = layout["figures"]
+    if len(figures) != 2 or figures[1]["top"] < figures[0]["bottom"] - 0.5:
+        failures.append(
+            f"unmatched threshold figures do not stack one to a line: {figures!r}"
+        )
+    if layout["separatorWidth"] is None or layout["separatorWidth"] > 1:
+        failures.append(
+            "unmatched threshold separator is "
+            f"{layout['separatorWidth']!r}px wide, expected hidden (at most 1px)"
+        )
+    if (
+        layout["attributionSize"] is None
+        or layout["attributionSize"] < UNMATCHED_SMALL_TEXT_FLOOR
+    ):
+        failures.append(
+            f"unmatched Spotify attribution text is {layout['attributionSize']!r}px, "
+            f"expected at least {UNMATCHED_SMALL_TEXT_FLOOR:.0f}px"
+        )
     return failures
 
 
@@ -84,18 +362,18 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
     spotlight_requests = []
 
     def fulfill_spotlight(route):
-        """Return deterministic portrait data without contacting Spotify."""
+        """Return each artist's own portrait without contacting Spotify."""
         spotlight_requests.append(route.request.url)
+        artist = parse_qs(urlparse(route.request.url).query).get("artist", [""])[0]
+        _, image_url = UNMATCHED_PORTRAITS.get(artist, (None, None))
         route.fulfill(
             status=200,
             content_type="application/json",
             body=json.dumps(
                 {
-                    "name": "Missing Spotify Artist",
-                    "artist_id": "artist-1",
-                    "image_url": (
-                        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>"
-                    ),
+                    "name": artist,
+                    "artist_id": f"artist-{len(spotlight_requests)}",
+                    "image_url": image_url,
                     "spotify_url": "https://open.spotify.com/artist/artist-1",
                 }
             ),
@@ -115,6 +393,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "and 3 unique tracks"
                 ),
                 "reason_code": "below_threshold",
+                "shortfall": "3 plays and 1 track short",
                 "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
                 "spotify_id": None,
                 "play_count": 7,
@@ -141,19 +420,20 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "play_count": play_counts[index - 1],
                 },
             )
-        add_job_unmatched(
-            job_id,
-            "missing-spotify",
-            {
-                "album": "Missing Spotify Album",
-                "artist": "Missing Spotify Artist",
-                "reason": "No Spotify match",
-                "reason_code": "no_spotify_match",
-                "album_image": None,
-                "spotify_id": None,
-                "play_count": 7,
-            },
-        )
+        for index, artist in enumerate(UNMATCHED_PORTRAITS):
+            add_job_unmatched(
+                job_id,
+                f"missing-spotify-{index}",
+                {
+                    "album": f"Missing Spotify Album {index}",
+                    "artist": artist,
+                    "reason": "No match on Spotify or Deezer",
+                    "reason_code": "no_spotify_match",
+                    "album_image": None,
+                    "spotify_id": None,
+                    "play_count": 7 - index,
+                },
+            )
 
         page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
         groups = page.locator(".unmatched-group")
@@ -308,13 +588,14 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     f"expected {expected_pad:.2f}px"
                 )
 
-        # Column budget. Lost widths fall back to four equal columns under
+        # Column budget. Lost widths fall back to equal columns under
         # `table-layout: fixed` and truncate silently, so assert the shape: the
-        # album column leads and has room for a cover plus a title.
+        # album column leads and has room for a cover plus a title. Three
+        # columns: the fourth, "Reason detail", is now the row note.
         th_widths = state["thWidths"]
-        if len(th_widths) != 4:
+        if len(th_widths) != 3:
             failures.append(
-                f"unmatched table has {len(th_widths)} header cells, expected 4"
+                f"unmatched table has {len(th_widths)} header cells, expected 3"
             )
         else:
             if max(th_widths) - min(th_widths) < 1:
@@ -393,35 +674,17 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         if state["unsupportedWeights"]:
             failures.append("unmatched report renders unsupported 500/600 font weights")
 
-        unmatched_portrait = page.locator(
-            '[data-reason="no_spotify_match"] [data-artist-image]'
-        )
-        unmatched_portrait.scroll_into_view_if_needed()
-        artist_image = unmatched_portrait.locator(".unmatched-artist-image")
-        artist_image.wait_for(state="visible")
-        portrait_state = unmatched_portrait.evaluate(
-            """node => ({
-                alt: node.querySelector('.unmatched-artist-image')?.alt,
-                imageDisplay: getComputedStyle(node.querySelector('.unmatched-artist-image')).display,
-                fallbackDisplay: getComputedStyle(node.querySelector('.unmatched-artwork-fallback')).display,
-            })"""
-        )
-        if portrait_state != {
-            "alt": "Missing Spotify Artist artist portrait",
-            "imageDisplay": "block",
-            "fallbackDisplay": "none",
-        }:
-            failures.append(
-                "unmatched report artist portrait fallback is incorrect: "
-                f"{portrait_state!r}"
+        failures.extend(_row_layout_failures(page))
+        failures.extend(_portrait_failures(page, spotlight_requests))
+        # After the portraits load, so the portrait image is measured with
+        # its slot marked, as a reader sees it.
+        failures.extend(
+            artwork_radius_failures(
+                page.evaluate(ARTWORK_RADII_JS, _UNMATCHED_ARTWORK_SELECTORS),
+                width,
+                "unmatched",
             )
-        if len(spotlight_requests) != 1 or "Missing%20Spotify%20Artist" not in (
-            spotlight_requests[0] if spotlight_requests else ""
-        ):
-            failures.append(
-                "unmatched report did not hydrate missing artwork once through "
-                "/api/artist_spotlight"
-            )
+        )
 
         button = scope_group.locator(".unmatched-expander-btn")
         button.click()

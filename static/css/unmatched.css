@@ -22,11 +22,13 @@
    Side-by-side is unchanged; what moved is how many panels share a row.
 
    Why 1280px and not 1024px (owner ruling, 2026-09-13): each of two panels is
-   about 453px wide at 1024px. The four-column table then leaves the album
-   column 140-156px, and the Results-sized cover takes most of it -- the title
-   measured 20-36px and broke into columns of two or three letters. At 1280px
-   the title gets 103-119px. The frontend gate sweeps 1024px, 1279px and 1280px
-   because none of its profiles lands between them. */
+   about 453px wide at 1024px. The four-column table of the time left the
+   album column 140-156px, and the Results-sized cover took most of it -- the
+   title measured 20-36px and broke into columns of two or three letters. At
+   1280px that table gave the title 103-119px; the three-column table gives it
+   291px (docs/design/RECONCILIATION.md section 18). The frontend gate sweeps
+   1024px, 1279px and 1280px because none of its profiles lands between them,
+   and 320px and 390px for the phone. */
 .unmatched-groups {
     grid-template-columns: minmax(0, 1fr);
 }
@@ -102,30 +104,29 @@
     overflow: hidden;
 }
 
-/* The four-column budget. `table-layout: fixed` honours authored widths and
-   splits the remainder equally between the columns that declare none, so the
-   album column takes everything the other three do not.
+/* The three-column budget: rank, album, metric. `table-layout: fixed` honours
+   authored widths and gives the rest to the column that declares none, so the
+   album column takes everything the other two do not.
 
-   These were authored as `w-10 / w-24 md:w-28 / w-28 md:w-32` colgroup utilities.
-   Every one of them compiles to nothing under the theme's spacing reset, and a
-   fixed table with no declared width falls back to four equal columns -- which is
-   what shipped. Arbitrary calc() values are used instead because they bypass the
-   spacing ladder, which is how results.css already writes its own widths.
+   These were authored as `w-10 / w-24 md:w-28` utilities. Every one of them
+   compiles to nothing under the theme's spacing reset, and a fixed table with
+   no declared width falls back to equal columns -- which is what shipped.
+   Arbitrary calc() values are used instead because they bypass the spacing
+   ladder, which is how results.css already writes its own widths. They scale
+   with --results-scale so the whole composition grows together.
 
-   Widths are narrower than the Results table's because a reason panel is narrower
-   than the full leaderboard column. They scale with --results-scale so the whole
-   composition grows together.
+   There is no reason column. It took 26-30% of the panel to print one
+   sentence per row, and the sentence mostly repeated the panel's own heading.
+   Measured at 390px it left the album title 51px, so "Butterfly" broke after
+   the "l", beside a ten-line tower of grey type. What is particular to a row
+   is now `.unmatched-row-note`, under the artist.
 
-   The reason column takes a share of the panel rather than a fixed width. It
-   holds a sentence, not the `YYYY-MM` the Results table puts in the same slot:
-   the 4.25rem budget this table used to borrow from results.css below 768px
-   broke "selected" into letters, and a fixed width that reads well in a 686px
-   panel wraps it into a tower in a 453px one. The album column takes whatever
-   the other three leave.
-
-   The threshold panel's metric reads "N plays / M tracks" rather than a bare
-   count, so it gets a wider metric column. It was ellipsized to "7 plays ..."
-   -- hiding the only numbers on the page a reader can act on.
+   The threshold panel's metric holds "N plays" and "M tracks" rather than a
+   bare count. Below 768px that is wider than the 3.75rem a count needs, so
+   the panel gets its own width there; it was ellipsized to "7 plays ..." --
+   hiding the only numbers on the page a reader can act on. From 768px one
+   width holds either, so the metric edge lines up across panels that sit
+   side by side.
 
    The rank column matches the Results width, not a narrower one. The rank is a
    padded `.rank-link` pill about 30px wide, and these cells clip, so a narrower
@@ -140,22 +141,14 @@
     width: 3.75rem;
 }
 
-.unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
-.unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
-    width: 4.75rem;
-}
-
-.unmatched-table th:nth-child(4),
-.unmatched-table td:nth-child(4) {
-    width: 26%;
+@media (max-width: 767.98px) {
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
+        width: 4.75rem;
+    }
 }
 
 @media (min-width: 768px) {
-    .unmatched-table th:nth-child(4),
-    .unmatched-table td:nth-child(4) {
-        width: 30%;
-    }
-
     .unmatched-table th:nth-child(1),
     .unmatched-table td:nth-child(1) {
         width: calc(3.5rem * var(--results-scale, 1));
@@ -165,17 +158,11 @@
     .unmatched-table td:nth-child(3) {
         width: calc(6.5rem * var(--results-scale, 1));
     }
-
-    .unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
-    .unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
-        width: calc(7.5rem * var(--results-scale, 1));
-    }
 }
 
-/* Headers and the threshold metric wrap between words instead of clipping.
-   Cells keep `overflow: hidden` as containment, so anything that does not wrap
-   is silently cut: the metric header rendered as "PLAYS / TRA". Each half of
-   "N plays / M tracks" stays whole, so it breaks only at the slash. */
+/* Headers wrap between words instead of clipping. Cells keep
+   `overflow: hidden` as containment, so anything that does not wrap is
+   silently cut: the metric header rendered as "PLAYS / TRA". */
 .unmatched-table th {
     white-space: normal;
     overflow-wrap: break-word;
@@ -185,17 +172,23 @@
     white-space: normal;
 }
 
+/* "N plays" over "M tracks", one figure to a line. Side by side they never
+   fitted the column at any width, so the slash between them wrapped: to the
+   end of the first line on a desktop, onto a line of its own on a phone. */
 .unmatched-threshold {
+    display: block;
     white-space: nowrap;
 }
 
-/* The filter summary shares the Results micro-data bar, which packs its items to
-   the start. Here it also carries the total, which then ran straight on from the
-   last filter value ("unique tracks Total unmatched: 14"). Pushing the total to
-   the far edge separates the two kinds of information; on a narrow screen the
-   row wraps and the total takes its own line. */
-.unmatched-summary {
-    justify-content: space-between;
+/* Hidden from view, kept in the text: the 1px clip is the standard
+   visually-hidden pattern docs/agents/ui-accessibility.md item 1 names. */
+.unmatched-threshold-sep {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
 
 .unmatched-group {
@@ -229,13 +222,15 @@
     overflow-wrap: anywhere;
 }
 
-/* The reason detail is the sentence that explains the exclusion, so it wraps
-   rather than truncates. A side-by-side panel is narrower than a full-width
-   row, and an ellipsis here would hide exactly the text the reader came for.
-   `anywhere` stops a long unbroken token from widening the panel. */
-.unmatched-reason-detail {
+/* The row note says why this album was left out, so it wraps rather than
+   truncates: an ellipsis here would hide exactly the text the reader came for.
+   `anywhere` stops a long unbroken token from widening the panel. It is the
+   third line of the album cell, in the mono face the page gives exact figures,
+   so it reads apart from the artist above it without a second colour. */
+.unmatched-row-note {
     white-space: normal;
     overflow-wrap: anywhere;
+    line-height: 1.35;
 }
 
 /* The album title wraps for the same reason, and the fixed column bounds it. */
@@ -244,12 +239,23 @@
     overflow-wrap: anywhere;
 }
 
-/* The cover matches the Results row: 4rem below 768px and 4.5rem above it, both
-   scaled by --results-scale (owner ruling, 2026-09-13). It mirrors
-   `.album-cover-img` in results.css rather than sharing that class, because
-   the fallback markup here is a container, not an image. Authored here because
-   the Tailwind theme disables dynamic spacing, so w-16/h-16 utilities would emit
-   no rule. The frontend gate pins both sizes. */
+/* A title that takes two lines splits them evenly, so "vol. 3" does not leave
+   the "3" on a line of its own. An engine without `balance` wraps as before. */
+.unmatched-table .album-link,
+.unmatched-table .album-info > span:first-child {
+    text-wrap: balance;
+}
+
+/* The cover is 4rem below 768px and 4.5rem above it, both scaled by
+   --results-scale (owner ruling, 2026-09-13). It mirrors `.album-cover-img` in
+   results.css rather than sharing that class, because the fallback markup here
+   is a container, not an image. Authored here because the Tailwind theme
+   disables dynamic spacing, so w-16/h-16 utilities would emit no rule. The
+   frontend gate pins both sizes.
+
+   Size only. The corner radius, the fit and the letterbox surface belong to
+   `.provider-artwork` in results.css, which every cover and portrait on both
+   pages carries. */
 .unmatched-artwork {
     width: calc(4rem * var(--results-scale));
     height: calc(4rem * var(--results-scale));
@@ -257,9 +263,7 @@
     min-height: calc(4rem * var(--results-scale));
     max-width: calc(4rem * var(--results-scale));
     max-height: calc(4rem * var(--results-scale));
-    border-radius: var(--radius-xs);
     aspect-ratio: 1 / 1;
-    object-fit: cover;
     flex-shrink: 0;
 }
 
@@ -274,14 +278,45 @@
     }
 }
 
-.unmatched-artist-image,
 .unmatched-artwork-fallback {
     width: 100%;
     height: 100%;
 }
 
-.unmatched-artist-image {
-    object-fit: cover;
+/* The artist portrait is shown whole, at its own proportions (F-B23-12). It
+   shipped as `object-fit: cover`, which cut a photo that is not square down to
+   the square slot.
+
+   The image is sized, not fitted: the longer side fills the slot and the
+   other follows the photo's ratio, centred. So the rounded corner and the
+   hairline belong to the photograph itself, which is what Spotify's corner
+   rule asks for; `object-fit: contain` would round an empty box around it.
+   Once the photo is in, the slot's own border and fill step aside.
+
+   unmatched.js reads the loaded photo's proportions and marks the slot
+   `data-portrait="wide"` or `"tall"`. One side is then a plain 100% and the
+   other `auto`, which every engine resolves from the ratio. Capping both
+   sides with max-width and max-height instead left a tall photo 72px wide
+   and 90px high, cut off by the slot. */
+.unmatched-artwork[data-artist-image] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.unmatched-artwork[data-portrait] {
+    border-color: transparent;
+    background-color: transparent;
+}
+
+.unmatched-artwork[data-portrait="wide"] .unmatched-artist-image {
+    width: 100%;
+    height: auto;
+}
+
+.unmatched-artwork[data-portrait="tall"] .unmatched-artist-image {
+    width: auto;
+    height: 100%;
 }
 
 @media (any-pointer: coarse) {

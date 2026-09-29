@@ -1625,9 +1625,6 @@
       --btn-shadow: 0 0 0 0 oklch(0% 0 0/0);
     }
   }
-  .object-cover {
-    object-fit: cover;
-  }
   .p-1 {
     padding: var(--spacing-1);
   }

@@ -120,6 +120,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
+
+Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The table loses its fourth "Reason detail" column. A row's note sits under the artist instead:
+the shortfall on a threshold row ("3 plays and 1 track short", new `describe_shortfall`), the
+reason on a release row, and nothing on a no-match row. At 390px the album title has 144-160px
+(it had 51-67px). Headline, panel titles and buttons are sentence case. The subtitle gives the
+year and the count, and the attribution is a plain line with 12px text on both pages
+(RECONCILIATION section 18). F-B23-12: every cover, portrait and placeholder uses
+`.provider-artwork`, so artwork is never cropped and corners are 4px, or 8px from 768px.
+F-B23-14: the portrait had never loaded, because it was hidden and `loading="lazy"`. The
+attribute is gone. The gate's wide and tall portraits now have URLs of their own and must load
+whole, inside their slot. F-B23-15 is open for the owner. Edited tests:
+test_group_unmatched_albums_groups_by_reason_code,
+test_unmatched_view_success_renders_grouped_reasons.
+Validation: `pytest -q` -- **2073 passed**.
+
 ### 2026-09-28 - Drop the spotlight's unreachable guards
 
 Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -159,21 +176,3 @@ the same file. New frontend-gate check "spotlight spotify icon size and link
 target", and a JPEG-icon step in "results provider attribution". Edited test:
 test_results_complete_links_each_row_to_its_own_provider.
 Validation: `pytest -q` -- **2050 passed**.
-
-### 2026-09-28 - Heatmap arrow keys follow the layout; document listeners attach once
-
-Side task, no batch tag: the 2026-09-28 /code-review's findings 2 and 4 on the heatmap grid,
-part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Arrow keys now move spatially: desktop (one column per week) Left/Right -/+7 days, Up/Down -/+1;
-mobile strip (row-major) Left/Right -/+1, Up/Down -/+columns; at an edge focus stays put
-(`arrowKeyTarget`, on the guarded test seam). Finding 4: only the tooltip's anonymous
-capture-phase `scroll` listener on `document` piled up across renders (each held its render's
-cellData and detached SVG); the `touchend` listener used one stable function reference, so the
-DOM already de-duplicated it and never piled up. Both are now attached once per page and read
-the current render's cells, closing the remaining `scroll` accumulation. Harness: step cases
-per layout, arrow and edge. Gate: the keyboard check probes all four arrows against the
-rendered geometry; new check `heatmap document listeners attach once`. Mutation/live-probe
-evidence in the task report.
-
-Validation: `pytest -q` -- **2032 passed**.

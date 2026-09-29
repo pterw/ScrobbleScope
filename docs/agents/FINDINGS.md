@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2055 tests across 79 tracked test modules.
+2073 tests across 79 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -142,27 +142,6 @@ Deezer's rules. More than a 20-line change.
 Status: open (P1). Filed 2026-09-28, not in the Part C set (filed after
 F-B21-60 was fixed); owner to schedule. Source: F-B21-60 "To check", Task 1
 of the 2026-09-28 review workspace.
-
-### F-B23-12: remaining Spotify artwork display breaches outside the spotlight
-
-Two more breaches of Spotify's "Using our content" guidelines, in the same
-class as F-B21-60 part 1:
-
-(a) **Crop.** The unmatched report crops Spotify artist portraits:
-`.unmatched-artist-image { object-fit: cover }` in `static/css/unmatched.css`
-crops the non-square photos fetched from `/api/artist_spotlight`
-(`static/js/unmatched.js`). This breaks "Don't crop the artwork" the same
-way F-B21-60's spotlight did.
-
-(b) **Corner radius.** Row artwork uses 8px corners at every width, where
-Spotify asks for 4px on small and medium devices.
-
-Fix shape: `contain` on a surface-token letterbox for the unmatched
-portraits, 4px/8px corners applied per breakpoint for row artwork, and a
-gate check like `check_artist_spotlight_photo_not_cropped_when_non_square`.
-
-Status: open (P1), filed 2026-09-28. Source: Task 1 review, 2026-09-28; the
-controller is fixing it next in this workspace (Task 7).
 
 ## P2 -- Scaling roadmap
 
@@ -653,6 +632,25 @@ gate runner so a stalled check fails fast rather than hanging.
 
 - [ ] **Status:** open (P2). Source: Batch 23 WP-0 frontend Task 1, Task 4
   and Task 2 fix round 2 landings, 2026-09-26/27; close-out CO2, 2026-09-27.
+
+### F-B23-15: the unmatched cover ruling calls 4rem / 4.5rem "the Results size", but Results rows are 3rem / 3.5rem
+
+RECONCILIATION section 16 records the owner's 2026-09-13 ruling. The
+unmatched cover ships at 4rem below 768px and 4.5rem from it, called "the
+Results size". Results rows draw their covers at 3rem and 3.5rem:
+`w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))]` in
+`templates/results.html`, where `w-12` compiles to `var(--spacing-12)`, 3rem.
+The 4rem / 4.5rem figures are `.album-cover-img` and `.album-cover-placeholder`
+in `static/css/results.css`. No template, script or Python module has ever
+used those classes: `git log --all -S album-cover-img -- templates static/js
+scrobblescope` finds nothing, and they came into results.css with 7a46d38a.
+Not changed: the ruling's numbers are explicit, and `check_unmatched_report`
+pins them. The owner decides: keep 4rem / 4.5rem and correct the ruling's
+premise, or match the Results rows. Either way both classes, with their
+`object-fit: cover`, are dead CSS. `docs/design/designsystemaudit.md` also
+states 4rem / 4.5rem for Results rows; it is a dated record and was not edited.
+
+- [ ] **Status:** open (P2). Source: Task 7 audit of the unmatched page, 2026-09-28.
 
 ### F-B23-13: the "Save image" JPEG export clips the artist line under each album title
 

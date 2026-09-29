@@ -16,40 +16,41 @@
         <div class="unmatched-heading flex-1">
             <h1 class="results-headline font-serif text-2xl sm:text-3xl md:text-4xl lg:text-[calc(2.5rem*var(--results-scale,1))] text-[var(--color-base-content)] mb-1 leading-tight">
                 {% if total_count %}
-                Albums That Didn't Match Your Filter for <span class="unmatched-headline__user not-italic text-[var(--color-base-content)]">{{ username }}</span>
+                Albums that didn't match your filter for <span class="unmatched-headline__user not-italic text-[var(--color-base-content)]">{{ username }}</span>
                 {% else %}
                 No unmatched albums to review
                 {% endif %}
             </h1>
-            <p class="font-sans text-sm md:text-base font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
+            {# The line under the headline mirrors the Results page's own (the
+               year, then "Ranked by play count"): the listening year, then the
+               one fact this page adds. It used to restate the filter, which the
+               bar directly below states again. #}
+            <p class="unmatched-subtitle font-sans text-sm md:text-base font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
+                {% if total_count %}
+                {{ year }} · <span class="unmatched-total">{{ total_count }}</span> {{ 'album' if total_count == 1 else 'albums' }} left out of your results
+                {% else %}
                 {{ (filter_desc|default('all releases'))|capitalize }} · Minimum {{ min_plays|default(0) }} plays and {{ min_tracks|default(0) }} unique tracks
+                {% endif %}
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <a href="{{ url_for('main.results') }}" class="btn results-action results-toolbar-action">
-                Back to Results
+                Back to results
             </a>
             <a href="/" class="btn btn-primary results-action results-toolbar-action">
-                New Search
+                New search
             </a>
         </div>
     </div>
 
     {% if total_count %}
-    <div class="results-filter-bar unmatched-summary">
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="text-[var(--color-primary)]">Listening year:</span>
-            <span class="font-mono text-[var(--color-base-content)]">{{ year }}</span>
-            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-            <span class="font-mono text-[var(--color-base-content)]">{{ filter_desc }}</span>
-            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-            <span class="font-mono text-[var(--color-base-content)]">≥{{ min_plays }} plays</span>
-            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-            <span class="font-mono text-[var(--color-base-content)]">≥{{ min_tracks }} unique tracks</span>
-        </div>
-        <div class="whitespace-nowrap text-[var(--ss-text-muted)]">
-            Total unmatched: <strong class="unmatched-count text-[var(--color-base-content)] font-normal">{{ total_count }}</strong>
-        </div>
+    <div class="results-filter-bar">
+        <span class="text-[var(--color-primary)]">Filter:</span>
+        <span class="font-mono text-[var(--color-base-content)]">{{ filter_desc }}</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_plays }} plays</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_tracks }} unique tracks</span>
     </div>
     {% endif %}
 
@@ -72,7 +73,7 @@
         {% endfor %}
     {% endfor %}
     {% if attribution.spotify %}
-    <div id="unmatched-spotify-attribution" class="provider-attribution provider-attribution--page mb-4">
+    <div id="unmatched-spotify-attribution" class="provider-attribution provider-attribution--page">
         {% include "partials/_spotify_icon.html" %}
         <span class="provider-attribution__text">Album artwork, links and artist photos from Spotify, except rows that name another provider</span>
     </div>
@@ -117,13 +118,19 @@
                     {# Column widths live in unmatched.css, not here. The theme
                        resets Tailwind's dynamic spacing scale, so w-10/w-24/w-28
                        and friends compile to nothing and table-layout: fixed
-                       silently falls back to four equal columns (F-B21-52). #}
+                       silently falls back to equal columns (F-B21-52).
+
+                       Three columns. What is particular to a row -- how far it
+                       fell short, or when it was released -- is a line under
+                       the artist, not a fourth column: that column took 26-30%
+                       of the panel to repeat the panel's own heading on every
+                       row, and left the album title 51px on a phone. #}
                     <thead>
                         <tr class="unmatched-label border-b border-[var(--ss-border-default)] bg-transparent uppercase tracking-wider text-[var(--ss-text-muted)] text-xs">
                             <th scope="col" class="py-3 px-3 md:px-4 text-center font-normal">#</th>
-                            <th scope="col" class="py-3 px-3 md:px-4 font-normal">Album &amp; Artist</th>
-                            <th scope="col" class="py-3 px-3 md:px-4 text-right font-normal">Plays / tracks</th>
-                            <th scope="col" class="py-3 px-3 md:px-4 text-right font-normal">Reason detail</th>
+                            <th scope="col" class="py-3 px-3 md:px-4 font-normal">Album &amp; artist</th>
+                            {# Only the threshold panel shows a track count. #}
+                            <th scope="col" class="py-3 px-3 md:px-4 text-right font-normal">{% if reason_key == 'below_threshold' %}Plays / tracks{% else %}Plays{% endif %}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-[var(--ss-border-default)]">
@@ -145,7 +152,7 @@
                                        Spotify, so they never reached it. A sized placeholder keeps
                                        the row rhythm without adding a network call, which preserves
                                        the rule that partitioned albums cost nothing. #}
-                                    <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
+                                    <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
                                         {{ item.album[:2]|upper }}
                                     </div>
                                     {% endif %}
@@ -153,17 +160,23 @@
                                         {% if item.album_image %}
                                         <img src="{{ item.album_image }}"
                                              alt="{{ item.album }} cover"
-                                             class="unmatched-artwork border border-[var(--ss-border-default)]"
+                                             class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)]"
                                              loading="lazy"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% else %}
-                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--results-surface)] overflow-hidden"
+                                        {# No `loading="lazy"` on this image. It starts hidden, and a
+                                           hidden lazy image is never fetched: the browser waits for
+                                           it to come near the viewport, and an element with no box
+                                           never does. Its `load` event is what reveals it, so the
+                                           portrait never appeared. unmatched.js already holds the
+                                           request back until the row is near the viewport. #}
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] overflow-hidden"
                                              data-artist-image
                                              data-artist-name="{{ item.artist }}">
-                                            <img alt="" class="unmatched-artist-image hidden" loading="lazy">
+                                            <img alt="" class="unmatched-artist-image provider-artwork border border-[var(--ss-border-default)] hidden">
                                             <span class="unmatched-artwork-fallback flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
                                                 {{ item.album[:2]|upper }}
                                             </span>
@@ -183,6 +196,16 @@
                                         <span class="font-sans text-xs text-[var(--ss-text-muted)] font-normal truncate" title="{{ item.artist }}">
                                             {{ item.artist }}
                                         </span>
+                                        {# What is particular to this row. The threshold panel names
+                                           the shortfall; the full sentence stays on `title` and in
+                                           the JSON. A row whose reason only restates its panel's
+                                           heading says nothing here. #}
+                                        {% set note = item.shortfall or item.reason %}
+                                        {% if note and reason_key != 'no_spotify_match' and note != meta.title %}
+                                        <span class="unmatched-row-note font-mono text-xs text-[var(--ss-text-muted)]"{% if item.shortfall and item.reason %} title="{{ item.reason }}"{% endif %}>
+                                            {{ note }}
+                                        </span>
+                                        {% endif %}
                                         {# Per-row provider attribution for non-Spotify rows (Batch 22
                                            WP-1 Task 6); full rule in templates/results.html next to the
                                            same markup. Spotify rows are covered by the page-level icon. #}
@@ -196,13 +219,14 @@
                             </td>
                             <td class="py-3 px-3 md:px-4 unmatched-metric text-right align-middle font-mono text-xs text-[var(--color-base-content)]">
                                 {% if reason_key == 'below_threshold' %}
-                                <span class="unmatched-thresholds"><span class="unmatched-threshold">{{ item.play_count if item.play_count is not none else '—' }} plays</span> / <span class="unmatched-threshold">{{ item.track_count if item.track_count is not none else '—' }} tracks</span></span>
+                                {# The two figures stack, one to a line. The slash between
+                                   them is still in the text, for a screen reader and for a
+                                   copy; it is hidden from view because it wrapped onto a
+                                   line of its own between them. #}
+                                <span class="unmatched-thresholds"><span class="unmatched-threshold">{{ item.play_count if item.play_count is not none else '—' }} plays</span><span class="unmatched-threshold-sep"> / </span><span class="unmatched-threshold">{{ item.track_count if item.track_count is not none else '—' }} tracks</span></span>
                                 {% else %}
                                 {{ item.play_count if item.play_count is not none else '—' }}
                                 {% endif %}
-                            </td>
-                            <td class="py-3 px-3 md:px-4 unmatched-reason-detail font-mono text-xs text-right text-[var(--ss-text-muted)] align-middle" title="{{ item.reason }}">
-                                {{ item.reason }}
                             </td>
                         </tr>
                         {% endfor %}

@@ -113,6 +113,7 @@ flowchart TD
     FG --> FGSP[_frontend_gate_spotlight_photo]
     FG --> FGSI[_frontend_gate_spotify_icon]
     FGSI --> FGSP
+    FGU --> FGR
     FGA --> FGS
     FGFM --> FGS
     FGT --> FGS

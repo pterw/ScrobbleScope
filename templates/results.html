@@ -197,14 +197,14 @@
                                     {% if album.album_image %}
                                     <img src="{{ album.album_image }}"
                                          alt="{{ album.album }} cover"
-                                         class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] object-cover flex-shrink-0"
+                                         class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] flex-shrink-0"
                                          loading="lazy"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% else %}
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% endif %}

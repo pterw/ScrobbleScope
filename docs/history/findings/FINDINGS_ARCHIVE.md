@@ -9,6 +9,46 @@ Newest rotation first.
 
 ---
 
+### F-B23-14: the unmatched report's artist portraits never loaded, and the gate's check passed by a fixture coincidence -- RESOLVED
+
+The portrait `<img>` in `templates/unmatched.html` started hidden and
+`loading="lazy"`. A hidden lazy image is never fetched: the browser waits for
+it to come near the viewport, and an element with no box never does. Its
+`load` event is what revealed it (`static/js/unmatched.js`), so no artist
+portrait ever appeared. The controller measured this in Chromium and Firefox,
+with a portrait URL of its own as in production, and it never loaded. A live
+probe in Task 7 confirmed it in Chromium: with `loading="lazy"` restored, both
+gate portraits report naturalWidth 0. `check_unmatched_report` passed anyway:
+its fixture gave the portrait the same data URI as the covers already on the
+page, and Chromium serves that from the document's image list whatever
+`loading` says.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-29
+The `loading` attribute is removed; `unmatched.js` already holds the request back with an IntersectionObserver. The gate now serves a wide (300x200) and a tall (200x300) portrait, each at a URL no other image uses. For each it asserts: loaded (naturalWidth > 0); shown, with the fallback hidden; its content box within 3% of the natural ratio; inside its slot; and the right `data-portrait`. It also checks one spotlight request per artist. Live probes: `loading="lazy"` fails, `loading="eager"` passes, and `object-fit: cover` at 100% x 100% fails. Route test: `test_unmatched_view_portrait_image_is_not_lazy`. Source: controller audit of the unmatched page, 2026-09-28 (Task 7).
+
+### F-B23-12: remaining Spotify artwork display breaches outside the spotlight -- RESOLVED
+
+Two more breaches of Spotify's "Using our content" guidelines, in the same
+class as F-B21-60 part 1:
+
+(a) **Crop.** The unmatched report crops Spotify artist portraits:
+`.unmatched-artist-image { object-fit: cover }` in `static/css/unmatched.css`
+crops the non-square photos fetched from `/api/artist_spotlight`
+(`static/js/unmatched.js`). This breaks "Don't crop the artwork" the same
+way F-B21-60's spotlight did.
+
+(b) **Corner radius.** Row artwork uses 8px corners at every width, where
+Spotify asks for 4px on small and medium devices.
+
+Fix shape: `contain` on a surface-token letterbox for the unmatched
+portraits, 4px/8px corners applied per breakpoint for row artwork, and a
+gate check like `check_artist_spotlight_photo_not_cropped_when_non_square`.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-29
+Every cover, artist portrait and placeholder on the results and unmatched pages now uses `.provider-artwork` (`static/css/results.css`). It sets `object-fit: contain` on the surface token, and the portrait is sized at its own proportions, so nothing is cropped, as Spotify's design page requires ("Don't crop the artwork in any way."). The corner radius is `--artwork-radius`: 4px, and 8px from 768px. Spotify's page says: "Artwork corners must be rounded to create optical blending with nearby UI elements. Small & medium devices should use a 4px corner radius, whereas large devices should use a 8px corner radius." The controller fetched both rules from https://developer.spotify.com/documentation/design ("Using our content") on 2026-09-29. The frontend gate asserts the radius of every artwork kind at 320, 390, 1024, 1279 and 1280px, and of the results row covers at 390 and 1280px. It also asserts that each portrait is drawn at its natural proportions inside its slot. Source: Task 1 review, 2026-09-28; fixed in Task 7.
+
 ### F-B21-60: the artist spotlight card breaks Spotify's content guidelines -- RESOLVED
 
 Spotify's design guidelines ("Using our content",
