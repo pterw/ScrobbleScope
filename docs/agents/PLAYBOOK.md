@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Eleven findings filed from the third review of PR #245
+
+Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Eleven findings filed from the third review of PR #245: F-B23-21 to F-B23-31. They cover the Last.fm `reraise` breadth, the album pipeline's unclassified fallback (owner decision), the privacy-verdict caching and missing `private_profile` code, the Deezer null title, the mobile heatmap sizing, the unverified spotlight artist name, the two results and unmatched column defects, one cleanup bundle, the single-object Last.fm page, and the tests that survive their defect. F-B23-16 and F-B23-20 gain cross-references. Nothing closed; the archive is untouched. Docs only.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - README corrected on where the Spotify icon appears
 
 Side task, no batch tag: correcting the README's claim about where the Spotify icon appears, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -141,13 +149,5 @@ Validation: `pytest -q` -- **2187 passed**.
 Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 DEVELOPMENT.md now opens with what the guide is for and shows each tool (docsync check and fix, the commit preflight, the Tailwind build and drift check, the frontend gate, archives) running, with captured output, and prose cut to plain English. Live counts are elided in quoted output (`<N>`, `<M>`) so no figure goes stale, and the `--fix --test-count N` example names no number. The DOC024 and archive-pagination sentences cite `AGENTS.md` "Doc Sync Rules" and `docs/architecture/documentation-tooling.md`. All declared anchors are kept.
-
-Validation: `pytest -q` -- **2187 passed**.
-
-### 2026-09-29 - README shows the incoming foundation work in plain prose
-
-Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The README now describes the incoming WP-0 work (what a listener notices, what an engineer notices), the September releases and the Spotify export plan. The wording follows the tree: Repo Assist adds missing tests and proposes dependency updates as draft PRs; the Spotify icon appears on Results, Unmatched and the artist spotlight; the gate claim covers only the checks the batch changed; the third review is described as still open on its frontend side. The review-fix commits land in PR #245 itself, so the README names no stacked PR. The retry-helper bullet was rewrapped without changing a word.
 
 Validation: `pytest -q` -- **2187 passed**.

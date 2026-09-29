@@ -686,7 +686,8 @@ and, since this branch, the heatmap pipeline (`heatmap.py`, `_report_heatmap_fai
 current raise site produces a colliding message, so nothing is misreported today; an
 unrelated exception whose text happens to hold both words would be blamed on the user. The
 fix is a typed exception for the Last.fm 404 (and the rate limits), classified by type, which
-is larger than a fix-wave change.
+is larger than a fix-wave change. The same typed exception is the fix for F-B23-21
+(`reraise=(ValueError,)` in the Last.fm page fetch), so the two land together.
 
 - [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section A, finding A3,
   2026-09-29.
@@ -727,9 +728,92 @@ when all have settled, so one slow artist holds the card back for up to `HYDRATE
 (8s) after the first confirmed photo is ready, and the card then appears late in the sticky
 rail and pushes the rail's content down. Showing the first confirmed candidate at once and
 adding the rest to the rotation as they settle would avoid both.
+The third review of PR #245 (S2-23) adds that every candidate's photo is preloaded at page
+load (five requests against one on `main`); preloading one ahead of the rotation belongs
+to this finding.
 
 - [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section F, finding F8,
   2026-09-29.
+
+### F-B23-21: `reraise=(ValueError,)` in the Last.fm page fetch ends the job on any ValueError, skipping every retry
+
+`scrobblescope/services/lastfm.py` `fetch_recent_tracks_page_async` passes `reraise=(ValueError,)` to `retry_with_semaphore` so that the 404 "user not found" it raises as a `ValueError` is not retried. That tuple matches every `ValueError` subclass, so a non-integer or HTTP-date `Retry-After` (the header parse raises `ValueError`) and a non-UTF-8 error body (`UnicodeDecodeError`) also skip all three attempts and end the whole job: `internal_error` in the heatmap, the raw exception text in the album pipeline. The mechanism was reproduced in the review; no live trigger has been seen. The fix is the typed not-found exception that F-B23-16 already proposes, with `reraise` narrowed to it, plus a defensive `Retry-After` parse and `text(errors="replace")` on the error body. This is the same typed exception as F-B23-16, so land them together.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-4.
+
+### F-B23-22: the album pipeline answers an unclassified exception with `unknown`, retryable, and the heatmap with `internal_error`, though the docstrings claim parity
+
+`scrobblescope/orchestrator/__init__.py` `_fetch_and_process` ends its except branch with `error_code="unknown"` (not a member of `ERROR_CODES`), retryable, carrying the raw exception text; `heatmap.py` `heatmap_task` publishes `internal_error`. The docstrings of `errors.classify_exception_to_error_code`, `heatmap.heatmap_task` and `_report_album_failure`, and the archived closure of F-SWE-5, all say the two pipelines answer alike. The album behaviour predates PR #245; the docstrings were written by it. Owner decision: make the album fallback `internal_error` (which flips `retryable` to false and stops showing raw text to the user), or keep the split and reword the docstrings to say so. Either way a test is missing: the mutant `error_code = None` in that branch survives the full suite, so a test must assert the published code and the retryable flag for an unclassified exception in the album pipeline.
+
+- [ ] **Status:** open (P2, owner decision). Source: third review of PR #245 (2026-09-29), S1-5.
+
+### F-B23-23: the Last.fm privacy check caches verdicts it should not, and a private profile met inside a job is reported as an outage
+
+`lastfm.check_profile_is_public` caches the private verdict for `REQUEST_CACHE_TIMEOUT` (3600s), so a user told to make the profile public and try again is refused from the cache for an hour. The mirror case: a cached public verdict lets a profile that has since gone private start a job, and the job fails as `lastfm_unavailable`, retryable, for the rest of the hour. `check_user_exists` caches any 200 body, so error 6 ("user not found") is cached as `exists=True`. Inside a job, `fetch_once`'s non-200 branch retries a 403 (Last.fm error 17) three times and reports "Last.fm unavailable, try again", and `ERROR_CODES` has no `private_profile` code. Invalid-key errors 10 and 26 may behave the same (unverified). The 403-in-job part is plausible rather than reproduced; the caching parts were reproduced. Fix shape: cache only a well-formed public answer, and add a `private_profile` code that a 403 or error 17 maps to without retry.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-6 and S1-16 (gap sweep), one finding.
+
+### F-B23-24: a null Deezer track title raises TypeError outside the retry wrapper and fails the job, orphaning sibling requests
+
+`scrobblescope/deezer.py` `fetch_deezer_album` normalises track titles after the retried request returns, so a null `title` raises `TypeError` outside `retry_with_semaphore`. In `orchestrator/_deezer_fallback.py` `_run_deezer_fallback_phase` the bare `as_completed` loop lets that exception end the phase and the job (`unknown`), and four sibling tasks are left running. The cancel-and-drain fix from this branch covers two of the five fan-outs, not this one, nor the search and details phases. Mechanism reproduced; no live trigger seen; identical on `main`. Fix: tolerate a null title inside the wrapper (skip the track) and give the remaining fan-outs the same cancel-and-drain. Do not adopt `asyncio.TaskGroup` for it before F-B23-16 lands: an `ExceptionGroup`'s text defeats the substring classifier.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-11.
+
+### F-B23-25: the mobile heatmap strip is sized from a hidden container on first render and not re-laid-out on a rotation inside the mobile range
+
+`static/js/heatmap.js` `renderHeatmapMobile` reads `gridContainer.clientWidth` while `#heatmap-result` is still `hidden`, so the width is 0 and the fallback `innerWidth - 48` guess is used: at 390px the strip draws 14 columns of about 19px scaled into a 277px box, and after any breakpoint round trip it draws 12 columns of 22px. The padding-aware sizing and its comment ("sized to what is left inside it") never run on first render. Separately `handleResize` re-renders only when `innerWidth` crosses 860px, so rotating 390 to 844 stretches the strip to about 50px cells, and opening at 844 then rotating to 390 gives 28 columns of 10px, under `MOBILE_MIN_CELL_SIZE` and any tap target. Reproduced in Chromium and Firefox. Fix: measure after the frame is visible (or from a laid-out ancestor minus the frame and grid padding), drop the guess, and re-render through `rerenderKeepingFocus` whenever the computed column count differs from the rendered one. It is a layout change, not a fix-wave one.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-9.
+
+### F-B23-26: the artist spotlight can show another artist's photo and link under the Last.fm name
+
+`scrobblescope/spotify.py` `_request_spotlight_artist` asks Spotify for `limit: 1` and returns `items[0]` with no name check, and neither `static/js/results-spotlight.js` `hydrateCandidate` nor `static/js/unmatched.js` `fetchArtistImage` compares `data.name` with the requested artist. A Last.fm artist Spotify does not know (a local band, a misspelling) gets the closest other artist: the card shows that photo with the alt text "Photograph of <Last.fm name>" and a link to the other artist's page. With the album-cover fallback gone, this is the only photo source, and the card treats the result as a confirmed photo. Reproduced with the API mocked to return a different name; how often it happens against the live API is unmeasured. Fix: the route returns the hit only when `normalize_name` of its name equals that of the requested artist, else null `image_url` and `spotify_url`.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-12.
+
+### F-B23-27: a long artist credit paints over the plays and date columns on the Results page from 768px
+
+`templates/results.html` `.album-info` is a flex item without `min-width: 0`, so its `truncate` artist span never shrinks: at 1024px an artist credit of about 65 characters runs from x 192 to 674 while its cell ends at 324, painting over the plays and release-date columns with no ellipsis. The same happens at 768, 1280 and 1920px, and on `main`. `static/css/results.css` fixes only widths below 768px, and `unmatched.css` already carries the `min-width: 0` rule for the unmatched table. Fix: `.results-table .album-info { min-width: 0 }` in `results.css` (Tailwind's `min-w-0` is dead under this theme, F-B21-52).
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-13.
+
+### F-B23-28: the unmatched threshold column clips "1234 plays" below 768px
+
+`static/css/unmatched.css` sets the below-threshold column to 4.75rem in the `max-width: 767.98px` block, with `.unmatched-threshold { white-space: nowrap }` and `overflow: hidden` on `td`. From 320 to 767px "1234 plays" is cut by 8px ("1234 play") and "150 plays" loses about 1px of the "s"; from 768px the column is 104px and nothing clips. The CSS comment says the width "holds either", which is false. Reproduced in Chromium and Firefox; `main` clips the same. Fix: let `.unmatched-threshold` wrap (`white-space: normal; overflow-wrap: anywhere`) or widen the phone column to about 5.5rem, and add a four-digit case to the gate's seed.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-14.
+
+### F-B23-29: small cleanups the third review of PR #245 found, none changing behaviour a user sees
+
+One bundle, to be taken opportunistically:
+
+- `utils.retry_with_semaphore` docstring: the sentence about the `Retry-After` cap sits inside the `jitter` entry; and jitter can push a capped sleep slightly past `MAX_RETRY_AFTER_SECONDS` (Task 3 review minors).
+- `api_logging._record` takes an elapsed value the caller derives; deriving it inside would shrink the signature. `lastfm.fetch_pages_batch_async` has a gather path that no production caller reaches (one fan-out, one drain would do); `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait, the dead path should go) (S1-15).
+- `static/js/heatmap.js` labels the 15 day and month `<text>` nodes of the grid without `aria-hidden`, so the accessibility tree lists them as a loose text run before the 365 named cells (S2-18).
+- `templates/results.html` `data-album-image` and `data-spotify-id` use `default('')`, which leaves "None" for a Deezer row; `default('', true)` covers it. Nothing reads them today (S2-20).
+- The `.provider-badge` span is 10px uppercase in `input-mono`, under the 12px small-label floor and off the narrow face; one `.provider-badge` rule for all four copies of the badge markup would fix both (S2-21).
+- Comments a cold reader cannot resolve: `results-spotlight.js` cites "B2", "B3" and "B3 follow-up"; `results.css` `.spotlight-details` cites "polish round 2"; `tests/frontend/conftest.py` says "see Step 1"; none of those labels exists in a tracked file. `.spotlight-image-box` calls the results thumbnail 4rem/4.5rem (it is 3rem/3.5rem), the threshold-column comment ("holds either") and `renderHeatmapMobile`'s "sized to what is left inside it" are false (see F-B23-28 and F-B23-25) (S2-22).
+- S2-23 bundle: the `#heatmap-grid` ring-room CSS (a container that never scrolls at any width) and the padding subtraction in `renderHeatmapMobile`; the server-rendered spotlight card body and the `top_artist_*` route variables, dead because JS overwrites them; unused remnants in `results-spotlight.js` (a `content` id lookup, a `hidden`/`opacity-0` reset on an `<img>`, a once-read `state.reducedMotion`, `formatDurationMobile`) and an unread `event` parameter of `showTooltip`; the badge markup copied four times (Rule of Three: may wait); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), Task 3 review minors, S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
+
+### F-B23-30: a Last.fm page whose `recenttracks.track` is a single object would be read as a list of dict keys
+
+Last.fm is known to serve a single-item collection as a bare object rather than a one-element list in some of its JSON responses. `lastfm._is_well_formed_page` does not check `recenttracks.track`, and both aggregators, `heatmap._aggregate_daily_counts` and `orchestrator.fetch_top_albums_async`, iterate it as a list, so a one-track page would be read as a sequence of dict keys. Not confirmed against the live API (found while fixing the well-formed-page check, Task 2). Fix: normalise a lone object into a one-item list at the anti-corruption layer in `lastfm.py`, and check `track` in the predicate so a page with any other shape is refused and retried.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), Task 2 implementer concern.
+
+### F-B23-31: tests that stay green when the defect they exist for is planted back
+
+Five tests were shown to survive the mutation they are meant to catch, each with the reviewer's proposed fix:
+
+- Spotlight seed fallback (S1-7): restoring the deleted album-cover fallback in `spotlight.select_spotlight_artists` keeps the suite and the gate green. Add a route test that every spotlight seed `image_url` is empty.
+- Span start (S1-8): the mutants `span_s = entry["span_end"]` and dropping the span-start update both survive `tests/services/test_api_logging.py`. Use a non-zero clock start, and record the later-starting call first.
+- Cancel loop (S1-9): removing the cancel loop in `lastfm.fetch_all_recent_tracks_async` passes after 60s in `tests/services/test_lastfm_service.py` (`_PageFetchLedger`), and no per-test timeout exists. Count `CancelledError`, assert four, and wrap in `asyncio.timeout(2)`; the reviewer ran this: 2 passed in 0.13s at HEAD, 2 failed on the mutant.
+- Fixture URL (S1-10): in `tests/test_provider_fixtures.py` the fixture's `external_urls.spotify` equals the code's fallback URL, so a typo in the key name passes. Give the fixture a distinct URL, and adopt `SPOTIFY_ALBUM_DETAILS_MOCK` for the two inline copies in `tests/test_orchestrator_process_albums.py` that escape the drift test.
+- Frontend harness (S2-24): `tests/frontend/test_heatmap_pure_functions.py` asserts only `exportHeaderLayout(...).columns`, `exportHeaderModel().eyebrow` and `rocketColor` at exact stops; ten mutations survive (`Math.round` to `Math.floor`, `beside` forced false, the legend offset dropped, the headline dropped, and others). Assert whole layout objects for one beside and one stacked case, a `rocketColor` value between two stops, and the headline and legend.
+
+- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-7, S1-8, S1-9, S1-10 and S2-24.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

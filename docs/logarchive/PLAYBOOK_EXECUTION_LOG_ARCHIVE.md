@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - README shows the incoming foundation work in plain prose
+
+Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The README now describes the incoming WP-0 work (what a listener notices, what an engineer notices), the September releases and the Spotify export plan. The wording follows the tree: Repo Assist adds missing tests and proposes dependency updates as draft PRs; the Spotify icon appears on Results, Unmatched and the artist spotlight; the gate claim covers only the checks the batch changed; the third review is described as still open on its frontend side. The review-fix commits land in PR #245 itself, so the README names no stacked PR. The retry-helper bullet was rewrapped without changing a word.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - Bold-label citations resolve and archives age at 90 days
 
 Side task, no batch tag: resolving a citation of a bold label ending in a colon, and ageing archive pages at 90 days, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
