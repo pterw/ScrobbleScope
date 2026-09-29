@@ -1,8 +1,10 @@
 """Warn about a missing, gitignored file the workflow depends on (F-B21-25).
 
-These files are gitignored by design -- `skills-lock.json` is the first one
--- so every gate that runs before this one is looking at tracked content and
-never even sees them go missing. This check is WARNING only: unlike a
+A declared file is gitignored by design, so every gate that runs before
+this one is looking at tracked content and never even sees it go missing.
+No file is declared by default (owner ruling 2026-09-28 retired
+`skills-lock.json`, which nothing in this repository read); the mechanism
+stays for a future essential. This check is WARNING only: unlike a
 tracked file, the worktree guard cannot restore or fetch a missing one
 either, so it can only tell the reader it is gone. A malformed
 `[untracked_essentials]` table is WARNING-only for the same reason: it is

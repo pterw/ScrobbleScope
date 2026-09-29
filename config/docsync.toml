@@ -44,8 +44,14 @@ handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"
 # (F-B21-25 item 3 of its causes: "what was lost was gitignored"). WARNING
 # only -- the worktree guard cannot create or fetch a missing one, it can
 # only tell the reader it is gone.
+#
+# Empty by owner ruling 2026-09-28: `skills-lock.json` was declared here,
+# but nothing in this repository, its hooks, CI or its agent workflow reads
+# it -- only the `npx skills` CLI's own vendoring writes and re-reads it.
+# The table (and the mechanism) stays for a future file that genuinely is
+# depended on.
 [untracked_essentials]
-paths = ["skills-lock.json"]
+paths = []
 
 # ----------------------------------------------------------------------
 # Archive thresholds
@@ -748,4 +754,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 1999
+pinned = 2001

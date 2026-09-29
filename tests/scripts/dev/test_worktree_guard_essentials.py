@@ -4,6 +4,17 @@ from pathlib import Path
 
 from scripts.dev._worktree_guard_essentials import essentials_diagnostics
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_the_real_config_declares_no_untracked_essentials():
+    """`config/docsync.toml` no longer declares `skills-lock.json` (owner
+    ruling 2026-09-28: nothing in this repository reads it), so a real
+    checkout must be silent even though the file itself is gitignored and
+    typically absent.
+    """
+    assert essentials_diagnostics(REPO_ROOT) == []
+
 
 def test_a_missing_declared_path_warns(tmp_path: Path):
     (tmp_path / "config").mkdir()

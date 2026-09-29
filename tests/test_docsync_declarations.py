@@ -2055,6 +2055,19 @@ class TestUntrackedEssentialsConfig:
         config = load_untracked_essentials_config(tmp_path)
         assert config.paths == ("skills-lock.json",)
 
+    def test_an_empty_paths_list_is_accepted(self, tmp_path: Path):
+        """`paths = []` reads the same as no table at all (Batch 23 WP-0
+        Task 2): the mechanism stays available for a future essential
+        without forcing a declared entry to exist.
+        """
+        from docsync.declarations import load_untracked_essentials_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[untracked_essentials]\npaths = []\n", encoding="utf-8")
+        config = load_untracked_essentials_config(tmp_path)
+        assert config.paths == ()
+
     def test_a_non_string_entry_is_refused(self, tmp_path: Path):
         from docsync.declarations import (
             DeclarationError,

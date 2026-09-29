@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Docsync CLI and declarations edge cases
+
+Side task, no batch tag: fix docsync's `--test-count 0` acceptance, the
+pin-rewrite regexes' heading-comment and blank-line misses, and add a
+`C:foo` CR5 case plus a control-character rejection for
+`[untracked_essentials]` paths, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
 ### 2026-09-27 - Bring prose and diagrams in line with the three follow-on plans
 
 Side task, no batch tag: a documentation-only sweep so README.md,

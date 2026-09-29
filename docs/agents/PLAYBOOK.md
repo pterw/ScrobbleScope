@@ -120,6 +120,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-28 - Stop declaring skills-lock.json an untracked essential
+
+Side task, no batch tag: Stop declaring skills-lock.json an untracked
+essential, part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+Owner ruling 2026-09-28: skills-lock.json "is a file that was briefly
+here, but vanished... if it is needed search and let go for what you
+think is best." Controller decision: not needed -- it is the `npx skills`
+CLI's own lockfile; nothing in this repository, its hooks, CI or agent
+workflow reads it. `config/docsync.toml`'s `[untracked_essentials]` now
+declares `paths = []` (comment explains why); the mechanism, its schema
+and `scripts/dev/_worktree_guard_essentials.py` are unchanged, so WT015
+still fires for any future essential that is declared. `.gitignore` keeps
+the `skills-lock.json` line since the CLI still writes it. Swept the
+now-false claim from the guard module's docstring and
+`.superpowers/cloud-kit/constraints.md`'s expected-pre-commit-noise line.
+
+Validation: `pytest -q` -- **2001 passed**.
+
 ### 2026-09-27 - Record the follow-on plans' final code review
 
 Side task, no batch tag: record the outcome of the final code review of the
@@ -161,15 +181,5 @@ crop, the stale-photo-under-a-new-name swap on rotation, and the missing
 hydrate-request timeout (now covering the image preload too, not just the
 fetch), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
 until the whole of WP-0 lands.
-
-Validation: `pytest -q` -- **1999 passed**.
-
-### 2026-09-27 - Docsync CLI and declarations edge cases
-
-Side task, no batch tag: fix docsync's `--test-count 0` acceptance, the
-pin-rewrite regexes' heading-comment and blank-line misses, and add a
-`C:foo` CR5 case plus a control-character rejection for
-`[untracked_essentials]` paths, part of Batch 23 WP-0 Part C. Untagged by
-owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 Validation: `pytest -q` -- **1999 passed**.

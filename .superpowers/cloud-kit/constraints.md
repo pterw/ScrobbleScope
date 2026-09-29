@@ -72,10 +72,12 @@ warnings; this rule does not repeat them.
 
 **R6 -- expected pre-commit noise, not a failure.** The `worktree-alignment`
 hook runs `--advisory` and prints `ERROR WT005 ... origin/main` (the branch
-is cut from `test`), `WARNING WT010` whenever the tree is dirty, and
-`WARNING WT015` when `skills-lock.json` is absent. It still reports Passed.
-Do not act on it. If it prints `ERROR WT007`, the clone lacks `origin/main`
-or `origin/test`: run `git fetch origin main test`.
+is cut from `test`) and `WARNING WT010` whenever the tree is dirty. It still
+reports Passed. Do not act on it. If it prints `ERROR WT007`, the clone
+lacks `origin/main` or `origin/test`: run `git fetch origin main test`.
+`WARNING WT015` no longer fires here: `[untracked_essentials]` declares no
+path by owner ruling 2026-09-28 (`skills-lock.json` was removed; nothing
+reads it).
 
 **R7 -- docsync control plane.** A task that stages anything under
 `scripts/docsync/`, `scripts/doc_state_sync.py`,
