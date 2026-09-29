@@ -32,8 +32,40 @@ Choose **Top Albums** or **Heatmap** on Home. The shared navigation provides
 Home, Heatmap, Results, and Unmatched; report destinations recover your latest
 available run in the same browser session.
 
+## In brief
+
+ScrobbleScope takes anyone's public Last.fm listening history and turns it
+into a ranked list of the albums they played most, plus a heatmap of every day
+of the last year. It suits a listener building an Album of the Year list or
+looking for patterns in their own habits. It is live at
+[scrobblescope.fly.dev](https://scrobblescope.fly.dev).
+
+The engineering is larger than the interface suggests. A search is an ETL
+pass over an event stream: the app pulls thousands of scrobbles, normalizes
+them, then enriches each album from three providers (Spotify, Deezer and
+MusicBrainz) that sit behind an anti-corruption layer, so no provider's
+quirks leak into the rest of the code. The work runs on a background thread
+with its own event loop, and a process-wide rate limiter keeps every provider
+happy.
+
+Three things are unusual for a project this size. A browser gate serves the
+real app and measures the real interface at phone, laptop and 4K sizes, and
+it is tested so that it can fail on the defects it names. A documentation
+control plane machine-checks the repository's own citations and counts and
+rotates its own history, so the documents cannot quietly go stale. And the
+work is done by a multi-agent workflow with the human as reviewer: agents
+write plans and code, and the owner reads every plan, diff and review finding
+before it lands.
+
+The app runs on a single small Fly.io machine with an optional PostgreSQL
+cache. What is happening now is in
+[Current Status & Roadmap](#current-status--roadmap): an extensive
+foundation batch, WP-0, is about to land, and the Spotify history import is
+next.
+
 ## Table of Contents
 
+- [In brief](#in-brief)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
@@ -56,7 +88,8 @@ available run in the same browser session.
 - [Project Structure](#project-structure)
 - [Deployment](#deployment)
 - [Current Status & Roadmap](#current-status--roadmap)
-  - [What shipped most recently](#what-shipped-most-recently)
+  - [Incoming: the WP-0 foundation work](#incoming-the-wp-0-foundation-work)
+  - [Shipped in September](#shipped-in-september)
   - [Next: importing a Spotify listening history](#next-importing-a-spotify-listening-history)
   - [Known limitations](#known-limitations)
 - [Contributing](#contributing)
@@ -281,8 +314,9 @@ module, so the clients stay thin:
   reason the correction pass cannot be made faster.
 - **A retry helper that understands the provider.** It honours `Retry-After`
   up to `MAX_RETRY_AFTER_SECONDS` (30s by default; a longer wait is treated as
-  a failed attempt), backs off with jitter, asks the limiter again on every attempt rather than
-  only the first, and can hold a semaphore for the duration. A Last.fm page
+  a failed attempt), backs off with jitter, asks the limiter again on every
+  attempt rather than only the first, and can hold a semaphore for the
+  duration. A Last.fm page
   that is not well-formed, such as an error payload served as a 200, counts
   as a failed attempt: it is retried, never cached, and reported as dropped
   if it stays bad.
@@ -651,40 +685,84 @@ are not automatically a release of the live site.
 
 ## Current Status & Roadmap
 
-### What shipped most recently
+### Incoming: the WP-0 foundation work
+
+*Under review in PR #245 (late September 2026).*
+
+WP-0 is the first work package of Batch 23. It is about a hundred commits over
+eight days, and it adds almost no feature. It makes the base solid so that the
+Spotify import can be built on it. Written plans drove it. Two whole-branch
+review passes closed every P0 and P1 finding they raised; a third, deeper pass
+found more; its backend fixes landed in this PR and its frontend fixes follow.
+
+**What a listener notices**
+
+- **Every heatmap cell is reachable by keyboard.** The grid is one Tab stop,
+  arrow keys move by layout, each cell is announced with its date and play
+  count, and the focus ring stays visible.
+- **The Unmatched report was rebuilt.** Each row was rebuilt: artist portraits
+  show whole instead of cropped, and every album names the provider that
+  answered for it. Album links keep their full focus ring.
+- **Spotify content is attributed with the official Spotify icon** on the
+  Results and Unmatched pages and on the artist spotlight; rows from Deezer
+  carry a text badge.
+- **The artist spotlight stopped faking photos.** It shows a confirmed photo
+  or stays hidden, without cropping or overlays.
+
+**What an engineer notices**
+
+- **Last.fm is harder to break.** The page cache stores only well-formed
+  pages, and orphaned fetches are cancelled when a run ends. Every provider
+  call is logged, with a per-session summary.
+- **The frontend gate can fail on the defects it names.** Its checks are
+  selected from a manifest rather than hard-coded, and every check the batch
+  changed was proved against a live probe of the defect it targets.
+- **The documentation control plane got safer.** docsync refuses a declared
+  path that leaves the repository, even through a junction, and it verifies
+  the test-count pin before rewriting it.
+- **The repository root was cleaned up.** The four agent documents now live
+  under `docs/agents/` and the configuration files under `config/`.
+- **The worktree guard checks that essential files exist.** The Repo Assist
+  workflow, which adds missing tests and proposes dependency updates as draft
+  PRs, was pinned to a measured count and told to
+  skip browser tests.
+- **The suite runs the album pipeline end to end** on a real thread and
+  checks provider response shapes against their documentation.
+
+**Fixes from the third review** closes what the third review found. The Last.fm
+API key is redacted from every log line. A malformed 200 page is retried and
+counted as dropped instead of cached. A `Retry-After` header is capped so a
+provider cannot park a run for as long as it likes.
+
+WP-1 onward is the Spotify import described below.
+
+### Shipped in September
+
+Two batches reached the live site earlier in the month.
 
 **The interface is entirely Tailwind and daisyUI.** Home, Heatmap, loading,
-Results, the Unmatched report, the error page and every empty state render on
-it. Bootstrap is gone -- the framework, the legacy `global.css` and the
-`.dark-mode` compatibility class -- and one theme signal remains, `data-theme`
-on the root element, so one observer can follow it.
+Results, Unmatched, the error page and every empty state render on it.
+Bootstrap is gone, and one theme signal remains, `data-theme` on the root
+element.
 
-**The Unmatched report groups on reason codes, not prose.** A group no longer
-splits apart because two albums were released in different years. Three
-reasons ship today: albums you played in the selected year that fell under
-your minimum play or unique-track count, albums outside the release window,
-and albums neither metadata provider could identify. Each gets its own panel;
-panels sit side by side on a wide screen and stack on a narrow one, and long
-lists start at ten rows and open 25 at a time.
+**The Unmatched report groups on reason codes, not prose.** Three reasons
+ship: albums under your minimum play or unique-track count, albums outside
+the release window, and albums neither provider could identify. Each gets its
+own panel; long lists start at ten rows and open 25 at a time.
 
 **Album enrichment no longer depends on one company.** Spotify answers first
-and Deezer answers for whatever Spotify cannot match or detail, so a single
-provider's outage no longer empties a result. Each row links to the provider
-that actually answered for it and names it. This mattered more than it
-sounds: Spotify withdrew the batch-album endpoint from development-mode apps
-in February 2026 and postponed the removal for existing apps with no new
-date, which is the only reason the old single-provider pipeline still worked.
+and Deezer answers for whatever Spotify cannot match or detail, so one
+provider's outage no longer empties a result. Spotify withdrew the
+batch-album endpoint from development-mode apps in February 2026 and
+postponed the removal for existing apps with no new date, which is the only
+reason the old single-provider pipeline still worked.
 
-**Release years are corrected to the original.** Spotify and Deezer both date
-a remaster by its reissue, while a year filter means the year the album first
-came out -- so a 2011 remaster of a 1977 album used to sit in 2011 and the
-original was dropped. MusicBrainz carries the original on the release group,
-and a background pass now applies it. It is slow by rule, one request per
-second, so it never delays a result: the page renders, corrections land while
-you read, and a corrected row stays where it is, marked, showing the year the
-album first came out. Nothing re-sorts under you; albums that now qualify are
-announced with a reload link. Every finding is cached, including "checked,
-nothing found", so the next reader pays nothing for it.
+**Release years are corrected to the original.** Spotify and Deezer date a
+remaster by its reissue, while a year filter means the year the album first
+came out. MusicBrainz carries the original on the release group, and a
+background pass applies it at one request per second, so it never delays a
+result. A corrected row stays where it is, marked, and nothing re-sorts under
+you. Every finding is cached, including "checked, nothing found".
 
 **Every call to a provider identifies the app and is logged.** Every
 request to Last.fm, Spotify, Deezer and MusicBrainz carries a ScrobbleScope
@@ -703,7 +781,8 @@ text included.
 ### Next: importing a Spotify listening history
 
 ScrobbleScope only works for Last.fm users today, and the next body of work
-changes that. Spotify's API cannot supply lifetime history -- it returns the
+changes that. WP-1 onward is this export
+feature; WP-0, above, was the groundwork for it. Spotify's API cannot supply lifetime history -- it returns the
 last 50 plays and unranked "top items" with no counts or dates -- and full
 API access has been restricted to registered businesses since May 2025, with
 development-mode apps capped at five allowlisted users. A login would
@@ -758,6 +837,13 @@ For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md), and follow the
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Development Methodology
+
+**Why this project is built this way.** ScrobbleScope is developed across many
+short sessions, by a human and by AI agents working from written plans. That
+only stays safe if the paperwork is machine-checked and every change is
+reviewed, so the repository invests in both. [DEVELOPMENT.md](DEVELOPMENT.md)
+gives the full account of the process, its tooling and its tradeoffs.
+
 
 ScrobbleScope is built in numbered batches of work packages, each with written
 acceptance criteria agreed before any code is written, and each landing with

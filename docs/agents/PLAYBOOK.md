@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - README shows the incoming foundation work in plain prose
+
+Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The README now describes the incoming WP-0 work (what a listener notices, what an engineer notices), the September releases and the Spotify export plan. The wording follows the tree: Repo Assist adds missing tests and proposes dependency updates as draft PRs; the Spotify icon appears on Results, Unmatched and the artist spotlight; the gate claim covers only the checks the batch changed; the third review is described as still open on its frontend side. The review-fix commits land in PR #245 itself, so the README names no stacked PR. The retry-helper bullet was rewrapped without changing a word.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - Bold-label citations resolve and archives age at 90 days
 
 Side task, no batch tag: resolving a citation of a bold label ending in a colon, and ageing archive pages at 90 days, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -151,11 +159,3 @@ Review finding S1-2 (P1): `fetch_recent_tracks_page_async` returned any body tha
 Tests: the two tests that pinned the old contract (`test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_network`, `test_fetch_recent_tracks_page_does_not_cache_a_malformed_page`) now expect `None` and the retry count; new tests cover recovery inside one call, the partial outcome through `fetch_all_recent_tracks_async`, and scalar and list page-1 bodies.
 
 Validation: `pytest -q` -- **2178 passed**.
-
-### 2026-09-29 - Last.fm api_key redacted from every log line
-
-Side task, no batch tag: redacting the Last.fm `api_key` in every log line (review finding S1-1), a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-aiohttp puts the full request URL, query string included, into `str(exc)`, and four sites logged it: `utils.run_async_in_thread` (message and traceback), the registration-year warning in `routes/album_flow.results_loading`, `utils.retry_with_semaphore`'s connect-timeout error line, and `utils.get_cached_response`'s debug line (the cache key embeds the URL). A POST to `/results_loading` with an unknown username wrote the key twice at production log level. `api_logging.RedactingFormatter` now replaces the value after `api_key=` or `api_key:` with `[redacted]` in any rendered line, traceback included, and `app.py` sets it on both log handlers. The trace hook's query exclusion stays the first layer. The check_* functions, the cache key and the route's missing `exists` check are unchanged. Five new tests in `tests/services/test_api_logging.py` and one in `tests/test_app_factory.py`, which checks both the rotating file handler and the stdout handler.
-
-Validation: `pytest -q` -- **2173 passed**.

@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Last.fm api_key redacted from every log line
+
+Side task, no batch tag: redacting the Last.fm `api_key` in every log line (review finding S1-1), a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+aiohttp puts the full request URL, query string included, into `str(exc)`, and four sites logged it: `utils.run_async_in_thread` (message and traceback), the registration-year warning in `routes/album_flow.results_loading`, `utils.retry_with_semaphore`'s connect-timeout error line, and `utils.get_cached_response`'s debug line (the cache key embeds the URL). A POST to `/results_loading` with an unknown username wrote the key twice at production log level. `api_logging.RedactingFormatter` now replaces the value after `api_key=` or `api_key:` with `[redacted]` in any rendered line, traceback included, and `app.py` sets it on both log handlers. The trace hook's query exclusion stays the first layer. The check_* functions, the cache key and the route's missing `exists` check are unchanged. Five new tests in `tests/services/test_api_logging.py` and one in `tests/test_app_factory.py`, which checks both the rotating file handler and the stdout handler.
+
+Validation: `pytest -q` -- **2173 passed**.
+
 ### 2026-09-29 - Spotlight box comment and one finding sentence corrected
 
 Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
