@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Architecture diagrams re-verified against source
+
+Side task, no batch tag: re-verifying the architecture diagrams against the source, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The runtime diagram gains `heatmap.py` -> `errors.py` and `app.py` -> `api_logging.py`. Both sequence diagrams now draw the private-profile refusal (HTTP 403, Last.fm error 17). The development-cycle page says CI picks browser tests by marker, not folder. The control-plane diagram gains twelve docsync import edges it lacked. SESSION_CONTEXT Sections 3-4 gain `enrichment.py`, `deezer.py` and `orchestrator/_deezer_fallback.py` and lose a `repositories.py` -> domain edge that no import makes. No code changed.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - DEVELOPMENT.md shows each tool in action
 
 Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

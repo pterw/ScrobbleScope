@@ -499,7 +499,7 @@
 /* Tooltip (positioned div, injected by JS)                            */
 /* ------------------------------------------------------------------ */
 .heatmap-tooltip {
-  position: absolute;
+  position: fixed;
   z-index: 1000;
   padding: 0.4rem 0.65rem;
   border: 1px solid var(--ss-border-default);

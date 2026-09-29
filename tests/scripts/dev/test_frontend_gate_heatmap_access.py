@@ -12,6 +12,8 @@ CHECKS = (
     "check_heatmap_cells_are_keyboard_accessible",
     "check_heatmap_document_listeners_attach_once",
     "check_heatmap_focus_survives_breakpoint",
+    "check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip",
+    "check_heatmap_tooltip_has_one_owner",
 )
 CONSTANTS = ("HEATMAP_PATH",)
 HELPERS = ("_expected_cell_label",)

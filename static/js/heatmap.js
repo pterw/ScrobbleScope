@@ -1565,6 +1565,58 @@
   var tooltipCellData = [];
   var documentTooltipListenersAttached = false;
 
+  // One state answers "which cell owns the tooltip, and why": `cd` is the
+  // cell and `reason` is 'hover' (pointer over it), 'focus' (keyboard focus,
+  // as :focus-visible draws it) or 'tap' (a stationary touch). Null while
+  // the tooltip is hidden. Every listener below reads and writes this, so a
+  // scroll or a resize acts on the owner only: a focus owner is
+  // repositioned, a hover or tap owner is hidden (its cell has moved from
+  // under the pointer or finger), and nothing else is ever shown by them.
+  var tooltipOwner = null;
+
+  // A touch that travels further than this is a swipe, not a tap.
+  var TAP_MOVE_LIMIT_PX = 10;
+  var touchStart = null;
+
+  function ownTooltip(cd, reason) {
+    tooltipOwner = { cd: cd, reason: reason };
+    showTooltip(cd);
+  }
+
+  // The cell holding keyboard focus, or null: focus that a click or a tap
+  // gave a cell owns nothing.
+  function keyboardFocusedCell() {
+    var active = document.activeElement;
+    for (var i = 0; i < tooltipCellData.length; i++) {
+      var cd = tooltipCellData[i];
+      if (cd.el === active && cd.el.matches(':focus-visible')) return cd;
+    }
+    return null;
+  }
+
+  // Give the tooltip back to the keyboard-focused cell, if there is one:
+  // what the pointer leaving a hovered cell falls back to.
+  function restoreFocusOwner() {
+    var cd = keyboardFocusedCell();
+    if (cd) {
+      ownTooltip(cd, 'focus');
+    } else {
+      hideTooltip();
+    }
+  }
+
+  // A scroll or a resize moved the page under the tooltip.
+  function repositionTooltipOwner() {
+    if (!tooltipOwner) return;
+    var cd = tooltipOwner.cd;
+    if (tooltipOwner.reason === 'focus' && document.activeElement === cd.el &&
+        document.body.contains(cd.el)) {
+      showTooltip(cd);
+    } else {
+      hideTooltip();
+    }
+  }
+
   function initTooltips(svg, cellData, grid) {
     // Create or reuse tooltip div
     if (!tooltip) {
@@ -1572,40 +1624,65 @@
       tooltip.className = 'heatmap-tooltip';
       document.body.appendChild(tooltip);
     }
+    // The previous render's cells are gone, and so is any owner among them;
+    // a cell that takes focus afterwards claims the tooltip again.
+    hideTooltip();
+    touchStart = null;
 
-    var svgContainer = gridContainer;
     // Every cell is in the SVG by now, so the focus-ring paints after them
     // all.
     var focusRing = createFocusRing(svg);
 
+    // Keyboard focus only, as :focus-visible draws it: a click focuses the
+    // cell too, and a focus-ring under the pointer adds nothing. Decided
+    // again after a key that moves nothing, because Chromium turns
+    // :focus-visible on for a clicked cell at the first key without firing
+    // a focus event.
+    function syncFocusIndicators(cd) {
+      if (cd.el.matches(':focus-visible')) {
+        showFocusRing(focusRing, cd.el);
+        ownTooltip(cd, 'focus');
+      } else {
+        hideFocusRing(focusRing);
+      }
+    }
+
     cellData.forEach(function (cd, index) {
-      cd.el.addEventListener('mouseenter', function (e) {
-        showTooltip(cd, e);
+      cd.el.addEventListener('mouseenter', function () {
+        ownTooltip(cd, 'hover');
       });
       cd.el.addEventListener('mouseleave', function () {
-        hideTooltip();
+        if (tooltipOwner && tooltipOwner.cd === cd) restoreFocusOwner();
       });
+      // Passive and never cancelled: a touch that starts on a cell must
+      // still be able to scroll the page. The tap itself is decided at
+      // touchend (below), from how far the finger travelled.
       cd.el.addEventListener('touchstart', function (e) {
-        e.preventDefault();
-        showTooltip(cd, e.touches[0]);
-      }, { passive: false });
+        var t = e.touches[0];
+        touchStart = { cd: cd, x: t.clientX, y: t.clientY };
+      }, { passive: true });
       cd.el.addEventListener('focus', function () {
         setRovingTabStop(cellData, index);
-        // Keyboard focus only, as :focus-visible draws it: a click focuses
-        // the cell too, and a focus-ring under the pointer adds nothing.
-        if (cd.el.matches(':focus-visible')) {
-          showFocusRing(focusRing, cd.el);
-        } else {
-          hideFocusRing(focusRing);
-        }
-        showTooltip(cd, {clientX: 0, clientY: 0});
+        syncFocusIndicators(cd);
       });
       cd.el.addEventListener('blur', function () {
         hideFocusRing(focusRing);
-        hideTooltip();
+        if (tooltipOwner && tooltipOwner.cd === cd &&
+            tooltipOwner.reason === 'focus') {
+          hideTooltip();
+        }
       });
       cd.el.addEventListener('keydown', function (e) {
+        // Escape dismisses the tooltip (WCAG 1.4.13) and nothing else: it
+        // is not cancelled, so a dialog or the browser still sees it.
+        if (e.key === 'Escape') {
+          hideTooltip();
+          return;
+        }
         handleCellKeydown(cellData, index, e, grid);
+        if (e.defaultPrevented && document.activeElement === cd.el) {
+          syncFocusIndicators(cd);
+        }
       });
     });
 
@@ -1613,42 +1690,55 @@
     if (documentTooltipListenersAttached) return;
     documentTooltipListenersAttached = true;
 
-    document.addEventListener('touchend', hideTooltip);
+    // A tap shows the tooltip; any other touch end hides it. The tap's
+    // touchend is cancelled so the browser does not follow it with mouse
+    // events that would hand the tooltip to 'hover' and focus the cell.
+    // A touchend is not what scrolls the page, so cancelling it costs the
+    // swipe nothing; a swipe is not cancelled at all.
+    document.addEventListener('touchend', function (e) {
+      var start = touchStart;
+      touchStart = null;
+      var end = e.changedTouches && e.changedTouches[0];
+      if (start && end &&
+          Math.abs(end.clientX - start.x) <= TAP_MOVE_LIMIT_PX &&
+          Math.abs(end.clientY - start.y) <= TAP_MOVE_LIMIT_PX &&
+          e.target === start.cd.el) {
+        if (e.cancelable) e.preventDefault();
+        ownTooltip(start.cd, 'tap');
+      } else {
+        hideTooltip();
+      }
+    }, { passive: false });
     // Capture-phase, because a focused cell's own scroll container (the
     // mobile strip) does not bubble a scroll event to `document`. Focusing
     // an off-screen cell scrolls it into view, which used to fire this
     // listener and hide the tooltip the focus handler had just shown; now
     // it repositions the same tooltip for the still-focused cell instead.
-    // Only a tooltip on show is repositioned. A clicked cell keeps focus
-    // after the pointer leaves and hides its tooltip, and a scroll used to
-    // bring that tooltip back every time.
+    // Only the owner is touched, and only while it is shown: a clicked cell
+    // that keeps focus after the pointer leaves owns nothing, so a scroll
+    // has nothing of its to bring back.
     document.addEventListener('scroll', function () {
-      if (!tooltip.classList.contains('visible')) return;
-      var active = document.activeElement;
-      var focused = tooltipCellData.filter(function (cd) { return cd.el === active; })[0];
-      if (!focused) {
+      if (!tooltipOwner) return;
+      if (tooltipOwner.reason !== 'focus') {
         hideTooltip();
         return;
       }
-      // Re-checked a frame later: the pointer may have hidden it since.
-      var reposition = function () {
-        if (!tooltip.classList.contains('visible')) return;
-        if (document.activeElement !== focused.el) return;
-        showTooltip(focused, { clientX: 0, clientY: 0 });
-      };
+      // Re-checked a frame later: the pointer may have taken it since.
       if (window.requestAnimationFrame) {
-        window.requestAnimationFrame(reposition);
+        window.requestAnimationFrame(repositionTooltipOwner);
       } else {
-        reposition();
+        repositionTooltipOwner();
       }
     }, true);
   }
 
-  function showTooltip(cd, event) {
+  function showTooltip(cd) {
     tooltip.textContent = cellAccessibleLabel(cd.date, cd.count);
     tooltip.classList.add('visible');
 
-    // Position near the cell
+    // Position near the cell. The tooltip is position: fixed, so these are
+    // viewport coordinates, and a hidden one sitting off to the side never
+    // widens the page's scroll width.
     var rect = cd.el.getBoundingClientRect();
     var ttWidth  = tooltip.offsetWidth;
     var ttHeight = tooltip.offsetHeight;
@@ -1666,11 +1756,12 @@
       left = window.innerWidth - ttWidth - 4;
     }
 
-    tooltip.style.left = left + window.scrollX + 'px';
-    tooltip.style.top  = top + window.scrollY + 'px';
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top + 'px';
   }
 
   function hideTooltip() {
+    tooltipOwner = null;
     if (tooltip) {
       tooltip.classList.remove('visible');
     }
@@ -1727,6 +1818,10 @@
       var shouldRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
       if (shouldRenderMobile !== lastRenderMobile) {
         rerenderKeepingFocus();
+      } else {
+        // Same layout, new width: the cells moved, and the tooltip follows
+        // its owner or goes.
+        repositionTooltipOwner();
       }
     }, 100);
   }

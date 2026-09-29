@@ -95,6 +95,8 @@ from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
     check_heatmap_cells_are_keyboard_accessible,
     check_heatmap_document_listeners_attach_once,
     check_heatmap_focus_survives_breakpoint,
+    check_heatmap_tooltip_has_one_owner,
+    check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
 )
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
@@ -380,6 +382,18 @@ CHECKS = (
     (
         "heatmap focus survives breakpoint",
         check_heatmap_focus_survives_breakpoint,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap touch swipe scrolls and tap shows tooltip",
+        check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
+        (MOBILE,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap tooltip has one owner",
+        check_heatmap_tooltip_has_one_owner,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

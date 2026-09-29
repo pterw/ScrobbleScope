@@ -47,6 +47,14 @@ tooltip's document-level `scroll` and `touchend` listeners are attached once
 per page, not once per render. A third,
 `check_heatmap_focus_survives_breakpoint`, proves a re-render across the
 breakpoint gives focus back to the same day.
+
+The third review's touch and tooltip fixes have two more:
+`check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip` (a swipe that starts
+on a cell scrolls the page; a tap shows the tooltip) and
+`check_heatmap_tooltip_has_one_owner` (one owner state for the tooltip: no
+re-focus after a click, scroll and resize touch the owner only, a hidden
+tooltip cannot widen the page, Escape dismisses it, ring and `:focus-visible`
+stay in step).
 """
 
 from __future__ import annotations
@@ -1035,5 +1043,321 @@ def check_heatmap_focus_survives_breakpoint(page, base_url: str) -> list[str]:
             )
     finally:
         probe.close()
+        delete_job(job_id)
+    return failures
+
+
+# ---------------------------------------------------------------------------
+# Touch scrolling and the tooltip's single owner (review 3: S2-3, S2-6, S2-7,
+# S2-8, S2-16, S2-17)
+# ---------------------------------------------------------------------------
+
+#: A cell's date, count and centre for every cell whose box lies inside the
+#: viewport.
+_CELLS_IN_VIEW_JS = """() => Array.from(document.querySelectorAll('.heatmap-cell'))
+    .map((c) => ({date: c.getAttribute('data-date'),
+                  count: c.getAttribute('data-count'),
+                  r: c.getBoundingClientRect()}))
+    .filter((c) => c.r.left >= 0 && c.r.right <= window.innerWidth
+        && c.r.top >= 0 && c.r.bottom <= window.innerHeight)
+    .map((c) => ({date: c.date, count: c.count,
+                  x: c.r.left + c.r.width / 2, y: c.r.top + c.r.height / 2}))"""
+
+#: The tooltip's shown state, text and box, next to the page's scroll state.
+_TOOLTIP_BOX_JS = """() => {
+    const tt = document.querySelector('.heatmap-tooltip');
+    const r = tt.getBoundingClientRect();
+    const root = document.documentElement;
+    return {
+        shown: tt.classList.contains('visible'),
+        text: tt.textContent,
+        cx: r.left + r.width / 2, top: r.top, bottom: r.bottom,
+        scrollY: window.scrollY,
+        scrollWidth: root.scrollWidth, clientWidth: root.clientWidth,
+    };
+}"""
+
+#: A touchstart on a cell, cancelable as a real one is; true when the page
+#: cancelled it. A cancelled touchstart is what stops the browser scrolling.
+_TOUCHSTART_CANCELLED_JS = """(date) => {
+    const cell = document.querySelector('.heatmap-cell[data-date="' + date + '"]');
+    const r = cell.getBoundingClientRect();
+    const touch = new Touch({identifier: 1, target: cell,
+        clientX: r.left + r.width / 2, clientY: r.top + r.height / 2});
+    const event = new TouchEvent('touchstart', {touches: [touch],
+        targetTouches: [touch], changedTouches: [touch],
+        bubbles: true, cancelable: true});
+    cell.dispatchEvent(event);
+    return event.defaultPrevented;
+}"""
+
+_SEED_DAYS = 365
+
+
+def _seed_year_job() -> tuple[str, str]:
+    """A finished heatmap job over the app's 365-day window, with a spread of
+    non-zero days so cells carry different labels. Returns (job id, last day)."""
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    from_date = "2025-01-01"
+    to_date = _shift_iso_date(from_date, _SEED_DAYS - 1)
+    counts = {_shift_iso_date(from_date, n): 1 + n % 9 for n in range(0, _SEED_DAYS, 3)}
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": from_date,
+            "to_date": to_date,
+            "total_scrobbles": sum(counts.values()),
+            "max_count": max(counts.values()),
+            "daily_counts": counts,
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    return job_id, to_date
+
+
+def _tap_shows_tooltip(page, cell: dict) -> list[str]:
+    page.touchscreen.tap(cell["x"], cell["y"])
+    page.wait_for_timeout(300)
+    box = page.evaluate(_TOOLTIP_BOX_JS)
+    expected = _expected_cell_label(cell["date"], int(cell["count"]))
+    if box["shown"] and box["text"] == expected:
+        return []
+    seen = f"shown reading {box['text']!r}" if box["shown"] else "hidden"
+    return [
+        f"a tap on the cell {cell['date']!r} left the tooltip {seen}, "
+        f"expected it shown reading {expected!r}"
+    ]
+
+
+def _swipe_scrolls_chromium(page, cell: dict) -> list[str]:
+    """A real touch drag (CDP `Input.dispatchTouchEvent`) that starts on a
+    cell scrolls the page. Chromium only: Firefox has no such protocol."""
+    session = page.context.new_cdp_session(page)
+    x, y = cell["x"], cell["y"]
+    before = page.evaluate("() => window.scrollY")
+    session.send(
+        "Input.dispatchTouchEvent",
+        {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]},
+    )
+    for step in range(1, 9):
+        session.send(
+            "Input.dispatchTouchEvent",
+            {"type": "touchMove", "touchPoints": [{"x": x, "y": y - 25 * step}]},
+        )
+    session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+    page.wait_for_timeout(400)
+    after = page.evaluate("() => window.scrollY")
+    session.detach()
+    if after <= before:
+        return [
+            f"a touch swipe that began on the cell {cell['date']!r} did not "
+            f"scroll the page (scrollY {before} -> {after}): a cell must not "
+            "cancel touchstart"
+        ]
+    box = page.evaluate(_TOOLTIP_BOX_JS)
+    if box["shown"]:
+        return [
+            "a swipe that began on a cell left its tooltip shown "
+            f"({box['text']!r}); only a tap shows it"
+        ]
+    return []
+
+
+def check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip(
+    page, base_url: str
+) -> list[str]:
+    """On a touch screen a swipe that starts on a cell scrolls the page and a
+    tap on a cell shows its tooltip (S2-3: every cell cancelled touchstart, so
+    a swipe over the strip never scrolled)."""
+    failures: list[str] = []
+    job_id, _last = _seed_year_job()
+    try:
+        page.goto(f"{base_url}{HEATMAP_PATH}?job_id={job_id}", wait_until="load")
+        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        cells = page.evaluate(_CELLS_IN_VIEW_JS)
+        if len(cells) < 3:
+            return [f"only {len(cells)} heatmap cell(s) in view; no touch probe"]
+        cell = cells[len(cells) // 2]
+        if page.evaluate(_TOUCHSTART_CANCELLED_JS, cell["date"]):
+            failures.append(
+                "a touchstart on a heatmap cell was cancelled (preventDefault): "
+                "the browser then never scrolls a swipe that starts there"
+            )
+        failures.extend(_tap_shows_tooltip(page, cell))
+        page.touchscreen.tap(2, 2)
+        page.wait_for_timeout(300)
+        if page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
+            failures.append("a tap outside the grid left the cell's tooltip shown")
+        if page.context.browser.browser_type.name == "chromium":
+            failures.extend(_swipe_scrolls_chromium(page, cell))
+    finally:
+        delete_job(job_id)
+    return failures
+
+
+def _open_year(page, base_url: str, job_id: str, viewport: dict) -> None:
+    page.set_viewport_size(viewport)
+    page.goto(f"{base_url}{HEATMAP_PATH}?job_id={job_id}", wait_until="load")
+    layout = "desktop" if viewport["width"] >= 860 else "mobile"
+    page.locator(f'#heatmap-result-frame svg[data-layout="{layout}"]').wait_for(
+        state="visible"
+    )
+    page.evaluate(_TWO_FRAMES_JS)
+
+
+def _cell_box(page, date: str) -> dict:
+    return page.evaluate(
+        """(date) => {
+            const r = document.querySelector(
+                '.heatmap-cell[data-date="' + date + '"]').getBoundingClientRect();
+            return {x: r.left + r.width / 2, y: r.top + r.height / 2,
+                    top: r.top, bottom: r.bottom};
+        }""",
+        date,
+    )
+
+
+def _tab_into_grid(page) -> str | None:
+    page.locator("#heatmap-save-image").focus()
+    for _ in range(_MAX_TAB_PRESSES):
+        page.keyboard.press("Tab")
+        landed = page.evaluate(_ACTIVE_CELL_JS)
+        if landed:
+            return landed["date"]
+    return None
+
+
+def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
+    """One owner state decides who shows the tooltip: a re-focus after a click
+    shows none (S2-6), a scroll or a resize touches its owner only (S2-7), a
+    hidden one cannot widen the page (S2-16), Escape dismisses it (S2-17) and
+    a key after a click keeps ring and :focus-visible in step (S2-8)."""
+    failures: list[str] = []
+    job_id, last_date = _seed_year_job()
+    try:
+        # S2-6: a clicked cell the pointer left, re-focused by a re-render at
+        # the other layout, must not bring its tooltip back.
+        _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
+        cells = page.evaluate(_CELLS_IN_VIEW_JS)
+        clicked = cells[len(cells) // 3]
+        hovered = cells[2 * len(cells) // 3]
+        page.locator(f'.heatmap-cell[data-date="{clicked["date"]}"]').click()
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(250)
+        page.set_viewport_size({"width": 700, "height": 800})
+        page.locator('#heatmap-result-frame svg[data-layout="mobile"]').wait_for(
+            state="visible"
+        )
+        page.wait_for_timeout(300)
+        if page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
+            failures.append(
+                "after a click, the pointer leaving and a re-render into the "
+                "mobile layout re-focused the cell, its tooltip came back "
+                "though nothing but a mouse click had focused it"
+            )
+
+        # S2-7 (a): a scroll never moves a hover tooltip to the focused cell.
+        # A short window, so the page is sure to have somewhere to scroll.
+        _open_year(page, base_url, job_id, {"width": 1280, "height": 500})
+        cells = page.evaluate(_CELLS_IN_VIEW_JS)
+        clicked = cells[len(cells) // 3]
+        hovered = cells[2 * len(cells) // 3]
+        page.locator(f'.heatmap-cell[data-date="{clicked["date"]}"]').click()
+        over = _cell_box(page, hovered["date"])
+        page.mouse.move(over["x"], over["y"])
+        page.wait_for_timeout(250)
+        clicked_label = _expected_cell_label(clicked["date"], int(clicked["count"]))
+        page.mouse.wheel(0, 300)
+        page.wait_for_timeout(400)
+        box = page.evaluate(_TOOLTIP_BOX_JS)
+        if box["scrollY"] == 0:
+            failures.append(
+                "the wheel scrolled nothing; the scroll probe proves nothing"
+            )
+        if box["shown"] and box["text"] == clicked_label:
+            failures.append(
+                "a scroll moved the hover tooltip onto the clicked, focused "
+                f"cell ({box['text']!r}) while the pointer was over another"
+            )
+
+        # S2-7 (b): a resize inside the desktop layout moves the keyboard
+        # tooltip with its cell.
+        _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
+        if _tab_into_grid(page) is None:
+            return failures + ["Tab never reaches a heatmap cell; no owner probe"]
+        for _ in range(10):
+            page.keyboard.press("ArrowLeft")
+        focused = page.evaluate(_ACTIVE_CELL_JS)["date"]
+        page.evaluate(_TWO_FRAMES_JS)
+        page.wait_for_timeout(250)
+        page.set_viewport_size({"width": 1000, "height": 720})
+        page.wait_for_timeout(400)
+        box = page.evaluate(_TOOLTIP_BOX_JS)
+        cell = _cell_box(page, focused)
+        overlaps = box["top"] < cell["bottom"] and box["bottom"] > cell["top"]
+        if not box["shown"] or abs(box["cx"] - cell["x"]) > 3 or overlaps:
+            failures.append(
+                "after a resize inside the desktop layout the keyboard "
+                f"tooltip stayed behind (shown {box['shown']}, centre "
+                f"{box['cx']:.0f} vs cell {cell['x']:.0f}, tooltip "
+                f"{box['top']:.0f}-{box['bottom']:.0f} vs cell "
+                f"{cell['top']:.0f}-{cell['bottom']:.0f})"
+            )
+
+        # S2-17: Escape dismisses the keyboard tooltip and leaves focus be.
+        page.keyboard.press("Escape")
+        state = page.evaluate(_TOOLTIP_AND_FOCUS_JS)
+        if state["shown"] or state["focused"] != focused:
+            failures.append(
+                "Escape left the keyboard tooltip "
+                f"{'shown' if state['shown'] else 'hidden'} with focus on "
+                f"{state['focused']!r}; expected it hidden and focus on "
+                f"{focused!r}"
+            )
+
+        # S2-16: a tooltip hovered on the right, then hidden, does not widen
+        # the page once the window narrows.
+        _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
+        far = _cell_box(page, last_date)
+        page.mouse.move(far["x"], far["y"])
+        page.wait_for_timeout(250)
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(250)
+        page.set_viewport_size(_NARROW_VIEWPORT)
+        page.locator('#heatmap-result-frame svg[data-layout="mobile"]').wait_for(
+            state="visible"
+        )
+        page.wait_for_timeout(300)
+        box = page.evaluate(_TOOLTIP_BOX_JS)
+        if box["scrollWidth"] > box["clientWidth"]:
+            failures.append(
+                "a hidden tooltip left over from a right-hand cell widened the "
+                f"page at 390px (scrollWidth {box['scrollWidth']} > "
+                f"clientWidth {box['clientWidth']})"
+            )
+
+        # S2-8: after a click, a key that moves nothing must not leave a
+        # :focus-visible cell without its ring.
+        _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
+        first = page.evaluate(
+            "() => document.querySelector('.heatmap-cell').getAttribute('data-date')"
+        )
+        page.locator(f'.heatmap-cell[data-date="{first}"]').click()
+        page.mouse.move(0, 0)
+        page.keyboard.press("ArrowLeft")
+        ring = page.evaluate(
+            """() => ({
+                fv: document.activeElement.matches(':focus-visible'),
+                ring: document.querySelector('.heatmap-focus-ring')
+                    .getAttribute('visibility'),
+            })"""
+        )
+        if ring["fv"] != (ring["ring"] == "visible"):
+            failures.append(
+                "after a click and a key that moved nothing, the cell's "
+                f":focus-visible is {ring['fv']} but its ring is {ring['ring']!r}"
+            )
+    finally:
         delete_job(job_id)
     return failures
