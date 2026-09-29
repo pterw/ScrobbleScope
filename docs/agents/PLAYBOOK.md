@@ -120,6 +120,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - A malformed Last.fm page is retried and counted as dropped
+
+Side task, no batch tag: retrying a malformed 200 page and counting it as dropped, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Review finding S1-2 (P1): `fetch_recent_tracks_page_async` returned any body that parsed as JSON as a success, so an error payload served as a 200 on page 2..N was fetched once, never retried and counted as received: the job said `ok` with up to 200 scrobbles missing, and a `[]` body reached the aggregators and crashed them. `fetch_once` now treats a page that fails `_is_well_formed_page` like a non-200 response: one WARNING naming the page and the defect class (never the body), `None`, retried, and dropped and counted in `pages_dropped` if it stays bad. Finding S1-12: page 1 is checked by the same helper in `fetch_all_recent_tracks_async`, replacing the inline check that raised `TypeError` on a scalar body and the weaker second try block. No check was added on `recenttracks.track`: Last.fm can serve one track as an object, a separate matter. README and `top-albums-sequence.md` say a malformed page counts as a failed attempt.
+
+Tests: the two tests that pinned the old contract (`test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_network`, `test_fetch_recent_tracks_page_does_not_cache_a_malformed_page`) now expect `None` and the retry count; new tests cover recovery inside one call, the partial outcome through `fetch_all_recent_tracks_async`, and scalar and list page-1 bodies.
+
+Validation: `pytest -q` -- **2178 passed**.
+
 ### 2026-09-29 - Last.fm api_key redacted from every log line
 
 Side task, no batch tag: redacting the Last.fm `api_key` in every log line (review finding S1-1), a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -145,17 +155,5 @@ SESSION_CONTEXT's structure list and dependency graph now match the source: the 
 Smaller corrections: the README's provider-log sentence names Last.fm's `method` value as the one query parameter a line carries; the `heatmap_task` docstring says a failure is classified before it falls back to `internal_error`; the results spotlight comment says its 8px corner starts at 1024px; DEVELOPMENT.md no longer says "This session". FINDINGS.md: F-B23-9 (open, P1) moved under the P1 heading, and the line-number citations in F-B21-57, F-SWE-3, F-SWE-7 and F-DOCSYNC-14 are now names.
 
 Filed: F-B23-16 (the error classifier's bare substrings), F-B23-17 (a Validation line with no digit passes `--check`), F-B23-18 (unmatched portraits with no link to Spotify, P1), F-B23-19 (letterboxed spotlight photo corners) and F-B23-20 (the spotlight waits for every candidate).
-
-Validation: `pytest -q` -- **2167 passed**.
-
-### 2026-09-29 - Frontend gate checks that could not fail now fail on their defects
-
-Side task, no batch tag: ten frontend-gate checks and tests made to fail on the defects they name (second code review, findings D1 to D10; D1 is the earlier E6), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The inline-mark check (D1) now renders each mark inside two wrappers with different `color` and `--bars-color` and judges the painted fill and stroke, so a comment, a child path, a 3-digit hex or a later stroke rule can no longer hide a colour that ignores its wrapper. The non-square photo check (D2) judges the painted image box against the box that clips it, and fails a transform or clip-path on the image. The overlay check (D3) also reads `::before` and `::after`, and the animation check fails on any named animation or a running transform or filter transition.
-
-The card-hidden check (D4) waits until the mock has seen and answered every candidate before it asserts the card stayed hidden. Both photo checks (D5) and the Spotify icon check (D6) wait for the image to load first, and an icon that never loads is reported by name. The focus-ring shots (D7) park the pointer and let transitions settle. The unmatched placeholder kind (D8) counts only visible nodes, and a missing visible placeholder is a failure. Comments (D9) now say the Deezer row is third by plays and say what the rotation check proves. The rotation test (D10) asserts hydration writes no `image_url` or `spotify_url` into `APP_DATA`.
-
-Also corrected: a test docstring that still said the artwork radius is wrong only below 768px; it now names `ARTWORK_RADIUS_STEP_MIN` (1024px). D7 has no plant that separates old from new (a hover that differs between two shots cannot be reproduced), so it has a green run only. A zero-duration transition is not counted as an animation.
 
 Validation: `pytest -q` -- **2167 passed**.

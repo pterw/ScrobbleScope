@@ -505,12 +505,15 @@ def _page_session(*payloads):
     return session
 
 
-async def _fetch_page_once(session):
-    with patch(
-        "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+async def _fetch_page_once(session, retries=1):
+    with (
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("scrobblescope.utils.asyncio.sleep", new_callable=AsyncMock),
     ):
         return await fetch_recent_tracks_page_async(
-            session, "flounder14", 1, 2, page=1, retries=1
+            session, "flounder14", 1, 2, page=1, retries=retries
         )
 
 
@@ -522,8 +525,8 @@ async def test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_netwo
     GIVEN a first response that is JSON but has no recenttracks.@attr
     AND a second, well-formed response
     WHEN fetch_recent_tracks_page_async is called twice
-    THEN the malformed page is returned but not cached, so the second call
-    reaches the network and returns the good page (review A1).
+    THEN the malformed page is not returned and not cached, so the second
+    call reaches the network and returns the good page (review A1).
     """
     malformed = {"recenttracks": {"track": []}}
     good = _make_page(1)
@@ -532,7 +535,7 @@ async def test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_netwo
     first = await _fetch_page_once(session)
     second = await _fetch_page_once(session)
 
-    assert first == malformed
+    assert first is None
     assert second == good
     assert session.get.call_count == 2
 
@@ -563,14 +566,109 @@ async def test_fetch_recent_tracks_page_does_not_cache_a_malformed_page(
     """
     GIVEN Last.fm serves a 200 whose body is not a well-formed page
     WHEN fetch_recent_tracks_page_async runs
-    THEN the body is returned unchanged and REQUEST_CACHE stays empty.
+    THEN the page is retried and, staying bad, returns None; REQUEST_CACHE
+    stays empty and the network was hit once per attempt.
     """
-    session = _page_session(bad_payload)
+    session = _page_session(*[bad_payload] * 2)
 
-    result = await _fetch_page_once(session)
+    result = await _fetch_page_once(session, retries=2)
 
-    assert result == bad_payload
+    assert result is None
     assert empty_request_cache == {}
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_tracks_page_recovers_within_one_call(
+    empty_request_cache,
+):
+    """
+    GIVEN a bad 200 body on the first attempt and a good page on the second
+    WHEN one fetch_recent_tracks_page_async call runs with retries=2
+    THEN it returns the good page after two GETs.
+    """
+    good = _make_page(1)
+    session = _page_session({"error": 8, "message": "Operation failed"}, good)
+
+    result = await _fetch_page_once(session, retries=2)
+
+    assert result == good
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_all_counts_an_error_payload_page_as_dropped(
+    empty_request_cache,
+):
+    """
+    GIVEN page 2 of 3 answers {"error": 8} on every attempt
+    WHEN fetch_all_recent_tracks_async runs on the progress_cb path
+    THEN the page is retried, dropped and counted: status partial, one page
+    dropped, two pages returned (review S1-2).
+    """
+    requested = []
+    pages_by_number = {1: _make_page(3), 3: _make_page(3)}
+
+    def get(url, params):
+        page = params["page"]
+        requested.append(page)
+        resp = AsyncMock()
+        resp.status = 200
+        resp.json = AsyncMock(
+            return_value=pages_by_number.get(page, {"error": 8, "message": "x"})
+        )
+        return make_response_context(resp)
+
+    session = MagicMock()
+    session.get.side_effect = get
+
+    with (
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("scrobblescope.utils.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=session)
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async(
+            "user", 0, 1, progress_cb=lambda done, total, received: None
+        )
+
+    assert meta["status"] == "partial"
+    assert meta["pages_dropped"] == 1
+    assert len(pages) == 2
+    assert requested.count(2) == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [5, True, []], ids=["int", "bool", "list"])
+async def test_fetch_all_first_page_not_an_object_returns_error_metadata(
+    body, empty_request_cache
+):
+    """
+    GIVEN page 1 answers a 200 whose body is a scalar or a list
+    WHEN fetch_all_recent_tracks_async runs
+    THEN it returns the lastfm_unavailable error metadata and raises nothing
+    (review S1-12).
+    """
+    session = _page_session(*[body] * 3)
+
+    with (
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("scrobblescope.utils.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=session)
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1)
+
+    assert pages == []
+    assert meta == {"status": "error", "reason": "lastfm_unavailable"}
 
 
 @pytest.mark.asyncio

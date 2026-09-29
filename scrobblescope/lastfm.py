@@ -128,6 +128,15 @@ def _is_well_formed_page(data: Any) -> bool:
     return True
 
 
+def _page_defect(data: Any) -> str:
+    """Name the class of defect in a malformed page, never its body."""
+    if not isinstance(data, dict):
+        return f"body is {type(data).__name__}, not an object"
+    if "error" in data:
+        return "error payload"
+    return "missing recenttracks.@attr.totalPages"
+
+
 async def _cancel_and_drain(tasks) -> None:
     """Cancel every unfinished task in *tasks* and wait for all to settle.
 
@@ -148,8 +157,9 @@ async def fetch_recent_tracks_page_async(
     """Fetch a single page of Last.fm scrobbles with retry and rate limiting.
 
     Returns parsed JSON on success or None after all retries are exhausted.
-    Only a well-formed page (see ``_is_well_formed_page``) is cached; any
-    other parsed body is returned but not cached.
+    A body that is not a well-formed page (see ``_is_well_formed_page``) is
+    treated like a non-200 response: retried, and None if it stays bad. Only
+    a well-formed page is cached.
     Raises ``ValueError`` if the user is not found (HTTP 404).
     """
     url = "https://ws.audioscrobbler.com/2.0/"
@@ -206,10 +216,17 @@ async def fetch_recent_tracks_page_async(
                         f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
                     )
                     return None, None
-                # Returned as-is either way; only a well-formed page is cached,
-                # so a bad 200 is not replayed to every retry for an hour.
-                if _is_well_formed_page(data):
-                    set_cached_response(url, data, params)
+                # A page that is not well-formed (an error payload served as a
+                # 200, a body without @attr.totalPages) is treated like a
+                # non-200 response: retried, and dropped if it stays bad. It
+                # is never cached, so a bad 200 is not replayed to every retry
+                # for an hour.
+                if not _is_well_formed_page(data):
+                    logging.warning(
+                        f"Malformed Last.fm page {page}: {_page_defect(data)}"
+                    )
+                    return None, None
+                set_cached_response(url, data, params)
                 return data, None
 
     return await retry_with_semaphore(
@@ -309,7 +326,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
         first = await fetch_recent_tracks_page_async(
             session, username, from_ts, to_ts, 1
         )
-        if not first or "recenttracks" not in first:
+        if not _is_well_formed_page(first):
             logging.error("Failed to fetch initial page from Last.fm")
             error_meta: dict[str, Any] = {
                 "status": "error",
@@ -317,16 +334,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
             }
             return [], error_meta
 
-        # A well-formed page missing @attr.totalPages (seen from Last.fm as a
-        # malformed first page, valid JSON but not the shape expected) is the
-        # same upstream failure as no page at all: report it the same way
-        # instead of letting KeyError/TypeError/ValueError reach the caller.
-        try:
-            total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
-        except (KeyError, TypeError, ValueError):
-            logging.error("Malformed initial page from Last.fm (missing totalPages)")
-            error_meta = {"status": "error", "reason": "lastfm_unavailable"}
-            return [], error_meta
+        total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 

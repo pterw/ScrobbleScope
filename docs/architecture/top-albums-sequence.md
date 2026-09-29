@@ -74,7 +74,7 @@ sequenceDiagram
             Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
             Orch->>Repo: Persist one below_threshold exclusion per album, with its counts and failed thresholds
             Note over Orch,Repo: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
-            Orch->>Repo: Aggregation stats, and partial_data_warning when pages were dropped
+            Orch->>Repo: Aggregation stats, and partial_data_warning when pages were dropped (failed, or malformed after every retry)
             alt Terminal Last.fm failure
                 Orch->>Repo: set_job_error(lastfm_unavailable)
                 Note over Orch,Repo: set_job_error also stores an empty result list

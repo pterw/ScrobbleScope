@@ -281,7 +281,10 @@ module, so the clients stay thin:
   reason the correction pass cannot be made faster.
 - **A retry helper that understands the provider.** It honours `Retry-After`,
   backs off with jitter, asks the limiter again on every attempt rather than
-  only the first, and can hold a semaphore for the duration.
+  only the first, and can hold a semaphore for the duration. A Last.fm page
+  that is not well-formed, such as an error payload served as a 200, counts
+  as a failed attempt: it is retried, never cached, and reported as dropped
+  if it stays bad.
 - **One pooled `aiohttp` session per run**, with connection limits, timeouts
   and a shared header set, instead of a session per call.
 - **A short-lived in-memory response cache**, so re-running the same year with
