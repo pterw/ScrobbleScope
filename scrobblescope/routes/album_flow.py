@@ -160,6 +160,9 @@ def _render_results_page():
         if error_code == "user_not_found":
             details = "Please check the username and try again."
             status_code = 404
+        elif error_code == "private_profile":
+            details = "Make recent listening public on Last.fm, then search again."
+            status_code = 403
         return (
             render_template(
                 "error.html",
@@ -384,6 +387,13 @@ def results_loading():
 
     try:
         user_info = _routes._check_user_exists(username)
+        # Existence first, as the heatmap route does: a user Last.fm does not
+        # know gets "not found", never a privacy verdict about a ghost.
+        if not user_info["exists"]:
+            return render_template(
+                "index.html",
+                error=f"User '{username}' was not found on Last.fm.",
+            )
         if not _routes._check_profile_is_public(username):
             return render_template("index.html", error=_routes._PRIVATE_PROFILE_MESSAGE)
         registered_year = user_info.get("registered_year")

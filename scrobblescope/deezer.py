@@ -137,9 +137,12 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
     if tracks is None:
         return None
 
+    # A track whose title is null (or not text) is skipped: normalising it
+    # would raise TypeError and fail the whole job (F-B23-24).
     track_durations = {
-        normalize_track_name(t.get("title", "")): t.get("duration", 0)
+        normalize_track_name(t["title"]): t.get("duration", 0)
         for t in tracks.get("data", [])
+        if isinstance(t, dict) and isinstance(t.get("title", ""), str)
     }
     return AlbumMetadata(
         provider="deezer",

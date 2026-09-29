@@ -9,7 +9,7 @@ Last updated: 2026-09-29
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2207 passing** across 81 tracked test modules |
+| Tests | **2223 passing** across 81 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -43,7 +43,7 @@ Last updated: 2026-09-29
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2207 passed**.
+- Latest validated test count: **2223 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -153,7 +153,7 @@ cache.py         <- config
 worker.py        <- config
 repositories.py  <- config, errors
 enrichment.py    <- (leaf)
-lastfm.py        <- config, utils
+lastfm.py        <- config, errors, utils
 spotify.py       <- config, domain, enrichment, utils
 deezer.py        <- config, domain, enrichment, utils
 unmatched.py     <- (leaf)
@@ -163,7 +163,7 @@ orchestrator/__init__.py  <- cache, config, deezer, domain, errors, lastfm, rele
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
 orchestrator/_cache.py    <- orchestrator (facade)
-orchestrator/_deezer_fallback.py <- domain, unmatched; orchestrator (facade)
+orchestrator/_deezer_fallback.py <- domain, lastfm, unmatched; orchestrator (facade)
 orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
 heatmap.py       <- errors, lastfm, repositories, utils, worker
 spotlight.py     <- utils
@@ -265,7 +265,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2207 tests)
+## 6. Test structure (2223 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

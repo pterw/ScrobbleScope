@@ -6,6 +6,10 @@ import infrastructure concerns (user-facing messages, retryability flags).
 This module is a leaf -- it imports nothing from the scrobblescope package.
 """
 
+# The phrase ``lastfm.py`` puts in the ValueError it raises for a private
+# profile met inside a job; the classifier below looks for it.
+PRIVATE_PROFILE_MARKER = "profile is private"
+
 # Error classification codes for upstream failures.
 # Each code maps to a source, retryability flag, and user-facing message.
 ERROR_CODES = {
@@ -33,6 +37,14 @@ ERROR_CODES = {
         "source": "lastfm",
         "retryable": False,
         "message": "User '{username}' was not found on Last.fm.",
+    },
+    # Met inside a job: the profile went private after the preflight passed.
+    # Last.fm answers HTTP 403 (error 17). Not retryable: the owner must make
+    # recent listening public first.
+    "private_profile": {
+        "source": "lastfm",
+        "retryable": False,
+        "message": "This Last.fm profile is private. Make recent listening public and try again.",
     },
     "no_scrobbles_in_range": {
         "source": "lastfm",
@@ -64,13 +76,15 @@ def classify_exception_to_error_code(error_message):
     (a Last.fm 404, a provider's rate limit) is blamed on the source that
     actually failed rather than on the app.
 
-    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
-    or None for unclassified errors.
+    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'private_profile',
+    'user_not_found', or None for unclassified errors.
     """
     if "Too Many Requests" in error_message:
         if "spotify" in error_message.lower():
             return "spotify_rate_limited"
         return "lastfm_rate_limited"
+    if PRIVATE_PROFILE_MARKER in error_message:
+        return "private_profile"
     if "not found" in error_message.lower() and "user" in error_message.lower():
         return "user_not_found"
     return None

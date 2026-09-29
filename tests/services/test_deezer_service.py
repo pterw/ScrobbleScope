@@ -253,3 +253,43 @@ async def test_fetch_deezer_album_returns_none_when_tracks_fail():
         result = await fetch_deezer_album(session, 1, retries=1)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_deezer_album_skips_a_track_with_a_null_title():
+    """
+    GIVEN /album/{id}/tracks lists a track whose title is null
+    WHEN fetch_deezer_album runs
+    THEN that track is skipped and the rest are returned, instead of a
+    TypeError from normalising None failing the job (F-B23-24).
+    """
+    session = MagicMock()
+
+    album_resp = AsyncMock()
+    album_resp.status = 200
+    album_resp.json = AsyncMock(return_value={"id": 1, "link": "https://x/1"})
+
+    tracks_resp = AsyncMock()
+    tracks_resp.status = 200
+    tracks_resp.json = AsyncMock(
+        return_value={
+            "data": [
+                {"title": None, "duration": 50},
+                {"title": "Real Track", "duration": 200},
+            ]
+        }
+    )
+
+    def route(url, params=None, **kwargs):
+        if url.endswith("/tracks"):
+            return make_response_context(tracks_resp)
+        return make_response_context(album_resp)
+
+    session.get.side_effect = route
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 1)
+
+    assert result.track_durations == {"real track": 200}

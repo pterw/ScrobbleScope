@@ -33,13 +33,15 @@ sequenceDiagram
     alt Missing field, non-numeric input, or year outside 2002 to this year
         Routes-->>Browser: index.html + error
     else Input valid
-        Routes->>LastFM: Read the registration year, then check that recent listening is public
-        alt Recent listening is private (HTTP 403, error 17)
+        Routes->>LastFM: Check that the user exists (and read the registration year), then that recent listening is public
+        alt User not found
+            Routes-->>Browser: index.html + "not found" message, no privacy check made
+        else Recent listening is private (HTTP 403, error 17)
             Routes-->>Browser: index.html + private-profile message
         else Year predates the registration year
             Routes-->>Browser: index.html + error
         else Registration year satisfied, unknown, or either lookup failed
-            Note over Routes,LastFM: A failed lookup is logged and the search proceeds without the hint; only a confirmed private profile refuses
+            Note over Routes,LastFM: A failed lookup is logged and the search proceeds without the hint; only a confirmed missing user or private profile refuses
             Routes->>Repo: cleanup_expired_jobs()
             Routes->>Worker: acquire_job_slot()
             alt Slot exhausted

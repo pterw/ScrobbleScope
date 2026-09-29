@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2207 tests across 81 tracked test modules.
+2223 tests across 81 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -747,18 +747,6 @@ to this finding.
 
 - [ ] **Status:** open (P2, owner decision). Source: third review of PR #245 (2026-09-29), S1-5.
 
-### F-B23-23: the Last.fm privacy check caches verdicts it should not, and a private profile met inside a job is reported as an outage
-
-`lastfm.check_profile_is_public` caches the private verdict for `REQUEST_CACHE_TIMEOUT` (3600s), so a user told to make the profile public and try again is refused from the cache for an hour. The mirror case: a cached public verdict lets a profile that has since gone private start a job, and the job fails as `lastfm_unavailable`, retryable, for the rest of the hour. `check_user_exists` caches any 200 body, so error 6 ("user not found") is cached as `exists=True`. Inside a job, `fetch_once`'s non-200 branch retries a 403 (Last.fm error 17) three times and reports "Last.fm unavailable, try again", and `ERROR_CODES` has no `private_profile` code. Invalid-key errors 10 and 26 may behave the same (unverified). The 403-in-job part is plausible rather than reproduced; the caching parts were reproduced. Fix shape: cache only a well-formed public answer, and add a `private_profile` code that a 403 or error 17 maps to without retry.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-6 and S1-16 (gap sweep), one finding.
-
-### F-B23-24: a null Deezer track title raises TypeError outside the retry wrapper and fails the job, orphaning sibling requests
-
-`scrobblescope/deezer.py` `fetch_deezer_album` normalises track titles after the retried request returns, so a null `title` raises `TypeError` outside `retry_with_semaphore`. In `orchestrator/_deezer_fallback.py` `_run_deezer_fallback_phase` the bare `as_completed` loop lets that exception end the phase and the job (`unknown`), and four sibling tasks are left running. The cancel-and-drain fix from this branch covers two of the five fan-outs, not this one, nor the search and details phases. Mechanism reproduced; no live trigger seen; identical on `main`. Fix: tolerate a null title inside the wrapper (skip the track) and give the remaining fan-outs the same cancel-and-drain. Do not adopt `asyncio.TaskGroup` for it before F-B23-16 lands: an `ExceptionGroup`'s text defeats the substring classifier.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-11.
-
 ### F-B23-25: the mobile heatmap strip is sized from a hidden container on first render and not re-laid-out on a rotation inside the mobile range
 
 `static/js/heatmap.js` `renderHeatmapMobile` reads `gridContainer.clientWidth` while `#heatmap-result` is still `hidden`, so the width is 0 and the fallback `innerWidth - 48` guess is used: at 390px the strip draws 14 columns of about 19px scaled into a 277px box, and after any breakpoint round trip it draws 12 columns of 22px. The padding-aware sizing and its comment ("sized to what is left inside it") never run on first render. Separately `handleResize` re-renders only when `innerWidth` crosses 860px, so rotating 390 to 844 stretches the strip to about 50px cells, and opening at 844 then rotating to 390 gives 28 columns of 10px, under `MOBILE_MIN_CELL_SIZE` and any tap target. Reproduced in Chromium and Firefox. Fix: measure after the frame is visible (or from a laid-out ancestor minus the frame and grid padding), drop the guess, and re-render through `rerenderKeepingFocus` whenever the computed column count differs from the rendered one. It is a layout change, not a fix-wave one.
@@ -796,12 +784,6 @@ One bundle, to be taken opportunistically:
 - S2-23 bundle: the `#heatmap-grid` ring-room CSS (a container that never scrolls at any width) and the padding subtraction in `renderHeatmapMobile`; the server-rendered spotlight card body and the `top_artist_*` route variables, dead because JS overwrites them; unused remnants in `results-spotlight.js` (a `content` id lookup, a `hidden`/`opacity-0` reset on an `<img>`, a once-read `state.reducedMotion`, `formatDurationMobile`) and an unread `event` parameter of `showTooltip`; the badge markup copied four times (Rule of Three: may wait); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), Task 3 review minors, S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
-
-### F-B23-30: a Last.fm page whose `recenttracks.track` is a single object would be read as a list of dict keys
-
-Last.fm is known to serve a single-item collection as a bare object rather than a one-element list in some of its JSON responses. `lastfm._is_well_formed_page` does not check `recenttracks.track`, and both aggregators, `heatmap._aggregate_daily_counts` and `orchestrator.fetch_top_albums_async`, iterate it as a list, so a one-track page would be read as a sequence of dict keys. Not confirmed against the live API (found while fixing the well-formed-page check, Task 2). Fix: normalise a lone object into a one-item list at the anti-corruption layer in `lastfm.py`, and check `track` in the predicate so a page with any other shape is refused and retried.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), Task 2 implementer concern.
 
 ### F-B23-31: tests that stay green when the defect they exist for is planted back
 

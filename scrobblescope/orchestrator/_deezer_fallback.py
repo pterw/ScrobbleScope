@@ -13,6 +13,7 @@ import time
 
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.domain import normalize_name
+from scrobblescope.lastfm import _cancel_and_drain
 from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
 
 
@@ -43,61 +44,70 @@ async def _run_deezer_fallback_phase(job_id, session, misses, cache_hits):
         metadata = await _orchestrator.fetch_deezer_album(session, album_id)
         return key, data, metadata
 
-    tasks = [enrich_one(key, data) for key, data in misses.items()]
+    tasks = [
+        asyncio.ensure_future(enrich_one(key, data)) for key, data in misses.items()
+    ]
 
     new_metadata_rows = []
     matched_count = 0
     done = 0
     total = len(tasks)
-    for fut in asyncio.as_completed(tasks):
-        key, data, metadata = await fut
-        done += 1
-        pct = 60 + int(15 * done / max(total, 1))
-        _orchestrator.set_job_progress(
-            job_id,
-            progress=pct,
-            message=f"Checking Deezer: {done}/{total} albums...",
-            phase={
-                "key": "deezer_fallback",
-                "label": "Checking Deezer",
-                "unit": "album",
-                "current": done,
-                "total": total,
-            },
-        )
-
-        if metadata is not None:
-            matched_count += 1
-            cache_hits[key] = {
-                "cached": {
-                    "spotify_id": None,
-                    "release_date": metadata.release_date,
-                    "album_image_url": metadata.image_url,
-                    "track_durations": metadata.track_durations,
-                    "provider": metadata.provider,
-                    "provider_album_id": metadata.album_id,
-                    "provider_url": metadata.url,
-                },
-                "original": data,
-            }
-            new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
-        else:
-            original_artist = data["original_artist"]
-            original_album = data["original_album"]
-            unmatched_key = "|".join(normalize_name(original_artist, original_album))
-            _orchestrator.add_job_unmatched(
+    try:
+        for fut in asyncio.as_completed(tasks):
+            key, data, metadata = await fut
+            done += 1
+            pct = 60 + int(15 * done / max(total, 1))
+            _orchestrator.set_job_progress(
                 job_id,
-                unmatched_key,
-                {
-                    "artist": original_artist,
-                    "album": original_album,
-                    "reason": "No match on Spotify or Deezer",
-                    "reason_code": REASON_NO_SPOTIFY_MATCH,
-                    "album_image": None,
-                    "spotify_id": None,
-                    "play_count": data.get("play_count"),
+                progress=pct,
+                message=f"Checking Deezer: {done}/{total} albums...",
+                phase={
+                    "key": "deezer_fallback",
+                    "label": "Checking Deezer",
+                    "unit": "album",
+                    "current": done,
+                    "total": total,
                 },
             )
+
+            if metadata is not None:
+                matched_count += 1
+                cache_hits[key] = {
+                    "cached": {
+                        "spotify_id": None,
+                        "release_date": metadata.release_date,
+                        "album_image_url": metadata.image_url,
+                        "track_durations": metadata.track_durations,
+                        "provider": metadata.provider,
+                        "provider_album_id": metadata.album_id,
+                        "provider_url": metadata.url,
+                    },
+                    "original": data,
+                }
+                new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
+            else:
+                original_artist = data["original_artist"]
+                original_album = data["original_album"]
+                unmatched_key = "|".join(
+                    normalize_name(original_artist, original_album)
+                )
+                _orchestrator.add_job_unmatched(
+                    job_id,
+                    unmatched_key,
+                    {
+                        "artist": original_artist,
+                        "album": original_album,
+                        "reason": "No match on Spotify or Deezer",
+                        "reason_code": REASON_NO_SPOTIFY_MATCH,
+                        "album_image": None,
+                        "spotify_id": None,
+                        "play_count": data.get("play_count"),
+                    },
+                )
+    finally:
+        # An exception from one album must not leave its siblings running on
+        # a session that is about to close (F-B23-24).
+        await _cancel_and_drain(tasks)
 
     fallback_duration = time.time() - fallback_start_time
     logging.info(

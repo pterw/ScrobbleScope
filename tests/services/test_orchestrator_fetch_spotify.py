@@ -525,3 +525,35 @@ async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
     assert len(progress_values) == 5
     for pct in progress_values:
         assert 20 <= pct <= 40, f"Progress {pct} outside [20, 40] range"
+
+
+@pytest.mark.asyncio
+async def test_deezer_fallback_cancels_and_drains_siblings_when_one_album_raises():
+    """
+    GIVEN one album's Deezer enrichment raises while its siblings are in flight
+    WHEN the fallback phase runs
+    THEN the exception propagates only after every sibling has been cancelled
+    and settled, so none is left running on a session about to close.
+    """
+    from scrobblescope.orchestrator._deezer_fallback import _run_deezer_fallback_phase
+
+    settled = []
+
+    async def search(session, artist, album):
+        if artist == "bad":
+            raise TypeError("boom")
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            settled.append(artist)
+            raise
+
+    misses = {(a, "alb"): {} for a in ("bad", "s1", "s2", "s3")}
+    with (
+        patch("scrobblescope.orchestrator.search_deezer_album", side_effect=search),
+        patch("scrobblescope.orchestrator.set_job_progress"),
+    ):
+        with pytest.raises(TypeError, match="boom"):
+            await _run_deezer_fallback_phase("job", MagicMock(), misses, {})
+
+    assert sorted(settled) == ["s1", "s2", "s3"]

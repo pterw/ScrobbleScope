@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
+from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.lastfm import (
+    _is_well_formed_page,
     check_profile_is_public,
     check_user_exists,
     fetch_all_recent_tracks_async,
@@ -754,3 +756,186 @@ async def test_fetch_all_cancels_sibling_fetches_when_one_page_raises(progress_c
     assert str(exc) == "User 'ghost' not found on Last.fm"
     assert ledger.started == 5
     assert ledger.settled == ledger.started
+
+
+# --- F-B23-23: privacy and existence verdicts are cached only when genuine ---
+
+
+def _mock_get_returning(status, body):
+    patcher = patch("aiohttp.ClientSession.get")
+    mock_get = patcher.start()
+    resp = AsyncMock()
+    resp.status = status
+    resp.json.return_value = body
+    resp.raise_for_status = MagicMock()
+    mock_get.return_value.__aenter__.return_value = resp
+    return patcher
+
+
+@pytest.mark.asyncio
+async def test_check_profile_is_public_never_caches_a_private_verdict():
+    """
+    GIVEN Last.fm answers 403 / error 17 (a private profile)
+    WHEN check_profile_is_public runs
+    THEN it returns False and stores nothing, so a user who then makes the
+    profile public is not refused from the cache for an hour.
+    """
+    patcher = _mock_get_returning(403, {"error": 17, "message": "Login required"})
+    try:
+        with (
+            patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+            patch("scrobblescope.lastfm.set_cached_response") as mock_set,
+        ):
+            assert await check_profile_is_public("private_user") is False
+    finally:
+        patcher.stop()
+    mock_set.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_profile_is_public_caches_only_a_well_formed_public_answer():
+    """
+    GIVEN a public answer, and a 200 body that is not a recenttracks payload
+    WHEN check_profile_is_public runs for each
+    THEN only the well-formed one is stored.
+    """
+    public = {"recenttracks": {"track": []}}
+    patcher = _mock_get_returning(200, public)
+    try:
+        with (
+            patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+            patch("scrobblescope.lastfm.set_cached_response") as mock_set,
+        ):
+            assert await check_profile_is_public("public_user") is True
+    finally:
+        patcher.stop()
+    mock_set.assert_called_once()
+    assert mock_set.call_args[0][1] == public
+
+    patcher = _mock_get_returning(200, {"message": "odd"})
+    try:
+        with (
+            patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+            patch("scrobblescope.lastfm.set_cached_response") as mock_set,
+        ):
+            assert await check_profile_is_public("odd_user") is True
+    finally:
+        patcher.stop()
+    mock_set.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_user_exists_treats_error_6_in_a_200_body_as_not_found():
+    """
+    GIVEN Last.fm answers HTTP 200 with error 6 (user not found)
+    WHEN check_user_exists runs
+    THEN exists is False and the body is not cached as a hit.
+    """
+    patcher = _mock_get_returning(200, {"error": 6, "message": "User not found"})
+    try:
+        with (
+            patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+            patch("scrobblescope.lastfm.set_cached_response") as mock_set,
+        ):
+            result = await check_user_exists("ghost")
+    finally:
+        patcher.stop()
+    assert result == {"exists": False, "registered_year": None}
+    mock_set.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_user_exists_caches_a_genuine_hit():
+    """
+    GIVEN a 200 body carrying the user
+    WHEN check_user_exists runs
+    THEN exists is True and the body is cached.
+    """
+    body = {"user": {"name": "u", "registered": {"unixtime": "1451606400"}}}
+    patcher = _mock_get_returning(200, body)
+    try:
+        with (
+            patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+            patch("scrobblescope.lastfm.set_cached_response") as mock_set,
+        ):
+            result = await check_user_exists("u")
+    finally:
+        patcher.stop()
+    assert result["exists"] is True
+    mock_set.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("private_via", ["status_403", "error_17_in_200"])
+async def test_page_fetch_reports_a_private_profile_without_retrying(private_via):
+    """
+    GIVEN Last.fm answers a job's page fetch with a 403 (or error 17 in a 200)
+    WHEN fetch_recent_tracks_page_async runs with retries available
+    THEN it raises at once (one request, no retry) and the message classifies
+    as private_profile, not as an outage.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    if private_via == "status_403":
+        resp.status = 403
+    else:
+        resp.status = 200
+        resp.json.return_value = {"error": 17, "message": "Login required"}
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ValueError) as excinfo:
+            await fetch_recent_tracks_page_async(
+                session, "went_private", 1, 2, page=1, retries=3
+            )
+
+    assert session.get.call_count == 1
+    assert classify_exception_to_error_code(str(excinfo.value)) == "private_profile"
+
+
+# --- F-B23-30: a lone recenttracks.track object -------------------------------
+
+
+def _page_with_track(track):
+    return {"recenttracks": {"@attr": {"totalPages": "1"}, "track": track}}
+
+
+@pytest.mark.asyncio
+async def test_lone_track_object_is_normalised_to_a_one_item_list():
+    """
+    GIVEN Last.fm serves recenttracks.track as a bare object
+    WHEN a page is fetched
+    THEN the page handed on carries a one-item list, so the aggregators do
+    not iterate the object's keys.
+    """
+    lone = {"name": "Song", "artist": {"#text": "A"}}
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json.return_value = _page_with_track(lone)
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch("scrobblescope.lastfm.set_cached_response"),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+    ):
+        page = await fetch_recent_tracks_page_async(
+            session, "flounder14", 1, 2, page=1, retries=1
+        )
+
+    assert page["recenttracks"]["track"] == [lone]
+
+
+@pytest.mark.parametrize("bad_track", ["oops", 5, None])
+def test_page_with_a_track_of_any_other_shape_is_not_well_formed(bad_track):
+    assert _is_well_formed_page(_page_with_track(bad_track)) is False
+    assert _is_well_formed_page(_page_with_track([])) is True

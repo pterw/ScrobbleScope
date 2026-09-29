@@ -22,6 +22,7 @@ Every trace callback catches its own errors: a logging failure must never
 fail the request it is describing.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -195,6 +196,15 @@ async def _on_request_exception(session, trace_config_ctx, params):
         elapsed_ms = _elapsed_ms(start, end)
         provider = provider_for_host(params.url.host)
         exc_name = type(params.exception).__name__
+        if isinstance(params.exception, asyncio.CancelledError):
+            # The fan-out drain cancels its own siblings: not a provider
+            # failure, so no WARNING and no tally entry (S1-13).
+            logging.debug(
+                _call_outcome_line(
+                    provider, params.method, params.url, exc_name, elapsed_ms
+                )
+            )
+            return
         logging.warning(
             _call_outcome_line(
                 provider, params.method, params.url, exc_name, elapsed_ms

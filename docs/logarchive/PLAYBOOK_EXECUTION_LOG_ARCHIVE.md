@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Eleven findings filed from the third review of PR #245
+
+Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Eleven findings filed from the third review of PR #245: F-B23-21 to F-B23-31. They cover the Last.fm `reraise` breadth, the album pipeline's unclassified fallback (owner decision), the privacy-verdict caching and missing `private_profile` code, the Deezer null title, the mobile heatmap sizing, the unverified spotlight artist name, the two results and unmatched column defects, one cleanup bundle, the single-object Last.fm page, and the tests that survive their defect. F-B23-16 and F-B23-20 gain cross-references. Nothing closed; the archive is untouched. Docs only.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - README corrected on where the Spotify icon appears
 
 Side task, no batch tag: correcting the README's claim about where the Spotify icon appears, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

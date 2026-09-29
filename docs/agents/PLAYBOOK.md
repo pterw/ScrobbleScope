@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - User checked before privacy; only a public verdict cached; payload edge cases
+
+Side task, no batch tag: checking the user before privacy, caching only a public verdict and handling Deezer and Last.fm payload edge cases, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+`results_loading` now asks `check_user_exists` first, so a missing user gets "User 'x' was not found on Last.fm." (a 200 re-render of `index.html`, accepted: it matches this route's other form errors) and the privacy check never runs for it. `check_profile_is_public` never caches a private verdict (error 17 in a 200 counts as private), caches only a body with a `recenttracks` dict, and treats a cache hit as public; `check_user_exists` maps error 6 in a 200 to not found and caches only a body with a `user` dict. A new `private_profile` code in `ERROR_CODES` (lastfm, not retryable) is raised by `fetch_once` on a 403 or error 17 without retry, classified through `errors.PRIVATE_PROFILE_MARKER`; the album results page answers it with a 403 and a "make listening public" detail. Browser check: `heatmap.js` and `loading.js` read the server's `retryable` flag and message, keep no code-to-message map, so nothing changed there. `fetch_deezer_album` skips a null or non-text track title; the Deezer fallback tasks run under try/finally `_cancel_and_drain` (no TaskGroup). `_normalise_track_list` turns a lone `track` object into a list before `_is_well_formed_page`, which now refuses any other non-list `track`. A cancelled request logs at DEBUG and is not recorded. New edges `lastfm -> errors` and `_deezer_fallback -> lastfm` are in the SESSION_CONTEXT graph. Closes F-B23-23, F-B23-24 and F-B23-30. Tests added in five existing modules, none edited; mutation-checked. Last.fm errors 10 and 26 remain unverified.
+
+Validation: `pytest -q` -- **2223 passed**.
+
 ### 2026-09-29 - Spotlight artist name reads whole at every width; card height fixed
 
 Side task, no batch tag: giving the spotlight artist name a whole line and holding the card height, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -143,11 +151,3 @@ Side task, no batch tag: making the frontend gate's stale-progress check able to
 The `pipeline state machines` check held the old job's first `/progress` request, then opened a new document for the replacement job, so the held response could never reach the guard in `heatmap.js` `pollProgress`; a request that never arrived also passed silently. The check now loads the old job once, holds its first poll (failing explicitly if none arrives), stubs the retry POST with a replacement job id, clicks the page's own Retry button so `currentJobId` changes in the same document, and only then fulfils the held response with stale progress and asserts it is not shown. Live probe: with the guard in `heatmap.js` replaced by `if (false) {`, the gate fails with `stale out-of-order progress response regressed aria-valuenow`; with the guard intact it passes. `heatmap.js` is unchanged. Tests: the replaced-job test is rewritten and a no-request test added.
 
 Validation: `pytest -q` -- **2191 passed**.
-
-### 2026-09-29 - Eleven findings filed from the third review of PR #245
-
-Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Eleven findings filed from the third review of PR #245: F-B23-21 to F-B23-31. They cover the Last.fm `reraise` breadth, the album pipeline's unclassified fallback (owner decision), the privacy-verdict caching and missing `private_profile` code, the Deezer null title, the mobile heatmap sizing, the unverified spotlight artist name, the two results and unmatched column defects, one cleanup bundle, the single-object Last.fm page, and the tests that survive their defect. F-B23-16 and F-B23-20 gain cross-references. Nothing closed; the archive is untouched. Docs only.
-
-Validation: `pytest -q` -- **2187 passed**.

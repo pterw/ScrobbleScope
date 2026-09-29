@@ -20,6 +20,7 @@ import io
 import logging
 import re
 import sys
+import time
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -39,6 +40,7 @@ from scrobblescope.api_logging import (
     _call_outcome_line,
     _emit_summaries,
     _lastfm_method,
+    _on_request_exception,
     _record,
     provider_for_host,
 )
@@ -469,3 +471,24 @@ def test_run_async_in_thread_error_log_never_carries_the_api_key():
     assert "Error in async thread" in text
     assert "[redacted]" in text
     assert "SECRET-KEY-4" not in text
+
+
+# --- S1-13: the drain's own cancellations are not provider failures ----------
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_call_logs_at_debug_and_is_not_tallied(caplog):
+    session = SimpleNamespace()
+    params = SimpleNamespace(
+        url=URL("https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks"),
+        method="GET",
+        exception=asyncio.CancelledError(),
+    )
+    ctx = SimpleNamespace(start=time.monotonic())
+    with caplog.at_level(logging.DEBUG):
+        await _on_request_exception(session, ctx, params)
+        _emit_summaries(session)
+
+    assert _messages(caplog, logging.WARNING) == []
+    assert _messages(caplog, logging.DEBUG, "CancelledError")
+    assert _messages(caplog, logging.INFO, "CancelledError") == []

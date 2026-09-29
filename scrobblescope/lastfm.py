@@ -12,6 +12,7 @@ from scrobblescope.config import (
     LASTFM_REQUESTS_PER_SECOND,
     MAX_CONCURRENT_LASTFM,
 )
+from scrobblescope.errors import PRIVATE_PROFILE_MARKER
 from scrobblescope.utils import (
     create_optimized_session,
     get_cached_response,
@@ -58,7 +59,13 @@ async def check_user_exists(username):
         async with session.get(url, params=params) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                set_cached_response(url, data, params)
+                # Last.fm can answer error 6 ("User not found") in a 200
+                # body: that is not-found, and never cached as a hit.
+                if isinstance(data, dict) and str(data.get("error")) == "6":
+                    return {"exists": False, "registered_year": None}
+                # Only a body that carries the user is a verified account.
+                if isinstance(data, dict) and isinstance(data.get("user"), dict):
+                    set_cached_response(url, data, params)
                 return {
                     "exists": True,
                     "registered_year": _extract_year(data),
@@ -89,18 +96,20 @@ async def check_profile_is_public(username: str) -> bool:
         "format": "json",
         "limit": 1,
     }
-    cached_response = get_cached_response(url, params)
-    if cached_response:
-        return not _is_private_profile(cached_response)
+    # Only a well-formed public answer is ever cached, so a hit is public.
+    # A private verdict is never cached: the owner told to make the profile
+    # public must not be refused from the cache for an hour after doing so.
+    if get_cached_response(url, params):
+        return True
 
     async with create_optimized_session() as session:
         async with session.get(url, params=params) as resp:
             data = await resp.json()
-            if resp.status == 403 and _is_private_profile(data):
-                set_cached_response(url, data, params)
+            if _is_private_profile(data):
                 return False
             resp.raise_for_status()
-            set_cached_response(url, data, params)
+            if isinstance(data, dict) and isinstance(data.get("recenttracks"), dict):
+                set_cached_response(url, data, params)
             return True
 
 
@@ -125,7 +134,24 @@ def _is_well_formed_page(data: Any) -> bool:
         int(attr["totalPages"])
     except (KeyError, TypeError, ValueError):
         return False
-    return True
+    # ``track`` is a list; a lone object is normalised to one by
+    # ``_normalise_track_list`` before this predicate runs. A page that
+    # carries any other shape is refused (and retried).
+    return isinstance(recenttracks.get("track", []), list)
+
+
+def _normalise_track_list(data: Any) -> None:
+    """Turn a lone ``recenttracks.track`` object into a one-item list, in place.
+
+    Last.fm serves a single-item collection as a bare object in some JSON
+    responses; both aggregators iterate ``track`` as a list (F-B23-30).
+    Anything else is left for ``_is_well_formed_page`` to refuse.
+    """
+    if not isinstance(data, dict):
+        return
+    recenttracks = data.get("recenttracks")
+    if isinstance(recenttracks, dict) and isinstance(recenttracks.get("track"), dict):
+        recenttracks["track"] = [recenttracks["track"]]
 
 
 def _page_defect(data: Any) -> str:
@@ -134,6 +160,10 @@ def _page_defect(data: Any) -> str:
         return f"body is {type(data).__name__}, not an object"
     if "error" in data:
         return "error payload"
+    recenttracks = data.get("recenttracks")
+    if isinstance(recenttracks, dict) and "track" in recenttracks:
+        if not isinstance(recenttracks["track"], list):
+            return "recenttracks.track is not a list"
     return "missing recenttracks.@attr.totalPages"
 
 
@@ -193,6 +223,11 @@ async def fetch_recent_tracks_page_async(
                         f"Current limiter: {LASTFM_REQUESTS_PER_SECOND} req/s, consider reducing concurrency."
                     )
                     return None, retry_after
+                if resp.status == 403:
+                    # Error 17: the profile went private after the preflight.
+                    # Retrying cannot help; classified as private_profile.
+                    logging.error(f"Profile of {username} is private on Last.fm")
+                    raise ValueError(f"Last.fm {PRIVATE_PROFILE_MARKER}")
                 if resp.status == 404:
                     # User not found
                     logging.error(f"User {username} not found on Last.fm")
@@ -221,6 +256,9 @@ async def fetch_recent_tracks_page_async(
                 # non-200 response: retried, and dropped if it stays bad. It
                 # is never cached, so a bad 200 is not replayed to every retry
                 # for an hour.
+                if isinstance(data, dict) and str(data.get("error")) == "17":
+                    raise ValueError(f"Last.fm {PRIVATE_PROFILE_MARKER}")
+                _normalise_track_list(data)
                 if not _is_well_formed_page(data):
                     logging.warning(
                         f"Malformed Last.fm page {page}: {_page_defect(data)}"

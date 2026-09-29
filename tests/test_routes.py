@@ -2639,3 +2639,63 @@ def test_unmatched_view_deezer_row_without_a_url_still_names_its_provider(client
     assert re.search(r"<span[^>]*provider-badge[^>]*>\s*deezer\s*</span>", html)
     assert "www.deezer.com" not in html
     assert "except rows that name another provider" in html
+
+
+def test_results_loading_missing_user_is_not_found_and_skips_the_privacy_check(client):
+    """
+    GIVEN Last.fm does not know the user
+    WHEN POST /results_loading is submitted
+    THEN the answer is "not found" (as the heatmap route gives), the privacy
+    check is never made and no job starts.
+    """
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": False, "registered_year": None},
+        ),
+        patch("scrobblescope.routes._check_profile_is_public") as mock_privacy,
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert response.status_code == 200
+    assert b"was not found on Last.fm" in response.data
+    mock_privacy.assert_not_called()
+    mock_start.assert_not_called()
+
+
+def test_results_loading_existing_private_user_is_refused_after_the_exists_check(
+    client,
+):
+    """An existing user is then checked for privacy; a private one is refused."""
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch(
+            "scrobblescope.routes._check_profile_is_public", return_value=False
+        ) as mock_privacy,
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert b"private" in response.data.lower()
+    mock_privacy.assert_called_once_with("flounder14")
+    mock_start.assert_not_called()
+
+
+def test_results_loading_existing_public_user_starts_a_job(client):
+    """An existing public user gets a job and the loading redirect."""
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes._check_profile_is_public", return_value=True),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert response.status_code == 303
+    mock_start.assert_called_once()

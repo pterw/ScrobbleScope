@@ -9,6 +9,33 @@ Newest rotation first.
 
 ---
 
+### F-B23-23: the Last.fm privacy check caches verdicts it should not, and a private profile met inside a job is reported as an outage -- RESOLVED
+
+`lastfm.check_profile_is_public` caches the private verdict for `REQUEST_CACHE_TIMEOUT` (3600s), so a user told to make the profile public and try again is refused from the cache for an hour. The mirror case: a cached public verdict lets a profile that has since gone private start a job, and the job fails as `lastfm_unavailable`, retryable, for the rest of the hour. `check_user_exists` caches any 200 body, so error 6 ("user not found") is cached as `exists=True`. Inside a job, `fetch_once`'s non-200 branch retries a 403 (Last.fm error 17) three times and reports "Last.fm unavailable, try again", and `ERROR_CODES` has no `private_profile` code. Invalid-key errors 10 and 26 may behave the same (unverified). The 403-in-job part is plausible rather than reproduced; the caching parts were reproduced. Fix shape: cache only a well-formed public answer, and add a `private_profile` code that a 403 or error 17 maps to without retry.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-29
+
+Resolved in Task 13: `check_profile_is_public` caches only a well-formed public answer (a private verdict, or error 17 in a 200, is never cached), `check_user_exists` no longer caches error 6 as existing, and `fetch_once` raises without retry on a 403 or error 17, which the new `private_profile` code (not retryable) reports. Errors 10 and 26 stay unverified.
+
+### F-B23-24: a null Deezer track title raises TypeError outside the retry wrapper and fails the job, orphaning sibling requests -- RESOLVED
+
+`scrobblescope/deezer.py` `fetch_deezer_album` normalises track titles after the retried request returns, so a null `title` raises `TypeError` outside `retry_with_semaphore`. In `orchestrator/_deezer_fallback.py` `_run_deezer_fallback_phase` the bare `as_completed` loop lets that exception end the phase and the job (`unknown`), and four sibling tasks are left running. The cancel-and-drain fix from this branch covers two of the five fan-outs, not this one, nor the search and details phases. Mechanism reproduced; no live trigger seen; identical on `main`. Fix: tolerate a null title inside the wrapper (skip the track) and give the remaining fan-outs the same cancel-and-drain. Do not adopt `asyncio.TaskGroup` for it before F-B23-16 lands: an `ExceptionGroup`'s text defeats the substring classifier.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-29
+
+Resolved in Task 13: `fetch_deezer_album` skips a track whose title is null or not text, and the Deezer fallback fan-out is wrapped in try/finally `_cancel_and_drain`, so no sibling request is left running. The search and details fan-outs are not part of this closure.
+
+### F-B23-30: a Last.fm page whose `recenttracks.track` is a single object would be read as a list of dict keys -- RESOLVED
+
+Last.fm is known to serve a single-item collection as a bare object rather than a one-element list in some of its JSON responses. `lastfm._is_well_formed_page` does not check `recenttracks.track`, and both aggregators, `heatmap._aggregate_daily_counts` and `orchestrator.fetch_top_albums_async`, iterate it as a list, so a one-track page would be read as a sequence of dict keys. Not confirmed against the live API (found while fixing the well-formed-page check, Task 2). Fix: normalise a lone object into a one-item list at the anti-corruption layer in `lastfm.py`, and check `track` in the predicate so a page with any other shape is refused and retried.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-29
+
+Resolved in Task 13: `lastfm._normalise_track_list` turns a lone `track` object into a one-item list, and `_is_well_formed_page` refuses any other non-list `track`, so the page is retried.
+
 ### F-B23-14: the unmatched report's artist portraits never loaded, and the gate's check passed by a fixture coincidence -- RESOLVED
 
 The portrait `<img>` in `templates/unmatched.html` started hidden and
