@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-28 - Classify upstream failures before blaming the app
+
+Side task, no batch tag: heatmap and album backstops now share one
+exception classifier, and the release-window log line names every input
+it received, part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+`scrobblescope/heatmap.py`'s `_report_heatmap_failure` publishes
+`errors.classify_exception_to_error_code`'s answer when the escaped
+exception is a known upstream failure (a Last.fm 404 -> `user_not_found`),
+else `internal_error`, matching the album pipeline (F-SWE-5). The
+classifier moved from `orchestrator/__init__.py` to `errors.py`, its one
+owner now; `orchestrator`'s call site and tests import it from there. A
+malformed Last.fm first page (valid JSON, no `@attr.totalPages`) now
+returns the existing `lastfm_unavailable` metadata instead of raising
+`KeyError`. `domain._matches_release_criteria`'s `release_window`
+`ValueError` handler now logs the scope and all three inputs it received
+instead of always naming `decade`.
+
+Validation: `pytest -q` -- **2004 passed**.
+
 ### 2026-09-28 - Stop declaring skills-lock.json an untracked essential
 
 Side task, no batch tag: Stop declaring skills-lock.json an untracked

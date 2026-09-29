@@ -56,12 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
         view.separator.classList.toggle('hidden', !visible);
     }
 
-    /** Remove a portrait whose preload failed after all. */
-    function hidePortrait(view) {
-        view.image.removeAttribute('src');
-        view.image.classList.add('hidden');
-    }
-
     /** Resolve once `url` has loaded (or failed) in a throwaway Image, so a
      *  confirmed candidate's photo is already in the browser cache before it
      *  is ever shown -- a swap can then set the visible <img>'s src and the
@@ -83,10 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
      *  ever assigns an `<img>` src that is already in cache. */
     function renderPortrait(view, candidate) {
         if (!view.image) return;
-        if (!candidate.image_url) {
-            hidePortrait(view);
-            return;
-        }
         view.image.src = candidate.image_url;
         view.image.alt = `Photograph of ${candidate.name}`;
         view.image.classList.remove('hidden', 'opacity-0');
@@ -124,8 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Confirm one candidate's photo. Never renders itself -- every call settles
      *  before the rotation reveals anything, so `startArtistSpotlightRotation`'s
-     *  own `Promise.all(...)` is the only place that decides what is shown. */
-    async function hydrateCandidate(view, state, candidate, index) {
+     *  own `Promise.all(...)` is the only place that decides what is shown.
+     *  Each call writes only its own `state.candidates[index]`, and nothing
+     *  else touches the array until every call has settled. */
+    async function hydrateCandidate(state, candidate, index) {
         const expectedName = candidate.name;
         const controller = new AbortController();
         // One budget covers the fetch, its json body and the image preload
@@ -144,9 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 `/api/artist_spotlight?artist=${encodeURIComponent(expectedName)}`,
                 { signal: controller.signal }
             );
-            if (!response.ok || state.candidates[index].name !== expectedName) return;
+            if (!response.ok) return;
             const data = await response.json();
-            if (state.candidates[index].name !== expectedName) return;
             // Only a confirmed Spotify photo counts (F-B21-60): falling back
             // to the seed here would let an unconfirmed album cover (or a
             // stale one from a previous candidate) pass the rotation's
@@ -157,7 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // never even answers is dropped the same way as one that fails
             // (B3 follow-up): both race against the same `deadline`.
             const imageUrl = data.image_url ? await Promise.race([preloadImage(data.image_url), deadline]) : '';
-            if (state.candidates[index].name !== expectedName) return;
             state.candidates[index] = {
                 ...candidate,
                 image_url: imageUrl,
@@ -187,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // calls renderCandidate -- so nothing can draw the card before this
         // filter decides whether it is shown at all.
         Promise.all(
-            state.candidates.map((candidate, index) => hydrateCandidate(view, state, candidate, index))
+            state.candidates.map((candidate, index) => hydrateCandidate(state, candidate, index))
         ).then(() => {
             const withPhotos = state.candidates.filter(candidate => candidate.image_url);
             if (!withPhotos.length) return;

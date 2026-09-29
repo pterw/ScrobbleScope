@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-28 - Drop the spotlight's unreachable guards
+
+Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Code-review finding 8. Rotation only renders candidates that already have a confirmed
+`image_url`, and `hydrateCandidate` writes only its own index before the array is replaced, so
+none of that code could fire. The `hydrateCandidate` docstring now says so. No behaviour change.
+Validation: `pytest -q` -- **2055 passed**.
+
 ### 2026-09-28 - Report an unreadable declarations file as a warning
 
 Side task, no batch tag: the 2026-09-28 /code-review's finding 5 in the control plane, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -169,24 +177,3 @@ rendered geometry; new check `heatmap document listeners attach once`. Mutation/
 evidence in the task report.
 
 Validation: `pytest -q` -- **2032 passed**.
-
-### 2026-09-28 - Classify upstream failures before blaming the app
-
-Side task, no batch tag: heatmap and album backstops now share one
-exception classifier, and the release-window log line names every input
-it received, part of Batch 23 WP-0 Part C. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-`scrobblescope/heatmap.py`'s `_report_heatmap_failure` publishes
-`errors.classify_exception_to_error_code`'s answer when the escaped
-exception is a known upstream failure (a Last.fm 404 -> `user_not_found`),
-else `internal_error`, matching the album pipeline (F-SWE-5). The
-classifier moved from `orchestrator/__init__.py` to `errors.py`, its one
-owner now; `orchestrator`'s call site and tests import it from there. A
-malformed Last.fm first page (valid JSON, no `@attr.totalPages`) now
-returns the existing `lastfm_unavailable` metadata instead of raising
-`KeyError`. `domain._matches_release_criteria`'s `release_window`
-`ValueError` handler now logs the scope and all three inputs it received
-instead of always naming `decade`.
-
-Validation: `pytest -q` -- **2004 passed**.
