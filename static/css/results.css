@@ -447,8 +447,9 @@
     position: relative;
     /* Beside the text at every width (never full rail width on mobile),
        roughly 112px -- proportionate to the card, between the results-table
-       thumbnail (4rem/4.5rem) and this card's own size from 1024px up, where
-       the corner is 8px (9rem). */
+       thumbnail (4rem/4.5rem) and this card's own size from 768px up
+       (9rem, set in the 768px rule below). The corner is a separate step:
+       4px below 1024px, 8px from 1024px (--artwork-radius). */
     width: calc(7rem * var(--results-scale));
     aspect-ratio: 1 / 1;
     border-radius: var(--artwork-radius);

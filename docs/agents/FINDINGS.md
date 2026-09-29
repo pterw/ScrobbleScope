@@ -710,8 +710,8 @@ Validation-trigger line whose bold count holds no digit.
 ### F-B23-19: a non-square spotlight photo is letterboxed inside a rounded box, so the photo's own corners are square
 
 `.spotlight-artist-photo` uses `object-fit: contain` inside `.spotlight-image-box`, which
-rounds and clips (`static/css/results.css`). A non-square Spotify artist photo (Spotify
-often serves 640x427) is letterboxed: the rounded corners fall on the empty band and the
+rounds and clips (`static/css/results.css`). A non-square artist photo (the review's
+case was 640x427) is letterboxed: the rounded corners fall on the empty band and the
 visible photo keeps square corners. RECONCILIATION section 18 rejected exactly this for the
 unmatched portraits and sized them by their own ratio instead (`data-portrait`). The
 spotlight's "square, uncropped photo" is an owner ruling (F-B21-60), so rounding the photo
