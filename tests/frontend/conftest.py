@@ -3,7 +3,8 @@
 No Flask app, no Node, no build step: the page is a blank document, and
 heatmap.js is loaded straight off disk with ``page.add_script_tag``. The
 pure functions under test (``rocketColor``, ``countToNorm``,
-``exportHeaderModel``, ``exportHeaderLayout``) need nothing else to run.
+``exportHeaderModel``, ``exportHeaderLayout``, ``arrowKeyTarget``) need
+nothing else to run.
 """
 
 from __future__ import annotations

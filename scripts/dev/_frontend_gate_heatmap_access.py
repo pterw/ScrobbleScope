@@ -7,7 +7,7 @@ tooltip. This drives a real Tab key press and reads what actually receives
 focus, because a class name on a `<rect>` says nothing about whether a
 keyboard can reach it.
 
-This check also proves three later fixes:
+This check also proves four later fixes:
 
 * the SVG carries `role="group"`, not `role="img"`, in the browser's own
   accessibility tree -- an ARIA `img` prunes every presentational child, so
@@ -18,9 +18,18 @@ This check also proves three later fixes:
 * the grid uses a roving tabindex (exactly one cell reachable by Tab, the
   arrow keys move it, one more Tab leaves the grid), not every cell at
   once.
+* the arrow keys move spatially, by the rendered layout: on the desktop
+  grid (one column per week) ArrowRight is 7 days on and ArrowDown the next
+  day; on the mobile strip (row-major) ArrowRight is the next day. At an
+  edge, focus stays put. The expected cell is read off the rendered `x`/`y`
+  attributes, not recomputed from the step arithmetic under test.
 * focusing an off-screen cell -- the mobile strip's own scroll, or a page
   scroll a focus jump causes -- repositions the tooltip instead of hiding
   it.
+
+A second check, `check_heatmap_document_listeners_attach_once`, proves the
+tooltip's document-level `scroll` and `touchend` listeners are attached once
+per page, not once per render.
 """
 
 from __future__ import annotations
@@ -131,6 +140,57 @@ def _truncate_snapshot(snapshot: str, limit: int = 300) -> str:
     if len(snapshot) <= limit:
         return snapshot
     return snapshot[:limit] + "...(truncated)"
+
+
+#: The cell an arrow key should reach from the cell for `a.date`, read off the
+#: rendered geometry: the nearest cell in the same row (Left/Right) or the
+#: same column (Up/Down) in the key's direction, or the same date when there
+#: is none (an edge). Independent of heatmap.js's step arithmetic.
+_SPATIAL_NEIGHBOUR_JS = """(a) => {
+    const cells = Array.from(document.querySelectorAll('.heatmap-cell')).map(
+        (el) => ({
+            date: el.getAttribute('data-date'),
+            x: parseFloat(el.getAttribute('x')),
+            y: parseFloat(el.getAttribute('y')),
+        })
+    );
+    const here = cells.find((c) => c.date === a.date);
+    if (!here) return null;
+    const horizontal = a.key === 'ArrowLeft' || a.key === 'ArrowRight';
+    const sign = a.key === 'ArrowRight' || a.key === 'ArrowDown' ? 1 : -1;
+    let best = null;
+    let bestDistance = Infinity;
+    cells.forEach((c) => {
+        const inLine = horizontal ? c.y === here.y : c.x === here.x;
+        const distance = sign * (horizontal ? c.x - here.x : c.y - here.y);
+        if (inLine && distance > 0 && distance < bestDistance) {
+            best = c;
+            bestDistance = distance;
+        }
+    });
+    return best ? best.date : here.date;
+}"""
+
+#: Each arrow key probed from the most recent day's cell, and the key that
+#: should bring focus back (None: the probe is an edge, nothing to undo).
+_ARROW_PROBES = (
+    ("ArrowLeft", "ArrowRight"),
+    ("ArrowUp", "ArrowDown"),
+    ("ArrowRight", None),
+    ("ArrowDown", None),
+)
+
+#: The day shift each arrow key makes on the desktop grid, one column per
+#: week. Stated here, apart from the spatial read, so the desktop result is
+#: also pinned to calendar days (the review's finding 2: ArrowRight used to
+#: move one day, down the column).
+_DESKTOP_ARROW_DAYS = {"ArrowLeft": -7, "ArrowRight": 7, "ArrowUp": -1, "ArrowDown": 1}
+
+
+def _days_between(from_iso: str, to_iso: str) -> int:
+    """Signed day count from `from_iso` to `to_iso`."""
+    start = datetime.date.fromisoformat(from_iso)
+    return (datetime.date.fromisoformat(to_iso) - start).days
 
 
 def _shift_iso_date(iso_date: str, days: int) -> str:
@@ -257,42 +317,8 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 "should (a roving tabindex, not every cell at once)"
             )
 
-        expected_prev_date = _shift_iso_date(landed_date, -1)
-        page.keyboard.press("ArrowLeft")
-        moved = page.evaluate(_ACTIVE_CELL_JS)
-        if not moved or moved["date"] != expected_prev_date:
-            failures.append(
-                "ArrowLeft from the most recent day's cell did not move "
-                f"focus to {expected_prev_date!r} "
-                f"(landed on {moved['date'] if moved else None!r})"
-            )
-        else:
-            if moved["tabIndexAttr"] != "0":
-                failures.append(
-                    "ArrowLeft moved focus but the new cell does not carry "
-                    f'tabindex="0" (was {moved["tabIndexAttr"]!r})'
-                )
-            previous_tabindex = page.evaluate(
-                "(date) => { const el = document.querySelector("
-                "'.heatmap-cell[data-date=\"' + date + '\"]'); "
-                "return el ? el.getAttribute('tabindex') : null; }",
-                landed_date,
-            )
-            if previous_tabindex != "-1":
-                failures.append(
-                    "ArrowLeft moved focus but the previously-focused cell "
-                    f"still carries tabindex={previous_tabindex!r} instead "
-                    'of "-1"'
-                )
-
-            page.keyboard.press("ArrowRight")
-            back = page.evaluate(_ACTIVE_CELL_JS)
-            if not back or back["date"] != landed_date:
-                failures.append(
-                    "ArrowRight did not move focus back to the next date's "
-                    f"cell ({landed_date!r}); landed on "
-                    f"{back['date'] if back else None!r}"
-                )
+        layout = svg.get_attribute("data-layout")
+        failures.extend(_check_arrow_keys(page, layout, landed_date))
 
         page.keyboard.press("Tab")
         left_grid = page.evaluate(
@@ -378,7 +404,6 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
         # -- A3: a scroll while a cell is focused repositions the tooltip,
         # rather than hiding it, on the profile where a focused cell can
         # need to scroll into view (the mobile strip). ------------------
-        layout = svg.get_attribute("data-layout")
         if layout == "mobile":
             page.evaluate(
                 "() => { if (document.activeElement) document.activeElement.blur(); }"
@@ -428,5 +453,151 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                         f"{expected_label!r}"
                     )
     finally:
+        delete_job(job_id)
+    return failures
+
+
+def _check_arrow_keys(page, layout: str | None, landed_date: str) -> list[str]:
+    """Each arrow key from the most recent day's cell reaches its spatial
+    neighbour (or stays put at an edge), moves the roving Tab stop with it,
+    and its opposite key brings focus back. Leaves focus on `landed_date`."""
+    failures: list[str] = []
+    landed_cell = page.locator(f'.heatmap-cell[data-date="{landed_date}"]')
+    for key, back_key in _ARROW_PROBES:
+        expected = page.evaluate(
+            _SPATIAL_NEIGHBOUR_JS, {"date": landed_date, "key": key}
+        )
+        if layout == "desktop" and expected != landed_date:
+            days = _days_between(landed_date, expected)
+            if days != _DESKTOP_ARROW_DAYS[key]:
+                failures.append(
+                    f"the desktop grid's rendered {key} neighbour of "
+                    f"{landed_date!r} is {days} day(s) away, expected "
+                    f"{_DESKTOP_ARROW_DAYS[key]} (one column per week)"
+                )
+        page.keyboard.press(key)
+        moved = page.evaluate(_ACTIVE_CELL_JS)
+        moved_date = moved["date"] if moved else None
+        if moved_date != expected:
+            edge = " (an edge: stay put)" if expected == landed_date else ""
+            failures.append(
+                f"{key} [{layout}] from {landed_date!r} moved focus to "
+                f"{moved_date!r}, expected its spatial neighbour "
+                f"{expected!r}{edge}"
+            )
+            landed_cell.evaluate("(el) => el.focus()")
+            continue
+        if expected == landed_date:
+            continue
+        if moved["tabIndexAttr"] != "0":
+            failures.append(
+                f"{key} moved focus but the new cell does not carry "
+                f'tabindex="0" (was {moved["tabIndexAttr"]!r})'
+            )
+        previous_tabindex = landed_cell.get_attribute("tabindex")
+        if previous_tabindex != "-1":
+            failures.append(
+                f"{key} moved focus but the previously-focused cell still "
+                f'carries tabindex={previous_tabindex!r} instead of "-1"'
+            )
+        page.keyboard.press(back_key)
+        back = page.evaluate(_ACTIVE_CELL_JS)
+        if not back or back["date"] != landed_date:
+            failures.append(
+                f"{back_key} [{layout}] from {expected!r} did not move focus "
+                f"back to {landed_date!r}; landed on "
+                f"{back['date'] if back else None!r}"
+            )
+            landed_cell.evaluate("(el) => el.focus()")
+    return failures
+
+
+#: Installed before heatmap.js runs: counts the `scroll` and `touchend`
+#: listeners heatmap.js itself keeps on `document` (added minus removed,
+#: matched by listener and capture flag, as the DOM matches them). A stack
+#: that names heatmap.js tells its listeners from any other script's.
+_DOCUMENT_LISTENER_SPY_JS = """(() => {
+    const live = [];
+    const capture = (opts) =>
+        typeof opts === 'boolean' ? opts : !!(opts && opts.capture);
+    const add = document.addEventListener;
+    const remove = document.removeEventListener;
+    document.addEventListener = function (type, fn, opts) {
+        const stack = new Error().stack || '';
+        if ((type === 'scroll' || type === 'touchend')
+                && /heatmap\\.js/.test(stack)) {
+            const c = capture(opts);
+            if (!live.some((e) => e.type === type && e.fn === fn && e.c === c)) {
+                live.push({type: type, fn: fn, c: c});
+            }
+        }
+        return add.call(this, type, fn, opts);
+    };
+    document.removeEventListener = function (type, fn, opts) {
+        const c = capture(opts);
+        const i = live.findIndex((e) => e.type === type && e.fn === fn && e.c === c);
+        if (i >= 0) live.splice(i, 1);
+        return remove.call(this, type, fn, opts);
+    };
+    window.__heatmapDocumentListenerCounts = () => ({
+        scroll: live.filter((e) => e.type === 'scroll').length,
+        touchend: live.filter((e) => e.type === 'touchend').length,
+    });
+})();"""
+
+#: Either side of heatmap.js's MOBILE_MAX_WIDTH (860px) breakpoint; each
+#: crossing re-renders the grid, as each new search does.
+_WIDE_VIEWPORT = {"width": 1280, "height": 720}
+_NARROW_VIEWPORT = {"width": 390, "height": 844}
+
+
+def check_heatmap_document_listeners_attach_once(page, base_url: str) -> list[str]:
+    """Three renders leave one `scroll` and one `touchend` listener on
+    `document` from heatmap.js, not one pair per render (the review's
+    finding 4: each pair also held its render's cells and detached SVG).
+
+    Runs on its own page in the check's context, so the listener spy it
+    installs, and the viewport it resizes, end with this check.
+    """
+    failures: list[str] = []
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-03-01",
+            "total_scrobbles": 3,
+            "max_count": 3,
+            "daily_counts": {"2025-01-01": 3},
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    probe = page.context.new_page()
+    try:
+        probe.set_viewport_size(_WIDE_VIEWPORT)
+        probe.add_init_script(_DOCUMENT_LISTENER_SPY_JS)
+        probe.goto(f"{base_url}{HEATMAP_PATH}?job_id={job_id}", wait_until="load")
+        frame_svg = "#heatmap-result-frame svg"
+        for viewport, layout in (
+            (_WIDE_VIEWPORT, "desktop"),
+            (_NARROW_VIEWPORT, "mobile"),
+            (_WIDE_VIEWPORT, "desktop"),
+        ):
+            probe.set_viewport_size(viewport)
+            probe.locator(f'{frame_svg}[data-layout="{layout}"]').wait_for(
+                state="visible"
+            )
+        counts = probe.evaluate("() => window.__heatmapDocumentListenerCounts()")
+        for event_type in ("scroll", "touchend"):
+            if counts[event_type] != 1:
+                failures.append(
+                    f"after three heatmap renders, heatmap.js holds "
+                    f"{counts[event_type]} document {event_type!r} "
+                    "listener(s), expected exactly 1 (attach once, not once "
+                    "per render)"
+                )
+    finally:
+        probe.close()
         delete_job(job_id)
     return failures

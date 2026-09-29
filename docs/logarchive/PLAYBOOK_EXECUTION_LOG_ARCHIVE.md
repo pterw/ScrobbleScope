@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Heatmap keyboard and screen-reader access follow-up
+
+Side task, no batch tag: give the heatmap grid a roving tabindex (one Tab
+stop, arrow keys move it) in place of every cell carrying tabindex="0",
+change the SVG's role from "img" to "group" so a cell's own role="img" +
+aria-label survives in the accessibility tree, and stop a focus-triggered
+scroll from hiding the tooltip it just showed, part of Batch 23 WP-0 Part
+C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
 ### 2026-09-27 - Artist spotlight photo shown whole, swaps stay in sync, hydrate requests time out
 
 Side task, no batch tag: fixed the artist spotlight card's non-square photo

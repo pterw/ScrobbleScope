@@ -1326,8 +1326,10 @@
     // Transition: loading -> result
     revealHeatmapResult();
 
-    // Attach tooltip handlers
-    initTooltips(svg, cellData);
+    // Attach tooltip handlers. Column-per-week: one cell right is 7 days
+    // on, one cell down is the next day, and the first week starts on
+    // row startDow.
+    initTooltips(svg, cellData, { across: 7, down: 1, lead: startDow });
   }
 
   function renderHeatmapMobile(data) {
@@ -1411,7 +1413,9 @@
 
     revealHeatmapResult();
 
-    initTooltips(svg, cellData);
+    // Row-major by `columns`: one cell right is the next day, one cell
+    // down is `columns` days on.
+    initTooltips(svg, cellData, { across: 1, down: columns, lead: 0 });
   }
 
   // ----------------------------------------------------------------
@@ -1419,34 +1423,69 @@
   // ----------------------------------------------------------------
   // Exactly one cell is a Tab stop at a time -- the rest carry
   // tabindex="-1" -- so the grid costs one Tab press to enter and one to
-  // leave, whatever its day count. Date order is layout-independent
-  // (cellData is built in date order by both renderers), so one handler
-  // serves desktop columns and the mobile strip alike.
+  // leave, whatever its day count. Both renderers build cellData in date
+  // order, but they lay it out differently: the desktop grid is one column
+  // per week, the mobile strip is row-major. So the arrow keys move by the
+  // renderer's own grid steps (arrowKeyTarget), and one handler serves both.
   function setRovingTabStop(cellData, index) {
     cellData.forEach(function (cd, i) {
       cd.el.setAttribute('tabindex', i === index ? '0' : '-1');
     });
   }
 
-  function handleCellKeydown(cellData, index, event) {
-    var nextIndex;
-    switch (event.key) {
+  /**
+   * The cellData index an arrow key moves focus to, or null for any other key.
+   *
+   * `grid` is the renderer's layout: `across` and `down` are the index steps
+   * for one cell right and one cell down, and `lead` is the number of empty
+   * slots before the first cell (the desktop grid's first week starts on
+   * its first day's weekday row). A one-index step walks along a line -- a
+   * desktop week column, a mobile row -- whose length is the other step; at
+   * the end of a line, or of the cell range, focus stays where it is rather
+   * than wrapping into the next line.
+   */
+  function arrowKeyTarget(key, index, count, grid) {
+    var step;
+    var lineLength;
+    switch (key) {
       case 'ArrowRight':
-      case 'ArrowDown':
-        nextIndex = Math.min(index + 1, cellData.length - 1);
+        step = grid.across;
+        lineLength = grid.down;
         break;
       case 'ArrowLeft':
+        step = -grid.across;
+        lineLength = grid.down;
+        break;
+      case 'ArrowDown':
+        step = grid.down;
+        lineLength = grid.across;
+        break;
       case 'ArrowUp':
-        nextIndex = Math.max(index - 1, 0);
-        break;
-      case 'Home':
-        nextIndex = 0;
-        break;
-      case 'End':
-        nextIndex = cellData.length - 1;
+        step = -grid.down;
+        lineLength = grid.across;
         break;
       default:
-        return;
+        return null;
+    }
+    var target = index + step;
+    if (target < 0 || target >= count) return index;
+    if (Math.abs(step) === 1 &&
+        Math.floor((grid.lead + index) / lineLength) !==
+        Math.floor((grid.lead + target) / lineLength)) {
+      return index;
+    }
+    return target;
+  }
+
+  function handleCellKeydown(cellData, index, event, grid) {
+    var nextIndex;
+    if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = cellData.length - 1;
+    } else {
+      nextIndex = arrowKeyTarget(event.key, index, cellData.length, grid);
+      if (nextIndex === null) return;
     }
     event.preventDefault();
     if (nextIndex === index) return;
@@ -1457,7 +1496,14 @@
   // ----------------------------------------------------------------
   // Tooltips
   // ----------------------------------------------------------------
-  function initTooltips(svg, cellData) {
+  // The current render's cells, read by the document-level listeners below.
+  // Those listeners are attached once per page, not once per render: every
+  // render (each search, each breakpoint crossing) used to add another pair,
+  // and each pair kept its render's cells and detached SVG alive.
+  var tooltipCellData = [];
+  var documentTooltipListenersAttached = false;
+
+  function initTooltips(svg, cellData, grid) {
     // Create or reuse tooltip div
     if (!tooltip) {
       tooltip = document.createElement('div');
@@ -1484,9 +1530,13 @@
       });
       cd.el.addEventListener('blur', hideTooltip);
       cd.el.addEventListener('keydown', function (e) {
-        handleCellKeydown(cellData, index, e);
+        handleCellKeydown(cellData, index, e, grid);
       });
     });
+
+    tooltipCellData = cellData;
+    if (documentTooltipListenersAttached) return;
+    documentTooltipListenersAttached = true;
 
     document.addEventListener('touchend', hideTooltip);
     // Capture-phase, because a focused cell's own scroll container (the
@@ -1496,7 +1546,7 @@
     // it repositions the same tooltip for the still-focused cell instead.
     document.addEventListener('scroll', function () {
       var active = document.activeElement;
-      var focused = cellData.filter(function (cd) { return cd.el === active; })[0];
+      var focused = tooltipCellData.filter(function (cd) { return cd.el === active; })[0];
       if (!focused) {
         hideTooltip();
         return;
@@ -1615,7 +1665,7 @@
 
   // Module top level, not inside DOMContentLoaded: a harness that loads this
   // file via page.add_script_tag() after the document has already reached
-  // "complete" never sees a later DOMContentLoaded fire. These four
+  // "complete" never sees a later DOMContentLoaded fire. These five
   // functions are side-effect free, so the seam is safe to expose
   // immediately -- but only when a test flag is set before this script
   // runs (F-B21-18's "guarded seam"); on every other page load
@@ -1626,6 +1676,7 @@
       countToNorm: countToNorm,
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
+      arrowKeyTarget: arrowKeyTarget,
     };
   }
 

@@ -8,7 +8,10 @@ from scripts.dev import _frontend_gate_heatmap_access, frontend_gate
 from scripts.dev._frontend_gate_heatmap_access import _expected_cell_label
 from tests.scripts.dev.gate_parity import defined_names
 
-CHECKS = ("check_heatmap_cells_are_keyboard_accessible",)
+CHECKS = (
+    "check_heatmap_cells_are_keyboard_accessible",
+    "check_heatmap_document_listeners_attach_once",
+)
 CONSTANTS = ("HEATMAP_PATH",)
 HELPERS = ("_expected_cell_label",)
 

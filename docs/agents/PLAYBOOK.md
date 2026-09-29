@@ -120,6 +120,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-28 - Heatmap arrow keys follow the layout; document listeners attach once
+
+Side task, no batch tag: the 2026-09-28 /code-review's findings 2 and 4 on the heatmap grid,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Arrow keys now move spatially: desktop (one column per week) Left/Right -/+7 days, Up/Down -/+1;
+mobile strip (row-major) Left/Right -/+1, Up/Down -/+columns; at an edge focus stays put
+(`arrowKeyTarget`, on the guarded test seam). Finding 4: only the tooltip's anonymous
+capture-phase `scroll` listener on `document` piled up across renders (each held its render's
+cellData and detached SVG); the `touchend` listener used one stable function reference, so the
+DOM already de-duplicated it and never piled up. Both are now attached once per page and read
+the current render's cells, closing the remaining `scroll` accumulation. Harness: step cases
+per layout, arrow and edge. Gate: the keyboard check probes all four arrows against the
+rendered geometry; new check `heatmap document listeners attach once`. Mutation/live-probe
+evidence in the task report.
+
+Validation: `pytest -q` -- **2032 passed**.
+
 ### 2026-09-28 - Classify upstream failures before blaming the app
 
 Side task, no batch tag: heatmap and album backstops now share one
@@ -181,16 +199,5 @@ Deviations: `6d217f4` and `604d815` carry subjects without the Conventional
 Commits type and scope; they were not rewritten, because history is rewritten
 only on the owner's instruction. Deferred minor: the heatmap tooltip follows
 the focused cell on scroll even when the mouse hovers a different one.
-
-Validation: `pytest -q` -- **1999 passed**.
-
-### 2026-09-27 - Heatmap keyboard and screen-reader access follow-up
-
-Side task, no batch tag: give the heatmap grid a roving tabindex (one Tab
-stop, arrow keys move it) in place of every cell carrying tabindex="0",
-change the SVG's role from "img" to "group" so a cell's own role="img" +
-aria-label survives in the accessibility tree, and stop a focus-triggered
-scroll from hiding the tooltip it just showed, part of Batch 23 WP-0 Part
-C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 Validation: `pytest -q` -- **1999 passed**.
