@@ -181,7 +181,8 @@ safe-outputs:
     max: 1
     # Tests, pinned requirements, and the documents AGENTS.md's Side-Task
     # Handling requires in the same commit (the Section 4 entry, its archive
-    # rotation, and the test-count sites). Nothing else.
+    # rotation, the test-count sites, and the [test_count] pin in
+    # config/docsync.toml). Nothing else.
     allowed-files:
       - "tests/**"
       - "requirements.txt"
@@ -191,6 +192,7 @@ safe-outputs:
       - "docs/agents/FINDINGS.md"
       - "docs/logarchive/**"
       - "docs/history/logs/**"
+      - "config/docsync.toml"
     protected-files:
       policy: request_review
   push-to-pull-request-branch:
@@ -206,6 +208,7 @@ safe-outputs:
       - "docs/agents/FINDINGS.md"
       - "docs/logarchive/**"
       - "docs/history/logs/**"
+      - "config/docsync.toml"
     protected-files:
       policy: request_review
   create-issue:
@@ -320,9 +323,9 @@ This repository is run by a strict, documented process. These rules override any
 
 1. **Read `AGENTS.md` first**, then `docs/agents/global-rules.md`. Follow `AGENTS.md`'s Commit Rules, Side-Task Handling, Test Quality Rules, Anti-Pattern Registry and Markdown Authoring Rules.
 2. **`docs/agents/FINDINGS.md` is the issue tracker.** GitHub issues labelled `finding` are a mirror that is not maintained, and `docs/agents/FINDINGS.md` (with `docs/history/findings/FINDINGS_ARCHIVE.md`) wins on any disagreement. Never label, comment on, investigate or fix a mirror issue, and never open a PR that "closes" one.
-3. **Batch work is not yours.** `docs/agents/PLAYBOOK.md` Section 3 names the active batch and its branch. Never edit Section 3, a `BATCH*_DEFINITION.md`, `AGENTS.md`, a finding's text in `docs/agents/FINDINGS.md`, anything under `scripts/` or `docs/` other than `docs/agents/PLAYBOOK.md`, `docs/agents/FINDINGS.md` and the log files your Section 4 entry rotates into, or any file under `.github/`. Branch from `main`.
-4. **Every PR carries its log entry in the same commit** (`AGENTS.md` Side-Task Handling): an untagged dated entry in `docs/agents/PLAYBOOK.md` Section 4 directly after the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker line, with no `WP-<digit>` token in its heading. Then run `python scripts/doc_state_sync.py --fix` and stage whatever it rotates. If you added tests, update the test-count sites it reports (`.claude/SESSION_CONTEXT.md` Section 1 `Tests` row and its Section 6 heading, and the `docs/agents/FINDINGS.md` header count). Quote the suite result in exactly this form: `` Validation: `pytest -q` -- **N passed**. ``
-5. **Gates before any PR**: `pip install -r requirements-dev.txt`, then `python -m pytest -q`, `pre-commit run --all-files` and `python scripts/doc_state_sync.py --check`. Any failure caused by your change means no PR. The frontend gate (`scripts/dev/frontend_gate.py`) cannot run here because its browsers are not downloadable; say so in the Test Status section, since CI's quality-gate runs it.
+3. **Batch work is not yours.** `docs/agents/PLAYBOOK.md` Section 3 names the active batch and its branch. Never edit Section 3, a `BATCH*_DEFINITION.md`, `AGENTS.md`, a finding's text in `docs/agents/FINDINGS.md`, anything under `scripts/` or `docs/` other than `docs/agents/PLAYBOOK.md`, `docs/agents/FINDINGS.md` and the log files your Section 4 entry rotates into, or any file under `.github/`, or anything under `config/` other than the `[test_count]` pin in `config/docsync.toml`, which only Rule 4's command writes: never edit that file by hand. Branch from `main`.
+4. **Every PR carries its log entry in the same commit** (`AGENTS.md` Side-Task Handling): an untagged dated entry in `docs/agents/PLAYBOOK.md` Section 4 directly after the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker line, with no `WP-<digit>` token in its heading. Then run `python scripts/doc_state_sync.py --fix --test-count N` if you added tests, with N measured as Rule 5 says, or bare `python scripts/doc_state_sync.py --fix` if you did not. That command pins N in `config/docsync.toml`'s `[test_count]` table and writes every test-count site from it; never edit a count by hand. Stage everything it writes or rotates, `config/docsync.toml` included. If you added a test module, also update the module count by hand in `.claude/SESSION_CONTEXT.md` Section 1's `Tests` row and the `docs/agents/FINDINGS.md` header: nothing derives it (F-DOCSYNC-23). Quote the suite result in exactly this form: `` Validation: `pytest -q` -- **N passed**. ``
+5. **Gates before any PR**: `pip install -r requirements-dev.txt`, then `python -m pytest -q -m "not browser"`, `pre-commit run --all-files` and `python scripts/doc_state_sync.py --check`. Any failure caused by your change means no PR. The tests marked `browser` and the frontend gate (`scripts/dev/frontend_gate.py`) need browser binaries this sandbox cannot download, so never add a test that needs a browser; CI's quality gate runs both on every PR. N in Rule 4 is the whole suite, the number CI and the pin count: the `passed` count of the run above plus the first number of the `N/M tests collected` line that `python -m pytest -q -m browser --collect-only` prints. Say in the Test Status section that the browser-marked tests and the frontend gate were left to CI, not run here.
 6. **Dependencies need the owner's approval** (`AGENTS.md` Environment Setup). Never add a new package. A version bump is only ever a draft PR proposal that says it needs approval.
 7. **Commit messages** follow `AGENTS.md` Commit Rules (Conventional Commits, imperative subject, a body that explains why) and carry no `Co-authored-by` trailer. Files you write in the repository are ASCII-only.
 
@@ -368,7 +371,7 @@ Only Tasks 4, 6, 9 and 11 are enabled in this repository. Issue labelling, issue
 ### Task 4: Dependency Proposals
 
 1. Read `requirements.txt` and `requirements-dev.txt`; every package is pinned with `==`.
-2. Check for security advisories (`pip-audit -r requirements.txt` if available) and for patch or minor releases worth taking. Propose a major bump only with a clear, stated benefit.
+2. Check for security advisories (`pip-audit -r requirements.txt -r requirements-dev.txt` if available, the two files CI's audit reads) and for patch or minor releases worth taking. Propose a major bump only with a clear, stated benefit.
 3. If something is worth proposing, create one bundled draft PR from a fresh branch `repo-assist/deps-<date>` that edits only the pins, with the log entry of Repository Rule 4. The PR body lists each change with a link to its release notes, states the gate results, and says plainly that `AGENTS.md` requires the owner's approval before merge.
 4. Record what was checked and when in memory's `checks` (`dependencies`).
 

@@ -124,7 +124,11 @@ jobs:
       - name: Run frontend gate
         if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}
         run: |
-          python -m pytest -m browser tests/frontend -q
+          # The marker decides what runs here, not the directory: the coverage
+          # step deselects the marker across the whole tree, so a browser test
+          # outside tests/frontend/ would otherwise run in neither step. Today
+          # the same 43 tests run either way.
+          python -m pytest -m browser -q
           python scripts/dev/results_behavior_tests.py
           python scripts/dev/frontend_gate.py
 

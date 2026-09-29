@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-28 - Drop the spotlight's unreachable guards
+
+Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Code-review finding 8. Rotation only renders candidates that already have a confirmed
+`image_url`, and `hydrateCandidate` writes only its own index before the array is replaced, so
+none of that code could fire. The `hydrateCandidate` docstring now says so. No behaviour change.
+Validation: `pytest -q` -- **2055 passed**.
+
 ### 2026-09-28 - Report an unreadable declarations file as a warning
 
 Side task, no batch tag: the 2026-09-28 /code-review's finding 5 in the control plane, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

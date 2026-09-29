@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Repo Assist pins the count it measures and skips browser tests
+
+Side task, no batch tag: Repo Assist's rules and file grant, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Review findings G1-G3: Repo Assist's rules predated the pinned test count and the browser marker, so a PR from it could not pass. Rule 4 now runs `--fix --test-count N` and never edits a count by hand. Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files.") allowed the widened grant: both `allowed-files` lists gain `config/docsync.toml`, and the lock was regenerated with `gh aw compile repo-assist`, not edited.
+Rule 5 runs `-m "not browser"` and counts the 43 browser tests by `--collect-only`, so N is still the whole suite. Task 4 audits both requirements files. `test.yml` runs `-m browser` without the directory, so the marker decides what runs; the same 43 tests run either way.
+The new `tests/test_ci_workflows.py` checks that the compiled lock grants every file the procedure writes and that the source and the lock agree.
+Validation: `pytest -q` -- **2117 passed**.
+
 ### 2026-09-29 - docsync refuses declared paths and pin rewrites it cannot trust
 
 Side task, no batch tag: the second-review fix wave for the docsync declarations, the test-count pin writer and the worktree guard (review findings B1-B6, B8, B9 and C1-C5), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -129,7 +137,7 @@ B5, C3, C1, C5: `[untracked_essentials]` refuses a backslash, any character `str
 C2, C4: WT015's read-failure warning carries the failure class only, never the absolute path or OS text, and points to `doc_state_sync.py --check`. WT004 labels an unsafe base ref once.
 B6, B8: the preflight's pin-only exemption decodes `git show` as UTF-8 and fails closed on a blob that is not. DOC025 and the close-out admission refusal name the `--config` file actually read.
 `docs/architecture/documentation-tooling.md` is updated to match.
-Validation: `pytest -q` -- **N passed**.
+Validation: `pytest -q` -- **2111 passed**.
 
 ### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
 
@@ -143,7 +151,7 @@ A2: when one page raised (the mid-job 404 `ValueError`), sibling page fetches st
 pending on a closing session. `_cancel_and_drain` now cancels and awaits them before the
 unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
 Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
-Validation: `pytest -q` -- **N passed**.
+Validation: `pytest -q` -- **2083 passed**.
 
 ### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
 
@@ -161,11 +169,3 @@ whole, inside their slot. F-B23-15 is open for the owner. Edited tests:
 test_group_unmatched_albums_groups_by_reason_code,
 test_unmatched_view_success_renders_grouped_reasons.
 Validation: `pytest -q` -- **2073 passed**.
-
-### 2026-09-28 - Drop the spotlight's unreachable guards
-
-Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-Code-review finding 8. Rotation only renders candidates that already have a confirmed
-`image_url`, and `hydrateCandidate` writes only its own index before the array is replaced, so
-none of that code could fire. The `hydrateCandidate` docstring now says so. No behaviour change.
-Validation: `pytest -q` -- **2055 passed**.
