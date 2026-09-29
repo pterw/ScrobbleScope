@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - DEVELOPMENT.md shows each tool in action
+
+Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+DEVELOPMENT.md now opens with what the guide is for and shows each tool (docsync check and fix, the commit preflight, the Tailwind build and drift check, the frontend gate, archives) running, with captured output, and prose cut to plain English. Live counts are elided in quoted output (`<N>`, `<M>`) so no figure goes stale, and the `--fix --test-count N` example names no number. The DOC024 and archive-pagination sentences cite `AGENTS.md` "Doc Sync Rules" and `docs/architecture/documentation-tooling.md`. All declared anchors are kept.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - README shows the incoming foundation work in plain prose
 
 Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -149,13 +157,3 @@ Review finding S1-3 (P1): `retry_with_semaphore` slept whatever `Retry-After` a 
 Tests: six new tests in `tests/test_retry_with_semaphore.py` cover the cap, the value at the cap, the cap read from `utils`, two backoff sleeps for three failures, and no sleep after a rate limit on the final attempt. No existing test was edited.
 
 Validation: `pytest -q` -- **2184 passed**.
-
-### 2026-09-29 - A malformed Last.fm page is retried and counted as dropped
-
-Side task, no batch tag: retrying a malformed 200 page and counting it as dropped, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Review finding S1-2 (P1): `fetch_recent_tracks_page_async` returned any body that parsed as JSON as a success, so an error payload served as a 200 on page 2..N was fetched once, never retried and counted as received: the job said `ok` with up to 200 scrobbles missing, and a `[]` body reached the aggregators and crashed them. `fetch_once` now treats a page that fails `_is_well_formed_page` like a non-200 response: one WARNING naming the page and the defect class (never the body), `None`, retried, and dropped and counted in `pages_dropped` if it stays bad. Finding S1-12: page 1 is checked by the same helper in `fetch_all_recent_tracks_async`, replacing the inline check that raised `TypeError` on a scalar body and the weaker second try block. No check was added on `recenttracks.track`: Last.fm can serve one track as an object, a separate matter. README and `top-albums-sequence.md` say a malformed page counts as a failed attempt.
-
-Tests: the two tests that pinned the old contract (`test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_network`, `test_fetch_recent_tracks_page_does_not_cache_a_malformed_page`) now expect `None` and the retry count; new tests cover recovery inside one call, the partial outcome through `fetch_all_recent_tracks_async`, and scalar and list page-1 bodies.
-
-Validation: `pytest -q` -- **2178 passed**.
