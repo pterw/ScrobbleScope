@@ -197,14 +197,29 @@ def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> Non
         _frontend_gate_pipeline.delete_job(job)
 
 
-def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
-    """Late old-job data is checked and temporary job/routes are removed on faults."""
+def _replaced_job_page(request_arrives: bool):
+    """A page double: the old poll arrives (or not) and Retry replaces the job."""
     page = MagicMock()
     held = MagicMock()
     held.request.url = "http://local/progress?job_id=old-job"
-    page.route.side_effect = lambda pattern, handler: handler(held)
+    handlers = {}
+    page.route.side_effect = lambda pattern, handler: handlers.__setitem__(
+        pattern, handler
+    )
+
+    def wait_for_timeout(_ms):
+        if request_arrives and not held.method_calls:
+            handlers["**/progress?job_id=*"](held)
+
+    page.wait_for_timeout.side_effect = wait_for_timeout
     page.locator.return_value.get_attribute.return_value = "20"
     page.locator.return_value.inner_text.return_value = "PAGE 20 / 100"
+    return page, held, handlers
+
+
+def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
+    """The old response is delivered after an in-page replacement and checked."""
+    page, held, handlers = _replaced_job_page(request_arrives=True)
     with (
         patch.object(_frontend_gate_pipeline, "create_job", return_value="replacement"),
         patch.object(_frontend_gate_pipeline, "set_job_progress"),
@@ -220,25 +235,43 @@ def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
         assert held.fulfill.call_args.kwargs["status"] == 200
         response = held.fulfill.call_args.kwargs
         payload = response.get("json") or json.loads(response["body"])
-        assert payload == {
-            "progress": 20,
-            "phase": {
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": 20,
-                "total": 100,
-            },
-        }
+        assert payload["progress"] == 20
+        assert payload["phase"]["current"] == 20
+        # One document: the first load is the only navigation, and the job is
+        # replaced by the page's own Retry control, answered by a stub start.
+        assert page.goto.call_count == 1
+        assert "heatmap-retry-btn" in page.evaluate.call_args.args[0]
+        start = MagicMock()
+        handlers["**/heatmap_loading"](start)
+        assert start.fulfill.call_args.kwargs["status"] == 202
+        assert start.fulfill.call_args.kwargs["json"]["job_id"] == "replacement"
         delete.assert_called_once_with("replacement")
-        page.unroute.assert_called_once_with("**/progress?job_id=*")
+        assert page.unroute.call_count == 2
         page.goto.side_effect = RuntimeError("navigation broke")
         with pytest.raises(RuntimeError, match="navigation broke"):
             _frontend_gate_pipeline._exercise_replaced_job_progress(
                 page, "http://local", "old-job", "/heatmap?job_id=old-job"
             )
         assert delete.call_count == 2
-        assert page.unroute.call_count == 2
+        assert page.unroute.call_count == 4
+
+
+def test_replaced_job_probe_fails_when_the_old_request_never_arrives() -> None:
+    """A poll that was never held cannot pass the stale-response check."""
+    page, held, _handlers = _replaced_job_page(request_arrives=False)
+    with (
+        patch.object(_frontend_gate_pipeline, "create_job", return_value="replacement"),
+        patch.object(_frontend_gate_pipeline, "set_job_progress"),
+        patch.object(_frontend_gate_pipeline, "delete_job") as delete,
+    ):
+        failures = _frontend_gate_pipeline._exercise_replaced_job_progress(
+            page, "http://local", "old-job", "/heatmap?job_id=old-job"
+        )
+    assert failures == ["replaced-job check never held the old job's /progress request"]
+    held.fulfill.assert_not_called()
+    page.evaluate.assert_not_called()
+    delete.assert_called_once_with("replacement")
+    assert page.unroute.call_count == 2
 
 
 @pytest.mark.parametrize("client", ("album", "heatmap"))

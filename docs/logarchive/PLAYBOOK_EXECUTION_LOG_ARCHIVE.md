@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - DEVELOPMENT.md shows each tool in action
+
+Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+DEVELOPMENT.md now opens with what the guide is for and shows each tool (docsync check and fix, the commit preflight, the Tailwind build and drift check, the frontend gate, archives) running, with captured output, and prose cut to plain English. Live counts are elided in quoted output (`<N>`, `<M>`) so no figure goes stale, and the `--fix --test-count N` example names no number. The DOC024 and archive-pagination sentences cite `AGENTS.md` "Doc Sync Rules" and `docs/architecture/documentation-tooling.md`. All declared anchors are kept.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - README shows the incoming foundation work in plain prose
 
 Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

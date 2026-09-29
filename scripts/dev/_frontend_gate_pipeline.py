@@ -454,7 +454,13 @@ def _exercise_heatmap_progress(
 def _exercise_replaced_job_progress(
     page, base_url, heatmap_job_id, heatmap_path
 ) -> list[str]:
-    """Hold an old poll while replacing the job, then check stale rejection."""
+    """Hold an old poll, replace the job in the same page, then deliver it late.
+
+    The replacement goes through the page's own Retry path so ``currentJobId``
+    changes inside one document; only then can the held response reach the
+    stale-response guard in ``pollProgress``. A request that never arrived is
+    a failure, not a pass.
+    """
     failures = []
     # 5. Out-of-order response rejection and job replacement
     replacement_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
@@ -478,45 +484,60 @@ def _exercise_replaced_job_progress(
         else:
             route.continue_()
 
+    def start_replacement_job(route):
+        route.fulfill(
+            status=202,
+            json={"job_id": replacement_job_id, "status": "started"},
+        )
+
     page.route("**/progress?job_id=*", intercept_progress)
+    page.route("**/heatmap_loading", start_replacement_job)
     try:
-        # Load original heatmap job; its first poll will be held
+        # Load the original heatmap job; its first poll is held unanswered
         page.goto(f"{base_url}{heatmap_path}", wait_until="load")
-        page.wait_for_timeout(100)
-        # Navigate to replacement job while old job poll is held
-        page.goto(f"{base_url}/heatmap?job_id={replacement_job_id}", wait_until="load")
+        for _ in range(100):
+            if held_routes:
+                break
+            page.wait_for_timeout(50)
+        if not held_routes:
+            failures.append(
+                "replaced-job check never held the old job's /progress request"
+            )
+            return failures
+        # Replace the job inside this same document through the Retry path
+        page.evaluate("() => document.getElementById('heatmap-retry-btn').click()")
         page.locator(HEATMAP_PROGRESS_TEXT).filter(has_text="PAGE 80 / 100").wait_for(
             state="visible"
         )
 
-        # Fulfill held response for the replaced job with stale 20%
-        if held_routes:
-            held_routes[0].fulfill(
-                status=200,
-                json={
-                    "progress": 20,
-                    "phase": {
-                        "key": "lastfm_fetch",
-                        "label": FETCHING_SCROBBLES,
-                        "unit": "page",
-                        "current": 20,
-                        "total": 100,
-                    },
+        # Deliver the held response for the replaced job as stale 20%
+        held_routes[0].fulfill(
+            status=200,
+            json={
+                "progress": 20,
+                "phase": {
+                    "key": "lastfm_fetch",
+                    "label": FETCHING_SCROBBLES,
+                    "unit": "page",
+                    "current": 20,
+                    "total": 100,
                 },
+            },
+        )
+        page.wait_for_timeout(150)
+        current_valuenow = page.locator(HEATMAP_PROGRESS_TRACK).get_attribute(
+            "aria-valuenow"
+        )
+        if current_valuenow == "20":
+            failures.append(
+                "stale out-of-order progress response regressed aria-valuenow"
             )
-            page.wait_for_timeout(150)
-            current_valuenow = page.locator(HEATMAP_PROGRESS_TRACK).get_attribute(
-                "aria-valuenow"
+        if "PAGE 20" in page.locator(HEATMAP_PROGRESS_TEXT).inner_text():
+            failures.append(
+                "stale out-of-order progress response regressed visible text"
             )
-            if current_valuenow == "20":
-                failures.append(
-                    "stale out-of-order progress response regressed aria-valuenow"
-                )
-            if "PAGE 20" in page.locator(HEATMAP_PROGRESS_TEXT).inner_text():
-                failures.append(
-                    "stale out-of-order progress response regressed visible text"
-                )
     finally:
+        page.unroute("**/heatmap_loading")
         page.unroute("**/progress?job_id=*")
         delete_job(replacement_job_id)
 

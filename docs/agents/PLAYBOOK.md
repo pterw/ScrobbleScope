@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - The stale-progress gate check replaces the job inside one page, so it can fail
+
+Side task, no batch tag: making the frontend gate's stale-progress check able to fail, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The `pipeline state machines` check held the old job's first `/progress` request, then opened a new document for the replacement job, so the held response could never reach the guard in `heatmap.js` `pollProgress`; a request that never arrived also passed silently. The check now loads the old job once, holds its first poll (failing explicitly if none arrives), stubs the retry POST with a replacement job id, clicks the page's own Retry button so `currentJobId` changes in the same document, and only then fulfils the held response with stale progress and asserts it is not shown. Live probe: with the guard in `heatmap.js` replaced by `if (false) {`, the gate fails with `stale out-of-order progress response regressed aria-valuenow`; with the guard intact it passes. `heatmap.js` is unchanged. Tests: the replaced-job test is rewritten and a no-request test added.
+
+Validation: `pytest -q` -- **2191 passed**.
+
 ### 2026-09-29 - Eleven findings filed from the third review of PR #245
 
 Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -141,13 +149,5 @@ Validation: `pytest -q` -- **2187 passed**.
 Side task, no batch tag: re-verifying the architecture diagrams against the source, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 The runtime diagram gains `heatmap.py` -> `errors.py` and `app.py` -> `api_logging.py`. Both sequence diagrams now draw the private-profile refusal (HTTP 403, Last.fm error 17). The development-cycle page says CI picks browser tests by marker, not folder. The control-plane diagram gains twelve docsync import edges it lacked. SESSION_CONTEXT Sections 3-4 gain `enrichment.py`, `deezer.py` and `orchestrator/_deezer_fallback.py` and lose a `repositories.py` -> domain edge that no import makes. No code changed.
-
-Validation: `pytest -q` -- **2187 passed**.
-
-### 2026-09-29 - DEVELOPMENT.md shows each tool in action
-
-Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-DEVELOPMENT.md now opens with what the guide is for and shows each tool (docsync check and fix, the commit preflight, the Tailwind build and drift check, the frontend gate, archives) running, with captured output, and prose cut to plain English. Live counts are elided in quoted output (`<N>`, `<M>`) so no figure goes stale, and the `--fix --test-count N` example names no number. The DOC024 and archive-pagination sentences cite `AGENTS.md` "Doc Sync Rules" and `docs/architecture/documentation-tooling.md`. All declared anchors are kept.
 
 Validation: `pytest -q` -- **2187 passed**.
