@@ -16,24 +16,33 @@ without any network at all.
 """
 
 import asyncio
+import io
 import logging
 import re
+import sys
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 import pytest
-from aiohttp import ClientConnectorError, ClientTimeout, web
+from aiohttp import (
+    ClientConnectorError,
+    ClientResponseError,
+    ClientTimeout,
+    RequestInfo,
+    web,
+)
 from aiohttp.test_utils import TestServer, unused_port
 from yarl import URL
 
 from scrobblescope.api_logging import (
+    RedactingFormatter,
     _call_outcome_line,
     _emit_summaries,
     _lastfm_method,
     _record,
     provider_for_host,
 )
-from scrobblescope.utils import create_optimized_session
+from scrobblescope.utils import create_optimized_session, run_async_in_thread
 
 
 async def _ok(request):
@@ -381,3 +390,82 @@ async def test_a_recording_failure_never_fails_the_request(caplog, monkeypatch):
                     assert body == {"ok": True}
             finally:
                 await session.close()
+
+
+_FMT = "%(levelname)s %(message)s"
+
+
+def _record_for(msg, exc_info=None):
+    return logging.LogRecord("t", logging.ERROR, __file__, 1, msg, None, exc_info)
+
+
+def test_redacting_formatter_redacts_a_query_string_key():
+    url = (
+        "https://ws.audioscrobbler.com/2.0/"
+        "?method=user.getinfo&user=x&api_key=SECRET-KEY-1&format=json"
+    )
+    out = RedactingFormatter(_FMT).format(_record_for(f"url='{url}'"))
+
+    assert "api_key=[redacted]&format=json" in out
+    assert "SECRET-KEY-1" not in out
+
+
+def test_redacting_formatter_redacts_a_key_inside_a_traceback():
+    try:
+        raise ValueError(
+            "404, message='Not Found', "
+            "url='https://ws.audioscrobbler.com/2.0/?api_key=SECRET-KEY-2&format=json'"
+        )
+    except ValueError:
+        record = _record_for("failed", exc_info=sys.exc_info())
+
+    out = RedactingFormatter(_FMT).format(record)
+
+    assert "Traceback" in out
+    assert "api_key=[redacted]&format=json" in out
+    assert "SECRET-KEY-2" not in out
+
+
+def test_redacting_formatter_redacts_a_cache_key_spelling():
+    msg = (
+        "Cache hit for https://ws.audioscrobbler.com/2.0/"
+        "_api_key:SECRET-KEY-3_format:json_method:user.getinfo"
+    )
+    out = RedactingFormatter(_FMT).format(_record_for(msg))
+
+    assert "api_key:[redacted]_format:json" in out
+    assert "SECRET-KEY-3" not in out
+
+
+def test_redacting_formatter_leaves_a_line_without_a_key_unchanged():
+    out = RedactingFormatter(_FMT).format(_record_for("Cache hit for user_x"))
+
+    assert out == "ERROR Cache hit for user_x"
+
+
+def test_run_async_in_thread_error_log_never_carries_the_api_key():
+    from yarl import URL
+
+    url = URL(
+        "https://ws.audioscrobbler.com/2.0/?method=user.getinfo&api_key=SECRET-KEY-4"
+    )
+    info = RequestInfo(url, "GET", {}, url)
+
+    async def _raises():
+        raise ClientResponseError(info, (), status=404, message="Not Found")
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(RedactingFormatter(_FMT))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        with pytest.raises(ClientResponseError):
+            run_async_in_thread(_raises)
+    finally:
+        root.removeHandler(handler)
+
+    text = stream.getvalue()
+    assert "Error in async thread" in text
+    assert "[redacted]" in text
+    assert "SECRET-KEY-4" not in text

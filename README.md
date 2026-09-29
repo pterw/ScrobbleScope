@@ -692,7 +692,9 @@ and each provider gets a summary when its session closes, such as
 span and the time actually spent waiting differ because calls are throttled
 apart or run in parallel. These lines never carry a query string, a request
 body or an artist or album name; the one exception is Last.fm's `method`
-value (for example `user.getrecenttracks`), which says which call it was.
+value (for example `user.getrecenttracks`), which says which call it was. Everywhere else the log formatter redacts the
+value of `api_key` (query string or cache key) from every line, exception
+text included.
 
 ### Next: importing a Spotify listening history
 

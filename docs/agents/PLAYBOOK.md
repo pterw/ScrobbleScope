@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Last.fm api_key redacted from every log line
+
+Side task, no batch tag: redacting the Last.fm `api_key` in every log line (review finding S1-1), a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+aiohttp puts the full request URL, query string included, into `str(exc)`, and four sites logged it: `utils.run_async_in_thread` (message and traceback), the registration-year warning in `routes/album_flow.results_loading`, `utils.retry_with_semaphore`'s connect-timeout error line, and `utils.get_cached_response`'s debug line (the cache key embeds the URL). A POST to `/results_loading` with an unknown username wrote the key twice at production log level. `api_logging.RedactingFormatter` now replaces the value after `api_key=` or `api_key:` with `[redacted]` in any rendered line, traceback included, and `app.py` sets it on both log handlers. The trace hook's query exclusion stays the first layer. The check_* functions, the cache key and the route's missing `exists` check are unchanged. Five new tests in `tests/services/test_api_logging.py` and one in `tests/test_app_factory.py`.
+
+Validation: `pytest -q` -- **2173 passed**.
+
 ### 2026-09-29 - Spotlight box comment and one finding sentence corrected
 
 Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -151,15 +159,3 @@ The card-hidden check (D4) waits until the mock has seen and answered every cand
 Also corrected: a test docstring that still said the artwork radius is wrong only below 768px; it now names `ARTWORK_RADIUS_STEP_MIN` (1024px). D7 has no plant that separates old from new (a hover that differs between two shots cannot be reproduced), so it has a green run only. A zero-duration transition is not counted as an animation.
 
 Validation: `pytest -q` -- **2167 passed**.
-
-### 2026-09-29 - Artwork corners, provider names and spotlight name fixed
-
-Side task, no batch tag: review fix wave for the results and unmatched pages (review findings F1, F2, F3 and F7), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-F7: the album artwork corner radius now steps to 8px at 1024px, not 768px. Spotify's rule gives small and medium devices 4px and large devices 8px, and a tablet is medium. This corrects the controller's own Task 7 call (8px from 768px) to Spotify's device classes. The frontend gate now measures the results page at 768, 1023 and 1024px, and it is red with the old step planted back. RECONCILIATION section 18 and DESIGN.md carry the new width and a dated correction note.
-
-F2: a non-Spotify row with no album URL used to show no provider name, so its artwork read as Spotify's. Both pages now name the provider on every non-Spotify row: a link when the row has a URL, the same badge as plain text when it has none. F3: the unmatched banner's exception clause ("except rows that name another provider") is now conditional, so both pages word the same situation the same way.
-
-F1: at 320px a long one-word artist name in the spotlight card was cut mid-word with no ellipsis. The name may now break inside a long word and keeps two lines with an ellipsis. At 1280px the rail is 125px wide, so a long name wraps inside the word there too; short names are unchanged. No gate check was added for it, because the spotlight photo fixtures and the check registry belong to Task 14. A new test module, `tests/scripts/dev/test_frontend_gate_results.py`, covers the changed radius check.
-
-Validation: `pytest -q` -- **2142 passed**.

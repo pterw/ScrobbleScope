@@ -9,9 +9,11 @@ token fetch, ``orchestrator/__init__.py``'s Spotify/Deezer phase,
 and ``musicbrainz.py`` only ever call ``session.get`` on a session someone
 else built, so they need no changes of their own.
 
-A line never carries the query string: it can carry Last.fm's ``api_key``
-and the artist/album search terms ``BATCH23_DEFINITION.md``'s Data handling
-section keeps out of logs. The one exception is Last.fm's ``method`` query
+The trace hook never logs the query string: it can carry Last.fm's
+``api_key`` and the artist/album search terms ``BATCH23_DEFINITION.md``'s
+Data handling section keeps out of logs. ``RedactingFormatter`` redacts
+``api_key`` in any line the app emits, exception text included. The one
+exception is Last.fm's ``method`` query
 parameter (for example ``user.getrecenttracks``), named explicitly because
 the bare path (``/2.0/``) does not say which call it was. Request/response
 bodies and headers are never logged, except the response's ``Retry-After``.
@@ -21,6 +23,7 @@ fail the request it is describing.
 """
 
 import logging
+import re
 import time
 
 from aiohttp import TraceConfig
@@ -36,6 +39,35 @@ _PROVIDER_HOSTS = {
     "api.deezer.com": "Deezer",
     "musicbrainz.org": "MusicBrainz",
 }
+
+# The two spellings an api_key takes in a log line: ``api_key=VALUE`` in a
+# query string (stops at ``&``, whitespace or a quote) and ``api_key:VALUE``
+# in a cache key such as ``url_api_key:VALUE_format:json`` (also stops at
+# ``_``, the cache key's separator). The traceback matters because aiohttp
+# puts ``url=`` with its query string into ``str(exc)``.
+_API_KEY_RE = re.compile(r"(api_key=)[^&\s'\"]*|(api_key:)[^_&\s'\"]*")
+
+
+def _redact_match(match):
+    return f"{match.group(1) or match.group(2)}[redacted]"
+
+
+class RedactingFormatter(logging.Formatter):
+    """Formatter that replaces the value of ``api_key`` with ``[redacted]``.
+
+    Protects Last.fm's key from every line the app writes, tracebacks
+    included. Four sites put it there before this existed:
+    ``utils.run_async_in_thread`` (message and traceback),
+    ``routes.album_flow.results_loading``'s registration-year warning,
+    ``utils.retry_with_semaphore``'s error line on a connect timeout and
+    ``utils.get_cached_response``'s debug line (its cache key embeds the
+    URL). The trace hook's own query exclusion is the first layer; this is
+    the backstop at the output layer.
+    """
+
+    def format(self, record):
+        return _API_KEY_RE.sub(_redact_match, super().format(record))
+
 
 # Where a session's per-provider tally lives, set on the ClientSession
 # instance itself (the same object every trace callback for that session

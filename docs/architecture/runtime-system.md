@@ -191,7 +191,9 @@ silent:
   inside `utils.create_optimized_session`, so `lastfm.py`, `spotify.py`,
   `deezer.py`, `musicbrainz.py` and `release_checks.py` share one line shape
   per call and one per-provider summary logged when the session closes, with
-  no query string logged except Last.fm's `method` parameter. Each trace
+  no query string logged except Last.fm's `method` parameter; the
+  `RedactingFormatter` on both `app.py` log handlers redacts `api_key` in any
+  other line, exception text included. Each trace
   callback catches its own errors, and the summary states both the session's
   span and the summed in-call time -- `MusicBrainz: 17 calls over 12.1s
   (2.6s in calls)` -- so it cannot be misread as MusicBrainz outrunning its

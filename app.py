@@ -22,6 +22,8 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
+from scrobblescope.api_logging import RedactingFormatter
+
 csrf = CSRFProtect()
 
 if isinstance(sys.stderr, io.TextIOWrapper):
@@ -33,26 +35,28 @@ os.system("")
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
 
-# Setup logging configuration
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s",
-    handlers=[
-        # Main log file with rotation: 2MB files, 10 backups = 20MB max.
-        # Small files stay quick to open and search; 10 backups give enough
-        # granular time-window chunks to cover a full load test session.
-        # On Fly.io this file is ephemeral (wiped on restart/deploy);
-        # stdout (below) is the canonical production log channel.
-        RotatingFileHandler(
-            "logs/app_debug.log",
-            maxBytes=2 * 1024 * 1024,
-            backupCount=10,
-            encoding="utf-8",
-            mode="a",
-        ),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
+# Setup logging configuration. Each handler carries RedactingFormatter so no
+# line, traceback included, can write Last.fm's api_key. basicConfig only
+# gives its own Formatter to handlers that have none, so it is set here.
+_LOG_FORMAT = "%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s"
+_log_handlers = [
+    # Main log file with rotation: 2MB files, 10 backups = 20MB max.
+    # Small files stay quick to open and search; 10 backups give enough
+    # granular time-window chunks to cover a full load test session.
+    # On Fly.io this file is ephemeral (wiped on restart/deploy);
+    # stdout (below) is the canonical production log channel.
+    RotatingFileHandler(
+        "logs/app_debug.log",
+        maxBytes=2 * 1024 * 1024,
+        backupCount=10,
+        encoding="utf-8",
+        mode="a",
+    ),
+    logging.StreamHandler(sys.stdout),
+]
+for _handler in _log_handlers:
+    _handler.setFormatter(RedactingFormatter(_LOG_FORMAT))
+logging.basicConfig(level=logging.DEBUG, handlers=_log_handlers)
 
 # Add start-up banner on application start
 logging.info("=" * 80)

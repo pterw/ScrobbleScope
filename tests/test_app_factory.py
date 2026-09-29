@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from app import _validate_api_keys, _validate_secret_key, create_app
+from scrobblescope.api_logging import RedactingFormatter
 
 _STRONG_KEY = "a" * 64
 
@@ -72,3 +73,15 @@ class TestValidateApiKeys:
         ):
             with pytest.raises(RuntimeError, match="Refusing to start"):
                 create_app()
+
+
+def test_every_root_log_handler_redacts_the_api_key():
+    handlers = logging.getLogger().handlers
+    ours = [h for h in handlers if isinstance(h.formatter, RedactingFormatter)]
+
+    assert ours, "app.py installed no RedactingFormatter handler"
+    stdout_and_file = [
+        h for h in handlers if type(h).__name__ in ("RotatingFileHandler",)
+    ]
+    assert stdout_and_file
+    assert all(isinstance(h.formatter, RedactingFormatter) for h in stdout_and_file)
