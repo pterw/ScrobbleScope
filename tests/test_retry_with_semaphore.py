@@ -208,3 +208,121 @@ async def test_constant_float_backoff_accepted():
     )
     assert result == "ok"
     assert len(calls) == 2
+
+
+def _record_sleeps(monkeypatch):
+    """Patch utils' asyncio.sleep to record requested durations, not wait."""
+    slept = []
+
+    async def fake_sleep(seconds):
+        slept.append(seconds)
+
+    monkeypatch.setattr("scrobblescope.utils.asyncio.sleep", fake_sleep)
+    return slept
+
+
+def _kwargs(**over):
+    base = dict(
+        retries=3,
+        is_done=lambda t: t[2],
+        get_retry_after=lambda t: t[1],
+        extract_result=lambda t: t[0],
+        default="default",
+        backoff=lambda _: 0.5,
+        error_label="cap op",
+    )
+    base.update(over)
+    return base
+
+
+def test_max_retry_after_default_is_30():
+    from scrobblescope import config
+
+    assert config.MAX_RETRY_AFTER_SECONDS == 30
+
+
+@pytest.mark.asyncio
+async def test_retry_after_above_cap_gives_up_without_sleeping(monkeypatch, caplog):
+    slept = _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        return (None, 86400, False)
+
+    with caplog.at_level(logging.WARNING):
+        result = await retry_with_semaphore(inner, **_kwargs())
+
+    assert result == "default"
+    assert len(calls) == 1
+    assert slept == []
+    assert "86400" in caplog.text
+    assert "30s cap" in caplog.text
+    assert "cap op" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_retry_after_at_cap_sleeps_and_retries(monkeypatch):
+    slept = _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        if len(calls) == 1:
+            return (None, 30, False)
+        return ("ok", None, True)
+
+    result = await retry_with_semaphore(inner, **_kwargs())
+
+    assert result == "ok"
+    assert len(calls) == 2
+    assert slept == [30]
+
+
+@pytest.mark.asyncio
+async def test_cap_is_read_from_utils_config_value(monkeypatch):
+    slept = _record_sleeps(monkeypatch)
+    monkeypatch.setattr("scrobblescope.utils.MAX_RETRY_AFTER_SECONDS", 5)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        return (None, 10, False)
+
+    result = await retry_with_semaphore(inner, **_kwargs())
+
+    assert result == "default"
+    assert len(calls) == 1
+    assert slept == []
+
+
+@pytest.mark.asyncio
+async def test_transient_failures_sleep_between_tries_not_after_last(monkeypatch):
+    slept = _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        return (None, None, False)
+
+    result = await retry_with_semaphore(inner, **_kwargs())
+
+    assert result == "default"
+    assert len(calls) == 3
+    assert slept == [0.5, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_on_final_attempt_does_not_sleep(monkeypatch):
+    slept = _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        return (None, 10, False)
+
+    result = await retry_with_semaphore(inner, **_kwargs(retries=2))
+
+    assert result == "default"
+    assert len(calls) == 2
+    assert slept == [10]

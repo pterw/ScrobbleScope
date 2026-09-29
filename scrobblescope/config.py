@@ -26,6 +26,12 @@ SPOTIFY_REQUESTS_PER_SECOND = int(os.getenv("SPOTIFY_REQUESTS_PER_SECOND", "10")
 SPOTIFY_SEARCH_RETRIES = int(os.getenv("SPOTIFY_SEARCH_RETRIES", "3"))
 SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 
+# Longest Retry-After, in seconds, a retry will sleep. A job holds one of the
+# MAX_ACTIVE_JOBS slots while it sleeps, and Spotify sends hour-long values
+# under extended rate limits: longer than this is a rate limit to report, not
+# to wait out.
+MAX_RETRY_AFTER_SECONDS = int(os.getenv("MAX_RETRY_AFTER_SECONDS", "30"))
+
 # Deezer: 50 requests per 5 seconds per IP (10/s), no API key required.
 DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
 DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))

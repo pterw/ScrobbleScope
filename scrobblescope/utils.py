@@ -13,6 +13,7 @@ from scrobblescope.config import (
     APP_USER_AGENT,
     DEEZER_REQUESTS_PER_SECOND,
     LASTFM_REQUESTS_PER_SECOND,
+    MAX_RETRY_AFTER_SECONDS,
     MUSICBRAINZ_REQUESTS_PER_SECOND,
     REQUEST_CACHE_TIMEOUT,
     SPOTIFY_REQUESTS_PER_SECOND,
@@ -394,8 +395,12 @@ async def retry_with_semaphore(
         transient error; accepts a constant float or a callable taking the
         attempt number
     jitter : optional callable(attempt: int) -> float, added to retry_after
+        (a Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one
+        warning is logged and ``default`` is returned at once)
     reraise : tuple of exception types to propagate immediately
     error_label : str, used in log messages on exception
+
+    Never sleeps after the final attempt, on either path.
     """
     for attempt in range(retries):
         try:
@@ -406,7 +411,14 @@ async def retry_with_semaphore(
 
             retry_after = get_retry_after(result_tuple)
             if retry_after is not None:
-                await _sleep_retry_after(retry_after, jitter, attempt)
+                if retry_after > MAX_RETRY_AFTER_SECONDS:
+                    logging.warning(
+                        f"Retry-After {retry_after}s for {error_label} exceeds "
+                        f"the {MAX_RETRY_AFTER_SECONDS}s cap; giving up"
+                    )
+                    return default
+                if attempt < retries - 1:
+                    await _sleep_retry_after(retry_after, jitter, attempt)
                 continue
         except reraise:
             raise
@@ -417,7 +429,8 @@ async def retry_with_semaphore(
         except Exception as e:  # noqa: BLE001
             logging.error(f"Error in {error_label}: {type(e).__name__}: {e}")
 
-        await asyncio.sleep(_resolve_backoff(backoff, attempt))
+        if attempt < retries - 1:
+            await asyncio.sleep(_resolve_backoff(backoff, attempt))
 
     logging.error(f"All {retries} retries failed for {error_label}")
     return default

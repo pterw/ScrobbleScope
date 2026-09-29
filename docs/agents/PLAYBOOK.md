@@ -120,6 +120,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Retry-After is capped and the last try never sleeps
+
+Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Review finding S1-3 (P1): `retry_with_semaphore` slept whatever `Retry-After` a provider sent, up to `retries` times, while the job thread held one of the `MAX_ACTIVE_JOBS` slots. Spotify sends 12-18 hour values under extended rate limits, so three sleeps outlived the 2-hour job record and the slot stayed held. New `config.MAX_RETRY_AFTER_SECONDS` (env, default 30): a larger value logs one WARNING (label, value, cap) and returns `default` at once, no sleep and no more attempts; at or below the cap it sleeps as before. The helper also no longer sleeps after the final attempt, on the Retry-After path or the backoff path. The header parse (S1-4) and a user-facing rate-limited code are separate findings. README and SESSION_CONTEXT name the cap; `.env.example` lists the optional variable.
+
+Tests: six new tests in `tests/test_retry_with_semaphore.py` cover the cap, the value at the cap, the cap read from `utils`, two backoff sleeps for three failures, and no sleep after a rate limit on the final attempt. No existing test was edited.
+
+Validation: `pytest -q` -- **2184 passed**.
+
 ### 2026-09-29 - A malformed Last.fm page is retried and counted as dropped
 
 Side task, no batch tag: retrying a malformed 200 page and counting it as dropped, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -143,17 +153,5 @@ Validation: `pytest -q` -- **2173 passed**.
 Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 The comment inside `.spotlight-image-box` in `static/css/results.css` now puts each fact at its own width: 7rem below 768px, 9rem from 768px, and the corner 4px below 1024px and 8px from it. It had read as if the box grew at 1024px. F-B23-19 no longer says Spotify often serves 640x427, which had no source; it says the review's case was 640x427. No rule or test changed.
-
-Validation: `pytest -q` -- **2167 passed**.
-
-### 2026-09-29 - Stale dashboards corrected and the review's findings filed
-
-Side task, no batch tag: a documentation truth wave and five new findings from the second code review of PR #245 (Section H, and the findings to file from every section), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-SESSION_CONTEXT's structure list and dependency graph now match the source: the Spotify icon slice of the frontend gate and its edges (from `frontend_gate.py` and `_frontend_gate_results.py`), the results slice's other imports, and the docsync modules `markdown`, `transaction`, `archives`, `closeout` and `findings` with every edge read from each module's own import lines. The control-plane diagram in `docs/architecture/documentation-tooling.md` gains the icon slice's class and the edges from the results slice to it and from the results, theme and layout slices to the colour slice.
-
-Smaller corrections: the README's provider-log sentence names Last.fm's `method` value as the one query parameter a line carries; the `heatmap_task` docstring says a failure is classified before it falls back to `internal_error`; the results spotlight comment says its 8px corner starts at 1024px; DEVELOPMENT.md no longer says "This session". FINDINGS.md: F-B23-9 (open, P1) moved under the P1 heading, and the line-number citations in F-B21-57, F-SWE-3, F-SWE-7 and F-DOCSYNC-14 are now names.
-
-Filed: F-B23-16 (the error classifier's bare substrings), F-B23-17 (a Validation line with no digit passes `--check`), F-B23-18 (unmatched portraits with no link to Spotify, P1), F-B23-19 (letterboxed spotlight photo corners) and F-B23-20 (the spotlight waits for every candidate).
 
 Validation: `pytest -q` -- **2167 passed**.

@@ -279,8 +279,9 @@ module, so the clients stay thin:
   rate. Last.fm and Spotify are held at 10 requests a second, Deezer at 10,
   MusicBrainz at 1 -- which is MusicBrainz's published limit per IP, and the
   reason the correction pass cannot be made faster.
-- **A retry helper that understands the provider.** It honours `Retry-After`,
-  backs off with jitter, asks the limiter again on every attempt rather than
+- **A retry helper that understands the provider.** It honours `Retry-After`
+  up to `MAX_RETRY_AFTER_SECONDS` (30s by default; a longer wait is treated as
+  a failed attempt), backs off with jitter, asks the limiter again on every attempt rather than
   only the first, and can hold a semaphore for the duration. A Last.fm page
   that is not well-formed, such as an error payload served as a 200, counts
   as a failed attempt: it is retried, never cached, and reported as dropped

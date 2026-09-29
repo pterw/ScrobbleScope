@@ -9,7 +9,7 @@ Last updated: 2026-09-27
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2178 passing** across 81 tracked test modules |
+| Tests | **2184 passing** across 81 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -20,6 +20,8 @@ Last updated: 2026-09-27
 **Key runtime facts:**
 - `MAX_ACTIVE_JOBS` (default 5 since 2026-07-31; was 10) caps concurrent
   background jobs via `worker.py`.
+- `MAX_RETRY_AFTER_SECONDS` (`config.py`, default 30) caps the `Retry-After` sleep in
+  `retry_with_semaphore`; a longer value is a failed attempt, not a wait.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_MAX_ALBUM_CAP = 500` in `orchestrator/__init__.py` limits Spotify fetch across all sort modes.
@@ -41,7 +43,7 @@ Last updated: 2026-09-27
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2178 passed**.
+- Latest validated test count: **2184 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -257,7 +259,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2178 tests)
+## 6. Test structure (2184 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
