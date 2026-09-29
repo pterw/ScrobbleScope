@@ -611,7 +611,7 @@ def test_oversized_page_is_never_moved_cold(tmp_path):
 
 
 def test_cutoff_is_strict(tmp_path):
-    store, index, text = _dated(tmp_path, ["2025-09-15"] * 20)
+    store, index, text = _dated(tmp_path, ["2026-06-17"] * 20)
     _apply(store.plan(index, text))
 
     exactly_at_cutoff = store.plan(index, text, as_of=date(2026, 9, 15))
@@ -622,11 +622,23 @@ def test_cutoff_is_strict(tmp_path):
 
 
 def test_cold_days_is_configurable(tmp_path):
-    store, index, text = _dated(tmp_path, ["2026-01-01"] * 20)
+    store, index, text = _dated(tmp_path, ["2026-08-01"] * 20)
     _apply(store.plan(index, text))
 
     assert store.plan(index, text, as_of=date(2026, 9, 15)) == {}
     assert store.plan(index, text, as_of=date(2026, 9, 15), cold_days=30) != {}
+
+
+def test_default_cold_days_is_ninety(tmp_path):
+    """A finalized page 91 days old ages at the default; one 89 days old does not."""
+    store, index, text = _dated(tmp_path, ["2026-06-16"] * 20)
+    _apply(store.plan(index, text))
+    assert store.plan(index, text, as_of=date(2026, 9, 15)) != {}
+
+    (tmp_path / "second").mkdir()
+    store, index, text = _dated(tmp_path / "second", ["2026-06-18"] * 20)
+    _apply(store.plan(index, text))
+    assert store.plan(index, text, as_of=date(2026, 9, 15)) == {}
 
 
 def test_cold_migration_is_idempotent_and_preserves_content(tmp_path):

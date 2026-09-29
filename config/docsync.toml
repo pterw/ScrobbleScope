@@ -60,10 +60,10 @@ paths = []
 # Neither key is a declaration: these are the sizes a maintenance run uses, not
 # facts a check verifies. Both are required once the table is present, so a
 # half-written table cannot paginate at a size nobody chose; remove the table
-# entirely to take the documented defaults (500 / 365).
+# entirely to take the documented defaults (500 / 90).
 [archives]
 max_lines = 500
-cold_days = 365
+cold_days = 90
 
 # ----------------------------------------------------------------------
 # Close-out admission
@@ -754,4 +754,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 2184
+pinned = 2187

@@ -944,6 +944,45 @@ def test_a_bold_lead_in_counts_as_a_citable_place(tmp_path: Path) -> None:
     assert check_anchors(_files(root), [declaration]) == []
 
 
+def test_a_bold_label_ending_in_a_colon_is_cited_without_the_colon(
+    tmp_path: Path,
+) -> None:
+    """`**Co-author prohibition:** Do NOT ...` is cited as "Co-author prohibition"."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "**Co-author prohibition:** Do NOT add trailers.\n",
+            "notes.md": 'See `RULES.md` "Co-author prohibition".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_name_that_is_not_a_colon_label_still_fails(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "**Co-author prohibition:** Do NOT add trailers.\n",
+            "notes.md": 'See `RULES.md` "Co-author prohibitions".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert len(check_anchors(_files(root), [declaration])) == 1
+
+
 def test_a_bold_lead_in_inside_a_list_item_counts_as_a_citable_place(
     tmp_path: Path,
 ) -> None:

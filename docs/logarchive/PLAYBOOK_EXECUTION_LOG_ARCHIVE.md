@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Spotlight box comment and one finding sentence corrected
+
+Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The comment inside `.spotlight-image-box` in `static/css/results.css` now puts each fact at its own width: 7rem below 768px, 9rem from 768px, and the corner 4px below 1024px and 8px from it. It had read as if the box grew at 1024px. F-B23-19 no longer says Spotify often serves 640x427, which had no source; it says the review's case was 640x427. No rule or test changed.
+
+Validation: `pytest -q` -- **2167 passed**.
+
 ### 2026-09-29 - Stale dashboards corrected and the review's findings filed
 
 Side task, no batch tag: a documentation truth wave and five new findings from the second code review of PR #245 (Section H, and the findings to file from every section), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

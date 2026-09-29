@@ -87,9 +87,10 @@ DEFAULT_STRIKETHROUGH_EXEMPT = True
 DEFAULT_ARCHIVE_MAX_LINES = 500
 
 #: What `[archives] cold_days` defaults to: the age at which a finalized page
-#: becomes eligible to move beneath `cold/`. Only an explicit as-of date ever
+#: becomes eligible to move beneath `cold/`. Ninety days: history older than a
+#: quarter is archive, not context. Only an explicit as-of date ever
 #: evaluates it, so this value cannot age a file on its own.
-DEFAULT_ARCHIVE_COLD_DAYS = 365
+DEFAULT_ARCHIVE_COLD_DAYS = 90
 
 #: What `[closeout] admit_from_batch` defaults to: the lowest batch number
 #: whose closure the close-out signals are evaluated against. Every batch at or
@@ -1202,7 +1203,9 @@ def _headings(lines: list[str]) -> dict[str, int]:
     how docs/design/README.md marks its sections, and citing one of those is
     citing a real place. Each is also indexed without a trailing parenthetical,
     so a citation of "Session Bootstrap" resolves to the heading actually
-    written as "Session Bootstrap (in order)".
+    written as "Session Bootstrap (in order)". A bold label's trailing colon
+    is punctuation, not part of the name anyone cites, so "Types:" is also
+    indexed as "Types".
     """
     found: dict[str, int] = {}
     for source_index, line in prose_lines(lines):
@@ -1215,6 +1218,7 @@ def _headings(lines: list[str]) -> dict[str, int]:
             text,
             _HEADING_SUFFIX_RE.sub("", text),
             _LABEL_TAIL_RE.sub("", text).rstrip(" .-—"),
+            text.rstrip(":").rstrip(),
         ):
             if form:
                 found.setdefault(form, index)

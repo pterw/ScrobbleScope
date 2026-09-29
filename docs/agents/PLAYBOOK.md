@@ -120,6 +120,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Bold-label citations resolve and archives age at 90 days
+
+Side task, no batch tag: resolving a citation of a bold label ending in a colon, and ageing archive pages at 90 days, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Controller finding X-1: `declarations._headings` indexed `**Co-author prohibition:** Do NOT ...` in `AGENTS.md` only as "Co-author prohibition:" (colon included), because the label-tail pattern needs whitespace after the colon and the rstrip set had no colon. A citation of "Co-author prohibition" therefore failed DOC010. The heading now also indexes the label with its trailing colon stripped; the three existing forms are unchanged. The DOC010 entry in `docs/architecture/documentation-tooling.md` says so.
+
+Owner ruling 2026-09-29, "update the 365 day cold storage rule to 90 days": `DEFAULT_ARCHIVE_COLD_DAYS` and `[archives] cold_days` in `config/docsync.toml` are now 90, and `documentation-tooling.md` states the default and why (history older than a quarter is archive, not context). `--check` never ages pages, so nothing else moves.
+
+Tests: two new tests in `tests/test_docsync_declarations.py` (the colon label resolves; a non-existent name still reports one DOC010 issue) and `test_default_cold_days_is_ninety` in `tests/test_docsync_archives.py` (91 days ages, 89 does not). Two existing tests were edited for the new default: `test_cutoff_is_strict` (page date moved to exactly 90 days before as-of) and `test_cold_days_is_configurable` (page date moved to 45 days before as-of).
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - Retry-After is capped and the last try never sleeps
 
 Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -147,11 +159,3 @@ Side task, no batch tag: redacting the Last.fm `api_key` in every log line (revi
 aiohttp puts the full request URL, query string included, into `str(exc)`, and four sites logged it: `utils.run_async_in_thread` (message and traceback), the registration-year warning in `routes/album_flow.results_loading`, `utils.retry_with_semaphore`'s connect-timeout error line, and `utils.get_cached_response`'s debug line (the cache key embeds the URL). A POST to `/results_loading` with an unknown username wrote the key twice at production log level. `api_logging.RedactingFormatter` now replaces the value after `api_key=` or `api_key:` with `[redacted]` in any rendered line, traceback included, and `app.py` sets it on both log handlers. The trace hook's query exclusion stays the first layer. The check_* functions, the cache key and the route's missing `exists` check are unchanged. Five new tests in `tests/services/test_api_logging.py` and one in `tests/test_app_factory.py`, which checks both the rotating file handler and the stdout handler.
 
 Validation: `pytest -q` -- **2173 passed**.
-
-### 2026-09-29 - Spotlight box comment and one finding sentence corrected
-
-Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The comment inside `.spotlight-image-box` in `static/css/results.css` now puts each fact at its own width: 7rem below 768px, 9rem from 768px, and the corner 4px below 1024px and 8px from it. It had read as if the box grew at 1024px. F-B23-19 no longer says Spotify often serves 640x427, which had no source; it says the review's case was 640x427. No rule or test changed.
-
-Validation: `pytest -q` -- **2167 passed**.

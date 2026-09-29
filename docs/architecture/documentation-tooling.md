@@ -182,7 +182,8 @@ is repository-independent and only the declarations are local. Three kinds:
 - **DOC010 -- anchor.** A cross-reference must resolve to a heading, bold
   section label or list item that exists. The declaration describes the
   *shape* of a citation rather than one citation, so a reference written
-  tomorrow is checked with no new declaration. This is the check that
+  tomorrow is checked with no new declaration. A bold label resolves with its
+  trailing colon ignored (`**Types:**` is cited as "Types"). This is the check that
   `F-STYLE-1` could not be: citing by name does not help when the name moves.
 - **DOC011 -- retired.** A claim that is no longer true must not survive in
   a document that still prescribes behaviour. Dated log entries are exempt
@@ -244,7 +245,8 @@ side may be the history worth keeping. Bounded archives page at 500 lines
 `config/docsync.toml` defaults, not hard-coded. A finalized page -- one that is
 not the writable tail -- becomes cold-storage eligible only once it is not
 oversized and every entry on it carries an explicit date more than
-`cold_days` days before `--as-of`; a page holding even one undated entry
+`cold_days` days before `--as-of` (default 90: history older than a quarter
+is archive, not context); a page holding even one undated entry
 never ages, however old it is. Cold migration only ever happens under an
 explicit `--cold-storage --as-of <ISO date>` operator action -- ordinary
 `--check`/`--fix` never age a file using today's clock -- and a bounded
