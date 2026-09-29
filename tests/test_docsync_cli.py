@@ -1978,3 +1978,120 @@ class TestFindingRotationThroughTheCli:
 
         assert result.returncode == 1
         assert "DOC018" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# --fix --test-count N refuses a pin rewrite it cannot verify (review B2-B4)
+# ---------------------------------------------------------------------------
+
+_DECLARATIONS_BODY = "[archives]\nmax_lines = 500\ncold_days = 365\n"
+
+
+class TestPinRewriteRefusal:
+    """`_rewrite_test_count_pin` finds the table with two regexes, so some
+    valid spellings of `[test_count]` defeat it. Before the guard, `--fix`
+    published whatever the splice produced: a file that no longer parsed, or
+    one whose other content had been edited. Each case drives the shipped
+    entry point against a tracked temporary corpus and requires exit 2, the
+    remediation, and every corpus file byte-identical afterwards.
+    """
+
+    @pytest.mark.parametrize(
+        "declarations",
+        [
+            # B2: a dotted key, an inline table and a spaced heading are
+            # all the same table; the literal heading regex sees none of them
+            # and appends a second [test_count], which does not parse.
+            "test_count.pinned = 5\n\n"
+            + _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n",
+            "test_count = { pinned = 5 }\n\n"
+            + _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n",
+            _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n\n[ test_count ]\npinned = 5\n",
+            # B3: the heading is the last line, with no newline after it:
+            # the pin was spliced onto the heading line itself.
+            _DECLARATIONS_BODY + "\n[closeout]\nadmit_from_batch = 22\n\n[test_count]",
+            # B4: a quoted key is the same key; the unquoted regex misses it
+            # and inserts a duplicate.
+            _DECLARATIONS_BODY
+            + '\n[closeout]\nadmit_from_batch = 22\n\n[test_count]\n"pinned" = 5\n',
+            # B4: an indented next heading does not end the table for `^\[`,
+            # so the first `pinned =` line below it -- here inside another
+            # table's multi-line string -- was rewritten. The result parses;
+            # only the comparison with the original catches it.
+            _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n\n[test_count]\n\n"
+            + '  [[retired]]\n  pattern = "x"\n  scan = ["PLAYBOOK.md"]\n'
+            + '  reason = """\npinned = 3 was the old count\n"""\n',
+        ],
+        ids=[
+            "dotted-key",
+            "inline-table",
+            "spaced-heading",
+            "heading-on-last-line",
+            "quoted-key",
+            "indented-next-heading",
+        ],
+    )
+    def test_fix_refuses_and_writes_nothing(self, tmp_path: Path, declarations: str):
+        _make_corpus(tmp_path, **{DECLARATIONS_FILENAME: declarations})
+        before = _snapshot(tmp_path)
+
+        result = _run_cli(tmp_path, "--fix", "--test-count", "7")
+
+        assert result.returncode == 2, result.stderr
+        assert (
+            f"--test-count 7 cannot be pinned in {DECLARATIONS_FILENAME}"
+            in result.stderr
+        )
+        assert "Nothing was written." in result.stderr
+        assert (
+            "Write the pin as its own table -- a line `[test_count]` at the "
+            "start of a line, then `pinned = N` on the next line"
+        ) in result.stderr
+        assert "Traceback" not in result.stderr
+        assert _snapshot(tmp_path) == before
+
+    def test_the_plain_table_is_still_rewritten(self, tmp_path: Path):
+        """The guard refuses only what it cannot verify: the table the
+        splice was written for is still pinned in place."""
+        _make_corpus(
+            tmp_path,
+            **{
+                DECLARATIONS_FILENAME: CORPUS_TOML + "\n[test_count]\npinned = 5\n",
+            },
+        )
+
+        result = _run_cli(tmp_path, "--fix", "--test-count", "7")
+
+        assert "cannot be pinned" not in result.stderr
+        assert (tmp_path / DECLARATIONS_FILENAME).read_text(
+            encoding="utf-8"
+        ) == CORPUS_TOML + "\n[test_count]\npinned = 7\n"
+
+
+def test_close_batch_admission_refusal_names_the_config_file_it_read(
+    tmp_path: Path,
+):
+    """Review B8: under --config the boundary is read from another file, and
+    the refusal must send the reader there, not to the repository default."""
+    _make_corpus(
+        tmp_path,
+        **{
+            "alt.toml": CORPUS_TOML.replace(
+                "admit_from_batch = 22", "admit_from_batch = 30"
+            )
+        },
+    )
+    before = _snapshot(tmp_path)
+
+    result = _run_cli(
+        tmp_path, "--close-batch", "22", "--as-of", "2026-09-19", "--config", "alt.toml"
+    )
+
+    assert result.returncode == 1
+    assert "Lower `admit_from_batch` in alt.toml only" in result.stderr
+    assert f"in {DECLARATIONS_FILENAME} only" not in result.stderr
+    assert _snapshot(tmp_path) == before

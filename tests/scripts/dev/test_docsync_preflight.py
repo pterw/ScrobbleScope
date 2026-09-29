@@ -314,6 +314,44 @@ def test_docsync_toml_pin_only_alongside_other_control_plane_file_is_per_path():
     ]
 
 
+def _stage_docsync_toml(repo: Path, head: bytes, index: bytes) -> None:
+    """Commit ``head`` as config/docsync.toml, then stage ``index`` over it."""
+    target = repo / "config" / "docsync.toml"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(head)
+    _git(repo, "add", "config/docsync.toml")
+    _git(repo, "commit", "-q", "-m", "base")
+    target.write_bytes(index)
+    _git(repo, "add", "config/docsync.toml")
+
+
+def test_docsync_toml_that_is_not_utf8_is_control_plane(tmp_path):
+    """Review B6: `git show` output was decoded with the locale codec. On a
+    cp1252 locale 0xFF decodes to a letter inside a comment, the blob parsed,
+    and a file that is not valid TOML (TOML is UTF-8) passed as pin-only; on
+    a UTF-8 locale the same byte raised UnicodeDecodeError uncaught. Decoded
+    as UTF-8, the failure is caught and the change fails closed."""
+    repo = _init_repo(tmp_path / "repo")
+    _stage_docsync_toml(
+        repo,
+        b"[test_count]\npinned = 1\n",
+        b"# \xff\n[test_count]\npinned = 2\n",
+    )
+    assert preflight.staged_control_plane_paths(repo) == ["config/docsync.toml"]
+
+
+def test_docsync_toml_with_utf8_text_is_still_pin_only(tmp_path):
+    """The near miss: non-ASCII UTF-8 decodes, parses, and a pin-only change
+    stays exempt."""
+    repo = _init_repo(tmp_path / "repo")
+    _stage_docsync_toml(
+        repo,
+        "# caf\u00e9\n[test_count]\npinned = 1\n".encode(),
+        "# caf\u00e9\n[test_count]\npinned = 2\n".encode(),
+    )
+    assert preflight.staged_control_plane_paths(repo) == []
+
+
 def test_require_python_fails_closed_when_missing(tmp_path):
     """No fallback to PATH: a missing qualified venv is a hard precondition failure."""
     with pytest.raises(preflight.PreflightError, match="qualified Python"):

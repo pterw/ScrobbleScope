@@ -99,11 +99,15 @@ def missing_base_remediation(base_ref: str) -> str:
 
 
 def identical_tree_remediation(base_ref: str) -> str:
-    """Build WT004 guidance around the selected, display-safe comparison ref."""
+    """Build WT004 guidance around the selected, display-safe comparison ref.
+
+    Takes the raw ref, like `missing_base_remediation`: the branch reads its
+    real shape, and only the rendered text substitutes the label.
+    """
     label = base_ref_label(base_ref)
     refresh = (
         f"refresh {label}"
-        if "/" in label and not label.startswith("refs/")
+        if "/" in base_ref and not base_ref.startswith("refs/")
         else f"verify the local base ref {label} is current"
     )
     return (

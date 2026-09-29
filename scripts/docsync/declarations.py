@@ -28,7 +28,6 @@ from __future__ import annotations
 import dataclasses
 import fnmatch
 import re
-import unicodedata
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -511,24 +510,32 @@ def _escapes_repository(path: str) -> bool:
     point the worktree guard at a file outside the repository it is meant to
     protect. The check does not touch the filesystem: a `PurePosixPath` and a
     `PureWindowsPath` reading of the same string suffice to reject both
-    absolute forms regardless of which platform runs the guard.
+    absolute forms regardless of which platform runs the guard. The ``..``
+    segment is read from POSIX parts only, which is sound only because
+    `_validate_untracked_essentials` refuses a backslash first: on Windows
+    ``..\\..\\x`` is two parent segments that a POSIX reading sees as one
+    ordinary name (review B5, C3).
     """
     if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
         return True
     return ".." in PurePosixPath(path).parts
 
 
-def _has_control_character(path: str) -> bool:
-    """Return whether ``path`` carries a Unicode control character (Cc).
+def _has_unprintable_character(path: str) -> bool:
+    """Return whether ``path`` carries any character `str.isprintable` rejects.
 
     `scripts/dev/check_worktree_alignment.py` prints a declared path verbatim
-    in a `Diagnostic.subject` -- a raw newline, escape sequence or other
-    control character in there could forge a second diagnostic line or an
-    escape sequence in whatever reads the guard's output. Refusing it here,
-    at declaration time, means that raw print never has to sanitize what it
-    is handed.
+    in a `Diagnostic.subject`. Category Cc alone -- a raw newline or escape
+    -- was the first answer, and it let through U+2028 (a line separator
+    that splits the rendered line), U+202E (a bidi override that reorders
+    it) and U+00A0 (a space that pads a fake verdict across it) (review C1).
+    `isprintable` refuses every separator, format and control character
+    except the ASCII space, which is the same allowlist-shaped answer
+    `_worktree_guard_diagnostics.is_display_safe_ref` gives for ref names.
+    Refusing it here, at declaration time, means that raw print never has
+    to sanitize what it is handed.
     """
-    return any(unicodedata.category(char) == "Cc" for char in path)
+    return not path.isprintable()
 
 
 def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
@@ -536,9 +543,12 @@ def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
 
     The single optional key is validated the same way every other table's
     keys are (`_validated_table`). Each declared path is additionally checked
-    for repository containment (CR5): an absolute path or one carrying a
-    `..` segment is refused rather than handed to the worktree guard, which
-    would otherwise echo it, and stat whatever it names, unchecked.
+    before the worktree guard, which echoes it and stats whatever it names,
+    ever sees it: no backslash, so containment reads one path syntax (B5);
+    repository containment, so no absolute path and no `..` segment (CR5);
+    something below the root, since an empty path or `.` names the
+    repository itself (C5); and printable, so the echo cannot forge a line
+    (C1). A path declared twice is kept once, so it is reported once.
     """
     known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
     table = _validated_table(table, "untracked_essentials", known)
@@ -548,18 +558,29 @@ def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
     if bad:
         raise DeclarationError(f"[untracked_essentials] gives 'paths' as {bad}.")
     for path in table["paths"]:
+        if "\\" in path:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which uses a "
+                "backslash: write the repository-relative path with forward "
+                "slashes."
+            )
         if _escapes_repository(path):
             raise DeclarationError(
                 f"[untracked_essentials] declares {path!r}, which must be a "
                 "path inside the repository: no absolute path and no '..' segment."
             )
-        if _has_control_character(path):
+        if not PurePosixPath(path).parts:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which names the "
+                "repository root: name the file this workflow depends on."
+            )
+        if _has_unprintable_character(path):
             raise DeclarationError(
                 f"[untracked_essentials] declares {path!r}, which carries a "
-                "control character: it must be printable, since the worktree "
-                "guard echoes it verbatim in a diagnostic."
+                "character that is not printable: it must be printable, since "
+                "the worktree guard echoes it verbatim in a diagnostic."
             )
-    return UntrackedEssentialsConfig(paths=tuple(table["paths"]))
+    return UntrackedEssentialsConfig(paths=tuple(dict.fromkeys(table["paths"])))
 
 
 def _untracked_essentials_config(declarations: Mapping) -> UntrackedEssentialsConfig:
@@ -728,7 +749,13 @@ class DocumentsConfig:
 
 
 def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
-    """Check that each document role names one distinct in-repository path."""
+    """Check that each document role names one distinct in-repository path.
+
+    A declared path must already be written the way every reader keys it:
+    repository-relative, POSIX, normalised. Anything else is refused with
+    the spelling to write, never silently normalised here, because the
+    declared string is what the rest of docsync looks documents up by.
+    """
     if not isinstance(documents, Mapping):
         raise DeclarationError(
             f"[documents] is {type(documents).__name__}, not a table."
@@ -741,12 +768,18 @@ def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
                 f"[documents] has an unknown key {key!r}. Known keys: "
                 f"{', '.join(sorted(schema))}."
             )
-        if not isinstance(value, str) or not value:
+        if not isinstance(value, str):
             raise DeclarationError(
                 f"[documents] gives {key!r} as {type(value).__name__}, not a string."
             )
+        if not value:
+            raise DeclarationError(
+                f"[documents] gives {key!r} as an empty string; write the "
+                f"document's repository-relative path."
+            )
         kwargs[key] = value
     result = DocumentsConfig(**kwargs)
+    root_real = Path(repo_root).resolve()
     seen: dict[str, str] = {}
     for role, value in (
         ("agents", "AGENTS.md"),
@@ -768,6 +801,20 @@ def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
         if path.is_dir():
             raise DeclarationError(
                 f"[documents] {role!r} names a directory, not a document: {value!r}."
+            )
+        # Every reader keys a live document by its resolved, repository-
+        # relative POSIX spelling (`cli._repository_relative`). A declared
+        # spelling that resolves to the same file but is written differently
+        # -- `./docs/x.md`, `docs//x.md` -- passed the checks above and then
+        # missed every lookup, so DOC008, DOC023 and the reference scan
+        # silently did not run while `--check` stayed green (review B1).
+        # Only a declared value is held to this: `AGENTS.md` and the
+        # defaults are docsync's own spellings.
+        canonical = path.resolve().relative_to(root_real).as_posix()
+        if role in kwargs and canonical != value:
+            raise DeclarationError(
+                f"[documents] {role!r} is written {value!r}, which is not the "
+                f"normalised repository-relative path. Write {canonical!r}."
             )
         key = path.as_posix().casefold()
         if key in seen:
@@ -808,6 +855,17 @@ def _issue(
     )
 
 
+def declarations_source(config_path: Path | str | None) -> str:
+    """Name the declarations file a run actually read, for a diagnostic.
+
+    Under --config the file read is ``config_path``, not the repository
+    default: naming DECLARATIONS_FILENAME there would point the reader at a
+    file this run never opened (review B8). Every message that names the
+    declarations file goes through this one rule.
+    """
+    return str(config_path) if config_path is not None else DECLARATIONS_FILENAME
+
+
 def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
     """Read the declarations file, or return nothing if there is none.
 
@@ -826,6 +884,15 @@ def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> di
     if not path.is_file():
         if config_path is not None:
             raise DeclarationError(f"--config names {path}, which is not a file.")
+        # Only an absent default means "nothing is declared". A directory
+        # sitting where the declarations file belongs is something, and
+        # reading it as nothing ran every check with no declarations and
+        # passed (review C5).
+        if path.exists():
+            raise DeclarationError(
+                f"{path} is a directory, not a declarations file. Replace it "
+                f"with the TOML file, or remove it if nothing is declared."
+            )
         return {}
     try:
         text = path.read_text(encoding="utf-8")
@@ -1507,10 +1574,7 @@ def collect_declaration_issues(
     # never read, and leaves the gate green with one fewer check running.
     known_tables = set(_DECLARATION_SCHEMA) | set(_TOP_LEVEL_SCHEMA)
     known_tables.discard("site")
-    # Under --config the file actually read is config_path, not the
-    # repository default: naming DECLARATIONS_FILENAME here would point the
-    # reader at a file this run never opened.
-    source = config_path if config_path is not None else DECLARATIONS_FILENAME
+    source = declarations_source(config_path)
     for table in declarations:
         if table not in known_tables:
             raise DeclarationError(

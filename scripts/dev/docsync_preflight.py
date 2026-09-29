@@ -121,8 +121,8 @@ def _docsync_toml_pin_only_change(
 
     Fails closed (returns ``False``, meaning "control-plane") when the file
     is absent at HEAD (new) or absent from the index (deleted/renamed),
-    either blob fails to parse, or either ``git show`` exits nonzero: an
-    ambiguous case is refused, never waved through.
+    either blob is not UTF-8 or fails to parse, or either ``git show`` exits
+    nonzero: an ambiguous case is refused, never waved through.
     """
     head_result = _run_git(
         ["show", f"HEAD:{DOCSYNC_TOML_PATH}"], cwd=root, runner=runner
@@ -131,6 +131,10 @@ def _docsync_toml_pin_only_change(
         return False
     index_result = _run_git(["show", f":{DOCSYNC_TOML_PATH}"], cwd=root, runner=runner)
     if index_result.returncode != 0:
+        return False
+    # TOML is UTF-8 by definition, and a blob that is not cannot be read as
+    # the same declarations either side of the change.
+    if not (_is_utf8(head_result.stdout) and _is_utf8(index_result.stdout)):
         return False
     try:
         head_doc = tomllib.loads(head_result.stdout)
@@ -159,14 +163,40 @@ class PreflightError(RuntimeError):
 def _run_git(
     args: Sequence[str], *, cwd: Path, runner: Runner = subprocess.run
 ) -> subprocess.CompletedProcess:
-    """Run one Git command as text and return its completed process.
+    """Run one Git command as UTF-8 text and return its completed process.
 
     Failures come back as data (a nonzero ``returncode``), never an
     exception, so each call site decides what that means for its own step.
+    The codec is named rather than left to the locale: Git emits blob bytes
+    and paths as they are stored, and a locale codec such as cp1252 decodes
+    almost any byte into the wrong text without complaint (review B6).
+    Bytes that are not UTF-8 are kept as surrogate escapes rather than
+    raised: a strict decode fails inside ``subprocess``'s reader thread on
+    Windows and hands back no output at all. A caller that must know
+    whether the output was UTF-8 asks ``_is_utf8``.
     """
     return runner(
-        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=False
+        ["git", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="surrogateescape",
+        check=False,
     )
+
+
+def _is_utf8(text: str) -> bool:
+    """Whether ``text`` came from bytes that were valid UTF-8.
+
+    ``_run_git`` keeps an invalid byte as a lone surrogate, and a lone
+    surrogate is the one thing a strict UTF-8 encode refuses.
+    """
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def repo_root(cwd: Path, *, runner: Runner = subprocess.run) -> Path:

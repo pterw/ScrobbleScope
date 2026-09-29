@@ -6,6 +6,28 @@ from scripts.dev._worktree_guard_essentials import essentials_diagnostics
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
+READ_FAILURE_REMEDIATION = (
+    "Run python scripts/doc_state_sync.py --check for the full diagnostic and "
+    "fix config/docsync.toml; this guard cannot check declared paths until it "
+    "parses."
+)
+
+
+def _assert_read_failure(diagnostics, tmp_path: Path, failure: str) -> None:
+    """Review C2: one WT015 WARNING with fixed wording and the failure's
+    class only. The DeclarationError text carries the declarations file's
+    absolute path and raw OS or codec text, which this diagnostic stream
+    must not republish; `doc_state_sync.py --check` prints it instead."""
+    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
+    assert diagnostics[0].subject == "config/docsync.toml"
+    assert diagnostics[0].message == (
+        f"the declarations file could not be read or parsed ({failure})."
+    )
+    assert diagnostics[0].remediation == READ_FAILURE_REMEDIATION
+    rendered = f"{diagnostics[0].message} {diagnostics[0].remediation}"
+    assert str(tmp_path) not in rendered
+    assert tmp_path.as_posix() not in rendered
+
 
 def test_the_real_config_declares_no_untracked_essentials():
     """`config/docsync.toml` no longer declares `skills-lock.json` (owner
@@ -50,10 +72,7 @@ def test_a_malformed_table_warns_instead_of_raising(tmp_path: Path):
     (tmp_path / "config" / "docsync.toml").write_text(
         '[untracked_essentials]\npaths = "skills-lock.json"\n', encoding="utf-8"
     )
-    diagnostics = essentials_diagnostics(tmp_path)
-    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
-    assert diagnostics[0].subject == "config/docsync.toml"
-    assert "paths" in diagnostics[0].message
+    _assert_read_failure(essentials_diagnostics(tmp_path), tmp_path, "DeclarationError")
 
 
 def test_a_non_utf8_declarations_file_warns_instead_of_raising(tmp_path: Path):
@@ -68,10 +87,9 @@ def test_a_non_utf8_declarations_file_warns_instead_of_raising(tmp_path: Path):
     (tmp_path / "config" / "docsync.toml").write_bytes(
         b"[untracked_essentials]\n# \xff\xfe not utf-8\n"
     )
-    diagnostics = essentials_diagnostics(tmp_path)
-    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
-    assert diagnostics[0].subject == "config/docsync.toml"
-    assert "the declarations file could not be read" in diagnostics[0].message
+    _assert_read_failure(
+        essentials_diagnostics(tmp_path), tmp_path, "UnicodeDecodeError"
+    )
 
 
 def test_an_unreadable_declarations_path_warns_instead_of_raising(
@@ -89,9 +107,9 @@ def test_an_unreadable_declarations_path_warns_instead_of_raising(
     monkeypatch.setattr(Path, "read_text", _raise_os_error)
 
     diagnostics = essentials_diagnostics(tmp_path)
-    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
-    assert diagnostics[0].subject == "config/docsync.toml"
-    assert "the declarations file could not be read" in diagnostics[0].message
+    monkeypatch.undo()
+    _assert_read_failure(diagnostics, tmp_path, "OSError")
+    assert "simulated" not in diagnostics[0].message
 
 
 def test_the_wt015_message_names_the_file_not_only_the_table(tmp_path: Path):
@@ -102,13 +120,8 @@ def test_the_wt015_message_names_the_file_not_only_the_table(tmp_path: Path):
     (tmp_path / "config").mkdir()
     (tmp_path / "config" / "docsync.toml").write_text("[[value\n", encoding="utf-8")
     diagnostics = essentials_diagnostics(tmp_path)
-    assert [(d.code, d.severity) for d in diagnostics] == [("WT015", "WARNING")]
-    assert "the declarations file could not be read" in diagnostics[0].message
-    assert (
-        "[untracked_essentials] declaration could not be read"
-        not in diagnostics[0].message
-    )
-    assert "not valid TOML" in diagnostics[0].message
+    _assert_read_failure(diagnostics, tmp_path, "TOMLDecodeError")
+    assert "[untracked_essentials]" not in diagnostics[0].message
 
 
 def test_a_declared_path_that_is_a_directory_warns_distinctly(tmp_path: Path):
@@ -129,3 +142,20 @@ def test_a_declared_path_that_is_a_directory_warns_distinctly(tmp_path: Path):
     assert diagnostics[0].subject == "a_directory"
     assert "is a directory, not a file" in diagnostics[0].message
     assert "missing" not in diagnostics[0].message
+
+
+def test_a_repeated_declared_path_warns_once(tmp_path: Path):
+    """Review C5: a path declared twice was reported twice."""
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["x.json", "x.json"]\n', encoding="utf-8"
+    )
+    diagnostics = essentials_diagnostics(tmp_path)
+    assert [(d.code, d.subject) for d in diagnostics] == [("WT015", "x.json")]
+
+
+def test_a_declarations_path_that_is_a_directory_warns(tmp_path: Path):
+    """Review C5: a directory at config/docsync.toml returned no declarations,
+    silently, so every declared essential went unchecked."""
+    (tmp_path / "config" / "docsync.toml").mkdir(parents=True)
+    _assert_read_failure(essentials_diagnostics(tmp_path), tmp_path, "DeclarationError")

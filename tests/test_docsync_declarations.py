@@ -84,7 +84,9 @@ class TestDocumentsConfig:
         "agent_notes",
         [
             "docs/agents/HANDOFF_PROMPT.md",
-            "docs/./agents/HANDOFF_PROMPT.md",
+            # "docs/./agents/HANDOFF_PROMPT.md" moved to
+            # test_a_path_not_in_normalised_form_is_refused: review B1 refuses
+            # that spelling before the duplicate check is reached.
             "AGENTS.md",
         ],
     )
@@ -120,6 +122,67 @@ class TestDocumentsConfig:
         )
         with pytest.raises(DeclarationError, match="repository-relative"):
             load_documents_config(tmp_path)
+
+    @pytest.mark.parametrize(
+        "playbook",
+        [
+            "./docs/agents/PLAYBOOK.md",
+            "docs//agents/PLAYBOOK.md",
+            "docs/./agents/PLAYBOOK.md",
+            "docs/agents/PLAYBOOK.md/",
+        ],
+    )
+    def test_a_path_not_in_normalised_form_is_refused(
+        self, tmp_path: Path, playbook: str
+    ):
+        """Review B1: each spelling resolves to the real file, and each was
+        accepted and stored raw. Live documents are keyed by the normalised
+        form, so every lookup by the declared string missed and DOC008,
+        DOC023 and the reference scan silently did not run. The refusal
+        names the spelling to write."""
+        from docsync.declarations import load_documents_config
+
+        (tmp_path / "docs" / "agents").mkdir(parents=True)
+        (tmp_path / "docs" / "agents" / "PLAYBOOK.md").write_text(
+            "# PLAYBOOK\n", encoding="utf-8"
+        )
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            f'[documents]\nplaybook = "{playbook}"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError) as raised:
+            load_documents_config(tmp_path)
+        assert str(raised.value) == (
+            f"[documents] 'playbook' is written {playbook!r}, which is not the "
+            "normalised repository-relative path. Write 'docs/agents/PLAYBOOK.md'."
+        )
+
+    def test_an_empty_path_says_it_is_empty(self, tmp_path: Path):
+        """Review B9: the empty string is a str, and the old message called
+        it "str, not a string"."""
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text('[documents]\nplaybook = ""\n', encoding="utf-8")
+        with pytest.raises(DeclarationError) as raised:
+            load_documents_config(tmp_path)
+        assert str(raised.value) == (
+            "[documents] gives 'playbook' as an empty string; write the "
+            "document's repository-relative path."
+        )
+
+
+def test_a_declarations_path_that_is_a_directory_is_refused(tmp_path: Path):
+    """Review C5: a directory where the default declarations file belongs was
+    read as "nothing declared", so every check ran with no declarations and
+    passed. Only an absent file means that."""
+    (tmp_path / DECLARATIONS_FILENAME).mkdir(parents=True)
+    with pytest.raises(
+        DeclarationError, match="is a directory, not a declarations file"
+    ):
+        load_declarations(tmp_path)
 
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -2209,25 +2272,94 @@ def test_untracked_essentials_rejects_a_path_that_escapes_the_repository(
         load_untracked_essentials_config(root)
 
 
-@pytest.mark.parametrize("path", ["skills\nlock.json", "skills\x1block.json"])
-def test_untracked_essentials_rejects_a_path_with_a_control_character(
+@pytest.mark.parametrize(
+    "path",
+    [
+        "skills\nlock.json",
+        "skills\x1block.json",
+        # Review C1: category Cc alone let these through. U+2028 splits the
+        # rendered line, U+202E reorders it, U+00A0 pads a fake verdict.
+        "skills\u2028lock.json",
+        "skills\u202elock.json",
+        "skills\u00a0lock.json",
+    ],
+    ids=["newline", "escape", "line-separator", "bidi-override", "no-break-space"],
+)
+def test_untracked_essentials_rejects_a_path_with_an_unprintable_character(
     tmp_path: Path, path: str
 ) -> None:
     """C4: `scripts/dev/check_worktree_alignment.py` prints a declared path
-    verbatim in a `Diagnostic.subject`; a raw control character in it (a
-    newline, an escape) must never reach that path unsanitized, so the
-    declaration itself refuses one, the same way an absolute path or a `..`
-    segment already does.
+    verbatim in a `Diagnostic.subject`; a character in it that is not
+    printable must never reach that path unsanitized, so the declaration
+    itself refuses one, the same way an absolute path or a `..` segment
+    already does.
     """
     from docsync.declarations import load_untracked_essentials_config
 
-    escaped = path.replace("\\", "\\\\").replace("\n", "\\n").replace("\x1b", "\\u001b")
+    escaped = "".join(
+        char if char.isprintable() else f"\\u{ord(char):04x}" for char in path
+    )
     root = _repo(
         tmp_path,
         {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
     )
-    with pytest.raises(DeclarationError, match="control character"):
+    with pytest.raises(DeclarationError) as raised:
         load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which carries a character "
+        "that is not printable: it must be printable, since the worktree guard "
+        "echoes it verbatim in a diagnostic."
+    )
+
+
+@pytest.mark.parametrize("path", ["..\\..\\secrets.txt", "config\\x.json"])
+def test_untracked_essentials_rejects_a_backslash(tmp_path: Path, path: str) -> None:
+    """Review B5/C3: `..` was read from POSIX parts only, so `..\\..\\x` passed
+    and, on Windows, the guard stat'ed a file outside the repository."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = path.replace("\\", "\\\\")
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which uses a backslash: "
+        "write the repository-relative path with forward slashes."
+    )
+
+
+@pytest.mark.parametrize("path", ["", ".", "./"])
+def test_untracked_essentials_rejects_the_repository_root(
+    tmp_path: Path, path: str
+) -> None:
+    """Review C5: each of these resolved to the repository root, and the
+    guard reported the root "is a directory" instead of refusing it."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{path}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which names the repository "
+        "root: name the file this workflow depends on."
+    )
+
+
+def test_untracked_essentials_keeps_a_repeated_path_once(tmp_path: Path) -> None:
+    """Review C5: a path declared twice was reported twice."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["b", "a", "b"]\n'},
+    )
+    assert load_untracked_essentials_config(root).paths == ("b", "a")
 
 
 def test_untracked_essentials_accepts_a_plain_relative_path(tmp_path: Path) -> None:

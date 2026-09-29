@@ -12,6 +12,7 @@ from docsync.closeout import ARCHIVED_DEFINITIONS_DIR, collect_definition_issues
 from docsync.declarations import (
     DocumentsConfig,
     collect_declaration_issues,
+    declarations_source,
     load_closeout_config,
     load_findings_config,
     load_test_count_config,
@@ -1221,7 +1222,8 @@ def collect_integrity_issues(
                     None,
                     "The single Section 4 entry carrying the newest date "
                     f"records {newest_dated_count}, which disagrees with the "
-                    f"count pinned in config/docsync.toml ({test_count_config.pinned}).",
+                    f"count pinned in {declarations_source(config_path)} "
+                    f"({test_count_config.pinned}).",
                     f"Run `--fix --test-count {newest_dated_count}` if that "
                     "entry is right, or ignore this warning if the pin still is.",
                 )

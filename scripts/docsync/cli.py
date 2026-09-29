@@ -33,6 +33,8 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+import tomllib
+
 from docsync import findings as findings_module
 from docsync.archives import (
     INDEX_START_MARKER,
@@ -51,6 +53,7 @@ from docsync.closeout import (
 from docsync.declarations import (
     DECLARATIONS_FILENAME,
     DocumentsConfig,
+    declarations_source,
     load_archive_config,
     load_closeout_config,
     load_documents_config,
@@ -516,8 +519,57 @@ _TEST_COUNT_TABLE_RE = re.compile(r"^\[test_count\][ \t]*(?:#.*)?$", re.MULTILIN
 _TEST_COUNT_PINNED_LINE_RE = re.compile(r"^[ \t]*pinned[ \t]*=.*$", re.MULTILINE)
 
 
-def _rewrite_test_count_pin(text: str, count: int) -> str:
-    """Return config/docsync.toml's text with `[test_count]` pinned to count.
+def _rewrite_test_count_pin(
+    text: str, count: int, *, source: str = DECLARATIONS_FILENAME
+) -> str:
+    """Return the declarations file's text with `[test_count]` pinned to count.
+
+    `_splice_test_count_pin` does the edit; this refuses to hand back any
+    result it cannot prove. The splice reads the file with two regexes, not
+    a TOML parser, and a valid file can be spelled in ways they do not see:
+    a dotted key or an inline table, `[ test_count ]`, a heading on the last
+    line with no newline, an indented next heading, a quoted `"pinned"`
+    (review B2, B3, B4). Each produced a file that did not parse, or
+    rewrote text outside the pin, and `--fix` published it. So the result
+    is parsed and compared with the original: it must equal the original
+    declarations with only `test_count.pinned` set to ``count``. Anything
+    else raises SyncError before `publish` runs, so nothing is written.
+    The regexes stay; growing them into a TOML writer would move the
+    problem rather than close it. ``source`` names the file in the error.
+    """
+    rewritten = _splice_test_count_pin(text, count)
+    problem = _pin_rewrite_problem(text, rewritten, count)
+    if problem is not None:
+        raise SyncError(
+            f"--test-count {count} cannot be pinned in {source}: {problem}. "
+            f"Nothing was written. Write the pin as its own table -- a line "
+            f"`[test_count]` at the start of a line, then `pinned = N` on the "
+            f"next line -- and rerun --fix --test-count {count}."
+        )
+    return rewritten
+
+
+def _pin_rewrite_problem(before: str, after: str, count: int) -> str | None:
+    """Say why ``after`` is not ``before`` with only the pin set, or None."""
+    try:
+        expected = tomllib.loads(before)
+    except tomllib.TOMLDecodeError as exc:
+        return f"the file does not parse as TOML before the rewrite ({exc})"
+    try:
+        actual = tomllib.loads(after)
+    except tomllib.TOMLDecodeError as exc:
+        return f"the rewritten file would not parse as TOML ({exc})"
+    table = expected.setdefault("test_count", {})
+    if not isinstance(table, dict):
+        return "'test_count' is not a table"
+    table["pinned"] = count
+    if actual != expected:
+        return "the rewrite would change something other than `test_count.pinned`"
+    return None
+
+
+def _splice_test_count_pin(text: str, count: int) -> str:
+    """Return ``text`` with `[test_count]`'s pin line edited or added.
 
     A targeted find-or-append of one line, not a general TOML writer,
     because the stdlib `tomllib` this repository already relies on is
@@ -528,7 +580,8 @@ def _rewrite_test_count_pin(text: str, count: int) -> str:
     file's text when the table is absent entirely -- never between existing
     `[[value]]` blocks, since a single-bracket table opens and closes no
     array scope but a wrong insertion point beside one has bitten this file
-    before (F-DOCSYNC-8's scoping notice).
+    before (F-DOCSYNC-8's scoping notice). Only `_rewrite_test_count_pin`
+    calls this, and it verifies the result before anything uses it.
     """
     table_match = _TEST_COUNT_TABLE_RE.search(text)
     if table_match is None:
@@ -661,7 +714,9 @@ def _drift_updates(
             else ""
         )
         new_declarations_text = _rewrite_test_count_pin(
-            declarations_text, explicit_test_count
+            declarations_text,
+            explicit_test_count,
+            source=declarations_source(CONFIG_PATH),
         )
         updates.update(_plan_text(corpus.declarations_path, new_declarations_text))
     return updates
@@ -893,6 +948,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
             tracked_paths=corpus.tracked_paths,
             config=config,
             playbook_relative_path=documents.playbook,
+            declarations_path=declarations_source(CONFIG_PATH),
         ),
         *rotation.issues,
     ]

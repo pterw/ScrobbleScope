@@ -262,7 +262,20 @@ paginate or age a file on their own.
 entry (across every source `latest_test_count_authority` reads) carries the
 newest date and its count disagrees with `config/docsync.toml`'s
 `[test_count]` pin; a same-date tie or an absent pin stays silent. It never
-blocks (Q1 ruling, 2026-09-25).
+blocks (Q1 ruling, 2026-09-25). Its message names the declarations file the
+run read, which under `--config` is not `config/docsync.toml`; the
+`--close-batch` admission refusal names it the same way.
+
+**The pin is written only by `--fix --test-count N`**, and only when the
+result can be proven. `_rewrite_test_count_pin` (`scripts/docsync/cli.py`)
+edits one line with two regexes rather than a TOML writer, so a valid file
+can spell the table in ways it does not see: a dotted key, an inline table,
+`[ test_count ]`, a heading on the last line with no newline, an indented
+next heading, a quoted `"pinned"`. Before publishing, it parses the
+rewritten text and compares it with the original: it must be the original
+declarations with only `test_count.pinned` changed. Anything else exits 2
+with the remedy -- write the pin as its own table, `[test_count]` at the
+start of a line and `pinned = N` on the next -- and nothing is written.
 
 **DOC023 is the finding-rot code**, implemented in
 `scripts/docsync/findings.py`. DOC013 to DOC018 only ever examine findings
@@ -308,9 +321,18 @@ declared path that exists but is a directory rather than a file (CR10) --
 reported distinctly, rather than as "missing", so the reader is not sent to
 restore something already there. A malformed `[untracked_essentials]` table,
 or a declarations file that cannot be read or parsed at all (an unreadable
-path or bytes that are not valid UTF-8, both converted to `DeclarationError`
-inside `load_declarations` itself so every caller benefits), is reported the
-same way instead of escaping to `inspect_worktree`'s fail-closed WT014.
+path, bytes that are not valid UTF-8, or a directory where the file belongs,
+all converted to `DeclarationError` inside `load_declarations` itself so
+every caller benefits), is reported the same way instead of escaping to
+`inspect_worktree`'s fail-closed WT014. That warning carries fixed wording and
+the failure's class only, never the exception text, which holds the file's
+absolute path and raw OS or codec detail; its remediation sends the reader to
+`python scripts/doc_state_sync.py --check`, which prints the full diagnostic.
+The table itself refuses, before the guard sees it, a declared path with a
+backslash, an absolute path or a `..` segment, an empty path or `.` (the
+repository root), and any character `str.isprintable()` rejects -- the guard
+prints the path as a diagnostic subject, and U+2028, U+202E or U+00A0 would
+split, reorder or pad that line. A path declared twice is reported once.
 
 `docsync.logic` and `docsync.integrity` no longer need the deferred,
 deadlock-guarded circular import the two modules once required for
@@ -341,8 +363,13 @@ file every mode and every check reads, in place of the repository default.
 The path must resolve inside the repository because writing modes include it
 in the publication transaction's source snapshot. An outside path or a path
 that is not a file is refused with exit 2. A missing repository default still
-means nothing is declared. The `[documents]` paths must also stay inside the
-repository and resolve to five distinct live files, including `AGENTS.md`.
+means nothing is declared; a directory in its place is refused. The
+`[documents]` paths must also stay inside the repository, resolve to five
+distinct live files, including `AGENTS.md`, and be written in the normalised
+repository-relative POSIX form every reader keys documents by: a spelling
+such as `./docs/agents/PLAYBOOK.md` or `docs//agents/PLAYBOOK.md` is refused
+with the spelling to write, because it would miss every lookup and silently
+skip the checks that depend on one. An empty value is refused as empty.
 
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by
@@ -389,7 +416,9 @@ guessing which version of the rules should govern. A staged
 `config/docsync.toml` whose only change is the `[test_count]` pin is exempt
 from this refusal (owner ruling 2026-09-26): every ordinary commit that adds
 a test also pins a new count there, and that alone does not change the
-checker's rules.
+checker's rules. The exemption reads both blobs as UTF-8, whatever the
+locale, and fails closed -- the file counts as control-plane -- when either
+is not UTF-8 or does not parse.
 
 **The one named escape for that refusal is `SKIP=doc-state-sync-check git
 commit`** -- pre-commit's own built-in per-hook skip, naming this hook's id

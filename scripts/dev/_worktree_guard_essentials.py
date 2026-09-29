@@ -49,28 +49,37 @@ def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
     one. A declarations file that cannot be read or parsed at all -- a
     malformed `[untracked_essentials]` table, an unreadable path, or bytes
     that are not valid UTF-8 -- is reported the same way, as a single WT015
-    WARNING naming the read or parse problem, rather than escaping to
+    WARNING naming only the class of the failure and sending the reader to
+    `doc_state_sync.py --check` for the detail, rather than escaping to
     `inspect_worktree`'s fail-closed WT014.
 
     Every message that names the declared path renders it with `repr()`
-    (CR5): declarations.py's own containment check keeps the path inside the
-    repository, but the string itself is still author-controlled text this
-    guard did not choose, and a raw control character in it could otherwise
-    forge or repaint a line of the guard's own output. The `Diagnostic`'s
+    (CR5): declarations.py's own checks keep the path inside the repository
+    and refuse any character `str.isprintable()` rejects, but the string
+    itself is still author-controlled text this guard did not choose, and a
+    character that is not printable could otherwise forge, reorder or
+    repaint a line of the guard's own output. The `Diagnostic`'s
     `path` field keeps the plain declared string -- callers that key off it
     programmatically, rather than print it, need the value undecorated.
     """
     try:
         config = load_untracked_essentials_config(repo_root)
     except DeclarationError as error:
+        # Fixed wording plus the failure's class, never the exception text:
+        # a DeclarationError carries the declarations file's absolute path
+        # and the raw OS or codec message, which this diagnostic stream must
+        # not republish (`_worktree_guard_inspection`; review C2). The
+        # docsync checker prints the full text in its own channel.
+        failure = type(error.__cause__ or error).__name__
         return [
             issue(
                 "WARNING",
                 "WT015",
                 "config/docsync.toml",
-                f"the declarations file could not be read: {error}",
-                "Fix config/docsync.toml; this guard cannot check declared "
-                "paths until it parses.",
+                f"the declarations file could not be read or parsed ({failure}).",
+                "Run python scripts/doc_state_sync.py --check for the full "
+                "diagnostic and fix config/docsync.toml; this guard cannot "
+                "check declared paths until it parses.",
             )
         ]
     diagnostics: list[Diagnostic] = []

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-28 - Report an unreadable declarations file as a warning
+
+Side task, no batch tag: the 2026-09-28 /code-review's finding 5 in the control plane, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`load_declarations` now converts an unreadable or non-UTF-8 declarations file into a
+`DeclarationError` naming the path and the cause, so the worktree guard's WT015 check stays
+WARNING-only instead of escaping to the fail-closed WT014 ERROR. WT015's message now says the
+declarations file could not be read, keeping the underlying error text, instead of blaming
+`[untracked_essentials]` specifically. Finding 6 (a FINDINGS header rewrite conjuring an empty
+file) was refuted on reachability: `_read_live_documents` already requires FINDINGS.md before
+that code runs, so no fix was made for it.
+Validation: `pytest -q` -- **2055 passed**.
+
 ### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
 
 Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

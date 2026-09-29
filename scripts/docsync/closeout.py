@@ -502,9 +502,17 @@ def render_archived_definition(
 
 
 def _admission_issue(
-    batch: int, config: CloseoutConfig, *, playbook_relative_path: str = "PLAYBOOK.md"
+    batch: int,
+    config: CloseoutConfig,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
+    declarations_path: str = DECLARATIONS_FILENAME,
 ) -> IntegrityIssue:
-    """Refuse to close a batch the close-out signals do not govern."""
+    """Refuse to close a batch the close-out signals do not govern.
+
+    ``declarations_path`` names the file the boundary was read from, which
+    under --config is not the repository default (review B8).
+    """
     return _issue(
         playbook_relative_path,
         None,
@@ -512,7 +520,7 @@ def _admission_issue(
         f"admission boundary (Batch {batch} is below "
         f"{config.admit_from_batch}).",
         f"Batch {batch} closed before these signals existed and is admitted as "
-        f"it stands. Lower `admit_from_batch` in {DECLARATIONS_FILENAME} only "
+        f"it stands. Lower `admit_from_batch` in {declarations_path} only "
         f"if the evidence for every batch from {batch} onwards genuinely "
         f"exists; never write it in order to satisfy this command.",
     )
@@ -697,6 +705,7 @@ def collect_transition_issues(
     tracked_paths: frozenset[str],
     config: CloseoutConfig,
     playbook_relative_path: str = "PLAYBOOK.md",
+    declarations_path: str = DECLARATIONS_FILENAME,
 ) -> list[IntegrityIssue]:
     """Return every reason this batch may not be closed right now.
 
@@ -713,7 +722,10 @@ def collect_transition_issues(
     if batch < config.admit_from_batch:
         return [
             _admission_issue(
-                batch, config, playbook_relative_path=playbook_relative_path
+                batch,
+                config,
+                playbook_relative_path=playbook_relative_path,
+                declarations_path=declarations_path,
             )
         ]
     return [

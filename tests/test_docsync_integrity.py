@@ -2303,6 +2303,24 @@ def test_pin_disagreeing_with_the_sole_newest_entry_warns(tmp_path: Path):
     assert issues[0].severity == "warning"
 
 
+def test_doc025_names_the_declarations_file_the_run_read(tmp_path: Path):
+    """Review B8: under --config the pin is read from another file, so the
+    warning must name that file, not the repository default."""
+    inputs = _valid_inputs(tmp_path)
+    (tmp_path / "alt.toml").write_text("[test_count]\npinned = 400\n", encoding="utf-8")
+
+    issues = [
+        i
+        for i in collect_integrity_issues(**inputs, config_path=Path("alt.toml"))
+        if i.code == "DOC025"
+    ]
+
+    assert [i.invariant for i in issues] == [
+        "The single Section 4 entry carrying the newest date records 390, which "
+        "disagrees with the count pinned in alt.toml (400)."
+    ]
+
+
 def test_pin_agreeing_with_the_sole_newest_entry_is_silent(tmp_path: Path):
     """Silent because 390 was parsed (via the legacy fallback pass -- this
     fixture has no `pytest -q` text) and matches the pin, not because
