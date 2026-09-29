@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Bold-label citations resolve and archives age at 90 days
+
+Side task, no batch tag: resolving a citation of a bold label ending in a colon, and ageing archive pages at 90 days, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Controller finding X-1: `declarations._headings` indexed `**Co-author prohibition:** Do NOT ...` in `AGENTS.md` only as "Co-author prohibition:" (colon included), because the label-tail pattern needs whitespace after the colon and the rstrip set had no colon. A citation of "Co-author prohibition" therefore failed DOC010. The heading now also indexes the label with its trailing colon stripped; the three existing forms are unchanged. The DOC010 entry in `docs/architecture/documentation-tooling.md` says so.
+
+Owner ruling 2026-09-29, "update the 365 day cold storage rule to 90 days": `DEFAULT_ARCHIVE_COLD_DAYS` and `[archives] cold_days` in `config/docsync.toml` are now 90, and `documentation-tooling.md` states the default and why (history older than a quarter is archive, not context). `--check` never ages pages, so nothing else moves.
+
+Tests: two new tests in `tests/test_docsync_declarations.py` (the colon label resolves; a non-existent name still reports one DOC010 issue) and `test_default_cold_days_is_ninety` in `tests/test_docsync_archives.py` (91 days ages, 89 does not). Two existing tests were edited for the new default: `test_cutoff_is_strict` (page date moved to exactly 90 days before as-of) and `test_cold_days_is_configurable` (page date moved to 45 days before as-of).
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - Retry-After is capped and the last try never sleeps
 
 Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

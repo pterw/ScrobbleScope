@@ -105,9 +105,9 @@ next.
 - Fetch scrobbles for a listening year and enrich albums with release dates,
   artwork, and track runtimes from Spotify, falling back to Deezer for
   whatever Spotify cannot match or detail. Each album links to its own
-  provider's page. Spotify content is attributed once per list with
-  Spotify's official icon; a row from any other provider carries a small
-  text badge naming it.
+  provider's page. Spotify content is attributed with Spotify's official
+  icon on the Results and Unmatched pages and on the artist spotlight; a
+  row from any other provider carries a small text badge naming it.
 - Include all release years, the listening year, the previous year, a decade,
   or a specific release year.
 - Choose minimum track plays and unique tracks per album; the defaults are
