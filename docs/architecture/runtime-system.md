@@ -70,7 +70,9 @@ flowchart LR
     Heatmap --> LastFMClient
     Heatmap --> Repo
     Heatmap --> Utils
+    Heatmap --> Errors
     Repo --> Errors
+    App --> ApiLogging
     Routes --> ReleaseChecks
     ReleaseChecks --> MusicBrainzClient
     ReleaseChecks --> Cache
@@ -131,7 +133,10 @@ pipeline. The dotted `App` edges are imports deferred into a function, which is
 what the factory pattern requires: `create_app` imports the blueprint, and
 `_validate_api_keys` (called by `create_app`) and the `__main__` block each
 import `ensure_api_keys` -- none of them a module-level edge, because
-`load_dotenv` must run before `config` reads the environment.
+`load_dotenv` must run before `config` reads the environment. `app.py`'s one
+module-level edge is to `api_logging.py`, for the `RedactingFormatter` it
+attaches to both log handlers before anything else logs. `heatmap.py` imports
+`errors.py` for the classifier its backstop calls.
 
 `config.py` is not drawn: **eleven** of the nodes shown here import it at
 module level, and those edges would cross and hide the flow. They are

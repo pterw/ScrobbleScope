@@ -120,6 +120,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Architecture diagrams re-verified against source
+
+Side task, no batch tag: re-verifying the architecture diagrams against the source, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The runtime diagram gains `heatmap.py` -> `errors.py` and `app.py` -> `api_logging.py`. Both sequence diagrams now draw the private-profile refusal (HTTP 403, Last.fm error 17). The development-cycle page says CI picks browser tests by marker, not folder. The control-plane diagram gains twelve docsync import edges it lacked. SESSION_CONTEXT Sections 3-4 gain `enrichment.py`, `deezer.py` and `orchestrator/_deezer_fallback.py` and lose a `repositories.py` -> domain edge that no import makes. No code changed.
+
+Validation: `pytest -q` -- **2187 passed**.
+
 ### 2026-09-29 - DEVELOPMENT.md shows each tool in action
 
 Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -147,13 +155,3 @@ Owner ruling 2026-09-29, "update the 365 day cold storage rule to 90 days": `DEF
 Tests: two new tests in `tests/test_docsync_declarations.py` (the colon label resolves; a non-existent name still reports one DOC010 issue) and `test_default_cold_days_is_ninety` in `tests/test_docsync_archives.py` (91 days ages, 89 does not). Two existing tests were edited for the new default: `test_cutoff_is_strict` (page date moved to exactly 90 days before as-of) and `test_cold_days_is_configurable` (page date moved to 45 days before as-of).
 
 Validation: `pytest -q` -- **2187 passed**.
-
-### 2026-09-29 - Retry-After is capped and the last try never sleeps
-
-Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Review finding S1-3 (P1): `retry_with_semaphore` slept whatever `Retry-After` a provider sent, up to `retries` times, while the job thread held one of the `MAX_ACTIVE_JOBS` slots. Spotify sends 12-18 hour values under extended rate limits, so three sleeps outlived the 2-hour job record and the slot stayed held. New `config.MAX_RETRY_AFTER_SECONDS` (env, default 30): a larger value logs one WARNING (label, value, cap) and returns `default` at once, no sleep and no more attempts; at or below the cap it sleeps as before. The helper also no longer sleeps after the final attempt, on the Retry-After path or the backoff path. The header parse (S1-4) and a user-facing rate-limited code are separate findings. README and SESSION_CONTEXT name the cap; `.env.example` lists the optional variable.
-
-Tests: six new tests in `tests/test_retry_with_semaphore.py` cover the cap, the value at the cap, the cap read from `utils`, two backoff sleeps for three failures, and no sleep after a rate limit on the final attempt. No existing test was edited.
-
-Validation: `pytest -q` -- **2184 passed**.

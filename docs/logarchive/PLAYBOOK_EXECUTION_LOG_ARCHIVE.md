@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Retry-After is capped and the last try never sleeps
+
+Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Review finding S1-3 (P1): `retry_with_semaphore` slept whatever `Retry-After` a provider sent, up to `retries` times, while the job thread held one of the `MAX_ACTIVE_JOBS` slots. Spotify sends 12-18 hour values under extended rate limits, so three sleeps outlived the 2-hour job record and the slot stayed held. New `config.MAX_RETRY_AFTER_SECONDS` (env, default 30): a larger value logs one WARNING (label, value, cap) and returns `default` at once, no sleep and no more attempts; at or below the cap it sleeps as before. The helper also no longer sleeps after the final attempt, on the Retry-After path or the backoff path. The header parse (S1-4) and a user-facing rate-limited code are separate findings. README and SESSION_CONTEXT name the cap; `.env.example` lists the optional variable.
+
+Tests: six new tests in `tests/test_retry_with_semaphore.py` cover the cap, the value at the cap, the cap read from `utils`, two backoff sleeps for three failures, and no sleep after a rate limit on the final attempt. No existing test was edited.
+
+Validation: `pytest -q` -- **2184 passed**.
+
 ### 2026-09-29 - A malformed Last.fm page is retried and counted as dropped
 
 Side task, no batch tag: retrying a malformed 200 page and counting it as dropped, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

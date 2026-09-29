@@ -29,8 +29,11 @@ sequenceDiagram
         else User not found
             LastFM-->>Routes: exists false
             Routes-->>UI: JSON 404, retryable false
-        else User exists
-            LastFM-->>Routes: exists true
+        else Recent listening is private (HTTP 403, error 17)
+            LastFM-->>Routes: private
+            Routes-->>UI: JSON 403 private_profile, retryable false
+        else User exists and listening is public
+            LastFM-->>Routes: exists true, public
             Routes->>Repo: cleanup_expired_jobs()
             Routes->>Worker: acquire_job_slot()
             alt Slot exhausted
@@ -86,7 +89,7 @@ sequenceDiagram
             end
             opt Unhandled exception anywhere above
                 Heatmap->>Repo: set_job_error(classified code, else internal_error)
-                Note over Heatmap,Repo: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), same as the album pipeline; an unrecognized fault is ours and prevents the polling client from hanging
+                Note over Heatmap,Repo: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls; an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's own fallback differs (a retryable unknown, see the Top Albums sequence)
             end
             Heatmap->>Worker: release_job_slot()
             Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block

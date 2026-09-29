@@ -5,7 +5,9 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-09-27.
+Last verified against the tree on 2026-09-29 (every module-level import in
+`scrobblescope/`, `scripts/docsync/` and the frontend-gate slices compared with
+the drawn edges; the dashboard's Section 4 corrected in the same pass).
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are

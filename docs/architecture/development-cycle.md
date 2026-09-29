@@ -69,7 +69,8 @@ tool rather than shell `git` or `gh`.
 
 `CI` (the `Quality Gate` workflow) runs the docsync preflight, then
 pre-commit with `worktree-alignment` skipped, then `pytest -m "not browser"`
-with coverage, then the `tests/frontend` browser-marked cases and
+with coverage, then every test carrying the `browser` marker (selected by
+marker across the whole tree, not by folder) and
 `scripts/dev/frontend_gate.py` after installing both browsers, and advisory
 `pip-audit` last -- against both `requirements.txt` and
 `requirements-dev.txt` now that the dev-only pins moved out of the

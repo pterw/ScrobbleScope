@@ -31,10 +31,17 @@ flowchart TD
     CLI --> Archives[docsync.archives]
     CLI --> Transaction[docsync.transaction<br/>publish]
     TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables,<br/>test_count pin,<br/>untracked_essentials] --> Decl[docsync.declarations]
+    CLI --> Decl
+    CLI --> Parser
+    CLI --> Render
     Integrity --> Decl
     Integrity --> Closeout
+    Integrity --> Findings
     Integrity --> MD[docsync.markdown]
     Decl --> Models
+    Decl --> MD
+    Decl --> Transaction
+    Transaction --> Models
     Integrity --> Logic
     Integrity --> Models
     Integrity --> Parser[docsync.parser]
@@ -47,13 +54,17 @@ flowchart TD
     Archives --> MD
     Archives --> Models
     Archives --> Transaction
+    Findings --> Archives
+    Findings --> Decl
     Findings --> MD
     Findings --> Models
+    Logic --> MD
     Logic --> Models
     Logic --> Parser
     Logic --> Render
     Render --> Models
     Render --> Parser
+    Parser --> MD
     Parser --> Models
 
     D -. reads and rewrites .-> P

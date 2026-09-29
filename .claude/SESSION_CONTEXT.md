@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-27
+Last updated: 2026-09-29
 
 ---
 
@@ -63,7 +63,9 @@ scrobblescope/
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
+  enrichment.py             # AlbumMetadata, the one contract every enrichment provider returns
   spotify.py                # fetch_spotify_access_token, search, batch details
+  deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
   orchestrator/
@@ -71,6 +73,7 @@ scrobblescope/
     _search.py               # Spotify parallel-search phase
     _details.py              # Spotify batch-detail phase
     _cache.py                # DB metadata cache lookup/persist phase
+    _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   spotlight.py              # pure artist aggregation and stable sample selection
@@ -148,16 +151,19 @@ api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
 cache.py         <- config
 worker.py        <- config
-repositories.py  <- config, domain, errors
+repositories.py  <- config, errors
+enrichment.py    <- (leaf)
 lastfm.py        <- config, utils
-spotify.py       <- config, utils
+spotify.py       <- config, domain, enrichment, utils
+deezer.py        <- config, domain, enrichment, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, utils
 release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker
-orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
+orchestrator/__init__.py  <- cache, config, deezer, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
 orchestrator/_cache.py    <- orchestrator (facade)
+orchestrator/_deezer_fallback.py <- domain, unmatched; orchestrator (facade)
 orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
 heatmap.py       <- errors, lastfm, repositories, utils, worker
 spotlight.py     <- utils
