@@ -402,9 +402,20 @@
 /* ------------------------------------------------------------------ */
 /* Grid                                                                */
 /* ------------------------------------------------------------------ */
+/* Room for the keyboard focus-ring round a cell on the grid's edge: the ring
+   paints up to about 3px outside the SVG, and this element's overflow would
+   clip it there. The padding makes the room and the equal negative margin,
+   with the width widened to match, puts the content box back exactly where
+   it was, so the grid does not move. The frame's own padding holds the
+   extra 4px. Room inside the SVG's viewBox instead would shrink every cell
+   and pull the grid in from the frame's edges. static/js/heatmap.js sizes
+   the mobile strip to the width inside this padding. */
 #heatmap-grid {
-  width: 100%;
-  max-width: 100%;
+  box-sizing: border-box;
+  width: calc(100% + 8px);
+  max-width: calc(100% + 8px);
+  margin: -4px;
+  padding: 4px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
@@ -414,6 +425,8 @@
   display: block;
   width: 100%;
   height: auto;
+  /* The focus-ring round an edge cell paints past the SVG's box. */
+  overflow: visible;
 }
 
 @media (min-width: 860px) {
@@ -432,12 +445,29 @@
   color: var(--ss-text-muted);
 }
 
-/* A bare SVG <rect>'s user-agent focus outline is inconsistent across
-   browsers, so the keyboard-focus cue for a grid cell (F-B21-14) is drawn
-   here instead. */
-.heatmap-cell:focus-visible {
-  outline: 2px solid var(--shell-accent);
-  outline-offset: 1px;
+/* The keyboard-focus cue for a grid cell (F-B21-14) is one ring <rect> that
+   static/js/heatmap.js paints after every cell and moves to the focused one
+   (createFocusRing). An outline on the cell used to draw it: later cells
+   covered its right and bottom edges and the SVG clipped it at the grid's
+   edge, so it passed every computed-style check while painting almost
+   nothing. The cell's own outline is off so the two never double up. */
+.heatmap-cell:focus {
+  outline: none;
+}
+
+/* 2px on screen whatever the grid's scale: non-scaling-stroke measures the
+   stroke in CSS pixels, not viewBox units. No transition: it moves at once. */
+.heatmap-focus-ring {
+  stroke: var(--shell-accent);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .heatmap-focus-ring {
+    stroke: Highlight;
+  }
 }
 
 /* ------------------------------------------------------------------ */

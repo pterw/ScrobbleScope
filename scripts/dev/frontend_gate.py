@@ -94,6 +94,7 @@ from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
 from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
     check_heatmap_cells_are_keyboard_accessible,
     check_heatmap_document_listeners_attach_once,
+    check_heatmap_focus_survives_breakpoint,
 )
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
@@ -373,6 +374,12 @@ CHECKS = (
     (
         "heatmap document listeners attach once",
         check_heatmap_document_listeners_attach_once,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap focus survives breakpoint",
+        check_heatmap_focus_survives_breakpoint,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

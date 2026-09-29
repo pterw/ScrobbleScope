@@ -32,6 +32,10 @@
   const LEFT_PAD   = 32;  // space for day-of-week labels
   const TOP_PAD    = 20;  // space for month labels
   const CORNER_R   = 2;   // rect corner radius
+  // The keyboard focus-ring (see createFocusRing): its stroke is centred
+  // RING_OFFSET user units outside the cell's edge. static/css/heatmap.css
+  // gives it room to paint past the SVG's edge without moving the grid.
+  const RING_OFFSET = 2;
   const MOBILE_TARGET_CELL_SIZE = 22;
   const MOBILE_MIN_CELL_SIZE = 18;
   const MOBILE_MAX_CELL_SIZE = 28;
@@ -355,6 +359,11 @@
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('xmlns', SVG_NS);
+    // The focus-ring is page state, not part of the picture.
+    Array.prototype.forEach.call(
+      clone.querySelectorAll('.heatmap-focus-ring'),
+      function (node) { node.remove(); }
+    );
     Array.prototype.forEach.call(
       clone.querySelectorAll('.heatmap-month-label, .heatmap-day-label'),
       function (node) {
@@ -1341,7 +1350,15 @@
     var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
 
     var viewportWidth = window.innerWidth || document.documentElement.clientWidth || 320;
-    var containerWidth = gridContainer.clientWidth || Math.max(220, viewportWidth - 48);
+    // clientWidth counts padding, and #heatmap-grid carries some as room for
+    // the focus-ring (static/css/heatmap.css); the strip is sized to what is
+    // left inside it.
+    var gridStyle = getComputedStyle(gridContainer);
+    var gridInnerWidth = gridContainer.clientWidth
+      ? gridContainer.clientWidth - parseFloat(gridStyle.paddingLeft) -
+        parseFloat(gridStyle.paddingRight)
+      : 0;
+    var containerWidth = gridInnerWidth || Math.max(220, viewportWidth - 48);
     var columns = Math.floor(
       (containerWidth + MOBILE_GAP) / (MOBILE_TARGET_CELL_SIZE + MOBILE_GAP)
     );
@@ -1478,6 +1495,10 @@
   }
 
   function handleCellKeydown(cellData, index, event, grid) {
+    // A held modifier makes the key someone else's shortcut -- Alt+ArrowLeft
+    // is Back, Ctrl+Home the top of the page, Shift+Arrow a selection -- so
+    // the grid neither moves nor cancels it.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     var nextIndex;
     if (event.key === 'Home') {
       nextIndex = 0;
@@ -1491,6 +1512,47 @@
     if (nextIndex === index) return;
     setRovingTabStop(cellData, nextIndex);
     cellData[nextIndex].el.focus();
+  }
+
+  // ----------------------------------------------------------------
+  // Keyboard focus-ring
+  // ----------------------------------------------------------------
+  /**
+   * Add the grid's one focus-ring, after every cell.
+   *
+   * A focus style on the cell itself cannot do this job. SVG paints in
+   * document order, so every cell drawn after the focused one covered its
+   * right and bottom edges, and the root <svg> clipped it round a cell on
+   * the grid's edge: on the mobile strip, where cells sit 1px apart, the
+   * first cell showed no focus cue at all. Appended last, this one <rect>
+   * paints over every cell. static/css/heatmap.css gives it its stroke and
+   * lets it paint past the SVG's own box, into room #heatmap-grid keeps
+   * round the grid, so neither the cells nor the grid move. It is moved to
+   * the focused cell rather than drawn per cell.
+   */
+  function createFocusRing(svg) {
+    var focusRing = document.createElementNS(SVG_NS, 'rect');
+    focusRing.setAttribute('class', 'heatmap-focus-ring');
+    focusRing.setAttribute('fill', 'none');
+    focusRing.setAttribute('aria-hidden', 'true');
+    focusRing.setAttribute('visibility', 'hidden');
+    svg.appendChild(focusRing);
+    return focusRing;
+  }
+
+  function showFocusRing(focusRing, cell) {
+    var read = function (name) { return parseFloat(cell.getAttribute(name)); };
+    focusRing.setAttribute('x', read('x') - RING_OFFSET);
+    focusRing.setAttribute('y', read('y') - RING_OFFSET);
+    focusRing.setAttribute('width', read('width') + 2 * RING_OFFSET);
+    focusRing.setAttribute('height', read('height') + 2 * RING_OFFSET);
+    focusRing.setAttribute('rx', CORNER_R + RING_OFFSET);
+    focusRing.setAttribute('ry', CORNER_R + RING_OFFSET);
+    focusRing.setAttribute('visibility', 'visible');
+  }
+
+  function hideFocusRing(focusRing) {
+    focusRing.setAttribute('visibility', 'hidden');
   }
 
   // ----------------------------------------------------------------
@@ -1512,6 +1574,9 @@
     }
 
     var svgContainer = gridContainer;
+    // Every cell is in the SVG by now, so the focus-ring paints after them
+    // all.
+    var focusRing = createFocusRing(svg);
 
     cellData.forEach(function (cd, index) {
       cd.el.addEventListener('mouseenter', function (e) {
@@ -1526,9 +1591,19 @@
       }, { passive: false });
       cd.el.addEventListener('focus', function () {
         setRovingTabStop(cellData, index);
+        // Keyboard focus only, as :focus-visible draws it: a click focuses
+        // the cell too, and a focus-ring under the pointer adds nothing.
+        if (cd.el.matches(':focus-visible')) {
+          showFocusRing(focusRing, cd.el);
+        } else {
+          hideFocusRing(focusRing);
+        }
         showTooltip(cd, {clientX: 0, clientY: 0});
       });
-      cd.el.addEventListener('blur', hideTooltip);
+      cd.el.addEventListener('blur', function () {
+        hideFocusRing(focusRing);
+        hideTooltip();
+      });
       cd.el.addEventListener('keydown', function (e) {
         handleCellKeydown(cellData, index, e, grid);
       });
@@ -1544,14 +1619,23 @@
     // an off-screen cell scrolls it into view, which used to fire this
     // listener and hide the tooltip the focus handler had just shown; now
     // it repositions the same tooltip for the still-focused cell instead.
+    // Only a tooltip on show is repositioned. A clicked cell keeps focus
+    // after the pointer leaves and hides its tooltip, and a scroll used to
+    // bring that tooltip back every time.
     document.addEventListener('scroll', function () {
+      if (!tooltip.classList.contains('visible')) return;
       var active = document.activeElement;
       var focused = tooltipCellData.filter(function (cd) { return cd.el === active; })[0];
       if (!focused) {
         hideTooltip();
         return;
       }
-      var reposition = function () { showTooltip(focused, { clientX: 0, clientY: 0 }); };
+      // Re-checked a frame later: the pointer may have hidden it since.
+      var reposition = function () {
+        if (!tooltip.classList.contains('visible')) return;
+        if (document.activeElement !== focused.el) return;
+        showTooltip(focused, { clientX: 0, clientY: 0 });
+      };
       if (window.requestAnimationFrame) {
         window.requestAnimationFrame(reposition);
       } else {
@@ -1642,9 +1726,32 @@
 
       var shouldRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
       if (shouldRenderMobile !== lastRenderMobile) {
-        renderHeatmap(lastHeatmapData);
+        rerenderKeepingFocus();
       }
     }, 100);
+  }
+
+  /**
+   * Re-render for the other layout and give focus back to the same day.
+   *
+   * The re-render replaces every cell, so a focused one was destroyed and
+   * focus fell to <body>: a keyboard reader lost their place and the Tab
+   * stop went back to the last day. The new cell for the same date takes
+   * focus, and its focus handler makes it the Tab stop. With no cell
+   * focused beforehand, nothing takes focus.
+   */
+  function rerenderKeepingFocus() {
+    var active = document.activeElement;
+    var focusedDate = active && active.classList &&
+      active.classList.contains('heatmap-cell') && gridContainer.contains(active)
+      ? active.getAttribute('data-date')
+      : null;
+    var ringShown = focusedDate !== null && active.matches(':focus-visible');
+    renderHeatmap(lastHeatmapData);
+    if (focusedDate === null) return;
+    var cell = gridContainer.querySelector(
+      '.heatmap-cell[data-date="' + focusedDate + '"]');
+    if (cell) cell.focus({ focusVisible: ringShown });
   }
 
   // ----------------------------------------------------------------

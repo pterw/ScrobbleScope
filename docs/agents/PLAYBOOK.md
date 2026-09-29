@@ -120,6 +120,21 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Heatmap focus ring paints whole; grid keys leave shortcuts alone
+
+Side task, no batch tag: second code-review findings E1, E2, E3, E4, E5, E7 and E10 on the heatmap grid, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+E1, E4: the cell outline was covered by later cells and clipped by the SVG, yet every computed-style check passed. One ring rect is now painted after every cell and moved to the keyboard-focused one. The SVG may paint past its box into 4px of room #heatmap-grid keeps round it, so the grid does not move: the viewBox, cell size and frame match the old layout at 390px and 1280px. The gate now reads the ring off screenshot pixels (first, interior and last cell, both profiles) instead of computed outline values, and asserts the grid still spans its frame.
+
+E2, E3: a scroll no longer re-shows the hidden tooltip of a clicked cell, and a held Alt, Ctrl, Meta or Shift leaves the arrow, Home and End keys to the browser. E10: the A3 probe now records that its scroll happened.
+
+E5: a breakpoint re-render gives focus back to the same day, and the new gate check `heatmap focus survives breakpoint` covers it. E7: the vacuous HEATMAP_PATH test is gone.
+
+Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files."): both heatmap keyboard-focus checks join `required` in `config/frontend_gate_checks.toml`, so neither can be disabled; the manifest test pins the new set. The gate goes from 38 to 39 checks and 63 to 64 runs.
+
+Live probes: base code, ring painted first, no room in the grid's clip, a clipping SVG, the grid-moving viewBox padding, and each single fix reverted all went red; the fix stayed green.
+Validation: `pytest -q` -- **2118 passed**.
+
 ### 2026-09-29 - Repo Assist pins the count it measures and skips browser tests
 
 Side task, no batch tag: Repo Assist's rules and file grant, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -152,20 +167,3 @@ pending on a closing session. `_cancel_and_drain` now cancels and awaits them be
 unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
 Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
 Validation: `pytest -q` -- **2083 passed**.
-
-### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
-
-Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-The table loses its fourth "Reason detail" column. A row's note sits under the artist instead:
-the shortfall on a threshold row ("3 plays and 1 track short", new `describe_shortfall`), the
-reason on a release row, and nothing on a no-match row. At 390px the album title has 144-160px
-(it had 51-67px). Headline, panel titles and buttons are sentence case. The subtitle gives the
-year and the count, and the attribution is a plain line with 12px text on both pages
-(RECONCILIATION section 18). F-B23-12: every cover, portrait and placeholder uses
-`.provider-artwork`, so artwork is never cropped and corners are 4px, or 8px from 768px.
-F-B23-14: the portrait had never loaded, because it was hidden and `loading="lazy"`. The
-attribute is gone. The gate's wide and tall portraits now have URLs of their own and must load
-whole, inside their slot. F-B23-15 is open for the owner. Edited tests:
-test_group_unmatched_albums_groups_by_reason_code,
-test_unmatched_view_success_renders_grouped_reasons.
-Validation: `pytest -q` -- **2073 passed**.

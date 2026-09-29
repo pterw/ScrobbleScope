@@ -9,11 +9,15 @@
 
 # Checks the gate refuses to disable. Listing a name here that is also in
 # `disabled` stops the gate before a browser launches, naming the check.
+# The two heatmap checks guard a visible keyboard focus state on the grid
+# (docs/agents/ui-accessibility.md item 3), repaired three times on Batch 23.
 required = [
     "stylesheet isolation",
     "theme tokens",
     "pipeline state machines",
     "unmatched report",
+    "heatmap cells keyboard access",
+    "heatmap focus survives breakpoint",
 ]
 
 # Checks not currently selected to run. Empty today: nothing is disabled. A

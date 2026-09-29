@@ -11,6 +11,7 @@ from tests.scripts.dev.gate_parity import defined_names
 CHECKS = (
     "check_heatmap_cells_are_keyboard_accessible",
     "check_heatmap_document_listeners_attach_once",
+    "check_heatmap_focus_survives_breakpoint",
 )
 CONSTANTS = ("HEATMAP_PATH",)
 HELPERS = ("_expected_cell_label",)
@@ -27,10 +28,6 @@ def test_the_name_resolves_through_the_gate_module(name: str) -> None:
     # Only the check itself is re-exported by frontend_gate.py's one-line
     # registration import; HEATMAP_PATH stays private to this slice.
     assert getattr(frontend_gate, name) is getattr(_frontend_gate_heatmap_access, name)
-
-
-def test_heatmap_path_is_the_migrated_heatmap_page() -> None:
-    assert _frontend_gate_heatmap_access.HEATMAP_PATH == "/heatmap"
 
 
 @pytest.mark.parametrize(

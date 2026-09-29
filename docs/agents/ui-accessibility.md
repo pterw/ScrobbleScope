@@ -60,7 +60,10 @@ evidence, not the scope -- the rule outlives the batch.
 6. **Check what the browser computed, in every state a script can reach.**
    A class name is not evidence: a page stylesheet loads after the framework
    and beats a utility of equal specificity, so an element can carry `hidden`
-   and still be on screen. Assert computed style. And check the states a
-   reader can reach, not only the one that loads -- the first touch-target
-   pass measured almost nothing, because the decade pills, the release-year
-   field and the whole heatmap form all start hidden.
+   and still be on screen. Assert computed style -- and where paint order or
+   clipping decides what shows, as it does inside an SVG, read the pixels:
+   the heatmap cell's focus outline computed as 2px solid in the accent
+   while later cells covered it and the `<svg>` clipped it. And check the
+   states a reader can reach, not only the one that loads -- the first
+   touch-target pass measured almost nothing, because the decade pills, the
+   release-year field and the whole heatmap form all start hidden.

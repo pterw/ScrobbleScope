@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
+
+Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The table loses its fourth "Reason detail" column. A row's note sits under the artist instead:
+the shortfall on a threshold row ("3 plays and 1 track short", new `describe_shortfall`), the
+reason on a release row, and nothing on a no-match row. At 390px the album title has 144-160px
+(it had 51-67px). Headline, panel titles and buttons are sentence case. The subtitle gives the
+year and the count, and the attribution is a plain line with 12px text on both pages
+(RECONCILIATION section 18). F-B23-12: every cover, portrait and placeholder uses
+`.provider-artwork`, so artwork is never cropped and corners are 4px, or 8px from 768px.
+F-B23-14: the portrait had never loaded, because it was hidden and `loading="lazy"`. The
+attribute is gone. The gate's wide and tall portraits now have URLs of their own and must load
+whole, inside their slot. F-B23-15 is open for the owner. Edited tests:
+test_group_unmatched_albums_groups_by_reason_code,
+test_unmatched_view_success_renders_grouped_reasons.
+Validation: `pytest -q` -- **2073 passed**.
+
 ### 2026-09-28 - Drop the spotlight's unreachable guards
 
 Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

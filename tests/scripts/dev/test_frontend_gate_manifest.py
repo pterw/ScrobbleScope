@@ -116,6 +116,8 @@ def test_the_shipped_manifest_loads_and_keeps_required_checks_enabled() -> None:
         "theme tokens",
         "pipeline state machines",
         "unmatched report",
+        "heatmap cells keyboard access",
+        "heatmap focus survives breakpoint",
     }
     assert disabled == frozenset()
     assert frontend_gate.REQUIRED_CHECKS == required
