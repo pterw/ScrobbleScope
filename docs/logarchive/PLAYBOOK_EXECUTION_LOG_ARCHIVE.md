@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-27 - Record the follow-on plans' final code review
+
+Side task, no batch tag: record the outcome of the final code review of the
+three follow-on plans (control-plane, frontend, test infrastructure and
+dependencies), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. This does not close WP-0.
+
+The review covered `f8fb8e9^..18d95ae` and raised ten findings. The
+controller checked each against the code: eight were fixed in one fix wave
+(`6d217f4` docsync, `604d815` artist spotlight, `351c5fe` heatmap), one was
+already filed (F-DOCSYNC-23, the unchecked module count), and one was already
+ruled (WT015 fires in every checkout because `skills-lock.json` is absent;
+where that file lives is the owner's decision). The part of the spotlight
+finding asking for a text-only card when Spotify is down stays as the
+F-B21-60 ruling requires: no card. A scoped re-review approved the wave.
+
+Deviations: `6d217f4` and `604d815` carry subjects without the Conventional
+Commits type and scope; they were not rewritten, because history is rewritten
+only on the owner's instruction. Deferred minor: the heatmap tooltip follows
+the focused cell on scroll even when the mouse hovers a different one.
+
+Validation: `pytest -q` -- **1999 passed**.
+
 ### 2026-09-27 - Heatmap keyboard and screen-reader access follow-up
 
 Side task, no batch tag: give the heatmap grid a roving tabindex (one Tab

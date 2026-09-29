@@ -120,6 +120,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
+
+Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The spotlight's Spotify link now shows Spotify's own icon, from
+https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip,
+committed byte-for-byte: Primary_Logo_Black_RGB.svg (SHA-256
+5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05) on the light
+theme and Primary_Logo_White_RGB.svg (SHA-256
+8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1) on the dark
+theme. Neither theme's surface is pure white or black, so the green icon is not
+allowed. The icon is 24px with 12px of clear space; the link target is 48px.
+Results and unmatched lists attribute Spotify once, with the icon; only
+non-Spotify rows keep a text badge. No Deezer logo could be taken from Deezer's
+own domains, so F-B22-4 stays open for Deezer only. The "Save image" JPEG
+dropped the SVG icon (html2canvas 1.4), so the export now swaps in a raster of
+the same file. New frontend-gate check "spotlight spotify icon size and link
+target", and a JPEG-icon step in "results provider attribution". Edited test:
+test_results_complete_links_each_row_to_its_own_provider.
+Validation: `pytest -q` -- **2050 passed**.
+
 ### 2026-09-28 - Heatmap arrow keys follow the layout; document listeners attach once
 
 Side task, no batch tag: the 2026-09-28 /code-review's findings 2 and 4 on the heatmap grid,
@@ -178,26 +198,3 @@ now-false claim from the guard module's docstring and
 `.superpowers/cloud-kit/constraints.md`'s expected-pre-commit-noise line.
 
 Validation: `pytest -q` -- **2001 passed**.
-
-### 2026-09-27 - Record the follow-on plans' final code review
-
-Side task, no batch tag: record the outcome of the final code review of the
-three follow-on plans (control-plane, frontend, test infrastructure and
-dependencies), part of Batch 23 WP-0 Part C. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands. This does not close WP-0.
-
-The review covered `f8fb8e9^..18d95ae` and raised ten findings. The
-controller checked each against the code: eight were fixed in one fix wave
-(`6d217f4` docsync, `604d815` artist spotlight, `351c5fe` heatmap), one was
-already filed (F-DOCSYNC-23, the unchecked module count), and one was already
-ruled (WT015 fires in every checkout because `skills-lock.json` is absent;
-where that file lives is the owner's decision). The part of the spotlight
-finding asking for a text-only card when Spotify is down stays as the
-F-B21-60 ruling requires: no card. A scoped re-review approved the wave.
-
-Deviations: `6d217f4` and `604d815` carry subjects without the Conventional
-Commits type and scope; they were not rewritten, because history is rewritten
-only on the owner's instruction. Deferred minor: the heatmap tooltip follows
-the focused cell on scroll even when the mouse hovers a different one.
-
-Validation: `pytest -q` -- **1999 passed**.

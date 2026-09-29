@@ -1,4 +1,5 @@
 # tests/test_routes.py
+import hashlib
 import json
 import re
 from unittest.mock import patch
@@ -558,9 +559,10 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
     """
     GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album
     WHEN POST /results_complete is submitted
-    THEN each row links to album_url (not a spotify_id-derived Spotify URL) and
-         carries a provider attribution badge naming its own provider (Batch 22
-         WP-1 Task 6).
+    THEN each row links to album_url (not a spotify_id-derived Spotify URL);
+         the Deezer row carries a text badge naming Deezer (Batch 22 WP-1 Task
+         6), while the Spotify row is attributed once for the list by the
+         official Spotify icon instead of a per-row badge (F-B21-60).
     """
     job_id = create_job(
         {
@@ -614,8 +616,11 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
     # Neither row's link is reconstructed from spotify_id -- each uses its
     # own provider's album_url, so a Deezer row must never point at Spotify.
     assert "open.spotify.com/album/dz-1" not in html
-    assert re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
-        "Spotify row is missing its provider attribution badge"
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
+        "Spotify row carries a per-row badge; Spotify is attributed once per list"
+    )
+    assert 'id="results-spotify-attribution"' in html, (
+        "Spotify row's list has no Spotify icon attribution"
     )
     assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html), (
         "Deezer row is missing its provider attribution badge"
@@ -2139,3 +2144,196 @@ def test_heatmap_capacity_refusal_states_the_configured_cap(client):
 
     assert response.status_code == 429
     assert "all 7 search slots are busy" in response.get_json()["message"]
+
+
+#: The official Spotify icon files (F-B21-60), committed byte-for-byte from
+#: developer.spotify.com's 2024-spotify-logo-icon.zip, with their SHA-256.
+SPOTIFY_ICON_SHA256 = {
+    "/static/images/brand/spotify/Primary_Logo_Black_RGB.svg": (
+        "5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05"
+    ),
+    "/static/images/brand/spotify/Primary_Logo_White_RGB.svg": (
+        "8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1"
+    ),
+}
+
+
+def _provider_row(provider, index=0):
+    """One completed-results row sourced from `provider`."""
+    host = "open.spotify.com" if provider == "spotify" else "www.deezer.com"
+    return {
+        "artist": f"{provider.title()} Band {index}",
+        "album": f"{provider.title()} Album {index}",
+        "play_count": 40 - index,
+        "play_time": "10m",
+        "play_time_seconds": 600,
+        "release_date": "2025-01-01",
+        "album_image": f"https://example.com/{provider}-{index}.jpg",
+        "spotify_id": f"sp-{index}" if provider == "spotify" else "",
+        "provider": provider,
+        "album_url": f"https://{host}/album/{provider}-{index}",
+    }
+
+
+def _render_results(client, rows):
+    """Render /results_complete for a finished job holding `rows`."""
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    set_job_results(job_id, rows)
+    set_job_progress(job_id, progress=100, message="Done!", error=False)
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_spotify_icon_files_are_served_byte_for_byte(client):
+    """
+    GIVEN the two official Spotify icon files under static/images/brand/spotify
+    WHEN each is requested
+    THEN it is served as SVG with exactly the SHA-256 of Spotify's own file --
+         no redrawn, recoloured or edited copy (F-B21-60).
+    """
+    for path, digest in SPOTIFY_ICON_SHA256.items():
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert response.mimetype == "image/svg+xml", path
+        assert hashlib.sha256(response.data).hexdigest() == digest, path
+        response.close()
+
+
+def test_results_spotlight_link_shows_the_official_spotify_icon(client):
+    """
+    GIVEN a completed job with Spotify-sourced albums
+    WHEN the results page renders
+    THEN the spotlight's Spotify link holds the official icon files (black for
+         light, white for dark) instead of the old arrow glyph, opens a new
+         tab, keeps its accessible name, and stays hidden with no target until
+         the client confirms a Spotify candidate and sets its artist URL
+         (F-B21-60).
+    """
+    html = _render_results(client, [_provider_row("spotify")])
+    link = re.search(r'<a id="spotlight-spotify-link"(.*?)</a>', html, re.DOTALL)
+    assert link, "spotlight Spotify link is missing"
+    markup = link.group(1)
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in markup, path
+    assert "<svg" not in markup, "the old arrow glyph is still inline"
+    opening_tag = markup.split(">", 1)[0]
+    assert 'target="_blank"' in opening_tag
+    assert 'rel="noopener noreferrer"' in opening_tag
+    assert re.search(
+        r'aria-label="View [^"]+ on Spotify \(opens in new tab\)"', opening_tag
+    )
+    assert re.search(r'class="spotlight-spotify-link hidden\b', opening_tag)
+    assert "href=" not in opening_tag
+
+
+def test_results_attribute_spotify_once_inside_the_export_wrapper(client):
+    """
+    GIVEN a completed job whose rows are all Spotify-sourced
+    WHEN the results page renders
+    THEN one Spotify icon attribution sits inside #results-table-wrapper (the
+         element the "Save image" export captures), before the table, and no
+         row repeats a Spotify badge (F-B21-60).
+    """
+    html = _render_results(
+        client, [_provider_row("spotify", 0), _provider_row("spotify", 1)]
+    )
+    assert html.count('id="results-spotify-attribution"') == 1
+    wrapper = html.index('id="results-table-wrapper"')
+    attribution = html.index('id="results-spotify-attribution"')
+    table = html.index('id="results-table"')
+    assert wrapper < attribution < table
+    strip = html[attribution:table]
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in strip, path
+    assert "Album artwork and links from Spotify<" in strip
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+
+
+def test_results_without_spotify_rows_show_no_spotify_attribution(client):
+    """
+    GIVEN a completed job whose only row is Deezer-sourced
+    WHEN the results page renders
+    THEN no Spotify list attribution appears, and the Deezer row keeps its
+         own text badge (F-B22-4, open for Deezer).
+    """
+    html = _render_results(client, [_provider_row("deezer")])
+    assert 'id="results-spotify-attribution"' not in html
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html)
+
+
+def test_results_mixed_providers_say_which_rows_spotify_covers(client):
+    """
+    GIVEN a completed job with Spotify and Deezer rows
+    WHEN the results page renders
+    THEN the Spotify attribution says it excludes rows naming another
+         provider, so it never claims the Deezer row as Spotify content.
+    """
+    html = _render_results(
+        client, [_provider_row("spotify"), _provider_row("deezer", 1)]
+    )
+    assert (
+        "Album artwork and links from Spotify, except rows that name another provider"
+        in html
+    )
+
+
+def _unmatched_html(client, key, item):
+    """Render /unmatched_view for a job holding one unmatched `item`."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(job_id, key, item)
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_unmatched_view_attributes_spotify_once_for_the_page(client):
+    """
+    GIVEN an unmatched album whose metadata came from Spotify
+    WHEN POST /unmatched_view is submitted
+    THEN the page carries one Spotify icon attribution and the row repeats no
+         Spotify badge (F-B21-60).
+    """
+    html = _unmatched_html(
+        client,
+        "spotify|filtered",
+        {
+            "artist": "Spotify Filtered Artist",
+            "album": "Spotify Filtered Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/spotify-filtered.jpg",
+            "spotify_id": "sp-filtered",
+            "provider": "spotify",
+            "album_url": "https://open.spotify.com/album/sp-filtered",
+        },
+    )
+    assert html.count('id="unmatched-spotify-attribution"') == 1
+    strip = html[html.index('id="unmatched-spotify-attribution"') :]
+    strip = strip.split("</div>", 1)[0]
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in strip, path
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+
+
+def test_unmatched_view_with_only_deezer_rows_shows_no_spotify_attribution(client):
+    """
+    GIVEN an unmatched album with Deezer artwork and no Spotify content
+    WHEN POST /unmatched_view is submitted
+    THEN no Spotify attribution appears on the page.
+    """
+    html = _unmatched_html(
+        client,
+        "deezer|only",
+        {
+            "artist": "Deezer Only Artist",
+            "album": "Deezer Only Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/deezer-only.jpg",
+            "spotify_id": None,
+            "provider": "deezer",
+            "album_url": "https://www.deezer.com/album/dz-only",
+        },
+    )
+    assert 'id="unmatched-spotify-attribution"' not in html

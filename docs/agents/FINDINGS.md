@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2032 tests across 78 tracked test modules.
+2050 tests across 79 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -125,95 +125,44 @@ Status: partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
 
-### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
+### F-B23-11: titles shown next to Spotify artwork are Last.fm spellings
 
-Spotify's design guidelines ("Using our content",
-https://developer.spotify.com/documentation/design#using-our-content) forbid
-cropping artwork, putting images or text over it, animating it, and using
-Spotify metadata without the Spotify logo or icon and a link back to Spotify.
-The results page's artist spotlight (`templates/results.html`
-`artist-spotlight-card`, `static/css/results.css` `.spotlight-card-bleed`,
-`static/js/results-spotlight.js`) breaks these rules. The app uses the Web API
-under Spotify's terms, so this is a compliance defect, not a taste question.
+Spotify's guidelines ("Using our content", "For metadata") say "Track,
+artist, playlist, and album titles must always be presented with the
+metadata provided by Spotify." The results rows, the spotlight and the
+unmatched report show `album`/`artist` from Last.fm, next to Spotify
+artwork and links. P1, not P2, because it is the same compliance class as
+F-B21-60, which the owner graded P1 ("a compliance defect, not a taste
+question").
 
-- **Crop:** Spotify artist photos are square, but the card is short and wide.
-  `object-cover` cuts off the top and bottom.
-- **Overlay:** `.spotlight-scrim-top` and `.spotlight-scrim-bottom` put
-  gradients and text (the "Artist Spotlight" title, rank, name and play time)
-  over the photo.
-- **Animation:** every 7 seconds `renderCandidate` fades the whole card,
-  photo included, to 15% opacity and swaps the artist.
-- **Album art fallback:** with no artist photo, the card shows the first
-  album's cover, cropped and overlaid (`spotlight_fallback_img`).
-- **Attribution:** the app shows no Spotify logo or icon anywhere. The
-  spotlight's link to Spotify is a plain arrow, shown only after hydration.
-  Results rows already link each album to Spotify, but carry no Spotify icon.
+Fix shape: carry Spotify's album and artist names through `_results.py` and
+the cache for Spotify-sourced rows, and render them. Deezer rows follow
+Deezer's rules. More than a 20-line change.
 
-Owner ruling, 2026-09-13, on the redesign:
-- Show the artist photo whole, square, with 4px corners at small sizes and
-  8px at large sizes. Nothing is drawn on top of it.
-- Put the name, rank and play time beside or below the photo.
-- Change artists without animating the photo. An instant swap is acceptable;
-  reduced motion keeps the first artist, as today.
-- **There is no text-only card and no album-art fallback.** A candidate with
-  no Spotify artist photo is skipped in the rotation. If no candidate has a
-  photo, the card is not shown at all. That includes the server render: do
-  not render the card until an artist photo is known.
-- Add the official Spotify icon, 21px or larger, linking to the artist on
-  Spotify. Use Spotify's asset as supplied, not a redrawn glyph.
-- Add the same icon next to the album links on results rows, or once as
-  attribution for the list, whichever the guidelines' placement rules allow.
-- Batch 22 adds Deezer as a fallback provider, so a row's artwork and link may
-  come from either service. The attribution follows the album's own provider,
-  under that provider's rules.
+Status: open (P1). Filed 2026-09-28, not in the Part C set (filed after
+F-B21-60 was fixed); owner to schedule. Source: F-B21-60 "To check", Task 1
+of the 2026-09-28 review workspace.
 
-To check during the fix:
-- whether the JPEG export captures Spotify artwork in a way the same rules
-  forbid
-- the gap where titles shown next to Spotify artwork are Last.fm spellings,
-  not Spotify's metadata
+### F-B23-12: remaining Spotify artwork display breaches outside the spotlight
 
-Tests: route tests assert that the card is absent when no candidate has a photo
-and that `spotlight_fallback_img` is gone. The frontend gate checks the photo
-at its natural aspect ratio, no element overlapping the photo, no opacity
-change on the photo during rotation, and the icon's rendered size and link
-target.
+Two more breaches of Spotify's "Using our content" guidelines, in the same
+class as F-B21-60 part 1:
 
-**Partial progress, 2026-09-13 (Batch 22 WP-2 Task 6):** results and
-unmatched rows now link to the album's own provider (`album_url`, not a
-Spotify URL reconstructed from `spotify_id`) and carry a small text
-attribution link naming that provider. This closes the "results rows carry
-no Spotify icon" gap in substance but not to the letter -- it is a text
-label, not either provider's official logo asset, so the ruling below is
-still open. The artist spotlight card is unchanged: still cropped, still
-overlaid, still animated. See F-B22-4 for the logo-asset gap.
+(a) **Crop.** The unmatched report crops Spotify artist portraits:
+`.unmatched-artist-image { object-fit: cover }` in `static/css/unmatched.css`
+crops the non-square photos fetched from `/api/artist_spotlight`
+(`static/js/unmatched.js`). This breaks "Don't crop the artwork" the same
+way F-B21-60's spotlight did.
 
-**Partial progress, 2026-09-26 (Batch 23 WP-0 Task 5):** crop, overlay,
-animation and the server- and client-side album-art fallback are fixed. The
-photo is shown whole and square (4px corners at small sizes, 8px at large),
-nothing draws on top of it, artist changes swap instantly with no fade, and
-a candidate with no Spotify-confirmed photo is dropped from rotation --
-`scrobblescope/spotlight.py` no longer seeds `image_url` from an album cover,
-and `results-spotlight.js` no longer falls back to that seed either. If no
-candidate has a confirmed photo, the card stays hidden. The Spotify icon and
-provider-attribution bullets stay open under this same finding; the logo
-asset gap is tracked separately as F-B22-4.
+(b) **Corner radius.** Row artwork uses 8px corners at every width, where
+Spotify asks for 4px on small and medium devices.
 
-**Partial progress, 2026-09-27 (Batch 23 WP-0 fix wave, Group B):** the
-photo box's `object-fit` is `contain`, not `cover` -- a non-square Spotify
-photo is shown whole, letterboxed on the card's own surface token, instead
-of cropped to fill the square box. Every confirmed candidate's photo is now
-preloaded and cached before the rotation ever reveals anything, and a swap
-sets the visible `<img>`'s src and alt together with the text, synchronously
--- no stale photo under a new artist's name. Each hydrate request -- the
-fetch, its json body and the image preload together -- is bounded by one
-8-second timeout; a request or a photo that never answers within that budget
-is dropped like an unconfirmed candidate rather than keeping the whole card
-hidden. The Spotify icon and provider-attribution bullets stay open under
-this same finding; the logo asset gap is still tracked as F-B22-4.
+Fix shape: `contain` on a surface-token letterbox for the unmatched
+portraits, 4px/8px corners applied per breakpoint for row artwork, and a
+gate check like `check_artist_spotlight_photo_not_cropped_when_non_square`.
 
-Status: open (P1), owner ruling recorded. Source: Spotify API review,
-2026-09-13.
+Status: open (P1), filed 2026-09-28. Source: Task 1 review, 2026-09-28; the
+controller is fixing it next in this workspace (Task 7).
 
 ## P2 -- Scaling roadmap
 
@@ -505,7 +454,13 @@ itself, deezerbrand.com carries the detail but did not render for an agent
 session). Small and self-contained; no test rewrite beyond swapping the
 `provider-badge` element type assertions.
 
-Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
+Spotify's half is closed under F-B21-60 as of 2026-09-28 (official icon,
+attributed once per list). Deezer: developers.deezer.com/guidelines/logo points to
+deezerbrand.com, a Frontify portal whose API needs a signed-in user and
+whose files are served from media.ffycdn.net, not a Deezer domain. The
+owner must supply the Deezer logo file.
+
+Status: open (P2), Deezer only. Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
 ### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
 
@@ -698,6 +653,14 @@ gate runner so a stalled check fails fast rather than hanging.
 
 - [ ] **Status:** open (P2). Source: Batch 23 WP-0 frontend Task 1, Task 4
   and Task 2 fix round 2 landings, 2026-09-26/27; close-out CO2, 2026-09-27.
+
+### F-B23-13: the "Save image" JPEG export clips the artist line under each album title
+
+Seen during Task 1's export checks (F-B21-60 part 2 landing): the results
+page's "Save image" JPEG export clips the artist line under each album
+title. Pre-existing, not Spotify-specific.
+
+Status: open (P2). Source: Task 1 code report, 2026-09-28.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

@@ -8,6 +8,7 @@ from scripts.dev._frontend_gate_colour import (
     _contrast_ratio,
     _parse_rgb_string,
 )
+from scripts.dev._frontend_gate_spotify_icon import spotify_icon_failures
 from scrobblescope.domain import format_album_key, normalize_name
 from scrobblescope.repositories import (
     create_job,
@@ -98,14 +99,16 @@ def check_results_interactions(page, base_url: str) -> list[str]:
 
 
 def check_results_provider_attribution(page, base_url: str) -> list[str]:
-    """A row's link and provider badge follow its own provider (Batch 22 WP-1 Task 6).
+    """A row's link and attribution follow its own provider (Batch 22 WP-1 Task 6).
 
     One Spotify-sourced row and one Deezer-sourced row must each link to
     their own provider's album page (not a hardcoded open.spotify.com URL
-    built from spotify_id) and carry a visible, provider-labelled
-    attribution link -- the interim text form recorded next to the markup
-    in templates/results.html pending each provider's official logo asset
-    (F-B22-4).
+    built from spotify_id). Spotify rows are attributed once for the list by
+    the official Spotify icon above the table, inside the export wrapper
+    (F-B21-60), so they carry no per-row badge; the icon must meet Spotify's
+    size, file and clear-space rules. The Deezer row keeps a visible,
+    provider-labelled text link, standing in for Deezer's logo until an
+    official file is supplied (F-B22-4).
     """
     job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
@@ -168,6 +171,13 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                     f"{provider} row's album link is {href!r}, expected it to contain {host!r}"
                 )
             badge = row.locator("a.provider-badge")
+            if provider == "spotify":
+                if badge.count():
+                    failures.append(
+                        "spotify row renders a per-row provider badge; Spotify is "
+                        "attributed once for the list"
+                    )
+                continue
             if badge.count() == 0:
                 failures.append(f"{provider} row renders no provider attribution badge")
                 continue
@@ -183,6 +193,25 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                 failures.append(
                     f"{provider} row's provider badge does not name its provider"
                 )
+
+        attribution = probe.locator(
+            "#results-table-wrapper #results-spotify-attribution"
+        )
+        if attribution.count() == 0 or attribution.first.is_hidden():
+            failures.append(
+                "results list shows no Spotify attribution inside the export wrapper"
+            )
+        else:
+            failures.extend(
+                spotify_icon_failures(
+                    probe,
+                    "#results-spotify-attribution",
+                    "results Spotify attribution",
+                    clear_scope="#results-table-wrapper",
+                )
+            )
+            for theme in ("light", "dark"):
+                failures.extend(_check_export_keeps_spotify_icon(probe, theme))
 
         with probe.expect_download() as downloaded:
             probe.locator("#export-csv").click()
@@ -456,6 +485,75 @@ def _check_results_scale(page) -> list[str]:
         if viewport is not None:
             page.set_viewport_size(viewport)
     return failures
+
+
+def _check_export_keeps_spotify_icon(page, theme: str) -> list[str]:
+    """The "Save image" JPEG carries the Spotify icon it attributes the list with.
+
+    html2canvas 1.4 silently drops an SVG <img> once the export widens its
+    cloned wrapper, which would ship Spotify artwork with no attribution
+    (F-B21-60). The export's icon box -- the live offset inside the wrapper,
+    times the export's 3x scale -- must hold pixels that contrast with the
+    strip's own surface.
+    """
+    page.evaluate(
+        "theme => document.documentElement.setAttribute('data-theme', theme)", theme
+    )
+    try:
+        box = page.evaluate(
+            """() => {
+                const icon = [...document.querySelectorAll('#results-spotify-attribution img.spotify-icon')]
+                    .find(img => getComputedStyle(img).display !== 'none');
+                const wrapper = document.querySelector('#results-table-wrapper').getBoundingClientRect();
+                const rect = icon.getBoundingClientRect();
+                return {x: rect.left - wrapper.left, y: rect.top - wrapper.top,
+                        width: rect.width, height: rect.height};
+            }"""
+        )
+        with page.expect_download(timeout=15_000) as downloaded:
+            page.locator("#save-image").click()
+        image_bytes = Path(downloaded.value.path()).read_bytes()
+        inked = page.evaluate(
+            """async ([data, box]) => {
+                const image = new Image();
+                image.src = 'data:image/jpeg;base64,' + data;
+                await image.decode();
+                const scale = image.width / 1200;
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+                const context = canvas.getContext('2d');
+                context.drawImage(image, 0, 0);
+                const tone = (x, y) => {
+                    const p = context.getImageData(x, y, 1, 1).data;
+                    return (p[0] + p[1] + p[2]) / 3;
+                };
+                const surface = tone(Math.round(4 * scale), Math.round(4 * scale));
+                const pixels = context.getImageData(
+                    Math.round(box.x * scale), Math.round(box.y * scale),
+                    Math.round(box.width * scale), Math.round(box.height * scale)).data;
+                let inked = 0;
+                for (let i = 0; i < pixels.length; i += 4) {
+                    const value = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+                    if (Math.abs(value - surface) > 100) inked += 1;
+                }
+                return inked / (pixels.length / 4);
+            }""",
+            [b64encode(image_bytes).decode("ascii"), box],
+        )
+    # Gate boundary: any failure becomes a reported FAIL line, not a crash.
+    except Exception as exc:  # noqa: BLE001
+        return [
+            f"{theme} JPEG export (Spotify icon) failed: {type(exc).__name__}: {exc}"
+        ]
+    # The icon's disc fills well over a third of its box; a dropped icon
+    # leaves only the flat strip surface (0%).
+    if inked < 0.25:
+        return [
+            f"{theme} JPEG export drops the Spotify icon: {inked:.0%} of its box "
+            "contrasts with the attribution strip"
+        ]
+    return []
 
 
 def _check_jpeg_export(page, theme: str) -> list[str]:

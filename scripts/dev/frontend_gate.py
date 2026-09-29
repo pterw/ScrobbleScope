@@ -148,6 +148,9 @@ from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
     TOGGLE_TIMEOUT_MS,
     _reach_state,
 )
+from scripts.dev._frontend_gate_spotify_icon import (  # noqa: E402, F401
+    check_spotlight_spotify_icon_size_and_link_target,
+)
 from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
     check_artist_spotlight_card_hidden_with_no_photo,
     check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
@@ -389,6 +392,12 @@ CHECKS = (
         "artist spotlight photo not cropped when non-square",
         check_artist_spotlight_photo_not_cropped_when_non_square,
         (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "spotlight spotify icon size and link target",
+        check_spotlight_spotify_icon_size_and_link_target,
+        (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),
     (

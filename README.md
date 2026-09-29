@@ -72,7 +72,9 @@ available run in the same browser session.
 - Fetch scrobbles for a listening year and enrich albums with release dates,
   artwork, and track runtimes from Spotify, falling back to Deezer for
   whatever Spotify cannot match or detail. Each album links to its own
-  provider's page and carries a small attribution badge naming it.
+  provider's page. Spotify content is attributed once per list with
+  Spotify's official icon; a row from any other provider carries a small
+  text badge naming it.
 - Include all release years, the listening year, the previous year, a decade,
   or a specific release year.
 - Choose minimum track plays and unique tracks per album; the defaults are
@@ -455,7 +457,9 @@ confirmed the card stays hidden -- there is no album-art fallback and no
 faked photo. The photo itself is shown whole (`object-fit: contain`,
 letterboxed on the card's surface if it is not square) rather than cropped to
 fill the box, and text and photo swap together on rotation, so the photo
-never lags a name change under a stale image.
+never lags a name change under a stale image. Beside the name, Spotify's
+official icon (black in the light theme, white in the dark theme, 24px with
+its clear space) links to the artist on Spotify.
 
 ## Getting Started
 

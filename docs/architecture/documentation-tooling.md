@@ -111,6 +111,8 @@ flowchart TD
     FG --> FGRU[_frontend_gate_runtime]
     FG --> FGHA[_frontend_gate_heatmap_access]
     FG --> FGSP[_frontend_gate_spotlight_photo]
+    FG --> FGSI[_frontend_gate_spotify_icon]
+    FGSI --> FGSP
     FGA --> FGS
     FGFM --> FGS
     FGT --> FGS
@@ -429,12 +431,13 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: the checks are grouped by concern across twelve
+`dev/worktree_guard.py`: the checks are grouped by concern across thirteen
 `_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
 `_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
 `_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
-`_frontend_gate_shared`, `_frontend_gate_spotlight_photo`, `_frontend_gate_theme`,
-and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
+`_frontend_gate_shared`, `_frontend_gate_spotify_icon`,
+`_frontend_gate_spotlight_photo`, `_frontend_gate_theme`, and
+`_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
 proposed has landed (foundation plan Task 8): a manifest under `config/`

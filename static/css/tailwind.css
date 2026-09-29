@@ -1317,9 +1317,6 @@
       max-width: 96rem;
     }
   }
-  .-m-\[14px\] {
-    margin: calc(14px * -1);
-  }
   .mx-auto {
     margin-inline: auto;
   }
@@ -1409,14 +1406,8 @@
   .table {
     display: table;
   }
-  .h-4 {
-    height: var(--spacing-4);
-  }
   .h-12 {
     height: var(--spacing-12);
-  }
-  .w-4 {
-    width: var(--spacing-4);
   }
   .w-12 {
     width: var(--spacing-12);
@@ -1648,9 +1639,6 @@
   }
   .p-8 {
     padding: var(--spacing-8);
-  }
-  .p-\[14px\] {
-    padding: 14px;
   }
   .px-1 {
     padding-inline: var(--spacing-1);

@@ -138,6 +138,19 @@
             </div>
             {% endif %}
             <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
+                {# Spotify attribution, once for the whole list (F-B21-60): the
+                   guidelines ask for Spotify's logo or icon with Spotify content,
+                   not a mark on every item. It sits inside the wrapper so the
+                   "Save image" export (html2canvas on this wrapper) carries it.
+                   Rows from any other provider name it on their own row. #}
+                {% set spotify_rows = album_list|selectattr('provider', 'equalto', 'spotify')|list %}
+                {% set other_provider_rows = album_list|selectattr('provider')|rejectattr('provider', 'equalto', 'spotify')|list %}
+                {% if spotify_rows %}
+                <div id="results-spotify-attribution" class="provider-attribution">
+                    {% include "partials/_spotify_icon.html" %}
+                    <span class="provider-attribution__text">Album artwork and links from Spotify{% if other_provider_rows %}, except rows that name another provider{% endif %}</span>
+                </div>
+                {% endif %}
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
                         <tr class="border-b border-[var(--ss-border-default)] bg-transparent text-xs font-mono font-normal uppercase tracking-wider text-[var(--ss-text-muted)]">
@@ -208,14 +221,17 @@
                                         <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
                                             {{ album.artist }}
                                         </span>
-                                        {# Provider attribution (Batch 22 WP-2 Task 6). Deezer requires "a
-                                           clearly visible Deezer Logo" on any app using its API
-                                           (developers.deezer.com/guidelines#local and /guidelines/logo);
-                                           Spotify's own content rules make the same demand (F-B21-60). This
-                                           text link is the interim measure -- swapping in each provider's
-                                           official logo asset is tracked separately (F-B22-4) since neither
-                                           asset could be sourced from here. #}
-                                        {% if album.provider and album.album_url %}
+                                        {# Per-row provider attribution (Batch 22 WP-2 Task 6), now for
+                                           non-Spotify rows only: Spotify rows are attributed once for the
+                                           whole list by the official icon above the table (F-B21-60).
+                                           Deezer requires "a clearly visible Deezer Logo" on any app using
+                                           its API (developers.deezer.com/guidelines/logo), but its logo
+                                           files are published only through the deezerbrand.com portal,
+                                           which serves them from a third-party CDN behind a signed-in API,
+                                           so no official file could be taken from Deezer's own domains.
+                                           Until one is supplied this text link stands in for Deezer's logo
+                                           (F-B22-4, open for Deezer only). #}
+                                        {% if album.provider and album.provider != 'spotify' and album.album_url %}
                                         <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
                                             {{ album.provider }}
                                         </a>
@@ -290,14 +306,16 @@
                                 <p id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2" title="{{ top_artist_name|default(album_list[0].artist) }}">
                                     {{ top_artist_name|default(album_list[0].artist) }}
                                 </p>
+                                {# The official Spotify icon, linking to the artist on Spotify
+                                   (F-B21-60). `.spotlight-spotify-link` pads the 24px icon by
+                                   half its height on every side: that padding is Spotify's clear
+                                   space and makes the 48px touch target. #}
                                 <a id="spotlight-spotify-link"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="hidden text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs transition-colors flex items-center justify-center flex-shrink-0 p-[14px] -m-[14px]"
+                                   class="spotlight-spotify-link hidden focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs flex items-center justify-center flex-shrink-0"
                                    aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
                                    title="View on Spotify">
-                                    <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M6 3h7v7M13 3L6 10" />
-                                    </svg>
+                                    {% include "partials/_spotify_icon.html" %}
                                 </a>
                             </div>
                             <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">

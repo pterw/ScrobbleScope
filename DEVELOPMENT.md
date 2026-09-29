@@ -487,7 +487,10 @@ wrapper has to list them), and the artist-spotlight photo checks in
 `_frontend_gate_spotlight_photo.py` (no crop, no overlay, no animation, a
 non-square photo shown whole via `object-fit: contain` rather than cropped
 to fill the square photo box, and the card stays hidden with no faked
-photo).
+photo). `_frontend_gate_spotify_icon.py` later added the official Spotify
+icon's check: the file each theme shows, at least 21px, half its height of
+clear space, and the spotlight link's target; the results attribution check
+reuses it and also requires the icon in the "Save image" JPEG.
 
 Run `python -m playwright install chromium firefox` once after installing the
 pinned development requirements, then `python scripts/dev/frontend_gate.py`.
@@ -565,12 +568,12 @@ and specific in its checks, which is the right split and the part that stays
 behind. The decomposition split (F-B21-51) has landed: the facade stays
 under the decomposition plan's 700-line threshold
 (`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`), and the
-checks are grouped by concern across twelve `_frontend_gate_*` siblings --
-ten own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
+checks are grouped by concern across thirteen `_frontend_gate_*` siblings --
+eleven own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
 `_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
 `_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
-`_frontend_gate_spotlight_photo`, `_frontend_gate_theme`,
-`_frontend_gate_unmatched`), one holds pure colour maths
+`_frontend_gate_spotify_icon`, `_frontend_gate_spotlight_photo`,
+`_frontend_gate_theme`, `_frontend_gate_unmatched`), one holds pure colour maths
 (`_frontend_gate_colour`), and one holds shared state rather than a concern
 of its own (`_frontend_gate_shared`, the page inventories and other objects
 several slices read). The

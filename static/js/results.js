@@ -138,6 +138,19 @@ document.addEventListener('DOMContentLoaded', () => {
             paint.fillRect(0, 0, 1, 1);
             const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
             const exportSurface = `rgb(${red}, ${green}, ${blue})`;
+            // html2canvas 1.4 drops an SVG <img> once onclone widens the
+            // wrapper, so the image would carry Spotify artwork without the
+            // Spotify icon (F-B21-60). Hand the clone a raster of the same
+            // official file, drawn by the browser at export scale, unchanged.
+            const iconRasters = new Map();
+            targetElement.querySelectorAll('img.spotify-icon').forEach(icon => {
+                if (!icon.complete || !icon.offsetWidth) return;
+                const raster = document.createElement('canvas');
+                raster.width = Math.ceil(icon.offsetWidth * 3);
+                raster.height = Math.ceil(icon.offsetHeight * 3);
+                raster.getContext('2d').drawImage(icon, 0, 0, raster.width, raster.height);
+                iconRasters.set(icon.getAttribute('src'), raster.toDataURL('image/png'));
+            });
 
             window.html2canvas(targetElement, {
                 scale: 3,
@@ -176,6 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Force unhide rank numbers
                     clonedWrapper?.querySelectorAll('.rank-num').forEach(el => {
                         el.style.display = 'inline-block';
+                    });
+
+                    clonedWrapper?.querySelectorAll('img.spotify-icon').forEach(icon => {
+                        const raster = iconRasters.get(icon.getAttribute('src'));
+                        if (raster) icon.src = raster;
                     });
                 },
             }).then(canvas => {

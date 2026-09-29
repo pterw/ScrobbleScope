@@ -475,6 +475,61 @@
     }
 }
 
+/* The official Spotify icon (F-B21-60; markup in
+   templates/partials/_spotify_icon.html). Spotify's minimum is 21px, so it is
+   a fixed 24px tall -- never scaled by --results-scale, which could shrink it
+   -- and its width follows the file's own aspect ratio. Both monochrome files
+   are in the page; the theme shows one, never a recoloured copy: black on the
+   light theme's off-white surface, white on the dark theme's near-black one
+   (green is for pure black or white only). */
+.spotify-icon {
+    display: block;
+    flex-shrink: 0;
+    width: auto;
+    height: 24px;
+}
+
+.spotify-icon--on-dark,
+[data-theme="dark"] .spotify-icon--on-light {
+    display: none;
+}
+
+[data-theme="dark"] .spotify-icon--on-dark {
+    display: block;
+}
+
+/* Spotify's clear space is half the icon's height (12px) on every side. The
+   spotlight link's own padding is that space, so nothing else can sit inside
+   it, and 24px + 2 x 12px is a 48px touch target. The negative top and right
+   margins keep the icon itself level with the artist name's top edge and the
+   card's content edge. */
+.spotlight-spotify-link {
+    padding: 12px;
+    margin: -12px -12px 0 0;
+}
+
+/* One Spotify attribution for the whole results list, inside the export
+   wrapper. The padding and gap are the icon's 12px clear space. */
+.provider-attribution {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--ss-border-default);
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.6875rem * var(--results-scale));
+    letter-spacing: 0.03em;
+    color: var(--ss-text-muted);
+}
+
+/* The unmatched report's page-level attribution stands alone, so it takes
+   the card treatment instead of a divider. */
+.provider-attribution--page {
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    background-color: var(--results-surface);
+}
+
 /* Micro-data filter bar: tucked left, text in mono-narrow, no bold, no pills */
 .results-filter-bar {
     display: flex;

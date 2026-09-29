@@ -301,7 +301,12 @@ does not silently leave:
 **Amendment, 2026-09-27 (controller).** F-B21-60's part 2 -- the Spotify
 icon and the results-row provider-attribution bullets from the owner's
 2026-09-13 ruling -- is in no WP-0 or later plan. It is recorded here as
-remaining, unscheduled work. F-B21-60 stays in the set above and stays open.
+remaining, unscheduled work. F-B21-60 stays in the set above and stays open
+(closed 2026-09-28, see below).
+
+**Amendment, 2026-09-28 (owner ruling, Option 1).** F-B21-60 part 2 was
+scheduled inside WP-0, before the WP-0 close-out, and landed as Task 1 of
+the 2026-09-28 review workspace. F-B21-60 leaves the set as Fixed.
 
 A finding leaves the set in one of three ways, and only these:
 
