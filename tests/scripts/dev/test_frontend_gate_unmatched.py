@@ -109,6 +109,76 @@ def test_artwork_radius_reports_an_absent_kind_instead_of_passing() -> None:
     assert failures == ["unmatched page at 390px renders no portrait artwork"]
 
 
+def test_ring_judgement_names_the_link_the_width_and_each_bare_side() -> None:
+    """The planted clip left the title only its bottom edge (at 1280px, 873
+    changed pixels below and none elsewhere); a side under the floor is bare.
+    """
+    failures = _frontend_gate_unmatched._ring_side_failures(
+        "album title link", 1280, {"top": 0, "right": 3, "bottom": 873, "left": 0}
+    )
+    assert len(failures) == 1
+    assert failures[0].startswith("unmatched album title link at 1280px: ")
+    assert "paints nothing on its top, right, left side(s)" in failures[0]
+
+
+def test_ring_judgement_passes_a_whole_ring_and_reports_a_decode_error() -> None:
+    whole = {side: 60 for side in ("top", "right", "bottom", "left")}
+    assert (
+        _frontend_gate_unmatched._ring_side_failures("provider badge", 390, whole) == []
+    )
+    assert _frontend_gate_unmatched._ring_side_failures(
+        "provider badge", 390, {"error": "screenshots differ in size"}
+    ) == ["unmatched provider badge at 390px: screenshots differ in size"]
+
+
+def test_focus_ring_reports_a_missing_link_instead_of_passing() -> None:
+    """A fixture with no badge must fail by name, not skip the badge."""
+    page = MagicMock()
+    page.viewport_size = {"width": 1280, "height": 720}
+
+    def evaluate(script, *args):
+        if "scrollIntoView" in script:
+            return {"target": args[0][0] != ".provider-badge", "start": True}
+        if "focus-visible" in script:
+            return {
+                "reached": True,
+                "active": "A album-link",
+                "visible": True,
+                "box": {"left": 100, "top": 100, "right": 300, "bottom": 124},
+                "viewport": {"width": 1280, "height": 720},
+            }
+        if "createImageBitmap" in script:
+            return {side: 60 for side in ("top", "right", "bottom", "left")}
+        return None
+
+    page.evaluate.side_effect = evaluate
+    page.screenshot.return_value = b"png"
+    failures = _frontend_gate_unmatched._focus_ring_failures(page)
+    assert len(failures) == 1
+    assert "has no provider badge (.provider-badge)" in failures[0]
+    page.keyboard.press.assert_called_once_with("Tab")
+
+
+def test_focus_ring_reports_a_link_tab_does_not_reach() -> None:
+    page = MagicMock()
+    page.viewport_size = {"width": 390, "height": 844}
+
+    def evaluate(script, *args):
+        if "scrollIntoView" in script:
+            return {"target": True, "start": True}
+        if "focus-visible" in script:
+            return {"reached": False, "active": "BODY ", "visible": False}
+        return None
+
+    page.evaluate.side_effect = evaluate
+    failures = _frontend_gate_unmatched._focus_ring_failures(page)
+    assert [f.split(" is not reached")[0] for f in failures] == [
+        "unmatched album title link at 390px",
+        "unmatched provider badge at 390px",
+    ]
+    page.screenshot.assert_not_called()
+
+
 def test_sweep_restores_the_viewport_when_measurement_raises() -> None:
     page = _sweeping_page(columns=2, title_width=200.0)
     page.evaluate.side_effect = RuntimeError("page crashed")

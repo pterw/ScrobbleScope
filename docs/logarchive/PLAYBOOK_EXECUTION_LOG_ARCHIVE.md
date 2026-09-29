@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - docsync refuses declared paths and pin rewrites it cannot trust
+
+Side task, no batch tag: the second-review fix wave for the docsync declarations, the test-count pin writer and the worktree guard (review findings B1-B6, B8, B9 and C1-C5), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+B1, B9: a `[documents]` path must be written in the normalised repository-relative form every reader keys documents by. `./x` or `a//b` is refused with the spelling to write, and an empty value says it is empty.
+B2-B4: `--fix --test-count N` parses its rewrite and publishes only the original declarations with `test_count.pinned` changed. Any other result exits 2 and writes nothing.
+B5, C3, C1, C5: `[untracked_essentials]` refuses a backslash, any character `str.isprintable()` rejects, an empty path and `.`. A repeated path is reported once, and a directory at the declarations path is an error, not "nothing declared".
+C2, C4: WT015's read-failure warning carries the failure class only, never the absolute path or OS text, and points to `doc_state_sync.py --check`. WT004 labels an unsafe base ref once.
+B6, B8: the preflight's pin-only exemption decodes `git show` as UTF-8 and fails closed on a blob that is not. DOC025 and the close-out admission refusal name the `--config` file actually read.
+`docs/architecture/documentation-tooling.md` is updated to match.
+Validation: `pytest -q` -- **2111 passed**.
+
 ### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
 
 Side task, no batch tag: the second code-review findings A1 and A2 (Last.fm page cache and orphaned fetches), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

@@ -85,7 +85,10 @@
    theme's spacing reset compiles that utility to nothing (F-B21-52), so the
    heading could not shrink and the toolbar pushed the document into horizontal
    scroll at 768px and 1024px -- against the owner's 2026-09-09 "no horizontal
-   scroll at any width" ruling. Authored here, where the containment is. */
+   scroll at any width" ruling. Authored here, where the containment is.
+   The album column shrinks by this alone, with no overflow clip of its own:
+   a clip there cut the focus ring of the title link and the provider badge,
+   which paints outside their boxes into the cell's padding. */
 .unmatched-heading,
 .unmatched-group-heading,
 .unmatched-table .album-info {

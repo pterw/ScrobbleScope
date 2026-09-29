@@ -305,7 +305,7 @@ module, so the clients stay thin:
 | `release_checks.py` | The correction worker: one thread, a FIFO queue of jobs, and the rules for which albums are worth a lookup |
 | `cache.py` | Every asyncpg call, with batch lookups, batch writes and connection retry |
 | `domain.py` | Name normalization -- the keys everything else joins on -- and the release-window rule both the album filter and the correction worker apply |
-| `unmatched.py` | The stable exclusion reason codes and the threshold partition |
+| `unmatched.py` | The stable exclusion reason codes, the threshold partition and each threshold row's shortfall note |
 | `spotlight.py` | Artist sampling for the results side rail |
 | `utils.py` | The shared limiters, sessions, retries, caches and formatters described above |
 | `api_logging.py` | One log line per provider call and a per-provider summary when a session closes, attached where `utils.py` builds every session |

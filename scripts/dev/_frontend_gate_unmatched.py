@@ -9,10 +9,15 @@ the title 51px.
 The artist portraits are checked as loaded, shown whole and in their slots,
 from URLs of their own: the check once passed while no portrait could ever
 load (F-B23-14).
+
+The focus rings of the album title link and the provider badge are judged on
+painted pixels, reached by Tab: the text column's overflow clip once cut both
+while every computed outline value stayed the same.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 from urllib.parse import parse_qs, urlparse
 
@@ -73,6 +78,84 @@ UNMATCHED_SMALL_TEXT_FLOOR = 12.0
 
 #: How long the portraits get to load once their rows are in view.
 _PORTRAIT_WAIT_MS = 5000
+
+#: The links whose focus ring is judged on painted pixels: a label, the
+#: link's selector, and the control just before it in the same row, which is
+#: focused by script so that one real Tab press reaches the link. The text
+#: column once clipped both rings: the title kept only its bottom edge, the
+#: badge its top and right.
+_FOCUS_RING_TARGETS = (
+    ("album title link", ".album-link", ".rank-link"),
+    ("provider badge", ".provider-badge", ".album-link"),
+)
+
+#: CSS px of margin around the link's box in each screenshot, room for the
+#: ring to paint in.
+_FOCUS_RING_MARGIN = 8
+
+#: Summed RGB difference above which a pixel counts as changed.
+_FOCUS_RING_DIFF = 24
+
+#: Least number of changed pixels a side of the ring must show. A whole ring
+#: changes 60 or more on each side at 1280px; a cut side changes none.
+_FOCUS_RING_MIN_PIXELS = 4
+
+_RING_SIDES = ("top", "right", "bottom", "left")
+
+#: The release-scope fixture row served from Deezer (23 plays, the panel's
+#: second row), so the report renders a provider badge.
+_DEEZER_SCOPE_ROW = 4
+
+#: Decodes the focused and blurred screenshots in the page (the gate has no
+#: image library) and counts the changed pixels in the four bands outside the
+#: link's box. Pixels inside the box are not counted: the link turns orange
+#: and gains an underline on focus whether or not its ring paints.
+_RING_PIXELS_JS = """async ({focused, blurred, box, clip, threshold}) => {
+    const decode = async data => {
+        const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+        const bitmap = await createImageBitmap(new Blob([bytes], {type: 'image/png'}));
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height);
+    };
+    const a = await decode(focused);
+    const b = await decode(blurred);
+    if (a.width !== b.width || a.height !== b.height) {
+        return {error: `screenshots differ in size: ${a.width}x${a.height} `
+            + `and ${b.width}x${b.height}`};
+    }
+    const w = a.width;
+    const h = a.height;
+    // Screenshot pixels are CSS px times the device scale factor. Round the
+    // box outward, so no band holds a pixel the box partly covers.
+    const scale = w / clip.width;
+    const left = Math.floor((box.left - clip.x) * scale);
+    const right = Math.ceil((box.right - clip.x) * scale);
+    const top = Math.floor((box.top - clip.y) * scale);
+    const bottom = Math.ceil((box.bottom - clip.y) * scale);
+    const count = (x0, x1, y0, y1) => {
+        let changed = 0;
+        for (let y = Math.max(0, y0); y < Math.min(h, y1); y++) {
+            for (let x = Math.max(0, x0); x < Math.min(w, x1); x++) {
+                const i = (y * w + x) * 4;
+                const diff = Math.abs(a.data[i] - b.data[i])
+                    + Math.abs(a.data[i + 1] - b.data[i + 1])
+                    + Math.abs(a.data[i + 2] - b.data[i + 2]);
+                if (diff > threshold) changed++;
+            }
+        }
+        return changed;
+    };
+    return {
+        top: count(left, right, 0, top),
+        right: count(right, w, top, bottom),
+        bottom: count(left, right, bottom, h),
+        left: count(0, left, top, bottom),
+    };
+}"""
 
 
 def _unmatched_panel_width_sweep(page) -> list[str]:
@@ -344,6 +427,103 @@ def _row_layout_failures(page) -> list[str]:
     return failures
 
 
+def _ring_side_failures(label: str, width: int, counts: dict) -> list[str]:
+    """Name the sides of a focus ring that painted nothing.
+
+    `counts` holds the changed pixels per side, or an `error` from decoding.
+    """
+    if "error" in counts:
+        return [f"unmatched {label} at {width}px: {counts['error']}"]
+    bare = [
+        side for side in _RING_SIDES if counts.get(side, 0) < _FOCUS_RING_MIN_PIXELS
+    ]
+    if not bare:
+        return []
+    return [
+        f"unmatched {label} at {width}px: its focus ring paints nothing on its "
+        f"{', '.join(bare)} side(s); changed pixels by side {counts!r}"
+    ]
+
+
+def _focus_ring_failures(page) -> list[str]:
+    """The album title link's and the provider badge's focus rings paint whole.
+
+    Judged on pixels: each link is reached by a real Tab press, screenshotted
+    focused and then blurred, and every side outside its box must change. A
+    computed outline cannot see this defect: a ring that a clipping ancestor
+    cuts computes the same as one that is whole, and the text column's
+    `overflow-hidden` once cut both. The ring is the browser's own, so no
+    colour is tested.
+    """
+    failures = []
+    width = page.viewport_size["width"]
+    for label, selector, before in _FOCUS_RING_TARGETS:
+        found = page.evaluate(
+            """([selector, before]) => {
+                const target = document.querySelector(selector);
+                const start = target?.closest('tr')?.querySelector(before);
+                if (!target || !start) return {target: !!target, start: !!start};
+                target.scrollIntoView({block: 'center', inline: 'nearest'});
+                start.focus({preventScroll: true});
+                return {target: true, start: document.activeElement === start};
+            }""",
+            [selector, before],
+        )
+        if not (found["target"] and found["start"]):
+            failures.append(
+                f"unmatched report at {width}px has no {label} ({selector}) "
+                f"with a focusable {before} before it in its row: {found!r}"
+            )
+            continue
+        page.keyboard.press("Tab")
+        state = page.evaluate(
+            """selector => {
+                const target = document.querySelector(selector);
+                const box = target.getBoundingClientRect();
+                const active = document.activeElement;
+                return {
+                    reached: active === target,
+                    active: `${active?.tagName} ${active?.className}`.slice(0, 80),
+                    visible: target.matches(':focus-visible'),
+                    box: {left: box.left, top: box.top, right: box.right,
+                        bottom: box.bottom},
+                    viewport: {width: document.documentElement.clientWidth,
+                        height: document.documentElement.clientHeight},
+                };
+            }""",
+            selector,
+        )
+        if not (state["reached"] and state["visible"]):
+            failures.append(
+                f"unmatched {label} at {width}px is not reached with a visible "
+                f"focus by Tab from its row's {before}: focus is on "
+                f"{state['active']!r}, :focus-visible {state['visible']!r}"
+            )
+            continue
+        box = state["box"]
+        view = state["viewport"]
+        x0 = max(0.0, box["left"] - _FOCUS_RING_MARGIN)
+        y0 = max(0.0, box["top"] - _FOCUS_RING_MARGIN)
+        x1 = min(float(view["width"]), box["right"] + _FOCUS_RING_MARGIN)
+        y1 = min(float(view["height"]), box["bottom"] + _FOCUS_RING_MARGIN)
+        clip = {"x": x0, "y": y0, "width": x1 - x0, "height": y1 - y0}
+        focused = page.screenshot(clip=clip, animations="disabled")
+        page.evaluate("selector => document.querySelector(selector).blur()", selector)
+        blurred = page.screenshot(clip=clip, animations="disabled")
+        counts = page.evaluate(
+            _RING_PIXELS_JS,
+            {
+                "focused": base64.b64encode(focused).decode("ascii"),
+                "blurred": base64.b64encode(blurred).decode("ascii"),
+                "box": box,
+                "clip": clip,
+                "threshold": _FOCUS_RING_DIFF,
+            },
+        )
+        failures.extend(_ring_side_failures(label, width, counts))
+    return failures
+
+
 def check_unmatched_report(page, base_url: str) -> list[str]:
     """Exercise the populated report contract and its ten-row disclosure."""
     job_id = create_job(
@@ -405,6 +585,14 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         )
         play_counts = (5, 29, 11, 23, 7, 17, 13, 19, 3, 2, 27, 9)
         for index in range(1, 13):
+            # One Deezer row, second by plays, so a provider badge renders in
+            # the ten rows shown before the disclosure.
+            if index == _DEEZER_SCOPE_ROW:
+                provider, spotify_id = "deezer", None
+                album_url = f"https://www.deezer.com/album/{9000 + index}"
+            else:
+                provider, spotify_id = "spotify", f"scope-album-{index}"
+                album_url = f"https://open.spotify.com/album/scope-album-{index}"
             add_job_unmatched(
                 job_id,
                 f"scope-{index}",
@@ -414,9 +602,9 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "reason": "Outside selected release scope",
                     "reason_code": "release_scope",
                     "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
-                    "spotify_id": f"scope-album-{index}",
-                    "provider": "spotify",
-                    "album_url": f"https://open.spotify.com/album/scope-album-{index}",
+                    "spotify_id": spotify_id,
+                    "provider": provider,
+                    "album_url": album_url,
                     "play_count": play_counts[index - 1],
                 },
             )
@@ -685,6 +873,9 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 "unmatched",
             )
         )
+        # Before the first click below, and after the portraits have loaded,
+        # so nothing else on the page changes between the two screenshots.
+        failures.extend(_focus_ring_failures(page))
 
         button = scope_group.locator(".unmatched-expander-btn")
         button.click()

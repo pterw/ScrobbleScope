@@ -120,6 +120,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Show the whole focus ring on the unmatched album links
+
+Side task, no batch tag: the album title link and the provider badge on the unmatched report now show their whole keyboard focus ring, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The fault came from the controller's keyboard check of the rebuilt page (owner ruling 8). The text column carried `overflow-hidden`, which cut the title's ring to its bottom edge and the badge's to two sides. The class is gone; the table cell's own overflow and padding contain the column, and the title still wraps while the artist line still ends in an ellipsis.
+
+The frontend gate's unmatched check now reaches both links by real Tab presses and judges each ring on painted pixels: a focused screenshot against a blurred one, each side outside the box. A cut ring computes the same outline as a whole one, so no computed style is read. Its fixture gains one Deezer row, still twelve rows, so a badge renders. Live probes: red with the class planted back and red with the clip moved into CSS, green on the fix.
+
+Validation: `pytest -q` -- **2130 passed**.
+
 ### 2026-09-29 - docsync refuses a path that leaves the repository by a junction
 
 Side task, no batch tag: docsync's path boundary and its declared-path spelling, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -153,14 +163,3 @@ Review findings G1-G3: Repo Assist's rules predated the pinned test count and th
 Rule 5 runs `-m "not browser"` and counts the 43 browser tests by `--collect-only`, so N is still the whole suite. Task 4 audits both requirements files. `test.yml` runs `-m browser` without the directory, so the marker decides what runs; the same 43 tests run either way.
 The new `tests/test_ci_workflows.py` checks that the compiled lock grants every file the procedure writes and that the source and the lock agree.
 Validation: `pytest -q` -- **2117 passed**.
-
-### 2026-09-29 - docsync refuses declared paths and pin rewrites it cannot trust
-
-Side task, no batch tag: the second-review fix wave for the docsync declarations, the test-count pin writer and the worktree guard (review findings B1-B6, B8, B9 and C1-C5), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-B1, B9: a `[documents]` path must be written in the normalised repository-relative form every reader keys documents by. `./x` or `a//b` is refused with the spelling to write, and an empty value says it is empty.
-B2-B4: `--fix --test-count N` parses its rewrite and publishes only the original declarations with `test_count.pinned` changed. Any other result exits 2 and writes nothing.
-B5, C3, C1, C5: `[untracked_essentials]` refuses a backslash, any character `str.isprintable()` rejects, an empty path and `.`. A repeated path is reported once, and a directory at the declarations path is an error, not "nothing declared".
-C2, C4: WT015's read-failure warning carries the failure class only, never the absolute path or OS text, and points to `doc_state_sync.py --check`. WT004 labels an unsafe base ref once.
-B6, B8: the preflight's pin-only exemption decodes `git show` as UTF-8 and fails closed on a blob that is not. DOC025 and the close-out admission refusal name the `--config` file actually read.
-`docs/architecture/documentation-tooling.md` is updated to match.
-Validation: `pytest -q` -- **2111 passed**.

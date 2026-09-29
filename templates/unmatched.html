@@ -183,7 +183,12 @@
                                         </div>
                                         {% endif %}
                                     {% endif %}
-                                    <div class="album-info flex-1 flex flex-col gap-[calc(0.125rem*var(--results-scale))] overflow-hidden">
+                                    {# No `overflow-hidden` on this column: a keyboard focus
+                                       indicator paints outside the link's box, and the clip cut
+                                       the title's to its bottom edge and the badge's to two sides.
+                                       `min-width: 0` in unmatched.css lets the column shrink,
+                                       and the cell's own overflow and padding contain it. #}
+                                    <div class="album-info flex-1 flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
                                         {% if item.album_url %}
                                         <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug" title="{{ item.album }}">
                                             {{ item.album }}
