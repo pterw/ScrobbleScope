@@ -76,12 +76,18 @@ class TestValidateApiKeys:
 
 
 def test_every_root_log_handler_redacts_the_api_key():
-    handlers = logging.getLogger().handlers
-    ours = [h for h in handlers if isinstance(h.formatter, RedactingFormatter)]
+    """Both channels app.py installs must redact: the rotating file and stdout,
+    the production log channel. pytest's own capture handlers are subclasses,
+    so an exact type match picks out only the two app.py built."""
+    from logging.handlers import RotatingFileHandler
 
-    assert ours, "app.py installed no RedactingFormatter handler"
-    stdout_and_file = [
-        h for h in handlers if type(h).__name__ in ("RotatingFileHandler",)
-    ]
-    assert stdout_and_file
-    assert all(isinstance(h.formatter, RedactingFormatter) for h in stdout_and_file)
+    handlers = logging.getLogger().handlers
+    file_handlers = [h for h in handlers if type(h) is RotatingFileHandler]
+    stdout_handlers = [h for h in handlers if type(h) is logging.StreamHandler]
+
+    assert file_handlers, "no RotatingFileHandler on the root logger"
+    assert stdout_handlers, "no stdout StreamHandler on the root logger"
+    for handler in file_handlers + stdout_handlers:
+        assert isinstance(handler.formatter, RedactingFormatter), (
+            f"{type(handler).__name__} has no RedactingFormatter"
+        )
