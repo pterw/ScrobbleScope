@@ -1354,6 +1354,46 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
         load_declarations(tmp_path)
 
 
+def test_a_non_utf8_declarations_file_is_a_declaration_error(
+    tmp_path: Path,
+) -> None:
+    """Bytes that are not valid UTF-8 must name themselves, not crash the gate.
+
+    Before this, `read_text(encoding="utf-8")` raised `UnicodeDecodeError`
+    straight out of `load_declarations`; `essentials_diagnostics` catches only
+    `DeclarationError`, so this escaped to `inspect_worktree`'s fail-closed
+    WT014 ERROR, contradicting the WARNING-only promise (finding 5).
+    """
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_bytes(b"[options]\n# \xff\xfe not utf-8\n")
+
+    with pytest.raises(DeclarationError, match="could not be read"):
+        load_declarations(tmp_path)
+
+
+def test_an_unreadable_declarations_path_is_a_declaration_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An OSError reading the file (locked, permission-denied) is also converted.
+
+    Simulated with a monkeypatched `Path.read_text` rather than a real
+    permission change, since a locked-on-Windows file cannot be reproduced
+    portably in a test.
+    """
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text("[options]\n", encoding="utf-8")
+
+    def _raise_os_error(self, *args, **kwargs):
+        raise OSError("simulated: file is locked")
+
+    monkeypatch.setattr(Path, "read_text", _raise_os_error)
+
+    with pytest.raises(DeclarationError, match="could not be read"):
+        load_declarations(tmp_path)
+
+
 class TestExplicitConfigPath:
     def test_explicit_path_outside_repository_is_refused(self, tmp_path: Path):
         from docsync.declarations import DeclarationError, load_declarations

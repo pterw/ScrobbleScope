@@ -120,6 +120,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-28 - Report an unreadable declarations file as a warning
+
+Side task, no batch tag: the 2026-09-28 /code-review's finding 5 in the control plane, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`load_declarations` now converts an unreadable or non-UTF-8 declarations file into a
+`DeclarationError` naming the path and the cause, so the worktree guard's WT015 check stays
+WARNING-only instead of escaping to the fail-closed WT014 ERROR. WT015's message now says the
+declarations file could not be read, keeping the underlying error text, instead of blaming
+`[untracked_essentials]` specifically. Finding 6 (a FINDINGS header rewrite conjuring an empty
+file) was refuted on reachability: `_read_live_documents` already requires FINDINGS.md before
+that code runs, so no fix was made for it.
+Validation: `pytest -q` -- **2055 passed**.
+
 ### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
 
 Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -178,23 +190,3 @@ returns the existing `lastfm_unavailable` metadata instead of raising
 instead of always naming `decade`.
 
 Validation: `pytest -q` -- **2004 passed**.
-
-### 2026-09-28 - Stop declaring skills-lock.json an untracked essential
-
-Side task, no batch tag: Stop declaring skills-lock.json an untracked
-essential, part of Batch 23 WP-0 Part C. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-Owner ruling 2026-09-28: skills-lock.json "is a file that was briefly
-here, but vanished... if it is needed search and let go for what you
-think is best." Controller decision: not needed -- it is the `npx skills`
-CLI's own lockfile; nothing in this repository, its hooks, CI or agent
-workflow reads it. `config/docsync.toml`'s `[untracked_essentials]` now
-declares `paths = []` (comment explains why); the mechanism, its schema
-and `scripts/dev/_worktree_guard_essentials.py` are unchanged, so WT015
-still fires for any future essential that is declared. `.gitignore` keeps
-the `skills-lock.json` line since the CLI still writes it. Swept the
-now-false claim from the guard module's docstring and
-`.superpowers/cloud-kit/constraints.md`'s expected-pre-commit-noise line.
-
-Validation: `pytest -q` -- **2001 passed**.

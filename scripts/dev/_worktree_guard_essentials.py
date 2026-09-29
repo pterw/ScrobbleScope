@@ -6,11 +6,12 @@ No file is declared by default (owner ruling 2026-09-28 retired
 `skills-lock.json`, which nothing in this repository read); the mechanism
 stays for a future essential. This check is WARNING only: unlike a
 tracked file, the worktree guard cannot restore or fetch a missing one
-either, so it can only tell the reader it is gone. A malformed
-`[untracked_essentials]` table is WARNING-only for the same reason: it is
-still not something this guard can repair, so it must not escalate to the
-fail-closed WT014 that `inspect_worktree` raises for an unexpected
-exception.
+either, so it can only tell the reader it is gone. A declarations file
+that cannot be read or parsed -- a malformed `[untracked_essentials]`
+table, an unreadable path, or non-UTF-8 bytes -- is WARNING-only for the
+same reason: it is still not something this guard can repair, so it must
+not escalate to the fail-closed WT014 that `inspect_worktree` raises for
+an unexpected exception.
 """
 
 from __future__ import annotations
@@ -45,9 +46,11 @@ def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
     something already there. Silent when nothing is declared, and silent for
     any declared path that is a present file. Never ERROR: this guard has no
     way to create, fetch or reshape a declared path, so it never blocks on
-    one. A malformed `[untracked_essentials]` table itself is reported the
-    same way, as a single WT015 WARNING naming the config problem, rather
-    than escaping to `inspect_worktree`'s fail-closed WT014.
+    one. A declarations file that cannot be read or parsed at all -- a
+    malformed `[untracked_essentials]` table, an unreadable path, or bytes
+    that are not valid UTF-8 -- is reported the same way, as a single WT015
+    WARNING naming the read or parse problem, rather than escaping to
+    `inspect_worktree`'s fail-closed WT014.
 
     Every message that names the declared path renders it with `repr()`
     (CR5): declarations.py's own containment check keeps the path inside the
@@ -65,9 +68,9 @@ def essentials_diagnostics(repo_root: Path) -> list[Diagnostic]:
                 "WARNING",
                 "WT015",
                 "config/docsync.toml",
-                f"the [untracked_essentials] declaration could not be read: {error}",
-                "Fix the [untracked_essentials] table; this guard cannot "
-                "check declared paths until it parses.",
+                f"the declarations file could not be read: {error}",
+                "Fix config/docsync.toml; this guard cannot check declared "
+                "paths until it parses.",
             )
         ]
     diagnostics: list[Diagnostic] = []

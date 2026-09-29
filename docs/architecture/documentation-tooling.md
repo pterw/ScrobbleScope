@@ -305,9 +305,11 @@ cannot protect** (F-B21-25), implemented in
 in both directions this guard cannot repair: a missing declared file, and a
 declared path that exists but is a directory rather than a file (CR10) --
 reported distinctly, rather than as "missing", so the reader is not sent to
-restore something already there. A malformed `[untracked_essentials]` table
-is reported the same way instead of escaping to `inspect_worktree`'s
-fail-closed WT014.
+restore something already there. A malformed `[untracked_essentials]` table,
+or a declarations file that cannot be read or parsed at all (an unreadable
+path or bytes that are not valid UTF-8, both converted to `DeclarationError`
+inside `load_declarations` itself so every caller benefits), is reported the
+same way instead of escaping to `inspect_worktree`'s fail-closed WT014.
 
 `docsync.logic` and `docsync.integrity` no longer need the deferred,
 deadlock-guarded circular import the two modules once required for

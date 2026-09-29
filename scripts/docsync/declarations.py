@@ -828,7 +828,13 @@ def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> di
             raise DeclarationError(f"--config names {path}, which is not a file.")
         return {}
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise DeclarationError(f"{path} could not be read: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise DeclarationError(f"{path} could not be read: {exc}") from exc
+    try:
+        return tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         raise DeclarationError(f"{path} is not valid TOML: {exc}") from exc
 
