@@ -300,9 +300,13 @@ class ResultsBehaviorTests(unittest.TestCase):
 
     #: A card whose height depends on the link: a 36px row when the link
     #: shows, 20px when it does not; the second candidate adds a 60px badge.
+    #: The photo is out of the layout: the page blocks every request, so an
+    #: `<img>` fails at a moment no test controls, and a failed image with alt
+    #: text is an 18px line. The production card holds its photo in a sized box.
     LINK_LAYOUT_MARKUP = (
         "<style>.hidden{display:none}"
         "#spotlight-artist-name{display:block;height:20px}"
+        "#spotlight-artist-img{display:none}"
         "#spotlight-playtime-badge{display:block;height:60px}"
         "#spotlight-playtime-badge.hidden{display:none}"
         ".link-icon{display:block;width:24px;height:24px}</style>"
