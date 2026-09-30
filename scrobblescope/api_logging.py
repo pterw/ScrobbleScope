@@ -64,12 +64,13 @@ class RedactingFormatter(logging.Formatter):
     """Formatter that replaces the value of ``api_key`` with ``[redacted]``.
 
     Protects Last.fm's key from every line the app writes, tracebacks
-    included. Two sites still put it there:
-    ``utils.run_async_in_thread`` (message and traceback) and
-    ``utils.get_cached_response``'s debug line (its cache key embeds the
-    URL). ``utils.retry_with_semaphore``'s error line (on a connect
+    included. Two sites still put it there: the DEBUG traceback of
+    ``utils.run_async_in_thread`` (its ERROR line names the class only)
+    and ``utils.get_cached_response``'s debug line (its cache key embeds
+    the URL). ``utils.retry_with_semaphore``'s error line (on a connect
     timeout) and ``routes.album_flow.results_loading``'s registration-year
-    warning were two more until they stopped writing exception messages. The trace hook's own query exclusion is the first layer; this is
+    warning were two more until they stopped writing exception messages.
+    The trace hook's own query exclusion is the first layer; this is
     the backstop at the output layer.
     """
 

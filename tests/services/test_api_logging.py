@@ -484,8 +484,13 @@ def test_run_async_in_thread_error_line_carries_the_class_never_the_message(capl
     assert errors
     for record in errors:
         assert "RuntimeError" in record.getMessage()
-    assert "Zqxv" not in caplog.text
-    assert "Wjkl" not in caplog.text
+        assert record.exc_info is None
+        assert "Zqxv" not in record.getMessage()
+        assert "Wjkl" not in record.getMessage()
+    # The traceback stays available, but only at DEBUG.
+    debugs = [r for r in caplog.records if r.levelno == logging.DEBUG and r.exc_info]
+    assert debugs
+    assert debugs[0].exc_info[0] is RuntimeError
 
 
 # --- S1-13: the drain's own cancellations are not provider failures ----------

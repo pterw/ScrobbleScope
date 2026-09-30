@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Second architecture review tracked and scheduled
+
+Side task, no batch tag: the second deepening review of the codebase is tracked at `docs/history/reports/architecture-review-20260930-0040.html`, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The review walked the routes, the orchestrator's phase modules, the provider contract, the cache, the worker and the results, spotlight and loading scripts, and checked every candidate in the five earlier architecture reports against the code: four done, three partial, five open, five already planned. Two findings are live defects, confirmed by reading the code: three providers log the album and artist they searched for at ERROR level, against the logging module's own rule; and the album route's single `try` treats an outage in the user or privacy check as a failed registration-year hint and starts the job anyway. Four album filters (`sort_mode`, `release_scope`, `decade`, `limit_results`) are never validated.
+
+Section 3 now says that these seams come before the Spotify import and which work package each one gates. The owner added the report to `docs/history/reports/`; no code changed.
+
+Validation: `pytest -q` -- **2223 passed**.
+
 ### 2026-09-29 - User checked before privacy; only a public verdict cached; payload edge cases
 
 Side task, no batch tag: checking the user before privacy, caching only a public verdict and handling Deezer and Last.fm payload edge cases, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

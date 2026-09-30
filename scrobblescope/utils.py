@@ -188,9 +188,10 @@ def run_async_in_thread(coro):
     routes, and ``/api/artist_spotlight``. Background jobs build their own
     loop through ``worker.new_thread_event_loop`` instead.
 
-    An exception is logged here by class only (its message can carry a
-    provider's URL or a listener's names), then re-raised in the calling
-    thread, which is the only one that can answer the request.
+    An exception is logged here at ERROR by class only (its message can
+    carry a provider's URL or a listener's names); the full traceback goes
+    to DEBUG. It is then re-raised in the calling thread, which is the only
+    one that can answer the request.
     """
     result = []
     error = []
@@ -203,6 +204,7 @@ def run_async_in_thread(coro):
             result.append(loop.run_until_complete(coro()))
         except Exception as e:  # noqa: BLE001 - re-raised in the caller
             logging.error(f"Error in async thread: {type(e).__name__}")
+            logging.debug("Async thread traceback", exc_info=True)
             error.append(e)
         finally:
             if loop is not None:
