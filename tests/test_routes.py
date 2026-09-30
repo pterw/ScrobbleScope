@@ -1299,9 +1299,11 @@ def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
 
 def test_unmatched_view_renders_artwork_in_every_reason_group(client):
     """
-    GIVEN one album in each of the three reason groups
+    GIVEN one album in each of the four reason groups
     WHEN POST /unmatched_view is submitted
-    THEN every group must render the sized artwork container.
+    THEN every group must render the sized artwork container, and the groups
+    come in the order below_threshold, release_scope, no_spotify_match,
+    provider_unavailable (the DOM, and so the tab, order).
 
     Mutation: restore the `reason_key != 'below_threshold'` guard around the
     artwork block and this fails -- the below-threshold panel then renders no
@@ -1342,13 +1344,29 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "no_spotify_match",
         },
     )
+    jobs.record_unmatched(
+        job_id,
+        "d|four",
+        {
+            "artist": "Artist D",
+            "album": "Album Four",
+            "reason": "Spotify and Deezer were both unavailable",
+            "reason_code": "provider_unavailable",
+        },
+    )
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
-    reasons = ("below_threshold", "release_scope", "no_spotify_match")
-    positions = sorted(html.index(f'data-reason="{reason}"') for reason in reasons)
+    reasons = (
+        "below_threshold",
+        "release_scope",
+        "no_spotify_match",
+        "provider_unavailable",
+    )
+    positions = [html.index(f'data-reason="{reason}"') for reason in reasons]
+    assert positions == sorted(positions), "the reason groups are out of order"
     for index, start in enumerate(positions):
         end = positions[index + 1] if index + 1 < len(positions) else len(html)
         assert "unmatched-artwork" in html[start:end], (

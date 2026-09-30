@@ -43,7 +43,7 @@ def js_page(js_browser: object) -> Iterator[object]:
     ``page.set_content`` leaves ``document.readyState`` at "complete" before
     ``add_script_tag`` ever runs the file, so a later DOMContentLoaded never
     fires -- the seam this harness exercises must be exposed at heatmap.js's
-    module top level, not inside that listener (see Step 1).
+    module top level, not inside that listener.
 
     ``window.__scrobbleHeatmapTestMode`` is set before the script tag loads
     heatmap.js, so the guarded seam (F-B21-18) exposes

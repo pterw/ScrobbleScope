@@ -323,12 +323,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let tooltipTimer;
 
         /** The provider a link opens, as its row records it. */
-        function providerOf(link) {
+        const providerOf = (link) => {
             return link.closest('tr')?.dataset.provider || 'spotify';
-        }
+        };
 
         /** The hint for this link's provider, created on first use. */
-        function tooltipFor(link) {
+        const tooltipFor = (link) => {
             const provider = providerOf(link);
             if (!tooltips.has(provider)) {
                 const name = provider.charAt(0).toUpperCase() + provider.slice(1);
@@ -339,23 +339,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 tooltips.set(provider, tooltip);
             }
             return tooltips.get(provider);
-        }
+        };
 
         /** Dismiss both a pending hover and the currently displayed hint. */
-        function hideAlbumTooltip() {
+        const hideAlbumTooltip = () => {
             window.clearTimeout(tooltipTimer);
             tooltips.forEach(tooltip => tooltip.classList.remove('is-visible'));
-        }
+        };
 
         /** Position the link's hint below it, keeping it on screen. */
-        function showAlbumTooltip(link) {
+        const showAlbumTooltip = (link) => {
             const tooltip = tooltipFor(link);
             const box = link.getBoundingClientRect();
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
             tooltip.style.left = `${Math.max(rem, Math.min(box.left, innerWidth - tooltip.offsetWidth - rem))}px`;
             tooltip.style.top = `${Math.min(box.bottom + rem / 2, innerHeight - tooltip.offsetHeight - rem)}px`;
             tooltip.classList.add('is-visible');
-        }
+        };
 
         albumLinks.forEach(link => {
             link.setAttribute('aria-describedby', tooltipFor(link).id);

@@ -1,28 +1,9 @@
 // Artist spotlight presentation, hydration and rotation are independent of exports.
 document.addEventListener('DOMContentLoaded', () => {
-    function formatDurationMobile(seconds) {
-        seconds = Math.ceil(seconds);
-        if (seconds < 60) return `${seconds}s`;
-        const minutes = Math.floor(seconds / 60);
-        const secRem = seconds % 60;
-        if (minutes < 60) {
-            return secRem > 0 ? `${minutes}m ${secRem}s` : `${minutes}m`;
-        }
-        const hours = Math.floor(minutes / 60);
-        const minRem = minutes % 60;
-        if (hours < 24) {
-            return minRem > 0 ? `${hours}h ${minRem}m` : `${hours}h`;
-        }
-        const days = Math.floor(hours / 24);
-        const hourRem = hours % 24;
-        return hourRem > 0 ? `${days}d ${hourRem}h` : `${days}d`;
-    }
-
-
     /** Find the optional card elements once for each results document. */
     function spotlightView() {
         const ids = {
-            card: 'artist-spotlight-card', content: 'spotlight-card-content',
+            card: 'artist-spotlight-card',
             name: 'spotlight-artist-name', image: 'spotlight-artist-img',
             link: 'spotlight-spotify-link', duration: 'spotlight-playtime-badge',
             separator: 'spotlight-playtime-sep', summary: 'spotlight-scrobble-text',
@@ -47,11 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** Show listening duration only when the candidate has measured playtime. */
+    /** Show listening duration only when the candidate has measured playtime.
+     *  The server formats it (`play_time`) whenever it measured any. */
     function renderDuration(view, candidate) {
         if (!view.duration || !view.separator) return;
         const visible = candidate.play_time_seconds > 0;
-        if (visible) view.duration.textContent = candidate.play_time || formatDurationMobile(candidate.play_time_seconds);
+        if (visible) view.duration.textContent = candidate.play_time;
         view.duration.classList.toggle('hidden', !visible);
         view.separator.classList.toggle('hidden', !visible);
     }
@@ -60,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
      *  confirmed candidate's photo is already in the browser cache before it
      *  is ever shown -- a swap can then set the visible <img>'s src and the
      *  text together, synchronously, with no stale photo under a new name
-     *  (F-B21-60 / B2). A load failure resolves to `''`, the same as an
+     *  (F-B21-60). A load failure resolves to `''`, the same as an
      *  unconfirmed candidate, rather than rejecting. */
     function preloadImage(url) {
         return new Promise(resolve => {
@@ -79,8 +61,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!view.image) return;
         view.image.src = candidate.image_url;
         view.image.alt = `Photograph of ${candidate.name}`;
-        view.image.classList.remove('hidden', 'opacity-0');
-        view.image.style.opacity = '1';
     }
 
     /** Keep the link and its accessible name attached to the visible artist. */
@@ -115,7 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return state.pointerInside || view.card.contains(document.activeElement);
     }
 
-    /** Track the pointer over the card, for `cardInUse` (S2-2). */
+    /** Track the pointer over the card, for `cardInUse` (S2-2). A card first
+     *  shown under a still pointer needs no seeding: Chromium (the only engine the
+     *  behaviour tests drive) hit-tests the pointer after the layout change and
+     *  fires `pointerenter` itself. */
     function watchCardUse(view, state) {
         view.card.addEventListener('pointerenter', () => { state.pointerInside = true; });
         view.card.addEventListener('pointerleave', () => { state.pointerInside = false; });
@@ -139,10 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const keepLink = card.contains(document.activeElement);
         card.style.minHeight = '';
         let tallest = 0;
-        state.candidates.forEach((_, index) => {
+        state.candidates.forEach((candidate, index) => {
+            // A link kept for focus is not this candidate's own: with no
+            // Spotify URL it would show nothing, so take the kept link out of
+            // the layout for this measurement (a class, so the link itself is
+            // never written to) instead of reading a height it would not add.
+            card.classList.toggle('is-measuring-without-link', keepLink && !candidate.spotify_url);
             renderCandidate(view, { ...state, index }, { keepLink });
             tallest = Math.max(tallest, card.getBoundingClientRect().height);
         });
+        card.classList.remove('is-measuring-without-link');
         card.style.minHeight = `${tallest}px`;
         renderCandidate(view, state, { keepLink });
     }
@@ -168,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     //: One hung `/api/artist_spotlight` request must never keep the whole
-    //  card hidden (F-B21-60 / B3): each hydrate attempt is bounded, and a
+    //  card hidden (F-B21-60): each hydrate attempt is bounded, and a
     //  timed-out candidate is dropped like an unconfirmed one.
     const HYDRATE_TIMEOUT_MS = 8000;
 
@@ -182,9 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const controller = new AbortController();
         // One budget covers the fetch, its json body and the image preload
         // together: an image URL that never answers must still drop the
-        // candidate, not just the request that fetched its URL (F-B21-60 /
-        // B3 follow-up). `deadline` resolves `''` -- the same as a failed
-        // preload -- when the whole hydrate has run past its budget.
+        // candidate, not just the request that fetched its URL (F-B21-60).
+        // `deadline` resolves `''` -- the same as a failed preload -- when
+        // the whole hydrate has run past its budget.
         let resolveDeadline;
         const deadline = new Promise(resolve => { resolveDeadline = resolve; });
         const timeout = setTimeout(() => {
@@ -203,10 +192,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // stale one from a previous candidate) pass the rotation's
             // `c => c.image_url` filter as if it were a photo of this
             // artist. A photo that fails to actually load is dropped the
-            // same way (B2): a confirmed URL is worthless if the browser
-            // never manages to fetch the image itself, and a photo that
-            // never even answers is dropped the same way as one that fails
-            // (B3 follow-up): both race against the same `deadline`.
+            // same way: a confirmed URL is worthless if the browser never
+            // manages to fetch the image itself, and a photo that never even
+            // answers is dropped the same way as one that fails: both race
+            // against the same `deadline`.
             const imageUrl = data.image_url ? await Promise.race([preloadImage(data.image_url), deadline]) : '';
             state.candidates[index] = {
                 ...candidate,
@@ -231,8 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const state = {
             candidates: artists.map(artist => ({ ...artist })), index: 0,
             pointerInside: false,
-            reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         };
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         // Every hydrateCandidate call settles (resolves or rejects into its own
         // catch) before this .then() runs, and hydrateCandidate itself never
         // calls renderCandidate -- so nothing can draw the card before this
@@ -245,9 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
             state.candidates = withPhotos;
             state.index = 0;
             renderCandidate(view, state);
+            // Nothing rotates, so nothing needs a height reserved for it.
+            if (reducedMotion || state.candidates.length < 2) return;
             reserveCardHeight(view, state);
             watchCardLayout(view, state);
-            if (state.reducedMotion || state.candidates.length < 2) return;
             watchCardUse(view, state);
             setInterval(() => {
                 if (document.hidden || cardInUse(view, state)) return;

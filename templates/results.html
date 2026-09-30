@@ -175,8 +175,8 @@
                             data-play-time="{{ album.play_time|default('') }}"
                             data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
                             data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
-                            data-album-image="{{ album.album_image|default('') }}"
-                            data-spotify-id="{{ album.spotify_id|default('') }}"
+                            data-album-image="{{ album.album_image|default('', true) }}"
+                            data-spotify-id="{{ album.spotify_id|default('', true) }}"
                             data-provider="{{ album.provider|default('') }}"
                             data-album-url="{{ album.album_url|default('') }}">
                             <!-- Semantic Rank with glow hover -->
@@ -236,11 +236,11 @@
                                            (F-B22-4, open for Deezer only). #}
                                         {% if album.provider and album.provider != 'spotify' %}
                                         {% if album.album_url %}
-                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
                                             {{ album.provider }}
                                         </a>
                                         {% else %}
-                                        <span class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">{{ album.provider }}</span>
+                                        <span class="provider-badge">{{ album.provider }}</span>
                                         {% endif %}
                                         {% endif %}
                                     </div>

@@ -62,6 +62,38 @@ def artwork_radius_failures(
     return failures
 
 
+#: Reads the provider badge's size and face next to the narrow mono face the
+#: page's small labels use, spaces and quotes stripped so the two compare.
+PROVIDER_BADGE_JS = """node => {
+    const plain = value => value.replaceAll('"', '').replaceAll(' ', '');
+    const style = getComputedStyle(node);
+    return {
+        size: Number.parseFloat(style.fontSize),
+        family: plain(style.fontFamily),
+        narrow: plain(getComputedStyle(document.documentElement)
+            .getPropertyValue('--font-mono-narrow').trim()),
+    };
+}"""
+
+
+def provider_badge_failures(reading: dict, provider: str) -> list[str]:
+    """Judge one reading of `PROVIDER_BADGE_JS`: the badge is a small label, so
+    it sits at the 12px floor and in the narrow face (S2-21: it shipped at 10px
+    in the wide mono face)."""
+    failures = []
+    if reading["size"] < ATTRIBUTION_TEXT_FLOOR:
+        failures.append(
+            f"{provider} row's provider badge text is {reading['size']}px, "
+            f"expected at least {ATTRIBUTION_TEXT_FLOOR:.0f}px"
+        )
+    if not reading["narrow"] or reading["family"] != reading["narrow"]:
+        failures.append(
+            f"{provider} row's provider badge is set in {reading['family']!r}, "
+            f"expected the narrow mono face {reading['narrow']!r}"
+        )
+    return failures
+
+
 def _results_artwork_failures(page) -> list[str]:
     """Row cover corners at phone, tablet and desktop widths; attribution size.
 
@@ -93,6 +125,66 @@ def _results_artwork_failures(page) -> list[str]:
                     "results",
                 )
             )
+    finally:
+        page.set_viewport_size(original)
+    return failures
+
+
+#: An artist credit of about 65 characters, the length that ran from x 192 to
+#: 674 in a 132px cell at 1024px (F-B23-27).
+LONG_ARTIST_CREDIT = (
+    "Sir Reginald Featherstonehaugh and the Anthology Orchestra of Wessex"
+)
+
+#: Widths where the artist line truncates (from 768px; below it wraps).
+LONG_ARTIST_WIDTHS = (768, 1024, 1280, 1920)
+
+
+def artist_credit_failures(reading: dict, width: int) -> list[str]:
+    """Judge one reading of a long artist credit against its own cell.
+
+    `reading` holds the credit's right edge and the right edge of the cell that
+    holds it, in px. A credit that ends past its cell paints over the plays and
+    date columns (F-B23-27), with no ellipsis to say it was cut.
+    """
+    if reading is None:
+        return [f"results table at {width}px renders no long artist credit"]
+    over = reading["credit_right"] - reading["cell_right"]
+    if over > 1:
+        return [
+            f"results artist credit at {width}px runs {over:.0f}px past the "
+            "cell that holds it"
+        ]
+    return []
+
+
+def _long_artist_failures(page) -> list[str]:
+    """The long credit stays inside its cell from 768px to a wide monitor.
+
+    Restores the original viewport before returning.
+    """
+    failures = []
+    original = page.viewport_size
+    try:
+        for width in LONG_ARTIST_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            reading = page.evaluate(
+                """credit => {
+                    const span = [...document.querySelectorAll(
+                        '#results-table .album-info > span.truncate')]
+                        .find(node => node.textContent.trim() === credit);
+                    if (!span) return null;
+                    return {
+                        credit_right: span.getBoundingClientRect().right,
+                        cell_right: span.closest('td').getBoundingClientRect().right,
+                    };
+                }""",
+                LONG_ARTIST_CREDIT,
+            )
+            failures.extend(artist_credit_failures(reading, width))
     finally:
         page.set_viewport_size(original)
     return failures
@@ -132,12 +224,21 @@ def check_results_interactions(page, base_url: str) -> list[str]:
                     "play_time": "2m",
                     "release_date": "2025-02-03",
                 },
+                {
+                    "artist": LONG_ARTIST_CREDIT,
+                    "album": "Long credit",
+                    "play_count": 10,
+                    "play_time_seconds": 30,
+                    "play_time": "30s",
+                    "release_date": "2025-03-04",
+                },
             ],
             "Done",
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
         failures.extend(_check_results_scale(probe))
+        failures.extend(_long_artist_failures(probe))
         probe.locator("#toggle-sort-playtime").click()
         rows = probe.locator("#results-table tbody tr")
         if rows.first.get_attribute("data-album") != "Time winner":
@@ -265,6 +366,11 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                 continue
             if badge.first.is_hidden():
                 failures.append(f"{provider} row's provider badge is not visible")
+            failures.extend(
+                provider_badge_failures(
+                    badge.first.evaluate(PROVIDER_BADGE_JS), provider
+                )
+            )
             badge_href = badge.first.get_attribute("href") or ""
             if host not in badge_href:
                 failures.append(

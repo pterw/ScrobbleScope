@@ -93,6 +93,61 @@ def test_install_spotlight_fetch_mock_counts_requests_and_answers() -> None:
     assert "window.__spotlightResponses += 1" in script
 
 
+#: Counts how often a page's own 7-second interval fires in 900ms, next to the
+#: gate mock's tick counter.
+_COUNT_INTERVAL_JS = """() => new Promise((resolve) => {
+    let fired = 0;
+    window.setInterval(() => { fired += 1; }, 7000);
+    window.setTimeout(() => resolve([fired, window.__spotlightTicks]), 900);
+})"""
+
+
+def _run_mock_in_chromium(keep_rotating: bool) -> list[int]:
+    """Install the fetch mock in a real page and count what its sped-up
+    interval does: `[times the page's 7s callback fired, ticks counted]`."""
+    from scripts.dev._frontend_gate_runtime import _launch_browser, _load_playwright
+
+    with _load_playwright()() as playwright:
+        browser = _launch_browser(playwright, "chromium")
+        try:
+            page = browser.new_page()
+            _frontend_gate_spotlight_photo._install_spotlight_fetch_mock(
+                page, None, keep_rotating=keep_rotating
+            )
+            page.goto("data:text/html,<p>x</p>")
+            return page.evaluate(_COUNT_INTERVAL_JS)
+        finally:
+            browser.close()
+
+
+@pytest.mark.browser
+def test_the_fetch_mock_repeats_the_rotation_only_when_told_to() -> None:
+    """A rotation that keeps going fires the page's 7s callback every 200ms and
+    counts each period; the default fires it once, and counts none."""
+    repeating = _run_mock_in_chromium(keep_rotating=True)
+    once = _run_mock_in_chromium(keep_rotating=False)
+    assert repeating[0] >= 3 and repeating[1] == repeating[0]
+    assert once == [1, 0]
+
+
+def _mock_keeps_rotating(page: MagicMock) -> bool:
+    """Run the init script a check installed in a real page, and say whether
+    the sped-up rotation it gives the card repeats and is counted."""
+    from scripts.dev._frontend_gate_runtime import _launch_browser, _load_playwright
+
+    script = page.add_init_script.call_args.args[0]
+    with _load_playwright()() as playwright:
+        browser = _launch_browser(playwright, "chromium")
+        try:
+            real = browser.new_page()
+            real.add_init_script(script)
+            real.goto("data:text/html,<p>x</p>")
+            fired, ticks = real.evaluate(_COUNT_INTERVAL_JS)
+        finally:
+            browser.close()
+    return fired >= 3 and ticks == fired
+
+
 def _geometry(**overrides) -> dict:
     """A reading of a 3:2 photo painted whole in a 100px box."""
     geometry = {
@@ -321,12 +376,42 @@ def test_a_rotation_that_never_showed_every_candidate_fails() -> None:
     ]
 
 
-def test_the_layout_probe_reads_words_by_the_lines_their_characters_sit_on() -> None:
-    script = _frontend_gate_spotlight_photo._LAYOUT_SAMPLE_JS
-    assert "createRange()" in script
-    assert "getClientRects()" in script
+_NAME_HTML = """<!doctype html><html><body style="margin:0">
+<div id="artist-spotlight-card" data-artist="A">
+<p id="spotlight-artist-name"
+   style="width:{width}px;font:16px monospace;margin:0;overflow-wrap:anywhere"
+   >Radiohead Ok</p></div></body></html>"""
 
 
+def _sample_layout_probe(browser, width: int) -> list[dict]:
+    page = browser.new_page()
+    try:
+        page.set_content(_NAME_HTML.replace("{width}", str(width)))
+        return page.evaluate(_frontend_gate_spotlight_photo._LAYOUT_SAMPLE_JS)
+    finally:
+        page.close()
+
+
+@pytest.mark.browser
+def test_the_layout_probe_reports_a_word_the_browser_broke_and_only_that_word() -> None:
+    """Run `_LAYOUT_SAMPLE_JS` in Chromium on a name in a 60px column, where
+    the nine-letter word cannot fit on one line, and in a 400px one, where
+    everything does: only the first reports a broken word, and only that one."""
+    from scripts.dev._frontend_gate_runtime import _launch_browser, _load_playwright
+
+    with _load_playwright()() as playwright:
+        browser = _launch_browser(playwright, "chromium")
+        try:
+            narrow = _sample_layout_probe(browser, 60)
+            wide = _sample_layout_probe(browser, 400)
+        finally:
+            browser.close()
+    assert {tuple(sample["broken"]) for sample in narrow} == {("Radiohead",)}
+    assert {tuple(sample["broken"]) for sample in wide} == {()}
+    assert {sample["artist"] for sample in narrow} == {"A"}
+
+
+@pytest.mark.browser
 def test_the_layout_check_keeps_the_rotation_going_and_sees_every_width() -> None:
     page = MagicMock()
     steady = _samples(*((f"A{i}", 200.0, []) for i in range(5)))
@@ -335,7 +420,7 @@ def test_the_layout_check_keeps_the_rotation_going_and_sees_every_width() -> Non
     )
     check = _frontend_gate_spotlight_photo.check_artist_spotlight_name_whole_and_card_height_fixed
     assert _run_layout(check, page) == []
-    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
+    assert _mock_keeps_rotating(page)
     widths = [call.args[0]["width"] for call in page.set_viewport_size.call_args_list]
     assert widths[:5] == [320, 390, 1024, 1180, 1920]
     assert 1024 in widths[5:] and widths[-1] == 1920
@@ -414,6 +499,7 @@ def test_a_hold_judged_over_too_few_periods_fails() -> None:
     ]
 
 
+@pytest.mark.browser
 def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
     page = MagicMock()
     page.evaluate.return_value = {
@@ -443,8 +529,7 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
         failures = check(page, "http://127.0.0.1:0")
     page.focus.assert_called_once_with("#spotlight-spotify-link")
     page.hover.assert_called_once_with("#artist-spotlight-card")
-    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
-    assert "__spotlightTicks += 1" in page.add_init_script.call_args.args[0]
+    assert _mock_keeps_rotating(page)
     assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)
 
 
@@ -473,6 +558,7 @@ def test_steady_opacity_over_a_window_with_no_swap_fails_instead_of_passing() ->
     assert "never swapped the artist while opacity was sampled" in failures[0]
 
 
+@pytest.mark.browser
 def test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods() -> (
     None
 ):
@@ -484,7 +570,7 @@ def test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods
         _frontend_gate_spotlight_photo.check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
         page,
     )
-    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
+    assert _mock_keeps_rotating(page)
 
 
 def test_a_photo_cut_by_a_clipping_ancestor_names_it() -> None:

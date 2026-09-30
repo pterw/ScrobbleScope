@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2410 tests across 83 tracked test modules.
+2423 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -721,28 +721,13 @@ to this finding.
 
 - [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-12.
 
-### F-B23-27: a long artist credit paints over the plays and date columns on the Results page from 768px
-
-`templates/results.html` `.album-info` is a flex item without `min-width: 0`, so its `truncate` artist span never shrinks: at 1024px an artist credit of about 65 characters runs from x 192 to 674 while its cell ends at 324, painting over the plays and release-date columns with no ellipsis. The same happens at 768, 1280 and 1920px, and on `main`. `static/css/results.css` fixes only widths below 768px, and `unmatched.css` already carries the `min-width: 0` rule for the unmatched table. Fix: `.results-table .album-info { min-width: 0 }` in `results.css` (Tailwind's `min-w-0` is dead under this theme, F-B21-52).
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-13.
-
-### F-B23-28: the unmatched threshold column clips "1234 plays" below 768px
-
-`static/css/unmatched.css` sets the below-threshold column to 4.75rem in the `max-width: 767.98px` block, with `.unmatched-threshold { white-space: nowrap }` and `overflow: hidden` on `td`. From 320 to 767px "1234 plays" is cut by 8px ("1234 play") and "150 plays" loses about 1px of the "s"; from 768px the column is 104px and nothing clips. The CSS comment says the width "holds either", which is false. Reproduced in Chromium and Firefox; `main` clips the same. Fix: let `.unmatched-threshold` wrap (`white-space: normal; overflow-wrap: anywhere`) or widen the phone column to about 5.5rem, and add a four-digit case to the gate's seed.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-14.
-
 ### F-B23-29: small cleanups the third review of PR #245 found, none changing behaviour a user sees
 
-One bundle, to be taken opportunistically:
+One bundle, to be taken opportunistically. The frontend items (S2-18, S2-20, S2-21, S2-22, most of S2-23, the Codacy const arrows and the Task 9-11 review minors) landed with F-B23-27 and F-B23-28; what is left:
 
 - `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait) (S1-15).
-- `static/js/heatmap.js` labels the 15 day and month `<text>` nodes of the grid without `aria-hidden`, so the accessibility tree lists them as a loose text run before the 365 named cells (S2-18).
-- `templates/results.html` `data-album-image` and `data-spotify-id` use `default('')`, which leaves "None" for a Deezer row; `default('', true)` covers it. Nothing reads them today (S2-20).
-- The `.provider-badge` span is 10px uppercase in `input-mono`, under the 12px small-label floor and off the narrow face; one `.provider-badge` rule for all four copies of the badge markup would fix both (S2-21).
-- Comments a cold reader cannot resolve: `results-spotlight.js` cites "B2", "B3" and "B3 follow-up"; `results.css` `.spotlight-details` cites "polish round 2"; `tests/frontend/conftest.py` says "see Step 1"; none of those labels exists in a tracked file. `.spotlight-image-box` calls the results thumbnail 4rem/4.5rem (it is 3rem/3.5rem), the threshold-column comment ("holds either") and `renderHeatmapMobile`'s "sized to what is left inside it" are false (see F-B23-28 and F-B23-25) (S2-22).
-- S2-23 bundle: the `#heatmap-grid` ring-room CSS (a container that never scrolls at any width) and the padding subtraction in `renderHeatmapMobile`; the server-rendered spotlight card body and the `top_artist_*` route variables, dead because JS overwrites them; unused remnants in `results-spotlight.js` (a `content` id lookup, a `hidden`/`opacity-0` reset on an `<img>`, a once-read `state.reducedMotion`, `formatDurationMobile`) and an unread `event` parameter of `showTooltip`; the badge markup copied four times (Rule of Three: may wait); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
+- S2-23 leftovers: the `#heatmap-grid` ring-room CSS and padding subtraction in `renderHeatmapMobile`, with its false "sized to what is left inside it" comment (they belong to F-B23-25's layout fix); the server-rendered spotlight card body and the `top_artist_*` route variables in `routes/album_flow.py`, dead because JS overwrites them; the badge markup copied four times (Rule of Three: the CSS is one rule now, the markup is still two copies per page); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
+- `scripts/dev/_frontend_gate_layout.py` comments cite "Step 5", a label no tracked file defines.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
 

@@ -624,6 +624,37 @@ def _focus_ring_failures(page) -> list[str]:
     return failures
 
 
+def four_panel_stack_failures(boxes: list[dict], max_gap: float) -> list[str]:
+    """Judge the boxes of four panels laid out in two tracks: the third panel
+    sits directly under the first, and the fourth directly under the third,
+    each within `max_gap` px. In a plain two-by-two the tall second panel sets
+    the first row's height and leaves a hole under the short first panel."""
+    if len(boxes) != 4:
+        return [f"unmatched four-panel layout was given {len(boxes)} panels"]
+    failures = []
+    for lower, upper in ((2, 0), (3, 2)):
+        gap = boxes[lower]["top"] - boxes[upper]["bottom"]
+        if abs(boxes[lower]["left"] - boxes[upper]["left"]) > 1 or not (
+            0 <= gap <= max_gap
+        ):
+            failures.append(
+                f"unmatched panel {lower + 1} is not stacked under panel "
+                f"{upper + 1}: {gap:.0f}px below it (at most {max_gap:.0f}px), "
+                f"{boxes[lower]['left'] - boxes[upper]['left']:.0f}px to the side"
+            )
+    return failures
+
+
+def _four_panel_stack_failures(page) -> list[str]:
+    boxes = page.locator(".unmatched-group").evaluate_all(
+        """groups => groups.map(group => {
+            const box = group.getBoundingClientRect();
+            return {left: box.left, top: box.top, bottom: box.bottom};
+        })"""
+    )
+    return four_panel_stack_failures(boxes, max_gap=48)
+
+
 def check_unmatched_report(page, base_url: str) -> list[str]:
     """Exercise the populated report contract and its ten-row disclosure."""
     job_id = jobs.create(
@@ -669,17 +700,19 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 "album": "Older",
                 "artist": "Lizzy McAlpine",
                 "reason": (
-                    "Played 7 times across 2 unique tracks; minimum is 10 plays "
-                    "and 3 unique tracks"
+                    "Played 1234 times across 2 unique tracks; minimum is 1237 "
+                    "plays and 3 unique tracks"
                 ),
                 "reason_code": "below_threshold",
                 "shortfall": "3 plays and 1 track short",
                 "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
                 "spotify_id": None,
-                "play_count": 7,
+                # Four digits: the widest figure the metric column has to
+                # hold ("1234 plays" clipped by 8px on a phone, F-B23-28).
+                "play_count": 1234,
                 "track_count": 2,
                 "failed_thresholds": ["plays", "tracks"],
-                "min_plays": 10,
+                "min_plays": 1237,
                 "min_tracks": 3,
             },
         )
@@ -926,7 +959,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
 
         # Cells keep `overflow: hidden`, so text that cannot wrap is cut without
         # an ellipsis or an error. The metric header shipped as "PLAYS / TRA" and
-        # the threshold metric as "7 plays ..." while every other check passed.
+        # the threshold metric as "7 plays ...", then as "1234 play", while every
+        # other check passed.
         if state["clippedCells"]:
             failures.append(
                 f"unmatched table clips cell content: {state['clippedCells']!r}"
@@ -953,6 +987,9 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "unmatched reports should wrap to single column on mobile"
                 )
 
+        if page.viewport_size["width"] >= UNMATCHED_TWO_PANEL_MIN:
+            failures.extend(_four_panel_stack_failures(page))
+
         if state["reportOverflow"] > 1:
             failures.append(
                 f"unmatched report overflows horizontally by {state['reportOverflow']!r}px"
@@ -969,7 +1006,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     .replaceAll(/\s+/g, ' ').trim(),
             })"""
         )
-        if threshold_state != {"rows": 1, "metric": "7 plays / 2 tracks"}:
+        if threshold_state != {"rows": 1, "metric": "1234 plays / 2 tracks"}:
             failures.append(
                 f"unmatched threshold row is incorrect: {threshold_state!r}"
             )

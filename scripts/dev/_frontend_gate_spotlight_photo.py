@@ -32,7 +32,7 @@ SQUARE_PHOTO_DATA_URL = (
 #: A non-square photo (3:2), the shape most real Spotify artist photos are
 #: not -- the photo box itself stays square (`.spotlight-image-box`), so this
 #: is what actually exercises the "whole photo, letterboxed, never cropped"
-#: rule (F-B21-60 / B1). The square fixture above cannot: in a square box a
+#: rule (F-B21-60). The square fixture above cannot: in a square box a
 #: square photo looks the same whether it is cropped or contained.
 NON_SQUARE_PHOTO_DATA_URL = (
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' "
@@ -48,9 +48,9 @@ def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None)
     is ten artists with one album each. Each album carries a non-empty, distinguishable
     `album_image` -- not a `""` placeholder -- so a check that seeds a job
     this way exercises the real path a live job takes: an album cover exists
-    and must never leak into `image_url` as a fake artist photo (F-B21-60,
-    Round 2 V1). What each artist's *confirmed* photo resolves to is decided
-    separately, by `_install_spotlight_fetch_mock`."""
+    and must never leak into `image_url` as a fake artist photo (F-B21-60).
+    What each artist's *confirmed* photo resolves to is decided separately, by
+    `_install_spotlight_fetch_mock`."""
     job_id = jobs.create(
         {
             "username": "frontend-gate",
@@ -330,7 +330,7 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
             )
 
         # No animation: the photo and its wrapping content never fade -- the
-        # deleted opacity handoff (Step 3) animated `#spotlight-card-content`,
+        # deleted opacity handoff animated `#spotlight-card-content`,
         # not the <img> itself, so both are sampled -- and none of them runs
         # an animation or transitions transform or filter. The rotation keeps
         # ticking (see `_install_spotlight_fetch_mock`), and each sample
@@ -495,7 +495,7 @@ def check_artist_spotlight_photo_not_cropped_when_non_square(
     page, base_url: str
 ) -> list[str]:
     """A non-square confirmed photo is shown whole, not cropped to fill the
-    square photo box (F-B21-60 / B1): `object-fit` is `contain`, the painted
+    square photo box (F-B21-60): `object-fit` is `contain`, the painted
     photo lies inside the box its clipping ancestors leave it, and nothing scales or clips it."""
     job_id = _seed_spotlight_job()
     failures = []

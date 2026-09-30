@@ -797,9 +797,9 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
                     // Every candidate resolves with a confirmed photo -- the
                     // slowest just takes longer -- so the filtered rotation
                     // still has more than one candidate once revealed.
-                    // Percent-encoded (B2: a confirmed photo is now preloaded
-                    // for real before it counts as confirmed, so the fixture
-                    // must actually load as an image, not just be a string).
+                    // Percent-encoded: a confirmed photo is preloaded for
+                    // real before it counts as confirmed, so the fixture
+                    // must actually load as an image, not just be a string.
                     const response = {
                         ok: true,
                         json: async () => ({

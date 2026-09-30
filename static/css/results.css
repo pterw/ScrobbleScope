@@ -239,6 +239,15 @@
     word-break: break-word;
 }
 
+/* A flex item defaults to `min-width: auto` and refuses to shrink below its
+   content, so a long artist credit kept its full width and ran over the plays
+   and date columns with no ellipsis (F-B23-27). Authored here because the
+   theme's spacing reset compiles the `min-w-0` utility to nothing (F-B21-52);
+   `unmatched.css` does the same for its own table. */
+.results-table .album-info {
+    min-width: 0;
+}
+
 /* On mobile viewports, keep touch targets accessible and allow fluid scanning */
 @media (max-width: 767.98px) {
     .results-table th,
@@ -278,6 +287,32 @@
         white-space: normal;
         overflow-wrap: anywhere;
     }
+}
+
+/* The provider named under a row's album when it did not come from Spotify:
+   a link when the row has a URL, plain text when it has none. A small label,
+   so it takes the narrow mono face at the 12px floor recorded in
+   docs/design/RECONCILIATION.md section 1; it shipped at 10px in the wide
+   face (S2-21). Muted by default, accent on hover, like the correction note
+   below. One rule serves the results and unmatched tables. */
+.provider-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: fit-content;
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.75rem * var(--results-scale));
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ss-text-muted);
+}
+
+a.provider-badge {
+    transition: color 150ms ease;
+}
+
+a.provider-badge:hover {
+    color: var(--color-primary);
 }
 
 .metric-toggle-btn {
@@ -452,7 +487,7 @@
     position: relative;
     /* Beside the text at every width (never full rail width on mobile),
        roughly 112px -- proportionate to the card, between the results-table
-       thumbnail (4rem/4.5rem) and this card's own size from 768px up
+       thumbnail (3rem/3.5rem, from the row template) and this card's own size from 768px up
        (9rem, set in the 768px rule below). The corner is a separate step:
        4px below 1024px, 8px from 1024px (--artwork-radius). */
     width: calc(7rem * var(--results-scale));
@@ -490,6 +525,14 @@
        card's min-height, so no line-count guess can be wrong (S2-10). */
     flex: 1 1 calc(11rem * var(--results-scale));
     min-width: 0;
+}
+
+/* results-spotlight.js sets this on the card while it measures a candidate
+   that has no Spotify link, and keeps the previous candidate's link (which
+   holds keyboard focus) in place: out of the layout, the link adds no height
+   the candidate would not have. */
+.is-measuring-without-link .spotlight-spotify-link {
+    position: absolute;
 }
 
 @media (min-width: 768px) {

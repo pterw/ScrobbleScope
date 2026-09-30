@@ -488,6 +488,30 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 f"{expected_label!r}"
             )
 
+        # -- A1b: the axis labels are decoration. A cell's own name says its
+        # date, so the 15 day and month <text> nodes would only be a loose
+        # run of words in the tree ahead of the 365 named cells (S2-18).
+        labels = page.evaluate(
+            """() => {
+                const nodes = Array.from(document.querySelectorAll(
+                    '.heatmap-day-label, .heatmap-month-label'));
+                return {
+                    total: nodes.length,
+                    exposed: nodes.filter(
+                        (n) => n.getAttribute('aria-hidden') !== 'true'
+                    ).length,
+                };
+            }"""
+        )
+        if svg.get_attribute("data-layout") == "desktop" and not labels["total"]:
+            failures.append("the desktop heatmap rendered no axis labels to audit")
+        if labels["exposed"]:
+            failures.append(
+                f"{labels['exposed']} of {labels['total']} heatmap axis labels "
+                'lack aria-hidden="true", so they read as loose text before '
+                "the cells"
+            )
+
         # -- A2: roving tabindex, not every cell at once. ----------------
         if landed["tabIndexAttr"] != "0":
             failures.append(
@@ -1278,6 +1302,66 @@ def _tab_into_grid(page) -> str | None:
     return None
 
 
+def _escape_dismisses_hover_tooltip(page, base_url: str, job_id: str) -> list[str]:
+    """Escape hides a tooltip the pointer is holding open while focus is
+    elsewhere (WCAG 1.4.13: dismissible without moving the pointer)."""
+    _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
+    cells = page.evaluate(_CELLS_IN_VIEW_JS)
+    hovered = cells[len(cells) // 2]
+    over = _cell_box(page, hovered["date"])
+    page.mouse.move(over["x"], over["y"])
+    page.wait_for_timeout(250)
+    if not page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
+        return ["a hovered cell showed no tooltip; the Escape probe proves nothing"]
+    page.keyboard.press("Escape")
+    if page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
+        return [
+            "Escape left a hover tooltip shown while the pointer stayed on "
+            f"the cell {hovered['date']!r} and focus was elsewhere"
+        ]
+    return []
+
+
+#: Scrolls the page and reads the tooltip and the focused cell in the scroll
+#: event itself, which a frame-late reposition has not yet answered.
+_SCROLL_AND_READ_JS = """() => new Promise((resolve) => {
+    const cell = document.activeElement;
+    const tt = document.querySelector('.heatmap-tooltip');
+    const before = window.scrollY;
+    window.addEventListener('scroll', () => {
+        const c = cell.getBoundingClientRect();
+        const t = tt.getBoundingClientRect();
+        resolve({moved: window.scrollY - before, shown: tt.classList.contains('visible'),
+                 above: c.top - t.bottom, below: t.top - c.bottom});
+    }, {once: true});
+    window.scrollBy(0, 40);
+})"""
+
+
+def _keyboard_tooltip_follows_scroll_at_once(
+    page, base_url: str, job_id: str
+) -> list[str]:
+    """A keyboard-focus tooltip is fixed, so a scroll moves it with its cell in
+    the same frame; repositioned a frame late it visibly trails the cell."""
+    _open_year(page, base_url, job_id, {"width": 1280, "height": 500})
+    if _tab_into_grid(page) is None:
+        return ["Tab never reaches a heatmap cell; no scroll-lag probe"]
+    page.wait_for_timeout(250)
+    reading = page.evaluate(_SCROLL_AND_READ_JS)
+    if not reading["moved"]:
+        return ["the page did not scroll; the scroll-lag probe proves nothing"]
+    # The tooltip sits 8px above its cell, or 8px below when there is no room.
+    if not reading["shown"] or not (
+        abs(reading["above"] - 8) <= 3 or abs(reading["below"] - 8) <= 3
+    ):
+        return [
+            "a scroll left the keyboard tooltip behind its cell for a frame "
+            f"(shown {reading['shown']}, {reading['above']:.0f}px above the "
+            f"cell, {reading['below']:.0f}px below it; expected 8)"
+        ]
+    return []
+
+
 def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
     """One owner state decides who shows the tooltip: a re-focus after a click
     shows none (S2-6), a scroll or a resize touches its owner only (S2-7), a
@@ -1291,7 +1375,6 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
         cells = page.evaluate(_CELLS_IN_VIEW_JS)
         clicked = cells[len(cells) // 3]
-        hovered = cells[2 * len(cells) // 3]
         page.locator(f'.heatmap-cell[data-date="{clicked["date"]}"]').click()
         page.mouse.move(0, 0)
         page.wait_for_timeout(250)
@@ -1365,6 +1448,11 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
                 f"{state['focused']!r}; expected it hidden and focus on "
                 f"{focused!r}"
             )
+
+        failures.extend(_escape_dismisses_hover_tooltip(page, base_url, job_id))
+        failures.extend(
+            _keyboard_tooltip_follows_scroll_at_once(page, base_url, job_id)
+        )
 
         # S2-16: a tooltip hovered on the right, then hidden, does not widen
         # the page once the window narrows.

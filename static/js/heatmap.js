@@ -1257,6 +1257,7 @@
       txt.setAttribute('letter-spacing', '0.12em');
       txt.setAttribute('fill', 'currentColor');
       txt.setAttribute('class', 'heatmap-day-label');
+      txt.setAttribute('aria-hidden', 'true');
       txt.textContent = dl.text;
       svg.appendChild(txt);
     });
@@ -1279,6 +1280,7 @@
           mTxt.setAttribute('letter-spacing', '0.12em');
           mTxt.setAttribute('fill', 'currentColor');
           mTxt.setAttribute('class', 'heatmap-month-label');
+          mTxt.setAttribute('aria-hidden', 'true');
           mTxt.textContent = MONTH_NAMES[d.getMonth()];
           svg.appendChild(mTxt);
           monthLabelPlaced[mKey] = true;
@@ -1716,20 +1718,23 @@
     // it repositions the same tooltip for the still-focused cell instead.
     // Only the owner is touched, and only while it is shown: a clicked cell
     // that keeps focus after the pointer leaves owns nothing, so a scroll
-    // has nothing of its to bring back.
+    // has nothing of its to bring back. The owner is read from state that
+    // every hover, focus and tap already keeps current, so the reposition
+    // is immediate: a tooltip moved a frame later trails its cell.
     document.addEventListener('scroll', function () {
       if (!tooltipOwner) return;
       if (tooltipOwner.reason !== 'focus') {
         hideTooltip();
         return;
       }
-      // Re-checked a frame later: the pointer may have taken it since.
-      if (window.requestAnimationFrame) {
-        window.requestAnimationFrame(repositionTooltipOwner);
-      } else {
-        repositionTooltipOwner();
-      }
+      repositionTooltipOwner();
     }, true);
+    // Escape dismisses whichever tooltip is open (WCAG 1.4.13), including
+    // one a pointer or a tap holds while focus is elsewhere. Like the
+    // cell's own handler it does not cancel the key.
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hideTooltip();
+    });
   }
 
   function showTooltip(cd) {

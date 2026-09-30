@@ -9,6 +9,24 @@ Newest rotation first.
 
 ---
 
+### F-B23-27: a long artist credit paints over the plays and date columns on the Results page from 768px -- RESOLVED
+
+`templates/results.html` `.album-info` is a flex item without `min-width: 0`, so its `truncate` artist span never shrinks: at 1024px an artist credit of about 65 characters runs from x 192 to 674 while its cell ends at 324, painting over the plays and release-date columns with no ellipsis. The same happens at 768, 1280 and 1920px, and on `main`. `static/css/results.css` fixes only widths below 768px, and `unmatched.css` already carries the `min-width: 0` rule for the unmatched table. Fix: `.results-table .album-info { min-width: 0 }` in `results.css` (Tailwind's `min-w-0` is dead under this theme, F-B21-52).
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  `.results-table .album-info { min-width: 0 }` in `results.css`; the gate's artist-credit check failed before it (207-286px past the cell at 768, 1024, 1280 and 1920px) and passes after.
+  Source: third review of PR #245 (2026-09-29), S2-13.
+
+### F-B23-28: the unmatched threshold column clips "1234 plays" below 768px -- RESOLVED
+
+`static/css/unmatched.css` sets the below-threshold column to 4.75rem in the `max-width: 767.98px` block, with `.unmatched-threshold { white-space: nowrap }` and `overflow: hidden` on `td`. From 320 to 767px "1234 plays" is cut by 8px ("1234 play") and "150 plays" loses about 1px of the "s"; from 768px the column is 104px and nothing clips. The CSS comment says the width "holds either", which is false. Reproduced in Chromium and Firefox; `main` clips the same. Fix: let `.unmatched-threshold` wrap (`white-space: normal; overflow-wrap: anywhere`) or widen the phone column to about 5.5rem, and add a four-digit case to the gate's seed.
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  Below 768px the threshold figures wrap (`white-space: normal; overflow-wrap: anywhere`, scoped to the panel so it beats the later nowrap rule), the "holds either" comment is rewritten, and the gate's seed row carries 1234 plays; the check failed on "1234 plays / 2 tracks" before the fix. A widened 5.5rem column was tried and dropped: the album title fell under the gate's width floors.
+  Source: third review of PR #245 (2026-09-29), S2-14.
+
 ### F-B23-31: tests that stay green when the defect they exist for is planted back -- RESOLVED
 
 Five tests were shown to survive the mutation they are meant to catch, each with the reviewer's proposed fix:

@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Make four gate checks judge what they name
+
+Side task, no batch tag: four frontend-gate checks, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+S4-2: the spotlight photo fade check now keeps the rotation ticking and fails unless a swap fell inside its 1000ms sampling window. S4-5: the unmatched focus-ring check counts only pixels the ring adds (a second shot, still focused, with the ring forced off). S4-6: `_PHOTO_PAINT_JS` intersects every clipping ancestor and flags `clip-path`, and the first photo check now runs the crop judgement too. S4-10: the gate serves threaded, so an idle connection cannot stall a check. The heatmap ring reading is made deterministic (box read before and after the shot, retake on movement, scroll nudge for the tooltip, fonts-and-frames wait) for the 2026-09-29 flake, and the hold check catches only Playwright's `TimeoutError` (Codacy B110). Each changed check was proved on a planted defect, red on the old code and green on the new; a browser test runs the paint probe on a clipping grandparent.
+
+Edited existing test helper: `_crop_overlay_page` in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` (the first photo check now also reads the paint probe and the new sample shape), used by `test_a_pseudo_element_scrim_and_a_transform_animation_are_reported`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods` and `test_the_first_photo_check_also_judges_the_crop`. Filed F-B23-36 (P3: S4-3, S4-4, S4-7, S4-8, S4-9, S4-11, the tooltip note, the flake as fixed by inference).
+
+Validation: `pytest -q` -- **2277 passed**.
+
 ### 2026-09-30 - Second architecture review tracked and scheduled
 
 Side task, no batch tag: the second deepening review of the codebase is tracked at `docs/history/reports/architecture-review-20260930-0040.html`, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

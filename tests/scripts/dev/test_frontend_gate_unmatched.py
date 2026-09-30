@@ -333,3 +333,50 @@ def test_a_missing_fourth_panel_is_a_failure_not_a_wait() -> None:
         "unmatched report renders no could-not-be-checked panel"
     ]
     page.locator.return_value.evaluate.assert_not_called()
+
+
+def _panels(*spans: tuple[float, float, float]) -> list[dict]:
+    return [{"left": l, "top": t, "bottom": b} for l, t, b in spans]
+
+
+def test_a_third_and_fourth_panel_stacked_under_the_first_pass() -> None:
+    boxes = _panels((54, 276, 564), (652, 276, 1510), (54, 589, 1056), (54, 1080, 1352))
+    assert _frontend_gate_unmatched.four_panel_stack_failures(boxes, 48) == []
+
+
+def test_a_plain_two_by_two_leaves_a_hole_and_is_reported() -> None:
+    """The layout that shipped: the tall second panel sets row one's height, so
+    the third panel starts 971px under the first."""
+    boxes = _panels(
+        (54, 276, 564), (652, 276, 1510), (54, 1535, 2002), (54, 2026, 2298)
+    )
+    failures = _frontend_gate_unmatched.four_panel_stack_failures(boxes, 48)
+    assert failures == [
+        "unmatched panel 3 is not stacked under panel 1: 971px below it "
+        "(at most 48px), 0px to the side"
+    ]
+
+
+def test_a_fourth_panel_left_under_the_second_is_reported() -> None:
+    """The layout this replaced: panel 4 in the right column, under panel 2."""
+    boxes = _panels(
+        (54, 276, 564), (652, 276, 1510), (54, 589, 1056), (652, 1535, 1807)
+    )
+    failures = _frontend_gate_unmatched.four_panel_stack_failures(boxes, 48)
+    assert len(failures) == 1 and failures[0].startswith(
+        "unmatched panel 4 is not stacked under panel 3"
+    )
+
+
+def test_panels_in_the_wrong_column_are_reported_not_passed() -> None:
+    boxes = _panels(
+        (54, 276, 564), (652, 276, 1510), (652, 589, 1056), (652, 1080, 1352)
+    )
+    failures = _frontend_gate_unmatched.four_panel_stack_failures(boxes, 48)
+    assert len(failures) == 1 and "598px to the side" in failures[0]
+
+
+def test_a_layout_of_other_than_four_panels_is_a_failure() -> None:
+    assert _frontend_gate_unmatched.four_panel_stack_failures([], 48) == [
+        "unmatched four-panel layout was given 0 panels"
+    ]

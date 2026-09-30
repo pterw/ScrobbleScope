@@ -229,11 +229,11 @@
                                            same markup. Spotify rows are covered by the page-level icon. #}
                                         {% if item.provider and item.provider != 'spotify' %}
                                         {% if item.album_url %}
-                                        <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ item.album }} on {{ item.provider|capitalize }}">
+                                        <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge" aria-label="View {{ item.album }} on {{ item.provider|capitalize }}">
                                             {{ item.provider }}
                                         </a>
                                         {% else %}
-                                        <span class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">{{ item.provider }}</span>
+                                        <span class="provider-badge">{{ item.provider }}</span>
                                         {% endif %}
                                         {% endif %}
                                     </div>

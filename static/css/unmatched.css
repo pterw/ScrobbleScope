@@ -58,7 +58,8 @@
    spans both rows and the third tucks directly under the first. The second row is
    `1fr` because a spanning item's extra height is given to flexible tracks first,
    which keeps the first row at the first panel's own height. DOM order, and so
-   tab order, stays below_threshold, release_scope, no_spotify_match. */
+   tab order, stays below_threshold, release_scope, no_spotify_match; a fourth
+   reason, provider_unavailable, follows them (see the four-panel rule below). */
 @media (min-width: 1280px) {
     .unmatched-groups[data-panels="3"] {
         grid-template-rows: auto 1fr;
@@ -77,6 +78,43 @@
     .unmatched-groups[data-panels="3"] > :nth-child(3) {
         grid-column: 1;
         grid-row: 2;
+    }
+}
+
+/* Four panels: the same two columns, and the same reason to stack. Left in the
+   two-by-two the grid makes, the tall release-scope panel sets the first row's
+   height and the short first panel sits above about 950px of nothing, with the
+   third and fourth panels a screen below (seen at 1280px and 1920px). Putting
+   the fourth under the second instead left the left column empty below the
+   third panel (about 800px at 1920px). So the second panel spans all three rows
+   of the right track and the first, third and fourth stack in the left one, in
+   that order. The last row is `1fr` so a spanning item's extra height goes
+   there and the first two rows keep their panels' own heights. DOM and tab
+   order stay below_threshold, release_scope, no_spotify_match,
+   provider_unavailable. */
+@media (min-width: 1280px) {
+    .unmatched-groups[data-panels="4"] {
+        grid-template-rows: auto auto 1fr;
+    }
+
+    .unmatched-groups[data-panels="4"] > :nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .unmatched-groups[data-panels="4"] > :nth-child(2) {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+    }
+
+    .unmatched-groups[data-panels="4"] > :nth-child(3) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .unmatched-groups[data-panels="4"] > :nth-child(4) {
+        grid-column: 1;
+        grid-row: 3;
     }
 }
 
@@ -126,10 +164,15 @@
 
    The threshold panel's metric holds "N plays" and "M tracks" rather than a
    bare count. Below 768px that is wider than the 3.75rem a count needs, so
-   the panel gets its own width there; it was ellipsized to "7 plays ..." --
-   hiding the only numbers on the page a reader can act on. From 768px one
-   width holds either, so the metric edge lines up across panels that sit
-   side by side.
+   the panel gets its own width there, 4.75rem. That width does not hold a
+   four-digit "1234 plays" on one line (it needs about 68px of the 60px the
+   cell leaves), so below 768px each figure may wrap between its number and
+   its unit instead of being clipped: it shipped cutting that to "1234 play",
+   and before that ellipsized "7 plays ..." -- hiding the only numbers on the
+   page a reader can act on. A wider column was tried and rejected: it left
+   the album title under the gate's 70px floor at 320px. From 768px one
+   width holds both figures on a line each, so the metric edge lines up
+   across panels that sit side by side.
 
    The rank column matches the Results width, not a narrower one. The rank is a
    padded `.rank-link` pill about 30px wide, and these cells clip, so a narrower
@@ -148,6 +191,11 @@
     .unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
     .unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
         width: 4.75rem;
+    }
+
+    .unmatched-group[data-reason="below_threshold"] .unmatched-threshold {
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }
 

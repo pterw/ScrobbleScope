@@ -43,12 +43,24 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.page.add_script_tag(path=str(ROOT / "static/js" / script))
         self.page.evaluate("document.dispatchEvent(new Event('DOMContentLoaded'))")
 
-    def spotlight(self, reduced=False):
+    SPOTLIGHT_MARKUP = (
+        '<div id="artist-spotlight-card" style="display:none"><div id="spotlight-card-content">'
+        '<img id="spotlight-artist-img" class="hidden">'
+        '<span id="spotlight-artist-name"></span>'
+        '<span id="spotlight-artist-rank"></span>'
+        '<span id="spotlight-playtime-badge"></span>'
+        '<span id="spotlight-playtime-sep"></span>'
+        '<span id="spotlight-scrobble-text"></span>'
+        '<a id="spotlight-spotify-link"></a></div></div>'
+    )
+
+    def spotlight(self, reduced=False, markup=None, artists=None):
         """Hold API responses (and image loads) so tests can resolve them in
         adversarial order. `window.Image` is stubbed the same way as
         `fetch`: assigning `.src` only records the instance in
         `pendingImages`, so a test decides exactly when a photo "loads" via
-        `.onload()`/`.onerror()`, instead of racing a real image fetch."""
+        `.onload()`/`.onerror()`, instead of racing a real image fetch.
+        `markup` and `artists` replace the default card and candidates."""
         self.page.emulate_media(reduced_motion="reduce" if reduced else "no-preference")
         self.page.evaluate("""() => {
             window.pending = [];
@@ -71,28 +83,24 @@ class ResultsBehaviorTests(unittest.TestCase):
         }""")
         self.start(
             "results-spotlight.js",
-            '<div id="artist-spotlight-card" style="display:none"><div id="spotlight-card-content">'
-            '<img id="spotlight-artist-img" class="hidden">'
-            '<span id="spotlight-artist-name"></span>'
-            '<span id="spotlight-artist-rank"></span>'
-            '<span id="spotlight-playtime-badge"></span>'
-            '<span id="spotlight-playtime-sep"></span>'
-            '<span id="spotlight-scrobble-text"></span>'
-            '<a id="spotlight-spotify-link"></a></div></div>',
+            markup or self.SPOTLIGHT_MARKUP,
             {
                 "year": 2025,
-                "spotlight_artists": [
+                "spotlight_artists": artists
+                or [
                     {
                         "name": "A & B",
                         "scrobbles": 20,
                         "album_count": 1,
                         "play_time_seconds": 90,
+                        "play_time": "1m 30s",
                     },
                     {
                         "name": "Second",
                         "scrobbles": 10,
                         "album_count": 2,
                         "play_time_seconds": 0,
+                        "play_time": "",
                     },
                 ],
             },
@@ -234,12 +242,125 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator("#spotlight-scrobble-text").inner_text(),
             "10 scrobbles across 2 albums in 2025",
         )
+        # Nothing rotates, so no height is reserved for a taller candidate.
+        self.assertEqual(
+            self.page.locator("#artist-spotlight-card").evaluate(
+                "el => el.style.minHeight"
+            ),
+            "",
+        )
+
+    def settle_two_candidates(self):
+        """Confirm both candidates' photos; only the first has a Spotify link."""
+        self.resolve_pending("""() => {
+            pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg', spotify_url: 'https://open.spotify.com/artist/a'})});
+            pending[1].resolve({ok: true, json: async () => ({image_url: 'https://img/b.jpg'})});
+        }""")
+        self.resolve_images(0, 1)
+
+    def test_a_rotating_card_reserves_its_tallest_height(self):
+        """The counterpart of the reduced-motion case: a card that rotates
+        holds the tallest candidate's height, so the rail below never moves."""
+        self.spotlight()
+        self.settle_two_candidates()
+        self.assertNotEqual(
+            self.page.locator("#artist-spotlight-card").evaluate(
+                "el => el.style.minHeight"
+            ),
+            "",
+        )
+
+    def test_a_pointer_resting_on_a_card_shown_under_it_pauses_the_rotation(self):
+        """A card that first appears under a still pointer is held: the
+        browser hit-tests the pointer after the layout change and fires
+        `pointerenter` itself, which the card listens for. Chromium only: this
+        runner drives no other engine."""
+        # A doctype, as every production page has one: without it the page is
+        # in quirks mode, where a bare `:hover` matches nothing but links.
+        self.spotlight(markup="<!doctype html>" + self.SPOTLIGHT_MARKUP)
+        self.page.mouse.move(60, 15)
+        self.settle_two_candidates()
+        # The browser hit-tests the pointer against the new layout on its own
+        # (real) schedule, outside the page's frozen clock.
+        self.page.wait_for_function(
+            "document.getElementById('artist-spotlight-card').matches(':hover')"
+        )
+        self.page.clock.run_for(7150)
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
+        )
+        self.page.mouse.move(0, 700)
+        self.page.wait_for_function(
+            "!document.getElementById('artist-spotlight-card').matches(':hover')"
+        )
+        self.page.clock.run_for(7000)
+        self.assertEqual(
+            self.page.locator("#spotlight-artist-name").inner_text(), "Second"
+        )
+
+    #: A card whose height depends on the link: a 36px row when the link
+    #: shows, 20px when it does not; the second candidate adds a 60px badge.
+    LINK_LAYOUT_MARKUP = (
+        "<style>.hidden{display:none}"
+        "#spotlight-artist-name{display:block;height:20px}"
+        "#spotlight-playtime-badge{display:block;height:60px}"
+        "#spotlight-playtime-badge.hidden{display:none}"
+        ".link-icon{display:block;width:24px;height:24px}</style>"
+        '<div id="artist-spotlight-card" style="display:none;width:400px">'
+        '<div id="spotlight-card-content"><img id="spotlight-artist-img">'
+        '<div style="display:flex"><span id="spotlight-artist-name"></span>'
+        '<a id="spotlight-spotify-link" class="spotlight-spotify-link hidden">'
+        '<span class="link-icon"></span></a></div>'
+        '<span id="spotlight-artist-rank"></span>'
+        '<span id="spotlight-playtime-badge"></span>'
+        '<span id="spotlight-playtime-sep"></span>'
+        '<span id="spotlight-scrobble-text"></span></div></div>'
+    )
+
+    def test_a_remeasure_under_focus_ignores_a_link_the_candidate_lacks(self):
+        """While the link holds focus it stays in place through the measuring
+        pass, but a candidate with no Spotify link must not be measured with
+        it: the reserved height is the same whether or not focus is on the
+        card."""
+        self.spotlight(
+            markup=self.LINK_LAYOUT_MARKUP,
+            artists=[
+                {
+                    "name": "One",
+                    "scrobbles": 5,
+                    "album_count": 1,
+                    "play_time_seconds": 0,
+                    "play_time": "",
+                },
+                {
+                    "name": "Two",
+                    "scrobbles": 5,
+                    "album_count": 1,
+                    "play_time_seconds": 60,
+                    "play_time": "1m",
+                },
+            ],
+        )
+        self.page.add_style_tag(path=str(ROOT / "static/css/results.css"))
+        self.settle_two_candidates()
+        card = self.page.locator("#artist-spotlight-card")
+        remeasure = "document.fonts.dispatchEvent(new Event('loadingdone'))"
+        self.page.evaluate(remeasure)
+        unfocused = card.evaluate("el => el.style.minHeight")
+        self.page.locator("#spotlight-spotify-link").focus()
+        self.page.evaluate(remeasure)
+        self.assertEqual(
+            self.page.evaluate("document.activeElement.id"), "spotlight-spotify-link"
+        )
+        self.assertEqual(card.evaluate("el => el.style.minHeight"), unfocused)
+        self.assertNotEqual(unfocused, "")
+        self.assertNotIn("is-measuring-without-link", card.get_attribute("class") or "")
 
     def test_photo_swaps_synchronously_with_name_on_rotation(self):
         """The visible photo always belongs to the candidate whose name is
-        shown -- no stale photo under a new name during a swap (F-B21-60 /
-        B2). Both photos are preloaded and cached before either candidate is
-        ever shown, so a swap needs no further Image() at all."""
+        shown -- no stale photo under a new name during a swap (F-B21-60).
+        Both photos are preloaded and cached before either candidate is ever
+        shown, so a swap needs no further Image() at all."""
         self.spotlight()
         self.resolve_pending("""() => {
             pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg'})});
@@ -269,7 +390,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         """One candidate's hydrate request that never answers does not keep
         the card hidden forever: it is bounded by a timeout and dropped like
         an unconfirmed candidate, so the others still reveal the card
-        (F-B21-60 / B3)."""
+        (F-B21-60)."""
         self.spotlight()
         self.resolve_pending("""() => {
             pending[1].resolve({ok: true, json: async () => ({image_url: 'https://img/b.jpg'})});
@@ -295,8 +416,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         """A confirmed candidate whose *photo* never answers does not keep the
         card hidden forever either: the fetch, its json body and the image
         preload all share one timeout budget, so a hung image is dropped like
-        an unconfirmed candidate, not left pending indefinitely (F-B21-60 /
-        B3 follow-up)."""
+        an unconfirmed candidate, not left pending indefinitely (F-B21-60)."""
         self.spotlight()
         self.resolve_pending("""() => {
             pending[0].resolve({ok: true, json: async () => ({image_url: 'https://img/a.jpg'})});
@@ -378,7 +498,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         )
 
     def tooltip(self):
-        """Expose the shared tooltip through two actual focusable album links."""
+        """Expose the Spotify hint through two actual focusable album links."""
         self.start(
             "results.js",
             '<a class="album-link" href="#a">A</a>'
@@ -431,7 +551,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.assertEqual(visible.text_content(), "Open this album on Deezer (new tab)")
 
     def test_tooltip_keyboard_escape_and_scroll(self):
-        """Keyboard access is immediate, shared and dismissible without a mouse."""
+        """Keyboard access is immediate and dismissible without a mouse."""
         tip = self.tooltip()
         self.page.keyboard.press("Tab")
         self.assertIn("is-visible", tip.get_attribute("class"))
