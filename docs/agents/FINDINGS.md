@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2242 tests across 81 tracked test modules.
+2238 tests across 81 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -796,6 +796,24 @@ Five tests were shown to survive the mutation they are meant to catch, each with
 - Frontend harness (S2-24): `tests/frontend/test_heatmap_pure_functions.py` asserts only `exportHeaderLayout(...).columns`, `exportHeaderModel().eyebrow` and `rocketColor` at exact stops; ten mutations survive (`Math.round` to `Math.floor`, `beside` forced false, the legend offset dropped, the headline dropped, and others). Assert whole layout objects for one beside and one stacked case, a `rocketColor` value between two stops, and the headline and legend.
 
 - [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-7, S1-8, S1-9, S1-10 and S2-24.
+
+### F-B23-32: provider URLs reach href and src unchecked
+
+Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_results.py` `_album_url`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-3.
+
+### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path
+
+`routes/api.py` (line 215) passes `request.args["artist_id"]` into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`, line 288), so `../` segments make the server call any GET route under the app's token. No client sends the parameter.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-4.
+
+### F-B23-34: html2canvas loads from cdnjs without Subresource Integrity
+
+`templates/results.html` (line 13) loads html2canvas 1.4.1 with no `integrity` or `crossorigin` attribute, and the Typekit stylesheet in `base.html` (line 58) likewise, so a compromised CDN object runs with the results page's privileges, where `APP_DATA.job_id` is in scope.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-5.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

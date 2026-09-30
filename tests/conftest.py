@@ -11,14 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 # Provide a safe SECRET_KEY for tests so the startup guard in create_app()
 # does not raise. Must be set before app.py is imported.
-# Not setdefault: CI sets SECRET_KEY to an empty string when the repository
-# secret is missing, and empty is present but still weak.
+# Not setdefault: a developer's shell or .env can leave SECRET_KEY set to an
+# empty string, and empty is present but still weak.
 if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = "test-only-secret-key-min-16chars!!"
 
 # The same, for the three provider keys create_app() now refuses to start
-# without (F-SWE-4). CI passes them from repository secrets, which arrive
-# empty when unavailable, and no test reaches a real provider.
+# without (F-SWE-4). CI passes none of them, a shell may leave them empty,
+# and no test reaches a real provider.
 for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
     if not os.environ.get(_key):
         os.environ[_key] = "test-only-placeholder"

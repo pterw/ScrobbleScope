@@ -19,6 +19,16 @@ Section 3 now says that these seams come before the Spotify import and which wor
 
 Validation: `pytest -q` -- **2223 passed**.
 
+### 2026-09-29 - The spotlight holds still while its link has focus or the pointer
+
+Side task, no batch tag: pausing the artist spotlight rotation while its link has focus or the pointer is over it, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The 7s rotation used to rewrite the Spotify link's target while a keyboard user had it focused, and when the next artist had no link the focused link was hidden and focus dropped to `<body>`. `static/js/results-spotlight.js` now skips a tick while the pointer is over the card (`pointerenter`/`pointerleave`) or `card.contains(document.activeElement)`; reading `activeElement` instead of `focusin`/`focusout` with `relatedTarget` gives the same result for moves inside the card and stays right when the window loses focus. `reserveCardHeight` (the height reserve) skips the link while focus is in the card, so its measuring pass never hides or retargets a focused link. Reduced motion is unchanged. New frontend-gate check `check_artist_spotlight_holds_still_while_focused_or_hovered` (Chromium and Firefox) counts ticks in `window.__spotlightTicks`, waits for 3 with no fixed sleep, then asserts focus, href, label and artist are unchanged for keyboard focus and then pointer hover; 4 new tests in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py`, no existing test edited, and a `DEVELOPMENT.md` bullet.
+
+Live probe (R6, code phase): with the pause removed the check went red in Chromium (`spotlight hold (focus): label changed from 'View Godspeed You! Black Emperor on Spotify ...' to 'View Sufjan Stevens ...'`, and the same for pointer); restored, it is green. Mutating `if passed < HOLD_PERIODS` to `if False` fails 2 unit tests. Known limit: the mock gives every candidate a link, so the gate cannot show the no-link-candidate-while-focused variant directly; the pause guards it.
+
+Validation: `pytest -q` -- **2230 passed**.
+
 ### 2026-09-29 - User checked before privacy; only a public verdict cached; payload edge cases
 
 Side task, no batch tag: checking the user before privacy, caching only a public verdict and handling Deezer and Last.fm payload edge cases, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

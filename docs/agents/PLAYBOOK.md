@@ -131,6 +131,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Repo Assist removed; CI job holds no provider secrets
+
+Side task, no batch tag: removing the Repo Assist workflow and CI's provider secrets, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Owner ruling (2026-09-29): Repo Assist is not configured properly and is dropped; CI is robust without it. `repo-assist.md`, `repo-assist.lock.yml`, the README sentence and the Repo Assist assertions in `tests/test_ci_workflows.py` are gone, and the S6-2 hardening (a docsync.toml guard for its PRs) is not built. S6-1 stays: `test.yml` no longer passes LASTFM_API_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET or SECRET_KEY at job level. No step reads a real key: `conftest.py` and `frontend_gate.py` supply placeholders, and a step that ever needs one takes it in its own `env:`. Proved by running the suite and the frontend gate with the four variables unset. The two comments that said CI passes the keys from repository secrets are corrected.
+
+Edited tests: every test in `tests/test_ci_workflows.py` asserted on the Repo Assist workflow, so the module is rewritten around `test.yml`: `test_test_job_env_passes_no_secret` (job-level env carries no secrets reference) and `test_env_reader_flags_a_secret_and_a_missing_block`. Filed F-B23-32, F-B23-33 and F-B23-34 (P3, S6-3, S6-4, S6-5). Owner action: delete the Repo Assist repository secrets (for example CODEX_API_KEY, COPILOT_GITHUB_TOKEN) in GitHub settings if nothing else uses them.
+
+Validation: `pytest -q` -- **2238 passed**.
+
 ### 2026-09-29 - Provider-failure docstring made true; async-thread traceback kept at DEBUG
 
 Side task, no batch tag: the `RedactingFormatter` docstring corrected and `run_async_in_thread`'s traceback moved to DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -164,13 +174,3 @@ Two new frontend-gate checks, `export keeps spotify icon size` (Chromium and Fir
 Known limits: the Firefox canary now also runs the results-page export check (about 5s more). Forced colours is checked in Chromium only. Legacy unmatched rows with an empty provider still show a Spotify portrait, because they have no provider to exclude; only rows naming another provider get the placeholder.
 
 Validation: `pytest -q` -- **2233 passed**.
-
-### 2026-09-29 - The spotlight holds still while its link has focus or the pointer
-
-Side task, no batch tag: pausing the artist spotlight rotation while its link has focus or the pointer is over it, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The 7s rotation used to rewrite the Spotify link's target while a keyboard user had it focused, and when the next artist had no link the focused link was hidden and focus dropped to `<body>`. `static/js/results-spotlight.js` now skips a tick while the pointer is over the card (`pointerenter`/`pointerleave`) or `card.contains(document.activeElement)`; reading `activeElement` instead of `focusin`/`focusout` with `relatedTarget` gives the same result for moves inside the card and stays right when the window loses focus. `reserveCardHeight` (the height reserve) skips the link while focus is in the card, so its measuring pass never hides or retargets a focused link. Reduced motion is unchanged. New frontend-gate check `check_artist_spotlight_holds_still_while_focused_or_hovered` (Chromium and Firefox) counts ticks in `window.__spotlightTicks`, waits for 3 with no fixed sleep, then asserts focus, href, label and artist are unchanged for keyboard focus and then pointer hover; 4 new tests in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py`, no existing test edited, and a `DEVELOPMENT.md` bullet.
-
-Live probe (R6, code phase): with the pause removed the check went red in Chromium (`spotlight hold (focus): label changed from 'View Godspeed You! Black Emperor on Spotify ...' to 'View Sufjan Stevens ...'`, and the same for pointer); restored, it is green. Mutating `if passed < HOLD_PERIODS` to `if False` fails 2 unit tests. Known limit: the mock gives every candidate a link, so the gate cannot show the no-link-candidate-while-focused variant directly; the pause guards it.
-
-Validation: `pytest -q` -- **2230 passed**.

@@ -722,10 +722,7 @@ found more; its backend fixes landed in this PR and its frontend fixes follow.
   the test-count pin before rewriting it.
 - **The repository root was cleaned up.** The four agent documents now live
   under `docs/agents/` and the configuration files under `config/`.
-- **The worktree guard checks that essential files exist.** The Repo Assist
-  workflow, which adds missing tests and proposes dependency updates as draft
-  PRs, was pinned to a measured count and told to
-  skip browser tests.
+- **The worktree guard checks that essential files exist.**
 - **The suite runs the album pipeline end to end** on a real thread and
   checks provider response shapes against their documentation.
 

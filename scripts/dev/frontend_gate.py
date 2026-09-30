@@ -42,8 +42,8 @@ if str(REPO_ROOT) not in sys.path:
 # application. The key therefore has to be set before the import, not before
 # create_app.
 #
-# Not setdefault: GitHub Actions sets SECRET_KEY to an empty string when the
-# repository secret is missing, and empty is present. create_app would then
+# Not setdefault: a shell can leave SECRET_KEY set to an empty string, and
+# empty is present. create_app would then
 # read "", call it weak, and raise at import -- a traceback instead of a FAIL
 # line. The workflow sets FLASK_ENV, which nothing reads; the guard reads
 # DEBUG_MODE, so CI is never in dev mode.

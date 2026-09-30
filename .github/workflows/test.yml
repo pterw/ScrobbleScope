@@ -24,10 +24,9 @@ jobs:
       contents: read
 
     env:
-      LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      # No provider secret is passed to this job. tests/conftest.py and
+      # scripts/dev/frontend_gate.py supply placeholders, and no step reads
+      # a real key. A step that ever needs one takes it in its own `env:`.
       FLASK_ENV: development
 
     steps:
