@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Provider refusals read as outages; an all-miss run finishes
+
+Side task, no batch tag: provider refusals read as outages and an all-miss run finishing, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Refusals: a Spotify 400 or 403, a 401 that a freshly fetched token does not cure, and a Deezer HTTP 429 (with its Retry-After) or 403 are "could not answer" (`ProviderError`), never "answered, no match"; a genuine empty search and an album-details 404 stay answers. Spotify tokens are cached with a 60 s margin, a 401 drops the cached token once and retries once, and every call adopts a valid cached token before its first request, so a refresh is paid once per job (the batch one-by-one fallback is handed the refreshed token too). An in-job Last.fm 403 reads the body: only error 17 raises `PrivateProfileError`; any other 403 logs the status and error number (no body, no username) and follows the existing unavailable path. Last.fm's error-code page names no HTTP status per error code, so "403 means private" was never documented.
+
+Per-job breaker: `SpotifyBreaker` in `spotify.py`, carried in a `ContextVar` set by `spotify_job_breaker()` around the Spotify phases of `_fetch_spotify_misses`, so signatures are unchanged and a concurrent job has its own. It trips on a Retry-After above the cap, on three refusals in a row with no answer between, or on a second 401 after a fresh token. It is checked at each function's entry and again inside every attempt, right after the semaphore and the rate limiter are held and immediately before the request: at entry alone every queued task had already passed the check before the first 429 came back (a reviewer's run sent 100 of 100 requests). A tripped breaker ends the retry loop at once and the call is unanswered without a request; Deezer still runs. A refusal logs one WARNING per kind per job (operation and status) and one summary line when the job's block ends; the retry helper no longer logs it as an ERROR. Concurrent first 401s can fetch the token up to the number of in-flight calls times (no lock); accepted, bounded by the search concurrency.
+
+All-miss run: owner ruling 2026-09-30, "Finish, show Unmatched": a run where every album is "no match" on both providers succeeds with no albums and each album listed as `no_spotify_match`. `_detect_enrichment_total_failure`, its call and its seven tests are gone; the outage rule in `_fetch_spotify_misses` (Spotify answered nothing and Deezer enriched nothing) is unchanged, and "Spotify said no match for every album, Deezer could not answer for any" now has an end-to-end test (it succeeds; each album is listed unavailable). `top-albums-sequence.md` no longer draws the removed branch. The Results-page copy for this outcome is the frontend task's.
+
+Smaller: `jobs.succeed` and `jobs.fail` refuse a second ending and log it (`start` and `reset` reopen a job); `jobs.exists` replaces a `context(...) is None` probe in `release_checks`; a Deezer `/tracks` call that ends in a terminal error makes the album a miss (not persisted with empty durations), while a body of JSON null keeps it with no durations; the `worker.py` docstring says what each caller publishes. `spotify_rate_limited`, `lastfm_rate_limited` and `job_interrupted` remain valid codes that no pipeline publishes (`spotify_rate_limited` is only a per-call code, `lastfm_rate_limited` is never raised, `jobs.mark_interrupted` has no caller); none is deleted, the UI maps them.
+
+Bookkeeping: F-SWE-3 (a Spotify 5xx "ends the attempt loop after one try") is closed, since a 5xx is retried and raised as `ProviderError`; F-B23-40 files the Last.fm username in log lines.
+
+Edited existing tests: `test_page_fetch_reports_a_private_profile_without_retrying`, `test_succeed_clears_an_earlier_failure`, `test_fail_internal_error_replaces_results_and_is_not_retryable`, `test_fetch_spotify_album_details_batch_non_200_returns_empty_dict`, `test_fetch_spotify_access_token_refreshes_expired_token` and `test_fetch_deezer_album_keeps_the_album_when_the_track_list_is_unreadable` (a JSON-null case added). Removed with the function: the seven `test_detect_enrichment_total_failure_*` tests.
+
+Validation: `pytest -q` -- **2462 passed**.
+
 ### 2026-09-30 - Diagrams and README checked against what the PR ships
 
 Side task, no batch tag: the pre-merge pass over the diagrams and README, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
