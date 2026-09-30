@@ -653,7 +653,9 @@ Four checks show what each closes:
   artist name breaks inside a word and that the card is one height for every
   candidate. A hold check focuses the Spotify link, then hovers the card,
   and requires that the link keeps its focus, target and name across three
-  rotation periods.
+  rotation periods. It then resizes the card, with focus on the link and one
+  candidate that has no link, and requires that the height re-measure leaves
+  the link unwritten.
 
 `_frontend_gate_spotify_icon.py` adds the official Spotify icon check: the file
 each theme shows, at least 21px, half its height of clear space, and the

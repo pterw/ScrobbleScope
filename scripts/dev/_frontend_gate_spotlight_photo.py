@@ -89,7 +89,11 @@ def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None)
 
 
 def _install_spotlight_fetch_mock(
-    page, image_url: str | None, *, keep_rotating: bool = False
+    page,
+    image_url: str | None,
+    *,
+    keep_rotating: bool = False,
+    linkless: tuple[str, ...] = (),
 ) -> None:
     """Mock `/api/artist_spotlight` and speed up the 7s rotation interval.
 
@@ -101,7 +105,8 @@ def _install_spotlight_fetch_mock(
     prove hydration ran instead of waiting a fixed time and hoping. The sped-up
     interval fires once by default; `keep_rotating` keeps it repeating, for a
     check that must see every candidate, and counts each period in
-    `window.__spotlightTicks`."""
+    `window.__spotlightTicks`. The artists named in `linkless` are answered
+    with a photo but no Spotify URL, so the card hides its link for them."""
     page.add_init_script(
         f"""(() => {{
             const nativeInterval = window.setInterval;
@@ -111,6 +116,7 @@ def _install_spotlight_fetch_mock(
             window.__spotlightResponses = 0;
             window.__spotlightTicks = 0;
             const keepRotating = {json.dumps(keep_rotating)};
+            const linkless = {json.dumps(list(linkless))};
             window.setInterval = (callback, delay, ...args) => {{
                 if (delay === 7000 && keepRotating) {{
                     // Counted, so a check can wait for whole rotation periods
@@ -129,6 +135,7 @@ def _install_spotlight_fetch_mock(
                     return nativeFetch(resource, options);
                 }}
                 window.__spotlightRequests += 1;
+                const artist = decodeURIComponent(url.split('artist=')[1] || '');
                 return Promise.resolve({{
                     ok: true,
                     json: async () => {{
@@ -136,6 +143,7 @@ def _install_spotlight_fetch_mock(
                         return {{
                             image_url: window.__spotlightPhotoUrl,
                             spotify_url: window.__spotlightPhotoUrl
+                                && !linkless.includes(artist)
                                 ? 'https://open.spotify.com/artist/photo'
                                 : null,
                         }};
@@ -763,13 +771,117 @@ def spotlight_hold_failures(before: dict, after: dict, held_by: str) -> list[str
     return failures
 
 
+#: The one artist the re-measure hold answers without a Spotify URL, so that
+#: measuring the tallest candidate would hide a focused link if it could.
+REMEASURE_LINKLESS_ARTIST = "Springsteen"
+
+#: Focuses the link once it is on screen (the current candidate has one);
+#: false while the rotation shows the linkless candidate, so it is polled.
+_FOCUS_VISIBLE_LINK_JS = """() => {
+    const link = document.getElementById('spotlight-spotify-link');
+    if (link.getClientRects().length === 0) return false;
+    link.focus();
+    return document.activeElement === link;
+}"""
+
+#: Counts what happens to the link (any attribute write, including one that
+#: sets the value it already has) and how often the card's reserved height is
+#: set, from now on. `reserveCardHeight` sets `min-height` on every pass.
+_OBSERVE_REMEASURE_JS = """() => {
+    const link = document.getElementById('spotlight-spotify-link');
+    const card = document.getElementById('artist-spotlight-card');
+    window.__linkWrites = 0;
+    window.__cardMeasures = 0;
+    new MutationObserver(records => { window.__linkWrites += records.length; })
+        .observe(link, { attributes: true });
+    new MutationObserver(records => { window.__cardMeasures += records.length; })
+        .observe(card, { attributes: true, attributeFilter: ['style'] });
+}"""
+
+_REMEASURED_JS = "() => window.__cardMeasures > 0"
+
+_REMEASURE_STATE_JS = """() => {
+    const link = document.getElementById('spotlight-spotify-link');
+    return {
+        focused: document.activeElement === link,
+        visible: link.getClientRects().length > 0,
+        writes: window.__linkWrites,
+        measures: window.__cardMeasures,
+    };
+}"""
+
+
+def spotlight_remeasure_failures(state: dict) -> list[str]:
+    """Judge a re-measure that ran while the reader had focus on the link.
+
+    The card measures every candidate to reserve its height; a candidate with
+    no Spotify URL hides the link while it is rendered. With focus on the
+    link that pass must leave the link alone (`keepLink`), or focus drops to
+    the page body (S2-2).
+    """
+    if not state["measures"]:
+        return [
+            "spotlight re-measure: the card's height was never re-measured "
+            "after the resize, so the focused link was not tested"
+        ]
+    failures = []
+    if not (state["focused"] and state["visible"]):
+        failures.append(
+            "spotlight re-measure: the link lost focus or was hidden while "
+            "the card's height was re-measured"
+        )
+    if state["writes"]:
+        failures.append(
+            f"spotlight re-measure: the focused link was rewritten "
+            f"{state['writes']} times while the card's height was re-measured"
+        )
+    return failures
+
+
+def _remeasure_hold_failures(page, url: str) -> list[str]:
+    """Focus the link, resize the card so it is re-measured, and judge it.
+
+    Runs on a page of its own (same browser context), because it needs a
+    candidate with no link and the hold check's other phases must never
+    focus a link that a rotation step could hide.
+    """
+    # Imported here for the reason given in the check that calls this.
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    probe = page.context.new_page()
+    try:
+        _install_spotlight_fetch_mock(
+            probe,
+            SQUARE_PHOTO_DATA_URL,
+            keep_rotating=True,
+            linkless=(REMEASURE_LINKLESS_ARTIST,),
+        )
+        error = _open_spotlight_card(
+            probe, url, LAYOUT_VIEWPORTS[3], "spotlight re-measure"
+        )
+        if error:
+            return [error]
+        probe.wait_for_function(_FOCUS_VISIBLE_LINK_JS, timeout=5_000)
+        probe.evaluate(_OBSERVE_REMEASURE_JS)
+        probe.set_viewport_size(LAYOUT_VIEWPORTS[2])
+        try:
+            probe.wait_for_function(_REMEASURED_JS, timeout=5_000)
+        except PlaywrightTimeoutError:
+            # Reported below by the measure count. Only a timeout is
+            # tolerated: a crashed page or a script error propagates.
+            pass
+        return spotlight_remeasure_failures(probe.evaluate(_REMEASURE_STATE_JS))
+    finally:
+        probe.close()
+
+
 def check_artist_spotlight_holds_still_while_focused_or_hovered(
     page, base_url: str
 ) -> list[str]:
     """The rotation never moves a link the reader is using: with keyboard
     focus on the Spotify link, or the pointer over the card, the link keeps
-    its focus, its target and its name across several rotation periods
-    (S2-2)."""
+    its focus, its target and its name across several rotation periods, and
+    a re-measure of the card's height leaves a focused link alone (S2-2)."""
     # Imported here, not at module level: the gate reports a missing
     # Playwright with the install command (`_load_playwright`), which a
     # module-level import would pre-empt with a bare ImportError.
@@ -802,6 +914,7 @@ def check_artist_spotlight_holds_still_while_focused_or_hovered(
             failures.extend(
                 spotlight_hold_failures(before, page.evaluate(_LINK_STATE_JS), held_by)
             )
+        failures.extend(_remeasure_hold_failures(page, url))
     finally:
         jobs.delete(job_id)
     return failures

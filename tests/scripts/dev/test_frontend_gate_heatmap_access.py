@@ -146,9 +146,12 @@ def test_the_ring_is_read_after_fonts_and_frames_have_settled() -> None:
     assert script.count("requestAnimationFrame") == 2
 
 
-def test_the_page_repositions_its_tooltip_before_every_screenshot() -> None:
-    """A tooltip left where the cell was before a reflow can sit over the
-    ring; only a scroll or a resize moves it, so the gate sends a scroll."""
+def _order_over_a_reflow() -> tuple[list, list[int]]:
+    """Run the ring read on a page that reflows once, so it is shot twice.
+
+    Returns every `evaluate` script and `screenshot` the page saw, in order,
+    and the positions of the two screenshots in that list.
+    """
     early, late = _geometry(left=10.0), _geometry(left=50.0)
     page = _ring_page([early, late, late, late], coverage={})
     _frontend_gate_heatmap_access._ring_coverage(page, "2026-05-15", "red")
@@ -157,9 +160,16 @@ def test_the_page_repositions_its_tooltip_before_every_screenshot() -> None:
         for call in page.method_calls
         if call[0] in ("screenshot", "evaluate")
     ]
-    nudge = _frontend_gate_heatmap_access._LAYOUT_MOVED_JS
     shots = [i for i, item in enumerate(order) if item == "screenshot"]
     assert len(shots) == 2
+    return order, shots
+
+
+def test_the_page_repositions_its_tooltip_before_every_screenshot() -> None:
+    """A tooltip left where the cell was before a reflow can sit over the
+    ring; only a scroll or a resize moves it, so the gate sends a scroll."""
+    order, shots = _order_over_a_reflow()
+    nudge = _frontend_gate_heatmap_access._LAYOUT_MOVED_JS
     for shot in shots:
         assert nudge in order[:shot]
     assert order[: shots[1]].count(nudge) == 2
@@ -168,16 +178,7 @@ def test_the_page_repositions_its_tooltip_before_every_screenshot() -> None:
 def test_the_settle_wait_runs_before_every_screenshot() -> None:
     """Fonts and two frames must have settled before each shot, not only before
     the first: the box is read from the settled page."""
-    early, late = _geometry(left=10.0), _geometry(left=50.0)
-    page = _ring_page([early, late, late, late], coverage={})
-    _frontend_gate_heatmap_access._ring_coverage(page, "2026-05-15", "red")
-    order = [
-        "screenshot" if call[0] == "screenshot" else call.args[0]
-        for call in page.method_calls
-        if call[0] in ("screenshot", "evaluate")
-    ]
+    order, shots = _order_over_a_reflow()
     settled = _frontend_gate_heatmap_access._LAYOUT_SETTLED_JS
-    shots = [i for i, item in enumerate(order) if item == "screenshot"]
-    assert len(shots) == 2
     for number, shot in enumerate(shots, start=1):
         assert order[:shot].count(settled) == number

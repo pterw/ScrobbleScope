@@ -1414,6 +1414,14 @@ class TestCloseBatchMode:
         added to the corpus but the call site's `expected` is not updated to
         match, `actually_read <= seen["expected"]` fails without anyone
         having to remember to extend an example list.
+
+        Depends on `cli._snapshot` (the staleness baseline loop over
+        `read_paths`) never going through `Path.read_text` or
+        `Path.read_bytes`: those are the methods instrumented here, and a
+        baseline that used them would put every path in `expected` into
+        `actually_read` itself, making the coverage claim true by
+        construction. `_snapshot` is therefore wrapped and any read the
+        instrumented methods see while it runs is recorded and refused.
         """
         _make_corpus(tmp_path)
         monkeypatch.chdir(tmp_path)
@@ -1422,11 +1430,22 @@ class TestCloseBatchMode:
         real_corpus_init = cli_mod._Corpus.__init__
         real_read_text = Path.read_text
         actually_read: set[Path] = set()
-        recording = {"on": False}
+        recording = {"on": False, "in_snapshot": False}
+        read_by_baseline: list[Path] = []
+        real_snapshot = cli_mod._snapshot
+
+        def recording_snapshot(path):
+            recording["in_snapshot"] = True
+            try:
+                return real_snapshot(path)
+            finally:
+                recording["in_snapshot"] = False
 
         def recording_read_text(self: Path, *args, **kwargs):
             if recording["on"]:
                 actually_read.add(self.resolve())
+                if recording["in_snapshot"]:
+                    read_by_baseline.append(self.resolve())
             return real_read_text(self, *args, **kwargs)
 
         def recording_init(self, store):
@@ -1443,8 +1462,11 @@ class TestCloseBatchMode:
             # holds the exact bytes the plan read (S3-3).
             if recording["on"]:
                 actually_read.add(self.resolve())
+                if recording["in_snapshot"]:
+                    read_by_baseline.append(self.resolve())
             return real_read_bytes(self)
 
+        monkeypatch.setattr(cli_mod, "_snapshot", recording_snapshot)
         monkeypatch.setattr(Path, "read_text", recording_read_text)
         monkeypatch.setattr(Path, "read_bytes", recording_read_bytes)
         monkeypatch.setattr(cli_mod._Corpus, "__init__", recording_init)
@@ -1464,6 +1486,10 @@ class TestCloseBatchMode:
             cli_mod._close_batch(22, 4, "2026-09-19")
 
         assert actually_read, "the recording hook on _Corpus.__init__ never fired"
+        assert read_by_baseline == [], (
+            "the baseline loop read through an instrumented Path method, so "
+            "actually_read proves nothing about read_paths"
+        )
         assert actually_read <= seen["expected"]
         assert {
             root / "AGENTS.md",

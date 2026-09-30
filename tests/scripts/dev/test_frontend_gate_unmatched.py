@@ -286,3 +286,50 @@ def test_the_ring_switch_turns_off_the_outline_and_box_shadow_of_the_focused_lin
     script = _frontend_gate_unmatched._RING_OFF_JS
     assert ":focus { outline: none !important;" in script
     assert "box-shadow: none !important" in script
+
+
+def _panel_page(count: int, panel: dict | None = None) -> MagicMock:
+    page = MagicMock()
+    locator = page.locator.return_value
+    locator.count.return_value = count
+    locator.evaluate.return_value = panel
+    return page
+
+
+_RENDERED_PANEL = {
+    "title": "Could not be checked",
+    "hint": "Search again in a few minutes; these albums may match then.",
+    "note": "Spotify and Deezer were both unavailable",
+    "album": "Unavailable Album Unavailable Artist",
+    "panels": "4",
+}
+
+
+def test_the_fourth_panel_passes_when_it_renders_its_title_hint_note_and_album() -> (
+    None
+):
+    page = _panel_page(1, dict(_RENDERED_PANEL))
+    assert _frontend_gate_unmatched._provider_unavailable_panel_failures(page) == []
+    page.locator.assert_called_once_with('[data-reason="provider_unavailable"]')
+
+
+def test_the_fourth_panel_names_each_claim_it_gets_wrong() -> None:
+    wrong = {**_RENDERED_PANEL, "hint": "Try later.", "note": None, "album": None}
+    failures = _frontend_gate_unmatched._provider_unavailable_panel_failures(
+        _panel_page(1, wrong)
+    )
+    assert failures == [
+        "unmatched could-not-be-checked panel hint is 'Try later.', expected "
+        "'Search again in a few minutes; these albums may match then.'",
+        "unmatched could-not-be-checked panel note is None, expected "
+        "'Spotify and Deezer were both unavailable'",
+        "unmatched could-not-be-checked panel does not list the album: None",
+    ]
+
+
+def test_a_missing_fourth_panel_is_a_failure_not_a_wait() -> None:
+    page = _panel_page(0)
+    assert _frontend_gate_unmatched._provider_unavailable_panel_failures(page) == [
+        "unmatched report renders no could-not-be-checked panel"
+    ]
+    page.locator.return_value.evaluate.assert_not_called()

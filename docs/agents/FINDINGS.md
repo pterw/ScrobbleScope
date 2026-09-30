@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2341 tests across 82 tracked test modules.
+2365 tests across 82 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -746,18 +746,6 @@ One bundle, to be taken opportunistically:
 - S2-23 bundle: the `#heatmap-grid` ring-room CSS (a container that never scrolls at any width) and the padding subtraction in `renderHeatmapMobile`; the server-rendered spotlight card body and the `top_artist_*` route variables, dead because JS overwrites them; unused remnants in `results-spotlight.js` (a `content` id lookup, a `hidden`/`opacity-0` reset on an `<img>`, a once-read `state.reducedMotion`, `formatDurationMobile`) and an unread `event` parameter of `showTooltip`; the badge markup copied four times (Rule of Three: may wait); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), Task 3 review minors, S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
-
-### F-B23-31: tests that stay green when the defect they exist for is planted back
-
-Five tests were shown to survive the mutation they are meant to catch, each with the reviewer's proposed fix:
-
-- Spotlight seed fallback (S1-7): restoring the deleted album-cover fallback in `spotlight.select_spotlight_artists` keeps the suite and the gate green. Add a route test that every spotlight seed `image_url` is empty.
-- Span start (S1-8): the mutants `span_s = entry["span_end"]` and dropping the span-start update both survive `tests/services/test_api_logging.py`. Use a non-zero clock start, and record the later-starting call first.
-- Cancel loop (S1-9): removing the cancel loop in `lastfm.fetch_all_recent_tracks_async` passes after 60s in `tests/services/test_lastfm_service.py` (`_PageFetchLedger`), and no per-test timeout exists. Count `CancelledError`, assert four, and wrap in `asyncio.timeout(2)`; the reviewer ran this: 2 passed in 0.13s at HEAD, 2 failed on the mutant.
-- Fixture URL (S1-10): in `tests/test_provider_fixtures.py` the fixture's `external_urls.spotify` equals the code's fallback URL, so a typo in the key name passes. Give the fixture a distinct URL, and adopt `SPOTIFY_ALBUM_DETAILS_MOCK` for the two inline copies in `tests/test_orchestrator_process_albums.py` that escape the drift test.
-- Frontend harness (S2-24): `tests/frontend/test_heatmap_pure_functions.py` asserts only `exportHeaderLayout(...).columns`, `exportHeaderModel().eyebrow` and `rocketColor` at exact stops; ten mutations survive (`Math.round` to `Math.floor`, `beside` forced false, the legend offset dropped, the headline dropped, and others). Assert whole layout objects for one beside and one stacked case, a `rocketColor` value between two stops, and the headline and legend.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-7, S1-8, S1-9, S1-10 and S2-24.
 
 ### F-B23-32: provider URLs reach href and src unchecked
 

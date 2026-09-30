@@ -36,6 +36,12 @@ ITEMS_JS = """[
         (0.5, "rgb(166,44,92)"),  # ROCKET_STOPS[3], an exact stop
         (-1, "rgb(3,5,26)"),  # clamps low
         (2, "rgb(249,213,118)"),  # clamps high
+        # Between two stops, where the interpolation and its rounding show:
+        # 0.25 is the midpoint of stops 1 and 2; 0.4 and 0.9 land on x.7
+        # channels that Math.round lifts and Math.floor would not (F-B23-31).
+        (0.25, "rgb(74,19,94)"),
+        (0.4, "rgb(131,32,103)"),
+        (0.9, "rgb(244,172,83)"),
     ],
 )
 def test_rocket_color(js_page, t, expected):
@@ -132,6 +138,91 @@ def test_export_header_layout_columns(js_page, grid_width, expected_columns):
         grid_width,
     )
     assert columns == expected_columns
+
+
+@pytest.fixture
+def header_page(js_browser):
+    """A page whose header, eyebrow and legend captions exist before
+    heatmap.js loads, with DOMContentLoaded fired by hand (a page set up by
+    ``set_content`` never fires it), so ``initForm`` binds the headline node.
+    """
+    page = js_browser.new_page()
+    page.set_content(
+        "<!doctype html><html><body>"
+        '<h1 id="heatmap-result-headline"> Ann&#39;s last 365 days </h1>'
+        '<div class="heatmap-head__titles">'
+        '<span class="eyebrow">Eye brow</span></div>'
+        '<span class="heatmap-legend__cap" style="text-transform:uppercase">'
+        "Less</span>"
+        '<span class="heatmap-legend__cap">More</span>'
+        "</body></html>"
+    )
+    page.evaluate("() => { window.__scrobbleHeatmapTestMode = true; }")
+    page.add_script_tag(path=str(HEATMAP_JS))
+    page.evaluate("() => document.dispatchEvent(new Event('DOMContentLoaded'))")
+    yield page
+    page.close()
+
+
+def _layout(page, grid_width):
+    return page.evaluate(
+        f"(w) => window.__scrobbleHeatmapTestHooks.exportHeaderLayout({STUB_CTX_JS}, w, {ITEMS_JS})",
+        grid_width,
+    )
+
+
+def test_export_header_layout_beside_puts_the_legend_next_to_the_kpis(header_page):
+    """Worked by hand from heatmap.js's constants, with 7px per character.
+
+    The widest label is "DAILY AVERAGE" (13 x 7 = 91), so a column needs 105
+    and four columns fit in 1280. Top is EXPORT_PAD 28 + 76 = 104; one row of
+    62 ends at 166. The legend (28 + 28 + 2 x 8 + 90 = 162) sits at
+    1336 - 28 - 162 = 1146, level with the KPIs at 104 + 42 = 146, and the
+    header ends at max(166, 146 + 8) + 16 = 182.
+    """
+    assert _layout(header_page, 1280) == {
+        "columns": 4,
+        "step": 190,
+        "kpiTop": 104,
+        "kpiBottom": 166,
+        "legendX": 1146,
+        "legendY": 146,
+        "legendMeasured": {"total": 162, "less": 28},
+        "headHeight": 182,
+    }
+
+
+def test_export_header_layout_stacked_puts_the_legend_below_the_kpis(header_page):
+    """At 340 the four columns need 105 each, so two columns of 170 wrap the
+    KPIs onto two rows (104 + 2 x 62 = 228). The legend would sit at
+    396 - 28 - 162 = 206, inside the KPIs' 28 + 340 = 368, so it takes its
+    own row at 228 + 4 = 232 from the left pad, and the header ends at
+    max(228, 232 + 8) + 16 = 256."""
+    assert _layout(header_page, 340) == {
+        "columns": 2,
+        "step": 170,
+        "kpiTop": 104,
+        "kpiBottom": 228,
+        "legendX": 28,
+        "legendY": 232,
+        "legendMeasured": {"total": 162, "less": 28},
+        "headHeight": 256,
+    }
+
+
+def test_export_header_model_carries_the_headline_and_both_legend_captions(
+    header_page,
+):
+    """The export states what the page renders: the trimmed headline, and the
+    legend captions each cased by its own CSS (Less uppercased, More not)."""
+    model = header_page.evaluate(
+        "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
+    )
+    assert model == {
+        "eyebrow": "Eye brow",
+        "headline": "Ann's last 365 days",
+        "legend": {"less": "LESS", "more": "More"},
+    }
 
 
 #: The desktop grid: one column per week, so one cell right is 7 days on and

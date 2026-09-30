@@ -746,6 +746,7 @@ class _PageFetchLedger:
     def __init__(self):
         self.started = 0
         self.settled = 0
+        self.cancelled = 0
 
     async def __call__(self, session, username, from_ts, to_ts, page, **kwargs):
         if page == 1:
@@ -757,6 +758,9 @@ class _PageFetchLedger:
                 raise UserNotFoundError()
             await asyncio.sleep(30)
             return _make_page(6)
+        except asyncio.CancelledError:
+            self.cancelled += 1
+            raise
         finally:
             self.settled += 1
 
@@ -768,8 +772,13 @@ async def _run_fetch_all_with_raising_page(ledger, progress_cb):
     ):
         mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        with pytest.raises(UserNotFoundError) as excinfo:
-            await fetch_all_recent_tracks_async("ghost", 0, 1, progress_cb=progress_cb)
+        # Without the cancel loop the drain waits out the 30s sleeps; the
+        # timeout turns that hang into a failure in 2s (F-B23-31, S1-9).
+        async with asyncio.timeout(2):
+            with pytest.raises(UserNotFoundError) as excinfo:
+                await fetch_all_recent_tracks_async(
+                    "ghost", 0, 1, progress_cb=progress_cb
+                )
     return excinfo.value
 
 
@@ -793,6 +802,8 @@ async def test_fetch_all_cancels_sibling_fetches_when_one_page_raises(progress_c
     assert type(exc) is UserNotFoundError
     assert ledger.started == 5
     assert ledger.settled == ledger.started
+    # The four fetches still sleeping were cancelled, not left to finish.
+    assert ledger.cancelled == 4
 
 
 # --- F-B23-23: privacy and existence verdicts are cached only when genuine ---

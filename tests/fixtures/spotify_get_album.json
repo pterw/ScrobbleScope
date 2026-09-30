@@ -3,7 +3,7 @@
   "total_tracks": 1,
   "available_markets": ["US"],
   "external_urls": {
-    "spotify": "https://open.spotify.com/album/sp1"
+    "spotify": "https://open.spotify.com/album/fixture-url-not-the-fallback"
   },
   "href": "https://api.spotify.com/v1/albums/sp1",
   "id": "sp1",

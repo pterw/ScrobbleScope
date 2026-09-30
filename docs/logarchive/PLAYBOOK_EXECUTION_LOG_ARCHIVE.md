@@ -19,6 +19,16 @@ Section 3 now says that these seams come before the Spotify import and which wor
 
 Validation: `pytest -q` -- **2223 passed**.
 
+### 2026-09-29 - Refuse a stale or unfinished docsync publication; ignore CRLF in archives
+
+Side task, no batch tag: docsync publication safety and CRLF archive drift, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+An interrupted publication leaves history only in the git-ignored `.docsync.journal` and both modes used to exit 0 (S3-2). New DOC026 makes `--check` exit 1 while the journal exists, and `--fix` replays it first, under the lock, restoring every file to its pre-run bytes; it refuses if a journalled file was edited since. Chose recovery on the next run over reordering the writes, since restoring pre-run bytes and re-planning cannot lose history for any file mix. Publication now compares against the bytes each file had when the plan first read it, so a concurrent edit is refused and nothing is written (S3-3). `ArchiveStore._diff` folds CRLF to LF, so a CRLF checkout of a paginated archive is not drift while a real content change still is (S3-7). Non-UTF-8 documents exit 2 with a diagnostic (S3-1), a path outside the repository is named instead of crashing (S3-4), and an unchecked box whose outcome says resolved or no action is DOC016 (S3-6). Review minors fixed here: a test for the state a real kill leaves (journal and stale lock), the DOC016 and DOC026 catalogue text, and `_snapshot`, so the baseline loop no longer makes the read-coverage test true by construction.
+
+Edited existing tests: `test_close_batch_proves_every_read_source_before_publishing` (also records `Path.read_bytes`, since documents are read as bytes) and `test_stated_catalogue_helper_rejects_a_mismatched_list` (the sentence gains DOC026). Closed F-DOCSYNC-19; filed F-B23-35 (P3, S3-5, S3-8, the `.gitattributes` guard). No new test module.
+
+Validation: `pytest -q` -- **2252 passed**.
+
 ### 2026-09-29 - Repo Assist removed; CI job holds no provider secrets
 
 Side task, no batch tag: removing the Repo Assist workflow and CI's provider secrets, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

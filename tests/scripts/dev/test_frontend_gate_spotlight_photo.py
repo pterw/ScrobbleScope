@@ -435,6 +435,10 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
             "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
             return_value=None,
         ),
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._remeasure_hold_failures",
+            return_value=[],
+        ),
     ):
         failures = check(page, "http://127.0.0.1:0")
     page.focus.assert_called_once_with("#spotlight-spotify-link")
@@ -577,6 +581,10 @@ def _run_hold(page: MagicMock) -> list[str]:
             "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
             return_value=None,
         ),
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._remeasure_hold_failures",
+            return_value=[],
+        ),
     ):
         return check(page, "http://127.0.0.1:0")
 
@@ -590,3 +598,112 @@ def test_a_crashed_page_during_the_hold_wait_propagates() -> None:
     """A broad except once swallowed this and reported a tick count instead."""
     with pytest.raises(PlaywrightError, match="Target crashed"):
         _run_hold(_hold_page(PlaywrightError("Target crashed")))
+
+
+def _remeasured(**changes) -> dict:
+    return {
+        "focused": True,
+        "visible": True,
+        "writes": 0,
+        "measures": 2,
+        **changes,
+    }
+
+
+def test_a_remeasure_that_leaves_the_focused_link_alone_passes() -> None:
+    assert (
+        _frontend_gate_spotlight_photo.spotlight_remeasure_failures(_remeasured()) == []
+    )
+
+
+def test_a_remeasure_that_rewrote_the_focused_link_fails() -> None:
+    """The mutant that drops `keepLink` rewrites the link once per candidate."""
+    failures = _frontend_gate_spotlight_photo.spotlight_remeasure_failures(
+        _remeasured(writes=13)
+    )
+    assert failures == [
+        "spotlight re-measure: the focused link was rewritten 13 times while "
+        "the card's height was re-measured"
+    ]
+
+
+def test_a_remeasure_that_dropped_focus_or_hid_the_link_fails() -> None:
+    for change in ({"focused": False}, {"visible": False}):
+        failures = _frontend_gate_spotlight_photo.spotlight_remeasure_failures(
+            _remeasured(**change)
+        )
+        assert failures == [
+            "spotlight re-measure: the link lost focus or was hidden while the "
+            "card's height was re-measured"
+        ]
+
+
+def test_a_remeasure_that_never_ran_is_a_failure_instead_of_a_pass() -> None:
+    failures = _frontend_gate_spotlight_photo.spotlight_remeasure_failures(
+        _remeasured(measures=0)
+    )
+    assert len(failures) == 1
+    assert "never re-measured" in failures[0]
+
+
+def _remeasure_run(state: dict, wait_error: Exception | None = None):
+    page = MagicMock()
+    probe = page.context.new_page.return_value
+    probe.evaluate.return_value = state
+    probe.wait_for_function.side_effect = [None, wait_error]
+    with patch(
+        "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
+        return_value=None,
+    ):
+        failures = _frontend_gate_spotlight_photo._remeasure_hold_failures(
+            page, "http://127.0.0.1:0/results?job_id=j"
+        )
+    return failures, probe
+
+
+def test_the_remeasure_hold_focuses_then_resizes_a_card_with_a_linkless_artist() -> (
+    None
+):
+    failures, probe = _remeasure_run(_remeasured())
+    assert failures == []
+    mock_script = probe.add_init_script.call_args.args[0]
+    assert '["Springsteen"]' in mock_script
+    focus_script = probe.wait_for_function.call_args_list[0].args[0]
+    assert focus_script is _frontend_gate_spotlight_photo._FOCUS_VISIBLE_LINK_JS
+    probe.set_viewport_size.assert_called_once_with(
+        _frontend_gate_spotlight_photo.LAYOUT_VIEWPORTS[2]
+    )
+    probe.close.assert_called_once_with()
+
+
+def test_a_timed_out_remeasure_wait_is_judged_by_the_measure_count() -> None:
+    failures, probe = _remeasure_run(
+        _remeasured(measures=0), PlaywrightTimeoutError("no measure")
+    )
+    assert len(failures) == 1 and "never re-measured" in failures[0]
+    probe.close.assert_called_once_with()
+
+
+def test_a_crashed_page_during_the_remeasure_wait_propagates_and_closes() -> None:
+    page = MagicMock()
+    probe = page.context.new_page.return_value
+    probe.wait_for_function.side_effect = [None, PlaywrightError("Target crashed")]
+    with (
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
+            return_value=None,
+        ),
+        pytest.raises(PlaywrightError, match="Target crashed"),
+    ):
+        _frontend_gate_spotlight_photo._remeasure_hold_failures(page, "u")
+    probe.close.assert_called_once_with()
+
+
+def test_the_fetch_mock_answers_a_linkless_artist_without_a_spotify_url() -> None:
+    page = MagicMock()
+    _frontend_gate_spotlight_photo._install_spotlight_fetch_mock(
+        page, "photo.png", linkless=("A B", "C")
+    )
+    script = page.add_init_script.call_args.args[0]
+    assert 'const linkless = ["A B", "C"];' in script
+    assert "!linkless.includes(artist)" in script

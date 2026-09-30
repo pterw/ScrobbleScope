@@ -344,6 +344,25 @@ def test_an_exception_ending_after_the_last_success_extends_the_span(caplog):
     ]
 
 
+def test_span_runs_from_the_earliest_start_when_the_later_call_is_recorded_first(
+    caplog,
+):
+    """A call that starts earlier but is folded in second still opens the span.
+
+    The clock starts far from zero and the later-starting call is recorded
+    first, so a span read as ``end`` alone (106.0s) and one that never moves
+    its start (1.0s) both differ from the true 6.0s (F-B23-31, S1-8).
+    """
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 1000.0, 105.0, 106.0)
+        _record(session, "X", "200", 1000.0, 100.0, 101.0)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 6.0s (2.0s in calls) -- 2x200"]
+
+
 @pytest.mark.asyncio
 async def test_the_span_reflects_real_elapsed_time_between_calls(caplog):
     """End to end against the real session and trace hook: no upper bound on
@@ -488,8 +507,14 @@ def test_run_async_in_thread_error_line_carries_the_class_never_the_message(capl
         assert "Zqxv" not in record.getMessage()
         assert "Wjkl" not in record.getMessage()
     # The traceback stays available, but only at DEBUG.
-    debugs = [r for r in caplog.records if r.levelno == logging.DEBUG and r.exc_info]
-    assert debugs
+    debugs = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG
+        and r.exc_info
+        and "Async thread traceback" in r.getMessage()
+    ]
+    assert len(debugs) == 1
     assert debugs[0].exc_info[0] is RuntimeError
 
 

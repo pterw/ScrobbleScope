@@ -9,6 +9,21 @@ Newest rotation first.
 
 ---
 
+### F-B23-31: tests that stay green when the defect they exist for is planted back -- RESOLVED
+
+Five tests were shown to survive the mutation they are meant to catch, each with the reviewer's proposed fix:
+
+- Spotlight seed fallback (S1-7): restoring the deleted album-cover fallback in `spotlight.select_spotlight_artists` keeps the suite and the gate green. Add a route test that every spotlight seed `image_url` is empty.
+- Span start (S1-8): the mutants `span_s = entry["span_end"]` and dropping the span-start update both survive `tests/services/test_api_logging.py`. Use a non-zero clock start, and record the later-starting call first.
+- Cancel loop (S1-9): removing the cancel loop in `lastfm.fetch_all_recent_tracks_async` passes after 60s in `tests/services/test_lastfm_service.py` (`_PageFetchLedger`), and no per-test timeout exists. Count `CancelledError`, assert four, and wrap in `asyncio.timeout(2)`; the reviewer ran this: 2 passed in 0.13s at HEAD, 2 failed on the mutant.
+- Fixture URL (S1-10): in `tests/test_provider_fixtures.py` the fixture's `external_urls.spotify` equals the code's fallback URL, so a typo in the key name passes. Give the fixture a distinct URL, and adopt `SPOTIFY_ALBUM_DETAILS_MOCK` for the two inline copies in `tests/test_orchestrator_process_albums.py` that escape the drift test.
+- Frontend harness (S2-24): `tests/frontend/test_heatmap_pure_functions.py` asserts only `exportHeaderLayout(...).columns`, `exportHeaderModel().eyebrow` and `rocketColor` at exact stops; ten mutations survive (`Math.round` to `Math.floor`, `beside` forced false, the legend offset dropped, the headline dropped, and others). Assert whole layout objects for one beside and one stacked case, a `rocketColor` value between two stops, and the headline and legend.
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  Each of the five tests now fails on the mutant it exists for (recorded per item in the Section 4 entry of 2026-09-30, Tests that fail on the defect they guard), and two review gaps closed with them: the private-profile 403 route branch and the spotlight `keepLink` re-measure guard in the frontend gate.
+  Source: third review of PR #245 (2026-09-29), S1-7, S1-8, S1-9, S1-10 and S2-24.
+
 ### F-B23-22: the album pipeline answers an unclassified exception with `unknown`, retryable, and the heatmap with `internal_error`, though the docstrings claim parity -- RESOLVED
 
 `scrobblescope/orchestrator/__init__.py` `_fetch_and_process` ends its except branch with `error_code="unknown"` (not a member of `ERROR_CODES`), retryable, carrying the raw exception text; `heatmap.py` `heatmap_task` publishes `internal_error`. The docstrings of `errors.classify_exception_to_error_code`, `heatmap.heatmap_task` and `_report_album_failure`, and the archived closure of F-SWE-5, all say the two pipelines answer alike. The album behaviour predates PR #245; the docstrings were written by it. Owner decision: make the album fallback `internal_error` (which flips `retryable` to false and stops showing raw text to the user), or keep the split and reword the docstrings to say so. Either way a test is missing: the mutant `error_code = None` in that branch survives the full suite, so a test must assert the published code and the retryable flag for an unclassified exception in the album pipeline.

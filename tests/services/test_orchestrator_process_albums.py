@@ -262,13 +262,7 @@ async def test_process_albums_cache_miss_fetches_and_persists():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
@@ -333,13 +327,7 @@ async def test_process_albums_db_unavailable_falls_back():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")

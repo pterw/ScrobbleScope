@@ -370,6 +370,47 @@ def _portrait_failures(page, spotlight_requests: list[str]) -> list[str]:
     return failures
 
 
+def _provider_unavailable_panel_failures(page) -> list[str]:
+    """Judge the fourth panel as rendered: its title, hint and row note.
+
+    The note is the row's own reason, since it says which provider was down;
+    the panel's title alone would not.
+    """
+    locator = page.locator('[data-reason="provider_unavailable"]')
+    if locator.count() != 1:
+        return ["unmatched report renders no could-not-be-checked panel"]
+    panel = locator.evaluate(
+        """node => ({
+            title: node.querySelector('.unmatched-group-title')
+                ?.textContent.trim(),
+            hint: node.querySelector('.unmatched-fix-hint')?.textContent.trim(),
+            note: node.querySelector('tbody tr .unmatched-row-note')
+                ?.textContent.trim(),
+            album: node.querySelector('tbody tr .album-info')
+                ?.textContent.replaceAll(/\\s+/g, ' ').trim(),
+            panels: node.parentElement.getAttribute('data-panels'),
+        })"""
+    )
+    expected = {
+        "title": "Could not be checked",
+        "hint": "Search again in a few minutes; these albums may match then.",
+        "note": "Spotify and Deezer were both unavailable",
+        "panels": "4",
+    }
+    failures = [
+        f"unmatched could-not-be-checked panel {claim} is {panel[claim]!r}, "
+        f"expected {wanted!r}"
+        for claim, wanted in expected.items()
+        if panel[claim] != wanted
+    ]
+    if "Unavailable Album" not in (panel["album"] or ""):
+        failures.append(
+            "unmatched could-not-be-checked panel does not list the album: "
+            f"{panel['album']!r}"
+        )
+    return failures
+
+
 def _row_layout_failures(page) -> list[str]:
     """The row note, the stacked threshold figures, and the attribution text.
 
@@ -682,13 +723,33 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 },
             )
 
+        # The fourth reason: an album a provider outage kept from being
+        # checked. Seeded so the four-panel layout, its row note and its hint
+        # render in a browser (Task 18 added the reason).
+        jobs.record_unmatched(
+            job_id,
+            "unavailable-0",
+            {
+                "album": "Unavailable Album",
+                "artist": "Unavailable Artist",
+                "reason": "Spotify and Deezer were both unavailable",
+                "reason_code": "provider_unavailable",
+                # A cover, so the row asks the spotlight API for no portrait
+                # and the hydration check keeps counting only its own rows.
+                "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                "spotify_id": None,
+                "play_count": 4,
+            },
+        )
+
         page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
         groups = page.locator(".unmatched-group")
-        if groups.count() != 3:
+        if groups.count() != 4:
             failures.append(
-                f"unmatched report rendered {groups.count()} reason groups instead of 3"
+                f"unmatched report rendered {groups.count()} reason groups instead of 4"
             )
             return failures
+        failures.extend(_provider_unavailable_panel_failures(page))
 
         scope_group = page.locator('[data-reason="release_scope"]')
         state = scope_group.evaluate(

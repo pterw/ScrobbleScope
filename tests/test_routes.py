@@ -2217,6 +2217,9 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
 
     assert first == second
     assert names == ["Artist 9", "Artist 7", "Artist 3", "Artist 1", "Artist 0"]
+    # F-B21-60: a seed never carries an album cover as the artist photo; the
+    # client shows only a Spotify photo it has confirmed itself.
+    assert [artist["image_url"] for artist in first] == [""] * 5
 
 
 @pytest.mark.parametrize("status", [404, 500])
@@ -2277,7 +2280,12 @@ def test_loading_page_missing_identifier_returns_matching_400(client):
 )
 @pytest.mark.parametrize(
     "error_code, expected_status",
-    [(None, 202), ("internal_failure", 500), ("user_not_found", 404)],
+    [
+        (None, 202),
+        ("internal_failure", 500),
+        ("user_not_found", 404),
+        ("private_profile", 403),
+    ],
 )
 def test_results_job_state_matches_http_status(
     client, method, path, error_code, expected_status
