@@ -17,7 +17,11 @@ from scrobblescope.config import DEEZER_DETAIL_RETRIES, DEEZER_SEARCH_RETRIES
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import provider_failure
-from scrobblescope.utils import get_deezer_limiter, retry_with_semaphore
+from scrobblescope.utils import (
+    get_deezer_limiter,
+    parse_retry_after,
+    retry_with_semaphore,
+)
 
 _DEEZER_ERROR_QUOTA = 4
 
@@ -30,7 +34,7 @@ def _deezer_error_code(data):
     return error.get("code") if isinstance(error, dict) else None
 
 
-async def _deezer_request(session, url, params, limiter):
+async def _deezer_request(session, url, params, limiter, null_body=None):
     """Perform one rate-limited Deezer GET and classify the outcome.
 
     Returns the ``(result, retry_after, done)`` triple `retry_with_semaphore`
@@ -40,17 +44,27 @@ async def _deezer_request(session, url, params, limiter):
     a quota refusal: code 4 is the retryable one and every other code is a
     terminal miss. Callers that need more than the raw body -- a search picking
     a candidate out of it -- inspect the body only when it is not None, so the
-    two failure shapes pass straight through unchanged.
+    two failure shapes pass straight through unchanged. A 200 whose body is
+    JSON ``null`` was read, but says nothing: it returns *null_body* in its
+    place, so a caller that keeps a partial answer can tell it from a terminal
+    error (both give None otherwise).
     """
     async with limiter:
         async with session.get(url, params=params) as response:
-            if response.status >= 500:
-                # An outage, not an answer: retried, then raised as
-                # deezer_unavailable rather than read as "no match".
+            if response.status == 429:
+                # Throttled at the HTTP layer (the quota code 4 below is the
+                # 200-body form): honour Retry-After, default one second.
+                retry_after = parse_retry_after(response.headers.get("Retry-After"))
+                return None, retry_after, False
+            if response.status >= 500 or response.status == 403:
+                # An outage or a refusal, not an answer: retried, then raised
+                # as deezer_unavailable rather than read as "no match".
                 return None, None, False
             if response.status != 200:
                 return None, None, True
             data = await response.json()
+            if data is None:
+                return null_body, None, True
             code = _deezer_error_code(data)
             if code == _DEEZER_ERROR_QUOTA:
                 return None, 1, False
@@ -114,12 +128,18 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
     )
 
 
-async def _fetch_deezer_json(session, url, params, retries, error_label):
-    """GET *url*, treating a 200-with-error-code-4 body as a retryable quota hit."""
+async def _fetch_deezer_json(
+    session, url, params, retries, error_label, null_body=None
+):
+    """GET *url*, treating a 200-with-error-code-4 body as a retryable quota hit.
+
+    *null_body* stands in for a 200 whose body is JSON ``null`` (see
+    ``_deezer_request``).
+    """
     limiter = get_deezer_limiter()
 
     async def fetch_once():
-        return await _deezer_request(session, url, params, limiter)
+        return await _deezer_request(session, url, params, limiter, null_body)
 
     return await retry_with_semaphore(
         fetch_once,
@@ -142,8 +162,10 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
     with ``limit=500`` returns every track's duration in seconds. Returns
     None when Deezer answers that the album is not there, or answers with an
     album body of an unexpected shape (a null, a list): a miss, never a
-    TypeError. A track list that is missing or not a list keeps the album,
-    with no durations: its release metadata is still good. Raises
+    TypeError. Also None when the track call answers a terminal error: the
+    album is a miss, so it is not persisted with empty durations. A track body
+    that was read but carries no list (a JSON null, an object without ``data``)
+    keeps the album, with no durations: its release metadata is still good. Raises
     ``ProviderError`` when Deezer could not be read (see ``search_deezer_album``).
     """
     album = await _fetch_deezer_json(
@@ -164,7 +186,15 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
         {"limit": 500},
         retries,
         "deezer.album_tracks",
+        null_body={},
     )
+    if tracks is None:
+        # The track call answered a terminal error (an error body, or a status
+        # that is not a success): the durations were not read, and an album
+        # filed with none would be persisted for METADATA_CACHE_TTL_DAYS and
+        # drop out of the playtime ranking after Deezer recovers (R4-backend-10).
+        # A miss is not persisted.
+        return None
     track_rows = tracks.get("data") if isinstance(tracks, dict) else None
     if not isinstance(track_rows, list):
         track_rows = []

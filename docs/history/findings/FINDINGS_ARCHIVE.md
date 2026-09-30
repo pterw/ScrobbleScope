@@ -9,6 +9,41 @@ Newest rotation first.
 
 ---
 
+### F-SWE-3: a Spotify server error bypasses the configured retries -- RESOLVED
+
+`search_for_spotify_album_id` (`spotify.py`, its inner `search_once`) returns
+`(None, None, True)` for every non-200, non-429
+response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
+or 503 therefore ends the attempt loop after one try, while
+`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
+only ever fire for 429. `fetch_spotify_album_details_batch` has the same
+shape in the `fetch_once` inside it.
+
+The consequence is narrow: an album that _is_ on Spotify can be recorded as
+unmatched when a second attempt would have found it.
+
+**Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
+The audit first filed this as a user-facing mislabelling -- `search_once`'s final branch
+returns the same value for a genuine empty result, so
+`_run_spotify_search_phase` (`orchestrator.py` at the time, now
+`scrobblescope/orchestrator/_search.py`) records the album with the reason
+`No Spotify match`, and the report treated that label as wrong. It is not.
+Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
+the label is accurate for the ordinary case and what the user sees is
+correct. What survives is the defect above -- configured retries that never
+run -- which is a smaller thing than the audit claimed. Severity drops from
+P1 to P2 and the finding moved from the P1 section to this one.
+
+The related UI need -- the unmatched modal and page should say plainly that
+an album had no Spotify match -- is already Batch 21 WP-7 scope
+(the `WP-7 -- Unmatched page + reason_code` section of
+`docs/history/definitions/BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and the reason
+panels with human copy). It is not extra work and is not tracked here.
+- [x] **Status:** resolved
+**Completed:** 2026-09-30
+A Spotify 5xx is retried, not ended after one try: `search_for_spotify_album_id`, `fetch_spotify_album_details_single` and `fetch_spotify_album_details_batch` return an unanswered result for a 5xx, `retry_with_semaphore` retries it up to the configured count, and the call raises `ProviderError` (`spotify_unavailable`) once the retries are spent, so the album is listed unavailable rather than lost as a miss. The prose above describes the code as it was when filed.
+Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
+
 ### F-B23-29: small cleanups the third review of PR #245 found, none changing behaviour a user sees -- RESOLVED
 
 One bundle, to be taken opportunistically. The frontend items (S2-18, S2-20, S2-21, S2-22, most of S2-23, the Codacy const arrows and the Task 9-11 review minors) landed with F-B23-27 and F-B23-28; what is left:

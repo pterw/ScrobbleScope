@@ -46,11 +46,9 @@ from scrobblescope.spotify import (
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
+    spotify_job_breaker,
 )
-from scrobblescope.unmatched import (
-    REASON_NO_SPOTIFY_MATCH,
-    partition_albums_by_threshold,
-)
+from scrobblescope.unmatched import partition_albums_by_threshold
 from scrobblescope.utils import (
     cleanup_expired_cache,
     create_optimized_session,
@@ -190,9 +188,13 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     already cached before this call, and Deezer could not enrich a single
     album either -- a run that finds at least one match is a valid, if
     partial, outcome, not a failure. A miss whose search Spotify answered
-    with "no match" is an answer, so it keeps the run from failing here
-    (see ``_detect_enrichment_total_failure`` for the run where every answer
-    was "no match").
+    with "no match" is an answer, so it keeps the run from failing here, and a
+    run where both providers answered "no match" for every album succeeds
+    with no albums and its unmatched list (owner ruling 2026-09-30).
+
+    The Spotify calls run under ``spotify_job_breaker``: once one of them
+    meets a Retry-After above the cap, the rest of this job's Spotify calls
+    are skipped and those albums go to Deezer as unanswered.
     """
     if not cache_misses:
         return []
@@ -214,42 +216,43 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
             "Spotify is temporarily unavailable; checking Deezer for album details.",
         )
     else:
-        async with create_optimized_session() as session:
-            search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-            (
-                spotify_id_to_key,
-                spotify_id_to_original_data,
-                _search_miss_keys,
-                unanswered_keys,
-            ) = await _run_spotify_search_phase(
-                job_id, session, cache_misses, token, search_semaphore
-            )
-            if unanswered_keys:
-                jobs.record_stat(
-                    job_id,
-                    "partial_data_warning",
-                    "Spotify is temporarily unavailable for some albums; "
-                    "checking Deezer for their details.",
-                )
-            valid_spotify_ids = list(spotify_id_to_original_data.keys())
-            if valid_spotify_ids:
-                new_metadata_rows = await _run_spotify_batch_detail_phase(
-                    job_id,
-                    session,
-                    valid_spotify_ids,
-                    token,
+        with spotify_job_breaker():
+            async with create_optimized_session() as session:
+                search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
+                (
                     spotify_id_to_key,
                     spotify_id_to_original_data,
-                    cache_hits,
-                    detail_unavailable_keys=detail_unavailable_keys,
+                    _search_miss_keys,
+                    unanswered_keys,
+                ) = await _run_spotify_search_phase(
+                    job_id, session, cache_misses, token, search_semaphore
                 )
-                if detail_unavailable_keys and not unanswered_keys:
+                if unanswered_keys:
                     jobs.record_stat(
                         job_id,
                         "partial_data_warning",
                         "Spotify is temporarily unavailable for some albums; "
                         "checking Deezer for their details.",
                     )
+                valid_spotify_ids = list(spotify_id_to_original_data.keys())
+                if valid_spotify_ids:
+                    new_metadata_rows = await _run_spotify_batch_detail_phase(
+                        job_id,
+                        session,
+                        valid_spotify_ids,
+                        token,
+                        spotify_id_to_key,
+                        spotify_id_to_original_data,
+                        cache_hits,
+                        detail_unavailable_keys=detail_unavailable_keys,
+                    )
+                    if detail_unavailable_keys and not unanswered_keys:
+                        jobs.record_stat(
+                            job_id,
+                            "partial_data_warning",
+                            "Spotify is temporarily unavailable for some albums; "
+                            "checking Deezer for their details.",
+                        )
         still_missing = {
             key: data for key, data in cache_misses.items() if key not in cache_hits
         }
@@ -435,43 +438,6 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
     return filtered_albums
 
 
-def _detect_enrichment_total_failure(job_id, results, filtered_albums):
-    """Return True and fail the job when every album ended as "no match".
-
-    This is the second of the two places that can fail a run
-    ``spotify_unavailable``, and it decides only the case the first cannot.
-    ``_fetch_spotify_misses`` sees the calls and raises when Spotify gave
-    nothing for every album (an unanswered search or unanswered details) and
-    Deezer enriched nothing. This function sees only the job's unmatched rows,
-    which cannot say which provider was down, so it fires only on the one
-    shape they do prove: results are empty, ``filtered_albums`` is not, and
-    every album was recorded as ``no_spotify_match`` -- both providers
-    answered and neither had it, so a whole account matching nothing is read
-    as Spotify giving nothing.
-
-    A ``provider_unavailable`` row does not count: a run holding one is not
-    failed here. Where it came from decides: an outage on Spotify's side was
-    already raised by ``_fetch_spotify_misses``; one from Deezer being down
-    while Spotify answered "no match" (or a mix of the two kinds of row)
-    ends as a successful run with no albums and its unmatched list, which is
-    the owner ruling's letter -- fail only when Spotify answered nothing and
-    Deezer enriched nothing. Release-scope rows never count either.
-    """
-    if not results and filtered_albums:
-        job_ctx = jobs.context(job_id)
-        unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
-        spotify_no_match = sum(
-            1
-            for v in unmatched.values()
-            if v.get("reason_code") == REASON_NO_SPOTIFY_MATCH
-            or (not v.get("reason_code") and v.get("reason") == "No Spotify match")
-        )
-        if spotify_no_match == len(filtered_albums):
-            jobs.fail(job_id, "spotify_unavailable")
-            return True
-    return False
-
-
 def _apply_post_slice(results, limit_results):
     """Truncate results to limit_results if it is a valid integer."""
     if limit_results != "all":
@@ -567,9 +533,10 @@ async def _process_filtered_albums(
     elapsed" log still measures from the start of the job (the start of
     ``_fetch_and_process``), not from this function's own start.
 
-    Returns the results list on success, or ``[]`` when Spotify is
-    unavailable or every album fails enrichment -- in both cases the job
-    error/results state has already been recorded before returning.
+    Returns the results list on success (empty when no album could be
+    enriched: the run still succeeds, with its unmatched list), or ``[]``
+    when Spotify is unavailable -- in which case the job error state has
+    already been recorded before returning.
     """
     filtered_albums = _apply_pre_slice(
         filtered_albums, sort_mode, limit_results, release_scope
@@ -598,9 +565,6 @@ async def _process_filtered_albums(
         return []
     step_elapsed = time.time() - step_start_time
     logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
-
-    if _detect_enrichment_total_failure(job_id, results, filtered_albums):
-        return []
 
     jobs.advance(job_id, 80, "Adding album art to your results...")
     jobs.advance(job_id, 85, "Compiling your top album list...")
@@ -769,7 +733,6 @@ __all__ = [
     "_batch_persist_metadata",
     "_build_results",
     "_cleanup_stale_metadata",
-    "_detect_enrichment_total_failure",
     "_fetch_and_process",
     "_fetch_job_albums",
     "_fetch_spotify_misses",
@@ -796,4 +759,5 @@ __all__ = [
     "release_job_slot",
     "search_deezer_album",
     "search_for_spotify_album_id",
+    "spotify_job_breaker",
 ]

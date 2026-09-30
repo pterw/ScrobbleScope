@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -10,8 +11,10 @@ from scrobblescope.spotify import (
     album_metadata_from_details,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
+    fetch_spotify_album_details_single,
     fetch_spotify_artist_spotlight,
     search_for_spotify_album_id,
+    spotify_job_breaker,
 )
 from tests.helpers import NoopAsyncContext, make_response_context
 
@@ -96,9 +99,10 @@ async def test_fetch_spotify_album_details_batch_retries_429_then_succeeds():
 async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
     """
     GIVEN Spotify album-details batch fetch returns a non-200, non-429,
-    non-5xx status (a 400: Spotify answered, refusing)
+    non-5xx status (a 400: Spotify refused the request)
     WHEN fetch_spotify_album_details_batch runs
-    THEN it should return an empty dict without retry sleep.
+    THEN it returns no details without a retry sleep, and lists the ID as
+    unanswered: a refusal is "could not answer", never "answered, nothing".
     """
     session = MagicMock()
 
@@ -118,6 +122,7 @@ async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
         )
 
     assert result == {}
+    assert result.unanswered == {"id_1"}
     assert mock_sleep.await_count == 0
     # A refusal is not an endpoint removal: fetching album by album would
     # multiply the load for nothing (F-B21-59).
@@ -283,6 +288,10 @@ async def test_fetch_spotify_access_token_refreshes_expired_token():
     assert token == "fresh_tok_456"
     assert fake_cache["token"] == "fresh_tok_456"
     assert fake_cache["expires_at"] > time.time()
+    # A safety margin: a token is treated as expired a minute before Spotify
+    # says so, or a job that starts with 40 s left runs its second half on a
+    # rejected token (R4-backend-1).
+    assert fake_cache["expires_at"] <= time.time() + 3600 - 59
 
 
 @pytest.mark.asyncio
@@ -866,3 +875,710 @@ async def test_one_by_one_details_cancel_and_settle_siblings_on_an_unexpected_er
                 )
 
     assert sorted(cancelled) == ["b", "c"]
+
+
+# --- refusals are "could not answer" (R4-backend-1) ---------------------------
+
+
+def _status_only(status, retry_after=None):
+    resp = AsyncMock()
+    resp.status = status
+    resp.headers = {"Retry-After": retry_after} if retry_after else {}
+    return resp
+
+
+def _ok_search(spotify_id="sp1"):
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value={"albums": {"items": [{"id": spotify_id}]}})
+    return resp
+
+
+_LIMITER = "scrobblescope.spotify.get_spotify_limiter"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [400, 403])
+async def test_search_refusal_raises_unavailable_and_is_not_no_match(status):
+    """
+    GIVEN Spotify refuses a search with a 400 or a 403
+    WHEN search_for_spotify_album_id runs
+    THEN it raises ProviderError spotify_unavailable after one request (a
+    refusal is not retried), where it used to return None and record the album
+    as "no match".
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(status))
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with pytest.raises(ProviderError) as excinfo:
+            await _search_with(session)
+
+    assert excinfo.value.code == "spotify_unavailable"
+    assert session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_one():
+    """
+    GIVEN the token the search was given is rejected (401) and Spotify accepts
+    a fresh one
+    WHEN search_for_spotify_album_id runs
+    THEN the cached token is dropped, exactly one fresh token is fetched, and
+    the retry carries it in its Authorization header and returns the match.
+    """
+    session = MagicMock()
+    session.get.side_effect = [
+        make_response_context(_status_only(401)),
+        make_response_context(_ok_search("sp-fresh")),
+    ]
+    cache = {"token": "old", "expires_at": time.time() + 3000}
+    seen_cache_at_refresh = []
+
+    async def fresh_token():
+        seen_cache_at_refresh.append(cache["expires_at"])
+        return "fresh"
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token", side_effect=fresh_token
+        ),
+    ):
+        result = await search_for_spotify_album_id(session, "A", "B", "old")
+
+    assert result == "sp-fresh"
+    assert seen_cache_at_refresh == [0]
+    sent = [call.kwargs["headers"]["Authorization"] for call in session.get.mock_calls]
+    assert sent == ["Bearer old", "Bearer fresh"]
+
+
+@pytest.mark.asyncio
+async def test_search_401_after_a_fresh_token_raises_and_asks_for_one_token_only():
+    """
+    GIVEN Spotify rejects the token and rejects the fresh one too
+    WHEN search_for_spotify_album_id runs
+    THEN it raises ProviderError spotify_unavailable (not "no match"), after
+    exactly two requests and one token fetch: retry once, not until the
+    retries run out.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(401))
+    refresh = AsyncMock(return_value="fresh")
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "old", "expires_at": time.time() + 3000},
+        ),
+        patch("scrobblescope.spotify.fetch_spotify_access_token", refresh),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await search_for_spotify_album_id(session, "A", "B", "old")
+
+    assert excinfo.value.code == "spotify_unavailable"
+    assert session.get.call_count == 2
+    assert refresh.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_search_401_with_no_token_to_be_had_raises_unavailable():
+    """
+    GIVEN Spotify rejects the token and the token endpoint gives nothing back
+    WHEN search_for_spotify_album_id runs
+    THEN it raises ProviderError spotify_unavailable after one request.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(401))
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "old", "expires_at": time.time() + 3000},
+        ),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        with pytest.raises(ProviderError):
+            await search_for_spotify_album_id(session, "A", "B", "old")
+
+    assert session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_sibling_that_already_replaced_the_token_is_not_replaced_again():
+    """
+    GIVEN a sibling call replaces the cached token while this call's request
+    (sent with the old one) is in flight
+    WHEN that request is rejected (401)
+    THEN the newer cached token is used as it is: the cache is not dropped
+    again, so one rejection costs one token request, not one per call.
+    """
+    cache = {"token": "stale", "expires_at": time.time() + 3000}
+    responses = [
+        make_response_context(_status_only(401)),
+        make_response_context(_ok_search()),
+    ]
+
+    def get(*args, **kwargs):
+        if len(responses) == 2:  # the first request: a sibling refreshes now
+            cache.update({"token": "newer", "expires_at": time.time() + 3000})
+        return responses.pop(0)
+
+    session = MagicMock()
+    session.get.side_effect = get
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+    ):
+        result = await search_for_spotify_album_id(session, "A", "B", "stale")
+
+    assert result == "sp1"
+    assert cache["expires_at"] > time.time()
+    assert session.get.call_args.kwargs["headers"] == {"Authorization": "Bearer newer"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [400, 401, 403])
+async def test_single_album_details_refusal_raises_and_404_is_an_answer(status):
+    """
+    GIVEN a single-album details call answers 400, 401 (not cured by a fresh
+    token) or 403
+    WHEN fetch_spotify_album_details_single runs
+    THEN it raises ProviderError spotify_unavailable; a 404 (the album is not
+    there) still returns None, an answer.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(status))
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "t", "expires_at": time.time() + 3000},
+        ),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="fresh",
+        ),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await fetch_spotify_album_details_single(session, "x", "t")
+        assert excinfo.value.code == "spotify_unavailable"
+
+        session.get.return_value = make_response_context(_status_only(404))
+        assert await fetch_spotify_album_details_single(session, "x", "t") is None
+
+
+@pytest.mark.asyncio
+async def test_batch_details_401_refreshes_the_token_once_and_succeeds():
+    """
+    GIVEN the batch details call is rejected (401) and a fresh token works
+    WHEN fetch_spotify_album_details_batch runs
+    THEN the details come back, answered, and the retry used the fresh token.
+    """
+    session = MagicMock()
+    ok = AsyncMock()
+    ok.status = 200
+    ok.json = AsyncMock(return_value={"albums": [{"id": "a1", "name": "One"}]})
+    session.get.side_effect = [
+        make_response_context(_status_only(401)),
+        make_response_context(ok),
+    ]
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "old", "expires_at": time.time() + 3000},
+        ),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="fresh",
+        ),
+    ):
+        result = await fetch_spotify_album_details_batch(session, ["a1"], "old")
+
+    assert result == {"a1": {"id": "a1", "name": "One"}}
+    assert result.unanswered == frozenset()
+    assert session.get.call_args.kwargs["headers"] == {"Authorization": "Bearer fresh"}
+
+
+@pytest.mark.asyncio
+async def test_batch_details_401_that_a_fresh_token_does_not_cure_is_unanswered():
+    """
+    GIVEN the batch details call is rejected even with a fresh token
+    WHEN fetch_spotify_album_details_batch runs
+    THEN every ID is listed unanswered (unavailable), not "answered, nothing".
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(401))
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "old", "expires_at": time.time() + 3000},
+        ),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="fresh",
+        ),
+    ):
+        result = await fetch_spotify_album_details_batch(session, ["a1", "a2"], "old")
+
+    assert result == {}
+    assert result.unanswered == {"a1", "a2"}
+
+
+# --- a per-job breaker for a Retry-After above the cap (R4-backend-3) ---------
+
+
+@pytest.mark.asyncio
+async def test_over_cap_retry_after_stops_the_rest_of_that_jobs_spotify_calls():
+    """
+    GIVEN Spotify answers 429 with a Retry-After far above the cap
+    WHEN a job (inside spotify_job_breaker) searches three albums and then
+    asks for details, single and batch
+    THEN only the first search sends a request; every later Spotify call of
+    that job raises (search, single) or reports every ID unanswered (batch)
+    without one.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(
+        _status_only(429, retry_after="3600")
+    )
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with spotify_job_breaker():
+            codes = []
+            for album in ("one", "two", "three"):
+                with pytest.raises(ProviderError) as excinfo:
+                    await search_for_spotify_album_id(session, "A", album, "tok")
+                codes.append(excinfo.value.code)
+            with pytest.raises(ProviderError):
+                await fetch_spotify_album_details_single(session, "x", "tok")
+            batch = await fetch_spotify_album_details_batch(session, ["a1"], "tok")
+
+    assert codes == ["spotify_rate_limited"] * 3
+    assert batch.unanswered == {"a1"}
+    assert session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_a_retry_after_under_the_cap_does_not_trip_the_breaker():
+    """
+    GIVEN Spotify answers one search 429 with Retry-After 1 (under the cap)
+    WHEN the job then searches again
+    THEN the second search still sends its request and returns its match.
+    """
+    session = MagicMock()
+    session.get.side_effect = [
+        make_response_context(_status_only(429, retry_after="1")),
+        make_response_context(_ok_search("first")),
+        make_response_context(_ok_search("second")),
+    ]
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        spotify_job_breaker(),
+    ):
+        first = await _search_with(session)
+        second = await _search_with(session)
+
+    assert (first, second) == ("first", "second")
+    assert session.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_one_jobs_tripped_breaker_does_not_stop_a_concurrent_job():
+    """
+    GIVEN two jobs run concurrently on one loop, and job A meets a Retry-After
+    above the cap
+    WHEN job B searches after A has tripped
+    THEN B's request is sent and answered: the verdict is A's, not the
+    module's.
+    """
+    import asyncio
+
+    a_tripped = asyncio.Event()
+    session_a = MagicMock()
+    session_a.get.return_value = make_response_context(
+        _status_only(429, retry_after="3600")
+    )
+    session_b = MagicMock()
+    session_b.get.return_value = make_response_context(_ok_search("b-match"))
+
+    async def job_a():
+        with spotify_job_breaker():
+            with pytest.raises(ProviderError):
+                await _search_with(session_a)
+            a_tripped.set()
+            with pytest.raises(ProviderError):
+                await _search_with(session_a)
+
+    async def job_b():
+        with spotify_job_breaker():
+            await a_tripped.wait()
+            return await _search_with(session_b)
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        _, b_result = await asyncio.gather(job_a(), job_b())
+
+    assert b_result == "b-match"
+    assert session_a.get.call_count == 1
+    assert session_b.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_outside_a_job_breaker_an_over_cap_429_skips_nothing():
+    """
+    GIVEN no spotify_job_breaker block (the spotlight, a direct call)
+    WHEN two searches each meet a Retry-After above the cap
+    THEN both send a request: the breaker is per job, never a module global.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(
+        _status_only(429, retry_after="3600")
+    )
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        for _ in range(2):
+            with pytest.raises(ProviderError):
+                await _search_with(session)
+
+    assert session.get.call_count == 2
+
+
+# --- the breaker is re-checked right before each request ----------------------
+
+
+class _SuspendingGet:
+    """A ``session.get`` whose response takes time, like a network call.
+
+    The request is counted when it is sent, and the response arrives only
+    after the event loop has run every other ready task. A mock that answers
+    at once lets task 1 finish (and trip the breaker) before task 2 starts,
+    which hides the very defect a fan-out has: all the tasks are queued
+    before the first answer returns.
+    """
+
+    def __init__(self, response):
+        self.response = response
+        self.sent = 0
+
+    def __call__(self, *args, **kwargs):
+        self.sent += 1
+        outer = self
+
+        class _Context:
+            async def __aenter__(self):
+                await asyncio.sleep(0.01)
+                return outer.response
+
+            async def __aexit__(self, *exc):
+                return False
+
+        return _Context()
+
+
+@pytest.mark.asyncio
+async def test_a_tripped_breaker_stops_searches_already_queued_behind_the_semaphore():
+    """
+    GIVEN twenty searches are started at once, two may run at a time, and
+    Spotify answers every request 429 with a Retry-After far above the cap
+    WHEN the first answer trips the job's breaker
+    THEN no queued search sends a request afterwards: only the two that were
+    already in flight went out, and every search raised ProviderError. A
+    breaker checked only at function entry lets all twenty out, since each
+    passed that check before any answer came back.
+    """
+    session = MagicMock()
+    session.get = _SuspendingGet(_status_only(429, retry_after="3600"))
+    semaphore = asyncio.Semaphore(2)
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with spotify_job_breaker():
+            results = await asyncio.gather(
+                *(
+                    search_for_spotify_album_id(
+                        session, "A", f"album {n}", "tok", semaphore
+                    )
+                    for n in range(20)
+                ),
+                return_exceptions=True,
+            )
+
+    assert all(isinstance(r, ProviderError) for r in results)
+    assert session.get.sent <= 2
+
+
+@pytest.mark.asyncio
+async def test_a_tripped_breaker_stops_single_details_queued_behind_the_limiter():
+    """
+    GIVEN the one-by-one details fallback fires twenty calls at once (no
+    semaphore, only the rate limiter, here two at a time) and Spotify answers
+    429 with a Retry-After above the cap
+    WHEN the first answer trips the breaker
+    THEN the calls still waiting for the limiter send nothing: at most the two
+    in flight went out, and every ID is listed unanswered.
+    """
+    from scrobblescope.spotify import _fetch_album_details_one_by_one
+
+    session = MagicMock()
+    session.get = _SuspendingGet(_status_only(429, retry_after="3600"))
+    ids = [f"id{n}" for n in range(20)]
+
+    with patch(_LIMITER, return_value=asyncio.Semaphore(2)):
+        with spotify_job_breaker():
+            result = await _fetch_album_details_one_by_one(session, ids, "tok", 3)
+
+    assert result.unanswered == set(ids)
+    assert session.get.sent <= 2
+
+
+@pytest.mark.asyncio
+async def test_a_tripped_breaker_stops_batches_queued_behind_the_semaphore():
+    """
+    GIVEN ten batch calls are started at once, two may run at a time, and
+    Spotify answers 429 with a Retry-After above the cap
+    WHEN the first answer trips the breaker
+    THEN at most the two in flight sent a request and every batch reports all
+    its IDs unanswered.
+    """
+    session = MagicMock()
+    session.get = _SuspendingGet(_status_only(429, retry_after="3600"))
+    semaphore = asyncio.Semaphore(2)
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with spotify_job_breaker():
+            results = await asyncio.gather(
+                *(
+                    fetch_spotify_album_details_batch(
+                        session, [f"a{n}"], "tok", semaphore
+                    )
+                    for n in range(10)
+                )
+            )
+
+    assert [r.unanswered for r in results] == [{f"a{n}"} for n in range(10)]
+    assert session.get.sent <= 2
+
+
+# --- a persistent refusal trips the breaker too --------------------------------
+
+
+@pytest.mark.asyncio
+async def test_three_refusals_in_a_row_stop_the_rest_of_the_jobs_requests():
+    """
+    GIVEN Spotify refuses every request with a 403 (a revoked or blocked key)
+    WHEN a job searches ten albums one after the other
+    THEN three requests are refused and the other seven send nothing: a
+    persistent refusal costs a handful of requests, not one per album.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(403))
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with spotify_job_breaker():
+            for n in range(10):
+                with pytest.raises(ProviderError):
+                    await search_for_spotify_album_id(session, "A", f"al {n}", "tok")
+
+    assert session.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_an_answer_between_refusals_keeps_the_breaker_closed():
+    """
+    GIVEN refusals are interleaved with answers (403, 403, match, ...)
+    WHEN a job searches six albums
+    THEN every one sends its request: "in a row" means no answer between.
+    """
+    session = MagicMock()
+    session.get.side_effect = [
+        make_response_context(_status_only(403)),
+        make_response_context(_status_only(403)),
+        make_response_context(_ok_search("hit")),
+        make_response_context(_status_only(403)),
+        make_response_context(_status_only(403)),
+        make_response_context(_ok_search("hit")),
+    ]
+
+    with patch(_LIMITER, return_value=NoopAsyncContext()):
+        with spotify_job_breaker():
+            outcomes = []
+            for n in range(6):
+                try:
+                    outcomes.append(
+                        await search_for_spotify_album_id(
+                            session, "A", f"al {n}", "tok"
+                        )
+                    )
+                except ProviderError:
+                    outcomes.append("refused")
+
+    assert outcomes == ["refused", "refused", "hit", "refused", "refused", "hit"]
+    assert session.get.call_count == 6
+
+
+@pytest.mark.asyncio
+async def test_a_401_that_a_fresh_token_does_not_cure_stops_the_rest_of_the_job():
+    """
+    GIVEN Spotify rejects the token and also the freshly fetched one
+    WHEN a job searches three albums
+    THEN the first search spends two requests, and the other two send nothing.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(401))
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "old", "expires_at": time.time() + 3000},
+        ),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="fresh",
+        ),
+        spotify_job_breaker(),
+    ):
+        for n in range(3):
+            with pytest.raises(ProviderError):
+                await search_for_spotify_album_id(session, "A", f"al {n}", "old")
+
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_logs_one_warning_and_no_error(caplog):
+    """
+    GIVEN Spotify refuses two searches with a 403 in one job
+    WHEN the job's breaker block ends
+    THEN the log holds one WARNING naming the operation and status, one
+    WARNING summarising the other refusal, and no ERROR line (the retry
+    helper used to log every refusal as an error in spotify.search).
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_only(403))
+
+    with caplog.at_level(logging.INFO):
+        with patch(_LIMITER, return_value=NoopAsyncContext()):
+            with spotify_job_breaker():
+                for n in range(2):
+                    with pytest.raises(ProviderError):
+                        await search_for_spotify_album_id(
+                            session, "A", f"al {n}", "tok"
+                        )
+
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    refusals = [r.getMessage() for r in caplog.records if "refused" in r.getMessage()]
+    assert refusals == [
+        "Spotify refused spotify.search: HTTP 403",
+        "Spotify refused 1 further requests of this job (same operation and "
+        "status as above)",
+    ]
+
+
+# --- the cached token is adopted, not rediscovered call by call ---------------
+
+
+@pytest.mark.asyncio
+async def test_a_call_given_a_stale_token_sends_the_valid_cached_one_first():
+    """
+    GIVEN the cache holds a valid token other than the one a call was given
+    (an earlier call refreshed it)
+    WHEN the call searches
+    THEN its first request already carries the cached token: no 401 and no
+    token fetch are spent to find that out.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_ok_search("hit"))
+    refresh = AsyncMock(return_value="unused")
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "cached", "expires_at": time.time() + 3000},
+        ),
+        patch("scrobblescope.spotify.fetch_spotify_access_token", refresh),
+    ):
+        result = await search_for_spotify_album_id(session, "A", "B", "stale")
+
+    assert result == "hit"
+    assert session.get.call_count == 1
+    assert session.get.call_args.kwargs["headers"] == {"Authorization": "Bearer cached"}
+    refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_an_expired_cached_token_is_not_adopted():
+    """
+    GIVEN the cache holds a token that has expired
+    WHEN a call is given another token
+    THEN the given token is sent, not the expired cached one.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_ok_search("hit"))
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": "expired", "expires_at": time.time() - 5},
+        ),
+    ):
+        await search_for_spotify_album_id(session, "A", "B", "given")
+
+    assert session.get.call_args.kwargs["headers"] == {"Authorization": "Bearer given"}
+
+
+@pytest.mark.asyncio
+async def test_the_one_by_one_fallback_uses_the_token_the_batch_refreshed():
+    """
+    GIVEN the batch call is rejected (401) and refreshes the token, and its
+    retry then meets a 404 (the endpoint is gone)
+    WHEN the fallback fetches the albums one by one
+    THEN the single calls send the fresh token, not the original one.
+    """
+    single = AsyncMock()
+    single.status = 200
+    single.json = AsyncMock(return_value={"id": "a1"})
+    session = MagicMock()
+    session.get.side_effect = [
+        make_response_context(_status_only(401)),
+        make_response_context(_status_only(404)),
+        make_response_context(single),
+    ]
+    cache = {"token": "old", "expires_at": time.time() + 3000}
+
+    # The refresh is returned but not cached, so the single calls cannot find
+    # it there: they have to be handed the batch's token.
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+        patch(
+            "scrobblescope.spotify.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="fresh",
+        ),
+    ):
+        result = await fetch_spotify_album_details_batch(session, ["a1"], "old")
+
+    assert set(result) == {"a1"}
+    sent = [call.kwargs["headers"]["Authorization"] for call in session.get.mock_calls]
+    assert sent == ["Bearer old", "Bearer fresh", "Bearer fresh"]

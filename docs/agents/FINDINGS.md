@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2424 tests across 83 tracked test modules.
+2462 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -799,6 +799,12 @@ The last error is Windows running short of socket buffers (WSAENOBUFS): the mach
 
 - [ ] **Status:** open (P3). Source: gate runs of the third-review fix session (2026-09-29 to 2026-09-30).
 
+### F-B23-40: the Last.fm username appears in log lines, beside the listener's scrobble total
+
+`lastfm.py` ("Profile of %s is private", "User %s not found"), `orchestrator/__init__.py` (`_fetch_and_process` and `_report_album_failure`), `heatmap.py` ("Heatmap ready for %s: %s scrobbles" and `_report_heatmap_failure`), `routes/heatmap_flow.py` and `routes/album_flow.py` write the Last.fm username into ERROR, WARNING and INFO lines, and the heatmap line pairs it with the listener's scrobble total. `log_failure`'s docstring and BATCH23's Data handling section say listener-linked facts stay out of logs. Ask the owner whether a public Last.fm handle counts; if it does, log the job id instead. The scrobble-total line is the clearer one to drop first, before the export path shares this code.
+
+- [ ] **Status:** open (P3). Source: review 4 of PR #245 (backend), R4-backend-9.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
@@ -1015,38 +1021,6 @@ Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
 Status: open (P2). Source: MULTI_AGENT_SWEEP.
-
-### F-SWE-3: a Spotify server error bypasses the configured retries
-
-`search_for_spotify_album_id` (`spotify.py`, its inner `search_once`) returns
-`(None, None, True)` for every non-200, non-429
-response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
-or 503 therefore ends the attempt loop after one try, while
-`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
-only ever fire for 429. `fetch_spotify_album_details_batch` has the same
-shape in the `fetch_once` inside it.
-
-The consequence is narrow: an album that _is_ on Spotify can be recorded as
-unmatched when a second attempt would have found it.
-
-**Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
-The audit first filed this as a user-facing mislabelling -- `search_once`'s final branch
-returns the same value for a genuine empty result, so
-`_run_spotify_search_phase` (`orchestrator.py` at the time, now
-`scrobblescope/orchestrator/_search.py`) records the album with the reason
-`No Spotify match`, and the report treated that label as wrong. It is not.
-Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
-the label is accurate for the ordinary case and what the user sees is
-correct. What survives is the defect above -- configured retries that never
-run -- which is a smaller thing than the audit claimed. Severity drops from
-P1 to P2 and the finding moved from the P1 section to this one.
-
-The related UI need -- the unmatched modal and page should say plainly that
-an album had no Spotify match -- is already Batch 21 WP-7 scope
-(the `WP-7 -- Unmatched page + reason_code` section of
-`docs/history/definitions/BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and the reason
-panels with human copy). It is not extra work and is not tracked here.
-Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
 ### F-SWE-7: utils.py holds five unrelated concerns
 

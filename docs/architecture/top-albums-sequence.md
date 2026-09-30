@@ -160,16 +160,12 @@ sequenceDiagram
                         Orch->>Jobs: record_stat(spotify_matched and spotify_unmatched)
                         Orch->>Orch: Apply release filter, compute playtime, and rank
                         Orch->>Jobs: Unmatched entries for albums failing the release filter
-                        Orch->>Jobs: context(job_id) to count No Spotify match entries
-                        alt Every album returned No Spotify match
-                            Orch->>Jobs: fail(spotify_unavailable)
-                        else Ranked results, possibly emptied by the release filter
-                            Orch->>Jobs: Progress 60%-90%
-                            Orch->>Orch: Post-slice to limit_results
-                            Orch->>Jobs: succeed: results and progress 100%, in one write
-                            Orch->>ReleaseChecks: enqueue_release_check(job_id)
-                            Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
-                        end
+                        Note over Orch,Jobs: Ranked results, possibly emptied by the release filter or because every album was No match -- a finished run, never a failure
+                        Orch->>Jobs: Progress 60%-90%
+                        Orch->>Orch: Post-slice to limit_results
+                        Orch->>Jobs: succeed: results and progress 100%, in one write
+                        Orch->>ReleaseChecks: enqueue_release_check(job_id)
+                        Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
                     end
                 end
             end
@@ -275,21 +271,31 @@ gave nothing for every miss (no token, or every miss either a search it did not
 answer or a matched album whose details it did not answer), nothing cached
 before this call, and Deezer matched nothing -- so a run that finds even one
 album is a valid partial outcome rather than a failure. A "no match" answer is
-an answer: it keeps the run alive here, and only the second check below the
-diagram's merge (every album `no_spotify_match`) fails a run of those.
+an answer: it keeps the run alive here, and a run where both providers answered
+"no match" for every album succeeds with no albums (owner ruling 2026-09-30):
+the Results page says none were found and links to the Unmatched breakdown,
+where each album reads "No match on Spotify or Deezer".
 An earlier revision of this diagram drew the no-cache-hits case as an immediate
 raise, which was wrong before Batch 22 added Deezer and is wrong now.
 
 Errors are classified by type, not by message text. A provider call that
-cannot be answered -- a 429 or a Retry-After above the cap, a 5xx, a timeout --
-raises `ProviderError`, never a "no match". For Spotify the search phase
+cannot be answered -- a 429 or a Retry-After above the cap, a 5xx, a timeout,
+and for Spotify a 400 or 403 or a 401 that a fresh token does not cure; for
+Deezer an HTTP 429 or 403 -- raises `ProviderError`, never a "no match". A
+Spotify token is refreshed a minute before it expires, and a 401 drops the
+cached token once and retries once with a fresh one. Once a Spotify call meets
+a Retry-After above the cap, or refuses three requests in a row, or rejects a
+freshly fetched token, that job sends Spotify no further requests (a per-job
+breaker, checked again right before each request so a queued call is stopped
+too; another job is unaffected) and its remaining albums go to Deezer. For
+Spotify the search phase
 catches it per album: the album degrades to Deezer, and if Deezer has nothing
 either it is listed under the distinct `provider_unavailable` reason, not as a
 no-match. The same holds for an album Spotify's search matched but whose detail
 call (batch or single) it could not answer. Each row's text says which provider
 was unavailable and which had no match. Only when Spotify gave nothing for every miss (no search or details call
 answered) and Deezer enriched nothing does the job fail, as the retryable
-`spotify_unavailable`; so does a run whose every album ended `no_spotify_match`. A Deezer or
+`spotify_unavailable`. A Deezer or
 MusicBrainz call that cannot be answered degrades too: the album is left
 unenriched (Deezer: listed as unavailable), no finding is cached for
 MusicBrainz, and the job carries a partial-data warning. Any exception nothing

@@ -35,8 +35,8 @@ ERROR_CODES = {
         "message": "User '{username}' was not found on Last.fm.",
     },
     # Met inside a job: the profile went private after the preflight passed.
-    # Last.fm answers HTTP 403 (error 17). Not retryable: the owner must make
-    # recent listening public first.
+    # Last.fm answers error 17 (in the body of an HTTP 403 or a 200). Not
+    # retryable: the owner must make recent listening public first.
     "private_profile": {
         "source": "lastfm",
         "retryable": False,
@@ -90,7 +90,7 @@ class UserNotFoundError(ClassifiedError):
 
 
 class PrivateProfileError(ClassifiedError):
-    """Last.fm answered 403 (error 17): recent listening is not public."""
+    """Last.fm answered error 17: recent listening is not public."""
 
     code = "private_profile"
 

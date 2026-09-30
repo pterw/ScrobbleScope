@@ -1,11 +1,14 @@
 import asyncio
 import base64
+import contextlib
+import contextvars
 import logging
 import time
 
 import aiohttp
 
 from scrobblescope.config import (
+    MAX_RETRY_AFTER_SECONDS,
     SPOTIFY_BATCH_RETRIES,
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
@@ -22,6 +25,197 @@ from scrobblescope.utils import (
     parse_retry_after,
     retry_with_semaphore,
 )
+
+#: Seconds shaved off a token's stated lifetime, so a job that starts with a
+#: token about to expire does not spend its second half on a rejected one.
+SPOTIFY_TOKEN_MARGIN_SECONDS = 60
+
+#: Statuses that are a refusal to answer, never "no match": the request itself
+#: was turned down (400 bad request, 403 forbidden). 401 has its own path.
+_REFUSAL_STATUSES = frozenset({400, 403})
+
+#: Refusals (400/403) in a row, with no answer between, that trip a job's
+#: breaker: a key that is revoked or blocked refuses every request, so three
+#: in a row is a verdict, while one odd refusal is not.
+PERSISTENT_REFUSALS = 3
+
+#: What an attempt returns when Spotify answered 401: the token was rejected.
+_TOKEN_REJECTED = object()
+
+
+class SpotifyBreaker:
+    """One job's verdict that Spotify has asked it to stay away.
+
+    Tripped by the first Retry-After above ``MAX_RETRY_AFTER_SECONDS``. Once
+    tripped, every later Spotify search and details call of that job answers
+    "could not answer" without sending a request, so a 500-album job does not
+    send 500 requests into a rate limit that will not lift for minutes.
+    Deezer is untouched and still runs for those albums.
+
+    Not a module global: jobs run concurrently, and one job's rate limit is
+    not another's. See ``spotify_job_breaker``.
+    """
+
+    def __init__(self):
+        self.tripped = False
+        self.refusals_in_a_row = 0
+        self.refusal_kinds_logged = set()
+        self.refusals_not_logged = 0
+
+    def trip(self, reason):
+        if self.tripped:
+            return
+        self.tripped = True
+        logging.warning(f"Spotify {reason}; this job sends Spotify no further requests")
+
+    def note_refusal(self, operation, status):
+        """Count a refusal; log the first of each kind, trip on a run of them.
+
+        A persistent refusal (a revoked or blocked key) would otherwise cost
+        one refused request per album. ``PERSISTENT_REFUSALS`` in a row, with
+        no answer between, trips the breaker.
+        """
+        kind = (operation, status)
+        if kind in self.refusal_kinds_logged:
+            self.refusals_not_logged += 1
+        else:
+            self.refusal_kinds_logged.add(kind)
+            logging.warning(f"Spotify refused {operation}: HTTP {status}")
+        self.refusals_in_a_row += 1
+        if self.refusals_in_a_row >= PERSISTENT_REFUSALS:
+            self.trip(f"refused {self.refusals_in_a_row} requests in a row")
+
+    def note_answer(self):
+        self.refusals_in_a_row = 0
+
+
+_job_breaker = contextvars.ContextVar("spotify_job_breaker", default=None)
+
+
+@contextlib.contextmanager
+def spotify_job_breaker():
+    """Give the calls made inside this block, and only them, a fresh breaker.
+
+    Carried in a context variable, so the search and details functions keep
+    their signatures and every task the job spawns inside the block shares the
+    job's breaker, while a concurrent job, on its own loop and context, has
+    its own. Outside a block there is no breaker and nothing is skipped.
+    """
+    breaker = SpotifyBreaker()
+    reset_token = _job_breaker.set(breaker)
+    try:
+        yield breaker
+    finally:
+        _job_breaker.reset(reset_token)
+        if breaker.refusals_not_logged:
+            logging.warning(
+                f"Spotify refused {breaker.refusals_not_logged} further "
+                "requests of this job (same operation and status as above)"
+            )
+
+
+def _breaker_open():
+    breaker = _job_breaker.get()
+    return breaker is not None and breaker.tripped
+
+
+def _check_breaker():
+    """Raise ``spotify_rate_limited`` if this job's breaker has tripped.
+
+    Called at a function's entry and again inside every attempt, right before
+    the request, once the semaphore and the limiter are held. The second call
+    is the one that matters in a fan-out: every task passes the entry check
+    before the first 429 has come back, and only this one stops the tasks
+    still queued.
+    """
+    if _breaker_open():
+        raise provider_failure("spotify")("rate_limited")
+
+
+def _note_retry_after(retry_after):
+    """Trip this job's breaker when *retry_after* is above the cap."""
+    breaker = _job_breaker.get()
+    if breaker is not None and retry_after > MAX_RETRY_AFTER_SECONDS:
+        breaker.trip(
+            f"asked for a {retry_after}s wait, above the {MAX_RETRY_AFTER_SECONDS}s cap"
+        )
+
+
+def _note_answer():
+    breaker = _job_breaker.get()
+    if breaker is not None:
+        breaker.note_answer()
+
+
+def _refused(operation, status):
+    """Return the ``ProviderError`` for a request Spotify refused.
+
+    Logs status and operation once per kind per job (the rest are counted and
+    summarised when the job's block ends); outside a job block, every time.
+    """
+    breaker = _job_breaker.get()
+    if breaker is None:
+        logging.warning(f"Spotify refused {operation}: HTTP {status}")
+    else:
+        breaker.note_refusal(operation, status)
+    return provider_failure("spotify")("unavailable")
+
+
+async def _replace_rejected_token(rejected):
+    """Drop the cached token if it is the one Spotify rejected; return a fresh one.
+
+    A sibling call that already replaced it leaves the cache holding a newer
+    token, which is returned as it is: one rejection costs one token request,
+    not one per call.
+    """
+    if spotify_token_cache["token"] == rejected:
+        spotify_token_cache["expires_at"] = 0
+    return await fetch_spotify_access_token()
+
+
+class _Bearer:
+    """The token one call sends, replaced once if Spotify rejects it (401)."""
+
+    def __init__(self, token):
+        self.token = token
+
+    def _adopt_cached_token(self):
+        """Use the cached token if it is valid and differs from the one given.
+
+        The orchestrator hands every call the token it fetched at the start; a
+        refresh in between leaves that one stale. Adopting the cached token
+        first means a refresh is paid once per job, not once per call.
+        """
+        cached = spotify_token_cache["token"]
+        valid = spotify_token_cache["expires_at"] > time.time()
+        if cached and valid and cached != self.token:
+            self.token = cached
+
+    @property
+    def headers(self):
+        return {"Authorization": f"Bearer {self.token}"}
+
+    async def run(self, attempt, operation):
+        """Run *attempt*; on a rejected token, swap it once and run it again.
+
+        A second rejection, or no fresh token to be had, is a refusal: the
+        call could not be answered, which is not "no match".
+        """
+        self._adopt_cached_token()
+        outcome = await attempt()
+        if outcome is not _TOKEN_REJECTED:
+            return outcome
+        fresh = await _replace_rejected_token(self.token)
+        if not fresh:
+            raise _refused(operation, 401)
+        self.token = fresh
+        outcome = await attempt()
+        if outcome is _TOKEN_REJECTED:
+            breaker = _job_breaker.get()
+            if breaker is not None:
+                breaker.trip("rejected a freshly fetched token")
+            raise _refused(operation, 401)
+        return outcome
 
 
 async def fetch_spotify_access_token():
@@ -57,7 +251,9 @@ async def fetch_spotify_access_token():
                     spotify_token_cache.update(
                         {
                             "token": token_data["access_token"],
-                            "expires_at": time.time() + token_data["expires_in"],
+                            "expires_at": time.time()
+                            + token_data["expires_in"]
+                            - SPOTIFY_TOKEN_MARGIN_SECONDS,
                         }
                     )
                     return spotify_token_cache["token"]
@@ -81,22 +277,32 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
     ``spotify_unavailable``). The search phase catches it per album, so that
     album falls back to Deezer and, failing that, is listed as unavailable;
     the job fails only when no search was answered and Deezer enriched nothing.
+
+    A 400 or 403 is a refusal and raises at once; a 401 (the token was
+    rejected or expired) drops the cached token once, retries with a fresh
+    one, and raises if that is refused too. Once this job's breaker is tripped
+    (``spotify_job_breaker``) it raises without sending a request.
     """
-    headers = {"Authorization": f"Bearer {token}"}
+    _check_breaker()
+    bearer = _Bearer(token)
     # Use relaxed query directly - it has better success rate and avoids double-search
     params = {"q": f"{artist} {album}", "type": "album", "limit": 3}
     limiter = get_spotify_limiter()
 
-    async def search_once():
+    async def attempt():
         async with limiter:
+            _check_breaker()
             async with session.get(
-                "https://api.spotify.com/v1/search", params=params, headers=headers
+                "https://api.spotify.com/v1/search",
+                params=params,
+                headers=bearer.headers,
             ) as response:
                 if response.status == 429:
                     retry_after = parse_retry_after(response.headers.get("Retry-After"))
                     logging.warning(
                         f"Spotify 429 on spotify.search. Retry in {retry_after}s"
                     )
+                    _note_retry_after(retry_after)
                     return None, retry_after, False
 
                 if response.status >= 500:
@@ -104,15 +310,25 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
                     # spotify_unavailable once the retries are spent.
                     return None, None, False
 
+                if response.status == 401:
+                    return _TOKEN_REJECTED
+
+                if response.status in _REFUSAL_STATUSES:
+                    raise _refused("spotify.search", response.status)
+
                 if response.status != 200:
                     return None, None, True
 
+                _note_answer()
                 data = await response.json()
                 items = data.get("albums", {}).get("items", [])
                 if items:
                     return items[0].get("id"), None, True
 
                 return None, None, True
+
+    async def search_once():
+        return await bearer.run(attempt, "spotify.search")
 
     return await retry_with_semaphore(
         search_once,
@@ -124,6 +340,7 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
         default=None,
         backoff=1,
         jitter=lambda a: (abs(hash((artist, album, a))) % 200) / 1000.0,
+        reraise=(ProviderError,),
         error_label="spotify.search",
         failure=provider_failure("spotify"),
     )
@@ -158,24 +375,37 @@ async def fetch_spotify_album_details_single(
 
     Returns the same album object the batch endpoint returns inside its
     `albums` list, so callers need no second extraction path. None means
-    Spotify answered without the album. A call Spotify could not answer (a
-    5xx, a timeout, a 429 that outlasts the retries) raises ``ProviderError``.
+    Spotify answered without the album (a 404 is that answer). A call Spotify
+    could not answer (a 5xx, a timeout, a 429 that outlasts the retries, a 400
+    or 403, a 401 a fresh token does not cure, a tripped job breaker) raises
+    ``ProviderError``.
     """
+    _check_breaker()
     url = f"https://api.spotify.com/v1/albums/{album_id}"
-    headers = {"Authorization": f"Bearer {token}"}
+    bearer = _Bearer(token)
     limiter = get_spotify_limiter()
 
-    async def fetch_once():
+    async def attempt():
         async with limiter:
-            async with session.get(url, headers=headers) as response:
+            _check_breaker()
+            async with session.get(url, headers=bearer.headers) as response:
                 if response.status == 200:
+                    _note_answer()
                     return await response.json(), None, True
                 if response.status == 429:
                     retry_after = parse_retry_after(response.headers.get("Retry-After"))
+                    _note_retry_after(retry_after)
                     return None, retry_after, False
                 if response.status >= 500:
                     return None, None, False
+                if response.status == 401:
+                    return _TOKEN_REJECTED
+                if response.status in _REFUSAL_STATUSES:
+                    raise _refused("spotify.album_details", response.status)
                 return None, None, True
+
+    async def fetch_once():
+        return await bearer.run(attempt, "spotify.album_details")
 
     return await retry_with_semaphore(
         fetch_once,
@@ -186,6 +416,7 @@ async def fetch_spotify_album_details_single(
         default=None,
         backoff=lambda a: 2**a,
         jitter=lambda a: (abs(hash((album_id, a))) % 200) / 1000.0,
+        reraise=(ProviderError,),
         error_label="spotify.album_details",
         failure=provider_failure("spotify"),
     )
@@ -238,23 +469,31 @@ async def fetch_spotify_album_details_batch(
 
     Returns an ``AlbumDetails`` (a dict). A batch Spotify could not answer (a
     5xx, a timeout, a 429 that outlasts the retries) comes back empty with
-    every requested ID in ``unanswered``: unavailable, not "no details".
+    every requested ID in ``unanswered``: unavailable, not "no details". So
+    does a batch Spotify refused (400), one whose 401 a fresh token did not
+    cure, and any batch asked for after this job's breaker tripped.
     """
     if not album_ids:
         return {}
+    if _breaker_open():
+        return AlbumDetails(unanswered=album_ids)
 
     url = "https://api.spotify.com/v1/albums"
-    headers = {"Authorization": f"Bearer {token}"}
+    bearer = _Bearer(token)
     # Spotify API takes a comma-separated string of IDs
     params = {"ids": ",".join(album_ids)}
     limiter = get_spotify_limiter()
     gone_status = None
 
-    async def fetch_once():
+    async def attempt():
         nonlocal gone_status
         async with limiter:
-            async with session.get(url, params=params, headers=headers) as response:
+            _check_breaker()
+            async with session.get(
+                url, params=params, headers=bearer.headers
+            ) as response:
                 if response.status == 200:
+                    _note_answer()
                     data = await response.json()
                     # response is a dict with an 'albums' key, which is a list.
                     # converts this list into a dict keyed by album ID for easy lookup.
@@ -272,16 +511,24 @@ async def fetch_spotify_album_details_batch(
                     logging.warning(
                         f"⚠️ Batch fetch 429 hit. Retrying after {retry_after}s."
                     )
+                    _note_retry_after(retry_after)
                     return {}, retry_after, False
                 if response.status in BATCH_ENDPOINT_GONE_STATUSES:
                     gone_status = response.status
                     return {}, None, True
                 if response.status >= 500:
                     return {}, None, False
+                if response.status == 401:
+                    return _TOKEN_REJECTED
+                if response.status in _REFUSAL_STATUSES:
+                    raise _refused("spotify.batch_details", response.status)
                 logging.error(
                     f"Failed to fetch batch album details. Status: {response.status}, Body: {await response.text()}"
                 )
                 return {}, None, True
+
+    async def fetch_once():
+        return await bearer.run(attempt, "spotify.batch_details")
 
     try:
         details = await retry_with_semaphore(
@@ -294,6 +541,7 @@ async def fetch_spotify_album_details_batch(
             default={},
             backoff=lambda a: 2**a,
             jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
+            reraise=(ProviderError,),
             error_label="spotify.batch_details",
             failure=provider_failure("spotify"),
         )
@@ -303,7 +551,9 @@ async def fetch_spotify_album_details_batch(
         return AlbumDetails(details)
     if on_fallback is not None:
         on_fallback(gone_status)
-    return await _fetch_album_details_one_by_one(session, album_ids, token, retries)
+    return await _fetch_album_details_one_by_one(
+        session, album_ids, bearer.token, retries
+    )
 
 
 def album_metadata_from_details(spotify_id, details):

@@ -295,12 +295,31 @@ def _clear_error(progress):
         progress.pop(field, None)
 
 
+def _end(job_id, outcome, apply):
+    """Apply the job's terminal transition, unless it has already ended.
+
+    A job ends exactly one way. A second ``succeed`` or ``fail`` (a failure
+    raised by work that follows ``succeed``, say) is refused and logged rather
+    than overwriting the first ending, so results already on a page are not
+    replaced by an empty error state. Returns False when refused or gone.
+    """
+
+    def guarded(record):
+        if record["progress"]["progress"] >= 100:
+            logging.warning(f"Job {job_id} has already ended; {outcome} refused")
+            return False
+        return apply(record)
+
+    return _write(job_id, guarded)
+
+
 def succeed(job_id, results, message):
     """Finish the job with *results* (list or dict) at 100%.
 
     Results and the completion signal land in one write, so a page that sees
     100% always finds its payload, and any earlier error is cleared: a job
-    holds results or an error, never both.
+    holds results or an error, never both. Refused, and logged, if the job
+    has already ended (see ``_end``).
     """
 
     def apply(record):
@@ -311,7 +330,7 @@ def succeed(job_id, results, message):
         progress.pop("phase", None)
         _clear_error(progress)
 
-    return _write(job_id, apply)
+    return _end(job_id, "succeed", apply)
 
 
 def _fail(job_id, message, code, source, retryable, retry_after):
@@ -328,14 +347,14 @@ def _fail(job_id, message, code, source, retryable, retry_after):
                 progress[field] = value
         progress.pop("phase", None)
 
-    return _write(job_id, apply)
+    return _end(job_id, "fail", apply)
 
 
 def fail(job_id, error_code, username=None, retry_after=None):
     """Finish the job with a classified error (``errors.ERROR_CODES``).
 
     The job's results become an empty list: an error and a result set never
-    coexist.
+    coexist. Refused, and logged, if the job has already ended (see ``_end``).
     """
     info = ERROR_CODES.get(error_code, {})
     message = info.get("message", "An unexpected error occurred.")
@@ -440,6 +459,15 @@ def _progress_view(record):
 def progress(job_id):
     """Return a copy of the job's progress dict, or None if not found."""
     return _store.read(job_id, _progress_view)
+
+
+def exists(job_id):
+    """Return whether the job is still in the store.
+
+    An existence probe: unlike ``context`` it copies nothing, and like every
+    read it does not renew the lease.
+    """
+    return _store.read(job_id, lambda record: True) is True
 
 
 def unmatched(job_id):

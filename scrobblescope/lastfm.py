@@ -168,6 +168,20 @@ def _page_defect(data: Any) -> str:
     return "missing recenttracks.@attr.totalPages"
 
 
+async def _error_number(resp) -> str:
+    """Return the Last.fm error number in *resp*'s body, or ``"unknown"``.
+
+    Digits only: the body itself is never returned, so a caller can log the
+    result without a message or a listener's names reaching a log line.
+    """
+    try:
+        data = await resp.json(content_type=None)
+    except (aiohttp.ClientError, ValueError):
+        return "unknown"
+    number = str(data.get("error")) if isinstance(data, dict) else ""
+    return number if number.isdigit() and len(number) <= 3 else "unknown"
+
+
 async def fetch_recent_tracks_page_async(
     session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):
@@ -178,8 +192,9 @@ async def fetch_recent_tracks_page_async(
     treated like a non-200 response: retried, and None if it stays bad. Only
     a well-formed page is cached.
     Raises ``UserNotFoundError`` if the user is not found (HTTP 404) and
-    ``PrivateProfileError`` if the profile is private (HTTP 403 or error 17);
-    neither is retried.
+    ``PrivateProfileError`` if the profile is private (error 17, in the body
+    of an HTTP 403 or of a 200); neither is retried. Any other 403 is an
+    operational failure, retried like a non-200 status.
     """
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
@@ -213,10 +228,23 @@ async def fetch_recent_tracks_page_async(
                     )
                     return None, retry_after
                 if resp.status == 403:
-                    # Error 17: the profile went private after the preflight.
-                    # Retrying cannot help; typed as PrivateProfileError.
-                    logging.error(f"Profile of {username} is private on Last.fm")
-                    raise PrivateProfileError()
+                    # Last.fm's error page names no HTTP status for any error
+                    # code, so a 403 is not proof of error 17: read the body.
+                    # Only error 17 (the profile went private after the
+                    # preflight) is a privacy verdict, and retrying cannot help.
+                    error_number = await _error_number(resp)
+                    if error_number == "17":
+                        logging.error(f"Profile of {username} is private on Last.fm")
+                        raise PrivateProfileError()
+                    # Any other 403 (10 invalid key, 26 suspended key, an
+                    # unknown body) is our access failing, not the listener's
+                    # privacy: log the status and number, never the body, and
+                    # take the unavailable path (retried, then the page drops).
+                    logging.error(
+                        f"Last.fm refused page {page}: HTTP 403, "
+                        f"error number {error_number}"
+                    )
+                    return None, None
                 if resp.status == 404:
                     # User not found
                     logging.error(f"User {username} not found on Last.fm")

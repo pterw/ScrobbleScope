@@ -914,21 +914,18 @@ async def test_check_user_exists_caches_a_genuine_hit():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("private_via", ["status_403", "error_17_in_200"])
+@pytest.mark.parametrize("private_via", ["error_17_in_403", "error_17_in_200"])
 async def test_page_fetch_reports_a_private_profile_without_retrying(private_via):
     """
-    GIVEN Last.fm answers a job's page fetch with a 403 (or error 17 in a 200)
+    GIVEN Last.fm answers a job's page fetch with error 17 (in a 403 or a 200)
     WHEN fetch_recent_tracks_page_async runs with retries available
     THEN it raises PrivateProfileError at once (one request, no retry), which
     classifies as private_profile, not as an outage.
     """
     session = MagicMock()
     resp = AsyncMock()
-    if private_via == "status_403":
-        resp.status = 403
-    else:
-        resp.status = 200
-        resp.json.return_value = {"error": 17, "message": "Login required"}
+    resp.status = 403 if private_via == "error_17_in_403" else 200
+    resp.json.return_value = {"error": 17, "message": "Login required"}
     session.get.return_value = make_response_context(resp)
 
     with (
@@ -1064,3 +1061,66 @@ async def test_page_fetch_reads_an_error_body_leniently_and_retries():
     assert page is None
     assert session.get.call_count == 2
     assert decoded_with == ["replace", "replace"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("body", "expected_number"),
+    [
+        (
+            {
+                "error": 10,
+                "message": "Invalid API key - You must be granted a valid key",
+            },
+            "10",
+        ),
+        (
+            {
+                "error": 26,
+                "message": "Suspended API key - Access for your account has been suspended",
+            },
+            "26",
+        ),
+        ({"message": "Forbidden"}, "unknown"),
+        (None, "unknown"),
+    ],
+    ids=["invalid_key_10", "suspended_key_26", "unknown_body", "not_json"],
+)
+async def test_page_fetch_403_without_error_17_is_an_outage_not_a_private_profile(
+    body, expected_number, caplog
+):
+    """
+    GIVEN Last.fm answers a job's page fetch with a 403 whose body is not
+    error 17 (an invalid or suspended key, an unknown body, or no JSON)
+    WHEN fetch_recent_tracks_page_async runs
+    THEN it does not raise PrivateProfileError: the page is retried and given
+    up as None (the unavailable path), and the log names the status and the
+    error number but no body text.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 403
+    if body is None:
+        resp.json.side_effect = ValueError("not json")
+    else:
+        resp.json.return_value = body
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await fetch_recent_tracks_page_async(
+            session, "someone", 1, 2, page=1, retries=3
+        )
+
+    assert result is None
+    assert session.get.call_count == 3
+    assert f"HTTP 403, error number {expected_number}" in caplog.text
+    assert "Invalid API key" not in caplog.text
+    assert "Suspended" not in caplog.text
+    assert "someone" not in caplog.text

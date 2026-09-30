@@ -270,7 +270,7 @@ async def _check_pending_candidates(job_id, conn, pending, params, state):
     """
     async with create_optimized_session() as session:
         for candidate in pending:
-            if jobs.context(job_id) is None:
+            if not jobs.exists(job_id):
                 logging.info(
                     f"Release checks stopped: job {job_id} is gone "
                     f"after {state['checked']}/{state['total']} checks."

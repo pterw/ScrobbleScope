@@ -7,6 +7,8 @@ dict. That is what lets a second storage adapter run this same suite: add its
 factory to ``STORE_FACTORIES`` and every rule below is checked against it.
 """
 
+import logging
+
 import pytest
 
 from scrobblescope import jobs
@@ -288,6 +290,9 @@ def test_succeed_clears_an_earlier_failure():
     """A job holds results or an error, never both."""
     job_id = _new_job()
     jobs.fail(job_id, "lastfm_rate_limited", retry_after=30)
+    # The run is under way again (an advance is a write on a failed job's
+    # record): only then may it end a second time.
+    jobs.advance(job_id, 50, "Retrying")
 
     jobs.succeed(job_id, [{"artist": "A"}], "Done")
 
@@ -347,6 +352,7 @@ def test_fail_on_a_missing_job_returns_false():
 def test_fail_internal_error_replaces_results_and_is_not_retryable():
     job_id = _new_job()
     jobs.succeed(job_id, [{"artist": "A"}], "Done")
+    jobs.advance(job_id, 50, "again")
 
     assert jobs.fail(job_id, "internal_error") is True
 
@@ -632,3 +638,77 @@ def test_use_store_returns_the_store_it_replaced(store):
     assert other.ids() == [job_id]
     assert store.ids() == []
     jobs.use_store(store)
+
+
+# --- a job ends exactly one way (R4-backend-7) -------------------------------
+
+
+def test_a_failure_after_succeed_is_refused_and_logged(caplog):
+    """A late failure cannot turn a finished results page into an error."""
+    job_id = _new_job()
+    results = [{"artist": "A"}]
+    jobs.succeed(job_id, results, "Done")
+
+    with caplog.at_level(logging.WARNING):
+        assert jobs.fail(job_id, "internal_error") is False
+
+    ctx = jobs.context(job_id)
+    assert ctx["results"] == results
+    assert ctx["progress"]["error"] is False
+    assert ctx["progress"]["message"] == "Done"
+    assert f"Job {job_id} has already ended; fail refused" in caplog.text
+
+
+def test_a_success_after_fail_is_refused_and_logged(caplog):
+    """The first ending stands: a job that failed is not later turned into a success."""
+    job_id = _new_job()
+    jobs.fail(job_id, "lastfm_unavailable")
+
+    with caplog.at_level(logging.WARNING):
+        assert jobs.succeed(job_id, [{"artist": "A"}], "Done") is False
+
+    ctx = jobs.context(job_id)
+    assert ctx["results"] == []
+    assert ctx["progress"]["error_code"] == "lastfm_unavailable"
+    assert f"Job {job_id} has already ended; succeed refused" in caplog.text
+
+
+def test_a_second_failure_keeps_the_first_error():
+    job_id = _new_job()
+    jobs.fail(job_id, "lastfm_unavailable")
+
+    assert jobs.fail(job_id, "internal_error") is False
+
+    assert jobs.progress(job_id)["error_code"] == "lastfm_unavailable"
+
+
+def test_a_refused_ending_does_not_renew_the_lease(clock):
+    job_id = _new_job()
+    jobs.succeed(job_id, [], "Done")
+    clock.now += JOB_TTL_SECONDS - 10
+
+    jobs.fail(job_id, "internal_error")
+    clock.now += 20
+    jobs.expire_stale()
+
+    assert jobs.exists(job_id) is False
+
+
+def test_start_lets_a_finished_job_end_again():
+    """A restarted run (start) is a new life, so its ending is accepted."""
+    job_id = _new_job()
+    jobs.fail(job_id, "lastfm_unavailable")
+
+    jobs.start(job_id, "Retrying")
+
+    assert jobs.succeed(job_id, [{"artist": "A"}], "Done") is True
+    assert jobs.progress(job_id)["error"] is False
+
+
+def test_exists_is_true_for_a_live_job_and_false_for_a_gone_one():
+    job_id = _new_job()
+
+    assert jobs.exists(job_id) is True
+    assert jobs.exists("nonexistent_job_id") is False
+    jobs.delete(job_id)
+    assert jobs.exists(job_id) is False

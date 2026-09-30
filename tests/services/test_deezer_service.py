@@ -524,6 +524,7 @@ async def test_fetch_deezer_album_reads_a_strange_body_as_a_miss(
     "tracks_body",
     [
         {},
+        None,
         ["not", "a", "dict"],
         "a string",
         {"data": None},
@@ -532,6 +533,7 @@ async def test_fetch_deezer_album_reads_a_strange_body_as_a_miss(
     ],
     ids=[
         "tracks_empty_object",
+        "tracks_json_null",
         "tracks_list",
         "tracks_string",
         "tracks_null_data",
@@ -544,7 +546,8 @@ async def test_fetch_deezer_album_keeps_the_album_when_the_track_list_is_unreada
 ):
     """
     GIVEN a readable album body but a tracks body with no usable `data` list
-    (missing key, null, a string, an object, or not an object at all)
+    (missing key, null, a string, an object, or not an object at all, the
+    whole body being JSON null included)
     WHEN fetch_deezer_album runs
     THEN the album is kept with its release metadata and no track durations:
     only an album body that cannot be read is a miss (the pre-15a behaviour
@@ -593,3 +596,135 @@ async def test_fetch_deezer_album_keeps_the_album_when_optional_fields_are_odd()
     assert result.release_date == ""
     assert result.image_url is None
     assert result.track_durations == {"null": 0, "text": 0, "bool": 0, "good": 200}
+
+
+# --- HTTP-status refusals are "could not answer" (R4-backend-1) ---------------
+
+
+def _http_status(status, retry_after=None):
+    resp = AsyncMock()
+    resp.status = status
+    resp.headers = {"Retry-After": retry_after} if retry_after else {}
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_deezer_http_429_honours_retry_after_then_succeeds():
+    """
+    GIVEN Deezer answers HTTP 429 with Retry-After: 3, then a match
+    WHEN search_deezer_album runs
+    THEN it sleeps the stated 3 seconds and returns the id: a throttle is a
+    wait, not "no match".
+    """
+    session = MagicMock()
+    found = AsyncMock()
+    found.status = 200
+    found.json = AsyncMock(
+        return_value={
+            "data": [{"id": 7, "title": "Album", "artist": {"name": "Artist"}}]
+        }
+    )
+    session.get.side_effect = [
+        make_response_context(_http_status(429, retry_after="3")),
+        make_response_context(found),
+    ]
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        result = await search_deezer_album(session, "Artist", "Album", retries=2)
+
+    assert result == 7
+    mock_sleep.assert_awaited_once_with(3)
+
+
+@pytest.mark.asyncio
+async def test_deezer_http_429_on_every_attempt_raises_rate_limited_not_no_match():
+    """
+    GIVEN Deezer answers HTTP 429 on every attempt
+    WHEN search_deezer_album runs
+    THEN ProviderError deezer_rate_limited is raised, not None.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_http_status(429))
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await search_deezer_album(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "deezer_rate_limited"
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_deezer_http_403_raises_unavailable_not_no_match():
+    """
+    GIVEN Deezer answers HTTP 403 on every attempt
+    WHEN search_deezer_album runs
+    THEN ProviderError deezer_unavailable is raised, not None.
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_http_status(403))
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await search_deezer_album(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "deezer_unavailable"
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tracks_answer",
+    [{"error": {"type": "DataException", "code": 800}}, None],
+    ids=["error_body_800", "http_404"],
+)
+async def test_fetch_deezer_album_is_a_miss_when_the_track_call_ends_in_an_error(
+    tracks_answer,
+):
+    """
+    GIVEN a readable album body but a /tracks call that ends in a terminal
+    error (an error body, or HTTP 404)
+    WHEN fetch_deezer_album runs
+    THEN it returns None, a miss that is not persisted: an album kept with no
+    durations would sit in the 30-day cache and vanish from the playtime
+    ranking even after Deezer recovers.
+    """
+    session = MagicMock()
+    album_resp = AsyncMock()
+    album_resp.status = 200
+    album_resp.json = AsyncMock(return_value=_GOOD_ALBUM)
+    tracks_resp = AsyncMock()
+    if tracks_answer is None:
+        tracks_resp.status = 404
+    else:
+        tracks_resp.status = 200
+        tracks_resp.json = AsyncMock(return_value=tracks_answer)
+
+    def route(url, params=None, **kwargs):
+        return make_response_context(
+            tracks_resp if url.endswith("/tracks") else album_resp
+        )
+
+    session.get.side_effect = route
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 1)
+
+    assert result is None
