@@ -22,12 +22,12 @@
      "0 0 453 69", which cuts 3.2 units off the p descender in "Scope". The
      extra 5 units of height keep the descender whole. Owner ruled this on
      2026-08-24; docs/design/RECONCILIATION.md records it. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 453 74">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 453 74" fill="currentColor">
   <defs>
     <style>
       .cls-1 {
         fill: none;
-        stroke: #6a4baf;
+        stroke: var(--bars-color);
         stroke-linecap: round;
         stroke-miterlimit: 10;
         stroke-width: 8px;

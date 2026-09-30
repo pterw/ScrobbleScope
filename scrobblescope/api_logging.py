@@ -9,18 +9,29 @@ token fetch, ``orchestrator/__init__.py``'s Spotify/Deezer phase,
 and ``musicbrainz.py`` only ever call ``session.get`` on a session someone
 else built, so they need no changes of their own.
 
-A line never carries the query string: it can carry Last.fm's ``api_key``
-and the artist/album search terms ``BATCH23_DEFINITION.md``'s Data handling
-section keeps out of logs. The one exception is Last.fm's ``method`` query
+The trace hook never logs the query string: it can carry Last.fm's
+``api_key`` and the artist/album search terms ``BATCH23_DEFINITION.md``'s
+Data handling section keeps out of logs. ``RedactingFormatter`` redacts
+``api_key`` in any line the app emits, exception text included. The one
+exception is Last.fm's ``method`` query
 parameter (for example ``user.getrecenttracks``), named explicitly because
 the bare path (``/2.0/``) does not say which call it was. Request/response
 bodies and headers are never logged, except the response's ``Retry-After``.
+
+The rule for the failure lines the providers write is enforced in one place,
+``utils.retry_with_semaphore``: callers hand it an operation key (for example
+``"spotify.search"``), never a name built from an album, artist or track, and
+it writes no exception message, because aiohttp puts the request URL, query
+included, into ``str(exc)``. ``RedactingFormatter`` cannot stand in for that:
+it knows an ``api_key`` when it sees one and cannot know a name.
 
 Every trace callback catches its own errors: a logging failure must never
 fail the request it is describing.
 """
 
+import asyncio
 import logging
+import re
 import time
 
 from aiohttp import TraceConfig
@@ -36,6 +47,38 @@ _PROVIDER_HOSTS = {
     "api.deezer.com": "Deezer",
     "musicbrainz.org": "MusicBrainz",
 }
+
+# The two spellings an api_key takes in a log line: ``api_key=VALUE`` in a
+# query string (stops at ``&``, whitespace or a quote) and ``api_key:VALUE``
+# in a cache key such as ``url_api_key:VALUE_format:json`` (also stops at
+# ``_``, the cache key's separator). The traceback matters because aiohttp
+# puts ``url=`` with its query string into ``str(exc)``.
+_API_KEY_RE = re.compile(r"(api_key=)[^&\s'\"]*|(api_key:)[^_&\s'\"]*")
+
+
+def _redact_match(match):
+    return f"{match.group(1) or match.group(2)}[redacted]"
+
+
+class RedactingFormatter(logging.Formatter):
+    """Formatter that replaces the value of ``api_key`` with ``[redacted]``.
+
+    Protects Last.fm's key from every line the app writes, tracebacks
+    included. What can still carry it: every DEBUG traceback (the ERROR line
+    of a failure names its class only: ``utils.log_failure``, and
+    ``utils.run_async_in_thread``) and ``utils.get_cached_response``'s debug
+    line (its cache key embeds the URL), and any future line that writes an
+    exception's message. ``utils.retry_with_semaphore``'s error line (on a
+    connect timeout) and ``routes.album_flow.results_loading``'s
+    registration-year warning were two more until they stopped writing
+    exception messages.
+    The trace hook's own query exclusion is the first layer; this is
+    the backstop at the output layer.
+    """
+
+    def format(self, record):
+        return _API_KEY_RE.sub(_redact_match, super().format(record))
+
 
 # Where a session's per-provider tally lives, set on the ClientSession
 # instance itself (the same object every trace callback for that session
@@ -85,20 +128,44 @@ def _call_outcome_line(provider, method, url, outcome, elapsed_ms, retry_after=N
     return line
 
 
-def _elapsed_ms(trace_config_ctx):
-    return (time.monotonic() - trace_config_ctx.start) * 1000
+def _elapsed_ms(start, end):
+    """Return the milliseconds between two ``time.monotonic()`` readings."""
+    return (end - start) * 1000
 
 
-def _record(session, provider, outcome, elapsed_ms):
-    """Fold one call's outcome into *session*'s per-provider tally."""
+def _record(session, provider, outcome, start, end):
+    """Fold one call's outcome into *session*'s per-provider tally.
+
+    *start* and *end* are the ``time.monotonic()`` readings the caller also
+    used for the per-call line -- one clock read per end event, so that
+    line's milliseconds and this tally's figures never drift apart. The
+    elapsed time is derived here from them (``_elapsed_ms``). The tally keeps
+    the earliest *start* and latest *end* seen for *provider*, so
+    ``_emit_summaries`` can report the span those calls covered alongside
+    the summed elapsed time.
+    """
+    elapsed_ms = _elapsed_ms(start, end)
     tally = getattr(session, _TALLY_ATTR, None)
     if tally is None:
         tally = {}
         setattr(session, _TALLY_ATTR, tally)
-    entry = tally.setdefault(provider, {"count": 0, "elapsed_ms": 0.0, "outcomes": {}})
+    entry = tally.setdefault(
+        provider,
+        {
+            "count": 0,
+            "elapsed_ms": 0.0,
+            "outcomes": {},
+            "span_start": start,
+            "span_end": end,
+        },
+    )
     entry["count"] += 1
     entry["elapsed_ms"] += elapsed_ms
     entry["outcomes"][outcome] = entry["outcomes"].get(outcome, 0) + 1
+    if start < entry["span_start"]:
+        entry["span_start"] = start
+    if end > entry["span_end"]:
+        entry["span_end"] = end
 
 
 async def _on_request_start(session, trace_config_ctx, params):
@@ -110,7 +177,9 @@ async def _on_request_start(session, trace_config_ctx, params):
 
 async def _on_request_end(session, trace_config_ctx, params):
     try:
-        elapsed_ms = _elapsed_ms(trace_config_ctx)
+        end = time.monotonic()
+        start = trace_config_ctx.start
+        elapsed_ms = _elapsed_ms(start, end)
         provider = provider_for_host(params.url.host)
         status = params.response.status
         retry_after = None
@@ -127,22 +196,33 @@ async def _on_request_end(session, trace_config_ctx, params):
                 retry_after,
             ),
         )
-        _record(session, provider, str(status), elapsed_ms)
+        _record(session, provider, str(status), start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_end failed", exc_info=True)
 
 
 async def _on_request_exception(session, trace_config_ctx, params):
     try:
-        elapsed_ms = _elapsed_ms(trace_config_ctx)
+        end = time.monotonic()
+        start = trace_config_ctx.start
+        elapsed_ms = _elapsed_ms(start, end)
         provider = provider_for_host(params.url.host)
         exc_name = type(params.exception).__name__
+        if isinstance(params.exception, asyncio.CancelledError):
+            # The fan-out drain cancels its own siblings: not a provider
+            # failure, so no WARNING and no tally entry (S1-13).
+            logging.debug(
+                _call_outcome_line(
+                    provider, params.method, params.url, exc_name, elapsed_ms
+                )
+            )
+            return
         logging.warning(
             _call_outcome_line(
                 provider, params.method, params.url, exc_name, elapsed_ms
             )
         )
-        _record(session, provider, exc_name, elapsed_ms)
+        _record(session, provider, exc_name, start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_exception failed", exc_info=True)
 
@@ -176,6 +256,19 @@ def _sorted_outcomes(outcomes):
 def _emit_summaries(session):
     """Log one INFO summary line per provider *session* called.
 
+    Each line states two different numbers, not one: the *span* (wall time
+    from that provider's earliest call start to its latest call end, both
+    ``on_request_end`` and ``on_request_exception`` counting as an end) and
+    the *time in calls* (that provider's per-call elapsed times summed).
+    They answer different questions -- the span says how long the provider
+    was being talked to; the time in calls says how much of that was spent
+    waiting on it -- and they can diverge in either direction. Sequential
+    calls throttled apart (MusicBrainz's one-request-per-second pacing, for
+    example) give a span much larger than the time in calls. Calls issued
+    concurrently (the Spotify search phase runs several in parallel) can
+    give a time in calls that *exceeds* the span, since more than one call
+    is in flight at once; that is correct and informative, not a bug.
+
     A session that made no calls has no tally entries and logs nothing.
     """
     tally = getattr(session, _TALLY_ATTR, None)
@@ -186,9 +279,11 @@ def _emit_summaries(session):
             outcomes = ", ".join(
                 f"{count}x{key}" for key, count in _sorted_outcomes(entry["outcomes"])
             )
+            span_s = entry["span_end"] - entry["span_start"]
+            in_calls_s = entry["elapsed_ms"] / 1000
             logging.info(
-                f"{provider}: {entry['count']} calls in "
-                f"{entry['elapsed_ms'] / 1000:.1f}s -- {outcomes}"
+                f"{provider}: {entry['count']} calls over {span_s:.1f}s "
+                f"({in_calls_s:.1f}s in calls) -- {outcomes}"
             )
         except Exception:  # noqa: BLE001 -- a summary failure must not block close
             logging.debug(f"api_logging: summary failed for {provider}", exc_info=True)

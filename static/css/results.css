@@ -26,6 +26,13 @@
     --text-3xl: calc(1.875rem * var(--results-scale));
     --text-4xl: calc(2.25rem * var(--results-scale));
     --text-5xl: calc(3rem * var(--results-scale));
+    /* Corner radius for provider artwork: Spotify asks for 4px on small and
+       medium devices and 8px on large ones. A tablet is a medium device, so
+       the step is at 1024px, this page's large breakpoint (the side rail goes
+       sticky there too), not at 768px. One value, read by `.provider-artwork`
+       and the spotlight's image box; it steps up once, in the media query
+       under `.provider-artwork`. */
+    --artwork-radius: 4px;
     width: 100%;
     max-width: 90rem;
 }
@@ -232,6 +239,15 @@
     word-break: break-word;
 }
 
+/* A flex item defaults to `min-width: auto` and refuses to shrink below its
+   content, so a long artist credit kept its full width and ran over the plays
+   and date columns with no ellipsis (F-B23-27). Authored here because the
+   theme's spacing reset compiles the `min-w-0` utility to nothing (F-B21-52);
+   `unmatched.css` does the same for its own table. */
+.results-table .album-info {
+    min-width: 0;
+}
+
 /* On mobile viewports, keep touch targets accessible and allow fluid scanning */
 @media (max-width: 767.98px) {
     .results-table th,
@@ -273,6 +289,32 @@
     }
 }
 
+/* The provider named under a row's album when it did not come from Spotify:
+   a link when the row has a URL, plain text when it has none. A small label,
+   so it takes the narrow mono face at the 12px floor recorded in
+   docs/design/RECONCILIATION.md section 1; it shipped at 10px in the wide
+   face. Muted by default, accent on hover, like the correction note
+   below. One rule serves the results and unmatched tables. */
+.provider-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: fit-content;
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.75rem * var(--results-scale));
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ss-text-muted);
+}
+
+a.provider-badge {
+    transition: color 150ms ease;
+}
+
+a.provider-badge:hover {
+    color: var(--color-primary);
+}
+
 .metric-toggle-btn {
     user-select: none;
     cursor: pointer;
@@ -307,6 +349,27 @@
         min-height: calc(4.5rem * var(--results-scale));
         max-width: calc(4.5rem * var(--results-scale));
         max-height: calc(4.5rem * var(--results-scale));
+    }
+}
+
+/* Provider artwork: every album cover and artist photo on the results and
+   unmatched pages, and the placeholder that stands in for one. Spotify's
+   "Using our content" rules (F-B21-60, F-B23-12): never crop the artwork, and
+   round its corners 4px on small and medium devices, 8px on large ones
+   (large starts at 1024px; a tablet at 768px is medium).
+
+   `contain`, not `cover`: artwork that is not square is shown whole on the
+   surface token behind it, the same letterbox the spotlight uses. The size
+   stays with each page's own rule. */
+.provider-artwork {
+    border-radius: var(--artwork-radius);
+    object-fit: contain;
+    background-color: var(--results-surface);
+}
+
+@media (min-width: 1024px) {
+    .results-page {
+        --artwork-radius: 8px;
     }
 }
 
@@ -399,106 +462,203 @@
     text-decoration: none;
 }
 
-/* Artist Spotlight full-bleed card & gradient scrim overlays */
+/* Artist Spotlight card: a square, uncropped photo, beside its details when
+   the card is wide enough and above them when it is not (see the wrap below).
+   No scrim, no overlay -- the photo is never drawn under anything else
+   (F-B21-60). Padding matches the sibling rail cards' own utility classes
+   (p-4 md:p-[calc(1.25rem*var(--results-scale))]), not a bespoke value. */
 .spotlight-card-bleed {
-    position: relative;
     width: 100%;
-    height: calc(11.875rem * var(--results-scale));
     background-color: var(--results-surface);
-    overflow: hidden;
 }
 
 .spotlight-card-content {
+    display: flex;
+    /* The details wrap under the photo when the card is too narrow to give
+       the artist name a column of its own beside it (`.spotlight-details`'s
+       flex-basis is that column). Wrapping is decided by the card's own
+       width, so no viewport breakpoint has to guess the side rail's width
+       and every measurement scales with --results-scale. */
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: calc(0.75rem * var(--results-scale));
+}
+
+.spotlight-image-box {
+    position: relative;
+    /* Beside the details when the card is wide enough, else above them
+       (`.spotlight-card-content` wraps); never full rail width on mobile,
+       roughly 112px -- proportionate to the card, between the results-table
+       thumbnail (3rem/3.5rem, from the row template) and this card's own size from 768px up
+       (9rem, set in the 768px rule below). The corner is a separate step:
+       4px below 1024px, 8px from 1024px (--artwork-radius). */
+    width: calc(7rem * var(--results-scale));
+    aspect-ratio: 1 / 1;
+    border-radius: var(--artwork-radius);
+    overflow: hidden;
+    background-color: var(--results-surface);
+    border: 1px solid var(--ss-border-default);
+    flex-shrink: 0;
+}
+
+.spotlight-artist-photo {
     position: absolute;
     inset: 0;
-    transition: opacity 0.25s ease-out;
+    width: 100%;
+    height: 100%;
+    /* Whole photo, never cropped (F-B21-60 owner ruling): a non-square
+       Spotify photo is letterboxed on the image box's own surface token
+       (`.spotlight-image-box`'s background-color) instead of being cut down
+       to fill the square box. */
+    object-fit: contain;
 }
 
-/* Text-only fallback: no photo available. Overrides the absolute geometry
-   so the card grows to fit the artist name and scrobble count. The card
-   background (--results-surface) provides the surface. */
-.spotlight-no-image {
-    position: relative;
-    height: auto;
-    min-height: calc(5rem * var(--results-scale));
+.spotlight-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: calc(0.375rem * var(--results-scale));
+    /* Beside the photo only when the name keeps a column of at least
+       11rem (text-2xl) or 15rem (text-3xl, from 768px), less the 48px
+       Spotify link: a nine- or eleven-letter word then fits whole. A
+       narrower card wraps the details under the photo, at the card's full
+       width. The card's height is not reserved here: results-spotlight.js
+       measures the tallest candidate's rendered card and holds that as the
+       card's min-height, so no line-count guess can be wrong. */
+    flex: 1 1 calc(11rem * var(--results-scale));
+    min-width: 0;
 }
 
-.spotlight-card-bleed:has(.spotlight-no-image) {
-    height: auto;
+/* results-spotlight.js sets this on the card while it measures a candidate
+   that has no Spotify link, and keeps the previous candidate's link (which
+   holds keyboard focus) in place: out of the layout, the link adds no height
+   the candidate would not have. */
+.is-measuring-without-link .spotlight-spotify-link {
+    position: absolute;
 }
 
 @media (min-width: 768px) {
-    .spotlight-card-bleed {
-        height: calc(12.8125rem * var(--results-scale));
+    .spotlight-image-box {
+        width: calc(9rem * var(--results-scale));
     }
 
-    .spotlight-card-bleed:has(.spotlight-no-image) {
-        height: auto;
+    .spotlight-details {
+        flex-basis: calc(15rem * var(--results-scale));
     }
 }
 
-.spotlight-scrim-top {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    background: linear-gradient(
-        to bottom,
-        rgba(14, 12, 18, 0.75) 0%,
-        rgba(14, 12, 18, 0.35) 60%,
-        rgba(14, 12, 18, 0) 100%
-    );
+/* The official Spotify icon (F-B21-60; markup in
+   templates/partials/_spotify_icon.html). Spotify's minimum is 21px, so it is
+   a fixed 24px tall -- never scaled by --results-scale, which could shrink it
+   -- and its width follows the file's own aspect ratio (the img's width and
+   height attributes reserve that ratio before the file arrives). Both
+   monochrome files are in the page; the theme shows one, never a recoloured
+   copy: black on the light theme's off-white surface, white on the dark
+   theme's near-black one (green is for pure black or white only). */
+.spotify-icon {
+    display: block;
+    flex-shrink: 0;
+    width: auto;
+    height: 24px;
+}
+
+.spotify-icon--on-dark,
+[data-theme="dark"] .spotify-icon--on-light {
+    display: none;
+}
+
+[data-theme="dark"] .spotify-icon--on-dark {
+    display: block;
+}
+
+/* Forced colours replace the page's own palette with the system's, so the
+   saved theme can disagree with what is behind the icon: a dark saved theme on
+   a light system palette shows the white file on white and it disappears.
+   Choose the file from the system's scheme there, not from data-theme. The
+   `:root` and doubled class lift these above the data-theme rules. */
+@media (forced-colors: active) and (prefers-color-scheme: light) {
+    :root .spotify-icon.spotify-icon--on-light {
+        display: block;
+    }
+
+    :root .spotify-icon.spotify-icon--on-dark {
+        display: none;
+    }
+}
+
+@media (forced-colors: active) and (prefers-color-scheme: dark) {
+    :root .spotify-icon.spotify-icon--on-light {
+        display: none;
+    }
+
+    :root .spotify-icon.spotify-icon--on-dark {
+        display: block;
+    }
+}
+
+/* Spotify's clear space is half the icon's height (12px) on every side. The
+   spotlight link's own padding is that space, so nothing else can sit inside
+   it, and 24px + 2 x 12px is a 48px touch target. The negative top and right
+   margins keep the icon itself level with the artist name's top edge and the
+   card's content edge. */
+.spotlight-spotify-link {
+    padding: 12px;
+    margin: -12px -12px 0 0;
+}
+
+/* One Spotify attribution for the whole results list, inside the export
+   wrapper. The padding and gap are the icon's 12px clear space. The text is
+   0.75rem, the 12px floor docs/design/RECONCILIATION.md section 1 records for
+   small labels; it shipped at 0.6875rem, 11px. */
+.provider-attribution {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: calc(0.625rem * var(--results-scale)) calc(1rem * var(--results-scale));
-    pointer-events: none;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid var(--ss-border-default);
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.75rem * var(--results-scale));
+    letter-spacing: 0.03em;
+    color: var(--ss-text-muted);
 }
 
-.spotlight-scrim-bottom {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 10;
-    background: linear-gradient(
-        to top,
-        rgba(14, 12, 18, 0.9) 0%,
-        rgba(14, 12, 18, 0.5) 45%,
-        rgba(14, 12, 18, 0) 100%
-    );
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: calc(0.75rem * var(--results-scale)) calc(1rem * var(--results-scale));
-    pointer-events: none;
+/* The unmatched report's page-level attribution is a line of the page's
+   heading block, not a panel. It shipped as a bordered card the full width of
+   the page, which read as a fourth reason group above the three real ones.
+   No border and no fill. The icon keeps its 12px of clear space above, below
+   and to the right; to its left is the page's own margin. */
+.provider-attribution--page {
+    padding: 12px 0;
+    border-bottom: 0;
+    margin-bottom: calc(0.5rem * var(--results-scale));
 }
 
-/* Backward compatibility aliases */
-.spotlight-image-container {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 10;
-    background-color: var(--results-surface);
-    overflow: hidden;
+/* Partial-run notice: one plain line above the stat block when Last.fm dropped
+   pages or a provider could not answer for some albums. Quiet, not an alert. */
+.results-partial-notice {
+    margin: 0 0 calc(1rem * var(--results-scale));
+    padding: calc(0.5rem * var(--results-scale)) calc(0.75rem * var(--results-scale));
+    border-left: 3px solid var(--color-primary);
+    font-size: calc(0.875rem * var(--results-scale));
+    color: var(--ss-text-body);
 }
 
-.spotlight-scrim-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    background: linear-gradient(
-        to top,
-        rgba(14, 12, 18, 0.88) 0%,
-        rgba(14, 12, 18, 0.45) 25%,
-        rgba(14, 12, 18, 0) 50%
-    );
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    padding: calc(1rem * var(--results-scale)) calc(1.25rem * var(--results-scale));
-    pointer-events: none;
+.results-partial-notice__link {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.results-partial-notice__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+@media (any-pointer: coarse) {
+    .results-partial-notice__link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
 }
 
 /* Micro-data filter bar: tucked left, text in mono-narrow, no bold, no pills */

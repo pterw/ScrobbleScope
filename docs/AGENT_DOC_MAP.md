@@ -49,7 +49,7 @@ state first will apply it with the wrong rules.
 `AGENTS.md` also gives two fast paths. Use them when your task is a single
 pull-request comment. A full bootstrap for a one-line comment wastes tokens.
 
-`HANDOFF_PROMPT.md` holds two things. It holds the checks that you run after
+`docs/agents/HANDOFF_PROMPT.md` holds two things. It holds the checks that you run after
 you read the bootstrap files. It holds the checklist that you follow when you
 stop work. It holds no rules, and it points to `AGENTS.md` for all of them.
 
@@ -60,12 +60,12 @@ stop work. It holds no rules, and it points to `AGENTS.md` for all of them.
 | Group | Documents | Open it when |
 |-------|-----------|--------------|
 | Rules | `AGENTS.md` | Always. First. |
-| Session procedure | `HANDOFF_PROMPT.md` | You start or end a session. |
-| Work order | `PLAYBOOK.md` | You need the next action or the recent history. |
+| Session procedure | `docs/agents/HANDOFF_PROMPT.md` | You start or end a session. |
+| Work order | `docs/agents/PLAYBOOK.md` | You need the next action or the recent history. |
 | Batch scope | `BATCH21_DEFINITION.md` | You work inside the active batch. |
 | State | `.claude/SESSION_CONTEXT.md` | You need the test count, the module list, or the dependency graph. |
-| Owner context | `AGENT_NOTES.md` | You need a preference, the local setup, or a known constraint. |
-| Findings | `FINDINGS.md` | Your task names an `F-` identifier, or a P0 or P1 item. |
+| Owner context | `docs/agents/AGENT_NOTES.md` | You need a preference, the local setup, or a known constraint. |
+| Findings | `docs/agents/FINDINGS.md` | Your task names an `F-` identifier, or a P0 or P1 item. |
 | Architecture | `docs/ARCHITECTURE.md` | You need a diagram of the system or the pipelines. |
 | Design | `docs/design/README.md` | You build or restyle any part of the front end. |
 | History | `docs/history/` | A log entry or a task sends you to a dated document. |
@@ -78,12 +78,12 @@ this repository has overridden. `docs/design/RECONCILIATION.md` is the
 override list and names the owner of every value the snapshot copies. Read
 the specification, then the reconciliation. Neither owns a live value.
 
-`FINDINGS.md` is not part of the bootstrap set. Open it on demand. The file
+`docs/agents/FINDINGS.md` is not part of the bootstrap set. Open it on demand. The file
 is long, and most tasks do not need it.
 
 The batch definition moves. A definition file at the repository root belongs
 to an open batch. A definition file under `docs/history/definitions/` belongs
-to a closed batch. Use the location to tell the two apart. `PLAYBOOK.md`
+to a closed batch. Use the location to tell the two apart. `docs/agents/PLAYBOOK.md`
 Section 3 is the authority when you are not sure.
 
 ---
@@ -122,9 +122,9 @@ audit is the worked example.
 3. **The report.** The agent writes a dated report under
    `docs/history/reports/`. Example:
    `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
-4. **The findings.** New problems become items in `FINDINGS.md`. Each item
+4. **The findings.** New problems become items in `docs/agents/FINDINGS.md`. Each item
    gets an `F-` identifier.
-5. **The log entry.** A dated entry goes into `PLAYBOOK.md` Section 4, in the
+5. **The log entry.** A dated entry goes into `docs/agents/PLAYBOOK.md` Section 4, in the
    same commit as the report.
 6. **The retirement.** The charter stays in the repository. Its status line
    says that it is retired, and it names the report.
@@ -166,13 +166,13 @@ states the same rule for the diagrams.
 ### Where the other audits are
 
 `docs/history/reports/` holds every dated report. The names carry the date.
-`FINDINGS.md` lists the important ones under "Source documents".
+`docs/agents/FINDINGS.md` lists the important ones under "Source documents".
 
 ---
 
 ## 6. How to read the findings
 
-`FINDINGS.md` holds the open items. `docs/history/findings/FINDINGS_ARCHIVE.md`
+`docs/agents/FINDINGS.md` holds the open items. `docs/history/findings/FINDINGS_ARCHIVE.md`
 holds the closed items. Nothing is deleted. The archive keeps the search
 history.
 
@@ -204,14 +204,14 @@ These are navigation hazards. Each one has caught an agent before.
 `docs/history/` are pointer stubs. They exist so that old references still
 resolve. Read `docs/logarchive/README.md` for the lookup map.
 
-**Dated entries are records.** A dated entry in `PLAYBOOK.md` Section 4, and
+**Dated entries are records.** A dated entry in `docs/agents/PLAYBOOK.md` Section 4, and
 a dated report under `docs/history/`, both describe one moment. Do not
 correct them when the facts change. Correct the live document instead.
 `AGENTS.md` states this exception inside its Anti-Pattern Registry.
 
 **Part of the state document is machine-written.** `.claude/SESSION_CONTEXT.md`
 contains a managed block. `scripts/doc_state_sync.py` writes it from
-`PLAYBOOK.md`. Do not edit the block by hand. Do not move an entry across a
+`docs/agents/PLAYBOOK.md`. Do not edit the block by hand. Do not move an entry across a
 `DOCSYNC` marker by hand.
 
 **Numbers in documents go stale.** Test counts, module counts, and coverage
@@ -262,7 +262,7 @@ Work through this order:
    The owner wins.
 2. If neither document owns the fact, prefer the source code. Code is not a
    copy.
-3. If the disagreement is about the next action, prefer `PLAYBOOK.md`
+3. If the disagreement is about the next action, prefer `docs/agents/PLAYBOOK.md`
    Section 3.
 4. If the disagreement changes what you are about to do, and the steps above
    do not settle it, stop and ask the owner. Do not merge two rule sources

@@ -23,6 +23,7 @@ from docsync.cli import (
     _get_batch_log_path,
     _read_lines,
 )
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.integrity import collect_tracked_paths as collect_real_tracked_paths
 from docsync.models import SyncError
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
@@ -88,6 +89,46 @@ class TestMainArgs:
             "sys.argv", ["doc_state_sync.py", "--fix", "--keep-non-current", "-1"]
         )
         assert cli_mod.main() == 2
+
+    def test_test_count_without_fix_returns_2(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--check", "--test-count", "1850"]
+        )
+        assert cli_mod.main() == 2
+
+    def test_negative_test_count_returns_2(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """Isolates the Step 14 CLI-level guard (main()'s own `args.test_count
+        < 0` check) from declarations._positive_int's independent downstream
+        rejection: asserting the guard's own message means removing only the
+        CLI check (while _positive_int stays) still fails this test, because
+        the message that reaches the negative value first differs."""
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "-1"]
+        )
+        assert cli_mod.main() == 2
+        assert "--test-count must be >= 1" in capsys.readouterr().err
+
+    def test_zero_test_count_returns_2_and_writes_nothing(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """C1: `--test-count 0` used to pass the CLI's own `< 0` guard and pin
+        0 in config/docsync.toml, which `_validate_test_count`
+        (`_positive_int`) then refuses on every later load -- breaking every
+        subsequent `--check`/`--fix` run. The CLI must refuse 0 itself,
+        before anything is written.
+        """
+        declarations_path = sync_env / DECLARATIONS_FILENAME
+        before = declarations_path.read_text(encoding="utf-8")
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "0"]
+        )
+        assert cli_mod.main() == 2
+        assert "--test-count must be >= 1" in capsys.readouterr().err
+        assert declarations_path.read_text(encoding="utf-8") == before
 
     def test_no_mode_defaults_to_check(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
@@ -189,6 +230,13 @@ class TestMainArgs:
             "### WP-3 -- Next\n",
             encoding="utf-8",
         )
+        playbook_path = sync_env / "PLAYBOOK.md"
+        playbook_path.write_text(
+            playbook_path.read_text(encoding="utf-8").replace(
+                "Did some work.", "**Status:** WP-1 complete.\n\nDid some work."
+            ),
+            encoding="utf-8",
+        )
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
 
         assert cli_mod.main() == 0
@@ -283,6 +331,55 @@ class TestMainArgs:
             "git ls-files",
         ):
             assert secret not in captured.err
+
+
+class TestConfigOverride:
+    def test_config_flag_defaults_to_none(self):
+        from docsync.cli import _build_parser
+
+        assert _build_parser().parse_args(["--check"]).config is None
+
+    def test_config_selects_the_declarations_file_every_check_reads(
+        self, sync_env, monkeypatch, capsys
+    ):
+        # sync_env's raw corpus fails --check with DOC005 (exit 1; see
+        # TestMainArgs.test_check_fails_on_stale_session_context). A copy of its
+        # declarations with an unknown table is refused as malformed input (exit 2)
+        # instead, which can only happen if --config changed the file read.
+        from docsync import cli as cli_mod
+        from docsync.declarations import DECLARATIONS_FILENAME
+
+        default = sync_env / DECLARATIONS_FILENAME
+        alt = sync_env / "alt.toml"
+        alt.write_text(
+            default.read_text(encoding="utf-8") + "\n[nonsense]\n", encoding="utf-8"
+        )
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 1
+        capsys.readouterr()
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--check", "--config", str(alt)]
+        )
+        assert cli_mod.main() == 2
+        assert "nonsense" in capsys.readouterr().err
+
+    def test_main_restores_config_path_after_the_run(self, sync_env, monkeypatch):
+        # Tests call main() in-process; a --config from one call must not leak into
+        # the next test's direct calls.
+        from docsync import cli as cli_mod
+        from docsync.declarations import DECLARATIONS_FILENAME
+
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "doc_state_sync.py",
+                "--check",
+                "--config",
+                str(sync_env / DECLARATIONS_FILENAME),
+            ],
+        )
+        cli_mod.main()
+        assert cli_mod.CONFIG_PATH is None
 
 
 # ---------------------------------------------------------------------------
@@ -381,6 +478,185 @@ class TestBatchLogHelpers:
         batch_log = logs_dir / "BATCH10_LOG.md"
         assert batch_log.exists()
         assert "Batch 10 WP-5" in batch_log.read_text(encoding="utf-8")
+
+    def test_batch_definition_discovery_is_case_consistent_across_platforms(
+        self, tmp_path: Path
+    ):
+        """F-DOCSYNC-6: Path.glob's case sensitivity follows the OS (insensitive
+        on Windows, sensitive on POSIX). A directory-listing scan matched with
+        the same case-insensitive regex used everywhere else in this module
+        finds the same files on both, instead of one platform silently missing
+        a lower-case batch definition the other would see."""
+        from docsync.cli import _batch_filename_candidates
+        from docsync.parser import root_definition_pattern
+
+        names = [
+            "BATCH23_DEFINITION.md",
+            "batch24_definition.md",
+            "Batch25_Definition.md",
+            "not_a_batch.md",
+            "BATCH26_PROPOSAL.md",
+        ]
+        for name in names:
+            (tmp_path / name).write_text("x", encoding="utf-8")
+
+        found = set()
+        for n in (23, 24, 25, 26):
+            found.update(
+                p.name
+                for p in _batch_filename_candidates(
+                    tmp_path, root_definition_pattern(n)
+                )
+            )
+        assert found == {
+            "BATCH23_DEFINITION.md",
+            "batch24_definition.md",
+            "Batch25_Definition.md",
+            "BATCH26_PROPOSAL.md",
+        }
+
+
+# ---------------------------------------------------------------------------
+# --fix --test-count N -- Task 1, F-DOCSYNC-11/-12/-13/-22
+# ---------------------------------------------------------------------------
+
+
+def _append_same_date_entries(
+    sync_env: Path, *, newer_count: int, older_count: int
+) -> None:
+    """Grow sync_env's PLAYBOOK with the exact F-DOCSYNC-22 shape.
+
+    An upper, newer-written side-task entry sits below the end marker with
+    ``newer_count``; a lower, current-batch entry sits inside the window
+    with ``older_count``, sharing the side-task entry's date. Before a pin
+    exists, ``latest_test_count_authority``'s same-date tie-break (live
+    side-task outranks current batch) picks ``newer_count`` even when
+    ``older_count`` is the one an author just corrected -- the exact shape
+    F-DOCSYNC-22 named.
+    """
+    playbook_path = sync_env / "PLAYBOOK.md"
+    text = playbook_path.read_text(encoding="utf-8")
+    text = text.replace(
+        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        (
+            "### 2026-02-25 - Corrected count (Batch 11 WP-2)\n\n"
+            f"Validation: `pytest -q` -- **{older_count} passed**.\n\n"
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->\n\n"
+            "### 2026-02-25 - Side task correction\n\n"
+            f"Validation: `pytest -q` -- **{newer_count} passed**.\n"
+        ),
+    )
+    playbook_path.write_text(text, encoding="utf-8")
+
+
+class TestTestCountPin:
+    def test_fix_test_count_survives_a_same_date_correction_to_an_older_entry(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """F-DOCSYNC-22: correcting an OLDER same-date entry's count, after the
+        newer entry above it already recorded a different one, must not make
+        --check reject the true count once it has been pinned with --test-count.
+
+        sync_env's MINIMAL_SESSION_CONTEXT and FINDINGS.md fixtures are
+        deliberately minimal and carry neither a Section 1 Tests row, a
+        Section 6 heading, nor a findings header count line -- confirmed by
+        running a real --fix over this fixture during Step 19's live probe --
+        so this test adds them itself; otherwise rewrite_recorded_counts
+        would have nothing to rewrite and the assertions below could not
+        distinguish a real rewrite from a no-op.
+        """
+        _append_same_date_entries(sync_env, newer_count=1849, older_count=1850)
+
+        session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
+        session_path.write_text(
+            session_path.read_text(encoding="utf-8").replace(
+                "More content.",
+                "| Tests | **142 passing** across 68 tracked test modules |\n\n"
+                "## 6. Test structure (142 tests)\n\n"
+                "More content.",
+            ),
+            encoding="utf-8",
+        )
+        findings_path = sync_env / "FINDINGS.md"
+        findings_path.write_text(
+            "# Findings\n\n> **142 tests across 68 test modules.**\n", encoding="utf-8"
+        )
+
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--fix", "--test-count", "1850"]
+        )
+        assert cli_mod.main() == 0
+
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 0
+
+        session = session_path.read_text(encoding="utf-8")
+        findings = findings_path.read_text(encoding="utf-8")
+        config = (sync_env / cli_mod.DECLARATIONS_FILENAME).read_text(encoding="utf-8")
+        assert "**1850 passed**" in session
+        assert "**1850 passing**" in session
+        assert "## 6. Test structure (1850 tests)" in session
+        assert "1850 tests across" in findings
+        assert "[test_count]" in config and "pinned = 1850" in config
+
+    def test_findings_header_count_regex_matches_the_real_tracked_wording(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """Deviation (task-1 finish rulings): the repository's real
+        FINDINGS.md header reads "N tests across M tracked test modules."
+        (confirmed at f8fb8e9 via Step 19's live probe), but
+        FINDINGS_HEADER_COUNT_RE required bare "test modules.", so DOC008
+        could never fire against it and --fix --test-count N could never
+        rewrite it. Both legs, proven directly:
+
+        1. DOC008 fires when the pin and this real-wording header disagree.
+        2. _rewrite_findings_header_count corrects that header in place,
+           leaving the word "tracked" and the module count untouched.
+        """
+        config_path = sync_env / cli_mod.DECLARATIONS_FILENAME
+        config_path.write_text(
+            config_path.read_text(encoding="utf-8") + "\n[test_count]\npinned = 1873\n",
+            encoding="utf-8",
+        )
+        findings_path = sync_env / "FINDINGS.md"
+        findings_path.write_text(
+            "# Findings\n\n1800 tests across 68 tracked test modules.\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 1
+        assert "ERROR DOC008" in capsys.readouterr().err
+
+        rewritten = cli_mod._rewrite_findings_header_count(
+            findings_path.read_text(encoding="utf-8"), 1873
+        )
+        assert "1873 tests across 68 tracked test modules." in rewritten
+
+
+class TestRewriteTestCountPin:
+    """C2: `_rewrite_test_count_pin`'s own two regexes, in isolation.
+
+    `_TEST_COUNT_TABLE_RE` used to require the heading line to hold nothing
+    but `[test_count]`, so a trailing comment on it made the finder miss the
+    existing table and append a second one -- which `tomllib` then refuses to
+    parse. `_TEST_COUNT_PINNED_LINE_RE` used to anchor on `\\s`, which matches
+    a newline, so it could consume a blank line separating the heading from
+    `pinned =` and delete that blank line along with replacing the value.
+    """
+
+    def test_heading_with_trailing_comment_is_still_found_in_place(self):
+        text = "[test_count]  # pinned by --fix\npinned = 100\n"
+        rewritten = cli_mod._rewrite_test_count_pin(text, 200)
+        assert rewritten.count("[test_count]") == 1
+        assert "pinned = 200" in rewritten
+        assert "pinned = 100" not in rewritten
+        assert "# pinned by --fix" in rewritten
+
+    def test_blank_line_before_pinned_survives_the_rewrite(self):
+        text = "[test_count]\n\npinned = 100\n"
+        rewritten = cli_mod._rewrite_test_count_pin(text, 200)
+        assert rewritten == "[test_count]\n\npinned = 200\n"
 
 
 # ---------------------------------------------------------------------------
@@ -715,7 +991,7 @@ def _make_corpus(root: Path, **overrides: str) -> Path:
         "FINDINGS.md": CORPUS_FINDINGS,
         FINDINGS_ARCHIVE: CORPUS_FINDINGS_ARCHIVE,
         SIDE_ARCHIVE: "\n".join(SIDE_ARCHIVE_PREFIX) + "\n",
-        ".docsync.toml": CORPUS_TOML,
+        DECLARATIONS_FILENAME: CORPUS_TOML,
         "AGENTS.md": "# AGENTS\n\nSee `FINDINGS.md`.\n",
         "HANDOFF_PROMPT.md": "# Handoff\n\nRead `AGENTS.md`.\n",
         "AGENT_NOTES.md": "# Notes\n\nRules live in `AGENTS.md`.\n",
@@ -890,7 +1166,7 @@ class TestCloseBatchMode:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "admit_from_batch = 22", "admit_from_batch = 30"
                 )
             },
@@ -1078,7 +1354,7 @@ class TestCloseBatchMode:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": declaration,
+                DECLARATIONS_FILENAME: declaration,
                 "AGENTS.md": (
                     "# AGENTS\n\nSee `FINDINGS.md`.\n\n"
                     "Batch 22 shipped from `feat/batch22-enrichment`.\n"
@@ -1138,6 +1414,14 @@ class TestCloseBatchMode:
         added to the corpus but the call site's `expected` is not updated to
         match, `actually_read <= seen["expected"]` fails without anyone
         having to remember to extend an example list.
+
+        Depends on `cli._snapshot` (the staleness baseline loop over
+        `read_paths`) never going through `Path.read_text` or
+        `Path.read_bytes`: those are the methods instrumented here, and a
+        baseline that used them would put every path in `expected` into
+        `actually_read` itself, making the coverage claim true by
+        construction. `_snapshot` is therefore wrapped and any read the
+        instrumented methods see while it runs is recorded and refused.
         """
         _make_corpus(tmp_path)
         monkeypatch.chdir(tmp_path)
@@ -1146,11 +1430,22 @@ class TestCloseBatchMode:
         real_corpus_init = cli_mod._Corpus.__init__
         real_read_text = Path.read_text
         actually_read: set[Path] = set()
-        recording = {"on": False}
+        recording = {"on": False, "in_snapshot": False}
+        read_by_baseline: list[Path] = []
+        real_snapshot = cli_mod._snapshot
+
+        def recording_snapshot(path):
+            recording["in_snapshot"] = True
+            try:
+                return real_snapshot(path)
+            finally:
+                recording["in_snapshot"] = False
 
         def recording_read_text(self: Path, *args, **kwargs):
             if recording["on"]:
                 actually_read.add(self.resolve())
+                if recording["in_snapshot"]:
+                    read_by_baseline.append(self.resolve())
             return real_read_text(self, *args, **kwargs)
 
         def recording_init(self, store):
@@ -1160,7 +1455,20 @@ class TestCloseBatchMode:
             finally:
                 recording["on"] = False
 
+        real_read_bytes = Path.read_bytes
+
+        def recording_read_bytes(self: Path):
+            # Managed documents are read as bytes now, so the staleness proof
+            # holds the exact bytes the plan read (S3-3).
+            if recording["on"]:
+                actually_read.add(self.resolve())
+                if recording["in_snapshot"]:
+                    read_by_baseline.append(self.resolve())
+            return real_read_bytes(self)
+
+        monkeypatch.setattr(cli_mod, "_snapshot", recording_snapshot)
         monkeypatch.setattr(Path, "read_text", recording_read_text)
+        monkeypatch.setattr(Path, "read_bytes", recording_read_bytes)
         monkeypatch.setattr(cli_mod._Corpus, "__init__", recording_init)
 
         seen: dict[str, set[Path]] = {}
@@ -1178,6 +1486,10 @@ class TestCloseBatchMode:
             cli_mod._close_batch(22, 4, "2026-09-19")
 
         assert actually_read, "the recording hook on _Corpus.__init__ never fired"
+        assert read_by_baseline == [], (
+            "the baseline loop read through an instrumented Path method, so "
+            "actually_read proves nothing about read_paths"
+        )
         assert actually_read <= seen["expected"]
         assert {
             root / "AGENTS.md",
@@ -1328,7 +1640,7 @@ class TestArchiveMaintenanceModes:
         return _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(entries, year=year),
@@ -1498,7 +1810,7 @@ class TestArchiveMaintenanceModes:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: archive,
@@ -1535,7 +1847,7 @@ class TestArchiveStructureDiagnostics:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(12, year=2020),
@@ -1595,7 +1907,7 @@ class TestArchivePageTargetDiagnosticsThroughTheCli:
             **{
                 "PLAYBOOK.md": playbook,
                 ".claude/SESSION_CONTEXT.md": session,
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(12, year=2020),
@@ -1702,3 +2014,285 @@ class TestFindingRotationThroughTheCli:
 
         assert result.returncode == 1
         assert "DOC018" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# --fix --test-count N refuses a pin rewrite it cannot verify (review B2-B4)
+# ---------------------------------------------------------------------------
+
+_DECLARATIONS_BODY = "[archives]\nmax_lines = 500\ncold_days = 365\n"
+
+
+class TestPinRewriteRefusal:
+    """`_rewrite_test_count_pin` finds the table with two regexes, so some
+    valid spellings of `[test_count]` defeat it. Before the guard, `--fix`
+    published whatever the splice produced: a file that no longer parsed, or
+    one whose other content had been edited. Each case drives the shipped
+    entry point against a tracked temporary corpus and requires exit 2, the
+    remediation, and every corpus file byte-identical afterwards.
+    """
+
+    @pytest.mark.parametrize(
+        "declarations",
+        [
+            # B2: a dotted key, an inline table and a spaced heading are
+            # all the same table; the literal heading regex sees none of them
+            # and appends a second [test_count], which does not parse.
+            "test_count.pinned = 5\n\n"
+            + _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n",
+            "test_count = { pinned = 5 }\n\n"
+            + _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n",
+            _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n\n[ test_count ]\npinned = 5\n",
+            # B3: the heading is the last line, with no newline after it:
+            # the pin was spliced onto the heading line itself.
+            _DECLARATIONS_BODY + "\n[closeout]\nadmit_from_batch = 22\n\n[test_count]",
+            # B4: a quoted key is the same key; the unquoted regex misses it
+            # and inserts a duplicate.
+            _DECLARATIONS_BODY
+            + '\n[closeout]\nadmit_from_batch = 22\n\n[test_count]\n"pinned" = 5\n',
+            # B4: an indented next heading does not end the table for `^\[`,
+            # so the first `pinned =` line below it -- here inside another
+            # table's multi-line string -- was rewritten. The result parses;
+            # only the comparison with the original catches it.
+            _DECLARATIONS_BODY
+            + "\n[closeout]\nadmit_from_batch = 22\n\n[test_count]\n\n"
+            + '  [[retired]]\n  pattern = "x"\n  scan = ["PLAYBOOK.md"]\n'
+            + '  reason = """\npinned = 3 was the old count\n"""\n',
+        ],
+        ids=[
+            "dotted-key",
+            "inline-table",
+            "spaced-heading",
+            "heading-on-last-line",
+            "quoted-key",
+            "indented-next-heading",
+        ],
+    )
+    def test_fix_refuses_and_writes_nothing(self, tmp_path: Path, declarations: str):
+        _make_corpus(tmp_path, **{DECLARATIONS_FILENAME: declarations})
+        before = _snapshot(tmp_path)
+
+        result = _run_cli(tmp_path, "--fix", "--test-count", "7")
+
+        assert result.returncode == 2, result.stderr
+        assert (
+            f"--test-count 7 cannot be pinned in {DECLARATIONS_FILENAME}"
+            in result.stderr
+        )
+        assert "Nothing was written." in result.stderr
+        assert (
+            "Write the pin as its own table -- a line `[test_count]` at the "
+            "start of a line, then `pinned = N` on the next line"
+        ) in result.stderr
+        assert "Traceback" not in result.stderr
+        assert _snapshot(tmp_path) == before
+
+    def test_the_plain_table_is_still_rewritten(self, tmp_path: Path):
+        """The guard refuses only what it cannot verify: the table the
+        splice was written for is still pinned in place."""
+        _make_corpus(
+            tmp_path,
+            **{
+                DECLARATIONS_FILENAME: CORPUS_TOML + "\n[test_count]\npinned = 5\n",
+            },
+        )
+
+        result = _run_cli(tmp_path, "--fix", "--test-count", "7")
+
+        assert "cannot be pinned" not in result.stderr
+        assert (tmp_path / DECLARATIONS_FILENAME).read_text(
+            encoding="utf-8"
+        ) == CORPUS_TOML + "\n[test_count]\npinned = 7\n"
+
+
+def test_close_batch_admission_refusal_names_the_config_file_it_read(
+    tmp_path: Path,
+):
+    """Review B8: under --config the boundary is read from another file, and
+    the refusal must send the reader there, not to the repository default."""
+    _make_corpus(
+        tmp_path,
+        **{
+            "alt.toml": CORPUS_TOML.replace(
+                "admit_from_batch = 22", "admit_from_batch = 30"
+            )
+        },
+    )
+    before = _snapshot(tmp_path)
+
+    result = _run_cli(
+        tmp_path, "--close-batch", "22", "--as-of", "2026-09-19", "--config", "alt.toml"
+    )
+
+    assert result.returncode == 1
+    assert "Lower `admit_from_batch` in alt.toml only" in result.stderr
+    assert f"in {DECLARATIONS_FILENAME} only" not in result.stderr
+    assert _snapshot(tmp_path) == before
+
+
+# ---------------------------------------------------------------------------
+# Review 3 / S3: publication safety and malformed input
+# ---------------------------------------------------------------------------
+
+
+class TestPublicationSafety:
+    def test_a_document_edited_between_plan_and_publish_is_not_overwritten(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-3: the proof compares with the bytes the plan read, so an edit
+        landing after the plan sinks the run and survives."""
+        archive = sync_env / "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        archive.write_text("# stale prefix\n", encoding="utf-8")
+        playbook = sync_env / "PLAYBOOK.md"
+        real_drift = cli_mod._drift_updates
+        edited: list[bool] = []
+
+        def edit_after_the_plan(*args, **kwargs):
+            updates = real_drift(*args, **kwargs)
+            if not edited:
+                edited.append(True)
+                with playbook.open("a", encoding="utf-8") as handle:
+                    handle.write("\nCONCURRENT EDIT MUST SURVIVE\n")
+            return updates
+
+        monkeypatch.setattr(cli_mod, "_drift_updates", edit_after_the_plan)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        assert "Source changed before publication" in capsys.readouterr().err
+        assert "CONCURRENT EDIT MUST SURVIVE" in playbook.read_text(encoding="utf-8")
+        assert archive.read_text(encoding="utf-8") == "# stale prefix\n"
+
+    def _crash_between_two_writes(self, root: Path) -> tuple[Path, bytes]:
+        """Leave the state a kill between two writes leaves: history removed
+        from PLAYBOOK, not yet added to the archive, before-images only in the
+        journal."""
+        from docsync import transaction
+
+        playbook = root / "PLAYBOOK.md"
+        archive = root / "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        after_playbook = playbook.read_bytes()
+        before_playbook = after_playbook + b"\nHISTORY ONLY IN THE JOURNAL\n"
+        transaction._write_journal(
+            root.resolve(),
+            {
+                playbook.resolve(): before_playbook,
+                archive.resolve(): archive.read_bytes(),
+            },
+            {
+                playbook.resolve(): after_playbook,
+                archive.resolve(): b"# new\n",
+            },
+        )
+        return playbook, before_playbook
+
+    def test_check_reports_an_unfinished_journal(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-2 / F-DOCSYNC-19: a consistent-looking corpus plus a journal is
+        not a clean check."""
+        self._crash_between_two_writes(sync_env)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 1
+
+        err = capsys.readouterr().err
+        assert "DOC026" in err and ".docsync.journal" in err
+
+    def test_fix_replays_the_journal_instead_of_finding_no_changes(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        playbook, before = self._crash_between_two_writes(sync_env)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        cli_mod.main()
+
+        assert "HISTORY ONLY IN THE JOURNAL" in playbook.read_text(encoding="utf-8")
+        assert not (sync_env / ".docsync.journal").exists()
+        assert "replayed an interrupted publication" in capsys.readouterr().out
+
+    def test_fix_with_a_stale_lock_keeps_the_journal_and_names_the_lock(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """A real kill leaves the journal AND the lock; recovery needs both steps."""
+        playbook, _ = self._crash_between_two_writes(sync_env)
+        lock = sync_env / ".docsync.lock"
+        lock.write_text("", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        err = capsys.readouterr().err
+        assert ".docsync.lock" in err and "remove the lock" in err
+        assert (sync_env / ".docsync.journal").exists()
+        assert "HISTORY ONLY IN THE JOURNAL" not in playbook.read_text(encoding="utf-8")
+
+        lock.unlink()
+        assert cli_mod.main() == 0
+
+        assert "HISTORY ONLY IN THE JOURNAL" in playbook.read_text(encoding="utf-8")
+        assert not (sync_env / ".docsync.journal").exists()
+
+    def test_fix_refuses_when_a_journalled_file_was_edited_since(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        playbook, _ = self._crash_between_two_writes(sync_env)
+        playbook.write_text("# a later hand edit\n", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        assert playbook.read_text(encoding="utf-8") == "# a later hand edit\n"
+        assert (sync_env / ".docsync.journal").exists()
+
+    def test_non_utf8_document_exits_2_not_a_traceback(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-1: malformed input is exit 2 for every document, not a crash."""
+        playbook = sync_env / "PLAYBOOK.md"
+        playbook.write_bytes(playbook.read_bytes() + b"\xff\xfe bad\n")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 2
+
+        assert "could not be read as UTF-8" in capsys.readouterr().err
+
+    def test_a_path_outside_the_repository_is_named_not_a_crash(
+        self, sync_env: Path, tmp_path_factory: pytest.TempPathFactory
+    ):
+        """S3-4: a junction that leaves the tree resolves outside it; the
+        diagnostic builder must still produce a name."""
+        outside = tmp_path_factory.mktemp("outside") / "BATCH10_LOG.md"
+        outside.write_text("x\n", encoding="utf-8")
+
+        name = cli_mod._repository_relative(outside)
+
+        assert name.endswith("BATCH10_LOG.md")
+
+    def test_snapshot_raises_sync_error_for_an_unreadable_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The staleness baseline turns an unreadable file into a SyncError.
+
+        `_read_text` does the same for a managed document; a bare `OSError` from
+        the baseline loop would surface as a traceback, not exit 2.
+        """
+        import builtins
+
+        target = tmp_path / "PLAYBOOK.md"
+        target.write_text("x\n", encoding="utf-8")
+        real_open = builtins.open
+
+        def refuse(file, *args, **kwargs):
+            if Path(file) == target:
+                raise PermissionError(13, "Permission denied")
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", refuse)
+
+        with pytest.raises(SyncError, match="PLAYBOOK.md could not be read"):
+            cli_mod._snapshot(target)

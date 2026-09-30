@@ -43,9 +43,13 @@ covers Part A and most of Part B, and
 Part A's loop protocol. The rest of Part B and all of Part C run from
 `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. It
 holds the owner questions, one disposition per finding, and the tasks. Its
-control-plane and frontend clusters get follow-on plans once the rulings
-are in. This file carries the scope, the intended outcome, the work
-packages and their acceptance criteria.
+control-plane and frontend clusters each got a follow-on plan once the
+rulings were in, and all three are executed (amended 2026-09-27,
+controller): `docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md`,
+`docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md` and
+`docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md`. This file
+carries the scope, the intended outcome, the work packages and their
+acceptance criteria.
 
 ---
 
@@ -69,6 +73,12 @@ normalized `(artist, album)` keys and has no Last.fm dependency. WP-2
 produces the pre-threshold album mapping consumed by
 `partition_albums_by_threshold`; WP-3 partitions it and hands eligible
 albums to the existing machinery.
+
+**Owner rulings, 2026-09-25.** Findings are not mirrored to GitHub:
+`docs/agents/FINDINGS.md` is committed and can be followed there. F-B21-9
+therefore leaves Part C as no action, and the findings/issues sync is not
+built. F-DOCSYNC-22, the same-date count tie inside one source, joins
+Part C's set by amendment.
 
 **Owner rulings, 2026-09-23.** WP-0 prepares the repository for a large
 structural feature. It has three parts. Part A is the behaviour-neutral
@@ -110,8 +120,9 @@ Batch 23 is complete only when all of these product outcomes hold:
   upload-limit behaviour remains compatible, except for the approved WP-0
   Part C fixes. The shared admission refactor and WP-6's additive statistics,
   aggregation fields and presentation are permitted. Existing Last.fm tests
-  remain unmodified except for the documented Part C fixes; new tests cover
-  the additions.
+  remain unmodified except for the documented Part C fixes and for a WP-0
+  seam refactor commit, whose body names every edited test (owner ruling,
+  2026-09-29); new tests cover the additions.
 - Both sources gain the same new statistics, computed from data the pipeline
   already holds, with no additional API calls.
 - The interface reads correctly for both sources: "plays" rather than
@@ -229,24 +240,34 @@ WP-0 did.
   - if the fix is not there, reopen it and say what is missing.
   Done 2026-09-23: all six fix commits are ancestors of `origin/main`; each
   now carries a canonical `resolved` record and completion date in
-  `FINDINGS.md`.
-- [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- [x] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
   `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
   the archive page target, the DOC range, findings hygiene (pre-split line
   citations, and the defects the 2026-09-21 probe found), the close-out
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
-  still applies.
-- [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
+  still applies. Done 2026-09-24; the plan's checked steps and the dated
+  execution entries record each task's completion.
+- [x] **Root cleanup.** Move PLAYBOOK.md, FINDINGS.md, AGENT_NOTES.md and
+  HANDOFF_PROMPT.md to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
+  to `config/`, per the owner rulings of 2026-09-24. Plan:
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`. `AGENTS.md`, `README.md`,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `DEVELOPMENT.md`, `DEPLOY.md`,
+  `DESIGN.md`, `PRODUCT.md`, `BATCH*_DEFINITION.md`, `fly.toml`, `Dockerfile`, `app.py`,
+  `run.py`, `init_db.py`, and the standard Python config files stay at the root.
+  Done 2026-09-24, with the 2026-09-25 declared-path review fix recorded as
+  F-DOCSYNC-21.
+- [x] **PLAYBOOK Section 3 states only the current work order.** Its Batch
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
-  held nowhere else moves there first.
+  held nowhere else moves there first. Done 2026-09-25; the archival
+  crosswalk is `docs/history/reports/BATCH23_WP0_SECTION3_CROSSWALK_2026-09-25.md`.
 - [x] **Owed from Batch 22, owner actions:** a live run with
   `MUSICBRAINZ_CONTACT` set, and restoring the Spotify credentials that were
   disabled to test the Deezer fallback. An agent cannot do either. WP-0
-  records the outcome of each, or the owner's deferral. Both are done,
-  recorded 2026-09-23 in PLAYBOOK Section 3; the reconcile plan's Q0 answer
-  holds the evidence.
+  records the outcome of each, or the owner's deferral. Both are done; the
+  reconcile plan's Q0 answer holds the evidence.
 - [x] **File the docsync gap this amendment exposed.** A work package cannot
   be marked "in progress": it reads as complete on its first tagged entry.
   Filed at P1, it joins Part C's set. Done 2026-09-23, as F-DOCSYNC-15.
@@ -256,13 +277,17 @@ WP-0 did.
   - No open finding says "pending deploy".
   - Each foundation plan task meets that plan's acceptance, with its
     live-probe table where the plan asks for one.
+  - Every task in the root-cleanup plan meets that plan's acceptance, with its live-probe
+    table where the plan asks for one.
   - Section 3 describes only current work.
   - Each Batch 22 owner item has a recorded outcome or deferral.
 
 #### Part C -- Clear every open P0 and P1 finding
 
-The set is every finding open at P0 or P1 in `FINDINGS.md` on 2026-09-23,
-plus the docsync gap Part B files (F-DOCSYNC-15). That is 38 IDs plus one,
+The set is every finding open at P0 or P1 in `docs/agents/FINDINGS.md` on 2026-09-23,
+plus the docsync gap Part B files (F-DOCSYNC-15) and F-DOCSYNC-22, added by
+owner amendment on 2026-09-25, and F-B23-9, added by controller ruling
+2026-09-26: the unfixed remainder of F-B21-18. That is 38 IDs plus three,
 listed so that a finding filed later does not silently join, and a listed one
 does not silently leave:
 
@@ -273,6 +298,16 @@ does not silently leave:
   F-DOCSYNC-7, F-DOCSYNC-11, F-DOCSYNC-12, F-DOCSYNC-13, F-LOAD-1, F-LOAD-2,
   F-MAS-1, F-MAS-2, F-MAS-3, F-STYLE-1, F-STYLE-2, F-SWE-5, F-WORKTREE-3,
   F-WORKTREE-4.
+
+**Amendment, 2026-09-27 (controller).** F-B21-60's part 2 -- the Spotify
+icon and the results-row provider-attribution bullets from the owner's
+2026-09-13 ruling -- is in no WP-0 or later plan. It is recorded here as
+remaining, unscheduled work. F-B21-60 stays in the set above and stays open
+(closed 2026-09-28, see below).
+
+**Amendment, 2026-09-28 (owner ruling, Option 1).** F-B21-60 part 2 was
+scheduled inside WP-0, before the WP-0 close-out, and landed as Task 1 of
+the 2026-09-28 review workspace. F-B21-60 leaves the set as Fixed.
 
 A finding leaves the set in one of three ways, and only these:
 
@@ -327,8 +362,9 @@ On 2026-09-24 the owner added a fifth P2:
 - **Acceptance:**
   - Each ID in the set is checked, member by member, and has left it in one of
     the three ways.
-  - The full test suite, the frontend gate, pre-commit and
-    `doc_state_sync.py --check` pass on the final tree.
+  - The full test suite, `scripts/dev/results_behavior_tests.py` (the CI
+    "Run frontend gate" step's second command), the frontend gate,
+    pre-commit and `doc_state_sync.py --check` pass on the final tree.
   - Every edited existing test is named in its commit body.
 
 **WP-0 acceptance:** Parts A, B and C each meet their own acceptance. Then
@@ -388,7 +424,7 @@ and the orchestrator never knows about zips.
 
 - [ ] `export_album_task` parses in `asyncio.to_thread`, closes the buffer,
   then runs the existing threshold partition, stats, unmatched records and
-  `_process_filtered_albums`, mapping `ExportError` to `set_job_error`.
+  `_process_filtered_albums`, mapping `ExportError` to a classified code through `jobs.fail`.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
 - [ ] A `BoundedSemaphore(2)` limits concurrent parses. Whole-process memory
@@ -479,7 +515,8 @@ rows, exclusions and the new statistics -- instead of writing exclusions
 into the job as a side effect. That is where WP-6's per-album statistics
 would live. Settle it after WP-0's provider repairs and before this work
 package is designed. Scheduling it inside Batch 23 needs an explicit scope
-amendment, and a migration that keeps the Last.fm path's tests unmodified.
+amendment, and a migration that keeps the Last.fm path's tests unmodified or
+names each edited test.
 
 **Statistics contract before implementation.** The specialized plan names
 which population each summary covers (all accepted plays, eligible albums
@@ -531,9 +568,11 @@ silently change existing ranking and percentage semantics.
 - Request/directory failures create no job. Content failures found during
   parsing terminate the job with the classified error, release capacity
   and discard the buffer. Both paths give an actionable message.
-- The Last.fm path's tests pass unmodified throughout the batch. The one
+- The Last.fm path's tests pass unmodified throughout the batch. One
   exception is an assertion that a WP-0 Part C finding fix must change; that
-  commit's body names it (owner ruling, 2026-09-23).
+  commit's body names it (owner ruling, 2026-09-23). A second exception: a
+  WP-0 seam refactor commit may edit existing tests, and its body names every
+  edited test (owner ruling, 2026-09-29).
 - Peak memory is measured, not assumed: `tracemalloc` and process peak RSS
   (VmHWM on Fly/Linux) on the real export, locally and on Fly. Include the
   receiving multipart requests, admitted/waiting buffers, parser working

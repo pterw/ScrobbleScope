@@ -8,13 +8,186 @@ from scripts.dev._frontend_gate_colour import (
     _contrast_ratio,
     _parse_rgb_string,
 )
+from scripts.dev._frontend_gate_spotify_icon import spotify_icon_failures
+from scrobblescope import jobs
 from scrobblescope.domain import format_album_key, normalize_name
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_release_check,
-    set_job_results,
+
+#: Spotify's corner radius for its artwork: 4px on small and medium devices,
+#: 8px on large ones (F-B23-12). A tablet (768px) is a medium device, so the
+#: step is the repository's large breakpoint, 1024px, not 768px.
+ARTWORK_RADIUS_STEP_MIN = 1024
+
+#: Small text on these pages, the attribution included, is at least 12px: the
+#: floor RECONCILIATION section 1 records. The attribution shipped at 11px.
+ATTRIBUTION_TEXT_FLOOR = 12.0
+
+#: Widths the results row covers are measured at: a phone, a tablet and the
+#: pixel below the step (all 4px), the step itself and a desktop (both 8px).
+RESULTS_ARTWORK_WIDTHS = (
+    390,
+    768,
+    ARTWORK_RADIUS_STEP_MIN - 1,
+    ARTWORK_RADIUS_STEP_MIN,
+    1280,
 )
+
+#: Takes {kind: selector}; returns {kind: [computed radius in px, ...]}.
+ARTWORK_RADII_JS = """selectors => Object.fromEntries(
+    Object.entries(selectors).map(([kind, selector]) => [kind,
+        [...document.querySelectorAll(selector)].map(node =>
+            Number.parseFloat(getComputedStyle(node).borderTopLeftRadius) || 0)]))"""
+
+
+def expected_artwork_radius(width: int) -> float:
+    """The corner radius provider artwork must have at a window `width`."""
+    return 8.0 if width >= ARTWORK_RADIUS_STEP_MIN else 4.0
+
+
+def artwork_radius_failures(
+    radii: dict[str, list[float]], width: int, page_name: str
+) -> list[str]:
+    """Name every kind of artwork that is absent or has the wrong radius."""
+    wanted = expected_artwork_radius(width)
+    failures = []
+    for kind, values in radii.items():
+        if not values:
+            failures.append(f"{page_name} page at {width}px renders no {kind} artwork")
+            continue
+        wrong = sorted({value for value in values if abs(value - wanted) > 0.25})
+        if wrong:
+            failures.append(
+                f"{page_name} {kind} artwork at {width}px has corner radius "
+                f"{wrong!r}px, expected {wanted:.0f}px"
+            )
+    return failures
+
+
+#: Reads the provider badge's size and face next to the narrow mono face the
+#: page's small labels use, spaces and quotes stripped so the two compare.
+PROVIDER_BADGE_JS = """node => {
+    const plain = value => value.replaceAll('"', '').replaceAll(' ', '');
+    const style = getComputedStyle(node);
+    return {
+        size: Number.parseFloat(style.fontSize),
+        family: plain(style.fontFamily),
+        narrow: plain(getComputedStyle(document.documentElement)
+            .getPropertyValue('--font-mono-narrow').trim()),
+    };
+}"""
+
+
+def provider_badge_failures(reading: dict, provider: str) -> list[str]:
+    """Judge one reading of `PROVIDER_BADGE_JS`: the badge is a small label, so
+    it sits at the 12px floor and in the narrow face (S2-21: it shipped at 10px
+    in the wide mono face)."""
+    failures = []
+    if reading["size"] < ATTRIBUTION_TEXT_FLOOR:
+        failures.append(
+            f"{provider} row's provider badge text is {reading['size']}px, "
+            f"expected at least {ATTRIBUTION_TEXT_FLOOR:.0f}px"
+        )
+    if not reading["narrow"] or reading["family"] != reading["narrow"]:
+        failures.append(
+            f"{provider} row's provider badge is set in {reading['family']!r}, "
+            f"expected the narrow mono face {reading['narrow']!r}"
+        )
+    return failures
+
+
+def _results_artwork_failures(page) -> list[str]:
+    """Row cover corners at phone, tablet and desktop widths; attribution size.
+
+    Restores the original viewport before returning.
+    """
+    failures = []
+    size = page.evaluate(
+        """() => Number.parseFloat(getComputedStyle(document.querySelector(
+            '#results-spotify-attribution .provider-attribution__text')).fontSize)"""
+    )
+    if size < ATTRIBUTION_TEXT_FLOOR:
+        failures.append(
+            f"results Spotify attribution text is {size}px, "
+            f"expected at least {ATTRIBUTION_TEXT_FLOOR:.0f}px"
+        )
+    original = page.viewport_size
+    try:
+        for width in RESULTS_ARTWORK_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            failures.extend(
+                artwork_radius_failures(
+                    page.evaluate(
+                        ARTWORK_RADII_JS, {"row cover": "#results-table tbody tr img"}
+                    ),
+                    width,
+                    "results",
+                )
+            )
+    finally:
+        page.set_viewport_size(original)
+    return failures
+
+
+#: An artist credit of about 65 characters, the length that ran from x 192 to
+#: 674 in a 132px cell at 1024px (F-B23-27).
+LONG_ARTIST_CREDIT = (
+    "Sir Reginald Featherstonehaugh and the Anthology Orchestra of Wessex"
+)
+
+#: Widths where the artist line truncates (from 768px; below it wraps).
+LONG_ARTIST_WIDTHS = (768, 1024, 1280, 1920)
+
+
+def artist_credit_failures(reading: dict, width: int) -> list[str]:
+    """Judge one reading of a long artist credit against its own cell.
+
+    `reading` holds the credit's right edge and the right edge of the cell that
+    holds it, in px. A credit that ends past its cell paints over the plays and
+    date columns (F-B23-27), with no ellipsis to say it was cut.
+    """
+    if reading is None:
+        return [f"results table at {width}px renders no long artist credit"]
+    over = reading["credit_right"] - reading["cell_right"]
+    if over > 1:
+        return [
+            f"results artist credit at {width}px runs {over:.0f}px past the "
+            "cell that holds it"
+        ]
+    return []
+
+
+def _long_artist_failures(page) -> list[str]:
+    """The long credit stays inside its cell from 768px to a wide monitor.
+
+    Restores the original viewport before returning.
+    """
+    failures = []
+    original = page.viewport_size
+    try:
+        for width in LONG_ARTIST_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            reading = page.evaluate(
+                """credit => {
+                    const span = [...document.querySelectorAll(
+                        '#results-table .album-info > span.truncate')]
+                        .find(node => node.textContent.trim() === credit);
+                    if (!span) return null;
+                    return {
+                        credit_right: span.getBoundingClientRect().right,
+                        cell_right: span.closest('td').getBoundingClientRect().right,
+                    };
+                }""",
+                LONG_ARTIST_CREDIT,
+            )
+            failures.extend(artist_credit_failures(reading, width))
+    finally:
+        page.set_viewport_size(original)
+    return failures
 
 
 def check_results_interactions(page, base_url: str) -> list[str]:
@@ -23,7 +196,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
     Reuse the configured page so CDN policy and navigation deadlines survive.
     Remove only this check's route and job afterward. CSV follows visible ranks.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
 
@@ -32,7 +205,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         route.fulfill(json={})
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 {
@@ -51,11 +224,21 @@ def check_results_interactions(page, base_url: str) -> list[str]:
                     "play_time": "2m",
                     "release_date": "2025-02-03",
                 },
+                {
+                    "artist": LONG_ARTIST_CREDIT,
+                    "album": "Long credit",
+                    "play_count": 10,
+                    "play_time_seconds": 30,
+                    "play_time": "30s",
+                    "release_date": "2025-03-04",
+                },
             ],
+            "Done",
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
         failures.extend(_check_results_scale(probe))
+        failures.extend(_long_artist_failures(probe))
         probe.locator("#toggle-sort-playtime").click()
         rows = probe.locator("#results-table tbody tr")
         if rows.first.get_attribute("data-album") != "Time winner":
@@ -93,21 +276,23 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         try:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 
 def check_results_provider_attribution(page, base_url: str) -> list[str]:
-    """A row's link and provider badge follow its own provider (Batch 22 WP-1 Task 6).
+    """A row's link and attribution follow its own provider (Batch 22 WP-1 Task 6).
 
     One Spotify-sourced row and one Deezer-sourced row must each link to
     their own provider's album page (not a hardcoded open.spotify.com URL
-    built from spotify_id) and carry a visible, provider-labelled
-    attribution link -- the interim text form recorded next to the markup
-    in templates/results.html pending each provider's official logo asset
-    (F-B22-4).
+    built from spotify_id). Spotify rows are attributed once for the list by
+    the official Spotify icon above the table, inside the export wrapper
+    (F-B21-60), so they carry no per-row badge; the icon must meet Spotify's
+    size, file and clear-space rules. The Deezer row keeps a visible,
+    provider-labelled text link, standing in for Deezer's logo until an
+    official file is supplied (F-B22-4).
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
 
@@ -115,7 +300,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
         route.fulfill(json={})
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 {
@@ -143,6 +328,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                     "album_url": "https://www.deezer.com/album/dz-gate-1",
                 },
             ],
+            "Done",
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
@@ -168,11 +354,23 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                     f"{provider} row's album link is {href!r}, expected it to contain {host!r}"
                 )
             badge = row.locator("a.provider-badge")
+            if provider == "spotify":
+                if badge.count():
+                    failures.append(
+                        "spotify row renders a per-row provider badge; Spotify is "
+                        "attributed once for the list"
+                    )
+                continue
             if badge.count() == 0:
                 failures.append(f"{provider} row renders no provider attribution badge")
                 continue
             if badge.first.is_hidden():
                 failures.append(f"{provider} row's provider badge is not visible")
+            failures.extend(
+                provider_badge_failures(
+                    badge.first.evaluate(PROVIDER_BADGE_JS), provider
+                )
+            )
             badge_href = badge.first.get_attribute("href") or ""
             if host not in badge_href:
                 failures.append(
@@ -184,6 +382,26 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                     f"{provider} row's provider badge does not name its provider"
                 )
 
+        attribution = probe.locator(
+            "#results-table-wrapper #results-spotify-attribution"
+        )
+        if attribution.count() == 0 or attribution.first.is_hidden():
+            failures.append(
+                "results list shows no Spotify attribution inside the export wrapper"
+            )
+        else:
+            failures.extend(
+                spotify_icon_failures(
+                    probe,
+                    "#results-spotify-attribution",
+                    "results Spotify attribution",
+                    clear_scope="#results-table-wrapper",
+                )
+            )
+            for theme in ("light", "dark"):
+                failures.extend(_check_export_keeps_spotify_icon(probe, theme))
+            failures.extend(_results_artwork_failures(probe))
+
         with probe.expect_download() as downloaded:
             probe.locator("#export-csv").click()
         csv_text = Path(downloaded.value.path()).read_text(encoding="utf-8")
@@ -193,7 +411,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
         try:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 
@@ -264,7 +482,7 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
     replies here are scripted rather than waiting on a MusicBrainz pass that
     runs at one request per second.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
     requests = []
@@ -304,15 +522,17 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
         )
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 _release_check_row("Fleetwood Mac", "Rumours", "2011-01-24"),
                 _release_check_row("Radiohead", "OK Computer", "2025-06-16"),
             ],
+            "Done",
         )
-        set_job_release_check(
+        jobs.record_stat(
             job_id,
+            "release_check",
             {
                 "status": "running",
                 "checked": 0,
@@ -384,7 +604,7 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
             probe.unroute("**/api/release_checks?*", release_checks)
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 
@@ -456,6 +676,75 @@ def _check_results_scale(page) -> list[str]:
         if viewport is not None:
             page.set_viewport_size(viewport)
     return failures
+
+
+def _check_export_keeps_spotify_icon(page, theme: str) -> list[str]:
+    """The "Save image" JPEG carries the Spotify icon it attributes the list with.
+
+    html2canvas 1.4 silently drops an SVG <img> once the export widens its
+    cloned wrapper, which would ship Spotify artwork with no attribution
+    (F-B21-60). The export's icon box -- the live offset inside the wrapper,
+    times the export's 3x scale -- must hold pixels that contrast with the
+    strip's own surface.
+    """
+    page.evaluate(
+        "theme => document.documentElement.setAttribute('data-theme', theme)", theme
+    )
+    try:
+        box = page.evaluate(
+            """() => {
+                const icon = [...document.querySelectorAll('#results-spotify-attribution img.spotify-icon')]
+                    .find(img => getComputedStyle(img).display !== 'none');
+                const wrapper = document.querySelector('#results-table-wrapper').getBoundingClientRect();
+                const rect = icon.getBoundingClientRect();
+                return {x: rect.left - wrapper.left, y: rect.top - wrapper.top,
+                        width: rect.width, height: rect.height};
+            }"""
+        )
+        with page.expect_download(timeout=15_000) as downloaded:
+            page.locator("#save-image").click()
+        image_bytes = Path(downloaded.value.path()).read_bytes()
+        inked = page.evaluate(
+            """async ([data, box]) => {
+                const image = new Image();
+                image.src = 'data:image/jpeg;base64,' + data;
+                await image.decode();
+                const scale = image.width / 1200;
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+                const context = canvas.getContext('2d');
+                context.drawImage(image, 0, 0);
+                const tone = (x, y) => {
+                    const p = context.getImageData(x, y, 1, 1).data;
+                    return (p[0] + p[1] + p[2]) / 3;
+                };
+                const surface = tone(Math.round(4 * scale), Math.round(4 * scale));
+                const pixels = context.getImageData(
+                    Math.round(box.x * scale), Math.round(box.y * scale),
+                    Math.round(box.width * scale), Math.round(box.height * scale)).data;
+                let inked = 0;
+                for (let i = 0; i < pixels.length; i += 4) {
+                    const value = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+                    if (Math.abs(value - surface) > 100) inked += 1;
+                }
+                return inked / (pixels.length / 4);
+            }""",
+            [b64encode(image_bytes).decode("ascii"), box],
+        )
+    # Gate boundary: any failure becomes a reported FAIL line, not a crash.
+    except Exception as exc:  # noqa: BLE001
+        return [
+            f"{theme} JPEG export (Spotify icon) failed: {type(exc).__name__}: {exc}"
+        ]
+    # The icon's disc fills well over a third of its box; a dropped icon
+    # leaves only the flat strip surface (0%).
+    if inked < 0.25:
+        return [
+            f"{theme} JPEG export drops the Spotify icon: {inked:.0%} of its box "
+            "contrasts with the attribution strip"
+        ]
+    return []
 
 
 def _check_jpeg_export(page, theme: str) -> list[str]:

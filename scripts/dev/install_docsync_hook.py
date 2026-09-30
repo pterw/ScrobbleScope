@@ -113,7 +113,8 @@ def resolve_hook_directory(cwd: Path, *, runner: Runner = subprocess.run) -> Pat
     Git documents ``core.hooksPath`` as resolved relative to the working
     tree in use, not to the primary checkout -- which is why this
     repository's owner keeps a ``.githooks/`` copy in every clone that wants
-    Graphify's hooks active (AGENTS.md / AGENT_NOTES.md say so explicitly).
+    Graphify's hooks active (AGENTS.md / docs/agents/AGENT_NOTES.md say so
+    explicitly).
     An unset value falls back to the common Git directory's own ``hooks/``,
     which every worktree *does* share.
     """
@@ -417,8 +418,8 @@ def install(
     # write_bytes, not write_text: write_text's default newline handling
     # translates every "\n" to the platform line separator, which on
     # Windows would reintroduce the exact CRLF-hook failure AGENTS.md /
-    # AGENT_NOTES.md already document for `.githooks/post-commit` under
-    # Git for Windows' `sh`.
+    # docs/agents/AGENT_NOTES.md already document for
+    # `.githooks/post-commit` under Git for Windows' `sh`.
     disclosure.hook_path.write_bytes(script_text.encode("utf-8"))
     if os.name != "nt":
         os.chmod(disclosure.hook_path, 0o755)

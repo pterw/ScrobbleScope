@@ -11,14 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 # Provide a safe SECRET_KEY for tests so the startup guard in create_app()
 # does not raise. Must be set before app.py is imported.
-# Not setdefault: CI sets SECRET_KEY to an empty string when the repository
-# secret is missing, and empty is present but still weak.
+# Not setdefault: a developer's shell or .env can leave SECRET_KEY set to an
+# empty string, and empty is present but still weak.
 if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = "test-only-secret-key-min-16chars!!"
 
 # The same, for the three provider keys create_app() now refuses to start
-# without (F-SWE-4). CI passes them from repository secrets, which arrive
-# empty when unavailable, and no test reaches a real provider.
+# without (F-SWE-4). CI passes none of them, a shell may leave them empty,
+# and no test reaches a real provider.
 for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
     if not os.environ.get(_key):
         os.environ[_key] = "test-only-placeholder"
@@ -33,6 +33,7 @@ for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
 # same way. Tests that need a contact patch the module attribute explicitly.
 os.environ["MUSICBRAINZ_CONTACT"] = ""
 
+from docsync.declarations import DECLARATIONS_FILENAME  # noqa: E402
 from docsync.renderer import SIDE_ARCHIVE_PREFIX  # noqa: E402
 
 from app import create_app  # noqa: E402
@@ -61,6 +62,22 @@ def fresh_job_slots():
     worker._active_jobs_semaphore = threading.BoundedSemaphore(config.MAX_ACTIVE_JOBS)
     yield
     worker._active_jobs_semaphore = original
+
+
+@pytest.fixture(autouse=True)
+def fresh_job_store():
+    """Give every test its own empty job store, and hand it to tests that ask.
+
+    Jobs used to pile up in one process-wide dict for the whole session, so a
+    test that counted jobs had to diff before and after. A fresh store per
+    test makes ``fresh_job_store.ids()`` the whole truth.
+    """
+    from scrobblescope import jobs
+
+    store = jobs.MemoryJobStore()
+    previous = jobs.use_store(store)
+    yield store
+    jobs.use_store(previous)
 
 
 @pytest.fixture
@@ -138,7 +155,6 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import docsync.cli as cli_module
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli_module, "PLAYBOOK_PATH", tmp_path / "PLAYBOOK.md")
     monkeypatch.setattr(
         cli_module,
         "ARCHIVE_PATH",
@@ -159,7 +175,9 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # managed and DOC019 would fire on every CLI test that uses this corpus.
     # The repository's own boundary (22) admits it the same way it admits the
     # real Batches 0-21: closed before the close-out signals existed.
-    (tmp_path / ".docsync.toml").write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         "[closeout]\nadmit_from_batch = 22\n", encoding="utf-8"
     )
 

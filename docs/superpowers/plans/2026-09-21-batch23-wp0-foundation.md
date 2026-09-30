@@ -153,6 +153,7 @@ done when its reason is on disk in the document it names.
 | 29 | `--check` does not report an interrupted publication (journal present) | GPT Sol Max | **Future batch candidate.** Recovery exists on the next writer; a read-only diagnostic is missing. File as a finding in Task 6. |
 | 30 | Control-plane AST harness, per-WP journals, JobEngine, Bootstrap cutover | review 2026-09-06 | **Superseded.** Written against the pre-split tree; Bootstrap is already gone. Not committed. |
 | 31 | Two username validators; `utils.py` concerns; phase modules via facade; gate layout size | review A held-back | **Declined as recorded there**: Rule 3 buffer; F-SWE-7 owns `utils.py`; a Batch 22 WP-0 patch-target arrangement; not a decomposition goal. |
+| 32 | The docsync close-out ledger's deferred Minors, never triaged by its final review | close-out ledger | **Task 7**: checked at HEAD; still-true items filed as F-DOCSYNC-20; the rest fixed since or no longer applicable (commits in the Task 7 Section 4 entry). |
 
 ### Errors in the earlier draft, kept so they are not reintroduced
 
@@ -399,32 +400,32 @@ self-review).
 diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (the catalogue heading),
 `FINDINGS.md` (the "starts at DOC023" note), `.docsync.toml`.
 
-- [ ] **Step 1:** Grep the live corpus for the range:
+- [x] **Step 1:** Grep the live corpus for the range:
   `git grep -n "DOC001-DOC02" -- ':!docs/history' ':!docs/logarchive' ':!docs/superpowers'`.
   Expected today: `AGENTS.md` (three hits), `DEVELOPMENT.md`, and `documentation-tooling.md`.
-- [ ] **Step 2:** Replace each with a sentence that states no range, e.g. "the typed DOC diagnostics
+- [x] **Step 2:** Replace each with a sentence that states no range, e.g. "the typed DOC diagnostics
   (catalogue: ...)", so it cannot drift again. `documentation-tooling.md` keeps the one explicit list,
   "DOC001-DOC020, DOC023 and DOC024", as the owner of the fact.
-- [ ] **Step 3:** Repoint the `FINDINGS.md` note at the catalogue: the next free code is read there.
-- [ ] **Step 4:** Add a `[[retired]]` declaration to `.docsync.toml` for the claim `DOC001-DOC023`.
+- [x] **Step 3:** Repoint the `FINDINGS.md` note at the catalogue: the next free code is read there.
+- [x] **Step 4:** Add a `[[retired]]` declaration to `.docsync.toml` for the claim `DOC001-DOC023`.
   Scan the live corpus and allow `docs/history/*`, `docs/logarchive/*` and `docs/superpowers/*`, so the
   claim cannot come back.
-- [ ] **Step 5: Live probe.**
+- [x] **Step 5: Live probe.**
   - *Red:* re-adding "the DOC001-DOC023 catalogue" to `AGENTS.md` gives DOC011.
   - *Near-miss green:* the same text struck through, or in a dated Section 4 entry below the marker,
     passes.
-- [ ] **Step 6:** `.docsync.toml` is control plane, so run `--check` directly, then
+- [x] **Step 6:** `.docsync.toml` is control plane, so run `--check` directly, then
   `SKIP=doc-state-sync-check git commit`, subject `docs(docsync): Stop stating a code range the catalogue owns`.
 
 ### Task 6: Findings hygiene
 
 **Files:** `FINDINGS.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`.
 
-- [ ] **Step 1:** Repoint every pre-split citation by **name**: `F-SWE-5` (`orchestrator.py:912-913`,
+- [x] **Step 1:** Repoint every pre-split citation by **name**: `F-SWE-5` (`orchestrator.py:912-913`,
   `:851`), `F-SWE-3` (`orchestrator.py:250-262`), and the `scrobblescope/orchestrator.py:70-71` citation.
   Then run `git grep -n "orchestrator\.py:\|routes\.py:"` over the live corpus and handle every hit in the
   same commit.
-- [ ] **Step 2:** File each of these with a canonical `- [ ] **Status:**` record, a one-sentence problem
+- [x] **Step 2:** File each of these with a canonical `- [ ] **Status:**` record, a one-sentence problem
   and a `Source:` line:
   - the opening-state defect (if Task 3 has already landed, file it resolved, with its `**Completed:**` line);
   - the archive page target having no reader, and the cold rule's undocumented all-dated condition
@@ -433,19 +434,21 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
   - the worktree guard's base is a flag default (`origin/main`) rather than a fact PLAYBOOK declares,
     so a branch cut from `test` reads as WT005 until the agent knows to pass `--base-ref origin/test`
     (open; found opening Batch 23, 2026-09-21).
-- [ ] **Step 3:** Run `--fix`, which rotates what is checked, then `--check`, fixing what it reports
+- [x] **Step 3:** Run `--fix`, which rotates what is checked, then `--check`, fixing what it reports
   rather than guessing. Commit: `docs(findings): Repoint pre-split citations and record probe defects`.
 
 ### Task 7: Close the docsync close-out plan's Progress block
 
 **Files:** `docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`.
 
-- [ ] **Step 1:** Read `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, the
+- [x] **Step 1:** Read `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, the
   authority, not `progress_copy.md`. It records Task 4b as `3d8a42a`, the whole-branch review as done in
   the PR #234 round, and DOC023 as built.
-- [ ] **Step 2:** Tick Task 4, 4b and the final review, and cite those commits and that PR. Anything the
-  ledger calls genuinely open moves into this plan's DoD with a disposition.
-- [ ] **Step 3:** Commit: `docs(plan): Record the docsync close-out plan as complete`.
+- [x] **Step 2:** Tick Task 4, 4b and the final review, and cite those commits and that PR. Anything the
+  ledger calls genuinely open moves into this plan's DoD with a disposition. Owner ruling 2026-09-24
+  widened this step: the ledger's deferred Minors, never triaged by the final review, were checked at
+  HEAD and the still-true ones filed as F-DOCSYNC-20 (DoD row 32).
+- [x] **Step 3:** Commit: `docs(plan): Record the docsync close-out plan as complete`.
 
 ### Task 8: `frontend_gate_checks.toml`
 
@@ -453,37 +456,40 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
 derive `PLANNED_RUNS`, print the selection); `docs/architecture/documentation-tooling.md`; test
 `tests/scripts/dev/test_frontend_gate_manifest.py`.
 
-- [ ] **Step 1: Failing tests.** Disabling `divider contrast` (one profile) lowers the planned run count
+- [x] **Step 1: Failing tests.** Disabling `divider contrast` (one profile) lowers the planned run count
   by one and the name is reported. Disabling a check listed in `required` raises `FrontendGateError`
   naming it. A name not in `CHECKS` is refused, not ignored: a typo must not silently keep a check on.
-- [ ] **Step 2: Implement with `tomllib`.**
+  Measured 2026-09-24: the drop is **two**, not one -- `divider contrast` runs on one profile (DESKTOP)
+  but belongs to `STATIC_ASSETS`, which Firefox also runs as its canary; the test asserts 2 with a
+  comment saying why.
+- [x] **Step 2: Implement with `tomllib`.**
   - `required = ["stylesheet isolation", "theme tokens", "pipeline state machines", "unmatched report"]`
     (all four names exist in `CHECKS`, verified 2026-09-21), and `disabled = []`.
   - Select by check name only. Groups are an isolation concern, and a second copy of their membership
     would drift from the tuple that owns it.
   - The header states the enabled count and names every disabled check.
-- [ ] **Step 3: Live probe.**
+- [x] **Step 3: Live probe.**
   - *Red:* disable a required check in the real manifest and run the gate: it refuses before launching
     a browser.
   - *Near-miss green:* with `disabled = []`, the gate prints the same checks-and-runs count as before
     the change and exits 0.
-- [ ] **Step 4:** In `documentation-tooling.md`, replace "stays a deferred candidate" with the fact that
+- [x] **Step 4:** In `documentation-tooling.md`, replace "stays a deferred candidate" with the fact that
   it landed, and add that the decomposition's goal was isolating what executes, not reducing
   `_frontend_gate_layout.py`'s size.
-- [ ] **Step 5:** Commit: `feat(gate): Select checks from a manifest, and never silently`.
+- [x] **Step 5:** Commit: `feat(gate): Select checks from a manifest, and never silently`.
 
 ### Task 9: `AGENTS.md` pointers and the installer decision
 
 **Files:** `AGENTS.md`, `AGENT_NOTES.md` (Architectural Constraints), `docs/architecture/documentation-tooling.md`.
 
-- [ ] **Step 1:** In "How to run", point at the CLI section of `documentation-tooling.md` for
+- [x] **Step 1:** In "How to run", point at the CLI section of `documentation-tooling.md` for
   `--close-batch`, `--paginate-archives` and `--cold-storage`. Don't restate them.
-- [ ] **Step 2:** In "Agent skills", add `docs/agents/global-rules.md` as a pointer.
-- [ ] **Step 3:** Record the installer decision in `AGENT_NOTES.md`, with the corrected evidence (see
+- [x] **Step 2:** In "Agent skills", add `docs/agents/global-rules.md` as a pointer.
+- [x] **Step 3:** Record the installer decision in `AGENT_NOTES.md`, with the corrected evidence (see
   "Errors in the earlier draft"): installing the wrapper alongside pre-commit's own hook would fail
   loudly in migration mode. The wired path, `doc-state-sync-check` first in pre-commit plus CI's explicit
   preflight, already runs the checker. The wrapper stays for repositories without pre-commit.
-- [ ] **Step 4:** Check the length with `(Get-Content AGENTS.md).Count`: it must stay under 500. Commit:
+- [x] **Step 4:** Check the length with `(Get-Content AGENTS.md).Count`: it must stay under 500. Commit:
   `docs(agents): Point at the full docsync CLI and record the installer decision`.
 
 ### Task 10: Re-verify the diagrams against source
@@ -500,21 +506,24 @@ correct only what is wrong, name the source checked in the commit body, and set 
 
 After Task 1. Its own commit, outside WP-0's parity criterion.
 
+**Done 2026-09-23 by the reconcile plan's Task 7 (`ffbee0e`), ahead of this plan reaching Task 11:
+F-SWE-5 resolved and archived (owner ruling, 2026-09-24).**
+
 **Files:** `scrobblescope/errors.py` (`internal_error`, `source: "internal"`, `retryable: False`),
 `scrobblescope/heatmap.py` (`_report_heatmap_failure`), `scrobblescope/orchestrator/__init__.py` (the
 `on_run_error` for `background_task`), `FINDINGS.md`, and tests in `tests/test_errors.py`,
 `tests/test_heatmap.py` and `tests/services/test_orchestrator_fetch_and_process.py`.
 
-- [ ] **Step 1: Failing tests.** A `ZeroDivisionError` from `_fetch_and_process_heatmap` makes
+- [x] **Step 1: Failing tests.** A `ZeroDivisionError` from `_fetch_and_process_heatmap` makes
   `heatmap_task` publish `internal_error`. The mirror case makes `background_task` publish the same
   code rather than only log. Together they are F-SWE-5's contract: two entry points, one answer.
-- [ ] **Step 2:** Change both reactions. Only the outer handler changes; the inner Last.fm status path
+- [x] **Step 2:** Change both reactions. Only the outer handler changes; the inner Last.fm status path
   keeps `lastfm_unavailable`.
-- [ ] **Step 3:** Update only the assertions that pinned the borrowed code from the outer handler, and
+- [x] **Step 3:** Update only the assertions that pinned the borrowed code from the outer handler, and
   name each in the commit body.
-- [ ] **Step 4: Live check.** Run the frontend gate, whose pipeline state machines drive both entry
+- [x] **Step 4: Live check.** Run the frontend gate, whose pipeline state machines drive both entry
   points through the real app. It must pass unchanged.
-- [ ] **Step 5:** Resolve F-SWE-5 with its `**Completed:**` line. Commit:
+- [x] **Step 5:** Resolve F-SWE-5 with its `**Completed:**` line. Commit:
   `fix(jobs): Publish one honest terminal state for both pipelines`.
 
 ---

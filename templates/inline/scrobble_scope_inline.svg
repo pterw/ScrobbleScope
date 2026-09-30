@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 80">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 80" fill="currentColor">
   <defs>
     <style>
       .cls-1 {
         fill: none;
-        stroke: #6a4baf;
+        stroke: var(--bars-color);
         stroke-linecap: round;
         stroke-miterlimit: 10;
         stroke-width: 8px;

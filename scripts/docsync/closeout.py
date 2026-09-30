@@ -23,7 +23,7 @@ import dataclasses
 import re
 from collections.abc import Sequence
 
-from docsync.declarations import CloseoutConfig
+from docsync.declarations import DECLARATIONS_FILENAME, CloseoutConfig
 from docsync.markdown import marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
 from docsync.parser import (
@@ -501,29 +501,44 @@ def render_archived_definition(
     return [*lines, "", *record]
 
 
-def _admission_issue(batch: int, config: CloseoutConfig) -> IntegrityIssue:
-    """Refuse to close a batch the close-out signals do not govern."""
+def _admission_issue(
+    batch: int,
+    config: CloseoutConfig,
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
+    declarations_path: str = DECLARATIONS_FILENAME,
+) -> IntegrityIssue:
+    """Refuse to close a batch the close-out signals do not govern.
+
+    ``declarations_path`` names the file the boundary was read from, which
+    under --config is not the repository default (review B8).
+    """
     return _issue(
-        "PLAYBOOK.md",
+        playbook_relative_path,
         None,
         f"A batch closed by this command is at or above the [closeout] "
         f"admission boundary (Batch {batch} is below "
         f"{config.admit_from_batch}).",
         f"Batch {batch} closed before these signals existed and is admitted as "
-        f"it stands. Lower `admit_from_batch` in .docsync.toml only if the "
-        f"evidence for every batch from {batch} onwards genuinely exists; "
-        f"never write it in order to satisfy this command.",
+        f"it stands. Lower `admit_from_batch` in {declarations_path} only "
+        f"if the evidence for every batch from {batch} onwards genuinely "
+        f"exists; never write it in order to satisfy this command.",
     )
 
 
-def _claim_issues(batch: int, playbook_lines: Sequence[str]) -> list[IntegrityIssue]:
+def _claim_issues(
+    batch: int,
+    playbook_lines: Sequence[str],
+    *,
+    playbook_relative_path: str = "PLAYBOOK.md",
+) -> list[IntegrityIssue]:
     """Signals 1 and 4: PLAYBOOK claims the closure and can be repointed."""
     section = _section_3(playbook_lines)
     issues: list[IntegrityIssue] = []
     if batch not in closed_batch_claims(section):
         issues.append(
             _issue(
-                "PLAYBOOK.md",
+                playbook_relative_path,
                 None,
                 f"PLAYBOOK Section 3 states that Batch {batch} is complete.",
                 f"Write the completion claim yourself once the batch really is "
@@ -534,7 +549,7 @@ def _claim_issues(batch: int, playbook_lines: Sequence[str]) -> list[IntegrityIs
     if _parse_active_batch_state(section).current_batch == batch:
         issues.append(
             _issue(
-                "PLAYBOOK.md",
+                playbook_relative_path,
                 None,
                 f"Batch {batch} is not declared active and complete at once.",
                 f"Decide which Batch {batch} is: remove the active declaration, "
@@ -544,7 +559,7 @@ def _claim_issues(batch: int, playbook_lines: Sequence[str]) -> list[IntegrityIs
     if find_batch_index_row(playbook_lines, batch) is None:
         issues.append(
             _issue(
-                "PLAYBOOK.md",
+                playbook_relative_path,
                 None,
                 f"PLAYBOOK's batch index carries a row for Batch {batch}.",
                 f"Add the row -- `| {batch} | <title> | <definition> | <log> |` "
@@ -689,6 +704,8 @@ def collect_transition_issues(
     definition_lines: Sequence[str] | None,
     tracked_paths: frozenset[str],
     config: CloseoutConfig,
+    playbook_relative_path: str = "PLAYBOOK.md",
+    declarations_path: str = DECLARATIONS_FILENAME,
 ) -> list[IntegrityIssue]:
     """Return every reason this batch may not be closed right now.
 
@@ -703,9 +720,18 @@ def collect_transition_issues(
     work that happened outside this repository's reach.
     """
     if batch < config.admit_from_batch:
-        return [_admission_issue(batch, config)]
+        return [
+            _admission_issue(
+                batch,
+                config,
+                playbook_relative_path=playbook_relative_path,
+                declarations_path=declarations_path,
+            )
+        ]
     return [
-        *_claim_issues(batch, playbook_lines),
+        *_claim_issues(
+            batch, playbook_lines, playbook_relative_path=playbook_relative_path
+        ),
         *_dashboard_issues(batch, session_lines, session_path),
         *_disposition_issues(batch, definition_path, definition_lines),
         *_root_definition_issues(batch, definition_path, tracked_paths),

@@ -25,10 +25,10 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, session, url_for
 
+from scrobblescope import jobs
 from scrobblescope.config import MAX_ACTIVE_JOBS
 from scrobblescope.domain import format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
-from scrobblescope.repositories import cleanup_expired_jobs, get_job_context
 from scrobblescope.spotify import fetch_spotify_access_token
 from scrobblescope.unmatched import group_unmatched_albums
 from scrobblescope.utils import run_async_in_thread
@@ -91,7 +91,7 @@ def _get_validated_job_context(
     ``(None, None, (html, status))`` when validation fails. Missing IDs
     return 400; unavailable or wrong-mode jobs return 404, matching the APIs.
     """
-    cleanup_expired_jobs()
+    jobs.expire_stale()
     job_id = _request_or_session_job_id(session_key)
     if not job_id:
         return (
@@ -109,7 +109,7 @@ def _get_validated_job_context(
             ),
         )
 
-    job_context = get_job_context(job_id)
+    job_context = jobs.context(job_id)
     actual_mode = None
     if job_context:
         actual_mode = job_context.get("params", {}).get("mode", "album")
@@ -139,12 +139,12 @@ def _get_validated_job_context(
 
 def _latest_heatmap_job():
     """Return resumable heatmap metadata from an explicit or saved job."""
-    cleanup_expired_jobs()
+    jobs.expire_stale()
     job_id = request.values.get("job_id") or session.get(_LATEST_HEATMAP_JOB)
     if not job_id:
         return None
 
-    job_context = get_job_context(job_id)
+    job_context = jobs.context(job_id)
     if not job_context or job_context.get("params", {}).get("mode") != "heatmap":
         if session.get(_LATEST_HEATMAP_JOB) == job_id:
             session.pop(_LATEST_HEATMAP_JOB, None)
@@ -183,7 +183,7 @@ def album_key_filter(result):
     twice. A result with no ``_normalized_key`` renders an empty attribute:
     the endpoint skips such a result too, so the row is simply never
     addressed, which is what an unkeyed result already means everywhere else
-    (see ``update_job_result``).
+    (see ``jobs.update_result``).
     """
     normalized_key = (result or {}).get("_normalized_key")
     return format_album_key(normalized_key) if normalized_key else ""
@@ -299,7 +299,6 @@ __all__ = [
     "acquire_job_slot",
     "bp",
     "fetch_spotify_access_token",
-    "get_job_context",
     "internal_error",
     "page_not_found",
     "run_async_in_thread",

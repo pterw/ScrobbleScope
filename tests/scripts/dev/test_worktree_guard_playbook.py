@@ -147,7 +147,9 @@ def test_the_repository_playbook_parses():
     declares the next batch. While a batch is active the branch must parse,
     because an unparsable one blocks every commit with WT002.
     """
-    playbook = (REPOSITORY_ROOT / "PLAYBOOK.md").read_text(encoding="utf-8")
+    playbook = (REPOSITORY_ROOT / "docs" / "agents" / "PLAYBOOK.md").read_text(
+        encoding="utf-8"
+    )
     parsed = parse_batch_branch(playbook)
 
     if parsed.active_batch is None:

@@ -3,18 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrobblescope.errors import SpotifyUnavailableError
+from scrobblescope import jobs
+from scrobblescope.errors import ProviderError, SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _PLAYTIME_ALBUM_CAP,
     _fetch_and_process,
     background_task,
-)
-from scrobblescope.repositories import (
-    JOBS,
-    create_job,
-    get_job_progress,
-    get_job_unmatched,
-    jobs_lock,
 )
 from tests.helpers import TEST_JOB_PARAMS
 
@@ -24,16 +18,16 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     """
     GIVEN _fetch_and_process receives albums and process_albums returns results
     WHEN _fetch_and_process runs
-    THEN it must store results via set_job_results (not just return them), set job
+    THEN it must store results via jobs.succeed (not just return them), set job
     progress to 100, and not call fetch_spotify_access_token directly.
 
-    The critical side-effect assertion is that JOBS[job_id]["results"] equals the
+    The critical side-effect assertion is that stored job results equal the
     processed list.  background_task ignores _fetch_and_process's return value and
     relies entirely on the stored job state, so a regression that removes the
-    set_job_results call would break production but would not be caught by a
+    jobs.succeed call would break production but would not be caught by a
     return-value-only assertion.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("radiohead", "ok computer"): {
             "play_count": 50,
@@ -76,16 +70,15 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
             job_id, "flounder14", 2025, "playcount", "same"
         )
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert results == expected_results
     assert progress["error"] is False
     assert progress["progress"] == 100
     mock_token.assert_not_awaited()
-    # Verify set_job_results was called: background_task reads job state, not the
+    # Verify jobs.succeed was called: background_task reads job state, not the
     # return value.  If this assertion fails, results are returned but not stored.
-    with jobs_lock:
-        assert JOBS[job_id]["results"] == expected_results
+    assert jobs.context(job_id)["results"] == expected_results
 
 
 @pytest.mark.asyncio
@@ -94,10 +87,10 @@ async def test_fetch_and_process_hands_the_finished_job_to_the_correction_worker
     GIVEN a run that publishes a non-empty results list
     WHEN _fetch_and_process finishes
     THEN the job is queued for the MusicBrainz correction worker, and only
-    after set_job_results -- the worker reads the stored results to pick its
+    after jobs.succeed -- the worker reads the stored results to pick its
     candidates, so an earlier hand-off would find nothing.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("radiohead", "ok computer"): {
             "play_count": 50,
@@ -122,7 +115,9 @@ async def test_fetch_and_process_hands_the_finished_job_to_the_correction_worker
         ),
         patch(
             "scrobblescope.orchestrator.enqueue_release_check",
-            side_effect=lambda queued: seen_results.append(JOBS[queued]["results"]),
+            side_effect=lambda queued: seen_results.append(
+                jobs.context(queued)["results"]
+            ),
         ) as mock_enqueue,
     ):
         await _fetch_and_process(job_id, "flounder14", 2025, "playcount", "same")
@@ -139,7 +134,7 @@ async def test_fetch_and_process_does_not_queue_correction_checks_on_an_error():
     THEN the correction worker is never handed the job: there is nothing to
     correction-check, and the queue is a shared, rate-limited resource.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -155,13 +150,13 @@ async def test_fetch_and_process_does_not_queue_correction_checks_on_an_error():
 
     assert results == []
     mock_enqueue.assert_not_called()
-    assert get_job_progress(job_id)["error"] is True
+    assert jobs.progress(job_id)["error"] is True
 
 
 @pytest.mark.asyncio
 async def test_fetch_and_process_retains_all_below_threshold_albums():
     """A successful empty eligible set must still publish threshold exclusions."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     threshold_item = {
         "artist": "Lizzy McAlpine",
         "album": "Older",
@@ -197,8 +192,8 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
         )
 
     assert results == []
-    assert get_job_unmatched(job_id) == {"lizzy mcalpine|older": threshold_item}
-    progress = get_job_progress(job_id)
+    assert jobs.unmatched(job_id) == {"lizzy mcalpine|older": threshold_item}
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert progress["progress"] == 100
     assert progress["error"] is False
@@ -208,7 +203,7 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
 @pytest.mark.asyncio
 async def test_fetch_and_process_discards_exclusions_on_lastfm_error():
     """An upstream failure must not publish a partial unmatched report."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     threshold_item = {
         "artist": "Artist",
         "album": "Album",
@@ -235,8 +230,8 @@ async def test_fetch_and_process_discards_exclusions_on_lastfm_error():
         )
 
     assert results == []
-    assert get_job_unmatched(job_id) == {}
-    progress = get_job_progress(job_id)
+    assert jobs.unmatched(job_id) == {}
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert progress["error"] is True
     assert progress["error_code"] == "lastfm_unavailable"
@@ -250,7 +245,7 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
     WHEN _fetch_and_process runs
     THEN it should set a classified spotify_unavailable job error.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 10,
@@ -276,7 +271,7 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
             job_id, "flounder14", 2025, "playcount", "same"
         )
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert results == []
     assert progress["error"] is True
@@ -294,7 +289,7 @@ async def test_playcount_limit_slices_before_spotify_when_scope_is_all():
     because release_scope="all" means no downstream filter can discard albums from
     the top-N, so the optimisation is safe.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         (f"artist{i}", f"album{i}"): {
             "play_count": i * 10,
@@ -347,7 +342,7 @@ async def test_playcount_limit_not_presliced_with_scoped_release():
     play_count might be the only ones matching the release-year filter. Discarding
     them early would silently return fewer results than exist without any warning.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         (f"artist{i}", f"album{i}"): {
             "play_count": i * 10,
@@ -391,19 +386,19 @@ async def test_playcount_limit_not_presliced_with_scoped_release():
 async def test_fetch_and_process_lastfm_phase_callback():
     """
     GIVEN _fetch_and_process runs with a simulated Last.fm progress callback
-    WHEN progress_cb is invoked with (23, 102)
-    THEN set_job_progress receives the exact lastfm_fetch phase dict,
+    WHEN progress_cb is invoked with (23, 102, 23)
+    THEN the job stores the exact lastfm_fetch phase dict,
     and upon completion, the phase is cleared.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     observed_phase = None
 
     async def fake_fetch(*args, **kwargs):
         nonlocal observed_phase
         cb = kwargs.get("progress_cb")
         if cb:
-            cb(23, 102)
-            observed_phase = get_job_progress(job_id).get("phase")
+            cb(23, 102, 23)
+            observed_phase = jobs.progress(job_id).get("phase")
         return {}, {}, {"status": "ok"}
 
     with (
@@ -426,7 +421,7 @@ async def test_fetch_and_process_lastfm_phase_callback():
         "current": 23,
         "total": 102,
     }
-    final_progress = get_job_progress(job_id)
+    final_progress = jobs.progress(job_id)
     assert "phase" not in final_progress
 
 
@@ -438,7 +433,7 @@ async def test_playtime_limit_does_not_preslice():
     THEN process_albums should receive all 5 albums because playtime ranking requires
     Spotify track duration data and cannot be determined before the Spotify fetch.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         (f"artist{i}", f"album{i}"): {
             "play_count": i * 10,
@@ -499,7 +494,7 @@ async def test_playtime_cap_fires_and_warns_when_album_count_exceeds_limit(caplo
         }
         for i in range(1, over_limit + 1)
     }
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -544,7 +539,7 @@ async def test_playtime_cap_does_not_fire_below_limit():
         }
         for i in range(1, 6)  # well below the cap
     }
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -571,7 +566,7 @@ def test_background_task_runs_single_event_loop():
     THEN it should create one event loop, run _fetch_and_process via that loop,
     and NOT spawn a second thread (Batch 3 regression guard).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -595,7 +590,7 @@ def test_background_task_releases_slot_on_exception():
     WHEN background_task is called
     THEN release_job_slot should still be called in the finally block.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -616,7 +611,7 @@ def test_background_task_releases_slot_when_event_loop_setup_raises():
     WHEN background_task is called
     THEN release_job_slot must still be called so the concurrency slot is not leaked (F-B21-1).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch("asyncio.set_event_loop", side_effect=RuntimeError("loop setup failed")),
@@ -633,7 +628,7 @@ def test_background_task_releases_slot_when_loop_close_raises():
     WHEN background_task terminates
     THEN release_job_slot must still be called so the concurrency slot is not leaked.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     mock_loop = MagicMock()
     mock_loop.run_until_complete.side_effect = lambda coroutine: coroutine.close()
     mock_loop.close.side_effect = RuntimeError("close failed")
@@ -655,31 +650,31 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     """
     GIVEN _fetch_and_process is called
     WHEN fetch_top_albums_async invokes progress_cb per page
-    THEN set_job_progress maps page progress into the 5%-20% range
+    THEN the job maps page progress into the 5%-20% range
     with the phase line "Reading your Last.fm history...". The detailed
     fraction belongs exclusively to the visible `Pages fetched` statistic.
 
     Arithmetic: pct = 5 + int(15 * pages_done / total_pages)
     For 3 pages: (1,3)->10, (2,3)->15, (3,3)->20.
     """
-    from scrobblescope.repositories import set_job_progress as real_set
-
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     async def _invoke_cb(*args, **kwargs):
         """Mock fetch_top_albums_async that invokes progress_cb."""
         cb = kwargs.get("progress_cb")
         if cb:
-            cb(1, 3)
-            cb(2, 3)
-            cb(3, 3)
+            cb(1, 3, 1)
+            cb(2, 3, 2)
+            cb(3, 3, 3)
         return {}, {}, {"status": "ok"}
 
     progress_calls = []
 
-    def _tracking_set(jid, **kwargs):
-        progress_calls.append(kwargs)
-        return real_set(jid, **kwargs)
+    real_advance = jobs.advance
+
+    def _tracking_advance(jid, percent, message, phase=None):
+        progress_calls.append({"progress": percent, "message": message, "phase": phase})
+        return real_advance(jid, percent, message, phase=phase)
 
     with (
         patch(
@@ -687,8 +682,8 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
             side_effect=_invoke_cb,
         ),
         patch(
-            "scrobblescope.orchestrator.set_job_progress",
-            side_effect=_tracking_set,
+            "scrobblescope.jobs.advance",
+            side_effect=_tracking_advance,
         ),
     ):
         await _fetch_and_process(job_id, "testuser", 2025, "playcount", "all")
@@ -742,7 +737,7 @@ def test_background_task_crash_publishes_internal_error():
     THEN the job ends as internal_error, so a polling page stops waiting
     (F-SWE-5: before this the album backstop only logged).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     with (
         patch(
@@ -754,7 +749,90 @@ def test_background_task_crash_publishes_internal_error():
     ):
         background_task(job_id, "flounder14", 2025, "playcount", "same")
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress["error"] is True
     assert progress["error_code"] == "internal_error"
     assert progress["error_source"] == "internal"
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_unclassified_exception_publishes_internal_error():
+    """
+    GIVEN the Last.fm fetch raises an exception nothing classifies
+    WHEN _fetch_and_process runs
+    THEN the job ends as a non-retryable ``internal_error`` with empty results
+    and the generic message: the exception's text never reaches the browser.
+    This is the heatmap's answer too (F-B23-22).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_top_albums_async",
+        new_callable=AsyncMock,
+        side_effect=ZeroDivisionError("boom"),
+    ):
+        results = await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    assert results == []
+    ctx = jobs.context(job_id)
+    assert ctx["results"] == []
+    assert ctx["progress"]["error"] is True
+    assert ctx["progress"]["error_code"] == "internal_error"
+    assert ctx["progress"]["error_source"] == "internal"
+    assert ctx["progress"]["retryable"] is False
+    assert "boom" not in ctx["progress"]["message"]
+    assert ctx["progress"]["message"].startswith("Something went wrong on our side")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("kind", "code"),
+    [
+        ("unavailable", "spotify_unavailable"),
+        ("rate_limited", "spotify_rate_limited"),
+    ],
+)
+async def test_fetch_and_process_typed_spotify_failure_publishes_retryable_code(
+    kind, code
+):
+    """
+    GIVEN a ProviderError for Spotify escapes the album pipeline (an ordinary
+    Spotify search outage no longer does: it degrades per album, and the
+    aggregate rule raises SpotifyUnavailableError instead)
+    WHEN _fetch_and_process runs
+    THEN the classifier wiring answers with that provider's code, retryable,
+    blaming Spotify, and never falls through to internal_error.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_top_albums_async",
+        new_callable=AsyncMock,
+        side_effect=ProviderError("spotify", kind),
+    ):
+        await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    progress = jobs.progress(job_id)
+    assert progress["error_code"] == code
+    assert progress["error_source"] == "spotify"
+    assert progress["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_message_that_reads_like_not_found_is_ours():
+    """
+    GIVEN an unrelated exception whose text holds "user" and "not found"
+    WHEN _fetch_and_process runs
+    THEN it is not user_not_found: classification is by type, so the job ends
+    as internal_error (F-B23-16).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_top_albums_async",
+        new_callable=AsyncMock,
+        side_effect=KeyError("user row not found"),
+    ):
+        await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    assert jobs.progress(job_id)["error_code"] == "internal_error"

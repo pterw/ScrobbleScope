@@ -175,7 +175,18 @@ def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
             _reach_state(page, actions)
             page.locator(selector).type("someone")
             page.locator(selector).blur()
-            page.wait_for_timeout(600)
+            # The verdict arrives after the page's debounce and the stubbed
+            # round trip. Wait for it to be written, bounded, rather than
+            # guess a delay; a page that never writes one still gets read.
+            page.wait_for_function(
+                """({selector, deadline}) => {
+                    const input = document.querySelector(selector);
+                    const error = input.parentNode.querySelector('.field__error');
+                    return Boolean(error && error.textContent.trim())
+                        || Date.now() > deadline;
+                }""",
+                arg={"selector": selector, "deadline": _deadline_ms(page)},
+            )
             state = page.evaluate(
                 """(selector) => {
                     const input = document.querySelector(selector);
@@ -197,6 +208,35 @@ def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
     finally:
         page.unroute("**/validate_user*")
     return failures
+
+
+#: How long a check waits for a request the page is expected to make. The page
+#: debounces a validation by 300 ms; a loaded machine needs far more than the
+#: 100 ms a fixed 400 ms sleep left, and a wait that succeeds costs nothing.
+REQUEST_WAIT_MS = 5000
+
+#: A short fixed wait kept only where a check must prove NOTHING MORE arrives.
+NOTHING_MORE_MS = 150
+
+
+def _deadline_ms(page) -> int:
+    """A ``Date.now()`` value REQUEST_WAIT_MS ahead, read from the page clock."""
+    return page.evaluate("(ms) => Date.now() + ms", REQUEST_WAIT_MS)
+
+
+def _wait_for_held(page, sink: list, count: int) -> None:
+    """Wait, bounded, until ``sink`` holds ``count`` requests, then let it settle.
+
+    Route handlers run while the test thread is inside a Playwright call, so
+    polling with a short ``wait_for_timeout`` lets them append. It returns as
+    soon as the count is reached; the caller's exact-count comparison then
+    reports a shortfall (timeout) or a surplus (the settle below).
+    """
+    waited = 0
+    while len(sink) < count and waited < REQUEST_WAIT_MS:
+        page.wait_for_timeout(25)
+        waited += 25
+    page.wait_for_timeout(NOTHING_MORE_MS)
 
 
 def _collecting_handler(sink: list) -> callable:
@@ -242,11 +282,11 @@ def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]
 
             field.fill("repeated-request")
             field.blur()
-            page.wait_for_timeout(400)
+            _wait_for_held(page, pending, 1)
             field.fill("temporary-request")
             field.fill("repeated-request")
             field.blur()
-            page.wait_for_timeout(400)
+            _wait_for_held(page, pending, 2)
             if len(pending) != 2:
                 failures.append(
                     f"{path} {selector}: expected two overlapping validations, "
@@ -301,7 +341,7 @@ def check_current_validator_failure_replaces_old_verdict(
 
             field.fill("same-request")
             field.blur()
-            page.wait_for_timeout(400)
+            _wait_for_held(page, pending, 1)
             if len(pending) != 1:
                 failures.append(
                     f"{path} {selector}: expected the first validation, held "
@@ -321,7 +361,7 @@ def check_current_validator_failure_replaces_old_verdict(
 
             field.focus()
             field.blur()
-            page.wait_for_timeout(400)
+            _wait_for_held(page, pending, 2)
             if len(pending) != 2:
                 failures.append(
                     f"{path} {selector}: expected a same-name retry, held "
@@ -330,7 +370,19 @@ def check_current_validator_failure_replaces_old_verdict(
                 continue
             pending[1].abort("failed")
             handled.append(pending[1])
-            page.wait_for_timeout(100)
+            # The page writes its verdict once the aborted fetch's catch runs.
+            # Wait for that text, bounded, rather than guess a delay; a page
+            # that never writes it still gets read (and fails below).
+            page.wait_for_function(
+                """({selector, deadline}) => {
+                    const input = document.querySelector(selector);
+                    const error = input.parentNode.querySelector('.field__error');
+                    return Boolean(
+                        error && error.textContent.toLowerCase().includes('unavailable')
+                    ) || Date.now() > deadline;
+                }""",
+                arg={"selector": selector, "deadline": _deadline_ms(page)},
+            )
             state = field.evaluate(
                 """input => ({
                     blocked: !input.checkValidity(),

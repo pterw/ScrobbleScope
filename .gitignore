@@ -61,7 +61,7 @@ coverage.xml
 Thumbs.db
 Backup_batch
 backup.py
-# HANDOFF_PROMPT.md and AGENT_NOTES.md are committed -- shared cross-agent bootstrap.
+# docs/agents/HANDOFF_PROMPT.md and docs/agents/AGENT_NOTES.md are committed -- shared cross-agent bootstrap.
 # MEMORY.md (root) stays local-only: Claude Code auto-memory scratch layer.
 MEMORY.md
 # CLAUDE.md is local-only: Claude Code auto-load convenience; not useful without Claude Code.
@@ -117,6 +117,10 @@ docs/agents/*
 !docs/agents/domain.md
 !docs/agents/ui-accessibility.md
 !docs/agents/global-rules.md
+!docs/agents/PLAYBOOK.md
+!docs/agents/FINDINGS.md
+!docs/agents/AGENT_NOTES.md
+!docs/agents/HANDOFF_PROMPT.md
 
 # Mermaid authoring and preview scratch. Canonical diagrams live in tracked
 # Markdown, which is what GitHub renders; a tracked .mmd would be a second

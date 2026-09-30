@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScrobbleScope Deepening Review 2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:'neutral'});</script>
+<style>body{background:#faf8f3;color:#1a1820}.mermaid{background:#fff;border-radius:.5rem;padding:.5rem}td,th{padding:.35rem .5rem;border-bottom:1px solid #e5e1d8;vertical-align:top}</style>
+</head><body class="max-w-5xl mx-auto px-4 py-8 font-sans">
+<h1 class="text-3xl font-bold">ScrobbleScope: deepening review, second pass</h1>
+<p class="mt-2 text-gray-700">Covers what the first pass skipped (routes, orchestrator internals, the provider contract, cache, worker, app, the results/spotlight/loading scripts, templates) and checks every candidate in the owner's five earlier reports (2026-09-21 x2, 2026-09-23, Control Plane &amp; Strangler, further depth) against HEAD bb4f14c. Evidence: <code>.superpowers/sdd/2026-09-29-pr245-fixes/architecture-walk-2.md</code> (Sonnet walk; the two sharpest claims re-checked by the controller).</p>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<h2 class="text-2xl font-semibold">The earlier reports, eight days on</h2>
+<p class="mt-2">17 candidates: <b>4 done</b> (release-window leaf, thread execution module, job retention, strangler final stages), <b>3 partial</b> (browser test seam, DOC code allocator, provider adapter), <b>5 open</b> (pipeline parameters, job admission, album calculation owns its answer, cache owns its operation, export buffer owner), <b>5 planned</b> in this session's Tasks 22/18/23/24. The first pass's three Strong candidates were all proposed on 2026-09-21/23 and not built: two independent passes converging on the same seams is the strongest evidence they are real. F-B23-22 is exactly the defect the unbuilt "one terminal-outcome seam" predicted.</p>
+<div class="flex gap-2 mt-4 items-end h-24">
+<div class="bg-green-500 w-16" style="height:24%"></div><div class="bg-yellow-400 w-16" style="height:18%"></div><div class="bg-red-400 w-16" style="height:30%"></div><div class="bg-indigo-400 w-16" style="height:30%"></div>
+</div><div class="flex gap-2 text-xs"><span class="w-16">done 4</span><span class="w-16">partial 3</span><span class="w-16">open 5</span><span class="w-16">planned 5</span></div>
+</section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<div class="flex items-center gap-3"><h2 class="text-2xl font-semibold">B-1. The album request module: parse, pre-check, admit</h2><span class="px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-semibold">Strong</span></div>
+<p class="mt-2"><b>Files:</b> <code>routes/album_flow.results_loading</code> (130 lines, eight <code>render_template</code> error returns), <code>_extract_job_params</code>, <code>routes/heatmap_flow._dispatch_heatmap_job</code>, <code>routes/api.validate_user</code>, <code>routes/__init__</code> checks; earlier cards 09-21 #2 (pipeline parameters) and 09-21b #2 (admission as one transaction), both OPEN.</p>
+<p class="mt-2"><b>Problem:</b> parsing, the Last.fm pre-checks and job admission are one inline block. <code>sort_mode</code>, <code>release_scope</code>, <code>decade</code>, <code>limit_results</code> are never validated: a bad <code>decade</code> makes every album fail the release criteria, so the listener sees "no albums" instead of an error. One <code>try</code> wraps the user check, the privacy check and the registration-year hint; an outage in either pre-check is logged as "Registration year check failed ... proceeding" and the job starts anyway (controller verified), while the heatmap route answers 503 retryable. The ten job parameters are then re-passed positionally to the thread although the job record already holds them; admission (cleanup, slot, create, start, delete on failure) is written twice.</p>
+<p class="mt-2"><b>Solution:</b> one module that turns a form into a validated album request or a typed refusal, one Last.fm pre-check answer shared by both routes, and one admission path that reads parameters from the job record.</p>
+<p class="mt-2"><b>Benefits:</b> the owner's "no doomed submission" rule gets one owner and plain unit tests; WP-4 ("through the existing validators") gets validators that exist; the export route reuses it.</p>
+<div class="grid md:grid-cols-2 gap-4 mt-4">
+<div><p class="font-semibold">Before</p><pre class="mermaid">flowchart TB
+F[form] --> R[results_loading: parse + checks + admit]
+R -->|any exception| GO[job starts anyway]
+R -->|10 positional args| T[thread]
+H[heatmap route] --> A2[own checks + own admit]</pre></div>
+<div><p class="font-semibold">After</p><pre class="mermaid">flowchart TB
+F[form / upload] --> P[album request: parse -> request or refusal]
+P --> C[Last.fm pre-check: exists / private / unavailable]
+C --> AD[admission: slot, record, thread]
+H[heatmap route] --> C
+H --> AD</pre></div></div></section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<div class="flex items-center gap-3"><h2 class="text-2xl font-semibold">B-2. Provider failure lines say what failed, not what was searched</h2><span class="px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-semibold">Strong</span></div>
+<p class="mt-2"><b>Files:</b> <code>utils.retry_with_semaphore</code> (<code>error_label</code>), <code>spotify.py</code>, <code>deezer.py</code>, <code>musicbrainz.py</code>, <code>orchestrator/_results.py</code>, <code>api_logging.py</code>.</p>
+<p class="mt-2"><b>Problem:</b> <code>api_logging</code> keeps search terms out of logs on purpose, but three providers build <code>error_label</code> as <code>'{album}' by '{artist}'</code> and the retry helper logs it at ERROR on every failed attempt (controller verified). For an export job those are names from the listener's upload; WP-3's acceptance forbids exactly that. The policy is a convention at seven call sites.</p>
+<p class="mt-2"><b>Solution:</b> the retry helper owns what a provider-failure line may say: callers pass an operation key (e.g. Spotify search) and an opaque item index, never names.</p>
+<p class="mt-2"><b>Benefits:</b> one place to test the privacy rule (capture logs, assert no names); the api_key redaction and this rule sit together.</p>
+<div class="grid md:grid-cols-2 gap-4 mt-4">
+<div><p class="font-semibold">Before</p><pre class="mermaid">flowchart LR
+S[spotify] -->|"'OK Computer' by 'Radiohead'"| U[retry helper]
+D[deezer] -->|names| U
+M[musicbrainz] -->|names| U
+U -->|ERROR line with names| L[(log)]</pre></div>
+<div><p class="font-semibold">After</p><pre class="mermaid">flowchart LR
+S[spotify] -->|op=spotify.search, item 17| U[retry helper: owns the line]
+D[deezer] -->|op key| U
+M[musicbrainz] -->|op key| U
+U -->|no listener data| L[(log)]</pre></div></div></section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<div class="flex items-center gap-3"><h2 class="text-2xl font-semibold">B-3. One album aggregate, one publishing step, both sources</h2><span class="px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-semibold">Strong</span></div>
+<p class="mt-2"><b>Files:</b> <code>orchestrator/__init__</code> (<code>_fetch_job_albums</code>, <code>_process_filtered_albums</code>, <code>fetch_top_albums_async</code>), <code>unmatched.partition_albums_by_threshold</code>, <code>_results._build_results</code>; earlier card 09-23 #1 (album calculation owns its answer, OPEN, F-B23-1).</p>
+<p class="mt-2"><b>Problem:</b> the album aggregate is a dict with magic keys built by an inline loop and read by five functions; the steps after aggregation (publish each threshold exclusion, the "no album passes" terminal) sit in a Last.fm-only function whose contract is a sentinel (<code>None</code> = terminal already written). WP-2 writes a second producer and WP-3's export task would copy both blocks; WP-6 adds fields both producers must keep in step by hand.</p>
+<p class="mt-2"><b>Solution:</b> extend Task 23: from normalized plays, one <code>aggregate</code> producing a typed album aggregate for both sources (two adapters: a real seam), and one publishing step that takes the aggregate and returns eligible albums or a terminal outcome through the job module.</p>
+<p class="mt-2"><b>Benefits:</b> the export pipeline is a new source, not a copy; aggregation is testable without patching the Last.fm fetch.</p>
+<div class="grid md:grid-cols-2 gap-4 mt-4">
+<div><p class="font-semibold">Before</p><pre class="mermaid">flowchart LR
+LF[Last.fm pages] --> AG[inline loop: dict with magic keys]
+AG --> T1[threshold + terminal, Last.fm only]
+EX[export upload] -.->|WP-3 would copy| T1</pre></div>
+<div><p class="font-semibold">After</p><pre class="mermaid">flowchart LR
+LF[Last.fm scrobbles] --> A[aggregate: typed album aggregate]
+EX[export plays] --> A
+A --> P[publish: eligible or terminal]
+P --> J[job module]</pre></div></div></section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<div class="flex items-center gap-3"><h2 class="text-2xl font-semibold">B-4. A statistics module in Python; the browser only renders</h2><span class="px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-semibold">Strong (before WP-6)</span></div>
+<p class="mt-2"><b>Files:</b> <code>static/js/heatmap.js</code> (<code>computeStreak</code>, <code>renderKpis</code>), <code>templates/results.html</code> (Jinja sum of the displayed rows), <code>orchestrator/_results.py</code>, <code>heatmap.py</code>.</p>
+<p class="mt-2"><b>Problem:</b> current streak, best day and daily average are computed in the browser in local time; the results page's "Scrobbles" total is a sum over the rows that happen to be displayed. WP-6 asks for UTC statistics from one pure helper fed by both sources; built as described, the streak would exist twice, and the JS half is testable only in a browser.</p>
+<p class="mt-2"><b>Solution:</b> a Python statistics module (per-day counts or timestamps in, named facts with their population stated out) publishes facts on the job result; templates and scripts render.</p>
+<p class="mt-2"><b>Benefits:</b> plain pytest coverage for every rule, UTC by construction, one population definition per figure.</p>
+<div class="grid md:grid-cols-2 gap-4 mt-4">
+<div><p class="font-semibold">Before</p><pre class="mermaid">flowchart LR
+HP[heatmap.py: counts] --> JS[heatmap.js: streak, best day, average]
+RT[results.html: sum of shown rows] --> V[view]</pre></div>
+<div><p class="font-semibold">After</p><pre class="mermaid">flowchart LR
+ST[statistics module: named facts, UTC] --> JOB[job result]
+JOB --> JS[heatmap.js renders]
+JOB --> RT[results.html renders]</pre></div></div></section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<div class="flex items-center gap-3"><h2 class="text-2xl font-semibold">B-5. Album metadata speaks one encoding</h2><span class="px-2 py-1 rounded bg-green-100 text-green-800 text-sm font-semibold">Strong</span></div>
+<p class="mt-2"><b>Files:</b> <code>enrichment.AlbumMetadata</code>, <code>cache.py</code> (dict reads, positional 9-tuple writes with <code>len(r) &gt; 6</code> branches), <code>orchestrator/_details.py</code> (4-key dict), <code>_deezer_fallback.py</code> (7-key dict), <code>_results._album_provider</code>/<code>_album_url</code>; earlier card 09-21b #1 (provider adapter, PARTIAL) and 09-23 #3 (cache owns its operation, OPEN).</p>
+<p class="mt-2"><b>Problem:</b> the provider contract is real, but after the providers the same six fields are re-encoded three times; two helpers exist only to rebuild fields one dict never carried; a six-tuple branch is reached only by the test that pins it.</p>
+<p class="mt-2"><b>Solution:</b> the cache module takes and returns <code>AlbumMetadata</code>, and owns its connection lifetime and failure policy; results read attributes.</p>
+<p class="mt-2"><b>Benefits:</b> the "shared cache rows hold no listening facts" contract has one write path to inspect; WP-6's per-album durations have one shape.</p>
+</section>
+
+<section class="mt-8 bg-white rounded-xl shadow p-6">
+<h2 class="text-2xl font-semibold">Worth exploring, folded into planned tasks</h2>
+<table class="mt-3 text-sm w-full"><tr><th class="text-left">Candidate</th><th class="text-left">Where it belongs</th></tr>
+<tr><td>B-6 release date takes ten modules to read</td><td>docs + Task 23 (read path)</td></tr>
+<tr><td>B-7 private names cross seams</td><td>Task 23's sweep (already briefed)</td></tr>
+<tr><td>B-8 error-code table has no presentation half</td><td>Task 18 (codes and their messages together)</td></tr>
+<tr><td>B-9 progress vocabulary spelled in eight places</td><td>Task 22 (phases belong to the job module)</td></tr>
+<tr><td>B-10 results row is a DOM-encoded model</td><td>WP-5 design</td></tr>
+<tr><td>B-11 source wording has no owner</td><td>WP-5 (wording by source)</td></tr>
+<tr><td>B-12 starting a job has three shapes</td><td>B-1 (admission)</td></tr>
+<tr><td>B-13 release-scope table restated in prose</td><td>Task 15 cleanup</td></tr></table>
+</section>
+
+<section class="mt-8 bg-indigo-50 border border-indigo-200 rounded-xl p-6">
+<h2 class="text-2xl font-semibold">Top recommendation</h2>
+<p class="mt-2"><b>B-2 first, then B-1</b>, both before any feature work, because both are live defects, not only structure: listener data in ERROR logs, and a pre-check outage or a bad filter that starts a doomed job or shows "no albums" silently. B-2 is small. B-1 is the album request module WP-4 already assumes exists. <b>B-3 joins Task 23</b> (normalized plays and one typed aggregate are one design), <b>B-5 before WP-3</b>, <b>B-4 before WP-6</b>. With the first pass's order (job module, typed failures, persistence, Last.fm scrobbles), the Spotify import then lands on: one job module, one request module, one aggregate, one metadata encoding, one statistics module -- each with a second consumer waiting, which is what makes every one of these seams real.</p>
+</section>
+<p class="mt-6 text-sm text-gray-600">Generated 2026-09-30. Nothing written to the repository.</p>
+</body></html>

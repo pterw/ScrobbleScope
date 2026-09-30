@@ -16,20 +16,35 @@ without any network at all.
 """
 
 import asyncio
+import io
 import logging
+import re
+import sys
+import time
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
-from aiohttp import ClientConnectorError, ClientTimeout, web
+from aiohttp import (
+    ClientConnectorError,
+    ClientResponseError,
+    ClientTimeout,
+    RequestInfo,
+    web,
+)
 from aiohttp.test_utils import TestServer, unused_port
 from yarl import URL
 
 from scrobblescope.api_logging import (
+    RedactingFormatter,
     _call_outcome_line,
+    _emit_summaries,
     _lastfm_method,
+    _on_request_exception,
+    _record,
     provider_for_host,
 )
-from scrobblescope.utils import create_optimized_session
+from scrobblescope.utils import create_optimized_session, run_async_in_thread
 
 
 async def _ok(request):
@@ -261,9 +276,13 @@ async def test_closing_the_session_logs_one_summary_per_provider(caplog):
     summary_lines = _messages(caplog, logging.INFO, "127.0.0.1:")
     assert len(summary_lines) == 1
     message = summary_lines[0]
-    assert message.startswith("127.0.0.1: 3 calls in")
+    assert message.startswith("127.0.0.1: 3 calls over")
     assert "2x200" in message
     assert "1x404" in message
+    assert re.fullmatch(
+        r"127\.0\.0\.1: 3 calls over \d+\.\d+s \(\d+\.\d+s in calls\) -- 2x200, 1x404",
+        message,
+    )
 
 
 @pytest.mark.asyncio
@@ -272,7 +291,96 @@ async def test_a_session_that_made_no_calls_logs_no_summary(caplog):
         async with create_optimized_session():
             pass
 
-    assert _messages(caplog, logging.INFO, "calls in") == []
+    assert _messages(caplog, logging.INFO, "calls over") == []
+
+
+# --- The summary's span vs. its time in calls -------------------------------
+#
+# These four drive ``_record``/``_emit_summaries`` directly against a plain
+# stand-in session object (nothing but something ``setattr`` works on), so
+# the span/in-calls arithmetic is checked deterministically instead of
+# through real (and therefore only approximately controllable) timing --
+# except the last, which proves the real trace hook wires real
+# ``time.monotonic()`` readings through to the same arithmetic.
+
+
+def test_span_is_not_the_sum_of_per_call_durations(caplog):
+    """The owner's misreading: MusicBrainz is throttled a second apart by
+    the global throttle in scrobblescope/utils.py, so its summary must not
+    read as though the provider itself ran faster than that."""
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 0.0, 0.1)
+        _record(session, "X", "200", 10.0, 10.2)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 10.2s (0.3s in calls) -- 2x200"]
+
+
+def test_overlapping_calls_make_time_in_calls_exceed_the_span(caplog):
+    """Concurrent calls (the Spotify search phase) can spend more total time
+    in calls than the span they occupy; that is correct, not a bug."""
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 0.0, 1.0)
+        _record(session, "X", "200", 0.0, 1.0)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 1.0s (2.0s in calls) -- 2x200"]
+
+
+def test_an_exception_ending_after_the_last_success_extends_the_span(caplog):
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 0.0, 0.1)
+        _record(session, "X", "RuntimeError", 0.2, 0.4)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == [
+        "X: 2 calls over 0.4s (0.3s in calls) -- 1x200, 1xRuntimeError"
+    ]
+
+
+def test_span_runs_from_the_earliest_start_when_the_later_call_is_recorded_first(
+    caplog,
+):
+    """A call that starts earlier but is folded in second still opens the span.
+
+    The clock starts far from zero and the later-starting call is recorded
+    first, so a span read as ``end`` alone (106.0s) and one that never moves
+    its start (1.0s) both differ from the true 6.0s (F-B23-31, S1-8).
+    """
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 105.0, 106.0)
+        _record(session, "X", "200", 100.0, 101.0)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 6.0s (2.0s in calls) -- 2x200"]
+
+
+@pytest.mark.asyncio
+async def test_the_span_reflects_real_elapsed_time_between_calls(caplog):
+    """End to end against the real session and trace hook: no upper bound on
+    the span or the in-calls figure (timing-based upper bounds flake), just
+    the lower bound the sleep between the two calls guarantees."""
+    with caplog.at_level(logging.DEBUG):
+        async with _running_server() as server, create_optimized_session() as session:
+            async with session.get(server.make_url("/ok")) as resp:
+                await resp.read()
+            await asyncio.sleep(0.3)
+            async with session.get(server.make_url("/ok")) as resp:
+                await resp.read()
+
+    summary_lines = _messages(caplog, logging.INFO, "127.0.0.1:")
+    assert len(summary_lines) == 1
+    match = re.search(r"over (?P<span>[\d.]+)s", summary_lines[0])
+    assert match is not None
+    assert float(match.group("span")) >= 0.3
 
 
 @pytest.mark.asyncio
@@ -303,3 +411,129 @@ async def test_a_recording_failure_never_fails_the_request(caplog, monkeypatch):
                     assert body == {"ok": True}
             finally:
                 await session.close()
+
+
+_FMT = "%(levelname)s %(message)s"
+
+
+def _record_for(msg, exc_info=None):
+    return logging.LogRecord("t", logging.ERROR, __file__, 1, msg, None, exc_info)
+
+
+def test_redacting_formatter_redacts_a_query_string_key():
+    url = (
+        "https://ws.audioscrobbler.com/2.0/"
+        "?method=user.getinfo&user=x&api_key=SECRET-KEY-1&format=json"
+    )
+    out = RedactingFormatter(_FMT).format(_record_for(f"url='{url}'"))
+
+    assert "api_key=[redacted]&format=json" in out
+    assert "SECRET-KEY-1" not in out
+
+
+def test_redacting_formatter_redacts_a_key_inside_a_traceback():
+    try:
+        raise ValueError(
+            "404, message='Not Found', "
+            "url='https://ws.audioscrobbler.com/2.0/?api_key=SECRET-KEY-2&format=json'"
+        )
+    except ValueError:
+        record = _record_for("failed", exc_info=sys.exc_info())
+
+    out = RedactingFormatter(_FMT).format(record)
+
+    assert "Traceback" in out
+    assert "api_key=[redacted]&format=json" in out
+    assert "SECRET-KEY-2" not in out
+
+
+def test_redacting_formatter_redacts_a_cache_key_spelling():
+    msg = (
+        "Cache hit for https://ws.audioscrobbler.com/2.0/"
+        "_api_key:SECRET-KEY-3_format:json_method:user.getinfo"
+    )
+    out = RedactingFormatter(_FMT).format(_record_for(msg))
+
+    assert "api_key:[redacted]_format:json" in out
+    assert "SECRET-KEY-3" not in out
+
+
+def test_redacting_formatter_leaves_a_line_without_a_key_unchanged():
+    out = RedactingFormatter(_FMT).format(_record_for("Cache hit for user_x"))
+
+    assert out == "ERROR Cache hit for user_x"
+
+
+def test_run_async_in_thread_error_log_never_carries_the_api_key():
+    from yarl import URL
+
+    url = URL(
+        "https://ws.audioscrobbler.com/2.0/?method=user.getinfo&api_key=SECRET-KEY-4"
+    )
+    info = RequestInfo(url, "GET", {}, url)
+
+    async def _raises():
+        raise ClientResponseError(info, (), status=404, message="Not Found")
+
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(RedactingFormatter(_FMT))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        with pytest.raises(ClientResponseError):
+            run_async_in_thread(_raises)
+    finally:
+        root.removeHandler(handler)
+
+    text = stream.getvalue()
+    assert "Error in async thread: ClientResponseError" in text
+    assert "SECRET-KEY-4" not in text
+
+
+def test_run_async_in_thread_error_line_carries_the_class_never_the_message(caplog):
+    async def _raises():
+        raise RuntimeError("failed for 'Zqxv Album' by 'Wjkl Artist'")
+
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(RuntimeError):
+            run_async_in_thread(_raises)
+
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors
+    for record in errors:
+        assert "RuntimeError" in record.getMessage()
+        assert record.exc_info is None
+        assert "Zqxv" not in record.getMessage()
+        assert "Wjkl" not in record.getMessage()
+    # The traceback stays available, but only at DEBUG.
+    debugs = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.DEBUG
+        and r.exc_info
+        and "Async thread traceback" in r.getMessage()
+    ]
+    assert len(debugs) == 1
+    assert debugs[0].exc_info[0] is RuntimeError
+
+
+# --- S1-13: the drain's own cancellations are not provider failures ----------
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_call_logs_at_debug_and_is_not_tallied(caplog):
+    session = SimpleNamespace()
+    params = SimpleNamespace(
+        url=URL("https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks"),
+        method="GET",
+        exception=asyncio.CancelledError(),
+    )
+    ctx = SimpleNamespace(start=time.monotonic())
+    with caplog.at_level(logging.DEBUG):
+        await _on_request_exception(session, ctx, params)
+        _emit_summaries(session)
+
+    assert _messages(caplog, logging.WARNING) == []
+    assert _messages(caplog, logging.DEBUG, "CancelledError")
+    assert _messages(caplog, logging.INFO, "CancelledError") == []

@@ -38,11 +38,19 @@ def test_default_missing_base_preserves_fetch_and_offline_remediation(tmp_path):
             "Verify the local base ref main exists and is current, then rerun the "
             "guard. This guard does not fetch.",
         ),
+        (
+            "origin/bad ref",
+            "Refresh or otherwise verify the selected base ref configured base ref "
+            "exists locally and is current, then rerun the guard. This guard does "
+            "not fetch.",
+        ),
     ],
-    ids=("custom-remote", "local-ref"),
+    ids=("custom-remote", "local-ref", "unsafe-remote-like"),
 )
 def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remediation):
-    """Missing custom and local bases never prescribe the origin remote."""
+    """Missing custom and local bases never prescribe the origin remote, and
+    an unsafe ref never doubles 'base ref' into its own remediation text
+    (F-WORKTREE-3)."""
     repo, responses = repository(tmp_path, base_ref=base_ref)
     responses[("rev-parse", "--verify", f"{base_ref}^{{commit}}")] = fail()
     diagnostics = inspect_worktree(repo, base_ref=base_ref, runner=FakeGit(responses))
@@ -52,7 +60,7 @@ def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remed
 
 def _write_section_three(repo, section_three):
     """Replace the fixture PLAYBOOK with controlled Section 3 content."""
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         f"{section_three}\n\n## 4. Execution log\n",
         encoding="utf-8",
@@ -99,4 +107,26 @@ def test_custom_base_divergence_remediation_names_selected_ref(tmp_path):
         "again, obtain the explicit owner approval required by AGENTS.md, then "
         "realign the named branch and use force-push with lease. This guard performs "
         "none of those actions."
+    )
+
+
+def test_unsafe_base_divergence_remediation_labels_the_ref_once(tmp_path):
+    """Review C4: WT004 handed an already-labelled ref to the remediation,
+    which labelled it again and chose its wording from the label: "verify
+    the local base ref configured base ref is current" for a remote-like
+    ref. The raw ref picks the wording; only the label is printed."""
+    base_ref = "origin/bad ref"
+    repo, responses = repository(tmp_path, base_ref=base_ref)
+    responses[("rev-list", "--left-right", "--count", f"{base_ref}...HEAD")] = ok(
+        "2\t1\n"
+    )
+    responses[("rev-parse", "HEAD^{tree}")] = ok("same-tree\n")
+    responses[("rev-parse", f"{base_ref}^{{tree}}")] = ok("same-tree\n")
+    diagnostics = inspect_worktree(repo, base_ref=base_ref, runner=FakeGit(responses))
+    assert codes(diagnostics) == ["WT004"]
+    assert diagnostics[0].remediation == (
+        "Stop. Reconcile any dirty files, refresh configured base ref, verify the "
+        "trees again, obtain the explicit owner approval required by AGENTS.md, "
+        "then realign the named branch and use force-push with lease. This guard "
+        "performs none of those actions."
     )

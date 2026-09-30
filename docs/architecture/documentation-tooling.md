@@ -5,9 +5,9 @@ worktree-guard, pre-commit, and CI relationships.
 
 ```mermaid
 flowchart TD
-    A[AGENTS.md<br/>rules + Agent skills] --> H[HANDOFF_PROMPT.md]
-    A --> P[PLAYBOOK.md<br/>work order + execution log]
-    A --> F[FINDINGS.md<br/>open defects]
+    A[AGENTS.md<br/>rules + Agent skills] --> H[docs/agents/HANDOFF_PROMPT.md]
+    A --> P[docs/agents/PLAYBOOK.md<br/>work order + execution log]
+    A --> F[docs/agents/FINDINGS.md<br/>open defects]
     A --> SK[docs/agents/<br/>issue-tracker, domain]
     P --> B[BATCHN_DEFINITION.md<br/>scope + acceptance criteria]
     P --> S[SESSION_CONTEXT.md<br/>current-state dashboard]
@@ -30,11 +30,18 @@ flowchart TD
     CLI --> Findings[docsync.findings]
     CLI --> Archives[docsync.archives]
     CLI --> Transaction[docsync.transaction<br/>publish]
-    TOML[.docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
+    TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables,<br/>test_count pin,<br/>untracked_essentials] --> Decl[docsync.declarations]
+    CLI --> Decl
+    CLI --> Parser
+    CLI --> Render
     Integrity --> Decl
     Integrity --> Closeout
+    Integrity --> Findings
     Integrity --> MD[docsync.markdown]
     Decl --> Models
+    Decl --> MD
+    Decl --> Transaction
+    Transaction --> Models
     Integrity --> Logic
     Integrity --> Models
     Integrity --> Parser[docsync.parser]
@@ -47,13 +54,17 @@ flowchart TD
     Archives --> MD
     Archives --> Models
     Archives --> Transaction
+    Findings --> Archives
+    Findings --> Decl
     Findings --> MD
     Findings --> Models
+    Logic --> MD
     Logic --> Models
     Logic --> Parser
     Logic --> Render
     Render --> Models
     Render --> Parser
+    Parser --> MD
     Parser --> Models
 
     D -. reads and rewrites .-> P
@@ -84,6 +95,11 @@ flowchart TD
     Venv --> Types
     Runner --> Types
     Diag[_worktree_guard_diagnostics] --> Types[_worktree_guard_types<br/>stdlib-only leaf]
+    Guard --> EG
+    Inspect --> EG[_worktree_guard_essentials<br/>WT015 untracked-essentials]
+    EG --> Diag
+    EG --> Types
+    EG --> Decl
     Guard -. parses Branch metadata from .-> P
 
     PC[pre-commit<br/>10 hooks] -. first hook, runs .-> PF
@@ -104,12 +120,23 @@ flowchart TD
     FG --> FGLY[_frontend_gate_layout]
     FG --> FGPI[_frontend_gate_pipeline]
     FG --> FGRU[_frontend_gate_runtime]
+    FG --> FGHA[_frontend_gate_heatmap_access]
+    FG --> FGSP[_frontend_gate_spotlight_photo]
+    FG --> FGSI[_frontend_gate_spotify_icon]
+    FGSI --> FGSP
+    FGR --> FGSI
+    FGR --> FGC
+    FGT --> FGC
+    FGLY --> FGC
+    FGU --> FGR
     FGA --> FGS
     FGFM --> FGS
     FGT --> FGS
     FGLY --> FGS
     FGPI --> FGS
     FGRU --> FGS
+    FGHA --> FGS
+    FGSP --> FGS
     FG -. owns its lifecycle .-> APP[Flask on an<br/>ephemeral loopback port]
     FG -. drives .-> CHR[Chromium: every group]
     FG -. drives .-> FFX[Firefox: assets canary]
@@ -118,18 +145,18 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
-The facade re-exports all six guard modules. `doc_state_sync.py` imports only
+The facade re-exports all seven guard modules. `doc_state_sync.py` imports only
 `docsync.cli`; the lower-level package remains acyclic.
 
 **What this machinery is for.** docsync, the worktree guard, and the
 frontend gate are an extractable control plane, not a ScrobbleScope quirk
--- see `AGENT_NOTES.md` "This repository is also a template being
+-- see `docs/agents/AGENT_NOTES.md` "This repository is also a template being
 extracted" for why. Each mechanism reads its facts from repository-local
-configuration (`.docsync.toml`'s declarations, the `[closeout]` and
+configuration (`config/docsync.toml`'s declarations, the `[closeout]` and
 `[archives]` tables, options like DOC011's struck-through convention)
 rather than assuming them, so strictness is a dial this repository sets,
 not a property of the code: which batches face close-out standards, how
@@ -141,20 +168,21 @@ find where to pick up from PLAYBOOK, SESSION_CONTEXT, and what the gate
 currently reports, without depending on continuity from whatever session
 came before it.
 
-## The DOC001-DOC024 catalogue
+## The DOC code catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC024` issues and exits 1 on any
-error-severity one; a warning -- `DOC024`, and `DOC023`'s
-grandfathered-finding count -- prints and leaves the exit code alone. In
-practice the codes that bite most often are `DOC001` (a backticked path
-must resolve in `git ls-files`, so an ignored or untracked document cannot
-be linked to), `DOC006` (every named session test count must match the
-newest full-suite run) and `DOC008` (the findings header count must match
-that same run). Dated log entries are exempt below a declared marker.
+blocks.** It returns typed `DOC001`-`DOC020`, `DOC023`, `DOC024`, `DOC025` and `DOC026` issues
+and exits 1 on any error-severity one; a warning -- `DOC024`, `DOC025`, and
+`DOC023`'s grandfathered-finding count -- prints and leaves the exit code
+alone. In practice the codes that bite most often are `DOC001` (a
+backticked path must resolve in `git ls-files`, so an ignored or untracked
+document cannot be linked to), `DOC006` (every named session test count
+must match the count pinned in `config/docsync.toml`, or the newest
+full-suite run if none has been pinned) and `DOC008` (the same, for the
+findings header). Dated log entries are exempt below a declared marker.
 
 **DOC009 to DOC011 are declared, not hard-coded.** They read
-`.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
+`config/docsync.toml`, so `scripts/docsync/declarations.py`
 is repository-independent and only the declarations are local. Three kinds:
 
 - **DOC009 -- value.** One fact written in several places must still be
@@ -165,7 +193,8 @@ is repository-independent and only the declarations are local. Three kinds:
 - **DOC010 -- anchor.** A cross-reference must resolve to a heading, bold
   section label or list item that exists. The declaration describes the
   *shape* of a citation rather than one citation, so a reference written
-  tomorrow is checked with no new declaration. This is the check that
+  tomorrow is checked with no new declaration. A bold label resolves with its
+  trailing colon ignored (`**Types:**` is cited as "Types"). This is the check that
   `F-STYLE-1` could not be: citing by name does not help when the name moves.
 - **DOC011 -- retired.** A claim that is no longer true must not survive in
   a document that still prescribes behaviour. Dated log entries are exempt
@@ -194,7 +223,8 @@ suppresses the whole rotation rather than repairing a contradiction by guess:
 - **DOC015 -- non-terminal outcome.** A checked finding states exactly
   `resolved` or `no action`; a checked `open` finding is this code.
 - **DOC016 -- completion date.** Checkbox and date must agree, and the date
-  must be a real calendar day written as strict ISO.
+  must be a real calendar day written as strict ISO. An unchecked box whose
+  outcome says `resolved` or `no action` is also this code.
 - **DOC017 -- unexplained no action.** `no action` requires an explanation
   in the finding body.
 - **DOC018 -- duplicate ID.** An F-ID lives in exactly one of the active and
@@ -212,7 +242,7 @@ way. Below the boundary a batch is admitted as it stands; its closure is
 never asked for retroactively. The boundary is one integer, not a list of
 managed batches: a list can be opted out of by omission, and a boundary
 cannot, because a new batch lands above it by arithmetic. This repository
-sets `admit_from_batch = 22` in `.docsync.toml`, because Batches 0-21 closed
+sets `admit_from_batch = 22` in `config/docsync.toml`, because Batches 0-21 closed
 before the six close-out signals existed and requiring them retroactively
 would mean fabricating evidence rather than checking it.
 
@@ -224,10 +254,11 @@ page carries its own header. The gate reports the disagreement and stops; it
 never resolves one by deleting a page or rewriting an index, because either
 side may be the history worth keeping. Bounded archives page at 500 lines
 (`[archives] max_lines`); both that and `[archives] cold_days` are
-`.docsync.toml` defaults, not hard-coded. A finalized page -- one that is
+`config/docsync.toml` defaults, not hard-coded. A finalized page -- one that is
 not the writable tail -- becomes cold-storage eligible only once it is not
 oversized and every entry on it carries an explicit date more than
-`cold_days` days before `--as-of`; a page holding even one undated entry
+`cold_days` days before `--as-of` (default 90: history older than a quarter
+is archive, not context); a page holding even one undated entry
 never ages, however old it is. Cold migration only ever happens under an
 explicit `--cold-storage --as-of <ISO date>` operator action -- ordinary
 `--check`/`--fix` never age a file using today's clock -- and a bounded
@@ -243,6 +274,40 @@ above -- the writable tail is never checked, and neither is a cold or
 oversized page. Neither warning
 writes anything; both are read only by `--check`/`--fix`, which never
 paginate or age a file on their own.
+
+**DOC026 is the unfinished-publication code**, implemented in
+`scripts/docsync/transaction.py`. It blocks while a `.docsync.journal` exists
+at the repository root. A run killed between two writes leaves the only
+copy of the history it was moving in that git-ignored journal, and the corpus
+can look consistent (entries already removed from PLAYBOOK, not yet added to
+the archive), so nothing else notices and a commit of the tree succeeds.
+`--check` reports it and exits 1. `--fix` replays the journal first, under the
+single-writer lock and whether or not it then finds drift, restoring every
+file to its pre-run bytes; it refuses, leaving the journal, if a journalled
+file was edited since. Delete a stale `.docsync.lock` first if no run is
+active.
+`--check` run during a live `--fix` sees the journal and reports DOC026 too;
+that is transient, so re-run it after the fix finishes.
+
+**DOC025 is a warning-only pin-staleness check**, implemented in
+`scripts/docsync/integrity.py`. It fires only when exactly one Section 4
+entry (across every source `latest_test_count_authority` reads) carries the
+newest date and its count disagrees with `config/docsync.toml`'s
+`[test_count]` pin; a same-date tie or an absent pin stays silent. It never
+blocks (Q1 ruling, 2026-09-25). Its message names the declarations file the
+run read, which under `--config` is not `config/docsync.toml`; the
+`--close-batch` admission refusal names it the same way.
+
+**The pin is written only by `--fix --test-count N`**, and only when the
+result can be proven. `_rewrite_test_count_pin` (`scripts/docsync/cli.py`)
+edits one line with two regexes rather than a TOML writer, so a valid file
+can spell the table in ways it does not see: a dotted key, an inline table,
+`[ test_count ]`, a heading on the last line with no newline, an indented
+next heading, a quoted `"pinned"`. Before publishing, it parses the
+rewritten text and compares it with the original: it must be the original
+declarations with only `test_count.pinned` changed. Anything else exits 2
+with the remedy -- write the pin as its own table, `[test_count]` at the
+start of a line and `pinned = N` on the next -- and nothing is written.
 
 **DOC023 is the finding-rot code**, implemented in
 `scripts/docsync/findings.py`. DOC013 to DOC018 only ever examine findings
@@ -260,7 +325,7 @@ remedy is still a `resolved` record. F-B21-13 sat unrotated for weeks written
 that way.
 
 The findings that predate the rule are listed by id under `[findings]
-grandfathered` in `.docsync.toml`, and reported once as a non-blocking
+grandfathered` in `config/docsync.toml`, and reported once as a non-blocking
 warning carrying their live count, derived on every run. A list of ids
 rather than a batch boundary: ids are not ordered, so a source tag like
 `F-DOCSYNC-9` has no batch number to compare and any boundary would
@@ -277,6 +342,39 @@ The DOC codes are defined with their invariants where their checks live:
 `closeout.py` and `archives.py`. Each WT code is defined by the guard module
 that owns its check, spread across `scripts/dev/_worktree_guard_*.py` --
 grep for the code itself instead of assuming a module.
+
+**WT015 warns on a declared, gitignored file the workflow depends on but Git
+cannot protect** (F-B21-25), implemented in
+`scripts/dev/_worktree_guard_essentials.py` and read from
+`config/docsync.toml`'s `[untracked_essentials]` table via
+`docsync.declarations.load_untracked_essentials_config`. It is WARNING-only
+in both directions this guard cannot repair: a missing declared file, and a
+declared path that exists but is a directory rather than a file (CR10) --
+reported distinctly, rather than as "missing", so the reader is not sent to
+restore something already there. A declared path must be written in the
+normalised repository-relative POSIX form (`x.json`, not `./x.json` or
+`a//b.json`); anything else is refused with the spelling to write, so a file
+declared two ways is never reported twice. A malformed `[untracked_essentials]` table,
+or a declarations file that cannot be read or parsed at all (an unreadable
+path, bytes that are not valid UTF-8, or a directory where the file belongs,
+all converted to `DeclarationError` inside `load_declarations` itself so
+every caller benefits), is reported the same way instead of escaping to
+`inspect_worktree`'s fail-closed WT014. That warning carries fixed wording and
+the failure's class only, never the exception text, which holds the file's
+absolute path and raw OS or codec detail; its remediation sends the reader to
+`python scripts/doc_state_sync.py --check`, which prints the full diagnostic.
+The table itself refuses, before the guard sees it, a declared path with a
+backslash, an absolute path or a `..` segment, an empty path or `.` (the
+repository root), and any character `str.isprintable()` rejects -- the guard
+prints the path as a diagnostic subject, and U+2028, U+202E or U+00A0 would
+split, reorder or pad that line. A path declared twice is reported once.
+
+`docsync.logic` and `docsync.integrity` no longer need the deferred,
+deadlock-guarded circular import the two modules once required for
+`SESSION_CURRENT_COUNT_RES` (F-DOCSYNC control-plane close-out): the constant
+now lives in `docsync.parser`, the leaf module both already import at the
+top of the file, so `docsync.integrity` imports `docsync.logic` like any
+other dependency.
 
 ## CLI surface added by the close-out and bounded-archives plan
 
@@ -295,13 +393,45 @@ beyond `--check`/`--fix`:
   ISO; there is no implicit "as of today" mode, so a maintenance run cannot
   silently age files by whatever day it happens to execute.
 
+**`--config PATH`** is an option, not a mode: it overrides which declarations
+file every mode and every check reads, in place of the repository default.
+The path must resolve inside the repository because writing modes include it
+in the publication transaction's source snapshot. An outside path or a path
+that is not a file is refused with exit 2. A missing repository default still
+means nothing is declared; a directory in its place is refused. The
+`[documents]` paths must also stay inside the repository, resolve to five
+distinct live files, including `AGENTS.md`, and be written in the normalised
+repository-relative POSIX form every reader keys documents by: a spelling
+such as `./docs/agents/PLAYBOOK.md` or `docs//agents/PLAYBOOK.md` is refused
+with the spelling to write, because it would miss every lookup and silently
+skip the checks that depend on one. An empty value is refused as empty.
+
+`docsync.transaction.resolve_within` is the publication boundary for every
+path an editable index can name. It refuses `..`, an absolute path outside
+the root, a symlink and, on Windows, a directory junction (which
+`Path.is_symlink()` does not see) at any component, whether or not the leaf
+exists yet; the deepest existing ancestor of the result must also resolve
+inside the root. A `[documents]` path that fails it is a `DeclarationError`,
+never a traceback.
+
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by
 a journal and a lock: the journal records the pre-image of every path before
 the write, so a crash mid-publish is recovered by replaying the journal
 against the on-disk state, and the lock (`.docsync.lock`) prevents two
 publishers from interleaving writes to the same corpus. Neither file is
-meant to survive a clean run; both are gitignored.
+meant to survive a clean run; both are gitignored, which is why `--check`
+raises DOC026 while a journal exists and `--fix` replays it before planning.
+
+The staleness proof compares each file with the bytes the plan *first read*,
+recorded as `cli.py` reads it (`_READ_RECORD`), not with a fresh read taken at
+publish time: a document edited between the plan and the publication sinks the
+run with `Source changed before publication` and nothing is written. The
+declarations file is read by another module, so it is baselined when the
+corpus finishes loading. Every managed document is read through one helper, so
+an undecodable file exits 2 as malformed input rather than raising, and an
+archive page compares equal to its planned bytes whatever its line endings (a
+`core.autocrlf` checkout holds the same pages with CRLF).
 
 **The finding lifecycle format** a finding must carry to become rotation-
 eligible: exactly one checkbox-bearing `**Status:**` line, and, only when
@@ -332,11 +462,17 @@ modes, both wrapping the same real `scripts/doc_state_sync.py --check`:
 **Trusted-execution refusal.** Both modes refuse, before any check runs, a
 commit that touches the docsync control plane itself (`scripts/docsync/`,
 `scripts/doc_state_sync.py`, `scripts/dev/docsync_preflight.py`,
-`.docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
+`config/docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
 in CI, where the index already equals `HEAD`. Grading a corpus against a
 checker mid-change to its own rules is a correctness/trust mismatch, not
 merely a risk to be documented away, so the tool refuses rather than
-guessing which version of the rules should govern.
+guessing which version of the rules should govern. A staged
+`config/docsync.toml` whose only change is the `[test_count]` pin is exempt
+from this refusal (owner ruling 2026-09-26): every ordinary commit that adds
+a test also pins a new count there, and that alone does not change the
+checker's rules. The exemption reads both blobs as UTF-8, whatever the
+locale, and fails closed -- the file counts as control-plane -- when either
+is not UTF-8 or does not parse.
 
 **The one named escape for that refusal is `SKIP=doc-state-sync-check git
 commit`** -- pre-commit's own built-in per-hook skip, naming this hook's id
@@ -381,16 +517,24 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: the checks are grouped by concern across ten
+`dev/worktree_guard.py`: the checks are grouped by concern across thirteen
 `_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
-`_frontend_gate_forms`, `_frontend_gate_layout`, `_frontend_gate_pipeline`,
-`_frontend_gate_results`, `_frontend_gate_runtime`, `_frontend_gate_shared`,
-`_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
+`_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
+`_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
+`_frontend_gate_shared`, `_frontend_gate_spotify_icon`,
+`_frontend_gate_spotlight_photo`, `_frontend_gate_theme`, and
+`_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
-proposed stays a deferred candidate; it would change representation rather
-than location. It starts its own server on an ephemeral loopback port and
-shuts it down in a `finally`, so it needs no separately running app.
+proposed has landed (foundation plan Task 8): a manifest under `config/`
+(`config/frontend_gate_checks.toml`) selects
+which of `CHECKS` run, by name, refusing an unknown name or a disabled
+required check before a browser launches. The decomposition's goal was
+isolating what executes from how it executes, not shrinking
+`_frontend_gate_layout.py`'s size -- selection is a repository fact under
+`config/`, execution stays inside the `_frontend_gate_*` siblings. It starts its
+own server on an ephemeral loopback port and shuts it down in a `finally`,
+so it needs no separately running app.
 
 Pre-commit runs the ten hooks above, including `doc-state-sync-check` (now
 the first hook in the file); CI runs the docsync preflight explicitly, then

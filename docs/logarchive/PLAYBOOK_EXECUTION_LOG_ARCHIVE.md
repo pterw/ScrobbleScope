@@ -1,13 +1,2992 @@
 # PLAYBOOK Execution Log Archive
 
 Purpose:
-- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.
+- Store dated execution-log entries rotated out of PLAYBOOK Section 4.
 - Keep entries in reverse-chronological order (newest first).
 
 Read helpers:
 - `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+
+### 2026-09-30 - Diagrams and README checked against what the PR ships
+
+Side task, no batch tag: the pre-merge pass over the diagrams and README, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Diagrams: every module-level import in `scrobblescope/`, `scripts/docsync/`, the worktree guard and the frontend-gate slices was read by an `ast` walk and compared with the drawn edges; the call paths of both sequence diagrams were read against `orchestrator/`, `heatmap.py` and `routes/`. `runtime-system.md` gained two missing edges (`lastfm.py` to `errors.py`, `cache.py` to `utils.py`) and `delete` in the `jobs.py` interface list. `top-albums-sequence.md` no longer shows `enqueue_release_check` as a `jobs.py` call (it is `release_checks.py`) and records the below-threshold exclusions only after the Last.fm failure check, as `_fetch_job_albums` does. `heatmap-sequence.md`, `development-cycle.md` and `documentation-tooling.md` needed no change. "Last verified" in `docs/ARCHITECTURE.md` is now 2026-09-30.
+
+README: the section on the foundation work describes what the PR ships, in plain prose with no ids or pointers (provider throttling no longer read as "no match", names out of provider failure lines, the fourth Unmatched group, the keyboard heatmap, the spotlight pause, the job module, Repo Assist removed); it says in one sentence that job persistence and the Last.fm restructuring come next. The bare worktree-guard bullet has a body, "Three reasons have shipped" says a fourth comes with this work, and the work-package wording elsewhere in the page is plain.
+
+Dashboard: SESSION_CONTEXT Sections 3 and 4 were compared with source; the `utils.py` line names `log_failure` and `cancel_and_drain`, and "Last updated" is 2026-09-30. The `_search` and `_details` edges the task-18 review flagged were already correct. DEVELOPMENT.md: `--check`, the preflight, the worktree guard and `tailwind_build.py --check` were run and behave as written; the planted-defect demonstrations are scratch-copy runs and were not repeated.
+
+Validation: `pytest -q` -- **2424 passed**.
+
+### 2026-09-30 - Doc and hygiene findings from the third review cleared
+
+Side task, no batch tag: the doc and hygiene findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Code: `cli._snapshot` (the staleness baseline of `--close-batch`) raises `SyncError` on an unreadable file, like `_read_text`, instead of a bare `OSError` traceback. The orphaned gh-aw lock file `.github/aw/actions-lock.json` and its `.gitattributes` line are deleted. Comments only: "for every miss" in the `orchestrator/__init__.py` docstring, and two over-long comment blocks in `tests/test_pipeline_integration.py` rewrapped.
+
+Docs: how an album gets its release date is explained once, in `docs/architecture/runtime-system.md` (it now also holds the old "displayed release year" bullet and names `process_albums` and `_persist_new_metadata`); `_build_results` links to it; the README keeps its own plain summary (owner rule: no pointers in the README). `docs/design/RECONCILIATION.md` still retells the release-date rationale; it is a dated design record, seen and left. The release-scope table is written once, in `domain.release_window`'s docstring, which names the wording sites and says its list is not exhaustive; `_get_user_friendly_reason` and `_get_filter_description` say "wording only" and link to it. The finished plan `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md` (about line 27) says a commit on another branch is refused by the worktree guard; it was seen and left as point-in-time. The ignored local `CLAUDE.md` of the batch worktree was corrected (the guard reports WT003 but the hook is advisory); it is not in the commit.
+
+Bookkeeping: the log archive's heading date is corrected to 2026-09-29 (no DOC025); F-B23-33's problem statement is one sentence; F-B23-29 is closed and its leftovers are F-B23-38; F-B23-39 records the gate's intermittent failures.
+
+New test: `test_snapshot_raises_sync_error_for_an_unreadable_file` (in `TestPublicationSafety`); no existing test was edited or moved.
+
+Validation: `pytest -q` -- **2424 passed**.
+
+### 2026-09-30 - Small frontend findings from the third review cleared
+
+Side task, no batch tag: small frontend findings F-B23-27, F-B23-28 and the frontend part of F-B23-29, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Layout: long artist credits shrink inside their Results cell (`.album-info { min-width: 0 }`); the below-threshold figures wrap below 768px instead of clipping "1234 plays"; four unmatched panels stack in two columns, the release-scope panel spanning the right column and the first, third and fourth panels down the left (a new gate check, `four_panel_stack_failures`, holds the stacking; screenshots at 1280px and 1920px checked).
+
+Behaviour: Escape closes hover and tap heatmap tooltips, and the keyboard tooltip follows a scroll at once (no animation-frame lag); a reduced-motion or single-candidate spotlight card reserves no height, and a rotating one measures without a link it does not own; `pointerenter` needed no seed (Chromium fires it after a layout change; the test says Chromium only, as the behaviour runner drives no other engine). Markup and style: axis labels are `aria-hidden`; one 12px `.provider-badge` rule in the narrow face (gate judge `provider_badge_failures`); `default('', true)` on two data attributes; results.js block-level functions are `const` arrows; dead `content` lookup, `img` reset, per-call `reducedMotion` read and `formatDurationMobile` removed; unresolvable comments rewritten.
+
+Tests: three gate tests that launch Chromium (`test_the_layout_check_keeps_the_rotation_going_and_sees_every_width`, `test_the_hold_check_focuses_then_hovers_and_counts_the_periods`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods`) were unmarked and would have failed CI's `-m "not browser"` coverage step; they carry `@pytest.mark.browser` (with Playwright made to raise, `-m "not browser"` ran 3 failures before and none after). The stale "43 tests" comment in `test.yml` holds no number now.
+
+Edited existing tests: `test_unmatched_view_renders_artwork_in_every_reason_group` (fourth reason, order pinned); `test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration` and the `spotlight()` helper in `results_behavior_tests.py`; `test_the_layout_probe_reads_words_by_the_lines_their_characters_sit_on` (deleted, replaced by a Chromium test of the probe); the `keepRotating` text assertions in three spotlight-photo gate tests (now run the mock in Chromium); `test_a_badge_with_no_narrow_token_to_compare_fails` (pins the message). The gate's `check_unmatched_report` seed carries four digits of plays and its threshold expectation changed with it.
+
+Validation: `pytest -q` -- **2423 passed**.
+
+### 2026-09-30 - One rule decides a failed run; tracebacks kept at DEBUG
+
+Side task, no batch tag: one rule for a failed run and tracebacks kept at DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Run failure: a Top Albums run fails as the retryable `spotify_unavailable` only when Spotify gave nothing for every miss (no token, or every miss a search it did not answer or a matched album whose details it did not answer), nothing was cached before, and Deezer enriched nothing; `_detect_enrichment_total_failure` keeps only the case its rows prove (every album `no_spotify_match`), and a mix with zero results follows the ruling's letter and ends as a success with no albums. A Deezer album body that cannot be read is a miss; a track list that is missing or unreadable keeps the album with no durations. `utils.cancel_and_drain` is public (the private `lastfm` name is deleted); lastfm, the Deezer fallback and the search phase use it, and the details fan-out and the one-by-one details gather in `spotify.py`, which lacked it, now drain too (the search fan-out already did), so no remainder of F-B23-24 is left.
+
+Tracebacks (owner ruling 2026-09-29, "Extend the rule"): `utils.log_failure(message, level)` logs the exception's class at the level and the traceback at DEBUG; it replaces all ten `logging.exception` sites, and the `{exc}` database messages at WARNING (`orchestrator/_cache.py`, `release_checks.py`, `cache.py` incl. the connect retries) follow it. Eight new `# noqa: BLE001` mark the sites ruff no longer sees as logged (two more sit inside `worker.py`'s existing noqa'd except). The rule is added to `docs/agents/global-rules.md` Rule 6. Task 25's "owner question pending" is answered here. Also: `RedactingFormatter`'s docstring is an open list, `retry_with_semaphore`'s docstring is corrected, `api_logging._record` derives elapsed itself, the dead gather path of `fetch_pages_batch_async` is deleted, `test_pipeline_integration.py` cites functions and F-ids instead of stale line numbers, and `docs/architecture/top-albums-sequence.md` states the one rule.
+
+Edited existing tests: `test_progress_cb_none_uses_gather_path` (deleted, replaced by `test_fetch_all_without_a_progress_callback_still_fetches_every_page`), `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (parametrize ids only), the `_record` call sites of four `test_api_logging.py` span tests, and `test_lookup_cached_original_release_failure_is_non_fatal` (asserts the class, not the text).
+
+New tests: `test_fetch_deezer_album_reads_a_strange_body_as_a_miss` (album bodies only), a keep-the-album test for an unreadable track list, `test_one_by_one_details_cancel_and_settle_siblings_on_an_unexpected_error`, and six more sites (both cache.py connect-retry lines, the release_checks persist and connection-close lines, and the schema-out-of-date variants of the three remediation messages) in `test_fail_open_database_sites_log_the_class_only_at_warning`.
+
+Validation: `pytest -q` -- **2410 passed**.
+
+### 2026-09-30 - Tests that fail on the defect they guard
+
+Side task, no batch tag: tests that fail on the defect they guard, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Closes F-B23-31, whose five tests survived the mutant they exist for, and four review minors. Each mutant was planted in a scratch copy and the test shown red; the decisive line of each is in the commit body. S1-7: the results-route spotlight test asserts every seed `image_url` is empty. S1-8: a new test starts the clock at 100, records the later-starting call first and expects a 6.0s span. S1-9: the fetch ledger counts `CancelledError` (four) under `asyncio.timeout(2)`. S1-10: the fixture's Spotify URL is no longer the code's fallback, and two orchestrator tests take `SPOTIFY_ALBUM_DETAILS_MOCK`. S2-24: whole layout objects for a beside and a stacked header, `rocketColor` between stops, and the headline and legend captions. Also: the `private_profile` 403 route case; the frontend gate's spotlight hold check now resizes the card with focus on the link and a linkless candidate (a `keepLink` guard); the unmatched check seeds the fourth reason, `provider_unavailable`, and asserts four panels, its hint and its row note (both run in Chromium only, where the gate runs them; the R6 live probe was red on the planted defect and green, in Chromium and in Firefox by direct run); the docsync close-batch test fails when `_snapshot` reads through `Path.read_bytes`; the `run_async_in_thread` DEBUG record is selected by its message; the two heatmap ordering tests share one helper.
+
+Edited existing tests: `test_results_page_samples_five_unique_artists_from_aggregate_top_ten`, `test_results_job_state_matches_http_status` (a fourth parameter), `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (through `_PageFetchLedger` and `_run_fetch_all_with_raising_page`), `test_run_async_in_thread_error_line_carries_the_class_never_the_message`, `test_process_albums_cache_miss_fetches_and_persists`, `test_process_albums_db_unavailable_falls_back`, `test_close_batch_proves_every_read_source_before_publishing`, `test_the_page_repositions_its_tooltip_before_every_screenshot`, `test_the_settle_wait_runs_before_every_screenshot`, `test_the_hold_check_focuses_then_hovers_and_counts_the_periods`, `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` and `test_a_crashed_page_during_the_hold_wait_propagates` (through `_run_hold`); the fixture `tests/fixtures/spotify_get_album.json` changed its URL, read by `test_spotify_fixture_has_every_field_the_app_reads`.
+
+Validation: `pytest -q` -- **2365 passed**.
+
+### 2026-09-30 - Errors classified by type in both pipelines; an unrecognised error is ours
+
+Side task, no batch tag: typed error classification, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Typed `UserNotFoundError`, `PrivateProfileError` and `ProviderError(source, kind)` replace message substrings: the classifier reads the exception's type only. The album pipeline publishes `internal_error` (not retryable, no exception text) for an exception nothing classifies, as the heatmap does; `jobs.fail_unclassified` and the code `unknown` are deleted. Owner ruling 2026-09-30 (degrade, fail if all fail): a Spotify search, detail call or token request that cannot be answered no longer cancels its siblings or fails the job. That album falls back to Deezer and, if Deezer misses it too, is listed under a new fourth unmatched reason, `provider_unavailable` ("Could not be checked"), never as "no match"; each row's text says which provider was down and which had no match. The job fails `spotify_unavailable` (retryable) only when Spotify answered no search and Deezer enriched nothing. Deezer and MusicBrainz 5xx and timeouts raise `ProviderError` (Deezer: the album is listed unavailable; MusicBrainz caches no finding), and a Deezer search body of an unexpected shape reads as a miss. The retry helper treats only network and JSON-decode errors as "unavailable"; `Retry-After` is parsed defensively and `reraise` narrowed. Also fixed: Deezer track with no title key (Codex 4140219711) and a throttled call read as "no match" (Codex 4140219720). README's Unmatched feature list now names four groups. Closes F-B23-16, F-B23-21 and F-B23-22; files F-B23-37 (P3: a Deezer 200 "busy" body, unverified).
+
+Deviation from the brief: a Last.fm 429 stays `lastfm_unavailable` (the brief said `*_rate_limited`); both are retryable and raising from the page fetch would end partial-page tolerance.
+
+Edited existing tests: `test_fetch_recent_tracks_page_404_raises_user_not_found`, `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (through `_PageFetchLedger` and `_run_fetch_all_with_raising_page`) and `test_page_fetch_reports_a_private_profile_without_retrying` in `test_lastfm_service.py`; `test_classify_exception_to_error_code_spotify_rate_limited` and `test_classify_exception_to_error_code_user_not_found` (typed args) and `test_classify_exception_to_error_code_unclassified_returns_none` (replaced by `..._ignores_message_text`) in `test_orchestrator_helpers.py`; `test_fetch_and_process_unclassified_exception_publishes_unknown` (renamed `..._publishes_internal_error`); `test_user_not_found_crash_publishes_user_not_found` in `test_heatmap.py`; `test_fail_unclassified_keeps_the_raw_text_and_is_retryable` (renamed `test_fail_internal_error_replaces_results_and_is_not_retryable`); `test_search_returns_none_on_non_200_non_429` (500 changed to 404) and `test_search_failure_lines_carry_no_album_or_artist` (expects `ProviderError`) in `test_spotify_service.py`, plus `test_fetch_spotify_album_details_batch_non_200_returns_empty_dict` (500 changed to 400: a 5xx is now retried and reported unanswered); `test_search_failure_lines_carry_no_album_or_artist`, `test_fetch_deezer_album_returns_none_when_album_details_fail` and `..._when_tracks_fail` (renamed `..._raises_unavailable_when_...`) in `test_deezer_service.py`; `test_lookup_failure_lines_carry_no_album_or_artist` in `test_musicbrainz_service.py`; `test_run_spotify_search_phase_all_misses_returns_empty_maps` (unpacks the fourth value) in `test_orchestrator_fetch_spotify.py`; and in `test_routes.py` the shared helper `_seed_every_unmatched_reason` (now seeds a `provider_unavailable` row), used by `test_unmatched_view_row_note_says_what_is_particular_to_the_row`, `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` and `test_unmatched_view_portrait_image_is_not_lazy` (three portraits, not two).
+
+Validation: `pytest -q` -- **2341 passed**.
+
+### 2026-09-30 - Make four gate checks judge what they name
+
+Side task, no batch tag: four frontend-gate checks, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+S4-2: the spotlight photo fade check now keeps the rotation ticking and fails unless a swap fell inside its 1000ms sampling window. S4-5: the unmatched focus-ring check counts only pixels the ring adds (a second shot, still focused, with the ring forced off). S4-6: `_PHOTO_PAINT_JS` intersects every clipping ancestor and flags `clip-path`, and the first photo check now runs the crop judgement too. S4-10: the gate serves threaded, so an idle connection cannot stall a check. The heatmap ring reading is made deterministic (box read before and after the shot, retake on movement, scroll nudge for the tooltip, fonts-and-frames wait) for the 2026-09-29 flake, and the hold check catches only Playwright's `TimeoutError` (Codacy B110). Each changed check was proved on a planted defect, red on the old code and green on the new; a browser test runs the paint probe on a clipping grandparent.
+
+Edited existing test helper: `_crop_overlay_page` in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` (the first photo check now also reads the paint probe and the new sample shape), used by `test_a_pseudo_element_scrim_and_a_transform_animation_are_reported`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods` and `test_the_first_photo_check_also_judges_the_crop`. Filed F-B23-36 (P3: S4-3, S4-4, S4-7, S4-8, S4-9, S4-11, the tooltip note, the flake as fixed by inference).
+
+Validation: `pytest -q` -- **2277 passed**.
+
+### 2026-09-29 - Second architecture review tracked and scheduled
+
+Side task, no batch tag: the second deepening review of the codebase is tracked at `docs/history/reports/architecture-review-20260930-0040.html`, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The review walked the routes, the orchestrator's phase modules, the provider contract, the cache, the worker and the results, spotlight and loading scripts, and checked every candidate in the five earlier architecture reports against the code: four done, three partial, five open, five already planned. Two findings are live defects, confirmed by reading the code: three providers log the album and artist they searched for at ERROR level, against the logging module's own rule; and the album route's single `try` treats an outage in the user or privacy check as a failed registration-year hint and starts the job anyway. Four album filters (`sort_mode`, `release_scope`, `decade`, `limit_results`) are never validated.
+
+Section 3 now says that these seams come before the Spotify import and which work package each one gates. The owner added the report to `docs/history/reports/`; no code changed.
+
+Validation: `pytest -q` -- **2223 passed**.
+
+### 2026-09-29 - The job module gives a job's life one interface over a storage seam
+
+Side task, no batch tag: the job module (`scrobblescope/jobs.py`), a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+A job's rules (one ending, results or an error; the lease renewed only by writes; results and 100% in one write) lived in seven callers of `repositories.py`, and F-B23-22 was the proof: two pipelines, two failure answers. They now live in `jobs.py`: `create`, `advance`, `report_phase`, `record_stat`, `record_unmatched`, `succeed`, `update_result`, `fail`, `fail_unclassified`, `reset`, `mark_interrupted` and the reads, over a `JobStore` seam with one adapter, `MemoryJobStore` (the old dict, lock and TTL). Task 20 adds the Postgres adapter and reruns the same `tests/test_jobs.py` suite through its `STORE_FACTORIES`. `repositories.py` is deleted with no shim and every caller, including the eight frontend-gate modules, is migrated. The progress vocabulary is folded in: five named bands replace the `phase` literals and the `base + int(span * done / total)` arithmetic, and both Last.fm callbacks take three arguments, so `_notify_progress_cb`'s signature sniffing is gone. `job_interrupted` joins `ERROR_CODES`. Percent values are unchanged.
+
+Owner ruling (2026-09-29): seam commits may edit existing tests, and each edited test is named in the commit body; `BATCH23_DEFINITION.md`'s compatibility list, F-B23-1 paragraph and Acceptance bullet are amended to say so (Part A's own line is left as written). Edited existing tests: call sites and patch targets only, plus the assertions dropped or changed, each named in the commit body with where it is still guarded: `test_progress_callback_sends_correct_percentages` (the 100% dict, the error keys and the 0% init dict), `test_happy_path_stores_correct_result_dict` (`succeed` writes the results and 100% as one write) and `test_seed_spotlight_job_seeds_several_artists_and_marks_it_done` (the separate 100% write); the Last.fm progress callback also takes three arguments. `tests/test_repositories.py` keeps only its database-helper tests; its job tests moved to the new `tests/test_jobs.py` (45 tests), and one test was renamed. Not done here: `mark_interrupted` is not wired at startup (Task 20 wires it with the database adapter); `fail_unclassified` keeps F-B23-22 open. Test modules 81 to 82.
+
+Validation: `pytest -q` -- **2254 passed**.
+
+### 2026-09-29 - Refuse a stale or unfinished docsync publication; ignore CRLF in archives
+
+Side task, no batch tag: docsync publication safety and CRLF archive drift, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+An interrupted publication leaves history only in the git-ignored `.docsync.journal` and both modes used to exit 0 (S3-2). New DOC026 makes `--check` exit 1 while the journal exists, and `--fix` replays it first, under the lock, restoring every file to its pre-run bytes; it refuses if a journalled file was edited since. Chose recovery on the next run over reordering the writes, since restoring pre-run bytes and re-planning cannot lose history for any file mix. Publication now compares against the bytes each file had when the plan first read it, so a concurrent edit is refused and nothing is written (S3-3). `ArchiveStore._diff` folds CRLF to LF, so a CRLF checkout of a paginated archive is not drift while a real content change still is (S3-7). Non-UTF-8 documents exit 2 with a diagnostic (S3-1), a path outside the repository is named instead of crashing (S3-4), and an unchecked box whose outcome says resolved or no action is DOC016 (S3-6). Review minors fixed here: a test for the state a real kill leaves (journal and stale lock), the DOC016 and DOC026 catalogue text, and `_snapshot`, so the baseline loop no longer makes the read-coverage test true by construction.
+
+Edited existing tests: `test_close_batch_proves_every_read_source_before_publishing` (also records `Path.read_bytes`, since documents are read as bytes) and `test_stated_catalogue_helper_rejects_a_mismatched_list` (the sentence gains DOC026). Closed F-DOCSYNC-19; filed F-B23-35 (P3, S3-5, S3-8, the `.gitattributes` guard). No new test module.
+
+Validation: `pytest -q` -- **2252 passed**.
+
+### 2026-09-29 - Repo Assist removed; CI job holds no provider secrets
+
+Side task, no batch tag: removing the Repo Assist workflow and CI's provider secrets, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Owner ruling (2026-09-29): Repo Assist is not configured properly and is dropped; CI is robust without it. `repo-assist.md`, `repo-assist.lock.yml`, the README sentence and the Repo Assist assertions in `tests/test_ci_workflows.py` are gone, and the S6-2 hardening (a docsync.toml guard for its PRs) is not built. S6-1 stays: `test.yml` no longer passes LASTFM_API_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET or SECRET_KEY at job level. No step reads a real key: `conftest.py` and `frontend_gate.py` supply placeholders, and a step that ever needs one takes it in its own `env:`. Proved by running the suite and the frontend gate with the four variables unset. The two comments that said CI passes the keys from repository secrets are corrected.
+
+Edited tests: every test in `tests/test_ci_workflows.py` asserted on the Repo Assist workflow, so the module is rewritten around `test.yml`: `test_test_job_env_passes_no_secret` (job-level env carries no secrets reference) and `test_env_reader_flags_a_secret_and_a_missing_block`. Filed F-B23-32, F-B23-33 and F-B23-34 (P3, S6-3, S6-4, S6-5). Owner action: delete the Repo Assist repository secrets (for example CODEX_API_KEY, COPILOT_GITHUB_TOKEN) in GitHub settings if nothing else uses them.
+
+Validation: `pytest -q` -- **2238 passed**.
+
+### 2026-09-29 - Provider-failure docstring made true; async-thread traceback kept at DEBUG
+
+Side task, no batch tag: the `RedactingFormatter` docstring corrected and `run_async_in_thread`'s traceback moved to DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The land review found the docstring still said `run_async_in_thread` writes the api_key in its message; it now names its DEBUG traceback and `get_cached_response`'s debug line as the two remaining sites. Per the owner's Q5 ruling (2026-09-29, "At ERROR, log the exception type only; the full traceback goes to DEBUG"), `run_async_in_thread` keeps its class-only ERROR line and adds a DEBUG line with `exc_info=True`. The caplog test `test_run_async_in_thread_error_line_carries_the_class_never_the_message` now asserts the ERROR record has no exception info or message and a DEBUG record carries the traceback; proven red with the DEBUG line removed.
+
+Validation: `pytest -q` -- **2242 passed**.
+
+### 2026-09-29 - Provider failure lines name the operation, never album, artist or track
+
+Side task, no batch tag: provider failure log lines carry an operation key and an exception class, not names, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Architecture pass 2, B-2: `retry_with_semaphore` was handed a free `error_label` built from album and artist, and logged it and the exception message at ERROR, so Spotify, Deezer and MusicBrainz failures wrote the listener's names (and aiohttp's request URL) into the logs. The helper now owns what a failure line may say: callers pass an operation key (`spotify.search`, `deezer.album_tracks`, `musicbrainz.lookup`, `lastfm.page <n>`) and each line reads `Error in <key>: <ExceptionClass>`, the message dropped. The Spotify 429 warning, both artist-spotlight warnings (`spotify.py`, `routes/api.py`), the registration-year warning in `routes/album_flow.py` and the `_results.py` skip debug line follow the same rule. `api_logging.py`'s docstring names the helper as the enforcement point.
+
+Same class, found on landing: `lastfm.py` logged `body[:200]` on an unexpected status and on invalid JSON, and a recenttracks body carries track, artist and album names; both lines now give status, byte length and content type only. `run_async_in_thread` logged `str(e)` with a traceback at ERROR; it now logs the class only, at ERROR without a traceback.
+
+One caplog test per provider, per helper, per Last.fm line, for `run_async_in_thread`, the `_results` line and the two route lines, each proven red with the old line restored. Edited existing tests, all of which asserted leaked content: the Last.fm page-failure label (`test_lastfm_service.py`), the Last.fm invalid-JSON body quote (same file), the Spotify spotlight network-error message (`test_spotify_service.py`), and the `run_async_in_thread` redaction test (`test_api_logging.py`, which no longer sees a message to redact and now asserts the class line and the absent key).
+
+Known, not fixed: `spotify.py` logs the provider response body on a batch failure (neither a name nor an exception message); the `logging.exception` sites that format only a Last.fm username still write tracebacks that carry `str(exc)` (owner question pending: extend the rule to tracebacks?).
+
+Validation: `pytest -q` -- **2242 passed**.
+
+### 2026-09-29 - Spotify attribution holds in exports and forced colours; each link names its own provider
+
+Side task, no batch tag: keeping the Spotify icon in the saved image and in forced colours, and naming each provider on its own link, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+S2-4 and S2-19: the "Save image" JPEG carried the Spotify icon at about 12px in Firefox (html2canvas paints a raster `<img>` in the clone at half size there; the raster itself was right). `results.js` now awaits `icon.decode()` on each shown icon, draws a raster at three times the box, and in `onclone` swaps the `<img>` for a `<canvas>` at the on-page box size; a failed decode aborts the export with an error toast, so there is no silent success without attribution. S2-11: `results.css` picks the icon file from `prefers-color-scheme` under `forced-colors: active`, not from the saved theme. S2-26: both icon `<img>` tags carry `width="236" height="225"` (the file's viewBox), so the line does not shift when the SVG arrives. S2-15: `results.js` builds one album-link tooltip per provider from the row's `data-provider` (Spotify keeps `album-link-tooltip`, others get `album-link-tooltip-<provider>`), and each link's `aria-describedby` names its own provider. S2-5: `unmatched.html` gives a coverless row with a non-Spotify provider the plain placeholder, with no artist-portrait slot, and the page attribution no longer counts such a row as Spotify content.
+
+Two new frontend-gate checks, `export keeps spotify icon size` (Chromium and Firefox; measures the icon in the exported image at >= 21px) and `spotify icon follows system under forced colors` (Chromium). The gate is now 45 checks (measured after Task 10's check landed). Live probes: with the old `results.js` the export check is red in Firefox (`JPEG export shows the Spotify icon at 12.0x12.3px, below the 21px minimum`) and green in Chromium; with the old `results.css` the forced-colours check is red for both the system-light and system-dark cases; restored, both are green. One new `results_behavior_tests.py` test (`test_tooltip_names_the_provider_each_link_opens`) fails on the old JS, and 3 new tests in `tests/test_routes.py` fail on the old templates. No existing test edited.
+
+Known limits: the Firefox canary now also runs the results-page export check (about 5s more). Forced colours is checked in Chromium only. Legacy unmatched rows with an empty provider still show a Spotify portrait, because they have no provider to exclude; only rows naming another provider get the placeholder.
+
+Validation: `pytest -q` -- **2233 passed**.
+
+### 2026-09-29 - The spotlight holds still while its link has focus or the pointer
+
+Side task, no batch tag: pausing the artist spotlight rotation while its link has focus or the pointer is over it, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The 7s rotation used to rewrite the Spotify link's target while a keyboard user had it focused, and when the next artist had no link the focused link was hidden and focus dropped to `<body>`. `static/js/results-spotlight.js` now skips a tick while the pointer is over the card (`pointerenter`/`pointerleave`) or `card.contains(document.activeElement)`; reading `activeElement` instead of `focusin`/`focusout` with `relatedTarget` gives the same result for moves inside the card and stays right when the window loses focus. `reserveCardHeight` (the height reserve) skips the link while focus is in the card, so its measuring pass never hides or retargets a focused link. Reduced motion is unchanged. New frontend-gate check `check_artist_spotlight_holds_still_while_focused_or_hovered` (Chromium and Firefox) counts ticks in `window.__spotlightTicks`, waits for 3 with no fixed sleep, then asserts focus, href, label and artist are unchanged for keyboard focus and then pointer hover; 4 new tests in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py`, no existing test edited, and a `DEVELOPMENT.md` bullet.
+
+Live probe (R6, code phase): with the pause removed the check went red in Chromium (`spotlight hold (focus): label changed from 'View Godspeed You! Black Emperor on Spotify ...' to 'View Sufjan Stevens ...'`, and the same for pointer); restored, it is green. Mutating `if passed < HOLD_PERIODS` to `if False` fails 2 unit tests. Known limit: the mock gives every candidate a link, so the gate cannot show the no-link-candidate-while-focused variant directly; the pause guards it.
+
+Validation: `pytest -q` -- **2230 passed**.
+
+### 2026-09-29 - User checked before privacy; only a public verdict cached; payload edge cases
+
+Side task, no batch tag: checking the user before privacy, caching only a public verdict and handling Deezer and Last.fm payload edge cases, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+`results_loading` now asks `check_user_exists` first, so a missing user gets "User 'x' was not found on Last.fm." (a 200 re-render of `index.html`, accepted: it matches this route's other form errors) and the privacy check never runs for it. `check_profile_is_public` never caches a private verdict (error 17 in a 200 counts as private), caches only a body with a `recenttracks` dict, and treats a cache hit as public; `check_user_exists` maps error 6 in a 200 to not found and caches only a body with a `user` dict. A new `private_profile` code in `ERROR_CODES` (lastfm, not retryable) is raised by `fetch_once` on a 403 or error 17 without retry, classified through `errors.PRIVATE_PROFILE_MARKER`; the album results page answers it with a 403 and a "make listening public" detail. Browser check: `heatmap.js` and `loading.js` read the server's `retryable` flag and message, keep no code-to-message map, so nothing changed there. `fetch_deezer_album` skips a null or non-text track title; the Deezer fallback tasks run under try/finally `_cancel_and_drain` (no TaskGroup). `_normalise_track_list` turns a lone `track` object into a list before `_is_well_formed_page`, which now refuses any other non-list `track`. A cancelled request logs at DEBUG and is not recorded. New edges `lastfm -> errors` and `_deezer_fallback -> lastfm` are in the SESSION_CONTEXT graph. Closes F-B23-23, F-B23-24 and F-B23-30. Tests added in five existing modules, none edited; mutation-checked. Last.fm errors 10 and 26 remain unverified.
+
+Validation: `pytest -q` -- **2223 passed**.
+
+### 2026-09-29 - Spotlight artist name reads whole at every width; card height fixed
+
+Side task, no batch tag: giving the spotlight artist name a whole line and holding the card height, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+From 1024px to about 1230px the name got a 46-110px column beside the fixed photo and broke inside words (S2-1), and the card changed height between candidates so the sticky rail jumped every 7s (S2-10). `.spotlight-card-content` now wraps and `.spotlight-details` has a flex basis, so the details drop under the photo whenever the card cannot give the name that column; the line-count `min-height` is deleted. `results-spotlight.js` `reserveCardHeight` renders each candidate once, measures the card and holds the tallest as `min-height`; `watchCardLayout` re-runs it when the card width changes and when fonts load. Photo rules and the 4px/8px radius step are unchanged. A new frontend-gate check, `artist spotlight name whole and card height fixed`, runs at 320, 390, 1024, 1180 and 1920px plus a 1024 to 1920 resize and fails on a mid-word break or a card height that varies across candidates. Live probe: with the old CSS the check fails in both browsers (`the name of 'Radiohead' breaks inside the word 'Radiohead'` at 1024px); with the old JS it fails (`the card height changes between candidates`); with `watchCardLayout` removed it fails after the resize. Tests: 7 new in `test_frontend_gate_spotlight_photo.py`, no existing test edited. A name needing more than two lines at the narrowest widths is still clamped (`line-clamp-2`, full name in `title`).
+
+Validation: `pytest -q` -- **2207 passed**.
+
+### 2026-09-29 - Heatmap strip scrolls under a swipe; one owner for the tooltip
+
+Side task, no batch tag: letting a swipe scroll the heatmap strip and giving its tooltip one owner, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The per-cell `touchstart` in `static/js/heatmap.js` is now passive and only records the start point; the single document `touchend` listener decides a tap (moved at most 10 px, same cell, touchend cancelled to suppress emulated mouse events) and hides the tooltip otherwise, so a swipe is never cancelled. One `tooltipOwner` (hover, focus or tap) now owns the tooltip: focus owns it only under `:focus-visible`, scroll hides a hover or tap owner and repositions a focus owner, resize repositions or hides it, Escape hides it, and a handled key that moves nothing re-runs the ring decision. The tooltip is `position: fixed` in `static/css/heatmap.css` so it cannot widen the page. Two new frontend-gate checks cover it (`heatmap touch swipe scrolls and tap shows tooltip`, `heatmap tooltip has one owner`; 41 checks). No test module added or removed.
+
+Validation: `pytest -q` -- **2195 passed**.
+
+### 2026-09-29 - The stale-progress gate check replaces the job inside one page, so it can fail
+
+Side task, no batch tag: making the frontend gate's stale-progress check able to fail, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The `pipeline state machines` check held the old job's first `/progress` request, then opened a new document for the replacement job, so the held response could never reach the guard in `heatmap.js` `pollProgress`; a request that never arrived also passed silently. The check now loads the old job once, holds its first poll (failing explicitly if none arrives), stubs the retry POST with a replacement job id, clicks the page's own Retry button so `currentJobId` changes in the same document, and only then fulfils the held response with stale progress and asserts it is not shown. Live probe: with the guard in `heatmap.js` replaced by `if (false) {`, the gate fails with `stale out-of-order progress response regressed aria-valuenow`; with the guard intact it passes. `heatmap.js` is unchanged. Tests: the replaced-job test is rewritten and a no-request test added.
+
+Validation: `pytest -q` -- **2191 passed**.
+
+### 2026-09-29 - Eleven findings filed from the third review of PR #245
+
+Side task, no batch tag: filing the third review's open findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Eleven findings filed from the third review of PR #245: F-B23-21 to F-B23-31. They cover the Last.fm `reraise` breadth, the album pipeline's unclassified fallback (owner decision), the privacy-verdict caching and missing `private_profile` code, the Deezer null title, the mobile heatmap sizing, the unverified spotlight artist name, the two results and unmatched column defects, one cleanup bundle, the single-object Last.fm page, and the tests that survive their defect. F-B23-16 and F-B23-20 gain cross-references. Nothing closed; the archive is untouched. Docs only.
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - README corrected on where the Spotify icon appears
+
+Side task, no batch tag: correcting the README's claim about where the Spotify icon appears, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The README's feature list said Spotify content is attributed "once per list". The icon partial is included twice in `results.html` (the list and the artist spotlight) and once in `unmatched.html`, so the bullet now names the Results and Unmatched pages and the artist spotlight. No code changed.
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - Architecture diagrams re-verified against source
+
+Side task, no batch tag: re-verifying the architecture diagrams against the source, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The runtime diagram gains `heatmap.py` -> `errors.py` and `app.py` -> `api_logging.py`. Both sequence diagrams now draw the private-profile refusal (HTTP 403, Last.fm error 17). The development-cycle page says CI picks browser tests by marker, not folder. The control-plane diagram gains twelve docsync import edges it lacked. SESSION_CONTEXT Sections 3-4 gain `enrichment.py`, `deezer.py` and `orchestrator/_deezer_fallback.py` and lose a `repositories.py` -> domain edge that no import makes. No code changed.
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - DEVELOPMENT.md shows each tool in action
+
+Side task, no batch tag: rewriting DEVELOPMENT.md so each tool is shown running, in plain English, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+DEVELOPMENT.md now opens with what the guide is for and shows each tool (docsync check and fix, the commit preflight, the Tailwind build and drift check, the frontend gate, archives) running, with captured output, and prose cut to plain English. Live counts are elided in quoted output (`<N>`, `<M>`) so no figure goes stale, and the `--fix --test-count N` example names no number. The DOC024 and archive-pagination sentences cite `AGENTS.md` "Doc Sync Rules" and `docs/architecture/documentation-tooling.md`. All declared anchors are kept.
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - README shows the incoming foundation work in plain prose
+
+Side task, no batch tag: rewriting the README for a human reader, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The README now describes the incoming WP-0 work (what a listener notices, what an engineer notices), the September releases and the Spotify export plan. The wording follows the tree: Repo Assist adds missing tests and proposes dependency updates as draft PRs; the Spotify icon appears on Results, Unmatched and the artist spotlight; the gate claim covers only the checks the batch changed; the third review is described as still open on its frontend side. The review-fix commits land in PR #245 itself, so the README names no stacked PR. The retry-helper bullet was rewrapped without changing a word.
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - Bold-label citations resolve and archives age at 90 days
+
+Side task, no batch tag: resolving a citation of a bold label ending in a colon, and ageing archive pages at 90 days, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Controller finding X-1: `declarations._headings` indexed `**Co-author prohibition:** Do NOT ...` in `AGENTS.md` only as "Co-author prohibition:" (colon included), because the label-tail pattern needs whitespace after the colon and the rstrip set had no colon. A citation of "Co-author prohibition" therefore failed DOC010. The heading now also indexes the label with its trailing colon stripped; the three existing forms are unchanged. The DOC010 entry in `docs/architecture/documentation-tooling.md` says so.
+
+Owner ruling 2026-09-29, "update the 365 day cold storage rule to 90 days": `DEFAULT_ARCHIVE_COLD_DAYS` and `[archives] cold_days` in `config/docsync.toml` are now 90, and `documentation-tooling.md` states the default and why (history older than a quarter is archive, not context). `--check` never ages pages, so nothing else moves.
+
+Tests: two new tests in `tests/test_docsync_declarations.py` (the colon label resolves; a non-existent name still reports one DOC010 issue) and `test_default_cold_days_is_ninety` in `tests/test_docsync_archives.py` (91 days ages, 89 does not). Two existing tests were edited for the new default: `test_cutoff_is_strict` (page date moved to exactly 90 days before as-of) and `test_cold_days_is_configurable` (page date moved to 45 days before as-of).
+
+Validation: `pytest -q` -- **2187 passed**.
+
+### 2026-09-29 - Retry-After is capped and the last try never sleeps
+
+Side task, no batch tag: capping the Retry-After sleep and dropping the sleep after the final attempt, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Review finding S1-3 (P1): `retry_with_semaphore` slept whatever `Retry-After` a provider sent, up to `retries` times, while the job thread held one of the `MAX_ACTIVE_JOBS` slots. Spotify sends 12-18 hour values under extended rate limits, so three sleeps outlived the 2-hour job record and the slot stayed held. New `config.MAX_RETRY_AFTER_SECONDS` (env, default 30): a larger value logs one WARNING (label, value, cap) and returns `default` at once, no sleep and no more attempts; at or below the cap it sleeps as before. The helper also no longer sleeps after the final attempt, on the Retry-After path or the backoff path. The header parse (S1-4) and a user-facing rate-limited code are separate findings. README and SESSION_CONTEXT name the cap; `.env.example` lists the optional variable.
+
+Tests: six new tests in `tests/test_retry_with_semaphore.py` cover the cap, the value at the cap, the cap read from `utils`, two backoff sleeps for three failures, and no sleep after a rate limit on the final attempt. No existing test was edited.
+
+Validation: `pytest -q` -- **2184 passed**.
+
+### 2026-09-29 - A malformed Last.fm page is retried and counted as dropped
+
+Side task, no batch tag: retrying a malformed 200 page and counting it as dropped, a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Review finding S1-2 (P1): `fetch_recent_tracks_page_async` returned any body that parsed as JSON as a success, so an error payload served as a 200 on page 2..N was fetched once, never retried and counted as received: the job said `ok` with up to 200 scrobbles missing, and a `[]` body reached the aggregators and crashed them. `fetch_once` now treats a page that fails `_is_well_formed_page` like a non-200 response: one WARNING naming the page and the defect class (never the body), `None`, retried, and dropped and counted in `pages_dropped` if it stays bad. Finding S1-12: page 1 is checked by the same helper in `fetch_all_recent_tracks_async`, replacing the inline check that raised `TypeError` on a scalar body and the weaker second try block. No check was added on `recenttracks.track`: Last.fm can serve one track as an object, a separate matter. README and `top-albums-sequence.md` say a malformed page counts as a failed attempt.
+
+Tests: the two tests that pinned the old contract (`test_fetch_recent_tracks_page_retry_after_malformed_page_reaches_network`, `test_fetch_recent_tracks_page_does_not_cache_a_malformed_page`) now expect `None` and the retry count; new tests cover recovery inside one call, the partial outcome through `fetch_all_recent_tracks_async`, and scalar and list page-1 bodies.
+
+Validation: `pytest -q` -- **2178 passed**.
+
+### 2026-09-29 - Last.fm api_key redacted from every log line
+
+Side task, no batch tag: redacting the Last.fm `api_key` in every log line (review finding S1-1), a fix from the third review of PR #245, on the review-fix branch stacked on the WP-0 branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+aiohttp puts the full request URL, query string included, into `str(exc)`, and four sites logged it: `utils.run_async_in_thread` (message and traceback), the registration-year warning in `routes/album_flow.results_loading`, `utils.retry_with_semaphore`'s connect-timeout error line, and `utils.get_cached_response`'s debug line (the cache key embeds the URL). A POST to `/results_loading` with an unknown username wrote the key twice at production log level. `api_logging.RedactingFormatter` now replaces the value after `api_key=` or `api_key:` with `[redacted]` in any rendered line, traceback included, and `app.py` sets it on both log handlers. The trace hook's query exclusion stays the first layer. The check_* functions, the cache key and the route's missing `exists` check are unchanged. Five new tests in `tests/services/test_api_logging.py` and one in `tests/test_app_factory.py`, which checks both the rotating file handler and the stdout handler.
+
+Validation: `pytest -q` -- **2173 passed**.
+
+### 2026-09-29 - Spotlight box comment and one finding sentence corrected
+
+Side task, no batch tag: two text corrections from the review of the previous commit, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The comment inside `.spotlight-image-box` in `static/css/results.css` now puts each fact at its own width: 7rem below 768px, 9rem from 768px, and the corner 4px below 1024px and 8px from it. It had read as if the box grew at 1024px. F-B23-19 no longer says Spotify often serves 640x427, which had no source; it says the review's case was 640x427. No rule or test changed.
+
+Validation: `pytest -q` -- **2167 passed**.
+
+### 2026-09-29 - Stale dashboards corrected and the review's findings filed
+
+Side task, no batch tag: a documentation truth wave and five new findings from the second code review of PR #245 (Section H, and the findings to file from every section), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+SESSION_CONTEXT's structure list and dependency graph now match the source: the Spotify icon slice of the frontend gate and its edges (from `frontend_gate.py` and `_frontend_gate_results.py`), the results slice's other imports, and the docsync modules `markdown`, `transaction`, `archives`, `closeout` and `findings` with every edge read from each module's own import lines. The control-plane diagram in `docs/architecture/documentation-tooling.md` gains the icon slice's class and the edges from the results slice to it and from the results, theme and layout slices to the colour slice.
+
+Smaller corrections: the README's provider-log sentence names Last.fm's `method` value as the one query parameter a line carries; the `heatmap_task` docstring says a failure is classified before it falls back to `internal_error`; the results spotlight comment says its 8px corner starts at 1024px; DEVELOPMENT.md no longer says "This session". FINDINGS.md: F-B23-9 (open, P1) moved under the P1 heading, and the line-number citations in F-B21-57, F-SWE-3, F-SWE-7 and F-DOCSYNC-14 are now names.
+
+Filed: F-B23-16 (the error classifier's bare substrings), F-B23-17 (a Validation line with no digit passes `--check`), F-B23-18 (unmatched portraits with no link to Spotify, P1), F-B23-19 (letterboxed spotlight photo corners) and F-B23-20 (the spotlight waits for every candidate).
+
+Validation: `pytest -q` -- **2167 passed**.
+
+### 2026-09-29 - Frontend gate checks that could not fail now fail on their defects
+
+Side task, no batch tag: ten frontend-gate checks and tests made to fail on the defects they name (second code review, findings D1 to D10; D1 is the earlier E6), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The inline-mark check (D1) now renders each mark inside two wrappers with different `color` and `--bars-color` and judges the painted fill and stroke, so a comment, a child path, a 3-digit hex or a later stroke rule can no longer hide a colour that ignores its wrapper. The non-square photo check (D2) judges the painted image box against the box that clips it, and fails a transform or clip-path on the image. The overlay check (D3) also reads `::before` and `::after`, and the animation check fails on any named animation or a running transform or filter transition.
+
+The card-hidden check (D4) waits until the mock has seen and answered every candidate before it asserts the card stayed hidden. Both photo checks (D5) and the Spotify icon check (D6) wait for the image to load first, and an icon that never loads is reported by name. The focus-ring shots (D7) park the pointer and let transitions settle. The unmatched placeholder kind (D8) counts only visible nodes, and a missing visible placeholder is a failure. Comments (D9) now say the Deezer row is third by plays and say what the rotation check proves. The rotation test (D10) asserts hydration writes no `image_url` or `spotify_url` into `APP_DATA`.
+
+Also corrected: a test docstring that still said the artwork radius is wrong only below 768px; it now names `ARTWORK_RADIUS_STEP_MIN` (1024px). D7 has no plant that separates old from new (a hover that differs between two shots cannot be reproduced), so it has a green run only. A zero-duration transition is not counted as an animation.
+
+Validation: `pytest -q` -- **2167 passed**.
+
+### 2026-09-29 - Artwork corners, provider names and spotlight name fixed
+
+Side task, no batch tag: review fix wave for the results and unmatched pages (review findings F1, F2, F3 and F7), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+F7: the album artwork corner radius now steps to 8px at 1024px, not 768px. Spotify's rule gives small and medium devices 4px and large devices 8px, and a tablet is medium. This corrects the controller's own Task 7 call (8px from 768px) to Spotify's device classes. The frontend gate now measures the results page at 768, 1023 and 1024px, and it is red with the old step planted back. RECONCILIATION section 18 and DESIGN.md carry the new width and a dated correction note.
+
+F2: a non-Spotify row with no album URL used to show no provider name, so its artwork read as Spotify's. Both pages now name the provider on every non-Spotify row: a link when the row has a URL, the same badge as plain text when it has none. F3: the unmatched banner's exception clause ("except rows that name another provider") is now conditional, so both pages word the same situation the same way.
+
+F1: at 320px a long one-word artist name in the spotlight card was cut mid-word with no ellipsis. The name may now break inside a long word and keeps two lines with an ellipsis. At 1280px the rail is 125px wide, so a long name wraps inside the word there too; short names are unchanged. No gate check was added for it, because the spotlight photo fixtures and the check registry belong to Task 14. A new test module, `tests/scripts/dev/test_frontend_gate_results.py`, covers the changed radius check.
+
+Validation: `pytest -q` -- **2142 passed**.
+
+### 2026-09-29 - Show the whole focus ring on the unmatched album links
+
+Side task, no batch tag: the album title link and the provider badge on the unmatched report now show their whole keyboard focus ring, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The fault came from the controller's keyboard check of the rebuilt page (owner ruling 8). The text column carried `overflow-hidden`, which cut the title's ring to its bottom edge and the badge's to two sides. The class is gone; the table cell's own overflow and padding contain the column, and the title still wraps while the artist line still ends in an ellipsis.
+
+The frontend gate's unmatched check now reaches both links by real Tab presses and judges each ring on painted pixels: a focused screenshot against a blurred one, each side outside the box. A cut ring computes the same outline as a whole one, so no computed style is read. Its fixture gains one Deezer row, still twelve rows, so a badge renders. Live probes: red with the class planted back and red with the clip moved into CSS, green on the fix.
+
+Validation: `pytest -q` -- **2130 passed**.
+
+### 2026-09-29 - docsync refuses a path that leaves the repository by a junction
+
+Side task, no batch tag: docsync's path boundary and its declared-path spelling, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The Task 10 review raised two Minors, and the controller's probe widened the first. On Windows a directory junction is not a symlink to `Path.is_symlink()`, so `resolve_within` walked straight through one, and its containment test ran only when the leaf existed. A new file reached through a junction was accepted and resolved outside the root; the same path with an existing leaf was refused. A publish creating that file would have written outside the repository.
+
+`resolve_within` now refuses a junction wherever it refuses a symlink, and tests containment on the deepest existing ancestor, so a leaf that does not exist yet is no longer a way round. Either change alone closes the probe; a mount point is the same class. `_validate_documents` turns the `ValueError` from `relative_to` into the `DeclarationError` it already raises for a path outside the repository, so the CLI prints a typed diagnostic, not a traceback. `[untracked_essentials]` now refuses a path not written in normalised form, naming the spelling to write, as `[documents]` does, so `./x.json` and `x.json` are no longer reported as two files.
+
+The tests build real junctions with `mklink /J` and remove them with `os.rmdir`. Each change was proved by mutation.
+Validation: `pytest -q` -- **2126 passed**.
+
+### 2026-09-29 - Heatmap focus ring paints whole; grid keys leave shortcuts alone
+
+Side task, no batch tag: second code-review findings E1, E2, E3, E4, E5, E7 and E10 on the heatmap grid, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+E1, E4: the cell outline was covered by later cells and clipped by the SVG, yet every computed-style check passed. One ring rect is now painted after every cell and moved to the keyboard-focused one. The SVG may paint past its box into 4px of room #heatmap-grid keeps round it, so the grid does not move: the viewBox, cell size and frame match the old layout at 390px and 1280px. The gate now reads the ring off screenshot pixels (first, interior and last cell, both profiles) instead of computed outline values, and asserts the grid still spans its frame.
+
+E2, E3: a scroll no longer re-shows the hidden tooltip of a clicked cell, and a held Alt, Ctrl, Meta or Shift leaves the arrow, Home and End keys to the browser. E10: the A3 probe now records that its scroll happened.
+
+E5: a breakpoint re-render gives focus back to the same day, and the new gate check `heatmap focus survives breakpoint` covers it. E7: the vacuous HEATMAP_PATH test is gone.
+
+Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files."): both heatmap keyboard-focus checks join `required` in `config/frontend_gate_checks.toml`, so neither can be disabled; the manifest test pins the new set. The gate goes from 38 to 39 checks and 63 to 64 runs.
+
+Live probes: base code, ring painted first, no room in the grid's clip, a clipping SVG, the grid-moving viewBox padding, and each single fix reverted all went red; the fix stayed green.
+Validation: `pytest -q` -- **2118 passed**.
+
+### 2026-09-29 - Repo Assist pins the count it measures and skips browser tests
+
+Side task, no batch tag: Repo Assist's rules and file grant, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Review findings G1-G3: Repo Assist's rules predated the pinned test count and the browser marker, so a PR from it could not pass. Rule 4 now runs `--fix --test-count N` and never edits a count by hand. Owner ruling 11 (2026-09-29, "Consider ammending the CI and frontend_gate.toml, test, and files.") allowed the widened grant: both `allowed-files` lists gain `config/docsync.toml`, and the lock was regenerated with `gh aw compile repo-assist`, not edited.
+Rule 5 runs `-m "not browser"` and counts the 43 browser tests by `--collect-only`, so N is still the whole suite. Task 4 audits both requirements files. `test.yml` runs `-m browser` without the directory, so the marker decides what runs; the same 43 tests run either way.
+The new `tests/test_ci_workflows.py` checks that the compiled lock grants every file the procedure writes and that the source and the lock agree.
+Validation: `pytest -q` -- **2117 passed**.
+
+### 2026-09-29 - docsync refuses declared paths and pin rewrites it cannot trust
+
+Side task, no batch tag: the second-review fix wave for the docsync declarations, the test-count pin writer and the worktree guard (review findings B1-B6, B8, B9 and C1-C5), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+B1, B9: a `[documents]` path must be written in the normalised repository-relative form every reader keys documents by. `./x` or `a//b` is refused with the spelling to write, and an empty value says it is empty.
+B2-B4: `--fix --test-count N` parses its rewrite and publishes only the original declarations with `test_count.pinned` changed. Any other result exits 2 and writes nothing.
+B5, C3, C1, C5: `[untracked_essentials]` refuses a backslash, any character `str.isprintable()` rejects, an empty path and `.`. A repeated path is reported once, and a directory at the declarations path is an error, not "nothing declared".
+C2, C4: WT015's read-failure warning carries the failure class only, never the absolute path or OS text, and points to `doc_state_sync.py --check`. WT004 labels an unsafe base ref once.
+B6, B8: the preflight's pin-only exemption decodes `git show` as UTF-8 and fails closed on a blob that is not. DOC025 and the close-out admission refusal name the `--config` file actually read.
+`docs/architecture/documentation-tooling.md` is updated to match.
+Validation: `pytest -q` -- **2111 passed**.
+
+### 2026-09-29 - Cache only well-formed Last.fm pages; cancel orphaned fetches
+
+Side task, no batch tag: the second code-review findings A1 and A2 (Last.fm page cache and orphaned fetches), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+A1: `fetch_recent_tracks_page_async` cached any 200 that parsed as JSON, so a first page
+with no `@attr`, or an error payload served as a 200, was replayed to every retry for
+REQUEST_CACHE_TIMEOUT. A new `_is_well_formed_page` predicate (a `recenttracks` mapping with
+an integer `@attr.totalPages`) now gates `set_cached_response`. The body is still returned
+unchanged.
+A2: when one page raised (the mid-job 404 `ValueError`), sibling page fetches stayed
+pending on a closing session. `_cancel_and_drain` now cancels and awaits them before the
+unwrapped exception leaves, in the `as_completed` path and in `fetch_pages_batch_async`.
+Nine tests were added to `tests/services/test_lastfm_service.py`, each proved by mutation.
+Validation: `pytest -q` -- **2083 passed**.
+
+### 2026-09-29 - Rebuild the unmatched report rows and show portraits whole
+
+Side task, no batch tag: the owner-delegated audit of the unmatched report and F-B23-12, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The table loses its fourth "Reason detail" column. A row's note sits under the artist instead:
+the shortfall on a threshold row ("3 plays and 1 track short", new `describe_shortfall`), the
+reason on a release row, and nothing on a no-match row. At 390px the album title has 144-160px
+(it had 51-67px). Headline, panel titles and buttons are sentence case. The subtitle gives the
+year and the count, and the attribution is a plain line with 12px text on both pages
+(RECONCILIATION section 18). F-B23-12: every cover, portrait and placeholder uses
+`.provider-artwork`, so artwork is never cropped and corners are 4px, or 8px from 768px.
+F-B23-14: the portrait had never loaded, because it was hidden and `loading="lazy"`. The
+attribute is gone. The gate's wide and tall portraits now have URLs of their own and must load
+whole, inside their slot. F-B23-15 is open for the owner. Edited tests:
+test_group_unmatched_albums_groups_by_reason_code,
+test_unmatched_view_success_renders_grouped_reasons.
+Validation: `pytest -q` -- **2073 passed**.
+
+### 2026-09-28 - Drop the spotlight's unreachable guards
+
+Side task, no batch tag: removed the spotlight's dead code (`hidePortrait`, three name guards in `hydrateCandidate`, its unused `view` parameter), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Code-review finding 8. Rotation only renders candidates that already have a confirmed
+`image_url`, and `hydrateCandidate` writes only its own index before the array is replaced, so
+none of that code could fire. The `hydrateCandidate` docstring now says so. No behaviour change.
+Validation: `pytest -q` -- **2055 passed**.
+
+### 2026-09-28 - Report an unreadable declarations file as a warning
+
+Side task, no batch tag: the 2026-09-28 /code-review's finding 5 in the control plane, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`load_declarations` now converts an unreadable or non-UTF-8 declarations file into a
+`DeclarationError` naming the path and the cause, so the worktree guard's WT015 check stays
+WARNING-only instead of escaping to the fail-closed WT014 ERROR. WT015's message now says the
+declarations file could not be read, keeping the underlying error text, instead of blaming
+`[untracked_essentials]` specifically. Finding 6 (a FINDINGS header rewrite conjuring an empty
+file) was refuted on reachability: `_read_live_documents` already requires FINDINGS.md before
+that code runs, so no fix was made for it.
+Validation: `pytest -q` -- **2055 passed**.
+
+### 2026-09-28 - Official Spotify icon on the spotlight, results and unmatched pages
+
+Side task, no batch tag: F-B21-60 part 2, the official Spotify icon and provider attribution, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+The spotlight's Spotify link now shows Spotify's own icon, from
+https://developer.spotify.com/images/guidelines/design/2024-spotify-logo-icon.zip,
+committed byte-for-byte: Primary_Logo_Black_RGB.svg (SHA-256
+5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05) on the light
+theme and Primary_Logo_White_RGB.svg (SHA-256
+8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1) on the dark
+theme. Neither theme's surface is pure white or black, so the green icon is not
+allowed. The icon is 24px with 12px of clear space; the link target is 48px.
+Results and unmatched lists attribute Spotify once, with the icon; only
+non-Spotify rows keep a text badge. No Deezer logo could be taken from Deezer's
+own domains, so F-B22-4 stays open for Deezer only. The "Save image" JPEG
+dropped the SVG icon (html2canvas 1.4), so the export now swaps in a raster of
+the same file. New frontend-gate check "spotlight spotify icon size and link
+target", and a JPEG-icon step in "results provider attribution". Edited test:
+test_results_complete_links_each_row_to_its_own_provider.
+Validation: `pytest -q` -- **2050 passed**.
+
+### 2026-09-28 - Heatmap arrow keys follow the layout; document listeners attach once
+
+Side task, no batch tag: the 2026-09-28 /code-review's findings 2 and 4 on the heatmap grid,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Arrow keys now move spatially: desktop (one column per week) Left/Right -/+7 days, Up/Down -/+1;
+mobile strip (row-major) Left/Right -/+1, Up/Down -/+columns; at an edge focus stays put
+(`arrowKeyTarget`, on the guarded test seam). Finding 4: only the tooltip's anonymous
+capture-phase `scroll` listener on `document` piled up across renders (each held its render's
+cellData and detached SVG); the `touchend` listener used one stable function reference, so the
+DOM already de-duplicated it and never piled up. Both are now attached once per page and read
+the current render's cells, closing the remaining `scroll` accumulation. Harness: step cases
+per layout, arrow and edge. Gate: the keyboard check probes all four arrows against the
+rendered geometry; new check `heatmap document listeners attach once`. Mutation/live-probe
+evidence in the task report.
+
+Validation: `pytest -q` -- **2032 passed**.
+
+### 2026-09-28 - Classify upstream failures before blaming the app
+
+Side task, no batch tag: heatmap and album backstops now share one
+exception classifier, and the release-window log line names every input
+it received, part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+`scrobblescope/heatmap.py`'s `_report_heatmap_failure` publishes
+`errors.classify_exception_to_error_code`'s answer when the escaped
+exception is a known upstream failure (a Last.fm 404 -> `user_not_found`),
+else `internal_error`, matching the album pipeline (F-SWE-5). The
+classifier moved from `orchestrator/__init__.py` to `errors.py`, its one
+owner now; `orchestrator`'s call site and tests import it from there. A
+malformed Last.fm first page (valid JSON, no `@attr.totalPages`) now
+returns the existing `lastfm_unavailable` metadata instead of raising
+`KeyError`. `domain._matches_release_criteria`'s `release_window`
+`ValueError` handler now logs the scope and all three inputs it received
+instead of always naming `decade`.
+
+Validation: `pytest -q` -- **2004 passed**.
+
+### 2026-09-28 - Stop declaring skills-lock.json an untracked essential
+
+Side task, no batch tag: Stop declaring skills-lock.json an untracked
+essential, part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+Owner ruling 2026-09-28: skills-lock.json "is a file that was briefly
+here, but vanished... if it is needed search and let go for what you
+think is best." Controller decision: not needed -- it is the `npx skills`
+CLI's own lockfile; nothing in this repository, its hooks, CI or agent
+workflow reads it. `config/docsync.toml`'s `[untracked_essentials]` now
+declares `paths = []` (comment explains why); the mechanism, its schema
+and `scripts/dev/_worktree_guard_essentials.py` are unchanged, so WT015
+still fires for any future essential that is declared. `.gitignore` keeps
+the `skills-lock.json` line since the CLI still writes it. Swept the
+now-false claim from the guard module's docstring and
+`.superpowers/cloud-kit/constraints.md`'s expected-pre-commit-noise line.
+
+Validation: `pytest -q` -- **2001 passed**.
+
+### 2026-09-27 - Record the follow-on plans' final code review
+
+Side task, no batch tag: record the outcome of the final code review of the
+three follow-on plans (control-plane, frontend, test infrastructure and
+dependencies), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. This does not close WP-0.
+
+The review covered `f8fb8e9^..18d95ae` and raised ten findings. The
+controller checked each against the code: eight were fixed in one fix wave
+(`6d217f4` docsync, `604d815` artist spotlight, `351c5fe` heatmap), one was
+already filed (F-DOCSYNC-23, the unchecked module count), and one was already
+ruled (WT015 fires in every checkout because `skills-lock.json` is absent;
+where that file lives is the owner's decision). The part of the spotlight
+finding asking for a text-only card when Spotify is down stays as the
+F-B21-60 ruling requires: no card. A scoped re-review approved the wave.
+
+Deviations: `6d217f4` and `604d815` carry subjects without the Conventional
+Commits type and scope; they were not rewritten, because history is rewritten
+only on the owner's instruction. Deferred minor: the heatmap tooltip follows
+the focused cell on scroll even when the mouse hovers a different one.
+
+Validation: `pytest -q` -- **1999 passed**.
+
+### 2026-09-27 - Heatmap keyboard and screen-reader access follow-up
+
+Side task, no batch tag: give the heatmap grid a roving tabindex (one Tab
+stop, arrow keys move it) in place of every cell carrying tabindex="0",
+change the SVG's role from "img" to "group" so a cell's own role="img" +
+aria-label survives in the accessibility tree, and stop a focus-triggered
+scroll from hiding the tooltip it just showed, part of Batch 23 WP-0 Part
+C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
+### 2026-09-27 - Artist spotlight photo shown whole, swaps stay in sync, hydrate requests time out
+
+Side task, no batch tag: fixed the artist spotlight card's non-square photo
+crop, the stale-photo-under-a-new-name swap on rotation, and the missing
+hydrate-request timeout (now covering the image preload too, not just the
+fetch), part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
+### 2026-09-27 - Docsync CLI and declarations edge cases
+
+Side task, no batch tag: fix docsync's `--test-count 0` acceptance, the
+pin-rewrite regexes' heading-comment and blank-line misses, and add a
+`C:foo` CR5 case plus a control-character rejection for
+`[untracked_essentials]` paths, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Validation: `pytest -q` -- **1999 passed**.
+
+### 2026-09-27 - Bring prose and diagrams in line with the three follow-on plans
+
+Side task, no batch tag: a documentation-only sweep so README.md,
+DEVELOPMENT.md, every `docs/architecture/*.md` Mermaid diagram,
+`.claude/SESSION_CONTEXT.md` and `docs/agents/PLAYBOOK.md` match the code the
+control-plane, frontend and test-infrastructure plans changed
+(`f8fb8e9^..HEAD`), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- `docs/architecture/documentation-tooling.md`: added the two new frontend
+  gate slices (`_frontend_gate_heatmap_access`, `_frontend_gate_spotlight_photo`)
+  to the Mermaid diagram and its facade-sibling count (twelve, ten own a
+  concern); added a `_worktree_guard_essentials` node/edges (WT015) and the
+  seventh guard-module count; added `config/docsync.toml`'s `[test_count]`
+  pin and `[untracked_essentials]` table to the TOML node; documented WT015
+  and the `docsync.logic`/`docsync.integrity` deferred-import removal (CO1).
+- `docs/architecture/development-cycle.md`: the "Run full validation gates"
+  node now names `--test-count N`, the `tests/frontend` browser marker and
+  `results_behavior_tests.py`; added a CI paragraph naming the docsync
+  preflight, `pytest -m "not browser"`, the browser-marked suite and
+  `frontend_gate.py`, and `pip-audit` against both requirements files.
+- `README.md`: "Running Tests" now names the `browser` marker and the local
+  Chromium requirement.
+- `DEVELOPMENT.md`: the frontend-gate facade's sibling count and the
+  worktree guard's module/WT-code counts (seven modules, `WT000`-`WT015`);
+  named this session's four new gate checks; added the `tests/frontend`
+  marker, its CI split and the wider `pip-audit` scope to the Frontend
+  Browser Gate section.
+- `.claude/SESSION_CONTEXT.md`: added the two new gate slices and
+  `_worktree_guard_essentials.py` to Section 3's structure listing and their
+  edges to Section 4's dependency graph; noted `tests/frontend/` and
+  `tests/fixtures/` in Section 6; bumped the "Last updated" date.
+- `docs/agents/PLAYBOOK.md` Section 3: the frontend and test-infrastructure
+  plans are both fully executed; the next action is the close-out code
+  review, then the WP-0 close-out. `**Next action:** WP-0 is next.` is
+  unchanged.
+- `docs/ARCHITECTURE.md`: bumped the "last verified" date after checking
+  every diagram against the current tree.
+- Checked and found already accurate, no change made: `AGENTS.md`,
+  `docs/architecture/runtime-system.md` (spotlight fallback prose already
+  fixed by Task 5), `docs/architecture/{heatmap,top-albums}-sequence.md`,
+  `docs/agents/ui-accessibility.md`, `docs/agents/AGENT_NOTES.md`, the three
+  plan files' checkboxes (already all ticked), `docs/design/*.md` (dated
+  audit/reconciliation documents, out of the live-prescriptive-doc scope).
+
+Validation: `pytest -q` -- **1993 passed**.
+
+### 2026-09-27 - File the carried close-out findings and amend Part C
+
+Side task, no batch tag: filed two carried findings, amended
+`BATCH23_DEFINITION.md`, and fixed three rule/record docs, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- Filed `F-DOCSYNC-23` (the tracked test-module count is hand-maintained and
+  unchecked) and `F-B23-10` (three frontend-gate failures were gate defects,
+  each green on an immediate rerun), both P2, in `docs/agents/FINDINGS.md`.
+  Re-measured the module count now: `git ls-tree -r --name-only HEAD tests |
+  grep -c '/test_[^/]*\.py$'` gives 78, matching both `.claude/
+  SESSION_CONTEXT.md` and the `FINDINGS.md` header -- both sites are right
+  today, so no correction was needed.
+- `BATCH23_DEFINITION.md`: recorded the three approved WP-0 follow-on plan
+  paths as executed; recorded F-B21-60's Spotify-icon/attribution part as
+  remaining, unscheduled work (it stays in Part C's set and open); added
+  `scripts/dev/results_behavior_tests.py` to Part C's acceptance gate list.
+- `AGENTS.md` Batch Close-Out Procedure step 5 now says to run `pytest -q`
+  before `--fix --test-count N`, since no earlier close-out step measured
+  the count.
+- `.superpowers/cloud-kit/constraints.md` (tracked, generic): brought its R5
+  commit procedure, R6 expected warnings and R7 docsync-control-plane
+  exemption in line with the control-plane workspace's later rulings.
+- `docs/history/findings/FINDINGS_ARCHIVE.md` F-B21-3: reworded the
+  pip-audit recount from "found 0 vulnerabilities in 0 packages" to
+  "reported no known vulnerabilities".
+
+Validation: `pytest -q` -- **1993 passed**.
+
+### 2026-09-27 - Close out the test-infrastructure plan's carried test minors
+
+Side task, no batch tag: closed the carried test minors from
+`docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` Task 1,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- `tests/test_pipeline_integration.py`: the /progress poll loop and the
+  background-thread join each had their own 10s deadline, so a genuine
+  hang could take up to 20s to fail. `_JOB_TIMEOUT_SECONDS` (now 30, still
+  bounded) is one `time.monotonic()` deadline computed once; `join()`
+  spends only what is left of it. `created_threads[0]` assumed the first
+  captured `background_task` thread was this job's; the test now asserts
+  `len(created_threads) == 1`, naming the count, before using it.
+- `tests/test_provider_fixtures.py`'s
+  `test_lastfm_fixture_flows_through_fetch_top_albums` docstring claimed a
+  fixture missing `name` would fail the test, but
+  `scrobblescope/orchestrator/__init__.py` reads `t.get("name", "...")`, so
+  a missing name still yields an eligible album. The docstring now names
+  only the fields the test actually catches.
+
+Validation: `pytest -q` -- **1993 passed**.
+
+### 2026-09-27 - Close out the control-plane plan's carried code items
+
+Side task, no batch tag: closed the carried docsync code items from
+`docs/superpowers/plans/2026-09-25-batch23-wp0-control-plane.md` (all eight
+tasks landed), part of Batch 23 WP-0 Part C. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- m1: `docsync.logic` and `docsync.integrity` each carried a deferred,
+  module-bottom import of one name from the other, guarded by a "would
+  deadlock" comment -- a same-module import cycle broken only by import
+  order. `SESSION_CURRENT_COUNT_RES` moved to `docsync.parser`, the leaf
+  module both already import at top level (still importable from
+  `docsync.integrity`, which re-exports it); `integrity.py`'s three names
+  from `logic.py` moved to its top imports now that nothing in `logic.py`
+  needs anything from `integrity.py`. Both deadlock comments are gone.
+- m4: `WP_COMPLETE_STATUS_RE` (`scripts/docsync/parser.py`) had no end
+  anchor, so `**Status:** WP-4 complete (pending review)` counted as WP-4
+  done. Anchored: the line may close with an optional `.` and trailing
+  whitespace only.
+- CR5: `[untracked_essentials]` paths were not contained to the repository
+  root. `declarations._validate_untracked_essentials` now rejects an
+  absolute path (POSIX or Windows drive form) or a `..` segment; the
+  worktree guard's directory diagnostic renders the declared path with
+  `repr()` rather than echoing it raw.
+- CR10: a declared `[untracked_essentials]` path that exists as a directory
+  read as "missing". `essentials_diagnostics` now distinguishes missing from
+  "exists but is not a file" (a new WT015 WARNING).
+- CR9: `_validate_test_count`, `_validate_untracked_essentials` and
+  `_validate_closeout` each hand-wrote the same is-a-table-plus-unknown-key
+  check. Extracted one `_validated_table` helper (Rule of Three); every
+  existing error message stays byte-identical.
+- CR4 (ruled, no code change): WT015 fires in every checkout because
+  `skills-lock.json` is truly absent; the warning is true, and where the
+  file lives is the owner's decision.
+- CR6 (ruled, no code change): the import-time `sys.path` insert in
+  `_worktree_guard_essentials.py` is the control-plane plan's
+  pre-accepted deviation, the same shape as `scripts/doc_state_sync.py`.
+- m6 (ruled, no code change): the hand-maintained module count is filed as
+  a finding in the close-out docs commit, not built here.
+
+Validation: `pytest -q` -- **1993 passed**.
+
+### 2026-09-27 - Audit the dev requirements too (CI input gap)
+
+Side task, no batch tag: closed the scope item "add requirements-dev.txt
+to the CI audit's inputs", part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The "Security audit (pip-audit)" step in `.github/workflows/test.yml`
+passed `inputs: requirements.txt` only, so a vulnerable pin anywhere in
+`requirements-dev.txt` was never flagged. `pypa/gh-action-pip-audit@v1.1.0`
+documents `inputs:` as a whitespace-separated list (its own README example:
+`inputs: requirements.txt dev-requirements.txt`), so the step now reads
+`inputs: requirements.txt requirements-dev.txt`.
+
+Live probe in a scratch copy: pinning `virtualenv==20.26.5` in a scratch
+`requirements-dev.txt` made `pip-audit -r requirements.txt -r <scratch>`
+report PYSEC-2024-187 (exit 1); reverting to the real, pinned
+`virtualenv==20.36.1` made the advisory disappear (exit 0, "No known
+vulnerabilities found"), confirming the dev file is now audited.
+
+Validation: `pytest -q` -- **1978 passed**.
+
+### 2026-09-27 - Let the inline marks colour themselves
+
+Side task, no batch tag: fixed F-B21-23, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Both inline mark SVGs now carry fill="currentColor" and stroke: var(--bars-color)
+in their own <style> block, so shell.css's five-rule per-wrapper CSS list
+(F-B21-21's fix) collapses to one `.ss-mark { color: var(--shell-ink); }`
+declaration. `check_inline_marks_need_no_wrapper_list` in
+scripts/dev/_frontend_gate_assets.py reads both SVG templates off disk and
+fails on a missing fill/stroke rule or any literal hex colour.
+`tests/test_template_shell.py::test_migrated_wordmarks_use_theme_ink_for_letterforms`
+was rewritten (controller ruling, task-4-context.md, widening this task's
+Touches) to assert the new mechanism instead of the deleted per-wrapper
+selectors, keeping its name and docstring intent.
+
+Validation: `pytest -q` -- **1978 passed**.
+
+### 2026-09-27 - Heatmap grid cells are keyboard-focusable and labelled
+
+Side task, no batch tag: heatmap grid cells carry tabindex, role=img and an
+aria-label built by the same cellAccessibleLabel helper the mouse tooltip
+uses, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until
+the whole of WP-0 lands.
+
+Extracted `cellAccessibleLabel` in `static/js/heatmap.js` so the tooltip and
+each cell's `aria-label` share one source of truth, made every `.heatmap-cell`
+focusable with a visible `:focus-visible` ring, and added
+`check_heatmap_cells_are_keyboard_accessible` (its own frontend-gate slice,
+`scripts/dev/_frontend_gate_heatmap_access.py`) to prove it live. Resolves
+F-B21-14.
+
+Fix round 1: the check now asserts the reached cell's own `tabindex="0"`
+attribute and that every `.heatmap-cell` in the grid carries it (naming the
+count missing), and asserts the authored focus ring by its four computed
+properties -- `outline-width: 2px`, `outline-style: solid`,
+`outline-offset: 1px`, and `outline-color` equal to `--shell-accent`'s
+computed colour read via a probe element -- rather than the generic
+`outlineStyle !== 'none'` a bare UA default outline also satisfied.
+
+Fix round 2: the check is now registered for the desktop AND mobile
+profiles in `scripts/dev/frontend_gate.py` (previously desktop only, so a
+regression in `renderHeatmapMobile`'s own tabindex/role/aria-label lines
+went unseen), and seeds a 14-day range instead of one day, so the
+"every `.heatmap-cell` carries tabindex=0" audit sees more than one cell
+(it now fails outright on a grid of 1 or fewer, naming the count).
+
+Validation: `pytest -q` -- **1978 passed**.
+
+### 2026-09-27 - Move four dev-only pins out of the production install
+
+Side task, no batch tag: move four dev-only pins out of the production install, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+`virtualenv==20.36.1`, `distlib==0.3.9`, `filelock==3.20.3` and `platformdirs==4.3.6`
+moved from `requirements.txt` to `requirements-dev.txt` (F-B21-3 remainder); nothing in
+`scrobblescope/` imports them (`git grep` confirmed no hits). A live `pip-audit` recount
+on 2026-09-27 found 0 vulnerabilities in 0 packages against `requirements.txt` alone, 0
+against both files together.
+Validation: `pytest -q` -- **1965 passed**.
+
+### 2026-09-27 - A two-state toggle that reattaches to the system
+
+Side task, no batch tag: fixed the theme toggle so a choice matching the system preference
+clears the stored value and lets the page reattach to the system, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. `theme.js`'s
+`darkSwitch` `change` listener now computes the system's preferred scheme via
+`matchMedia('(prefers-color-scheme: dark)')` and calls `localStorage.removeItem('darkMode')`
+when the chosen state matches it, instead of always writing the choice; `base.html`'s
+pre-paint script already treats a missing key as "follow the system", so no change was
+needed there. `scripts/dev/_frontend_gate_theme.py` adds
+`check_theme_reattaches_to_system` (registered in `frontend_gate.py`'s `CHECKS` tuple,
+`THEME_MOTION` group, beside "theme persistence"), which forces the toggle away from an
+emulated dark system, confirms the choice persists across a reload, then flips it back to
+match the system and confirms `localStorage.getItem('darkMode')` clears immediately and the
+page still resolves dark from the system query alone after a reload. Resolves F-B21-22.
+
+Validation: `pytest -q` -- **1965 passed**.
+
+### 2026-09-26 - Stop cropping, overlaying and faking the artist spotlight photo
+
+Side task, no batch tag: stop the artist spotlight photo from being cropped, overlaid,
+animated or faked with an unconfirmed album cover, part of Batch 23 WP-0 Part C. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands. `results.css`/`results.html`
+now show the photo whole and square (4px corners at small sizes, 8px at large), with the
+name, rank, playtime and summary beside or below it, never on top; the scrim overlay is
+gone. `results-spotlight.js` swaps candidates instantly, with no fade. The server- and
+client-side album-art fallback is gone: `scrobblescope/spotlight.py` no longer seeds
+`image_url` from an album cover, and `results-spotlight.js` waits for every candidate's
+photo to be confirmed by `/api/artist_spotlight` before revealing the card, dropping any
+candidate whose photo is never confirmed; if none is confirmed, the card stays hidden.
+`scripts/dev/_frontend_gate_spotlight_photo.py` adds two checks (`artist spotlight photo
+has no crop overlay or animation`, `artist spotlight card hidden with no photo`) and
+`scripts/dev/_frontend_gate_pipeline.py`'s `check_artist_spotlight_rotation` is
+rewritten to capture its rotation baseline after the (now deferred) reveal instead of at
+page load. `scripts/dev/results_behavior_tests.py` gains updated Chromium behaviour
+tests for the same design: the card stays hidden until every hydration settles, a
+candidate without a confirmed photo is dropped, and reduced motion keeps the surviving
+confirmed artist still.
+
+**Fix round 1, 2026-09-26:** two of the `results_behavior_tests.py` rewrites above
+could not fail if the rotation's `c => c.image_url` filter were deleted --
+`test_card_hidden_until_settle_then_drops_unconfirmed_candidates`'s 30s/7s-tick math
+happened to land back on the same artist either way, and
+`test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration`'s confirmed
+candidate was already the one shown regardless of filtering. Both now assert the
+filtered-list rank (`01 / 01`) and put the failing hydration on the first candidate so
+the surviving, filtered name ("Second") only appears if the filter runs; R14 proof
+in `task-5-report.md`. Also names the third existing test this task edited,
+`test_spotlight_rotation_wraps_and_preserves_input` (`tests/test_routes.py`'s two
+edits were already named in 699bec2's body), which the original commit omitted.
+
+**Polish round, 2026-09-26:** a design review plus the controller's own read of
+every screenshot found the compliant-but-plain spotlight card needed five more
+fixes to match its sibling rail blocks: `.spotlight-image-box`
+(`static/css/results.css`) gains the same `1px solid var(--ss-border-default)`
+border every other thumbnail on the page already carries, so a dark photo
+never melts into a dark card; `.spotlight-card-bleed`'s bespoke padding is
+dropped in favour of the sibling cards' own `p-4
+md:p-[calc(1.25rem*var(--results-scale))]` classes on `#artist-spotlight-card`
+(`templates/results.html`), matching their rhythm exactly; "Artist Spotlight"
+moves from a muted inline label into its own `<h3 class="results-rail-title">`
+heading row at the top of the card, the same shared class and position the
+"Sort leaderboard" and "Albums outside your filters" headings use; the photo
+stays beside the text below 768px too, at a proportionate ~112px (was full
+rail width), keeping 4px corners under 768px and 8px at/above; and the
+artist's name drops `truncate` so a long name wraps instead of clipping. The
+Spotify link's tap target grows from 16x16 to 44x44 via padding and a
+matching negative margin, with no change to the glyph. The one-time card
+reveal's layout shift stays parked (owner ruling: no fade/reserve, since the
+card must stay hidden until a photo confirms and Spotify forbids animating
+artwork), as does the interim Spotify link's icon/attribution work (F-B21-60
+part 2). AFTER screenshots and measurements confirming all five fixes are in
+`design-fe5/after-*.png` and `after-measurements.json` in the SDD workspace.
+
+**Polish round 2, 2026-09-26:** a scoped re-review found the polish round's own
+`truncate` removal let a long artist name wrap without bounding the details
+column, so the card's height changed on every rotation tick between a short-
+and a long-named candidate and jumped the rail below -- the same jank the
+parked reveal item names, now recurring on every tick, not just the first
+load. Fixed: `#spotlight-artist-name` gains Tailwind's `line-clamp-2` (two
+lines, ellipsis, full name still in `title`; `renderText` in
+`static/js/results-spotlight.js` already set both), and `.spotlight-details`
+(`static/css/results.css`) gains a `min-height` sized to the clamped worst
+case (2 name lines + a 2-line play-time/scrobble allowance + the rank line +
+gaps, in rem units scaled by `--results-scale`, per breakpoint) so the card
+is the same height for every candidate at a given width; the photo stays
+112px/144px, top-aligned. Measured `#artist-spotlight-card` height across a
+rotation between "A" and "The Bloomington Municipal Philharmonic Marching
+Ensemble": identical at both 390x844 (185.59px) and 1280x800 (218.14px).
+Folded in two deferred minors: `#spotlight-artist-name` is now a `<p>`, not
+a second `<h3>` sharing a heading level with the card's own "Artist
+Spotlight" title (grepped `tests/`/`scripts/` first -- nothing keys on its
+tag). The suggested `p-3.5 -m-3.5` swap for the Spotify link's tap-target
+padding was tried and reverted: this theme's spacing-scale reset (the same
+one `templates/unmatched.html`'s own comment documents for `w-24`/`w-28`)
+means `--spacing-3.5` is never emitted, so those classes compiled to
+nothing and silently dropped the 44x44 tap target back to 16x16; kept the
+working `p-[14px] -m-[14px]` arbitrary values instead. Evidence, including
+the height measurements and `after-card-clamped-{short,long}-mobile.png`,
+is in `task-5-report.md`.
+
+**Casing fix, 2026-09-26:** the card's `<h3 class="results-rail-title">` heading read
+"Artist Spotlight", but its sibling rail headings ("Sort leaderboard", "Albums outside
+your filters") are sentence case in source -- `.results-rail-title` uppercases them
+visually, but screen readers read the source text. Changed to "Artist spotlight" in
+`templates/results.html`; grepped `tests/`/`scripts/` first, nothing keys on the old text.
+
+Validation: `pytest -q` -- **1958 passed**.
+
+### 2026-09-26 - Doc-transcribed provider fixtures plus shape tests
+
+Side task, no batch tag: added Spotify and Last.fm fixtures transcribed from each
+provider's published reference plus shape tests, part of Batch 23 WP-0 Part C. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands. `tests/fixtures/` holds Spotify
+and Last.fm response shapes transcribed from each provider's published reference;
+`tests/test_provider_fixtures.py` pins the app's own field reads against them and checks
+one existing mock for drift -- a weaker guarantee than a live contract test, recorded as
+such (Q7 answer a).
+
+**Fix round 1, 2026-09-26:** the Last.fm shape test only re-asserted the fixture's own
+field literals, so no app code reading a field the docs don't promise could ever fail it.
+Replaced it with two tests that run the fixture through the app's real consumers:
+`scrobblescope.heatmap._aggregate_daily_counts`, which keys off `date.uts`, and
+`scrobblescope.orchestrator.fetch_top_albums_async` (with only
+`fetch_all_recent_tracks_async` patched), which reads `artist.#text`, `album.#text` and
+`name`. Verified in a scratch copy: renaming `uts` to `ts` fails both new tests; renaming
+`album.#text` fails the orchestrator one.
+
+Validation: `pytest -q` -- **1959 passed**.
+
+### 2026-09-26 - A real thread runs the album pipeline end to end
+
+Side task, no batch tag: a real thread runs the album pipeline end to end, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands. `tests/test_pipeline_integration.py` drives the real `/results_loading ->
+/progress -> /results_complete` route sequence through the Flask test client, joins
+the real `worker.start_job_thread` background thread before trusting anything past
+its terminal `/progress` state (an owner-requested review found the prior version
+raced ahead of the MusicBrainz hand-off and never joined the thread, so a leftover
+job slot or a live MusicBrainz call could survive the test), and asserts the
+MusicBrainz hand-off ran under mock, the job's concurrency slot is fully released,
+and `/results_complete` renders the album that survived the Spotify phase.
+
+Validation: `pytest -q` -- **1943 passed**.
+
+### 2026-09-26 - A Chromium harness for heatmap.js's pure-function seam
+
+Side task, no batch tag: added a Chromium harness for heatmap.js's pure-function seam, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+rocketColor, countToNorm and the export header layout are exercised by a Chromium harness
+(tests/frontend/test_heatmap_pure_functions.py) through window.__scrobbleHeatmapTestHooks,
+exposed at the module's top level only when window.__scrobbleHeatmapTestMode is set before the
+script runs -- the guarded seam F-B21-18 asked for, so no production page load exposes the hook;
+computeStreak is WP-6's per Q14 answer a; the harness carries a browser pytest marker so CI's
+pre-browser coverage step deselects it and the post-browser frontend-gate step runs it instead.
+
+Fix round 1 (code review): added interior countToNorm cases so a linear count/maxCount cannot
+pass; a negative exportHeaderModel case (no text-transform leaves the text as written) with the
+model tests cleaning up their own DOM inserts; a test that a second page never setting the flag
+never sees the hooks; reused _launch_browser for the setup-guidance path; and corrected the
+seam's stale "these four functions are pure" comment (exportHeaderModel reads the DOM). Filed the
+harness scope's two residual F-B21-18 items (the 53x7 export contract deviation, the duplicated
+username validators) as F-B23-9, joining WP-0 Part C's set by controller ruling 2026-09-26
+(BATCH23_DEFINITION.md Part C); F-B21-18's archived record now points to it.
+
+Validation: `pytest -q` -- **1963 passed**.
+
+### 2026-09-26 - Drop a work-package token from a log heading
+
+Side task, no batch tag: rename a log heading that carried a work-package
+token, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+- **Scope and result.** The previous entry's heading carried a `WP-0` token,
+  which the owner ruling keeps out of headings until WP-0 closes;
+  `--check` passed and treated it as untagged, so this fixes the
+  convention, not a docsync failure.
+
+Validation: `pytest -q` -- **1926 passed**.
+
+### 2026-09-26 - Plan the frontend and test-infrastructure work
+
+Side task, no batch tag: plan the WP-0 frontend and test-infrastructure work,
+part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Scope and result.** Two follow-on plans drafted and reviewed against the
+  code, then revised. `docs/superpowers/plans/2026-09-26-batch23-wp0-frontend.md`
+  covers the frontend cluster: F-B21-18's Chromium harness for `heatmap.js`,
+  F-B21-14, F-B21-22, F-B21-23, and F-B21-60 part 1.
+  `docs/superpowers/plans/2026-09-26-batch23-wp0-test-infra-deps.md` covers
+  the test-infrastructure and dependency cluster: F-LOAD-2, F-MAS-1, F-B21-3's
+  remainder, and adding `requirements-dev.txt` to the CI pip-audit step. Both
+  drafts passed a read-only review against the code, then were revised.
+- **Findings the reviews caught.** The frontend harness's test hooks sat
+  inside a `DOMContentLoaded` listener and could never be reached (proven
+  red/green in a scratch copy); CI's pytest step runs before the browser
+  install, so the harness is marked `browser` and runs in the frontend-gate
+  step instead. The test-infrastructure integration test's fixture was dated
+  2030 and below the play threshold, so it never reached Spotify.
+
+Validation: `pytest -q` -- **1926 passed**.
+
+### 2026-09-26 - Correct the dashboard's test-module count
+
+Side task, no batch tag: follow-up on the Task 7 fix round's CR8, part of
+Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of
+WP-0 lands.
+
+- **Scope and result.** The prior CR8 fix corrected `docs/agents/FINDINGS.md`'s
+  hand-maintained header (72 -> 73 tracked test modules) but left
+  `.claude/SESSION_CONTEXT.md`'s own copy of the same figure stale, because
+  `--fix` only rewrites the test-*count* digit there, never the module-count
+  digit (`AGENTS.md` anti-pattern 10: re-measure rather than copy a number
+  forward). Re-measured
+  (`git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` -> 73,
+  unchanged) and corrected SESSION_CONTEXT's Section 1 Tests row from 72 to
+  73, leaving its test count exactly as `--fix` last wrote it (1926).
+  `git grep -n -i "tracked test module" -- ':!docs/history' ':!docs/logarchive'
+  ':!docs/superpowers/plans'` found no other live-doc copy showing a stale
+  figure: `tests/test_docsync_cli.py` and `tests/test_docsync_test_count.py`
+  only quote fixture text (68), not a live claim.
+
+Validation: `pytest -q` -- **1926 passed**.
+
+### 2026-09-26 - Keep the essentials warning from failing the worktree guard
+
+Side task, no batch tag: fix round on Task 7's code review, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **CR1.** `essentials_diagnostics` (`scripts/dev/_worktree_guard_essentials.py`)
+  now catches `DeclarationError` from `load_untracked_essentials_config` and
+  returns a single WARNING `WT015` naming `config/docsync.toml` and quoting
+  the parse error, instead of letting it escape to `inspect_worktree`'s
+  fail-closed `except Exception` and collapse the whole result to ERROR
+  `WT014`.
+- **CR2.** `collect_declaration_issues`
+  (`scripts/docsync/declarations.py`) now also calls
+  `_untracked_essentials_config`, so `doc_state_sync --check` and pre-commit
+  refuse a malformed `[untracked_essentials]` table the same way they refuse
+  a bad `[archives]` or `[closeout]` table.
+- **CR3.** `_inspect_worktree`
+  (`scripts/dev/_worktree_guard_inspection.py`) now runs the essentials
+  check on the detached-HEAD return path and the PLAYBOOK-parse-failure
+  return path too, so `WT015` fires in a detached scratch worktree (the
+  parallel workflow's `git worktree add --detach`) and not only on the
+  fully-resolved path.
+- **CR7.** `WT015` raises the code count to sixteen: updated the "eleven of
+  the fifteen codes" text in `scripts/dev/check_worktree_alignment.py`,
+  `.pre-commit-config.yaml` and `tests/scripts/dev/test_worktree_guard_cli_e2e.py`
+  to sixteen, adding `WT015` where the non-error codes are listed.
+  `docs/agents/FINDINGS.md`'s note quoting a reviewer's past correction is
+  left as a point-in-time record.
+- **CR8.** The tree now has 73 tracked `test_*.py` modules; `FINDINGS.md`'s
+  hand-maintained header corrected from 72 to 73.
+
+Validation: `pytest -q` -- **1926 passed**.
+
+### 2026-09-26 - Bootstrap fast-paths move below the list; skills-lock.json gets a warn-only manifest
+
+Side task, no batch tag: bootstrap fast-path reorder and the skills-lock.json
+untracked-essentials warning, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope and result.** `AGENTS.md`'s "Session Bootstrap (in order)" moved
+  its two fast-path paragraphs below the numbered bootstrap list, so a skim
+  finds the obligation before the exemption (F-B21-25 item 1). A new
+  `docsync.declarations.UntrackedEssentialsConfig` /
+  `load_untracked_essentials_config` reads a `[untracked_essentials]` table
+  from `config/docsync.toml`, which now declares `paths = ["skills-lock.json"]`.
+  A new `scripts/dev/_worktree_guard_essentials.py::essentials_diagnostics`
+  raises `WT015` at WARNING severity for each declared, gitignored path that
+  is missing, silent when present or undeclared; it is wired into
+  `inspect_worktree` and re-exported from `scripts/dev/worktree_guard.py`
+  (F-B21-25 item 2, partial -- the findings/issues sync stays out per owner
+  ruling 2026-09-25). `scripts/dev/_worktree_guard_essentials.py` imports the
+  bare `docsync.declarations` name after inserting `scripts/` onto
+  `sys.path`, mirroring `scripts/doc_state_sync.py`'s existing convention,
+  rather than the brief's `scripts.docsync.declarations` path: that path
+  loads under pytest's own `sys.path` setup but double-loads the module
+  under two names elsewhere, and `check_worktree_alignment.py` / the
+  pre-commit hook only put the repository root on `sys.path`, not `scripts/`.
+  Also folded a literal duplication (carried Minor from Task 8's review):
+  `scripts/dev/docsync_preflight.py`'s `CONTROL_PLANE_FILES` tuple now
+  references `DOCSYNC_TOML_PATH` instead of repeating the `"config/docsync.toml"`
+  literal; no behavior change.
+- **Mutation proof (L14).** In a scratch copy, deleting
+  `diagnostics.extend(essentials_diagnostics(resolved_root))` made the wiring
+  test fail (`AssertionError: assert 'WT015' in ['WT000']`); mutating
+  `essentials_diagnostics`'s `for relative in config.paths:` to iterate an
+  empty tuple made `test_a_missing_declared_path_warns` fail
+  (`assert [] == [('WT015', 'WARNING')]`).
+- **Live probe.** In an independent clone, a fresh checkout (no
+  `skills-lock.json`) printed `WARNING WT015 skills-lock.json -- declared
+  untracked-essential file is missing.` at exit 0 (WARNING never blocks);
+  creating an empty `skills-lock.json` silenced it, still exit 0.
+- **After this task:** `skills-lock.json` remains absent from this worktree,
+  so `WT015` now prints on every guard run here, including in pre-commit
+  output below -- the intended warning, not a defect (constraints.md R5).
+- **Validation.** `pytest -q` -- **1919 passed**.
+
+### 2026-09-26 - Past-tense the F-WORKTREE-3 note; test a guard error path
+
+Side task, no batch tag: fix round on Task 5 of the control-plane plan, part
+of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Scope and result.** `docs/agents/FINDINGS.md`'s F-WORKTREE-6 entry
+  described F-WORKTREE-3's three open items in the present tense; two of
+  those items were fixed by the worktree-guard Task 5 commit and
+  F-WORKTREE-3 itself has since been archived. The sentence now reads in the
+  past tense ("When this was filed, F-WORKTREE-3's open items were ...") and
+  notes the archival. A repo-wide grep for other present-tense "F-WORKTREE-3
+  is open" claims outside `docs/history/` and `docs/logarchive/` found none:
+  the remaining hits are frozen planning/audit-scope snapshots (a completed
+  plan's task list, a batch definition's frozen finding inventory, an
+  audit-scope note) or PLAYBOOK's own past-tense execution-log entries, none
+  of which claim F-WORKTREE-3 is currently open.
+  `tests/scripts/dev/test_worktree_guard_topology.py` gained
+  `test_detached_local_status_call_failure_raises_guard_error`, covering the
+  detached, non-CI branch's status-call failure path
+  (`scripts/dev/_worktree_guard_inspection.py`): a nonzero `status
+  --porcelain` result now raises `GuardError`, proven through the public
+  `inspect_worktree(..., debug=True)` boundary the same way the existing
+  detached-branch tests do.
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), removing the `detached_status_result.returncode != 0` check
+  made only the new test FAIL (`DID NOT RAISE <class
+  'scripts.dev._worktree_guard_types.GuardError'>`); the other 8 tests in
+  the file still passed.
+- **Validation.** `pytest -q` -- **1911 passed**.
+
+### 2026-09-26 - Stage before running pre-commit in the commit procedure
+
+Side task, no batch tag: Task 6 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `AGENTS.md`'s "Commit Rules" > "Procedure before
+  every commit" ran `pre-commit run --all-files` (step 4) before "Stage
+  specific paths by name" (step 6): the `tailwind-css-drift` hook rebuilds
+  `static/css/tailwind.css` from source and diffs it against the index, so
+  an unstaged, correctly rebuilt CSS change read as drift for the same
+  reason a genuinely stale build would (F-B21-20). The two steps are
+  swapped: staging is now step 4 and `pre-commit run --all-files` is step 5,
+  with `--check` moved to step 6 and Commit to step 7. The staging step now
+  says why staging must happen first (F-B21-20), and the pre-commit step
+  notes that a hook rewriting a file leaves the tree ahead of the index
+  again, so the touched paths need re-staging before `--check`.
+- **Step 2 sweep.** `git grep -n "step 4\|step 6\|procedure.*step" -- '*.md'
+  ':!docs/history' ':!docs/logarchive'` finds no live document citing the
+  old step numbers of this procedure by number: the one non-plan,
+  non-archive hit outside this task's own files is
+  `.superpowers/cloud-kit/agents/gate-runner.md`'s own "Step 4 --
+  postflight" heading (its own numbering, not a citation of AGENTS.md).
+- **Live probe** (`/c/ssprobe6`, independent clone at BASE `4ece23a`,
+  deleted afterwards; run by a probe-only dispatch and spot-checked by the
+  controller, recorded in `task-6-probe-report.md`).
+
+  | Case | Result | Exit |
+  |---|---|---|
+  | Red (old order): correct rebuild, left unstaged | `tailwind-css-drift` Failed | 1 |
+  | Green (new order): correct rebuild, staged first | `tailwind-css-drift` Passed | 0 |
+  | Near-miss: stale build (not rebuilt), staged anyway | `tailwind-css-drift` Failed | 1 |
+
+  A correct rebuild passes under the new order and fails under the old one;
+  a genuinely stale build still correctly fails either way.
+- F-B21-20 is resolved.
+- **Validation.** `pytest -q` -- **1910 passed**.
+
+### 2026-09-26 - Two worktree-guard bugs are fixed
+
+Side task, no batch tag: Task 5 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `classify_lineage`'s (`scripts/dev/
+  _worktree_guard_lineage.py`) detached branch returned before either dirty
+  check, so a detached, dirty, non-CI worktree reported WT012 alone; it now
+  builds `issues` and appends the dirty diagnostic when `snapshot.dirty` is
+  true, the same pattern the non-detached path already used.
+  `missing_base_remediation` (`scripts/dev/_worktree_guard_diagnostics.py`)
+  branched on and interpolated its already-labelled parameter, so an unsafe
+  base ref's remediation always fell into the "local ref" branch and doubled
+  the placeholder text; it now branches on the raw `base_ref` and computes
+  `label = base_ref_label(base_ref)` only at the point each branch's message
+  substitutes it, and `missing_base_diagnostic` now passes the raw ref
+  instead of the label (F-WORKTREE-3).
+- **Controller ruling after the code phase (2026-09-26).** Bug 1's classifier
+  fix alone was unreachable through the real CLI: the detached, non-CI
+  branch of `inspect_worktree` (`scripts/dev/_worktree_guard_inspection.py`)
+  built its `LineageSnapshot` with `dirty` hard-coded `False` and returned
+  before any status check. That branch now measures dirtiness with the same
+  `("status", "--porcelain")` call the attached path uses (the
+  recognized-CI detached branch keeps `dirty=False` and makes no extra git
+  call, owner ruling Q2: WT011 alone on CI).
+  `tests/scripts/dev/test_worktree_guard_topology.py::
+  test_detached_checkout_stops_before_local_topology_checks` now expects the
+  local case's last git call to be `("status", "--porcelain")` instead of
+  `symbolic-ref`; the CI cases are unchanged. One inspection-level test,
+  `test_detached_dirty_local_reports_wt012_and_wt010`, covers detached,
+  dirty, non-CI end to end (`WT012` and `WT010`).
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), reverting the inspection-layer fix made
+  `test_detached_checkout_stops_before_local_topology_checks[local]` and
+  `test_detached_dirty_local_reports_wt012_and_wt010` both FAIL (last call
+  stayed `symbolic-ref`; codes stayed `['WT012']`); the CI-branch cases were
+  unaffected. Reverting `classify_lineage`'s WT012 branch made
+  `test_detached_and_dirty_reports_both_wt012_and_wt010` FAIL while
+  `test_detached_ci_dirty_still_only_reports_wt011` still passed. Reverting
+  `missing_base_remediation`/`missing_base_diagnostic` made
+  `test_missing_base_remediation_matches_selected_ref[unsafe-remote-like]`
+  FAIL while the two pre-existing parametrize cases still passed.
+- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
+
+  | Probe | State | Result |
+  |---|---|---|
+  | Red | BASE, detached + dirty | `WT012` alone |
+  | Green | this task's tree, detached + dirty | `WT012` and `WT010` |
+  | Near-miss | this task's tree, detached + clean | `WT012` alone |
+
+- F-WORKTREE-3 is now fully resolved (3 of 3 items accounted for); the
+  between-batch ancestry skip remains the owner's 2026-09-23 accepted design
+  boundary.
+- **Validation.** `pytest -q` -- **1910 passed**.
+
+### 2026-09-26 - Test the staged-deletion case of the docsync.toml exemption
+
+Side task, no batch tag: fix round on Task 8 of the control-plane plan, part
+of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Scope and result.** `_docsync_toml_pin_only_change`
+  (`scripts/dev/docsync_preflight.py`) fails closed when `config/docsync.toml`
+  is absent from the index (a staged deletion or rename-away): `git show
+  :config/docsync.toml` exits nonzero, so the function returns `False` and
+  the path counts as control-plane. No test covered that branch.
+  `test_docsync_toml_absent_from_index_is_control_plane`
+  (`tests/scripts/dev/test_docsync_preflight.py`) now does, with a valid
+  HEAD blob and a nonzero-exit index lookup.
+- **Mutation proof (L14).** In a scratch copy (`git archive HEAD`), inverting
+  `index_result.returncode != 0` to `== 0` made the new test FAIL
+  (`assert [] == ['config/docsync.toml']`); restoring the check made it PASS.
+- **Validation.** `pytest -q` -- **1906 passed**.
+
+### 2026-09-26 - A pin-only docsync.toml change is not control-plane
+
+Side task, no batch tag: Task 8 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** Task 1 (`8f56c17`) put the test-count pin in
+  `config/docsync.toml` `[test_count]`, but `scripts/dev/docsync_preflight.py`
+  also lists `config/docsync.toml` in `CONTROL_PLANE_FILES`, so every
+  ordinary commit that adds a test (and therefore pins a new count) staged a
+  "control-plane" file and was refused, forcing `SKIP=doc-state-sync-check`
+  on routine commits. Owner ruling, 2026-09-26: keep the pin where it is,
+  and change the preflight so a staged `config/docsync.toml` counts as
+  control-plane only when something outside `[test_count]` changed.
+  `staged_control_plane_paths` (`scripts/dev/docsync_preflight.py`) gained a
+  new `_docsync_toml_pin_only_change` helper: it compares the HEAD and index
+  blobs of `config/docsync.toml`, each parsed with stdlib `tomllib` and with
+  its top-level `test_count` key removed, and treats the change as pin-only
+  only when the remainders are equal. It fails closed (treats the change as
+  control-plane) when the file is absent at HEAD or the index, either blob
+  fails to parse, or either `git show` exits nonzero. The exemption is
+  evaluated per path, so a pin-only `config/docsync.toml` staged alongside a
+  real control-plane code change still leaves that other path refused.
+- **Mutation proof (L14).** In a scratch copy (`git archive $(git stash
+  create)`), reverting `staged_control_plane_paths` to its pre-Task-8 body
+  made the three tests whose outcome the exemption changes fail
+  (`test_docsync_toml_pin_only_change_is_not_control_plane`,
+  `test_docsync_toml_test_count_table_added_is_still_pin_only`,
+  `test_docsync_toml_pin_only_alongside_other_control_plane_file_is_per_path`);
+  the four unchanged-behaviour cases still passed.
+- **Live probe** (`/c/ssprobe`, independent clone, deleted afterwards).
+
+  | Probe | Command | Result |
+  |---|---|---|
+  | Red (BASE preflight) | pin-only edit staged, `docsync_preflight.py --staged` | exit 3, control-plane refusal |
+  | Green (task preflight overlaid) | same staged edit | exit 1 (the checker's own doc-drift result), no refusal |
+  | Near-miss (task preflight overlaid) | pin edit plus an `[options]` edit staged | exit 3, control-plane refusal |
+
+- **Validation.** `pytest -q` -- **1905 passed**.
+
+### 2026-09-25 - BATCH* discovery becomes case-consistent
+
+Side task, no batch tag: Task 4 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `_batch_filename_candidates` (`scripts/docsync/cli.py`)
+  replaces every `directory.glob("BATCH...")` call in the module --
+  `_check_root_batch_files`, both `LOGS_DIR.glob("BATCH*_LOG.md")` sites
+  (`_read_batch_log_lines` and `_managed_archive_paths`), `_archived_definitions`
+  and `_read_live_documents` -- with a directory-listing scan matched by the
+  same case-insensitive regex glob's candidates were already filtered with
+  (`_BATCH_LOG_RE`, `root_definition_pattern`), so batch discovery no longer
+  depends on the host filesystem's case sensitivity (F-DOCSYNC-6).
+  `git grep -n 'glob("BATCH' -- scripts/docsync` now returns nothing.
+  F-DOCSYNC-6's outside-root item was confirmed already fixed:
+  `_Files._path`/`_relative` (`scripts/docsync/declarations.py`) already raise
+  `DeclarationError` -- caught by `main()`'s `except SyncError` clause, since
+  `DeclarationError` subclasses `SyncError` -- with "... resolves outside the
+  repository root", instead of letting a bare `ValueError` propagate;
+  `docs/agents/FINDINGS.md`'s own F-DOCSYNC-6 entry already names F-DOCSYNC-21
+  (`88f0514`) as the fix for this item, and `88f0514`'s `_validate_documents`
+  closes the same class of escape for the `[documents]` config roles. This
+  finding is now fully resolved (5 of 5 items accounted for); the three
+  remaining items are the owner's 2026-09-23 accepted design boundaries and
+  stay as documented.
+- **Live probe** (`/c/ssprobe`, deleted afterwards). `fsutil file
+  setCaseSensitiveInfo` was denied (`0x00000005 Access is denied`) on this
+  host, so the brief's "before" red could not be produced under a simulated
+  POSIX case-sensitive directory; per the controller, this was tried once and
+  not retried another way.
+
+  | Probe | Result |
+  |---|---|
+  | Before (BASE tree, this NTFS host, lower-case `batch99_definition.md` added) | `--check` passes; `_archived_definitions()` finds it (host-dependent, as expected) |
+  | After (task tree, same fixture) | `--check` passes identically; `_archived_definitions()` finds it |
+  | Near-miss (correctly-cased `BATCH13_DEFINITION.md`) | Found identically in both trees |
+  | Mutation (scratch copy): `_batch_filename_candidates` body swapped for `sorted(directory.glob("BATCH*", case_sensitive=True))` filtered by `name_re`, simulating POSIX | The Step 2 unit test fails, missing `batch24_definition.md` and `Batch25_Definition.md` -- this substitutes for the host-dependent red |
+
+- **Deviation.** The brief's Step 1 instructed `git show 88f0514 --
+  scripts/docsync/declarations.py | grep -n "resolves outside"`, expecting
+  that literal string in the diff; it is not there. `88f0514` validates the
+  `[documents]` config table with different wording ("must be a
+  repository-relative path", "must be inside the repository"); the "resolves
+  outside the repository root" wording belongs to `_Files._path`/`_relative`,
+  added earlier (`54fecbfb`) and already in the tree. Both mechanisms raise
+  `DeclarationError` -> exit 2 through the same `except SyncError` path, so
+  the finding's outside-root item is still confirmed fixed; this entry cites
+  the evidence actually found rather than the brief's unmatched grep. Per the
+  controller's task context, both `LOGS_DIR.glob(...)` sites were converted
+  (not gated on the live probe, which cannot reproduce a platform mismatch on
+  this host) and the Section 3 WP-0 close-out bullet picks up a carried
+  review item from Task 3: its tagged entry must carry `**Status:** WP-0
+  complete`, or DOC007 blocks the close-out.
+- **Validation.** `pytest -q` -- **1898 passed**.
+
+### 2026-09-25 - A work package closes only on an explicit completion line
+
+Side task, no batch tag: Task 3 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `_collect_wp_numbers` (`scripts/docsync/parser.py`)
+  no longer reads a `(Batch N WP-X)` heading tag alone as completing that
+  package (F-DOCSYNC-15, Q4 = a): it now scans each entry's body for an
+  explicit `**Status:** WP-N complete` line
+  (`WP_COMPLETE_STATUS_RE`, case- and spacing-tolerant) and collects only
+  the numbers that line names. `renderer._next_wp_number` and
+  `renderer._build_status_block` are unaffected by signature, only by the
+  set of numbers `_collect_wp_numbers` now returns; `integrity._computed_next_wp`
+  reaches the same change through `_next_wp_number`. A regression test
+  reproducing `docs/history/logs/BATCH22_LOG.md`'s three-commit shape
+  (`tests/test_docsync_sync_integration.py::
+  test_three_tagged_commits_do_not_claim_the_package_done_until_the_last`)
+  proves the STATUS block reads "none" complete after the first two tagged
+  commits and "WP-4" only once the third carries the completion line.
+  Existing fixtures that relied on a bare heading tag reading as complete
+  were updated to carry the explicit line: `tests/test_docsync_wp_numbers.py`
+  (`TestCollectWpNumbers::test_multiple_wp_tags`, plus five new cases);
+  `tests/test_docsync_integrity.py` (`_valid_inputs`'s base WP-0 entry, and
+  the fixtures built by `test_doc007_completed_wp_summary_does_not_steal_the_claim`,
+  `test_doc007_gap_in_completed_wps_picks_lowest_missing`,
+  `test_doc007_absorbed_wp_is_not_demanded`,
+  `test_doc007_all_planned_wps_reject_stale_numeric_claims`);
+  `tests/test_docsync_sync_integration.py::TestSyncIntegration::
+  test_session_status_uses_active_definition_plan`;
+  `tests/test_docsync_cli.py::TestMainArgs::
+  test_fix_renders_next_wp_from_active_definition_plan`; and
+  `tests/test_docsync_renderer.py` (`TestBuildStatusBlock::test_entries_with_wp_gap`,
+  `test_planned_wp_gap_skips_absorbed_number`,
+  `test_all_planned_wps_complete_renders_no_next_package`,
+  `test_preflight_only_plan_can_complete_at_wp_zero`,
+  `test_authoritative_count_shows_count`;
+  `TestBuildStatusBlockBoundary::test_zero_batch_number`;
+  `TestNextWpNumberCountsWpZero::test_wp_zero_done_moves_to_wp_one`,
+  `test_legacy_rule_without_a_plan_still_starts_at_one`) -- named in the
+  brief's file list only as `renderer.py`'s production code, not its test
+  file, and found by re-grepping `_collect_wp_numbers`/`_next_wp_number`/
+  `_build_status_block` usage across `tests/` (L15) after the brief's own
+  three named test files first came back green. AGENTS.md's commit-procedure
+  bullet 1 now states the same rule (F-DOCSYNC-15 closed; see
+  `docs/agents/FINDINGS.md`'s archive).
+- **Deviation.** `_valid_inputs`'s base fixture in `tests/test_docsync_integrity.py`
+  grew by two lines to mark its WP-0 entry complete, which shifted the
+  hard-coded insertion indices several other tests in the same file used
+  (`playbook_lines[14:14]` etc.) and the absolute line numbers two DOC001
+  tests asserted (`test_definition_label_outside_section_3_is_not_exempt`,
+  `test_playbook_reference_after_dated_entry_keeps_original_line_number`,
+  now 22 instead of 20); all were updated in place, none weakened. The
+  brief's own Step 6 regression test, as written, passed unchanged with the
+  Step 3 fix reverted (all three commits share the same heading tag, so the
+  old heading-only rule also read the final state as WP-4 complete); it was
+  rewritten to assert the intermediate state (after only the first two
+  commits, before the completion line lands) so the test actually fails
+  without the fix (L14, mutation-proved in a `git stash create` scratch copy).
+- **Validation.** `pytest -q` -- **1897 passed**.
+
+### 2026-09-25 - The count wrapper's tests are repointed, then the file is split
+
+Side task, no batch tag: Task 2 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** The eight `TestLatestTestCount` call sites in
+  `tests/test_docsync_logic.py` now call
+  `latest_test_count_authority(...).count` directly instead of the removed
+  `_latest_test_count_from_entries` wrapper (`scripts/docsync/logic.py`),
+  proving parity before the file moved (Rule 4). `tests/test_docsync_logic.py`
+  (886 lines) is then split along its seven seams: `TestCollectWpNumbers` ->
+  `tests/test_docsync_wp_numbers.py`; `TestLatestTestCount` plus the two
+  module-level unbold-authority tests, `TestRewriteRecordedCounts` and
+  `TestResolvedTestCountAuthority` (Task 1's own additions) -> consolidated
+  into the existing `tests/test_docsync_test_count.py`; `TestSyncIntegration`
+  -> `tests/test_docsync_sync_integration.py`; `TestMergeEntriesIntoLog` ->
+  `tests/test_docsync_log_merging.py`; `TestSplitArchive` and
+  `TestDedupSorted` -> `tests/test_docsync_archive_split.py`;
+  `TestParseActiveBatchStateConflicting` ->
+  `tests/test_docsync_section3_parsing.py`. The three module-level helpers
+  `_playbook`, `_playbook_with_entry` and `_playbook_two_same_date_entries`
+  moved with `TestResolvedTestCountAuthority`; the first was renamed
+  `_authority_playbook` in its new home to avoid colliding with
+  `tests/test_docsync_test_count.py`'s own pre-existing `_playbook` helper.
+  `tests/test_docsync_logic.py` is deleted. Collected node IDs (path-stripped)
+  are identical before and after the split, 50 of them, and the full suite
+  count is unchanged. Closes F-DOCSYNC-7, F-MAS-3.
+- **Deviation.** The brief's own commit subject was 82 characters; shortened
+  per constraints.md R8. The `_playbook` name collision above is not named in
+  the brief; renaming the incoming helper was the smallest fix that kept both
+  sets of tests passing (no shared helper module, no duplication).
+  `DEVELOPMENT.md`'s docsync test-file list named `test_docsync_logic.py`;
+  replacing it with the five new files also required correcting the list's
+  own "twelve matching" count to "sixteen" to stay internally consistent.
+- **Validation.** `pytest -q` -- **1891 passed**.
+
+### 2026-09-25 - An explicit test count pins config/docsync.toml
+
+Side task, no batch tag: Task 1 of the control-plane plan, part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope and result.** `--fix --test-count N` now pins `N` in
+  `config/docsync.toml`'s new `[test_count]` table
+  (`declarations.TestCountConfig`, `load_test_count_config`) and writes the
+  SESSION_CONTEXT STATUS block, the Section 1 `Tests` row, the Section 6
+  heading and the FINDINGS.md header from that one number in one pass
+  (`renderer.rewrite_recorded_counts`, `cli._rewrite_findings_header_count`,
+  `cli._rewrite_test_count_pin`). `logic.resolved_test_count_authority`
+  (explicit > pinned > `latest_test_count_authority` cold-start fallback) is
+  now the one function every DOC005/006/008 check and the STATUS render go
+  through, so a same-date tie or an out-of-position correction
+  (F-DOCSYNC-11, F-DOCSYNC-22) can never shadow a pinned count again.
+  `latest_test_count_authority` itself is unchanged and still the cold-start
+  path. A new warning, DOC025 (`logic._newest_dated_test_count`), fires only
+  when exactly one Section 4 entry carries the newest date and disagrees
+  with the pin; a same-date tie or no pin stays silent, and it never blocks
+  (Q1 ruling). Closes F-DOCSYNC-11, -12, -13, -22.
+- **Deviation.** `FINDINGS_HEADER_COUNT_RE` (`scripts/docsync/integrity.py`)
+  required bare "test modules.", but the repository's real FINDINGS.md
+  header reads "... tracked test modules.", so DOC008 never checked it and
+  `--fix --test-count N` never rewrote it. Fixed in this commit (an
+  under-20-line regex change, AGENTS.md "Proposal and Design Rules" item 2):
+  the pattern now accepts an optional "tracked " before "test modules.",
+  every existing fixture wording still matches, and a new regression test
+  (`tests/test_docsync_cli.py::TestTestCountPin::
+  test_findings_header_count_regex_matches_the_real_tracked_wording`) proves
+  both legs -- DOC008 fires on a drifted real-wording header, and
+  `_rewrite_findings_header_count` rewrites it -- against the regex reverted
+  (mutation proof in `task-1-report.md`). No new finding ID; fixed in the
+  same commit that built the mechanism. Also tightened
+  `test_negative_test_count_returns_2` to assert the Step 14 CLI guard's own
+  message text, isolating it from `declarations._positive_int`'s
+  independent downstream rejection of the same value (mutation-proved: the
+  test now fails if only the CLI guard is removed).
+- **Validation.** `pytest -q` -- **1891 passed**.
+- **Step 19 live probe** (full detail and every command in
+  `.superpowers/sdd/2026-09-25-batch23-wp0-control-plane/task-1-audit.md`
+  Section 4, gathered by the audit dispatch at `/c/ssprobe`):
+
+  | # | Probe | Corpus | Steps | Exit | Codes |
+  |---|---|---|---|---|---|
+  | 1 | Red, prior behaviour | `f8fb8e9` (no Task 1 code) | Insert same-date pair (window entry 1850, side-task entry 1849, both 2026-09-25) -> bare `--fix` -> `--check` | 1 | `ERROR DOC006` (STATUS block rewritten to the wrong tie-break winner 1849) |
+  | 2 | Red, planted | task tree, pinned=1873 (clean) | Hand-edit Section 1 Tests row to 1874, leave the pin at 1873 | 1 | `ERROR DOC005`, `ERROR DOC006` |
+  | 3 | Green, real workflow | task tree, fresh | New dated entry **999 passed** -> `--fix --test-count 999` -> `--check` | 0 | Pin=999; STATUS/Section 1/Section 6 all show 999 |
+  | 4 | Near-miss green | same tree | Bare `--fix` again -> `--check` | 0 | No changes found; pin and all sites unchanged at 999 |
+  | 5 | DOC025 (warning only) | same tree, pinned=999 | Add a strictly-newer sole entry (2026-09-26, **1000 passed**) -> bare `--fix` -> `--check` | 0 | `WARNING DOC025` printed, pin stays at 999, exit 0 |
+- **Forward guidance.** Task 2 repoints `TestLatestTestCount`'s callers and
+  splits `tests/test_docsync_logic.py` along F-MAS-3's seven concerns.
+
+### 2026-09-25 - The control-plane plan is written and reviewed
+
+Side task, no batch tag: adds WP-0 Part C's first follow-on plan.
+
+- **Scope and result.** The plan covers F-DOCSYNC-6, -7, -11, -12, -13, -15
+  and -22, F-MAS-3, F-WORKTREE-3, F-B21-20 and F-B21-25 items 1-2, in seven
+  tasks. Two read-only reviews checked it against the code. The first found
+  that the draft kept the pinned test count in the SESSION_CONTEXT STATUS
+  block, which is rendered output. It also found that the draft claimed the
+  commit procedure already passes `--test-count`, which it does not. Both
+  are fixed.
+- **Owner rulings.** The plan records three: the pin lives in
+  `config/docsync.toml`; a new warning, DOC025, fires only when one newest
+  entry disagrees with the pin; and a dirty tree adds WT010 only on a local
+  detached checkout.
+- **Deviations.** The plan is 1834 lines, above the review's estimate. The
+  pin redesign and DOC025 added test bodies that the length rule does not
+  allow cutting.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Docsync check and pre-commit pass.
+- **Forward guidance.** Task 1 reorders the commit procedure so the suite
+  is measured before `--fix --test-count N`.
+
+### 2026-09-25 - Owner rulings: no GitHub mirror, and F-DOCSYNC-22 joins Part C
+
+Side task, no batch tag: records two owner rulings given on 2026-09-25.
+
+- **Scope and result.** F-DOCSYNC-22 is filed at P1: a count corrected in an
+  older same-date side-task entry stays shadowed until the entry is moved. It
+  was found in root-cleanup Task 6's fix round 1 (`c959237`) and held until now
+  as a candidate in a gitignored SDD ledger. The owner amended Part C's set to
+  include it, in the definition and in the reconcile plan's control-plane
+  follow-on, where it joins the F-DOCSYNC-11, -12 and -13 task. The owner also
+  ruled that findings are not mirrored to GitHub. F-B21-9 closes as no action
+  and rotates to the archive. `AGENTS.md` and `docs/agents/issue-tracker.md`
+  now say the `finding` issues are a frozen snapshot.
+- **Deviations.** None. The Q15 row of the reconcile plan's rulings table and
+  its triage table are point-in-time records and stay as written. The
+  follow-on list carries the change.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Docsync check and pre-commit pass.
+- **Forward guidance.** The control-plane plan's count task must test a
+  corrected count in an older same-date entry.
+
+### 2026-09-25 - Section 3 states the live WP-0 work order
+
+Side task, no batch tag: Batch 23 WP-0 Part B's final documentation cleanup.
+
+- **Scope and result.** Section 3 now names the active batch, the next work
+  package, Part C's three follow-on plans, and the close-out gate. The
+  paragraph-to-owner crosswalk is
+  `docs/history/reports/BATCH23_WP0_SECTION3_CROSSWALK_2026-09-25.md`.
+  The 2026-09-24 handoff is marked as a historical snapshot so its old
+  root-cleanup resume point cannot be mistaken for the current order. The
+  Batch 23 definition marks Part B's Section 3 cleanup done.
+- **History retained.** PR #234 merged the Batch 22 branch through
+  `f6d5926` as `88f6e27` on 2026-09-20; PR #236 later merged eight more
+  commits as `fc9098d`. The old Section 3 attached 05:06 to `f6d5926`;
+  Git dates that commit at 05:01 and the PR #234 merge at 05:06. This
+  post-close-out chronology was not otherwise owned by a dated record.
+  The old Section 3 also recorded the owner's 2026-09-21 setting of
+  `MUSICBRAINZ_CONTACT` on Fly.io and in the local `.env` to the project's
+  GitHub URL; this is retained as a point-in-time report, not a current
+  configuration check.
+- **Validation.** `pytest -q` -- **1873 passed** with the owner's untracked
+  mutation tests excluded. Pre-commit and docsync check pass with the four
+  standing DOC024 warnings and the expected active-definition warning.
+- **Forward guidance.** Write and execute the control-plane, frontend, and
+  test-infrastructure follow-on plans in the reconcile plan's order. Review
+  the remaining Part C findings before the single tagged WP-0 close-out.
+
+### 2026-09-25 - The Batch 23 review reconciles completed records
+
+Side task, no batch tag: the completed-work review compared the Batch 23
+definition, the reconcile plan and the root-cleanup plan with the current
+tree. The report is
+`docs/history/reports/BATCH23_WP0_COMPLETED_WORK_REVIEW_2026-09-25.md`.
+
+- **Scope and fix.** F-B23-8 records that the definition pointed six rotated
+  findings at the active file and left two completed Part B bullets unchecked.
+  It now points to the archive and checks the foundation and root-cleanup
+  bullets. The Section 3 cleanup bullet stays unchecked; Parts B and C are
+  not complete, so no tagged batch entry was written.
+- **Validation.** `pytest -q` -- **1873 passed** with the untracked mutation
+  tests excluded. The frontend gate passed 30 checks in 52 Chromium and
+  Firefox runs. Pre-commit and docsync check exited 0, with the standing
+  DOC024 warnings and expected active-definition warning.
+- **Forward guidance.** Return to the uncompleted Section 3 cleanup and
+  Part C follow-on plans before closing the work package. The report notes
+  the shared provider-log privacy work required before export integration.
+
+### 2026-09-25 - Empty release checks log their finish
+
+Side task, no batch tag: the Batch 23 WP-0 reconciliation review found that
+`run_release_checks` logged a start for zero candidates and then returned
+without the finish line Task 13 promises. The normal disabled path still logs
+its skip at enqueue; this change addresses only the empty done path.
+
+- **Scope and fix.** F-B23-7 records the gap. The zero-candidate branch
+  writes the same finish fields as a processed pass, before returning.
+  The existing `test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies`
+  now asserts the start and finish lines as well as the done state.
+- **Validation.** The new finish assertion failed before the fix and passed
+  after. `pytest -q` -- **1873 passed** with the untracked mutation-test
+  file excluded. Pre-commit and docsync checks pass on the documented tree.
+- **Forward guidance.** The remaining WP-0 review corrections are document
+  state and citation work. WP-0 itself remains open.
+
+### 2026-09-25 - Docsync refuses ambiguous document paths
+
+Side task, no batch tag: the completed Batch 23 WP-0 root-cleanup audit found
+that two `[documents]` roles could name one file and leave another unscanned
+while `--check` passed. An outside path crashed after a read; an outside
+`--config` worked for `--check` but could not enter a write transaction.
+
+- **Scope and fix.** F-DOCSYNC-21 records the reproduced cases. Validate all
+  five live document paths for containment and distinctness before any corpus
+  read. Require an explicit config path inside the repository, preserving the
+  publication transaction's source-snapshot boundary. Clarify the CLI help
+  and documentation. F-DOCSYNC-6 retains only its case-glob item.
+- **Validation.** The new path tests failed before the fix and passed after.
+  A live duplicate-path `--check` probe exited 2 with the two roles named;
+  an outside-config probe exited 2 before a read. The valid corpus's
+  `--check` exited 0. `pytest -q` -- **1873 passed** with the owner's
+  untracked mutation-test file excluded; that file adds 46 local tests and is
+  not part of this commit. Pre-commit and final docsync checks passed.
+- **Forward guidance.** The root-cleanup plan's path resolver now has the
+  same containment rule in check and write modes. Continue the WP-0 review
+  side task, then return to the remaining Part B and Part C work.
+
+### 2026-09-24 - Docsync diagnostics name the declared document path
+
+Side task, no batch tag: the root-cleanup plan's Task 8, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands. The last task of the root-cleanup plan.
+
+- **What changed.** `scripts/docsync/integrity.py`: `_active_definition_reference`,
+  `_unpaired_result_issue`, `_check_unbolded_test_counts`,
+  `_check_section3_next_wp` and `_check_findings_header_count` each gain a
+  `playbook_relative_path`/`findings_relative_path` keyword (default: today's
+  literal), and every diagnostic they build prints it instead of the bare
+  root name; `collect_integrity_issues` threads its own two matching keyword
+  arguments (already present since Task 2) into all five, and its own two
+  direct DOC002 sites do the same. `scripts/docsync/closeout.py`:
+  `_admission_issue` and `_claim_issues` gain the same
+  `playbook_relative_path` keyword; `collect_transition_issues` threads it
+  through. `scripts/docsync/cli.py`'s `_close_batch` passes
+  `documents.playbook` into `collect_transition_issues`, and its
+  `SyncError` message ("... has no batch index row for batch ...") now
+  names `documents.playbook` instead of a bare `PLAYBOOK.md`.
+  `scripts/docsync/findings.py`: `_lifecycle_issues`, `_duplicate_issues`,
+  `collect_rot_issues` and `plan_findings` gain an `active_path` keyword
+  (default: `ACTIVE_PATH`); `collect_integrity_issues`'s call into
+  `findings_module.collect_rot_issues` and `cli.py`'s `_Corpus.rotation`
+  (via a new `self.findings_relative_path`) both pass their declared path.
+  `ARCHIVE_PATH` (the findings archive, never moved) is untouched. Grepped
+  `scripts/docsync/` afterwards: no `"PLAYBOOK.md"` or `"FINDINGS.md"`
+  literal remains as a diagnostic location, only default keyword values,
+  the `LIVE_DOCUMENT_RELATIVE_PATHS`/`DocumentsConfig` constants (Task 2's
+  scope) and prose in a docstring/comment.
+- **Tests.** `tests/test_docsync_integrity.py`: two DOC002 tests (the
+  `_active_definition_reference` direct site and `collect_integrity_issues`'s
+  candidate-mismatch site), one DOC007 test (`_check_section3_next_wp`), one
+  parametrized DOC012 test covering `_check_unbolded_test_counts`'s three
+  internal branches including `_unpaired_result_issue`, and one DOC008 test,
+  all via a new `_inputs_with_document_paths` fixture helper. One pre-existing
+  test, `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`
+  (written for Task 2, its own docstring naming Task 8 as the task that would
+  thread the DOC002 diagnostic's path further), asserted the stale bare
+  `"PLAYBOOK.md"` literal for that DOC002 diagnostic under an overridden
+  playbook path; updated to the declared path (deviation, precedence rule
+  "brief and reality disagree": the test exercises exactly the mechanism
+  this task changes). `tests/test_docsync_closeout.py`: one test each for
+  `_claim_issues` and the admission-boundary refusal via
+  `collect_transition_issues`. `tests/test_docsync_findings.py`: one test
+  per DOC013, DOC014, DOC015, DOC016, DOC017, DOC018 and DOC023, all via
+  `plan_findings`/`collect_rot_issues`'s new `active_path` keyword. Every
+  new test failed before the change (RED: a `TypeError` for the unknown
+  keyword, or the stale-literal path for the one DOC008 fixture that
+  predates the keyword) and passes after it.
+- **Live probe**, `/c/ssprobe`, from `git archive $(git stash create)` with
+  this task's changes in the tree (L18):
+  - DOC007: edited `docs/agents/PLAYBOOK.md` Section 3's `**Next action:**`
+    line to claim a WP that disagrees with the definition -- red, DOC007
+    printed `docs/agents/PLAYBOOK.md:<line>`.
+  - DOC002: pointed Section 3's `Definition:` reference at a missing file
+    -- red, DOC002 printed `docs/agents/PLAYBOOK.md` as its location.
+  - Reset both edits -- green, `--check` exited 0 (the standing DOC024/root
+    BATCH warnings from section 2b aside).
+- **Deviations:**
+  - `docs/agents/PLAYBOOK.md`'s own Section 3 completion sentence for this
+    task avoids backticking the pre-move `PLAYBOOK.md`/`FINDINGS.md` names:
+    a backtick-wrapped `.md` name that does not resolve from the repository
+    root fails DOC001 (L20), the same lesson Task 6 recorded.
+
+Validation: `pytest -q` -- **1866 passed**.
+
+### 2026-09-24 - The four agent documents move to docs/agents/
+
+Side task, no batch tag: the root-cleanup plan's Task 6, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md` and
+  `HANDOFF_PROMPT.md` move to `docs/agents/` (`git mv`). `config/docsync.toml`
+  gains a `[documents]` table declaring the four new paths; its
+  `AGENT_NOTES.md` value-site and all four `[retired.allow_after]` keys
+  (and the comment above the fourth) now read `docs/agents/PLAYBOOK.md`.
+  `scripts/docsync/cli.py` reads and writes every document through a new
+  `_documents()`/`_declarations_path()` pair instead of the deleted
+  `PLAYBOOK_PATH`/`FINDINGS_PATH` constants (`_Corpus.__init__`,
+  `_read_live_documents`, `_drift_updates`, `_candidate_live_documents`,
+  `_collect_issues` and `_close_batch`'s two `collect_integrity_issues`
+  calls). `scripts/dev/_worktree_guard_inspection.py` reads
+  `docs/agents/PLAYBOOK.md`; `_worktree_guard_diagnostics.py`'s
+  `metadata_unavailable_diagnostic` label follows.
+  `scripts/docsync/renderer.py` drops the path from `_build_status_block`
+  and `SIDE_ARCHIVE_PREFIX` entirely (owner ruling: no document path in
+  generated text) -- `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`'s
+  prologue matches by hand where `--fix` did not rewrite it.
+  `.pre-commit-config.yaml`'s top-level exclude changes `docs` to
+  `docs(?!/agents/)` (owner-approved 2026-09-24), keeping `docs/agents/`
+  under `trailing-whitespace`, `end-of-file-fixer`, `check-merge-conflict`
+  and `detect-private-key`. Every live present-tense citation of the four
+  names is repointed: `AGENTS.md`, `docs/agents/domain.md`,
+  `docs/agents/global-rules.md`, `docs/agents/issue-tracker.md`,
+  `docs/agents/AGENT_NOTES.md`, `docs/agents/FINDINGS.md`,
+  `docs/agents/PLAYBOOK.md` Section 3, `DEVELOPMENT.md`, `PRODUCT.md`,
+  `docs/ARCHITECTURE.md`, `docs/architecture/documentation-tooling.md`
+  (including the mermaid node labels), `docs/architecture/development-cycle.md`,
+  `docs/AGENT_DOC_MAP.md`, `docs/design/RECONCILIATION.md:667`,
+  `docs/SWE_AUDIT_CHARTER.md` (9), `BATCH23_DEFINITION.md` (2 present-tense
+  pointers), `.claude/SESSION_CONTEXT.md`,
+  `.superpowers/cloud-kit/constraints.md` (including its literal
+  `grep ... PLAYBOOK.md` command), `docs/history/reports/HANDOFF_2026-09-24.md`
+  (sections 2/3/8 only; its section 6 narrative of past rulings is left as
+  written, point-in-time), `.gitignore`'s committed-files comment,
+  `scripts/dev/graphify_refresh.py`, `scripts/dev/install_docsync_hook.py`
+  (two comments) and `scripts/docsync/declarations.py`'s `DocumentsConfig`
+  docstring (its field defaults stay bare, by Task 2's design).
+- **Tests.** `tests/scripts/dev/test_worktree_guard_playbook.py`
+  (`test_the_repository_playbook_parses`, Step 1) reads the new path.
+  `tests/scripts/dev/worktree_guard_fakes.py`'s `repository()` fixture, and
+  `test_worktree_guard_base_ref.py`, `test_worktree_guard_inspection.py`,
+  `test_worktree_guard_subject.py` and `test_worktree_guard_topology.py`'s
+  own `PLAYBOOK.md`-writing helpers, all write to
+  `repo/docs/agents/PLAYBOOK.md` (a named, load-bearing edit: reverting the
+  guard's own code fix and re-running the six worktree-guard test files
+  reproduces 29 failures; restoring the fix returns all 74 to green).
+  `tests/conftest.py`'s `sync_env` no longer monkeypatches the deleted
+  `PLAYBOOK_PATH` (the fixture writes no `[documents]` table, so the
+  default relative name still resolves). `tests/test_docsync_renderer.py`'s
+  `test_declared_batch_with_no_entries_renders_as_open` and
+  `test_between_batches_block_carries_the_count` copy the status-block line
+  by value; both updated to the new text (RED before, GREEN after).
+- **Live probe**, `/c/ssprobe`, from `git archive $(git stash create)` with
+  this task's changes in the tree (L18):
+  - Pre-commit exclude: planted `<<<<<<< HEAD` (with a simulated merge
+    state, since `check-merge-conflict` only scans when `MERGE_HEAD` and
+    `MERGE_MSG` exist) in `docs/agents/PLAYBOOK.md` -- red,
+    `check-merge-conflict` failed; the same marker in
+    `docs/history/reports/` -- green, passed.
+  - `[retired.allow_after]`: none of the four declarations' retired claims
+    are still live in the current corpus, so a bare key revert alone proved
+    nothing; planted one claim below the Section 4 heading, then reverted
+    the fonts-retirement key to `PLAYBOOK.md` -- red, DOC011 fired as a
+    false positive; restored the key -- green.
+  - Worktree guard: reverted `_worktree_guard_inspection.py`'s literal to
+    `PLAYBOOK.md` -- red, WT002 "PLAYBOOK.md could not be read"; restored
+    -- green, Section 3 read (the corpus's own WT003/WT007/WT009 branch,
+    remote and venv gaps are unrelated to the PLAYBOOK read).
+  - DOC001 sweep: left one bare `` `PLAYBOOK.md` `` citation in `AGENTS.md`
+    -- red, DOC001 named it; restored to `` `docs/agents/PLAYBOOK.md` `` --
+    green.
+  - `[documents]` honoured: set `playbook = "docs/agents/NOWHERE.md"` --
+    red, `--check` failed naming the missing file; restored -- green.
+- **Deviations:**
+  - `_Corpus.read_paths()` gained the declarations file as a source (a new
+    `_declarations_path()` helper): `_documents()` now reads
+    `config/docsync.toml` during `_Corpus.__init__`, which
+    `test_close_batch_proves_every_read_source_before_publishing` (not
+    named in the brief) proved must be in the publish-time read set, or a
+    concurrent edit to the declarations file would go unnoticed.
+  - `.gitignore`'s `docs/agents/*` carve-out did not list the four moved
+    files; a plain `git add` (not `git mv`) silently dropped them, caught
+    by the Step 9 probe corpus. Added the four negations beside the
+    existing four.
+  - `BATCH23_DEFINITION.md`'s "Move ... to `docs/agents/`" bullet keeps the
+    pre-move names unbackticked: still `.md` files, but no longer DOC001
+    citations. A backtick-wrapped `.md` name after the move is a dead
+    reference DOC001 rightly flags, unlike Task 5's `.docsync.toml`
+    precedent this bullet otherwise mirrors (a `.toml` name the check never
+    matches).
+- **Fix round 1** (review): the "every live present-tense citation" claim
+  above missed two sites invisible to `doc_state_sync.py --check` (inside a
+  Python docstring/comment, not scanned Markdown):
+  `scripts/dev/frontend_gate.py`'s `_load_check_manifest` docstring still
+  cited `AGENT_NOTES.md`, and `scripts/dev/_worktree_guard_inspection.py`'s
+  `OSError`-branch `detail` literal still read "PLAYBOOK.md could not be
+  read." three lines below this task's own `playbook_path` fix. Both
+  repointed to `docs/agents/`. Added
+  `test_unreadable_playbook_names_the_moved_path_in_the_detail` (new,
+  RED before the fix, GREEN after) since the diagnostic's literal text was
+  previously untested.
+
+Validation: `pytest -q` -- **1850 passed**.
+
+### 2026-09-24 - The Repo Assist workflow points at the moved documents
+
+Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
+  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
+  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
+  paths. The "Repository Rules" prose's grant (rule 3, "anything under
+  `scripts/` or `docs/` other than...") now permits exactly those two paths
+  alongside the log files, agreeing with the allowed-files lists. Every other
+  prose mention of the two names (the frontmatter description, rules 2 and 4,
+  and Task 11's mirror-hygiene step) is repointed the same way; the last one
+  is not among the brief's cited line ranges but carries the same root path
+  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
+  the workflow source, so nothing else needed a change.
+- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
+  v0.89.21, the version that produced the previous lock file). The compile
+  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
+  and asked for no `--approve`. The lock diff is the metadata hash pair plus
+  the six path-copy lines the brief names (two header-comment lines, two
+  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
+  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
+  hand-edited.
+- **Tests.** None; this task touches no test-bearing code path.
+- **Gates.** `pytest -q`, `pre-commit run --all-files` and
+  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
+  (a changed path under `static/`, `templates/` or
+  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
+
+Validation: `pytest -q` -- **1849 passed**.
+
+### 2026-09-24 - The docsync declarations file moves under config/
+
+Side task, no batch tag: the root-cleanup plan's Task 5, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.docsync.toml` moves to `config/docsync.toml`
+  (`git mv`). `scripts/docsync/declarations.py`'s `DECLARATIONS_FILENAME`
+  and its `_TOP_LEVEL_SCHEMA` comment follow the move.
+  `scripts/dev/docsync_preflight.py`'s `CONTROL_PLANE_FILES` entry and its
+  exact-match comment now name `config/docsync.toml`, and no longer
+  recognize the retired root name. `scripts/docsync/findings.py`'s DOC023
+  remediation and `scripts/docsync/closeout.py`'s DOC019 remediation now
+  interpolate `DECLARATIONS_FILENAME` so a future move cannot strand them;
+  the comments in `scripts/docsync/archives.py` and two in
+  `scripts/docsync/integrity.py` name the new path. Every live
+  present-tense citation of the old path is corrected: `AGENTS.md`,
+  `AGENT_NOTES.md` (3), `DEVELOPMENT.md` (4), `docs/ARCHITECTURE.md`,
+  `docs/agents/global-rules.md`, `docs/architecture/documentation-tooling.md`
+  (7, including the mermaid node label and the sentence that said the file
+  sits "at the repository root"), `.pre-commit-config.yaml` (comment),
+  `.superpowers/cloud-kit/constraints.md` (R7), `scrobblescope/heatmap.py`
+  (comment), `static/css/tailwind.src.css` (comment), and `FINDINGS.md`'s
+  three open, present-tense mentions (F-B21-17's remaining-work note and
+  F-DOCSYNC-9's two `[[diagram]]` mentions). Left as written, by the
+  brief's own rule: `BATCH23_DEFINITION.md` (states the move itself),
+  `FINDINGS.md`'s two mentions of the F-DOCSYNC-16 fix round (a dated past
+  edit), and every `docs/superpowers/plans/*.md` / `docs/superpowers/
+  specs/*.md` document (plans and specs of completed or historical work).
+- **Tests.** Every declarations-writing fixture is repointed at the
+  `DECLARATIONS_FILENAME` symbol rather than the literal name, with its
+  parent directory created first: `tests/conftest.py` (`sync_env`),
+  `tests/test_docsync_cli.py` (`_make_corpus`'s base dict and six override
+  call sites -- `_write` already creates parent directories), `tests/
+  test_docsync_declarations.py` (`TestDocumentsConfig`'s three writers, and
+  four more writers found only by re-grepping at this task's own HEAD --
+  `test_a_malformed_declarations_file_is_a_declaration_error`,
+  `test_an_unknown_table_name_is_refused`, `test_a_misspelled_option_is_
+  refused`, `test_a_top_level_declaration_collection_must_be_a_list` --
+  plus four prose docstrings/comments reworded to say "declarations file"),
+  `tests/test_docsync_integrity.py` (`_write_closeout_boundary` and
+  `test_doc023_honours_the_repositorys_grandfather_list`, plus two prose
+  docstrings), `tests/scripts/dev/test_docsync_preflight.py`
+  (`test_staged_preflight_against_real_docsync_checker`'s writer and its
+  `git add` list). `test_control_plane_prefix_matching`'s parametrize list
+  now asserts `config/docsync.toml` is control-plane and the retired
+  `.docsync.toml` is not. `tests/test_template_shell.py`'s `.docsync.toml`
+  comment is repointed. No suite count change beyond the one new
+  parametrize row. Edited for reasons other than the move: none.
+- **Frontend gate ran locally** (the `static/css/tailwind.src.css` comment
+  edit; `python scripts/dev/tailwind_build.py --check` shows no drift), its
+  last line: `[frontend_gate] 30 checks passed in 52 runs across chromium,
+  firefox (static assets & tokens canary on firefox); profiles: desktop,
+  mobile, wide touch`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards),
+  built from `git archive $(git stash create)` (Lesson L18: this task's
+  probe step runs before its commit, so HEAD was still BASE):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Faithful copy: `doc_state_sync.py --check` in the corpus | byte-identical to the same command in the worktree (both pending the count refresh this entry makes) | 1 (identical both sides) |
+  | Declared check is live: append `[nonsense]` to `config/docsync.toml`, `--check` | refuses the unknown table, naming `config/docsync.toml`; reset | 2 |
+  | Red: edit a comment in `config/docsync.toml`, stage it, `docsync_preflight.py --staged` | control-plane refusal naming `config/docsync.toml`; reset | 3 |
+  | Near-miss green: stage a root `.docsync.toml` with any content, same command | no control-plane refusal -- the checker runs (a `.venv` junction was needed for the probe's own precondition; the run then hit the same pending DOC006/DOC008 as the faithful-copy row, not a control-plane one) | 1 (no EXIT_CONTROL_PLANE_REJECTED) |
+
+Validation: `pytest -q` -- **1849 passed**.
+
+### 2026-09-24 - The check manifest moves under config/
+
+Side task, no batch tag: the root-cleanup plan's Task 4, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `frontend_gate_checks.toml` moves to
+  `config/frontend_gate_checks.toml` (`git mv`), the same commit as the
+  constant update (the riskiest single step in this plan by import-time
+  coupling). `scripts/dev/frontend_gate.py`'s `CHECK_MANIFEST_PATH`, the
+  comment above it, and the missing-manifest `FrontendGateError` message
+  ("Restore config/frontend_gate_checks.toml.") all follow the move. The
+  manifest's own header comment, and the two live documents that called it
+  "root-level" (`DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md`),
+  now say it sits under `config/`, naming the docsync declarations file
+  without a path until Task 5 moves it.
+- **Tests.** None added (R3): the manifest-specific tests build their own
+  `tmp_path` manifest. All twelve `tests/scripts/dev/test_frontend_gate_*.py`
+  modules still collect and pass (316 tests).
+- **Frontend gate ran locally** on this commit (plan Step 3), its last
+  line: `[frontend_gate] 30 checks passed in 52 runs across chromium,
+  firefox (static assets & tokens canary on firefox); profiles: desktop,
+  mobile, wide touch`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards),
+  built from `git archive $(git stash create)` (Lesson L18: this task's
+  probe step runs before its commit, so HEAD was still BASE):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Red: remove `config/frontend_gate_checks.toml`, commit, then `python -c "from scripts.dev import frontend_gate"` | prints `[frontend_gate] ERROR: check manifest missing at .../config/frontend_gate_checks.toml. Restore config/frontend_gate_checks.toml.` (`FrontendGateError` converted to `SystemExit`) | 1 |
+  | Near-miss green: restore the file with a trailing blank line added (still valid TOML), same import | imports silently | 0 |
+
+Validation: `pytest -q` -- **1848 passed**.
+
+### 2026-09-24 - A --config override lets every check read a different declarations file
+
+Side task, no batch tag: the root-cleanup plan's Task 3, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `scripts/docsync/cli.py` gains a `--config PATH`
+  argument and a module-level `CONFIG_PATH`, set by `main()` for the length
+  of one invocation and restored in a `finally`. Every declarations read in
+  `cli.py` -- the four `load_archive_config`/`load_closeout_config` call
+  sites and both `collect_integrity_issues` calls -- now forwards it.
+  `declarations.load_declarations` refuses an explicit `config_path` that is
+  not a file (a mistyped `--config` no longer means "run every check with
+  nothing declared, and pass"), and its TOML-decode error names the file
+  actually read. `collect_declaration_issues` takes the same kwarg, and its
+  unknown-table error names `config_path` when one was given, the repository
+  default otherwise. `integrity.collect_integrity_issues` gains and forwards
+  the same kwarg to its three reads. `docs/architecture/documentation-tooling.md`'s
+  CLI-surface section documents `--config` as an option, not a mode.
+- **Tests.** Six new tests: `tests/test_docsync_declarations.py::
+  TestExplicitConfigPath` (three) and `tests/test_docsync_cli.py::
+  TestConfigOverride` (three). Each proved by scratch-copy mutation
+  (`git stash create`, never the real tree): reverting the explicit-missing-
+  path refusal alone fails `test_explicit_missing_path_is_refused`; giving
+  `--config` a non-`None` default alone fails
+  `test_config_flag_defaults_to_none`; reverting `collect_declaration_issues`'s
+  `config_path` forwarding alone fails
+  `test_config_selects_the_declarations_file_every_check_reads`; reverting
+  the `finally` restore alone fails
+  `test_main_restores_config_path_after_the_run`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Faithful copy: `--check` on the probe corpus | Same summary as the real tree (DOC024 x4, root-BATCH warning) | 0 |
+  | Red 1: `--check` alone vs `--check --config alt.toml`, where `alt.toml` is a copy of the declarations file plus `[nonsense]` | Plain `--check` unaffected; `--config alt.toml` refused, naming `alt.toml`'s unknown table | 0 then 2 |
+  | Red 2: `--check --config nowhere.toml` | Refused, naming `nowhere.toml` | 2 |
+  | Near-miss green: `--check --config alt.toml`, `alt.toml` an unchanged copy | Identical summary to plain `--check` | 0 |
+
+- **Deviations:** the probe corpus was built from `git archive $(git stash
+  create)` rather than the plan's literal `git archive HEAD`. This task's
+  own Step 5 (probe) runs before Step 6 (commit), so `HEAD` at probe time
+  was still BASE and had no `--config` to probe; `git stash create` (Lesson
+  L9/L18) captured the uncommitted implementation instead.
+
+Validation: `pytest -q` -- **1848 passed**.
+
+### 2026-09-24 - The handoff catches up with the root cleanup's first three tasks
+
+Side task, no batch tag: the sixth (cloud) session's handoff revision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **What changed.** `docs/history/reports/HANDOFF_2026-09-24.md` records
+  root-cleanup Tasks 0-2 done and Task 3 next, with the two notes Task 3's
+  brief needs that the plan lacks. It also drops three claims the merge of
+  `main` made false: that PR #242 was still to be merged in, that the guard
+  fails against `origin/main`, and that pre-commit always prints WT005.
+  Section 8 gains two traps from this session: a plan's own heading can
+  break R1, and an adapted test can stop testing the change.
+- **Task 2's fix round.** The owner waived its re-review. The controller
+  verified it by mutation in a scratch copy instead: reverting the
+  scan-source comparison alone fails only
+  `test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path`,
+  and reverting the definition-line comparison alone fails only
+  `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`.
+- **Deviations:** none. Docs only.
+
+Validation: `pytest -q` -- **1842 passed**.
+
+### 2026-09-24 - The documents-table tests prove the playbook override
+
+Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 2, part
+of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Finding.** The earlier Task 2 entry's claim -- that
+  `test_collect_integrity_issues_scans_under_an_overridden_playbook_path`
+  "exercises the actual kwarg-driven behaviour" of `collect_integrity_issues`
+  -- was false for the `playbook_relative_path` half of it. The review proved
+  by scratch-copy mutation (`git archive HEAD`, never the real tree) that
+  reverting either `path == playbook_relative_path` comparison in
+  `collect_integrity_issues` (`scripts/docsync/integrity.py` ~992, ~997)
+  back to the hardcoded `path == "PLAYBOOK.md"` leaves that test green: its
+  fixture has no dated Section 4 entry to blank and no active-batch
+  definition line, so both comparisons are inert for it. Only
+  `documents_to_scan = set(document_paths)` was actually covered. The
+  production code itself was already correct; this is a test-coverage and
+  documentation-truth gap.
+- **Fix.** That test's docstring is corrected to claim only what it proves
+  (the `document_paths`/scan-set substitution) and now names the two tests
+  below for the other two comparisons. Two new tests added to
+  `tests/test_docsync_integrity.py`:
+  - `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
+    playbook_path` makes the scan-source comparison (~992) load-bearing:
+    a dead reference inside a dated Section 4 entry is blanked and not
+    reported, the same reference in Section 3 is reported, both under an
+    overridden `playbook_relative_path`; mirrors
+    `test_playbook_reference_after_dated_entry_keeps_original_line_number`
+    and `test_definition_label_outside_section_3_is_not_exempt`.
+  - `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`
+    makes the definition-line skip (~997) load-bearing: an untracked active
+    definition reference reports DOC002 once and not also DOC001, under the
+    override; mirrors `test_untracked_active_definition_is_blocking`.
+- **Mutation proof** (scratch copy under this session's scratchpad, `git
+  archive HEAD | tar -x`, the new test file copied in; the real working
+  tree was never edited, staged or reverted, per Lesson L9):
+  - Reverting the scan-source comparison alone ->
+    `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
+    playbook_path` fails: `AssertionError: ... Left contains one more item:
+    ('DOC001', 'docs/agents/PLAYBOOK.md', 9)` (the entry-block reference is
+    no longer blanked). The other two new/adjacent tests still pass.
+  - Restoring that comparison and reverting the definition-line skip alone
+    -> `test_definition_line_skip_is_honoured_under_an_overridden_playbook_
+    path` fails: `AssertionError: ... Left contains one more item:
+    ('DOC001', 'docs/agents/PLAYBOOK.md', 5)` (the untracked definition
+    reference is now double-reported). The other two tests still pass.
+- **Validation:** `pytest -q` -- **1842 passed** (+2: the two new tests
+  above; module count unchanged at 68). `pre-commit run --all-files`
+  passed clean, worktree-alignment printing only `WARNING WT010` and
+  `INFO WT000`. `doc_state_sync.py --check` exited 0 with the standing
+  DOC024 warnings (L7); this commit touches only test and doc files, so
+  no `scripts/docsync/` control-plane file is staged and the preflight
+  does not refuse it -- committed without `SKIP=doc-state-sync-check`.
+
+### 2026-09-24 - A declared [documents] table for docsync's own live documents
+
+Side task, no batch tag: Task 2 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** Task 2 of the root-cleanup plan
+  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`):
+  `declarations.DocumentsConfig` (fields `playbook`, `findings`,
+  `agent_notes`, `handoff_prompt`, each defaulting to today's literal) and
+  `declarations.load_documents_config` read an optional `[documents]` table
+  from `.docsync.toml`, refusing an unknown key or a non-string value.
+  `integrity.resolved_live_document_paths(documents)` mirrors
+  `LIVE_DOCUMENT_RELATIVE_PATHS`'s shape and order from a `DocumentsConfig`.
+  `collect_integrity_issues` gains three optional kwargs --
+  `document_paths`, `playbook_relative_path`, `findings_relative_path` --
+  each defaulting to today's literal, so DOC001's scan set and the two
+  `path == "PLAYBOOK.md"` comparisons and the two `FINDINGS.md` lookups
+  (the header-count and DOC023 checks) can be pointed at a declared path.
+  No file moves in this task: every default stays today's literal, and the
+  fourteen `PLAYBOOK.md`/twelve `FINDINGS.md` diagnostic path labels are
+  left unchanged (Task 8 threads the declared path into them, owner ruling
+  2026-09-24). `load_declarations`/`load_archive_config`/
+  `load_closeout_config`/`load_findings_config` gained a `config_path`
+  keyword so a caller can point at a throwaway `.docsync.toml` directly.
+- **TDD.** `tests/test_docsync_declarations.py::TestDocumentsConfig` (4
+  tests) and three new tests in `tests/test_docsync_integrity.py` were
+  written first and confirmed RED (`ImportError`/`TypeError` -- see the
+  report). One deviation from the brief's literal third integrity test:
+  `collect_integrity_issues` scans the document named
+  `playbook_relative_path` from the *structural* `playbook_lines` argument
+  via `_playbook_lines_without_entry_blocks` (`scripts/docsync/integrity.py`),
+  which requires `playbook_lines` to carry real `## 3. Active batch` and
+  `## 4. Execution log` headings (`_find_section`,
+  `scripts/docsync/parser.py`) or it raises `SyncError` uncaught -- a
+  pre-existing requirement this task's kwargs do not touch. The brief's
+  bare one-line `playbook_lines` hits that unrelated `SyncError` instead of
+  proving the DOC001 rescan, so the test gives `playbook_lines` the
+  minimal real structure instead (same assertion, `repo_root=tmp_path`
+  in place of `Path(".")` so the test does not depend on this
+  repository's own `.docsync.toml`). Recorded here rather than left as a
+  silent difference from the brief's pasted code block.
+- **Live probe** (throwaway corpora under this session's scratchpad,
+  `git init` + `git add -A` + commit in each so `git ls-files` resolves;
+  `git archive <sha>` for the pre-task state, `git archive $(git stash
+  create)` for this task's tree, per Lesson L9):
+  - Baseline (BASE `e48d08e`, `[documents]` appended to `.docsync.toml`):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: .docsync.toml has an unknown table
+    'documents'. Known tables: anchor, archives, closeout, findings,
+    options, retired, value.`
+  - Red (this task's tree, `[documents]\nnotebook = "x.md"` appended):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: [documents] has an unknown key 'notebook'.
+    Known keys: agent_notes, findings, handoff_prompt, playbook.`
+  - Near-miss green (reset, then `[documents]\nplaybook = "PLAYBOOK.md"`
+    appended): `python scripts/doc_state_sync.py --check` -> exit 0, the
+    same summary line as the unmodified corpus's own `--check`.
+- **Validation:** `pytest -q` -- **1840 passed** (+7: `TestDocumentsConfig`'s
+  4 tests and 3 new tests in `tests/test_docsync_integrity.py`; module count
+  unchanged at 68). `ruff check`/`ruff format` auto-fixed one lint issue and
+  reformatted two files on the first `pre-commit run --all-files`; the
+  second run passed every hook clean, worktree-alignment printing only
+  `WARNING WT010` (dirty tree) and `INFO WT000` (R6). `doc_state_sync.py
+  --check` exited 0 with the standing DOC024 warnings (L7); this task
+  touches `scripts/docsync/`, so the commit uses `SKIP=doc-state-sync-check`
+  (R7), never `--no-verify`.
+
+### 2026-09-24 - The handoff stops calling the approved plan a draft
+
+Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Finding.** The task review found
+  `docs/history/reports/HANDOFF_2026-09-24.md`'s revision note still saying
+  the root-cleanup plan "is committed as a draft", against its own section
+  5 item 5, which Task 1 updated to say the owner approved it. The note is
+  now past tense and points at section 5 item 5. A grep for other "draft"
+  claims about the plan in the handoff, the cloud-kit constraints,
+  SESSION_CONTEXT, AGENT_NOTES, the batch definition and PLAYBOOK Section 3
+  found none.
+- **Deviations:** the review's minor finding stays open: one line of Task
+  1's commit body is 73 characters, one over the 72-character wrap. Fixing
+  it would mean amending that commit, a history rewrite, so it stays as
+  written.
+
+Validation: `pytest -q` -- **1833 passed**.
+
+### 2026-09-24 - The root cleanup joins the reconcile work
+
+Side task, no batch tag: the root-cleanup task joins WP-0 Part B, part of
+Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of
+WP-0 lands.
+
+- **Scope.** Task 1 of the root-cleanup plan
+  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`): record
+  the scope change before any file moves (Proposal Rule 1). `BATCH23_DEFINITION.md`
+  Part B gains a "Root cleanup" bullet naming the plan and the acceptance
+  criterion it must meet. PLAYBOOK Section 3's "Next action" item 3 now
+  names the root-cleanup plan's path and states Task 0 and Task 1 done,
+  Tasks 2-8 remaining, instead of describing the plan as a draft.
+- **Plan bookkeeping.** The plan's own status paragraph and "Revisions
+  applied" section are deleted: the plan is committed in its approved form
+  in this same commit. Task 1's four step checkboxes are ticked.
+- **Sibling sweep.** `docs/history/reports/HANDOFF_2026-09-24.md` section 3
+  no longer cites the plan's deleted "Revisions applied" section; it now
+  points at the plan's task list and its "verification standard for
+  control-plane tasks". Section 5 item 5 no longer cites the deleted status
+  paragraph; it points at this handoff's section 6, which records the
+  owner's rulings.
+- **Validation:** `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
+  passed (worktree-alignment printed only the expected WT000/WT010 noise).
+  `doc_state_sync.py --check` exited 0 with the standing DOC024 warnings
+  (L7).
+
+### 2026-09-24 - main is merged in before the root cleanup
+
+Side task, no batch tag: Task 0 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** A normal merge commit brings `origin/main` (`707eed6`, PR #242)
+  into this branch before any file moves, so the Repo Assist workflow and
+  its Section 4 entry move with the documents. Arrived cleanly:
+  `.github/workflows/repo-assist.md`, `.github/workflows/repo-assist.lock.yml`,
+  `.github/aw/actions-lock.json` and `.gitattributes`.
+  `.github/copilot-instructions.md` needed nothing: its one line was already
+  byte-identical on both sides.
+- **Conflicts.** `git merge-tree` named exactly the two files the plan
+  predicted, `PLAYBOOK.md` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. `main` changed only
+  Section 4 in both: it added the Repo Assist entry and rotated "The
+  release-check finish line names both corrections" into the archive. This
+  branch had already rotated that entry, byte-identical, so the archive
+  resolves to this branch's side. In Section 4 every entry from both sides
+  survives, text unchanged: the Repo Assist entry went in by commit time,
+  between "The root-cleanup plan is drafted and the handoff readied for a
+  cloud session" and "The architecture diagrams are re-verified against
+  source". `--fix` then rotated those last two into the archive, where each
+  appears once.
+- **Section 3.** Item 3 records the owner's approval ("follow active
+  plans", 2026-09-24) and Task 0 done. The plan's own status paragraph still
+  reads "awaiting review and owner approval" until Task 1 deletes it, as
+  that task specifies. Task 0's plan checkboxes are ticked, and
+  `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 5 now says
+  the plan is approved and Task 0 done.
+- **Deviations:** Task 0 Step 3 says to append its sentence to item 3. Item
+  3's last sentence said the plan awaited approval, so that sentence is
+  replaced rather than left to contradict the new one.
+
+Validation: `pytest -q` -- **1833 passed**.
+
+### 2026-09-24 - README and DEVELOPMENT.md catch up with the code
+
+Side task, no batch tag: the owner found `README.md` and `DEVELOPMENT.md`
+stale and asked for the wordmark at the top of the README. Not WP-0 work.
+
+- **How.** Two read-only audits, one per file, checked every claim against
+  source; the controller verified each finding at source before fixing it.
+  The audits were light, so the controller also spot-checked what landed
+  since each file's last edit. An independent review approved the result;
+  its one wording fix (the `config.py` row claimed "every" tuning value) is
+  applied.
+- **README.md.** The heading is now the ScrobbleScope lockup, served
+  through `<picture>` so GitHub picks the light or dark variant, with the
+  proposition as a line below it: design rule 6 (`docs/design/README.md`)
+  puts the lockup, not the tagline mark, where the proposition is stated in
+  text, and the tagline ("your top albums by year") names only half the app.
+  The two variants, `docs/assets/scrobble_scope_lockup_light.svg` and
+  `..._dark.svg`, are generated from
+  `templates/inline/scrobble_scope_lockup_inline.svg` with the
+  `text-strong` and `color-primary` tokens of each theme baked in, since
+  GitHub applies none of the site's CSS; each says so in a comment. Also:
+  the module table gains `api_logging.py` and `config.py` and `domain.py`'s
+  row names the release-window rule; the tuning-variable sentence names the
+  concurrency limits and the active-job cap; the DEPLOY.md pointer no longer
+  promises a validation checklist that file does not have; and "What shipped
+  most recently" adds the identifiable User-Agent and provider-call logging,
+  both on `main` since PR #241.
+- **DEVELOPMENT.md.** `_LIVE_DOCUMENT_PATHS` (two sites) is
+  `LIVE_DOCUMENT_RELATIVE_PATHS` since the rename, and `AGENT_NOTES.md`
+  carried the same stale name, fixed too; the worktree guard has six
+  modules, not seven; the pre-commit section names the hook's real entry
+  point, `scripts/dev/docsync_preflight.py --worktree`.
+- **Deviations:** the first cut of the SVGs was invalid XML (a `--` inside
+  a comment) and two of the controller's own README claims failed
+  verification (that `config.py` holds every environment variable, and
+  that no log line carries a name -- `musicbrainz.py`'s retry label does,
+  an open handoff item); all three are fixed before this commit. The
+  wordmark was checked by rendering both variants as standalone images on
+  GitHub's light and dark backgrounds; the frontend gate does not apply (no
+  `static/` or `templates/` change).
+
+Validation: `pytest -q` -- **1833 passed**.
+
+### 2026-09-24 - The root-cleanup plan is revised and its open points ruled
+
+Side task, no batch tag: revising the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** The plan's eight "Revisions pending" items, plus what a
+  source-verified pre-flight found, applied to its task bodies. Nothing in
+  the plan has run. Fifth session, the first run of the plan in a cloud
+  sandbox.
+- **How.** Three read-only research passes at `85f47a0` (production code,
+  tests, the inventory's currency including PR #242's files), controller
+  probes in scratch copies, then two independent review rounds. Round 1
+  found two Critical defects in the revision itself: the proposed pre-commit
+  exclude `docs/(?!agents/)` would have un-excluded all of `docs/` (the
+  pattern's `/` sits outside the group), and a proposed test assumed the
+  `sync_env` corpus passes `--check` (it exits 1, DOC005). Both are fixed;
+  round 2 approved, and its three minors are fixed here. A two-axis code
+  review (standards, spec) at the owner's request then found no hard
+  violation and no missing or wrong item; its one duplicated fact (task
+  status copied into the cloud-kit constraints header) is now a pointer.
+- **What the plan now carries.** Task 0 merges `origin/main` (conflicts
+  only in this file and the log archive, re-verified). Task 3 refuses a
+  `--config` naming a missing file, which would otherwise mean "nothing
+  declared" and pass. Task 5 repoints the test fixtures that write the
+  declarations file (a probe of the draft failed 25 tests) and sweeps its
+  live citations by grep, since DOC001 checks backticked `.md` references
+  and not `.toml`. Task 6 names the `cli.py` path sites, the tests that
+  copy the status line, and the DOC004 contract between
+  `SIDE_ARCHIVE_PREFIX` and the log archive's prologue. Task 8 covers
+  fourteen `PLAYBOOK.md` and twelve `FINDINGS.md` diagnostic labels. The
+  plan's "Revisions applied" section maps every item.
+- **Owner rulings, 2026-09-24:** the pre-commit `exclude` becomes
+  `docs(?!/agents/)`, so the moved documents stay under the file hooks; the
+  `FINDINGS.md` labels join Task 8; generated docsync text names no document
+  path instead of hard-coding one; writers may run in parallel on disjoint
+  files. `docs/history/reports/HANDOFF_2026-09-24.md` sections 4 and 6
+  record them.
+- **Also changed.** Section 3's order list records this state (cloud-kit
+  R2; Task 1 replaces that text on approval). The handoff gains the
+  shallow-clone trap: this session's clone was shallow and 20 commits
+  behind, so the guard printed WT005 against `origin/test` until
+  `git fetch --unshallow`. `.superpowers/cloud-kit/constraints.md` now
+  names both plans and points at SESSION_CONTEXT for the baseline instead
+  of copying a count.
+- **Deviations:** none. Docs only; no test added or changed.
+
+Validation: `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
+and `doc_state_sync.py --check` pass; the frontend gate does not apply (no
+`static/`, `templates/` or gate path changed).
+
+### 2026-09-24 - The root-cleanup plan is drafted and the handoff readied for a cloud session
+
+Side task, no batch tag: drafting the root-cleanup plan and revising the
+session handoff, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Owner rulings, 2026-09-24.** The root is cleaned up: `PLAYBOOK.md`,
+  `FINDINGS.md`, `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` move to
+  `docs/agents/`; `.docsync.toml` and `frontend_gate_checks.toml` move to
+  `config/`, each tool with one constant default path, docsync with a
+  `--config` override and its document paths declared in its config. Human
+  and Impeccable documents stay at the root. It runs after foundation Task
+  10 as a new WP-0 Part B task; `origin/main` (PR #242) is merged into this
+  branch first; the docsync diagnostics that print `PLAYBOOK.md` are fixed
+  in the same plan. `docs/history/reports/HANDOFF_2026-09-24.md` section 6
+  holds the full list.
+- **What landed.** A read-only research pass listed every place that
+  resolves one of the six moving paths, committed as
+  `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` (point-in-time,
+  read at `b1b8c0c`). A plan drafted from it,
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, is
+  committed as a draft and marked not approved. A read-only plan review
+  found that the draft's Task 7 misreads a merged PR #242, that two DOC002
+  label sites and one `renderer.py` citation were unnamed, and that the
+  label count was ten, not twelve. Its claim that merging `main` would
+  conflict in `AGENTS.md`, `FINDINGS.md` and other files was checked with
+  `git merge-tree` and is wrong: only `PLAYBOOK.md` Section 4 and the log
+  archive conflict. Every accepted item, and the owner's rulings, are in
+  the plan's "Revisions pending" section; nothing in the plan has run.
+- **Handoff.** `docs/history/reports/HANDOFF_2026-09-24.md` is revised for a
+  cloud session: sections 1, 3, 5, 6 and 8 record Tasks 8-10 done, PR #242
+  merged, the root-cleanup rulings, the Repo Assist scope, and three new
+  traps (the owner's own changes appearing mid-task, the push permission
+  workflow files need, and compiling gh-aw workflows).
+- **Deviations:** none. Docs only.
+
+Validation: `pytest -q` -- **1833 passed**.
+
+### 2026-09-24 - Repo Assist runs daily, scoped to tests and dependency proposals
+
+Side task, no batch tag: adding the Repo Assist agentic workflow (gh-aw),
+requested by the owner 2026-09-24. It lands on its own branch from `main`
+(owner ruling, same day) so Batch 23 WP-0's branch stays clean; a scheduled
+workflow runs only from the default branch.
+
+- **What it is.** `.github/workflows/repo-assist.md` is the source and
+  `repo-assist.lock.yml` its compiled Actions workflow (gh-aw v0.89.21;
+  recompile with `gh aw compile repo-assist` after any edit, since the lock
+  records a hash of the source). It came from
+  `githubnext/agentics/workflows/repo-assist.md` (pinned by its `source:`
+  line). `.github/aw/actions-lock.json` pins the actions the lock uses, and
+  `.gitattributes` marks lock files as generated.
+- **Scoped to this repository by owner request.** The upstream template runs
+  ten tasks. Enabled here: Testing Improvements, pinned-dependency proposals,
+  maintaining its own draft PRs, and a monthly activity issue that also lists
+  GitHub `finding` issues whose record `FINDINGS.md` has already settled.
+  Disabled: issue labelling, triage and fixing (the 43 open issues are the
+  unmaintained `FINDINGS.md` mirror, and `FINDINGS.md` wins), coding,
+  documentation, performance and "take the repository forward" work, and
+  release preparation. Its prompt binds it to `AGENTS.md`: a Section 4 entry
+  in the same commit, the gates before any PR, no dependency change without
+  the owner's approval, no edits to batch files, `scripts/`, `docs/` or
+  `.github/`.
+- **Guardrails.** One draft PR per run and none while three are open;
+  `allowed-files` limits PRs to tests, the two requirements files and the
+  Section 4 documents; a change to a file gh-aw protects (its documented
+  list: package manifests, CI configuration, agent instruction files) is
+  opened with a review request rather than silently. The repository is public, so `min-integrity: approved`
+  lets it act only on content from the owner and collaborators or items
+  carrying its own `repo-assist` label. Network: PyPI and GitHub only.
+- **Secrets the owner sets** (repository secrets, never committed):
+  `CODEX_API_KEY` or `OPENAI_API_KEY` for the codex engine, and
+  `GH_AW_CI_TRIGGER_TOKEN`, a fine-grained PAT with Contents read and write,
+  so `test.yml` runs on its PRs (GitHub starts no workflow for a push made
+  with the built-in token). The workflow file's own comments say the same.
+- **Deviations:** the upstream `update-docs` workflow was added and then
+  dropped by owner ruling (it would open a documentation PR on every push to
+  `main`, against docsync's single-owner rules). `.github/skills/` from
+  `gh aw` stays untracked: skill definitions are not tracked here
+  (`AGENT_NOTES.md`). The prompt keeps the template's emoji disclosure lines
+  as the template wrote them; they only shape generated GitHub content, not
+  repository documents.
+
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
+**Follow-up (2026-09-24).** The owner added one line to the top of
+`.github/copilot-instructions.md` and asked for it to be tracked with this
+change: GitHub's coding agents are to follow `AGENTS.md` and its bootstrap,
+not duplicate its rules, and use the existing Graphify guidance for
+architecture questions. Its one curly apostrophe became a straight one
+(`AGENTS.md` Markdown Authoring Rules: ASCII only); the file's older
+non-ASCII characters, in its Mermaid section, are untouched.
+Validation: `pytest -q` -- **1821 passed**; docs only.
+
+**Review fix round (2026-09-24).** A `/code-review` of this PR found four
+defects the workflow inherited from the upstream template; each was checked
+against the gh-aw docs and the compiled lock before fixing. (1) The prompt
+never gave `notes.json`'s exact shape, which the memory validation script
+enforces key by key, so a guessed file would be rejected: the prompt now
+gives the initial document and every entry's keys. (2) The validator failed
+on a missing `notes.json`, so a correct do-nothing run on a fresh memory
+branch would fail: a missing file is now valid. (3) Task 11 closes last
+month's activity issue, but `update-issue` allowed only the body: it now
+also allows the status. (4) The open-PR cap searched titles for
+`"[repo-assist]"`, which GitHub's search reads as plain words, so it also
+counted human PRs mentioning "repo assist": it now matches the literal
+title prefix, as the task-weighting step already did. Recompiled with
+`gh aw compile repo-assist --approve`, the approval covering the reviewed
+validation-script change.
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
+### 2026-09-24 - The architecture diagrams are re-verified against source
+
+Side task, no batch tag: walking every `docs/architecture/*.md` diagram
+against current source, part of Batch 23 WP-0 Part B. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1:** `runtime-system.md` gained `api_logging.py` as a runtime node
+  (`Utils --> ApiLogging`), a sixth "Five things" bullet on the shared
+  `aiohttp.TraceConfig` trace hook and per-provider call summary (F-B23-6,
+  `433120c`/`e7e076b`/`5bfb997`), and its `config.py` importer count
+  corrected from ten to eleven: `routes/__init__.py`'s module-level
+  `MAX_ACTIVE_JOBS` import (landed at `e552956`, before this diagram's own
+  last edit, and missed until now) joins the list, and `app.py` is renamed
+  the twelfth (deferred-only) importer.
+- **Step 2:** `top-albums-sequence.md`, `heatmap-sequence.md`,
+  `development-cycle.md` and `documentation-tooling.md` needed no change.
+  Walked against `de8c2d8` (`domain.release_window`), `4cbb9b1` (release
+  checks run without the cache, guarded per use rather than skipped),
+  `e552956` (the capacity message), `82557fd` (the UTC year gate), the
+  logging commits above, the `_frontend_gate_*` slice split, `a25d187`
+  (the check manifest), `a87e6058` (ruff BLE gate on broad catches),
+  `c611f721` (`_validate_api_keys` in `create_app`) and `bd7ffef0` (the
+  `.githooks/` CRLF rule) -- each fact these four files already state
+  still matches current source.
+- **Step 3:** `docs/ARCHITECTURE.md`'s "Last verified" date moved from
+  2026-09-20 to 2026-09-24, after every file above was walked.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
+### 2026-09-24 - AGENTS.md points at the full docsync CLI and records the installer decision
+
+Side task, no batch tag: `AGENTS.md` pointers and the installer decision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Step 1:** `AGENTS.md` "Doc Sync Rules" -> "How to run" now points at
+  `docs/architecture/documentation-tooling.md` "CLI surface added by the
+  close-out and bounded-archives plan" for `--close-batch`,
+  `--paginate-archives` and `--cold-storage`, without restating the modes.
+- **Step 2:** `AGENTS.md` "Agent skills" gained a "Global rules" pointer to
+  `docs/agents/global-rules.md`, in the same shape as its three siblings.
+- **Step 3:** `AGENT_NOTES.md` "Architectural Constraints" records the
+  installer decision: no live `--install --yes` has run in this repository,
+  and either install order fails loudly rather than silently. Wrapper
+  first, then `pre-commit install`, moves the wrapper to `pre-commit.legacy`
+  and re-enters it through `hook_impl.py`'s `_run_legacy`; the wrapper's own
+  non-recursive delegation to `python -m pre_commit hook-impl` then
+  inherits `PRE_COMMIT_RUNNING_LEGACY` and hits pre-commit's own "installed
+  in migration mode" `SystemExit` on every future commit -- confirmed
+  against `install_uninstall.py` and `hook_impl.py` in the installed
+  `pre_commit` package, matching the plan's "Errors in the earlier draft".
+  `pre-commit install` first, then the wrapper, fails the other way:
+  pre-commit's own generated hook file carries no `GENERATED_MARKER`, so
+  `install_docsync_hook.py`'s `classify_existing_hook` reads it as
+  `"unknown"` and `install()` refuses to overwrite it (exit 2). The wired
+  path already runs the checker without the wrapper: `doc-state-sync-check`
+  is first in `.pre-commit-config.yaml`, and CI's own explicit preflight
+  step backs it up.
+- **Step 4:** `AGENTS.md` measures **487** lines (`wc -l AGENTS.md`),
+  under the 500-line limit.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
+**Follow-up (2026-09-24, owner change).** The owner added one line to the
+top of `.github/copilot-instructions.md` and asked for it to be committed:
+GitHub's coding agents are to follow `AGENTS.md` and its bootstrap, not
+duplicate its rules, and use the existing Graphify guidance for
+architecture questions. It is the agent-facing counterpart of this entry's
+pointers. The same line, with its curly apostrophe straightened (`AGENTS.md`
+Markdown Authoring Rules: ASCII only), is also on PR #242
+(`chore/repo-assist-workflow`); the two copies are byte-identical, so the
+branches merge cleanly. Docs only.
+
+### 2026-09-24 - The frontend gate selects checks from a manifest
+
+Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
+gate selects which checks run by name, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Steps 1-2: manifest and selection.** `frontend_gate_checks.toml` (root)
+  declares `required` (the four load-bearing checks) and `disabled` (empty
+  today). `scripts/dev/frontend_gate.py` loads it with `tomllib` at import,
+  validates every named check against `CHECKS`, and refuses -- with a clean
+  `[frontend_gate] ERROR:` line, before `main` ever runs -- an unknown name
+  or a required check disabled. Selection is by name only: `CHECKS` stays
+  the full registry, so the three existing tests in
+  `tests/scripts/dev/test_frontend_gate.py` that patch it directly are
+  unmodified. `run_checks` and `PLANNED_RUNS` filter by the disabled-name
+  set, and the startup line states the enabled count and names every
+  disabled check. New test module
+  `tests/scripts/dev/test_frontend_gate_manifest.py` (8 tests).
+- **Deviation from the brief:** Step 1 says disabling `divider contrast`
+  lowers the planned run count by one; measured, it drops by **two** -- the
+  check runs on one profile (DESKTOP) but belongs to the `STATIC_ASSETS`
+  group, which Firefox also runs as its canary. The test asserts the drop
+  is 2, with a comment saying why.
+- **Step 3: live probe**, throwaway corpus at `/c/ssprobe` (`git ls-files`
+  plus the two new files, since the change is uncommitted), deleted after.
+
+  | probe | expected | exit | evidence |
+  |---|---|---|---|
+  | faithful copy | same selection as the worktree | 0 | `30 of 30 checks selected; disabled: none`, `PLANNED_RUNS 52` |
+  | red: required check disabled | refused before a browser launches | 1 | `[frontend_gate] ERROR: check manifest ... disables required check(s) stylesheet isolation ...`; no launch line in the output |
+  | red: unknown name (typo) | refused, not ignored | 1 | `[frontend_gate] ERROR: check manifest ... names 'divider kontrast', which is not a check in CHECKS ...`; no launch line in the output |
+  | near-miss green | committed manifest, `disabled = []` | 0 | the worktree's own `frontend` gate run below |
+
+- **Step 4:** `documentation-tooling.md` records the manifest as landed and
+  states the decomposition's goal was isolating what executes, not
+  shrinking `_frontend_gate_layout.py`.
+
+`frontend` gate run locally (this task changes the gate itself, so its
+near-miss green is that run; section 2b's path-prefix `when` condition does
+not match `frontend_gate.py`, so it is not implied by other changed paths):
+`30 checks passed in 52 runs across chromium, firefox (static assets &
+tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+
+Validation: `pytest -q` -- **1833 passed**.
+
+**Fix round 1 (2026-09-24, review finding).** `DEVELOPMENT.md` still stated
+the exact fact Step 4 reversed: "the `frontend_gate_checks.toml` registry
+stays a deferred candidate" (line 539), next to a stale facade line count
+("535 lines", line 532; actual 619 at `a25d187`) -- a live architecture
+document, not a dated log, so it is not point-in-time and it directly
+contradicted the sentence this same commit wrote into
+`documentation-tooling.md`. Fixed: `DEVELOPMENT.md` now says the manifest
+landed too, in the same words `documentation-tooling.md` uses, and states
+the facade's size only as "under the decomposition plan's 700-line
+threshold" rather than restating an exact count -- a second copy of a
+number is exactly what went stale here. A second copy of the same stale
+count turned up on re-sweep: this Section 3's own "Side task complete: the
+frontend gate split (F-B21-51)" bullet also said "measures 535 lines";
+fixed the same way. Re-swept the whole tree for both claims, every spelling
+(`git grep -n "deferred candidate"`, `git grep -n "535 lines"`,
+`git grep -n "frontend_gate_checks.toml"`): every remaining hit is inside a
+dated log entry, an archived finding, or the decomposition plan's own dated
+worked example -- point-in-time and exempted, consistent with the review's
+own sweep.
+
+Validation: `pytest -q` -- **1833 passed**; no test added, docs only.
+
+### 2026-09-24 - The docsync close-out plan's Progress block is closed
+
+Side task, no batch tag: closing the docsync close-out plan's Progress
+block, part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+- **Progress block closed.** Task 4 (`491e61a4` code, `3d8a42a5` docs) and
+  the final whole-branch review (engine reviewed alone as `a07f5761`; DOC023
+  built as `fa923305`/`28a8527`/`fcfe8d4e`) are ticked, both reaching `test`
+  through PR #233 (`2ccf0ddb`) and PR #234 (`88f6e27`). New deviation
+  bullets record the review split, DOC023's id-allowlist departure, and
+  where the ledger's untriaged Minors went.
+- **Owner ruling 2026-09-24 widened this task**: the docsync close-out
+  ledger's final review never worked its own carried-over triage list of
+  "minor (deferred)" items from Tasks 1, 2, 3 and 4a. Checked individually
+  against the code and tests at HEAD: two were already fixed (the
+  `run_docsync_check` uncaught `OSError`, and `CONTROL_PLANE_FILES`'
+  exact-vs-prefix filename matching -- both folded into `491e61a4`'s fix
+  round); three from Task 1 are too terse in the record to check and are
+  marked not reproducible; the remaining eleven are still true and filed as
+  one finding, F-DOCSYNC-20 (foundation plan DoD row 32).
+
+Validation: `pytest -q` -- **1825 passed**.
+
+**Follow-up (2026-09-24).** The owner ruled one of F-DOCSYNC-20's eleven
+items intended behaviour: `--cold-storage` may repaginate a never-paginated
+monolith. The item is dropped from the finding, which says why, and ten
+remain; the finding stays open at P2. `docs/history/reports/HANDOFF_2026-09-24.md`
+had not caught up with this task: sections 1, 3 and 5 now record Task 7 done
+and Tasks 8-10 next, section 6 carries both 2026-09-24 rulings, and its Task
+11 line no longer cites an untracked workspace file.
+Validation: `pytest -q` -- **1825 passed**; docs only.
+
+### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
+
+Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1: pre-split citations repointed by name.** `FINDINGS.md`'s
+  F-SWE-3 and `docs/history/findings/FINDINGS_ARCHIVE.md`'s F-B21-6,
+  F-SWE-5 (two citations) and F-SWE-2 (context.md's "second `:70-71`
+  citation") each named their `orchestrator.py:NNN` line by the function
+  it pointed at (`_run_spotify_search_phase`, `fetch_top_albums_async`,
+  `background_task`'s outer handler, `_fetch_and_process`'s inner
+  handler), confirmed by reading `scrobblescope/orchestrator.py` at the
+  commit nearest each finding's date (`bb8681b` for the three 2026-08-20
+  SWE-audit findings, `319134e` for F-B21-6, filed 2026-08-22), and naming
+  the module both as it was (`orchestrator.py`) and as it is now
+  (`scrobblescope/orchestrator/__init__.py` or `_search.py`). No resolved
+  record's account of what was wrong or how it closed changed, only its
+  citation.
+- **The broader `git grep -n "orchestrator\.py:\|routes\.py:"` over the
+  live corpus** found 100 hits in 14 files beyond the findings files. Left
+  as written, point-in-time: five files under `docs/history/reports/` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (named exemptions);
+  `docs/history/definitions/BATCH21_DEFINITION.md` (same archive tier as
+  `logs/` and `reports/` per `AGENTS.md`'s `docs/history/` table row); and
+  five `docs/superpowers/plans/*.md` files, including this plan's own
+  Task 6 text, which quotes the citations as the problem statement rather
+  than reporting current code. `.codacy.yml`, `docs/SWE_AUDIT_CHARTER.md`
+  and `scripts/dev/_frontend_gate_shared.py` were checked and carry none
+  of these citations under this grep's pattern; their stale `routes.py`
+  citations (a different spelling) stay deferred to WP-0 close-out,
+  unedited, per context.md.
+- **Step 2: four findings filed**, IDs taken as the next free number per
+  tag across both files. `F-DOCSYNC-17` (opening-state defect, resolved
+  `aad26e5`, foundation Task 3) and `F-DOCSYNC-18` (archive page target
+  had no reader and the cold rule's all-dated condition was undocumented,
+  resolved `d499e3a`, foundation Task 4) filed resolved in `FINDINGS.md`'s
+  "Resolved this batch" section, each with its `**Completed:**` line.
+  `F-DOCSYNC-19` (`--check` has no diagnostic for an interrupted
+  publication; DoD row 29) and `F-WORKTREE-6` (the worktree guard's
+  `--base-ref` defaults to `origin/main` rather than a fact PLAYBOOK
+  declares, sharper since PR #241: WT006 then WT005 against `origin/main`
+  with an empty merge-base diff, `docs/history/reports/HANDOFF_2026-09-24.md`
+  section 2) filed open (P2) under P2 -- Scaling roadmap. Checked
+  F-WORKTREE-6 against F-WORKTREE-3 first: its three open items (the
+  between-batch ancestry skip, WT010 missing on a dirty detached worktree,
+  the doubled base-ref label) are a different defect, so this is a
+  separate finding.
+- **Owner ruling, 2026-09-24 (mid-task):** the foundation plan's Task 11
+  (F-SWE-5) is recorded done, not left unticked -- F-SWE-5 was resolved by
+  the reconcile plan's Task 7 (`ffbee0e`) before this plan reached Task 11.
+  Task 11's five step boxes are ticked and a done-by-reference line added
+  under its heading; nothing else in Task 11 changed. This supersedes
+  context.md's original "do NOT edit Task 11" note.
+- **Step 3.** `doc_state_sync.py --fix` then `--check`, both at exit 0.
+- **Deviations:** none from the brief's Step 1/2 text; the point-in-time
+  scope for `docs/history/definitions/` and `docs/superpowers/plans/` is
+  this task's own reading of context.md's "list any hit you leave, with
+  the reason" allowance, not an enumerated exemption -- reasons are above.
+- Validation: `pytest -q` -- **1825 passed**. No test added; the three R3
+  count sites are unchanged.
+- **Next:** the foundation plan's Task 7.
+
+**Follow-up (2026-09-24).** `docs/history/reports/HANDOFF_2026-09-24.md` had
+not caught up with this task: its Section 1 WP-0 status bullet still read
+"Tasks 4 and 5 done; Tasks 6-10 remain," Section 5 item 2 still described
+Task 6 as upcoming work with a pre-flight instruction, Section 3's reading
+order still pointed a cold session at "Task 6 onward," and Section 6 named
+no ruling for Task 11. All four now record Task 6 done (Section 5 item 2
+points at this entry), Section 3 points at Task 7 onward, and Section 6
+carries the Task 11 (F-SWE-5) done-by-`ffbee0e` ruling beside the other
+2026-09-24 rulings. Validation: `pytest -q` -- **1825 passed**; no test
+changes, so the three R3 count sites are unaffected.
+
+**Correction (2026-09-24).** The task review reproduced the broader sweep
+above as 95-98 hits in 12 files, not 100 in 14; the categorization of what
+was left as point-in-time is unchanged.
+
+### 2026-09-24 - The provider summary states its span and its time in calls
+
+Side task, no batch tag: the provider summary log line states its span
+alongside its time in calls, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands. It follows up
+F-B23-6's provider-call logging (Task 13); ruled by the owner 2026-09-24,
+source `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 1.
+
+- **Scope.** `scrobblescope/api_logging.py`'s per-session summary read
+  `MusicBrainz: 17 calls in 2.6s -- 16x200, 1x503`; the `2.6s` is the sum of
+  per-call durations, not how long the provider was being called. Read
+  naively it says MusicBrainz ran faster than its 1 request per second,
+  which the owner did. MusicBrainz is compliant: the global throttle in
+  `scrobblescope/utils.py` spaces request starts one second apart, and the
+  owner's log timestamps confirm it. The line now states both:
+  `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`.
+  `_record` gains the earliest call start and latest call end seen per
+  provider (`span_start`, `span_end`); `_on_request_end` and
+  `_on_request_exception` each read `time.monotonic()` once per end event
+  and pass that one reading to both the per-call line and the tally, so the
+  per-call milliseconds and the summary's figures never drift apart. Counts
+  and outcomes are unchanged; the line still never carries a query string,
+  a name, a body or a header.
+- **Two existing tests changed** (`tests/services/test_api_logging.py`):
+  `test_closing_the_session_logs_one_summary_per_provider`'s
+  `message.startswith(...)` assertion moved from `"127.0.0.1: 3 calls in"`
+  to `"127.0.0.1: 3 calls over"`, plus a new regex asserting the full shape
+  (span, in-calls, outcomes); `test_a_session_that_made_no_calls_logs_no_summary`'s
+  filter string moved from `"calls in"` to `"calls over"`, since every
+  summary line now carries the new wording and the old filter would have
+  passed vacuously.
+- **New tests:** span is not the sum of per-call durations (the owner's
+  case, driven deterministically through `_record`/`_emit_summaries` against
+  a stand-in session object); overlapping calls make time-in-calls exceed
+  the span; an exception ending after the last success extends the span and
+  is counted under its class name; and one end-to-end test against the real
+  session and trace hook, asserting only a lower bound on the span (no
+  upper bound -- timing-based upper bounds flake).
+- **Deviations:** none.
+- Validation: `pytest -q` -- **1825 passed**.
+- **Next:** the foundation plan's Task 6.
+
+**Fix round 1 (2026-09-24, review finding).** The review's one Important
+issue: `docs/history/reports/HANDOFF_2026-09-24.md` section 2's setup
+block still read `# expect 1821 passed`, a second copy of the test count
+inside the very file this task's commit had already updated, contradicting
+section 1's `**1825 passed**` two screens above it. Fixed by removing the
+second copy rather than restating it: the comment now reads `# expect the
+count section 1 records`, so there is exactly one number in the file to
+keep current. Grepped the whole file again for `1821`/`1825`: the only
+remaining hit is section 1's own count. No test changes; no other count
+site affected.
+
+- Validation: `pytest -q` -- **1825 passed**.
+
+### 2026-09-24 - The handoff schedules a truer provider summary line
+
+Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Why.** The owner read `MusicBrainz: 17 calls in 2.6s` as MusicBrainz
+  running faster than its 1 request per second. The calls were compliant:
+  their log timestamps are one second apart, as the global throttle in
+  `scrobblescope/utils.py` enforces. The summary's time is the sum of
+  per-call durations, not the session's span.
+- **Change.** `docs/history/reports/HANDOFF_2026-09-24.md` section 5 now
+  opens with a side task, ruled by the owner on 2026-09-24 to run before
+  foundation Task 6: the summary states both the span and the time in calls.
+  Section 7 withdraws the per-album Spotify item (the owner's log lines came
+  from `/api/artist_spotlight` and the token fetch, not the album fetch). It
+  also notes that `scrobblescope/musicbrainz.py` puts album and artist names
+  in its retry log label, for the WP-3/WP-4 Data handling check.
+- **Section 3** names the side task as next, before Task 6.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
+### 2026-09-24 - The cloud handoff is revised after the first cloud session
+
+Side task, no batch tag: revise the session handoff at the end of the first
+cloud session, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Scope.** Documentation only. `docs/history/reports/HANDOFF_2026-09-24.md`
+  is revised in place rather than superseded by a second file with the same
+  date, so Section 3, the cloud kit and this log keep one entry point.
+  `.superpowers/cloud-kit/constraints.md` gains Lessons L11-L13 and a header
+  that names Tasks 6-10. Section 3's handoff bullet says the file was
+  revised.
+- **What the handoff now records.** Foundation Task 5 is done (`9ea79f5`,
+  `aa6a867`, `e913f89`, `4ae0dc3`, three review rounds, the last approved
+  with no findings). PR #241 merged into `main` as `92f7d6a`, and no PR is
+  open for the branch. Three cloud-sandbox limits: the Tailwind artifacts
+  must be fetched with `curl` (Python 3.13 rejects the proxy CA), the
+  frontend gate cannot run, and Codacy's API is blocked. The guard fails
+  against `origin/main` since the merge (WT006 while the branch has nothing
+  past it, WT005 once it does) with an empty merge-base diff, so it runs
+  with `--base-ref origin/test`. The owner's Task 5 rulings and the
+  push rule (hold until a review is recorded clean).
+- **Lessons.** L11: check a task's plan checkboxes before recording it done;
+  the owner caught Task 5's. L12: ask the first review to sweep the whole
+  task range for stale copies of every changed fact; Task 5 needed three
+  rounds without it. L13: every code a gate-runner summary quotes must be
+  found in its logs.
+- **Deviations.** None. No code or test changed. The first commit said the
+  guard reads WT006 against `origin/main`; its own pre-commit run printed
+  WT005, because the branch had moved past the merge. Both statements now
+  name both codes.
+- **Validation:** `pytest -q` -- **1821 passed**. `pre-commit run --all-files`
+  and `doc_state_sync.py --check` pass, with the expected WT005, DOC024 and
+  root-BATCH warnings.
+- **Next.** Foundation Task 6, findings hygiene, from the handoff's section 5.
+
+### 2026-09-24 - Stop stating a DOC code range the catalogue owns
+
+Side task, no batch tag: replace every live prose statement of a `DOC001-DOC0NN`
+range with wording that states no range, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 5.** Six live sites stated a stale
+  contiguous range (`AGENTS.md` x3, `DEVELOPMENT.md`, and
+  `docs/architecture/documentation-tooling.md` x2, one of them the heading).
+  Both `DOC001-DOC023` and `DOC001-DOC024` are false today: DOC021 and DOC022
+  are reserved by
+  `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+  but not raised, so no contiguous span from `DOC001` is true. Each site now
+  says "the DOC diagnostic catalogue" (owner: `documentation-tooling.md`)
+  instead of restating a range; the catalogue's own heading is renamed
+  "The DOC code catalogue" and its one explicit list reads "`DOC001`-`DOC020`,
+  `DOC023` and `DOC024` issues". `FINDINGS.md`'s F-B21-61 note ("a new
+  invariant for this finding starts at DOC023") is repointed at the catalogue,
+  since DOC023 is itself now taken (the finding-lifecycle grandfathered-finding
+  count, `scripts/docsync/findings.py`).
+- **Tests repointed, controller ruling 2026-09-24 (the one sanctioned
+  existing-test edit).** `tests/test_docsync_integrity.py::
+  test_stated_docsync_range_matches_the_highest_code_raised` and
+  `test_stated_range_helper_rejects_a_stale_range` read `AGENTS.md`'s stated
+  range, which no longer exists. Both are renamed
+  (`test_stated_docsync_catalogue_matches_the_codes_raised`,
+  `test_stated_catalogue_helper_rejects_a_mismatched_list`) and repointed at
+  `documentation-tooling.md`'s explicit list; their helpers become
+  `CATALOGUE_SENTENCE_RE`, `_stated_codes`, `_raised_codes` and
+  `_catalogue_matches_raised_codes`. The comparison is now set equality
+  (parsing "DOC0AA-DOC0BB" spans and single codes) rather than a maximum, so
+  a listed-but-unraised code (DOC021) is caught, which comparing only the
+  upper bound could not catch. The proof test mutates the real catalogue
+  sentence in place (drop DOC024; add DOC021) rather than a synthetic
+  fixture, so it exercises the same parsing the corpus test relies on.
+- **`.docsync.toml`** gains a fourth `[[retired]]` declaration, modelled on
+  its "the docsync integrity range ends at DOC011" sibling: it matches the
+  bare literal `DOC001-DOC023` or `DOC001-DOC024`, either spelling
+  (contiguous or backtick-split), needs no verb-prefix guard because the
+  valid list never contains either substring, and leaves `DOC001-DOC020`
+  alone.
+- **Discovered and filed as F-DOCSYNC-16.** The three pre-existing
+  `[[retired]]` declarations' `allow_after` marker for `PLAYBOOK.md` was the
+  literal string `"## 4. Execution log"`, but `check_retired` compares a raw
+  line by exact equality and the real heading is `"## 4. Execution log (for
+  agent handoff)"` -- confirmed by reproducing the mismatch directly against
+  `check_retired`. Their Section 4 exemption was therefore non-functional
+  against the live document, latent only because no dated entry restated one
+  of their three retired phrases. This task's own new declaration used the
+  full, correct heading text from the start so it was not affected.
+- **Live probe** (`/tmp/ssprobe`, `git archive` of `git stash create`,
+  deleted after):
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | faithful copy `--check` | same summary as the worktree | match, exit 0 |
+  | red: add "the DOC001-DOC023 catalogue" to `AGENTS.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | red: add `` returns typed `DOC001`-`DOC024` issues `` to `DEVELOPMENT.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | near-miss: same text struck through in `AGENTS.md` | silent, exit 0 | silent, exit 0 |
+  | near-miss: same text in a dated Section 4 entry below the marker | silent, exit 0 | silent, exit 0 |
+  | near-miss: "DOC001-DOC020" in `AGENTS.md` prose | silent, exit 0 | silent, exit 0 |
+  | mutate `documentation-tooling.md`'s list to drop DOC024 | corpus test red | red |
+  | mutate `documentation-tooling.md`'s list to add DOC021 | corpus test red | red |
+
+- Validation: `pytest -q` -- **1821 passed**. No test added or removed, so
+  the three R3 count sites are unchanged.
+
+**Fix round (2026-09-24, review finding).** The review's one Important
+issue: the three pre-existing `allow_after` markers were left broken
+next to the fourth, freshly-corrected one in the same commit and same
+file, instead of being corrected outright (Anti-Pattern 11). Owner ruling:
+correct all three in `.docsync.toml` (touching nothing else in those
+declarations); reword F-DOCSYNC-16 to name the mechanism gap -- docsync
+silently ignores an `allow_after` marker that matches no line, rather than
+erroring -- and record that the three markers are corrected in this fix
+commit; drop its priority to P2 (the fix shape becomes a future check that
+errors on a dead marker, not built here); status stays open.
+
+- **`.docsync.toml`:** all three `[retired.allow_after] "PLAYBOOK.md" =
+  "## 4. Execution log"` lines corrected to `"## 4. Execution log (for
+  agent handoff)"`, the real heading, matching the fourth declaration this
+  task already added. Nothing else in the three declarations changed.
+- **`FINDINGS.md`:** F-DOCSYNC-16 retitled "docsync silently ignores an
+  `allow_after` marker that matches no line," its body names the general
+  mechanism gap ahead of the specific instance, records that the three
+  markers are now corrected, keeps the reproduction evidence, and states
+  the not-yet-built fix shape (a declaration check erroring on a dead
+  marker). Priority dropped P1 -> P2; status line unchanged (`open`).
+- **Live probe, reproduced in a fresh `/tmp/ssprobe`** (`git archive
+  9ea79f5`, `git init`, deleted after): a dated Section 4 entry quoting
+  "limit_results goes inside the thresholds disclosure" gives `ERROR
+  DOC011`, exit 1, with the unfixed markers; correcting all three markers on
+  that same scratch tree makes it silent, exit 0; and `--check` on the
+  unmodified corpus (no injected quote) is byte-identical before and after
+  the marker fix -- same four DOC024 + root-BATCH warnings, exit 0.
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | unfixed markers, dated entry quoting the retired `limit_results` phrase | DOC011, exit 1 | DOC011, exit 1 |
+  | corrected markers, same quote | silent, exit 0 | silent, exit 0 |
+  | corrected markers, unmodified corpus vs. before | identical `--check` output | identical |
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched
+  in the fix round).
+
+**Fix round 2 (2026-09-24, re-review + owner catch).** Two Important issues
+and one owner catch, all in the same commit (`aa6a867` -> next): the
+`.docsync.toml` comment above the fourth declaration's `allow_after` still
+described the three siblings' pre-fix state in the present tense, false as
+of `aa6a867` -- rewritten to state only what is true now (the exemption
+needs the real heading text; F-DOCSYNC-16 records the silent-ignore
+mechanism), with no other live present-tense claim found by corpus grep.
+F-DOCSYNC-16 carried its new P2 priority but was still filed under the
+`## P1 -- Next batch candidates` heading -- moved, unchanged, to the top of
+`## P2 -- Scaling roadmap`. Owner catch: this task's own Step 1-6 checkboxes
+in the foundation plan were never ticked in the first commit -- ticked now,
+nothing else in the plan changed.
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched).
+
+**Fix round 3 (2026-09-24, re-review).** `DEVELOPMENT.md:559`'s portability
+ties table still quoted the pre-fix `allow_after` marker literal as a
+worked example; corrected to the real heading text, the only change in
+that row.
+
+### 2026-09-24 - The loading page looks up its error source label in a Map
+
+Side task, no batch tag: close Codacy's object-injection flag on the loading
+page's error source label, part of Batch 23 WP-0 Part C. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Why.** Codacy's check failed on PR #241 with one high issue, "Variable
+  Assigned to Object Injection Sink", at `static/js/loading.js`'s
+  `const label = ERROR_SOURCE_LABELS[source];`. It is not exploitable: the
+  server sends only `lastfm`, `spotify` or `internal`
+  (`scrobblescope/errors.py`), and the label goes into `textContent`. But an
+  object-literal lookup resolves inherited keys, so a source of
+  `constructor` would have printed `Source: function Object() ...`.
+- **Change.** `ERROR_SOURCE_LABELS` is a `Map`, read with `.get(source)`.
+  An unknown or inherited key finds nothing, so the source line stays
+  hidden. The failure call that passes no source is unchanged:
+  `Map.get(undefined)` is `undefined`, as the object lookup was. The JSDoc
+  says why it is a Map. Nothing else changed; the reconcile plan's Task 7
+  code block keeps the object form it shipped with, as a record.
+- **Found by** the cloud session, which could not run the frontend gate
+  (no Playwright browsers in its sandbox), so the change was made locally.
+- **Also corrected:** the heading of the cloud-handoff entry below carried
+  a `WP-<digit>` token, against the untagged-entry rule; it now reads
+  without one.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. The frontend
+  gate ran, since `static/` changed.
+
+### 2026-09-24 - The Batch 23 foundation work gets a handoff a cloud session can run from
+
+Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a
+cloud session. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Why.** The owner is moving the work to a cloud session, which has only
+  the repository. The local sessions kept their working state outside Git:
+  the SDD ledgers and workspace constraints (`.superpowers/sdd/`, ignored),
+  the four agent definitions (user-level, `~/.claude/agents/`), and the
+  owner's working agreements (session memory). The gate commands were also
+  Windows paths.
+- **Added.** `docs/history/reports/HANDOFF_2026-09-24.md`, the new entry
+  point: state, Linux setup, how the subagent loop runs without the plugin
+  scripts, next steps with Task 5's owner ruling, rulings in force, open
+  items and traps. `.superpowers/cloud-kit/constraints.md` is the Linux form
+  of the workspace constraints (gates on `.venv/bin`, Lessons L1-L10).
+  `.superpowers/cloud-kit/agents/` holds the four agent definitions,
+  copied unchanged. `.superpowers/sdd/.gitignore` is now tracked, so a
+  fresh clone keeps new SDD workspaces out of Git.
+- **Not added.** The root `CLAUDE.md` stays git-ignored, as `.gitignore`
+  records; the cloud session's first prompt names the handoff instead. The
+  SDD helper scripts stay out too (vendored skills are local harness state
+  per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
+- **Section 3** points its handoff bullet at the new file.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
+### 2026-09-24 - The owner's live check closes the logging task
+
+Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
+C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **What.** The reconcile plan's Task 13 (F-B23-6) landed as `433120c` and
+  its fix round as `e7e076b`. Its Step 5, the owner's live check against
+  the real providers, was left to the owner. The owner ran a job with
+  `DEBUG_MODE=1` on 2026-09-24 and confirmed the log: per-call DEBUG lines
+  such as `MusicBrainz GET /ws/2/release-group/ -> 200 in 133ms` and
+  `Spotify GET /v1/search -> 200 in 241ms`, INFO summaries, and no query
+  value. Section 3 and the plan's Step 5 now record it done.
+- **Observation for a later task.** The owner's log shows one
+  `Spotify: 1 calls` INFO summary per Spotify search, each from its own
+  runner thread. So that path builds one session per call, and the
+  per-session summary becomes one INFO line per album rather than one per
+  job. It may also mean connections are not reused there. Not fixed here.
+- **Fix-round note.** The fix-round implementer for `e7e076b` stopped at a
+  rate limit after its edits and before its gates. The controller read the
+  diff, ran `--fix`, the suite, pre-commit and `--check`, repeated the
+  scratch-copy mutation proof, and committed. That fix round has no
+  independent re-review yet.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
 
 ### 2026-09-24 - The release-check finish line names both corrections
 

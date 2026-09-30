@@ -1,9 +1,13 @@
 """Unit tests for unmatched album domain categorization and grouping."""
 
+import pytest
+
 from scrobblescope.unmatched import (
     REASON_BELOW_THRESHOLD,
     REASON_NO_SPOTIFY_MATCH,
+    REASON_PROVIDER_UNAVAILABLE,
     REASON_RELEASE_SCOPE,
+    describe_shortfall,
     group_unmatched_albums,
     partition_albums_by_threshold,
 )
@@ -39,6 +43,45 @@ def test_partition_albums_by_threshold_keeps_each_exclusion_once():
     assert item["min_tracks"] == 3
 
 
+def test_partition_albums_by_threshold_stores_the_shortfall_beside_the_reason():
+    """The report row prints the shortfall; the full sentence stays as `reason`."""
+    albums = {
+        ("artist", "both low"): {
+            "original_artist": "Artist",
+            "original_album": "Both Low",
+            "play_count": 7,
+            "track_counts": {"one": 4, "two": 3},
+        },
+    }
+
+    _, excluded = partition_albums_by_threshold(albums, 10, 3)
+
+    item = excluded[("artist", "both low")]
+    assert item["shortfall"] == "3 plays and 1 track short"
+    assert item["reason"] == (
+        "Played 7 times across 2 unique tracks; minimum is 10 plays and 3 unique tracks"
+    )
+
+
+@pytest.mark.parametrize(
+    ("counts", "expected"),
+    [
+        pytest.param((9, 3, 10, 3), "1 play short", id="one-play-short"),
+        pytest.param((7, 5, 10, 3), "3 plays short", id="plays-short-plural"),
+        pytest.param((12, 2, 10, 3), "1 track short", id="one-track-short"),
+        pytest.param((12, 1, 10, 3), "2 tracks short", id="tracks-short-plural"),
+        pytest.param((9, 2, 10, 3), "1 play and 1 track short", id="both-singular"),
+        pytest.param((7, 1, 10, 3), "3 plays and 2 tracks short", id="both-plural"),
+        pytest.param((0, 0, 2, 1), "2 plays and 1 track short", id="zero-counts"),
+        pytest.param((10, 3, 10, 3), "", id="exactly-at-both-minimums"),
+        pytest.param((40, 9, 10, 3), "", id="above-both-minimums"),
+    ],
+)
+def test_describe_shortfall_names_only_the_measures_that_fell_short(counts, expected):
+    """Each unit is singular at a gap of one; an album that met both is ''."""
+    assert describe_shortfall(*counts) == expected
+
+
 def test_group_unmatched_albums_groups_by_reason_code():
     """Albums with different release years must group under the single release_scope code."""
     data = {
@@ -69,8 +112,12 @@ def test_group_unmatched_albums_groups_by_reason_code():
     assert counts[REASON_NO_SPOTIFY_MATCH] == 1
     assert len(groups[REASON_RELEASE_SCOPE]) == 2
     assert len(groups[REASON_NO_SPOTIFY_MATCH]) == 1
-    assert metadata[REASON_RELEASE_SCOPE]["title"] == "Outside Release Filter"
-    assert metadata[REASON_NO_SPOTIFY_MATCH]["title"] == "No Match Found"
+    # Sentence case, and the control is named as the search form labels it.
+    assert metadata[REASON_RELEASE_SCOPE]["title"] == "Outside release filter"
+    assert metadata[REASON_RELEASE_SCOPE]["description"] == (
+        "Albums released outside your release filter."
+    )
+    assert metadata[REASON_NO_SPOTIFY_MATCH]["title"] == "No match found"
     # Row detail preserved
     assert (
         groups[REASON_RELEASE_SCOPE][0]["reason"]
@@ -134,3 +181,32 @@ def test_group_unmatched_albums_ranks_top_offenders_deterministically():
         "Low Plays",
         "Unknown Plays",
     ]
+
+
+def test_provider_unavailable_is_its_own_group_with_its_own_copy():
+    """
+    GIVEN one album with no match and one that could not be checked
+    WHEN the unmatched items are grouped
+    THEN they are two separate groups with their own copy, so a listener is
+    never told an album has no match because a provider was down.
+    """
+    data = {
+        "a|a": {
+            "artist": "A",
+            "album": "A",
+            "reason": "Spotify was unavailable and Deezer had no match",
+            "reason_code": REASON_PROVIDER_UNAVAILABLE,
+        },
+        "b|b": {
+            "artist": "B",
+            "album": "B",
+            "reason": "No match on Spotify or Deezer",
+            "reason_code": REASON_NO_SPOTIFY_MATCH,
+        },
+    }
+
+    groups, counts, metadata = group_unmatched_albums(data)
+
+    assert set(groups) == {REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILABLE}
+    assert counts[REASON_PROVIDER_UNAVAILABLE] == 1
+    assert metadata[REASON_PROVIDER_UNAVAILABLE]["title"] == "Could not be checked"

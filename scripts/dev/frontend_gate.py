@@ -22,8 +22,11 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import weakref
 from collections.abc import Sequence
 from pathlib import Path
+
+import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,8 +43,8 @@ if str(REPO_ROOT) not in sys.path:
 # application. The key therefore has to be set before the import, not before
 # create_app.
 #
-# Not setdefault: GitHub Actions sets SECRET_KEY to an empty string when the
-# repository secret is missing, and empty is present. create_app would then
+# Not setdefault: a shell can leave SECRET_KEY set to an empty string, and
+# empty is present. create_app would then
 # read "", call it weak, and raise at import -- a traceback instead of a FAIL
 # line. The workflow sets FLASK_ENV, which nothing reads; the guard reads
 # DEBUG_MODE, so CI is never in dev mode.
@@ -49,7 +52,7 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 # create_app also refuses to start without the three provider keys outside dev
-# mode (F-SWE-4), and CI's secrets arrive empty in exactly the same way. The
+# mode (F-SWE-4); a shell can leave them empty, and CI sets none. The
 # gate renders pages from seeded jobs and never calls a provider, so a
 # placeholder is enough to boot the application.
 #
@@ -66,6 +69,7 @@ for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
 from scripts.dev._frontend_gate_assets import (  # noqa: E402, F401
     BOOTSTRAP_MARKER,
     TAILWIND_MARKER,
+    check_inline_marks_need_no_wrapper_list,
     check_stylesheet_isolation,
 )
 from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
@@ -87,6 +91,13 @@ from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
     check_true_warning_survives,
     check_validation_feedback,
     check_validator_outage_is_recoverable,
+)
+from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
+    check_heatmap_cells_are_keyboard_accessible,
+    check_heatmap_document_listeners_attach_once,
+    check_heatmap_focus_survives_breakpoint,
+    check_heatmap_tooltip_has_one_owner,
+    check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
 )
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
@@ -141,6 +152,18 @@ from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
     TOGGLE_TIMEOUT_MS,
     _reach_state,
 )
+from scripts.dev._frontend_gate_spotify_icon import (  # noqa: E402, F401
+    check_export_icon_keeps_its_size,
+    check_spotify_icon_follows_system_under_forced_colors,
+    check_spotlight_spotify_icon_size_and_link_target,
+)
+from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
+    check_artist_spotlight_card_hidden_with_no_photo,
+    check_artist_spotlight_holds_still_while_focused_or_hovered,
+    check_artist_spotlight_name_whole_and_card_height_fixed,
+    check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
+    check_artist_spotlight_photo_not_cropped_when_non_square,
+)
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     FORBIDDEN_SURFACES,
     SET_THEME_EXPRESSION,
@@ -152,6 +175,7 @@ from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     check_index_entrance_motion,
     check_mark_follows_theme,
     check_theme_persistence,
+    check_theme_reattaches_to_system,
     check_theme_survives_blocked_storage,
     check_theme_tokens,
 )
@@ -218,6 +242,12 @@ LAYOUT_PIPELINE = "layout & pipeline"
 #: pointer capability rather than window width is the contract.
 CHECKS = (
     ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,), STATIC_ASSETS),
+    (
+        "inline marks need no wrapper list",
+        check_inline_marks_need_no_wrapper_list,
+        (DESKTOP,),
+        STATIC_ASSETS,
+    ),
     ("fonts", check_fonts, (DESKTOP,), STATIC_ASSETS),
     ("body font", check_body_font, (DESKTOP, MOBILE), STATIC_ASSETS),
     ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE), STATIC_ASSETS),
@@ -229,6 +259,12 @@ CHECKS = (
         STATIC_ASSETS,
     ),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    (
+        "export keeps spotify icon size",
+        check_export_icon_keeps_its_size,
+        (DESKTOP,),
+        STATIC_ASSETS,
+    ),
     (
         "heatmap zero cells follow theme",
         check_heatmap_zero_cells_follow_theme,
@@ -242,6 +278,12 @@ CHECKS = (
         THEME_MOTION,
     ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
+    (
+        "theme reattaches to system",
+        check_theme_reattaches_to_system,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
     ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (
         "theme survives blocked storage",
@@ -337,6 +379,78 @@ CHECKS = (
         LAYOUT_PIPELINE,
     ),
     (
+        "heatmap cells keyboard access",
+        check_heatmap_cells_are_keyboard_accessible,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap document listeners attach once",
+        check_heatmap_document_listeners_attach_once,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap focus survives breakpoint",
+        check_heatmap_focus_survives_breakpoint,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap touch swipe scrolls and tap shows tooltip",
+        check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
+        (MOBILE,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "heatmap tooltip has one owner",
+        check_heatmap_tooltip_has_one_owner,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight photo has no crop overlay or animation",
+        check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight card hidden with no photo",
+        check_artist_spotlight_card_hidden_with_no_photo,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight photo not cropped when non-square",
+        check_artist_spotlight_photo_not_cropped_when_non_square,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight name whole and card height fixed",
+        check_artist_spotlight_name_whole_and_card_height_fixed,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight holds still while focused or hovered",
+        check_artist_spotlight_holds_still_while_focused_or_hovered,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "spotlight spotify icon size and link target",
+        check_spotlight_spotify_icon_size_and_link_target,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "spotify icon follows system under forced colors",
+        check_spotify_icon_follows_system_under_forced_colors,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
         "large display scale parity",
         check_large_display_scale_parity,
         (DESKTOP,),
@@ -376,15 +490,94 @@ def groups_for(browser_name: str) -> tuple[str, ...]:
     return tuple(group for group in CHECK_GROUPS if group in scope)
 
 
+#: Declarations file under `config/`: which checks run is a repository fact,
+#: the same split the docsync declarations file uses (facts under `config/`,
+#: mechanism in `scripts/`), not a second thing for the gate mechanism to own.
+CHECK_MANIFEST_PATH = REPO_ROOT / "config" / "frontend_gate_checks.toml"
+
+
+def _load_check_manifest(
+    path: Path = CHECK_MANIFEST_PATH,
+) -> tuple[tuple[str, ...], frozenset[str]]:
+    """Load and validate the check-selection manifest, returning
+    `(required, disabled)`.
+
+    Selection is by check name only: groups are an isolation concern CHECKS
+    already owns, and a second copy of their membership here would drift
+    from the tuple that owns it. Fail Fast (`docs/agents/AGENT_NOTES.md`): a missing
+    file, malformed TOML, an unknown name, or a required check disabled all
+    stop the gate before a browser launches, naming the path and the check.
+    """
+    try:
+        with path.open("rb") as handle:
+            manifest = tomllib.load(handle)
+    except FileNotFoundError as exc:
+        raise FrontendGateError(
+            f"check manifest missing at {path}. Restore "
+            "config/frontend_gate_checks.toml."
+        ) from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise FrontendGateError(
+            f"check manifest at {path} is not valid TOML ({exc}). Fix the "
+            "syntax and rerun."
+        ) from exc
+
+    known = {entry[0] for entry in CHECKS}
+    required = tuple(manifest.get("required", ()))
+    disabled = frozenset(manifest.get("disabled", ()))
+
+    for name in (*required, *disabled):
+        if name not in known:
+            raise FrontendGateError(
+                f"check manifest at {path} names {name!r}, which is not a "
+                "check in CHECKS. Fix the spelling, or remove the entry."
+            )
+
+    still_required = sorted(set(required) & disabled)
+    if still_required:
+        raise FrontendGateError(
+            f"check manifest at {path} disables required check(s) "
+            f"{', '.join(still_required)}. Drop them from disabled, or from "
+            "required if they are no longer load-bearing."
+        )
+
+    return required, disabled
+
+
+try:
+    REQUIRED_CHECKS, DISABLED_CHECKS = _load_check_manifest()
+except FrontendGateError as exc:
+    # Fail fast before a browser ever launches: a bad manifest is a setup
+    # fault, not a check result, so it gets the same clean line `main`
+    # prints for every other FrontendGateError, not a raw traceback.
+    print(f"[frontend_gate] ERROR: {exc}", file=sys.stderr)
+    raise SystemExit(1) from None
+
+
+def _selected_runs(disabled: frozenset[str]) -> int:
+    """How many runs the matrix performs with `disabled` names excluded."""
+    return sum(
+        1
+        for _b in BROWSER_NAMES
+        for _e in CHECKS
+        if _e[0] not in disabled
+        for _v in _e[2]
+        if groups_for(_b) and _e[3] in groups_for(_b)
+    )
+
+
+def _selection_header(disabled: frozenset[str]) -> str:
+    """One line naming what the manifest selected, so a drop is visible."""
+    enabled = len(CHECKS) - len(disabled)
+    names = ", ".join(sorted(disabled)) if disabled else "none"
+    return (
+        f"[frontend_gate] {enabled} of {len(CHECKS)} checks selected; disabled: {names}"
+    )
+
+
 #: How many check runs a clean pass performs. Printed so a check that silently
 #: stops running is visible as a smaller number.
-PLANNED_RUNS = sum(
-    1
-    for _b in BROWSER_NAMES
-    for _e in CHECKS
-    for _v in _e[2]
-    if groups_for(_b) and _e[3] in groups_for(_b)
-)
+PLANNED_RUNS = _selected_runs(DISABLED_CHECKS)
 
 
 def run_checks(
@@ -406,10 +599,11 @@ def run_checks(
     Every failure carries its profile. "the submit button is 38px" is not
     actionable until you know which device produced it.
     """
-    live_groups = tuple(dict.fromkeys(entry[3] for entry in CHECKS))
+    live_checks = tuple(entry for entry in CHECKS if entry[0] not in DISABLED_CHECKS)
+    live_groups = tuple(dict.fromkeys(entry[3] for entry in live_checks))
     failures = []
     for group in group_order or live_groups:
-        claimed_in_group = [entry for entry in CHECKS if entry[3] == group]
+        claimed_in_group = [entry for entry in live_checks if entry[3] == group]
         for viewport, spec in VIEWPORTS.items():
             claimed = [entry for entry in claimed_in_group if viewport in entry[2]]
             if claimed:
@@ -438,13 +632,75 @@ def _run_profile_checks(
     return failures
 
 
+#: Resource types whose load failure makes a page look wrong rather than fail:
+#: a missing stylesheet reads as a style defect, a missing script as a dead
+#: control, a missing font as a metrics shift.
+_APP_RESOURCE_TYPES = frozenset({"stylesheet", "script", "font"})
+
+#: The load faults each page has seen since its check began. Kept beside the
+#: page rather than on it, so a stand-in page in a test needs no attribute.
+_LOAD_FAULTS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def record_load_faults(page, base_url: str) -> list[str]:
+    """Record the app's own CSS, JS and fonts that failed to load on ``page``.
+
+    Advisory only: the list is read when a check fails, to say whether a
+    subresource of this app failed to arrive (a flake) or the page is really
+    wrong. It never changes whether a check passes. A same-origin request that
+    fails outright, or is answered 4xx/5xx, is recorded once per URL.
+    """
+    origin = base_url.rstrip("/") + "/"
+    faults: list[str] = []
+    _LOAD_FAULTS[page] = faults
+
+    def note(request, reason: str) -> None:
+        if not request.url.startswith(origin):
+            return
+        if request.resource_type not in _APP_RESOURCE_TYPES:
+            return
+        entry = f"{request.url} ({reason})"
+        if entry not in faults:
+            faults.append(entry)
+
+    def on_failed(request) -> None:
+        note(request, request.failure or "request failed")
+
+    def on_response(response) -> None:
+        if response.status >= 400:
+            note(response.request, f"HTTP {response.status}")
+
+    page.on("requestfailed", on_failed)
+    page.on("response", on_response)
+    return faults
+
+
+def _load_fault_note(page) -> str:
+    """Return a one-line note naming the failed app subresources, or ``""``."""
+    faults = _LOAD_FAULTS.get(page)
+    if not faults:
+        return ""
+    return f" [{len(faults)} app resource(s) failed to load: {', '.join(faults)}]"
+
+
 def _run_check(page, base_url, name, viewport, check) -> list[str]:
-    """Keep one failed diagnostic from hiding later checks on the same profile."""
+    """Keep one failed diagnostic from hiding later checks on the same profile.
+
+    A failure also names any of the app's own subresources that failed to load
+    during the check, so an intermittent red says whether it was a load fault.
+    """
+    faults = _LOAD_FAULTS.get(page)
+    if faults is not None:
+        faults.clear()
     try:
         results = check(page, base_url)
     except Exception as exc:  # noqa: BLE001 - any check fault is a failure
-        return [f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"]
-    return [f"{name} [{viewport}]: {failure}" for failure in results]
+        return [
+            f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+            f"{_load_fault_note(page)}"
+        ]
+    note = _load_fault_note(page) if results else ""
+    return [f"{name} [{viewport}]: {failure}{note}" for failure in results]
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -466,6 +722,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     """Run every check against a freshly served app and report all failures."""
     args = _parse_args(argv)
+    print(_selection_header(DISABLED_CHECKS))
     try:
         sync_playwright = _load_playwright()
         with serve_app() as base_url, sync_playwright() as playwright:
@@ -487,6 +744,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         page = context.new_page()
                         page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
                         install_cdn_routes(page, live_fonts=args.live_fonts)
+                        record_load_faults(page, base_url)
                         return page
 
                     results = run_checks(
@@ -522,8 +780,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     # type error. Firefox always declares an explicit canary scope.
     canary_groups = groups_for("firefox")
     canary = canary_groups[0] if canary_groups else "no groups"
+    enabled_count = len(CHECKS) - len(DISABLED_CHECKS)
     print(
-        f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
+        f"[frontend_gate] {enabled_count} checks passed in {PLANNED_RUNS} runs "
         f"across {', '.join(BROWSER_NAMES)} "
         f"({canary} canary on firefox); "
         f"profiles: {', '.join(VIEWPORTS)}"

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import re
+from collections.abc import Iterable, Sequence
 
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import (
@@ -15,7 +16,7 @@ SIDE_ARCHIVE_PREFIX = (
     "# PLAYBOOK Execution Log Archive",
     "",
     "Purpose:",
-    "- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.",
+    "- Store dated execution-log entries rotated out of PLAYBOOK Section 4.",
     "- Keep entries in reverse-chronological order (newest first).",
     "",
     "Read helpers:",
@@ -112,6 +113,35 @@ def _next_wp_number(
     return candidate
 
 
+def rewrite_recorded_counts(
+    lines: list[str], count: int, patterns: Sequence[re.Pattern[str]]
+) -> list[str]:
+    """Rewrite every hand-maintained test-count field to the same number.
+
+    Used only when an operator has explicitly asserted the true count (`--fix
+    --test-count N`), rewriting every hand-maintained field that carries a
+    copy of it from the same number in one pass, so the four sites this
+    repository keeps (F-DOCSYNC-12) can never drift from each other again.
+
+    Pure: for each line, the first pattern in ``patterns`` that matches has
+    its captured group 1 span replaced with ``str(count)``; every other
+    character of the line -- label text, punctuation, bold markers -- is
+    left untouched. A line no pattern matches passes through unchanged.
+    """
+    rewritten: list[str] = []
+    for line in lines:
+        new_line = line
+        for pattern in patterns:
+            match = pattern.search(line)
+            if match is None:
+                continue
+            start, end = match.span(1)
+            new_line = line[:start] + str(count) + line[end:]
+            break
+        rewritten.append(new_line)
+    return rewritten
+
+
 def _count_line(latest_test_count: int | None, count_is_ambiguous: bool) -> str:
     """Render the STATUS block's count line, one wording per state.
 
@@ -170,7 +200,7 @@ def _build_status_block(
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
         return [
-            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+            "- Source of truth: PLAYBOOK Section 3 and Section 4.",
             f"- Current batch: {batch_label}.",
             f"- Current-batch entries in active log block: {len(current_entries)}.",
             f"- Completed work packages in current-batch entries: {completed_wp}.",
@@ -181,7 +211,7 @@ def _build_status_block(
 
     last_completed = section_3_state.last_completed_batch
     lines = [
-        "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
+        "- Source of truth: PLAYBOOK Section 3 and Section 4.",
         "- Current batch: none (between batches).",
         f"- Last completed batch in PLAYBOOK Section 3: "
         f"{f'Batch {last_completed}' if last_completed is not None else 'unknown'}.",

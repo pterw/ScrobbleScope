@@ -24,10 +24,9 @@ jobs:
       contents: read
 
     env:
-      LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-      SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      # No provider secret is passed to this job. tests/conftest.py and
+      # scripts/dev/frontend_gate.py supply placeholders, and no step reads
+      # a real key. A step that ever needs one takes it in its own `env:`.
       FLASK_ENV: development
 
     steps:
@@ -106,7 +105,7 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          pytest --cov=scrobblescope --cov-report=xml --cov-fail-under=70
+          pytest -m "not browser" --cov=scrobblescope --cov-report=xml --cov-fail-under=70
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
@@ -124,11 +123,15 @@ jobs:
       - name: Run frontend gate
         if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}
         run: |
+          # The marker decides what runs here, not the directory: the coverage
+          # step deselects the marker across the whole tree, so a browser test
+          # outside tests/frontend/ would otherwise run in neither step.
+          python -m pytest -m browser -q
           python scripts/dev/results_behavior_tests.py
           python scripts/dev/frontend_gate.py
 
       - name: Security audit (pip-audit)
         uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          inputs: requirements.txt
+          inputs: requirements.txt requirements-dev.txt
         continue-on-error: true

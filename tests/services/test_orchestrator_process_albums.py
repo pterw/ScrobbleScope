@@ -3,17 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import process_albums
 from scrobblescope.orchestrator._cache import _lookup_cached_metadata
-from scrobblescope.repositories import (
-    create_job,
-    get_job_context,
-    get_job_progress,
-    get_job_unmatched,
-)
-from tests.helpers import TEST_JOB_PARAMS
+from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK, TEST_JOB_PARAMS
 
 
 @pytest.mark.asyncio
@@ -24,7 +19,7 @@ async def test_process_albums_cache_hit_skips_spotify():
     THEN it should NOT call fetch_spotify_access_token and should
     build results from cached metadata only.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("radiohead", "ok computer"): {
             "play_count": 50,
@@ -68,7 +63,7 @@ async def test_process_albums_cache_hit_skips_spotify():
     mock_token.assert_not_awaited()
     mock_conn.close.assert_awaited_once()
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "abc123"
@@ -86,7 +81,7 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
     from a 2011 filter, and the unmatched record preserves both dates. This
     guards the Task 8 seam between ``process_albums`` and ``_build_results``.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     album_key = ("fleetwood mac", "rumours")
     filtered = {
         album_key: {
@@ -142,7 +137,7 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
     mock_token.assert_not_awaited()
     mock_original_lookup.assert_awaited_once_with(mock_conn, [album_key])
     mock_conn.close.assert_awaited_once()
-    unmatched = get_job_unmatched(job_id)
+    unmatched = jobs.unmatched(job_id)
     assert unmatched["fleetwood mac|rumours"]["reason"] == (
         "First released in 1977, not 2011"
     )
@@ -159,7 +154,7 @@ async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion(
     applied -- an exclusion with no cached correction is exactly the case the
     worker exists to resolve.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     album_key = ("fleetwood mac", "rumours")
     filtered = {
         album_key: {
@@ -206,7 +201,7 @@ async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion(
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     assert results == []
-    entry = get_job_unmatched(job_id)["fleetwood mac|rumours"]
+    entry = jobs.unmatched(job_id)["fleetwood mac|rumours"]
     assert entry["reason"] == "Released in 2011 instead of 2025"
     assert entry["provider_release_date"] == "2011-01-31"
 
@@ -219,7 +214,7 @@ async def test_process_albums_cache_miss_fetches_and_persists():
     THEN it should call Spotify search + detail fetch, build results,
     and persist the new metadata to DB.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -267,13 +262,7 @@ async def test_process_albums_cache_miss_fetches_and_persists():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
@@ -283,7 +272,7 @@ async def test_process_albums_cache_miss_fetches_and_persists():
     assert len(persist_rows) == 1
     assert persist_rows[0][2] == "sp1"
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     mock_conn.close.assert_awaited_once()
     assert len(results) == 1
@@ -300,7 +289,7 @@ async def test_process_albums_db_unavailable_falls_back():
     WHEN process_albums is called
     THEN it should proceed with full Spotify calls and return results.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -338,18 +327,12 @@ async def test_process_albums_db_unavailable_falls_back():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "sp1"
@@ -364,7 +347,7 @@ async def test_process_albums_conn_always_closed():
     WHEN process_albums is called
     THEN the connection should still be closed in the finally block.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -422,7 +405,7 @@ async def test_process_albums_empty_input():
     WHEN process_albums is called
     THEN it should return an empty list and close the connection cleanly.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     mock_conn = AsyncMock()
 
     with (
@@ -454,7 +437,7 @@ async def test_process_albums_all_misses_token_failure_raises():
     WHEN process_albums is called
     THEN it should raise SpotifyUnavailableError and close DB connection.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 10,
@@ -506,7 +489,7 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
     returns cached results plus whatever Deezer found, and sets a
     partial-data warning noting the Deezer fallback.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("radiohead", "ok computer"): {
             "play_count": 50,
@@ -555,12 +538,13 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
     ):
         results = await process_albums(job_id, filtered, 1997, "playcount", "all")
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "abc123"
     assert "partial_data_warning" in progress["stats"]
     assert "Deezer" in progress["stats"]["partial_data_warning"]
+    assert progress["stats"]["partial_data_sources"] == ["provider"]
     assert progress["stats"]["db_cache_enabled"] is True
     mock_token.assert_awaited_once()
     mock_conn.close.assert_awaited_once()
@@ -586,7 +570,7 @@ async def test_process_albums_deezer_not_called_when_spotify_matches_everything(
     WHEN process_albums runs
     THEN Deezer is never called.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -659,7 +643,7 @@ async def test_process_albums_deezer_fallback_for_spotify_misses():
     THEN Deezer is asked for exactly the miss, and its match lands in
     results with provider == "deezer" and a Deezer album_url.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist1", "album1"): {
             "play_count": 20,
@@ -764,7 +748,7 @@ async def test_process_albums_neither_provider_matches_registers_unmatched():
     THEN one unmatched entry is registered with reason_code
     "no_spotify_match" and reason text "No match on Spotify or Deezer".
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -812,7 +796,7 @@ async def test_process_albums_neither_provider_matches_registers_unmatched():
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     assert results == []
-    ctx = get_job_context(job_id)
+    ctx = jobs.context(job_id)
     unmatched = ctx["unmatched"]
     assert len(unmatched) == 1
     entry = next(iter(unmatched.values()))
@@ -827,7 +811,7 @@ async def test_process_albums_deezer_only_succeeds_when_no_spotify_token():
     WHEN process_albums runs and Deezer can enrich the album
     THEN the job succeeds using Deezer alone -- no exception raised.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -895,7 +879,7 @@ async def test_process_albums_raises_when_no_token_and_deezer_also_fails():
     WHEN process_albums runs
     THEN SpotifyUnavailableError is raised.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -947,7 +931,7 @@ async def test_process_albums_deezer_row_persists_provider_fields():
     THEN the row carries provider, provider_album_id, and provider_url,
     with spotify_id left None per the Task 2 cache-column contract.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -1074,7 +1058,7 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
     """
     from scrobblescope.domain import normalize_track_name
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
         ("artist", "album"): {
             "play_count": 20,
@@ -1122,13 +1106,7 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
-            return_value={
-                "sp1": {
-                    "release_date": "2025-01-01",
-                    "images": [{"url": "https://img.example.com/a.jpg"}],
-                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
-                }
-            },
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
         ),
     ):
         await process_albums(job_id, filtered, 2025, "playcount", "same")

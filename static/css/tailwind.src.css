@@ -158,7 +158,7 @@
      between the hero column and the sunken well -- so the other 14 stay on
      --ss-border-default until a future batch decides they need raising
      too. Values measured against both adjoining surfaces (the page and
-     --ss-surface-sunken); see .docsync.toml for the pinned pair. */
+     --ss-surface-sunken); see config/docsync.toml for the pinned pair. */
    --ss-border-divider: #8a867e;
 
    /* The design has three surfaces -- page, sunken and card -- and daisyUI's

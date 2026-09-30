@@ -3,20 +3,25 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.domain import release_window
+from scrobblescope.errors import (
+    PrivateProfileError,
+    ProviderError,
+    SpotifyUnavailableError,
+    UserNotFoundError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.orchestrator import (
     _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
     _apply_post_slice,
     _apply_pre_slice,
     _build_results,
-    _classify_exception_to_error_code,
-    _detect_enrichment_total_failure,
     _get_user_friendly_reason,
     _lookup_cached_original_release,
     _matches_release_criteria,
 )
-from scrobblescope.repositories import create_job, get_job_unmatched
 from tests.helpers import TEST_JOB_PARAMS
 
 # =====================================================================
@@ -106,6 +111,27 @@ def test_matches_release_criteria_parity_before_release_window(
     assert result is expected
 
 
+def test_matches_release_criteria_logs_actual_bad_input_under_custom(caplog):
+    """
+    GIVEN a "custom" scope whose release_year cannot be parsed as a year
+    WHEN `_matches_release_criteria` catches `release_window`'s ValueError
+    THEN the warning names the scope and every input `release_window`
+        received -- including the actual bad value, `release_year` -- rather
+        than always blaming `decade` (Finding 7).
+    """
+    with caplog.at_level(logging.WARNING):
+        result = _matches_release_criteria(
+            "2025-06-01",
+            release_scope="custom",
+            year=2025,
+            decade=None,
+            release_year="nope",
+        )
+    assert result is False
+    assert "custom" in caplog.text
+    assert "nope" in caplog.text
+
+
 @pytest.mark.parametrize(
     "release_scope, year, decade, release_year, expected",
     [
@@ -190,7 +216,7 @@ def test_build_results_zero_playtime_no_division_error():
     Also verifies that missing track_durations (None) defaults to an empty
     dict, producing play_time_seconds=0 rather than a TypeError.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = {
         ("artist", "album"): {
             "cached": {
@@ -276,9 +302,10 @@ async def test_lookup_cached_original_release_failure_is_non_fatal(caplog):
         result = await _lookup_cached_original_release(mock_conn, album_keys)
 
     assert result == {}
-    assert "Original-release cache lookup failed (non-fatal): database unavailable" in (
+    assert "Original-release cache lookup failed (non-fatal): RuntimeError" in (
         caplog.text
     )
+    assert "database unavailable" not in caplog.text
 
 
 def test_build_results_cached_original_release_excludes_album_outside_filter():
@@ -287,7 +314,7 @@ def test_build_results_cached_original_release_excludes_album_outside_filter():
     2011 provider date, filtered by year=2011, must exclude the album and
     explain the exclusion in terms of the original year, not the provider's.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = _corrected_cache_hits("2011-11-11")
     original_release_hits = {
         ("artist", "album"): {
@@ -306,7 +333,7 @@ def test_build_results_cached_original_release_excludes_album_outside_filter():
     )
 
     assert results == []
-    unmatched = get_job_unmatched(job_id)
+    unmatched = jobs.unmatched(job_id)
     entry = unmatched["artist|album"]
     assert entry["reason"] == "First released in 1977, not 2011"
     assert entry["reason_code"] == "release_scope"
@@ -318,7 +345,7 @@ def test_build_results_cached_original_release_includes_album_matching_filter():
     album in the results and displays the corrected date -- the provider's
     own reissue date survives separately as ``provider_release_date``.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = _corrected_cache_hits("2011-11-11")
     original_release_hits = {
         ("artist", "album"): {
@@ -347,7 +374,7 @@ def test_build_results_no_cached_original_release_behaves_as_before():
     drives filtering and display exactly as it did before Task 8, and no
     ``provider_release_date`` key is added to the result.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     # Case A: original_release_hits not passed at all.
     results_a = _build_results(
@@ -362,7 +389,7 @@ def test_build_results_no_cached_original_release_behaves_as_before():
     assert "provider_release_date" not in results_a[0]
 
     # Case B: a real "checked, nothing found" cache row (both fields null).
-    job_id_b = create_job(TEST_JOB_PARAMS)
+    job_id_b = jobs.create(TEST_JOB_PARAMS)
     results_b = _build_results(
         _corrected_cache_hits("2011-11-11"),
         job_id_b,
@@ -421,9 +448,7 @@ def test_get_user_friendly_reason_corrected_wording_covers_every_scope():
 
 def test_build_results_records_reason_code():
     """Albums excluded by release criteria must record reason_code='release_scope'."""
-    from scrobblescope.repositories import get_job_unmatched
-
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = {
         ("artist", "album"): {
             "cached": {
@@ -446,7 +471,7 @@ def test_build_results_records_reason_code():
     )
 
     assert len(results) == 0
-    unmatched = get_job_unmatched(job_id)
+    unmatched = jobs.unmatched(job_id)
     key = "artist|album"
     assert key in unmatched
     assert unmatched[key]["reason_code"] == "release_scope"
@@ -524,111 +549,47 @@ def test_apply_post_slice_malformed_limit_no_error(caplog):
 
 
 def test_classify_exception_to_error_code_spotify_rate_limited():
-    """'Too Many Requests' + 'spotify' -> 'spotify_rate_limited'."""
+    """A typed Spotify rate limit -> 'spotify_rate_limited'."""
     assert (
-        _classify_exception_to_error_code("spotify Too Many Requests")
+        classify_exception_to_error_code(ProviderError("spotify", "rate_limited"))
         == "spotify_rate_limited"
     )
 
 
 def test_classify_exception_to_error_code_user_not_found():
-    """'user not found' -> 'user_not_found'."""
-    assert (
-        _classify_exception_to_error_code("User not found on Last.fm")
-        == "user_not_found"
-    )
+    """The typed Last.fm not-found -> 'user_not_found'."""
+    assert classify_exception_to_error_code(UserNotFoundError()) == "user_not_found"
 
 
-def test_classify_exception_to_error_code_unclassified_returns_none():
-    """'connection timeout' -> None."""
-    assert _classify_exception_to_error_code("connection timeout") is None
+@pytest.mark.parametrize(
+    ("exc", "code"),
+    [
+        (PrivateProfileError(), "private_profile"),
+        (ProviderError("spotify", "unavailable"), "spotify_unavailable"),
+        (SpotifyUnavailableError("token"), "spotify_unavailable"),
+    ],
+)
+def test_classify_exception_to_error_code_typed_failures(exc, code):
+    """Each typed failure answers its own code."""
+    assert classify_exception_to_error_code(exc) == code
 
 
-def test_detect_enrichment_total_failure_fires_when_all_unmatched():
-    """All filtered_albums unmatched -> returns True, set_job_error called."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    filtered = {("a", "b"): {}, ("c", "d"): {}}
-    with (
-        patch(
-            "scrobblescope.orchestrator.get_job_context",
-            return_value={
-                "unmatched": {
-                    "a|b": {"reason": "No Spotify match"},
-                    "c|d": {"reason": "No Spotify match"},
-                }
-            },
-        ),
-        patch("scrobblescope.orchestrator.set_job_error") as mock_err,
-    ):
-        assert _detect_enrichment_total_failure(job_id, [], filtered) is True
-        mock_err.assert_called_once_with(job_id, "spotify_unavailable")
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("User 'ghost' not found on Last.fm"),
+        RuntimeError("Too Many Requests from spotify"),
+        RuntimeError("Last.fm profile is private"),
+        TimeoutError("connection timeout"),
+        ProviderError("deezer", "rate_limited"),
+    ],
+)
+def test_classify_exception_to_error_code_ignores_message_text(exc):
+    """Text that reads like a known failure, on an untyped exception, is ours.
 
-
-def test_detect_enrichment_total_failure_does_not_fire_partial_match():
-    """Only some albums unmatched -> returns False."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    filtered = {("a", "b"): {}, ("c", "d"): {}}
-    with patch(
-        "scrobblescope.orchestrator.get_job_context",
-        return_value={
-            "unmatched": {
-                "a|b": {"reason": "No Spotify match"},
-            }
-        },
-    ):
-        assert _detect_enrichment_total_failure(job_id, [], filtered) is False
-
-
-def test_detect_enrichment_total_failure_bases_detection_on_reason_code():
-    """Failure detection must check reason_code, not written prose."""
-    from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
-
-    job_id = create_job(TEST_JOB_PARAMS)
-    filtered = {("a", "b"): {}, ("c", "d"): {}}
-    with (
-        patch(
-            "scrobblescope.orchestrator.get_job_context",
-            return_value={
-                "unmatched": {
-                    "a|b": {
-                        "reason": "Different prose string",
-                        "reason_code": REASON_NO_SPOTIFY_MATCH,
-                    },
-                    "c|d": {
-                        "reason": "Another prose message",
-                        "reason_code": REASON_NO_SPOTIFY_MATCH,
-                    },
-                }
-            },
-        ),
-        patch("scrobblescope.orchestrator.set_job_error") as mock_err,
-    ):
-        assert _detect_enrichment_total_failure(job_id, [], filtered) is True
-        mock_err.assert_called_once_with(job_id, "spotify_unavailable")
-
-
-def test_detect_enrichment_total_failure_does_not_fire_for_other_reason_codes():
-    """Items with non-matching reason_code do not trigger spotify_unavailable."""
-    from scrobblescope.unmatched import REASON_RELEASE_SCOPE
-
-    job_id = create_job(TEST_JOB_PARAMS)
-    filtered = {("a", "b"): {}, ("c", "d"): {}}
-    with patch(
-        "scrobblescope.orchestrator.get_job_context",
-        return_value={
-            "unmatched": {
-                "a|b": {
-                    "reason": "Release scope reason",
-                    "reason_code": REASON_RELEASE_SCOPE,
-                },
-                "c|d": {
-                    "reason": "Release scope reason",
-                    "reason_code": REASON_RELEASE_SCOPE,
-                },
-            }
-        },
-    ):
-        assert _detect_enrichment_total_failure(job_id, [], filtered) is False
+    (A provider with no ERROR_CODES entry is not a job failure either.)
+    """
+    assert classify_exception_to_error_code(exc) is None
 
 
 def _tied_albums(count):
@@ -673,3 +634,49 @@ def test_apply_pre_slice_cap_is_independent_of_input_order():
 
     assert len(forward) == _MAX_ALBUM_CAP
     assert set(forward) == set(backward)
+
+
+def test_build_results_skip_line_carries_no_album_or_artist(caplog):
+    """The debug line for a release-scope exclusion names neither the album
+    nor the artist (Batch 23 Data handling), only the reason."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    cache_hits = _corrected_cache_hits("2011-11-11")
+    (entry,) = cache_hits.values()
+    entry["original"]["original_artist"] = "Wjkl Distinctive Artist"
+    entry["original"]["original_album"] = "Zqxv Distinctive Album"
+
+    with caplog.at_level(logging.DEBUG):
+        results = _build_results(
+            cache_hits, job_id, year=1999, sort_mode="playcount", release_scope="same"
+        )
+
+    assert results == []
+    skipped = [r.getMessage() for r in caplog.records if "Skipped" in r.getMessage()]
+    assert skipped, "the exclusion was not logged"
+    for text in skipped:
+        assert "Wjkl" not in text
+        assert "Zqxv" not in text
+
+
+def test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence():
+    """
+    GIVEN a Last.fm fetch that dropped pages and carries the warning sentence
+    WHEN its stats are recorded on the job
+    THEN the job also holds the kind ("lastfm"), so the Results page never has
+         to read the sentence to know what degraded
+    """
+    from scrobblescope.orchestrator import _record_lastfm_stats
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _record_lastfm_stats(
+        job_id,
+        {
+            "stats": {"total_scrobbles": 5},
+            "partial_data_warning": "Note: 1 of 4 Last.fm pages failed to load.",
+            "pages_dropped": 1,
+        },
+    )
+
+    stats = jobs.progress(job_id)["stats"]
+    assert stats["partial_data_sources"] == ["lastfm"]
+    assert stats["pages_dropped"] == 1

@@ -36,7 +36,7 @@ paths, while an opt-in Git preflight and CI validate the commit candidate.
 - [x] Task 1: shared Markdown scanner and reproduced integrity repairs.
 - [x] Task 2: finding lifecycle, bounded archives and recoverable publication.
 - [x] Task 3: CLI integration and multi-signal close-out.
-- [ ] Task 4: commit-candidate preflight, opt-in installer, CI and operational docs.
+- [x] Task 4: commit-candidate preflight, opt-in installer, CI and operational docs.
       Split into a code half (4a) and a documentation half (4b), run in that
       order so `AGENTS.md` is edited once by a writer that can see the finished
       tooling.
@@ -45,12 +45,20 @@ paths, while an opt-in Git preflight and CI validate the commit candidate.
         all five findings and the scoped re-review was clean. The owner ruled on the
         `--no-verify` conflict the same day: control-plane commits are refused
         on every local path, with `SKIP=doc-state-sync-check` as the one named
-        escape, so `--no-verify` stays forbidden without exception.
-  - [ ] Task 4b: the documentation pass. Brief written at
-        `.superpowers/sdd/.../task-4b-brief.md`; implementer dispatched
-        2026-09-19. Its deliverable 6 (documenting the preflight and installer)
-        is gated on Task 4a's review verdict.
-- [ ] Final review and full validation.
+        escape, so `--no-verify` stays forbidden without exception. Landed as
+        `491e61a4`.
+  - [x] Task 4b: the documentation pass. `AGENTS.md` brought under 500 lines and
+        `docs/agents/global-rules.md` written, DONE_WITH_CONCERNS per the
+        ledger's controller verification. Landed as `3d8a42a5`.
+- [x] Final review and full validation. The review ran split, forced by
+      `/ultrareview`'s size cap (500 files / 8,000 lines): the engine commit
+      `a07f5761` was reviewed alone from a temporary branch, and the owner
+      declined a pass over the documentation commits, reasoning that normative
+      prose reads as rules and a defect-hunting reviewer reports disagreements
+      with the rules as bugs. DOC023 was built (`fa923305`, with the
+      grandfather list `28a8527` and the negation fix `fcfe8d4e`). Tasks 1-4b
+      and the review-round fixes reached `test` through PR #233 (merge commit
+      `2ccf0ddb`) and PR #234 (merge commit `88f6e27`).
 
 Ledger: `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
 It is the authoritative progress record; a stale copy exists at the repository
@@ -95,6 +103,24 @@ Deviations so far, with reasons:
   `2026-09-12-repository-agnostic-plan-spec-guards.md` still claims DOC013 and
   DOC014 for different invariants and must renumber to DOC021/DOC022 before it
   is executed; open finding F-B21-53 proposes a third conflicting DOC013.
+- The final whole-branch review was split, not run as one pass: `/ultrareview`
+  caps at 500 files / 8,000 lines, and this work package alone measured 52
+  files / 12,403 lines against `main`. The engine commit `a07f5761` was
+  reviewed alone from a temporary branch. The owner declined a pass over the
+  documentation commits, on the reasoning that normative prose reads as rules
+  and a defect-hunting reviewer reports disagreements with the rules as bugs.
+- DOC023 departs from the plan's approved batch-number boundary: 32 of 83
+  finding ids were source-tagged with no batch number to compare, and 7 of
+  those already read as finished, so a batch boundary would either
+  grandfather every tagged id by accident or turn the gate red on arrival.
+  DOC023 uses an explicit id allowlist instead; nothing escapes by choosing a
+  tag, because admission is by absence from a checked-in list.
+- The ledger's final-review triage list (every "minor (deferred)" line
+  carried from Tasks 1, 2, 3 and 4a) was not worked in the PR #234 review
+  round: that round covered automated tool reports on `a07f5761`, not the
+  ledger's own carried-over list. The owner ruled (2026-09-24) that Batch 23
+  WP-0's foundation plan Task 7 checks each item at HEAD instead; see that
+  plan's Task 7 and its Definition of Done row 32.
 
 ## File map
 

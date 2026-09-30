@@ -30,15 +30,16 @@ import fnmatch
 import re
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import tomllib
 
 from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
+from docsync.transaction import resolve_within
 
 #: Where the repository's own declarations live, relative to the repo root.
-DECLARATIONS_FILENAME = ".docsync.toml"
+DECLARATIONS_FILENAME = "config/docsync.toml"
 
 #: A heading in a Markdown document: one to six hashes, then the text.
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*$")
@@ -86,9 +87,10 @@ DEFAULT_STRIKETHROUGH_EXEMPT = True
 DEFAULT_ARCHIVE_MAX_LINES = 500
 
 #: What `[archives] cold_days` defaults to: the age at which a finalized page
-#: becomes eligible to move beneath `cold/`. Only an explicit as-of date ever
+#: becomes eligible to move beneath `cold/`. Ninety days: history older than a
+#: quarter is archive, not context. Only an explicit as-of date ever
 #: evaluates it, so this value cannot age a file on its own.
-DEFAULT_ARCHIVE_COLD_DAYS = 365
+DEFAULT_ARCHIVE_COLD_DAYS = 90
 
 #: What `[closeout] admit_from_batch` defaults to: the lowest batch number
 #: whose closure the close-out signals are evaluated against. Every batch at or
@@ -216,7 +218,7 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
 #:
 #: `archives` and `closeout` are listed so the unknown-table guard recognizes
 #: them: a table the guard has not heard of is refused, and the real
-#: `.docsync.toml` would start raising the moment one of them appeared. Their
+#: `config/docsync.toml` would start raising the moment one of them appeared. Their
 #: keys are checked by `_validate_archives` and `_validate_closeout` rather than
 #: by the generic walker, because they are values a maintenance run consumes,
 #: not facts a check compares.
@@ -225,6 +227,17 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
     "findings": {"required": {"grandfathered": list}, "optional": {}},
+    "test_count": {"required": {}, "optional": {"pinned": int}},
+    "untracked_essentials": {"required": {}, "optional": {"paths": _ListOf(str)}},
+    "documents": {
+        "required": {},
+        "optional": {
+            "playbook": str,
+            "findings": str,
+            "agent_notes": str,
+            "handoff_prompt": str,
+        },
+    },
 }
 
 
@@ -394,9 +407,209 @@ def _archive_config(declarations: Mapping) -> ArchiveConfig:
     return _validate_archives(declarations["archives"])
 
 
-def load_archive_config(repo_root: Path) -> ArchiveConfig:
+def load_archive_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> ArchiveConfig:
     """Read the repository's archive thresholds, defaults included."""
-    return _archive_config(load_declarations(repo_root))
+    return _archive_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class TestCountConfig:
+    """The test count a human has explicitly pinned, from [test_count] or absent.
+
+    Not a declaration: nothing else in the repository is compared against
+    it, it is the fact itself. `resolved_test_count_authority`
+    (`docsync.logic`) reads it in preference to re-deriving a count from
+    Section 4 prose position, which is what let a same-date tie or a
+    correction to an older entry (F-DOCSYNC-11, F-DOCSYNC-22) silently
+    shadow the true count. Only `--fix --test-count N` writes this table
+    (`cli._rewrite_test_count_pin`); nothing else may hand-edit it.
+    """
+
+    pinned: int | None = None
+
+
+def _validated_table(table: object, table_name: str, known: Iterable[str]) -> Mapping:
+    """Check that a declared table is a table, and every key in it is known.
+
+    Rule of Three (docs/agents/global-rules.md Rule 3): `_validate_closeout`,
+    `_validate_test_count` and `_validate_untracked_essentials` each wrote
+    this same is-a-table check and unknown-key walk by hand, one copy per
+    table, with only the table's name and its known keys changed between
+    them. Every message stays byte-identical to what each copy raised, so no
+    caller or test that matches on the exact text sees a difference.
+    """
+    if not isinstance(table, Mapping):
+        raise DeclarationError(
+            f"[{table_name}] is {type(table).__name__}, not a table."
+        )
+    for key in table:
+        if key not in known:
+            raise DeclarationError(
+                f"[{table_name}] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    return table
+
+
+def _validate_test_count(table: object) -> TestCountConfig:
+    """Check a declared [test_count] table and return its pin.
+
+    The single optional key is validated the same way every other table's
+    keys are (`_validated_table`), and the pin itself is checked with the
+    same ``_positive_int`` every other numeric table uses, so a typo or a
+    quoted number cannot silently pin nothing.
+    """
+    known = _TOP_LEVEL_SCHEMA["test_count"]["optional"]
+    table = _validated_table(table, "test_count", known)
+    if "pinned" not in table:
+        return TestCountConfig()
+    return TestCountConfig(
+        pinned=_positive_int("[test_count]", "pinned", table["pinned"])
+    )
+
+
+def _test_count_config(declarations: Mapping) -> TestCountConfig:
+    """Return the pinned test count for an already-read declarations file.
+
+    Absence of the table is not an error, and returns no pin: a repository
+    that has never run `--fix --test-count N` falls all the way back to
+    `latest_test_count_authority`'s prose-derived cold-start answer.
+    """
+    if "test_count" not in declarations:
+        return TestCountConfig()
+    return _validate_test_count(declarations["test_count"])
+
+
+def load_test_count_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> TestCountConfig:
+    """Read the repository's pinned test count, or no pin at all."""
+    return _test_count_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class UntrackedEssentialsConfig:
+    """Gitignored files the workflow depends on but Git cannot protect.
+
+    Not a declaration: nothing compares a document against these paths. They
+    are the files the worktree guard's WT015 check looks for on disk, since
+    Git offers no protection for anything `.gitignore` excludes (F-B21-25:
+    "what was lost was gitignored").
+    """
+
+    paths: tuple[str, ...] = ()
+
+
+def _escapes_repository(path: str) -> bool:
+    """Return whether ``path`` could resolve outside the repository root.
+
+    Rejects an absolute path in either POSIX form (``/etc/passwd``) or
+    Windows drive form (``C:\\Windows`` or ``C:/Windows``), and any path
+    carrying a ``..`` segment, so a declared untracked-essential can never
+    point the worktree guard at a file outside the repository it is meant to
+    protect. The check does not touch the filesystem: a `PurePosixPath` and a
+    `PureWindowsPath` reading of the same string suffice to reject both
+    absolute forms regardless of which platform runs the guard. The ``..``
+    segment is read from POSIX parts only, which is sound only because
+    `_validate_untracked_essentials` refuses a backslash first: on Windows
+    ``..\\..\\x`` is two parent segments that a POSIX reading sees as one
+    ordinary name (review B5, C3).
+    """
+    if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
+        return True
+    return ".." in PurePosixPath(path).parts
+
+
+def _has_unprintable_character(path: str) -> bool:
+    """Return whether ``path`` carries any character `str.isprintable` rejects.
+
+    `scripts/dev/check_worktree_alignment.py` prints a declared path verbatim
+    in a `Diagnostic.subject`. Category Cc alone -- a raw newline or escape
+    -- was the first answer, and it let through U+2028 (a line separator
+    that splits the rendered line), U+202E (a bidi override that reorders
+    it) and U+00A0 (a space that pads a fake verdict across it) (review C1).
+    `isprintable` refuses every separator, format and control character
+    except the ASCII space, which is the same allowlist-shaped answer
+    `_worktree_guard_diagnostics.is_display_safe_ref` gives for ref names.
+    Refusing it here, at declaration time, means that raw print never has
+    to sanitize what it is handed.
+    """
+    return not path.isprintable()
+
+
+def _validate_untracked_essentials(table: object) -> UntrackedEssentialsConfig:
+    """Check a declared [untracked_essentials] table and return its paths.
+
+    The single optional key is validated the same way every other table's
+    keys are (`_validated_table`). Each declared path is additionally checked
+    before the worktree guard, which echoes it and stats whatever it names,
+    ever sees it: no backslash, so containment reads one path syntax (B5);
+    repository containment, so no absolute path and no `..` segment (CR5);
+    something below the root, since an empty path or `.` names the
+    repository itself (C5); and printable, so the echo cannot forge a line
+    (C1). It must also be written in normalised form (no `./`, no doubled
+    slash), so a path declared twice is an exact duplicate, kept once and
+    reported once.
+    """
+    known = _TOP_LEVEL_SCHEMA["untracked_essentials"]["optional"]
+    table = _validated_table(table, "untracked_essentials", known)
+    if "paths" not in table:
+        return UntrackedEssentialsConfig()
+    bad = _mismatch(known["paths"], table["paths"])
+    if bad:
+        raise DeclarationError(f"[untracked_essentials] gives 'paths' as {bad}.")
+    for path in table["paths"]:
+        if "\\" in path:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which uses a "
+                "backslash: write the repository-relative path with forward "
+                "slashes."
+            )
+        if _escapes_repository(path):
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which must be a "
+                "path inside the repository: no absolute path and no '..' segment."
+            )
+        if not PurePosixPath(path).parts:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which names the "
+                "repository root: name the file this workflow depends on."
+            )
+        if PurePosixPath(path).as_posix() != path:
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which is not the "
+                f"normalised repository-relative path. Write "
+                f"{PurePosixPath(path).as_posix()!r}."
+            )
+        if _has_unprintable_character(path):
+            raise DeclarationError(
+                f"[untracked_essentials] declares {path!r}, which carries a "
+                "character that is not printable: it must be printable, since "
+                "the worktree guard echoes it verbatim in a diagnostic."
+            )
+    return UntrackedEssentialsConfig(paths=tuple(dict.fromkeys(table["paths"])))
+
+
+def _untracked_essentials_config(declarations: Mapping) -> UntrackedEssentialsConfig:
+    """Return the declared untracked-essential paths for an already-read file.
+
+    Absence of the table is not an error: a repository that declares none is
+    the common case, and returns an empty tuple.
+    """
+    if "untracked_essentials" not in declarations:
+        return UntrackedEssentialsConfig()
+    return _validate_untracked_essentials(declarations["untracked_essentials"])
+
+
+def load_untracked_essentials_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> UntrackedEssentialsConfig:
+    """Read the repository's declared untracked-essential paths, if any."""
+    return _untracked_essentials_config(
+        load_declarations(repo_root, config_path=config_path)
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -419,19 +632,14 @@ class CloseoutConfig:
 def _validate_closeout(closeout: object) -> CloseoutConfig:
     """Check a declared [closeout] table and return its admission boundary.
 
-    The single key is required once the table exists. An empty table read as
-    "nothing is managed" would silently switch off every closure signal, which
-    is the same quiet failure [options] and [archives] already refuse.
+    The single key is validated the same way every other table's keys are
+    (`_validated_table`), and is then required once the table exists. An
+    empty table read as "nothing is managed" would silently switch off every
+    closure signal, which is the same quiet failure [options] and [archives]
+    already refuse.
     """
-    if not isinstance(closeout, Mapping):
-        raise DeclarationError(f"[closeout] is {type(closeout).__name__}, not a table.")
     known = _TOP_LEVEL_SCHEMA["closeout"]["required"]
-    for key in closeout:
-        if key not in known:
-            raise DeclarationError(
-                f"[closeout] has an unknown key {key!r}. Known keys: "
-                f"{', '.join(sorted(known))}."
-            )
+    closeout = _validated_table(closeout, "closeout", known)
     for key in known:
         if key not in closeout:
             raise DeclarationError(
@@ -458,9 +666,11 @@ def _closeout_config(declarations: Mapping) -> CloseoutConfig:
     return _validate_closeout(declarations["closeout"])
 
 
-def load_closeout_config(repo_root: Path) -> CloseoutConfig:
+def load_closeout_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> CloseoutConfig:
     """Read the repository's close-out admission boundary."""
-    return _closeout_config(load_declarations(repo_root))
+    return _closeout_config(load_declarations(repo_root, config_path=config_path))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -524,9 +734,125 @@ def _findings_config(declarations: Mapping) -> FindingsConfig:
     return _validate_findings(declarations["findings"])
 
 
-def load_findings_config(repo_root: Path) -> FindingsConfig:
+def load_findings_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> FindingsConfig:
     """Read the repository's grandfathered finding ids."""
-    return _findings_config(load_declarations(repo_root))
+    return _findings_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class DocumentsConfig:
+    """Where docsync's own live documents live, from [documents] or defaults.
+
+    The defaults are docsync's generic vocabulary -- true for any repository that adopts
+    the tool unmodified (docs/agents/AGENT_NOTES.md "This repository is also a template
+    being extracted"). This repository overrides every field in its own declarations
+    file, since the four documents moved under docs/agents/.
+    """
+
+    playbook: str = "PLAYBOOK.md"
+    findings: str = "FINDINGS.md"
+    agent_notes: str = "AGENT_NOTES.md"
+    handoff_prompt: str = "HANDOFF_PROMPT.md"
+
+
+def _validate_documents(documents: object, repo_root: Path) -> DocumentsConfig:
+    """Check that each document role names one distinct in-repository path.
+
+    A declared path must already be written the way every reader keys it:
+    repository-relative, POSIX, normalised. Anything else is refused with
+    the spelling to write, never silently normalised here, because the
+    declared string is what the rest of docsync looks documents up by.
+    """
+    if not isinstance(documents, Mapping):
+        raise DeclarationError(
+            f"[documents] is {type(documents).__name__}, not a table."
+        )
+    schema = _TOP_LEVEL_SCHEMA["documents"]["optional"]
+    kwargs: dict[str, str] = {}
+    for key, value in documents.items():
+        if key not in schema:
+            raise DeclarationError(
+                f"[documents] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(schema))}."
+            )
+        if not isinstance(value, str):
+            raise DeclarationError(
+                f"[documents] gives {key!r} as {type(value).__name__}, not a string."
+            )
+        if not value:
+            raise DeclarationError(
+                f"[documents] gives {key!r} as an empty string; write the "
+                f"document's repository-relative path."
+            )
+        kwargs[key] = value
+    result = DocumentsConfig(**kwargs)
+    root_real = Path(repo_root).resolve()
+    seen: dict[str, str] = {}
+    for role, value in (
+        ("agents", "AGENTS.md"),
+        ("handoff_prompt", result.handoff_prompt),
+        ("agent_notes", result.agent_notes),
+        ("playbook", result.playbook),
+        ("findings", result.findings),
+    ):
+        if Path(value).is_absolute() or PureWindowsPath(value).anchor or "\\" in value:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            )
+        try:
+            path = resolve_within(repo_root, value)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            ) from exc
+        if path.is_dir():
+            raise DeclarationError(
+                f"[documents] {role!r} names a directory, not a document: {value!r}."
+            )
+        # Every reader keys a live document by its resolved, repository-
+        # relative POSIX spelling (`cli._repository_relative`). A declared
+        # spelling that resolves to the same file but is written differently
+        # -- `./docs/x.md`, `docs//x.md` -- passed the checks above and then
+        # missed every lookup, so DOC008, DOC023 and the reference scan
+        # silently did not run while `--check` stayed green (review B1).
+        # Only a declared value is held to this: `AGENTS.md` and the
+        # defaults are docsync's own spellings.
+        try:
+            canonical = path.resolve().relative_to(root_real).as_posix()
+        except ValueError as exc:
+            raise DeclarationError(
+                f"[documents] {role!r} must be a repository-relative path: {value!r}."
+            ) from exc
+        if role in kwargs and canonical != value:
+            raise DeclarationError(
+                f"[documents] {role!r} is written {value!r}, which is not the "
+                f"normalised repository-relative path. Write {canonical!r}."
+            )
+        key = path.as_posix().casefold()
+        if key in seen:
+            raise DeclarationError(
+                f"[documents] {role!r} and {seen[key]!r} resolve to the same path: {value!r}."
+            )
+        seen[key] = role
+    return result
+
+
+def _documents_config(declarations: Mapping, repo_root: Path) -> DocumentsConfig:
+    """Return the document paths for an already-read declarations file."""
+    if "documents" not in declarations:
+        return DocumentsConfig()
+    return _validate_documents(declarations["documents"], repo_root)
+
+
+def load_documents_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> DocumentsConfig:
+    """Read the repository's document paths, defaults included."""
+    return _documents_config(
+        load_declarations(repo_root, config_path=config_path), repo_root
+    )
 
 
 def _issue(
@@ -543,21 +869,55 @@ def _issue(
     )
 
 
-def load_declarations(repo_root: Path) -> dict:
+def declarations_source(config_path: Path | str | None) -> str:
+    """Name the declarations file a run actually read, for a diagnostic.
+
+    Under --config the file read is ``config_path``, not the repository
+    default: naming DECLARATIONS_FILENAME there would point the reader at a
+    file this run never opened (review B8). Every message that names the
+    declarations file goes through this one rule.
+    """
+    return str(config_path) if config_path is not None else DECLARATIONS_FILENAME
+
+
+def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
     """Read the declarations file, or return nothing if there is none.
 
-    A repository with no declarations is not an error. That is the state every
-    repository starts in, and the checks simply have nothing to say.
+    A repository with no declarations file at the default path is not an error.
+    An explicit ``config_path`` that does not exist is: a mistyped --config
+    would otherwise run every check with nothing declared, and pass.
     """
-    path = repo_root / DECLARATIONS_FILENAME
+    path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
+    if config_path is not None:
+        try:
+            path = resolve_within(repo_root, path)
+        except SyncError as exc:
+            raise DeclarationError(
+                f"--config path {config_path} must be inside the repository."
+            ) from exc
     if not path.is_file():
+        if config_path is not None:
+            raise DeclarationError(f"--config names {path}, which is not a file.")
+        # Only an absent default means "nothing is declared". A directory
+        # sitting where the declarations file belongs is something, and
+        # reading it as nothing ran every check with no declarations and
+        # passed (review C5).
+        if path.exists():
+            raise DeclarationError(
+                f"{path} is a directory, not a declarations file. Replace it "
+                f"with the TOML file, or remove it if nothing is declared."
+            )
         return {}
     try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise DeclarationError(f"{path} could not be read: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise DeclarationError(f"{path} could not be read: {exc}") from exc
+    try:
+        return tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
-        raise DeclarationError(
-            f"{DECLARATIONS_FILENAME} is not valid TOML: {exc}"
-        ) from exc
+        raise DeclarationError(f"{path} is not valid TOML: {exc}") from exc
 
 
 class _Files:
@@ -843,7 +1203,9 @@ def _headings(lines: list[str]) -> dict[str, int]:
     how docs/design/README.md marks its sections, and citing one of those is
     citing a real place. Each is also indexed without a trailing parenthetical,
     so a citation of "Session Bootstrap" resolves to the heading actually
-    written as "Session Bootstrap (in order)".
+    written as "Session Bootstrap (in order)". A bold label's trailing colon
+    is punctuation, not part of the name anyone cites, so "Types:" is also
+    indexed as "Types".
     """
     found: dict[str, int] = {}
     for source_index, line in prose_lines(lines):
@@ -856,6 +1218,7 @@ def _headings(lines: list[str]) -> dict[str, int]:
             text,
             _HEADING_SUFFIX_RE.sub("", text),
             _LABEL_TAIL_RE.sub("", text).rstrip(" .-—"),
+            text.rstrip(":").rstrip(),
         ):
             if form:
                 found.setdefault(form, index)
@@ -1214,10 +1577,13 @@ def _effective_scan(
 
 
 def collect_declaration_issues(
-    *, repo_root: Path, live_documents: Mapping[str, list[str]]
+    *,
+    repo_root: Path,
+    live_documents: Mapping[str, list[str]],
+    config_path: Path | None = None,
 ) -> list[IntegrityIssue]:
     """Run every declared check and return the diagnostics in a stable order."""
-    declarations = load_declarations(repo_root)
+    declarations = load_declarations(repo_root, config_path=config_path)
     if not declarations:
         return []
 
@@ -1225,10 +1591,11 @@ def collect_declaration_issues(
     # never read, and leaves the gate green with one fewer check running.
     known_tables = set(_DECLARATION_SCHEMA) | set(_TOP_LEVEL_SCHEMA)
     known_tables.discard("site")
+    source = declarations_source(config_path)
     for table in declarations:
         if table not in known_tables:
             raise DeclarationError(
-                f"{DECLARATIONS_FILENAME} has an unknown table {table!r}. "
+                f"{source} has an unknown table {table!r}. "
                 f"Known tables: {', '.join(sorted(known_tables))}."
             )
     _validate_options(declarations.get("options", {}))
@@ -1237,6 +1604,8 @@ def collect_declaration_issues(
     # that happens to consume the thresholds.
     _archive_config(declarations)
     _closeout_config(declarations)
+    _documents_config(declarations, repo_root)
+    _untracked_essentials_config(declarations)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot

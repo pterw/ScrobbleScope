@@ -40,7 +40,8 @@ def repository(
     """Create a host-appropriate repository and its discovery response map."""
     repo = tmp_path / "linked" if linked else tmp_path / "primary"
     repo.mkdir()
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents").mkdir(parents=True)
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         "- **Batch 21 is active.** Branch: `wip/batch-21`.\n\n"
         "## 4. Execution log\n",

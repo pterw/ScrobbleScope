@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import logging
 import time
 from datetime import datetime, timezone
@@ -12,10 +11,13 @@ from scrobblescope.config import (
     LASTFM_REQUESTS_PER_SECOND,
     MAX_CONCURRENT_LASTFM,
 )
+from scrobblescope.errors import PrivateProfileError, UserNotFoundError
 from scrobblescope.utils import (
+    cancel_and_drain,
     create_optimized_session,
     get_cached_response,
     get_lastfm_limiter,
+    parse_retry_after,
     retry_with_semaphore,
     set_cached_response,
 )
@@ -58,7 +60,13 @@ async def check_user_exists(username):
         async with session.get(url, params=params) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                set_cached_response(url, data, params)
+                # Last.fm can answer error 6 ("User not found") in a 200
+                # body: that is not-found, and never cached as a hit.
+                if isinstance(data, dict) and str(data.get("error")) == "6":
+                    return {"exists": False, "registered_year": None}
+                # Only a body that carries the user is a verified account.
+                if isinstance(data, dict) and isinstance(data.get("user"), dict):
+                    set_cached_response(url, data, params)
                 return {
                     "exists": True,
                     "registered_year": _extract_year(data),
@@ -89,19 +97,89 @@ async def check_profile_is_public(username: str) -> bool:
         "format": "json",
         "limit": 1,
     }
-    cached_response = get_cached_response(url, params)
-    if cached_response:
-        return not _is_private_profile(cached_response)
+    # Only a well-formed public answer is ever cached, so a hit is public.
+    # A private verdict is never cached: the owner told to make the profile
+    # public must not be refused from the cache for an hour after doing so.
+    if get_cached_response(url, params):
+        return True
 
     async with create_optimized_session() as session:
         async with session.get(url, params=params) as resp:
             data = await resp.json()
-            if resp.status == 403 and _is_private_profile(data):
-                set_cached_response(url, data, params)
+            if _is_private_profile(data):
                 return False
             resp.raise_for_status()
-            set_cached_response(url, data, params)
+            if isinstance(data, dict) and isinstance(data.get("recenttracks"), dict):
+                set_cached_response(url, data, params)
             return True
+
+
+def _is_well_formed_page(data: Any) -> bool:
+    """Return True if *data* has the shape the fetch pipeline reads.
+
+    That is a ``recenttracks`` mapping carrying ``@attr.totalPages`` that
+    parses as an integer. It guards REQUEST_CACHE: a page that fails this
+    (an error payload Last.fm serves as a 200, or a page with no ``@attr``)
+    must not be cached, or every retry within REQUEST_CACHE_TIMEOUT would be
+    answered with the same bad page and never reach the network.
+    """
+    if not isinstance(data, dict):
+        return False
+    recenttracks = data.get("recenttracks")
+    if not isinstance(recenttracks, dict):
+        return False
+    attr = recenttracks.get("@attr")
+    if not isinstance(attr, dict):
+        return False
+    try:
+        int(attr["totalPages"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    # ``track`` is a list; a lone object is normalised to one by
+    # ``_normalise_track_list`` before this predicate runs. A page that
+    # carries any other shape is refused (and retried).
+    return isinstance(recenttracks.get("track", []), list)
+
+
+def _normalise_track_list(data: Any) -> None:
+    """Turn a lone ``recenttracks.track`` object into a one-item list, in place.
+
+    Last.fm serves a single-item collection as a bare object in some JSON
+    responses; both aggregators iterate ``track`` as a list (F-B23-30).
+    Anything else is left for ``_is_well_formed_page`` to refuse.
+    """
+    if not isinstance(data, dict):
+        return
+    recenttracks = data.get("recenttracks")
+    if isinstance(recenttracks, dict) and isinstance(recenttracks.get("track"), dict):
+        recenttracks["track"] = [recenttracks["track"]]
+
+
+def _page_defect(data: Any) -> str:
+    """Name the class of defect in a malformed page, never its body."""
+    if not isinstance(data, dict):
+        return f"body is {type(data).__name__}, not an object"
+    if "error" in data:
+        return "error payload"
+    recenttracks = data.get("recenttracks")
+    if isinstance(recenttracks, dict) and "track" in recenttracks:
+        if not isinstance(recenttracks["track"], list):
+            return "recenttracks.track is not a list"
+    return "missing recenttracks.@attr.totalPages"
+
+
+async def _error_number(resp) -> str:
+    """Return the Last.fm error number in *resp*'s body, or ``"unknown"``.
+
+    Digits only: the body itself is never returned, so a caller can log the
+    result without a message or a listener's names reaching a log line.
+    """
+    try:
+        data = await resp.json(content_type=None)
+    except (aiohttp.ClientError, ValueError):
+        return "unknown"
+    number = str(data.get("error")) if isinstance(data, dict) else ""
+    return number if number.isdigit() and len(number) <= 3 else "unknown"
 
 
 async def fetch_recent_tracks_page_async(
@@ -110,7 +188,13 @@ async def fetch_recent_tracks_page_async(
     """Fetch a single page of Last.fm scrobbles with retry and rate limiting.
 
     Returns parsed JSON on success or None after all retries are exhausted.
-    Raises ``ValueError`` if the user is not found (HTTP 404).
+    A body that is not a well-formed page (see ``_is_well_formed_page``) is
+    treated like a non-200 response: retried, and None if it stays bad. Only
+    a well-formed page is cached.
+    Raises ``UserNotFoundError`` if the user is not found (HTTP 404) and
+    ``PrivateProfileError`` if the profile is private (error 17, in the body
+    of an HTTP 403 or of a 200); neither is retried. Any other 403 is an
+    operational failure, retried like a non-200 status.
     """
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
@@ -136,21 +220,43 @@ async def fetch_recent_tracks_page_async(
             logging.debug(f"Requesting Last.fm page {page}")
             async with session.get(url, params=params) as resp:
                 if resp.status == 429:
-                    retry_after = int(resp.headers.get("Retry-After", "1"))
+                    retry_after = parse_retry_after(resp.headers.get("Retry-After"))
                     logging.warning(
                         f"⚠️ LAST.FM RATE LIMIT (429) on page {page}! "
                         f"Retry after {retry_after}s. "
                         f"Current limiter: {LASTFM_REQUESTS_PER_SECOND} req/s, consider reducing concurrency."
                     )
                     return None, retry_after
+                if resp.status == 403:
+                    # Last.fm's error page names no HTTP status for any error
+                    # code, so a 403 is not proof of error 17: read the body.
+                    # Only error 17 (the profile went private after the
+                    # preflight) is a privacy verdict, and retrying cannot help.
+                    error_number = await _error_number(resp)
+                    if error_number == "17":
+                        logging.error(f"Profile of {username} is private on Last.fm")
+                        raise PrivateProfileError()
+                    # Any other 403 (10 invalid key, 26 suspended key, an
+                    # unknown body) is our access failing, not the listener's
+                    # privacy: log the status and number, never the body, and
+                    # take the unavailable path (retried, then the page drops).
+                    logging.error(
+                        f"Last.fm refused page {page}: HTTP 403, "
+                        f"error number {error_number}"
+                    )
+                    return None, None
                 if resp.status == 404:
                     # User not found
                     logging.error(f"User {username} not found on Last.fm")
-                    raise ValueError(f"User '{username}' not found on Last.fm")
+                    raise UserNotFoundError()
                 if resp.status != 200:
-                    body = await resp.text()
+                    body = await resp.text(errors="replace")
+                    # Status, size and type only: a recenttracks body carries
+                    # the listener's track, artist and album names.
                     logging.warning(
-                        f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
+                        f"❌ Unexpected Last.fm status {resp.status} on page {page}: "
+                        f"{len(body.encode('utf-8'))} bytes, "
+                        f"content type {resp.content_type}"
                     )
                     return None, None
                 # Only the parse is guarded: an HTML page served as 200
@@ -161,9 +267,24 @@ async def fetch_recent_tracks_page_async(
                 try:
                     data = await resp.json()
                 except (aiohttp.ContentTypeError, ValueError):
-                    body = await resp.text()
+                    body = await resp.text(errors="replace")
                     logging.error(
-                        f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
+                        f"❌ Invalid JSON from Last.fm page {page}: "
+                        f"{len(body.encode('utf-8'))} bytes, "
+                        f"content type {resp.content_type}"
+                    )
+                    return None, None
+                # A page that is not well-formed (an error payload served as a
+                # 200, a body without @attr.totalPages) is treated like a
+                # non-200 response: retried, and dropped if it stays bad. It
+                # is never cached, so a bad 200 is not replayed to every retry
+                # for an hour.
+                if isinstance(data, dict) and str(data.get("error")) == "17":
+                    raise PrivateProfileError()
+                _normalise_track_list(data)
+                if not _is_well_formed_page(data):
+                    logging.warning(
+                        f"Malformed Last.fm page {page}: {_page_defect(data)}"
                     )
                     return None, None
                 set_cached_response(url, data, params)
@@ -178,75 +299,9 @@ async def fetch_recent_tracks_page_async(
         extract_result=lambda t: t[0],
         default=None,
         backoff=lambda a: min(0.25 * (a + 1), 1.0),
-        reraise=(ValueError,),
-        error_label=f"Last.fm page {page}",
+        reraise=(UserNotFoundError, PrivateProfileError),
+        error_label=f"lastfm.page {page}",
     )
-
-
-async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
-    """
-    Fetch Last.fm pages with controlled concurrency to respect rate limits.
-    Semaphore (MAX_CONCURRENT_LASTFM) caps in-flight requests; rate limiter
-    (_LASTFM_LIMITER) caps throughput. Called once with all pages rather than
-    in sequential batches to avoid idle gaps.
-    """
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
-
-    async def fetch_with_semaphore(page):
-        return await fetch_recent_tracks_page_async(
-            session, username, from_ts, to_ts, page, semaphore=semaphore
-        )
-
-    tasks = [fetch_with_semaphore(p) for p in pages]
-    results = await asyncio.gather(*tasks)
-
-    successful = sum(1 for r in results if r is not None)
-    logging.debug(f"Batch {min(pages)}-{max(pages)}: {successful}/{len(results)} pages")
-    return results
-
-
-def _notify_progress_cb(
-    cb: Any, pages_done: int, total_pages: int, pages_received: int
-) -> None:
-    """Notify progress_cb with backward-compatible argument count inspection.
-
-    If cb accepts a third parameter (e.g. pages_received), pass it; otherwise
-    pass only (pages_done, total_pages). Bare unittest.mock.Mock/MagicMock
-    instances without custom specs receive (pages_done, total_pages).
-    """
-    if cb is None:
-        return
-    try:
-        sig = inspect.signature(cb)
-        params = [
-            p
-            for p in sig.parameters.values()
-            if p.kind not in (inspect.Parameter.VAR_KEYWORD,)
-        ]
-        has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
-        explicit_pos = [
-            p
-            for p in params
-            if p.kind
-            in (
-                inspect.Parameter.POSITIONAL_ONLY,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            )
-        ]
-        if len(explicit_pos) >= 3:
-            cb(pages_done, total_pages, pages_received)
-        elif has_varargs:
-            if hasattr(cb, "_mock_return_value") or hasattr(cb, "_mock_self"):
-                cb(pages_done, total_pages)
-            else:
-                cb(pages_done, total_pages, pages_received)
-        else:
-            cb(pages_done, total_pages)
-    except (TypeError, ValueError):
-        try:
-            cb(pages_done, total_pages)
-        except TypeError:
-            cb(pages_done, total_pages, pages_received)
 
 
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=None):
@@ -254,15 +309,15 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
 
     Args:
         progress_cb: Optional callback invoked as
-            ``progress_cb(pages_done, total_pages, pages_received)`` or
-            ``progress_cb(pages_done, total_pages)`` after each page fetch.
+            ``progress_cb(pages_done, total_pages, pages_received)`` after
+            each page fetch.
     """
     fetch_start_time = time.time()
     async with create_optimized_session() as session:
         first = await fetch_recent_tracks_page_async(
             session, username, from_ts, to_ts, 1
         )
-        if not first or "recenttracks" not in first:
+        if not _is_well_formed_page(first):
             logging.error("Failed to fetch initial page from Last.fm")
             error_meta: dict[str, Any] = {
                 "status": "error",
@@ -275,41 +330,41 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
         all_pages = [first]
 
         if progress_cb is not None:
-            _notify_progress_cb(progress_cb, 1, total_pages, len(all_pages))
+            progress_cb(1, total_pages, len(all_pages))
 
         if total_pages > 1:
-            remaining = range(2, total_pages + 1)
-
-            if progress_cb is not None:
-                # Per-page progress: use as_completed instead of gather
-                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
-                tasks = [
-                    asyncio.ensure_future(
-                        fetch_recent_tracks_page_async(
-                            session,
-                            username,
-                            from_ts,
-                            to_ts,
-                            p,
-                            semaphore=semaphore,
-                        )
+            # One fan-out for every caller, with or without a progress
+            # callback. The semaphore (MAX_CONCURRENT_LASTFM) caps in-flight
+            # requests and the rate limiter caps throughput; all remaining
+            # pages are submitted at once rather than in sequential batches,
+            # to avoid idle gaps.
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
+            tasks = [
+                asyncio.ensure_future(
+                    fetch_recent_tracks_page_async(
+                        session,
+                        username,
+                        from_ts,
+                        to_ts,
+                        p,
+                        semaphore=semaphore,
                     )
-                    for p in remaining
-                ]
-                completed = 1  # page 1 already done
+                )
+                for p in range(2, total_pages + 1)
+            ]
+            completed = 1  # page 1 already done
+            try:
                 for fut in asyncio.as_completed(tasks):
                     result = await fut
                     completed += 1
                     if result is not None:
                         all_pages.append(result)
-                    _notify_progress_cb(
-                        progress_cb, completed, total_pages, len(all_pages)
-                    )
-            else:
-                results = await fetch_pages_batch_async(
-                    session, username, from_ts, to_ts, remaining
-                )
-                all_pages.extend([r for r in results if r])
+                    if progress_cb is not None:
+                        progress_cb(completed, total_pages, len(all_pages))
+            finally:
+                # An exception (the mid-job 404) must not leave sibling
+                # fetches pending on a session that is about to close.
+                await cancel_and_drain(tasks)
 
         fetch_elapsed = time.time() - fetch_start_time
         logging.info(

@@ -1,6 +1,6 @@
 """Tests for the live MusicBrainz correction worker (Task 9, Batch 22 WP-3).
 
-Every worker test asserts on the shared ``JOBS`` state the frontend actually
+Every worker test asserts on the job state the frontend actually
 reads -- ``progress.stats.release_check`` and the ``release_check`` field on
 each result -- rather than on mock call counts alone, per AGENTS.md Test
 Quality Rules.
@@ -12,21 +12,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrobblescope import release_checks
+from scrobblescope import jobs, release_checks
 from scrobblescope.domain import normalize_name
+from scrobblescope.errors import ProviderError
 from scrobblescope.release_checks import (
     _release_year,
     _select_candidates,
     _window_end,
     enqueue_release_check,
     run_release_checks,
-)
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    get_job_context,
-    get_job_progress,
-    set_job_results,
 )
 from scrobblescope.unmatched import REASON_BELOW_THRESHOLD, REASON_RELEASE_SCOPE
 from tests.helpers import TEST_JOB_PARAMS
@@ -35,8 +29,8 @@ from tests.helpers import TEST_JOB_PARAMS
 def _result(artist, album, release_date="2025-01-01"):
     """Build a minimal result dict shaped like ``_build_results`` output.
 
-    ``_normalized_key`` is included because ``update_job_result``
-    (``scrobblescope/repositories.py``) now matches results by that
+    ``_normalized_key`` is included because ``jobs.update_result``
+    (``scrobblescope/jobs.py``) now matches results by that
     precomputed key rather than re-deriving one with ``normalize_name`` --
     see ``_build_results`` in ``scrobblescope/orchestrator/_results.py``,
     which is the real producer this fixture stands in for.
@@ -71,15 +65,12 @@ def _unmatched(artist, album, provider_release_date, reason_code=REASON_RELEASE_
 
 def _job_with(results=None, unmatched=None, params=None):
     """Create a job carrying *results* and *unmatched*, and return its id."""
-    job_id = create_job(dict(params or TEST_JOB_PARAMS))
+    job_id = jobs.create(dict(params or TEST_JOB_PARAMS))
     if results is not None:
-        set_job_results(job_id, results)
+        jobs.succeed(job_id, results, "Done")
     for entry in unmatched or []:
-        from scrobblescope.domain import normalize_name
-        from scrobblescope.repositories import add_job_unmatched
-
         key = "|".join(normalize_name(entry["artist"], entry["album"]))
-        add_job_unmatched(job_id, key, entry)
+        jobs.record_unmatched(job_id, key, entry)
     return job_id
 
 
@@ -228,7 +219,7 @@ def test_select_candidates_takes_results_in_rank_order_then_movable_unmatched():
         results=[_result("Radiohead", "OK Computer"), _result("Blur", "13")],
         unmatched=[_unmatched("Fleetwood Mac", "Rumours", "2031-01-31")],
     )
-    candidates = _select_candidates(get_job_context(job_id))
+    candidates = _select_candidates(jobs.context(job_id))
 
     assert [(c["artist"], c["kind"]) for c in candidates] == [
         ("Radiohead", "result"),
@@ -255,7 +246,7 @@ def test_select_candidates_excludes_unmatched_that_no_correction_could_move_in()
             _unmatched("Wrong Reason", "Album", "2031-01-01", REASON_BELOW_THRESHOLD),
         ],
     )
-    assert _select_candidates(get_job_context(job_id)) == []
+    assert _select_candidates(jobs.context(job_id)) == []
 
 
 def test_select_candidates_ignores_unmatched_when_scope_is_all():
@@ -270,7 +261,7 @@ def test_select_candidates_ignores_unmatched_when_scope_is_all():
         unmatched=[_unmatched("Fleetwood Mac", "Rumours", "2031-01-31")],
         params=params,
     )
-    candidates = _select_candidates(get_job_context(job_id))
+    candidates = _select_candidates(jobs.context(job_id))
     assert [c["kind"] for c in candidates] == ["result"]
 
 
@@ -280,8 +271,8 @@ def test_select_candidates_on_a_job_without_results_is_empty():
     WHEN candidates are selected
     THEN the list is empty rather than raising on a None results payload.
     """
-    job_id = create_job(dict(TEST_JOB_PARAMS))
-    assert _select_candidates(get_job_context(job_id)) == []
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+    assert _select_candidates(jobs.context(job_id)) == []
 
 
 # --- The worker -------------------------------------------------------------
@@ -307,11 +298,11 @@ async def test_run_release_checks_confirms_and_moves_out_without_dropping_result
     with _worker_patches(lookup):
         await run_release_checks(job_id)
 
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert [r["album"] for r in results] == ["Rumours", "OK Computer"]
     assert results[0]["release_check"] == "moved_out"
     assert results[1]["release_check"] == "confirmed"
-    stats = get_job_progress(job_id)["stats"]["release_check"]
+    stats = jobs.progress(job_id)["stats"]["release_check"]
     assert stats["moved_out"] == 1
 
 
@@ -381,7 +372,7 @@ async def test_run_release_checks_records_the_date_behind_each_outcome():
     with _worker_patches(lookup):
         await run_release_checks(job_id)
 
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert results[0]["release_check"] == "moved_out"
     assert results[0]["original_release_date"] == "1977-02-04"
     assert results[1]["original_release_date"] == "2025-06-16"
@@ -408,7 +399,7 @@ async def test_run_release_checks_records_the_date_from_a_cached_finding():
     with _worker_patches(lookup, cached=cached):
         await run_release_checks(job_id)
 
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert results[0]["release_check"] == "confirmed"
     assert results[0]["original_release_date"] == "1977-02-04"
     lookup.assert_not_awaited()
@@ -432,7 +423,7 @@ async def test_run_release_checks_reports_the_full_stats_shape():
     with _worker_patches(lookup):
         await run_release_checks(job_id)
 
-    context = get_job_context(job_id)
+    context = jobs.context(job_id)
     stats = context["progress"]["stats"]["release_check"]
     assert stats == {
         "status": "done",
@@ -463,7 +454,7 @@ async def test_run_release_checks_caps_requests_at_checks_per_job():
         await run_release_checks(job_id)
 
     assert lookup.await_count == 2
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert [r["release_check"] for r in results] == [
         "confirmed",
         "confirmed",
@@ -471,7 +462,7 @@ async def test_run_release_checks_caps_requests_at_checks_per_job():
         "unchecked",
         "unchecked",
     ]
-    stats = get_job_progress(job_id)["stats"]["release_check"]
+    stats = jobs.progress(job_id)["stats"]["release_check"]
     assert stats["total"] == 2
     assert stats["checked"] == 2
 
@@ -506,13 +497,13 @@ async def test_run_release_checks_short_circuits_already_cached_candidates():
 
     assert lookup.await_count == 1
     assert lookup.await_args[0][1] == "Radiohead"
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert [r["release_check"] for r in results] == [
         "confirmed",
         "unavailable",
         "confirmed",
     ]
-    assert get_job_progress(job_id)["stats"]["release_check"]["total"] == 1
+    assert jobs.progress(job_id)["stats"]["release_check"]["total"] == 1
 
 
 @pytest.mark.asyncio
@@ -537,9 +528,9 @@ async def test_run_release_checks_treats_everything_as_pending_when_cache_lookup
         await run_release_checks(job_id)
 
     assert lookup.await_count == 1
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert results[0]["release_check"] == "confirmed"
-    stats = get_job_progress(job_id)["stats"]["release_check"]
+    stats = jobs.progress(job_id)["stats"]["release_check"]
     assert stats == {
         "status": "done",
         "checked": 1,
@@ -564,7 +555,7 @@ async def test_run_release_checks_persists_a_nothing_found_row():
         await run_release_checks(job_id)
 
     assert persist.await_args[0][1] == [("obscure", "demo", None, None)]
-    results = get_job_context(job_id)["results"]
+    results = jobs.context(job_id)["results"]
     assert results[0]["release_check"] == "unavailable"
 
 
@@ -581,7 +572,7 @@ async def test_run_release_checks_stops_when_the_job_is_deleted_mid_run():
     )
 
     async def _lookup_then_delete(session, artist, album, **kwargs):
-        delete_job(job_id)
+        jobs.delete(job_id)
         return ("mbid", "2025-01-01")
 
     lookup = AsyncMock(side_effect=_lookup_then_delete)
@@ -589,7 +580,7 @@ async def test_run_release_checks_stops_when_the_job_is_deleted_mid_run():
         await run_release_checks(job_id)
 
     assert lookup.await_count == 1
-    assert get_job_context(job_id) is None
+    assert jobs.context(job_id) is None
 
 
 @pytest.mark.asyncio
@@ -612,7 +603,7 @@ async def test_run_release_checks_marks_skipped_when_musicbrainz_is_disabled():
 
     lookup.assert_not_awaited()
     connect.assert_not_awaited()
-    assert get_job_progress(job_id)["stats"]["release_check"] == {
+    assert jobs.progress(job_id)["stats"]["release_check"] == {
         "status": "skipped",
         "checked": 0,
         "total": 0,
@@ -641,14 +632,14 @@ async def test_run_release_checks_runs_without_a_db_connection(caplog):
 
     lookup.assert_awaited_once()
     persist.assert_not_awaited()
-    assert get_job_progress(job_id)["stats"]["release_check"] == {
+    assert jobs.progress(job_id)["stats"]["release_check"] == {
         "status": "done",
         "checked": 1,
         "total": 1,
         "moved_out": 1,
         "moved_in": 0,
     }
-    result = get_job_context(job_id)["results"][0]
+    result = jobs.context(job_id)["results"][0]
     assert result["release_check"] == "moved_out"
     assert result["original_release_date"] == "1997-05-21"
     assert "without the cache DB" in caplog.text
@@ -667,11 +658,13 @@ async def test_run_release_checks_without_a_db_connection_survives_a_lookup_erro
     with _worker_patches(lookup, conn=None):
         await run_release_checks(job_id)
 
-    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
+    assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "done"
 
 
 @pytest.mark.asyncio
-async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies():
+async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualifies(
+    caplog,
+):
     """
     GIVEN a finished job with no results and no movable exclusion
     WHEN the worker runs
@@ -690,13 +683,15 @@ async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualif
 
     connect.assert_not_awaited()
     lookup.assert_not_awaited()
-    assert get_job_progress(job_id)["stats"]["release_check"] == {
+    assert jobs.progress(job_id)["stats"]["release_check"] == {
         "status": "done",
         "checked": 0,
         "total": 0,
         "moved_out": 0,
         "moved_in": 0,
     }
+    assert f"Release checks starting for job {job_id}: 0 candidates" in caplog.text
+    assert f"Release checks finished for job {job_id}: 0 checked" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -733,7 +728,7 @@ async def test_run_release_checks_closes_the_connection_when_a_lookup_raises():
         await run_release_checks(job_id)
 
     conn.close.assert_awaited_once()
-    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
+    assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "done"
 
 
 # --- Queue and thread lifecycle ---------------------------------------------
@@ -748,7 +743,7 @@ def test_session_starts_with_no_musicbrainz_contact():
     this; with it removed, any machine with a configured contact reached the
     network and raced the queue-order test below.
     """
-    job_id = create_job(dict(TEST_JOB_PARAMS))
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
     queued_before = release_checks._JOB_QUEUE.qsize()
 
     assert not release_checks.MUSICBRAINZ_CONTACT
@@ -766,8 +761,8 @@ def test_enqueue_release_check_queues_jobs_in_order():
     THEN both reach the shared queue, in the order they finished, and each
     enqueue asks for the worker thread.
     """
-    job_a = create_job(dict(TEST_JOB_PARAMS))
-    job_b = create_job(dict(TEST_JOB_PARAMS))
+    job_a = jobs.create(dict(TEST_JOB_PARAMS))
+    job_b = jobs.create(dict(TEST_JOB_PARAMS))
     started = MagicMock()
     with (
         patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
@@ -788,7 +783,7 @@ def test_enqueue_release_check_skips_when_musicbrainz_is_unconfigured():
     THEN nothing is queued, no thread starts, and the job is marked skipped
     so the results page can say so.
     """
-    job_id = create_job(dict(TEST_JOB_PARAMS))
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
     started = MagicMock()
     queued_before = release_checks._JOB_QUEUE.qsize()
     with (
@@ -800,7 +795,7 @@ def test_enqueue_release_check_skips_when_musicbrainz_is_unconfigured():
 
     started.assert_not_called()
     assert release_checks._JOB_QUEUE.qsize() == queued_before
-    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "skipped"
+    assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "skipped"
 
 
 def test_enqueue_release_check_rejects_an_empty_job_id():
@@ -924,7 +919,7 @@ def test_enqueue_release_check_names_musicbrainz_disabled_in_the_skip_line(caplo
     WHEN a job is handed to the worker
     THEN the skip line names MusicBrainz as disabled, not the contact.
     """
-    job_id = create_job(dict(TEST_JOB_PARAMS))
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
     with (
         caplog.at_level(logging.INFO),
         patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", False),
@@ -942,7 +937,7 @@ def test_enqueue_release_check_names_the_missing_contact_in_the_skip_line(caplog
     WHEN a job is handed to the worker
     THEN the skip line names the missing contact setting, not "disabled".
     """
-    job_id = create_job(dict(TEST_JOB_PARAMS))
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
     with (
         caplog.at_level(logging.INFO),
         patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
@@ -951,3 +946,24 @@ def test_enqueue_release_check_names_the_missing_contact_in_the_skip_line(caplog
         assert enqueue_release_check(job_id) is False
 
     assert "MUSICBRAINZ_CONTACT is unset" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_throttled_musicbrainz_caches_no_finding_and_keeps_the_result():
+    """
+    GIVEN MusicBrainz stays throttled for a candidate
+    WHEN the worker checks it
+    THEN nothing is persisted (no false "no match" for the next search to
+    trust), the result is marked unavailable, and the job still ends "done".
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(side_effect=ProviderError("musicbrainz", "rate_limited"))
+    persist = AsyncMock()
+    with _worker_patches(lookup, persist=persist):
+        await run_release_checks(job_id)
+
+    persist.assert_not_awaited()
+    result = jobs.context(job_id)["results"][0]
+    assert result["release_check"] == release_checks.CHECK_UNAVAILABLE
+    assert result["original_release_date"] is None
+    assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "done"

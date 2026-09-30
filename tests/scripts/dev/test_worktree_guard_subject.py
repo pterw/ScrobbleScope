@@ -121,7 +121,7 @@ def test_a_forgeable_branch_name_is_labelled_on_the_clean_exit_path(tmp_path):
     which makes it the worst place for a value a branch name can control.
     """
     repo, responses = repository(tmp_path)
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         "- Batch 20 is complete. No batch is open.\n\n"
         "## 4. Execution log\n",

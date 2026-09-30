@@ -32,6 +32,10 @@
   const LEFT_PAD   = 32;  // space for day-of-week labels
   const TOP_PAD    = 20;  // space for month labels
   const CORNER_R   = 2;   // rect corner radius
+  // The keyboard focus-ring (see createFocusRing): its stroke is centred
+  // RING_OFFSET user units outside the cell's edge. static/css/heatmap.css
+  // gives it room to paint past the SVG's edge without moving the grid.
+  const RING_OFFSET = 2;
   const MOBILE_TARGET_CELL_SIZE = 22;
   const MOBILE_MIN_CELL_SIZE = 18;
   const MOBILE_MAX_CELL_SIZE = 28;
@@ -84,6 +88,19 @@
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
                     'July', 'August', 'September', 'October', 'November', 'December'];
     return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  /**
+   * Build the accessible name for a heatmap cell.
+   *
+   * The mouse tooltip and each cell's aria-label read this same string, so
+   * they can never drift apart.
+   */
+  function cellAccessibleLabel(date, count) {
+    var countStr = count === 0
+      ? 'No scrobbles'
+      : count + ' scrobble' + (count !== 1 ? 's' : '');
+    return formatDateLong(date) + ' -- ' + countStr;
   }
 
   /** Add N days to a Date (returns new Date). */
@@ -342,6 +359,11 @@
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('xmlns', SVG_NS);
+    // The focus-ring is page state, not part of the picture.
+    Array.prototype.forEach.call(
+      clone.querySelectorAll('.heatmap-focus-ring'),
+      function (node) { node.remove(); }
+    );
     Array.prototype.forEach.call(
       clone.querySelectorAll('.heatmap-month-label, .heatmap-day-label'),
       function (node) {
@@ -1213,7 +1235,11 @@
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
     svg.setAttribute('width', '100%');
     svg.setAttribute('data-layout', 'desktop');
-    svg.setAttribute('role', 'img');
+    // role="group", not "img": an ARIA img prunes every presentational
+    // child from the accessibility tree, so a screen reader would never
+    // hear a cell's own role="img" + aria-label. The SVG's aria-label
+    // stays as the whole-grid summary.
+    svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label',
       'Scrobble heatmap for ' + data.username + ': ' +
       data.total_scrobbles + ' scrobbles from ' +
@@ -1231,6 +1257,7 @@
       txt.setAttribute('letter-spacing', '0.12em');
       txt.setAttribute('fill', 'currentColor');
       txt.setAttribute('class', 'heatmap-day-label');
+      txt.setAttribute('aria-hidden', 'true');
       txt.textContent = dl.text;
       svg.appendChild(txt);
     });
@@ -1253,6 +1280,7 @@
           mTxt.setAttribute('letter-spacing', '0.12em');
           mTxt.setAttribute('fill', 'currentColor');
           mTxt.setAttribute('class', 'heatmap-month-label');
+          mTxt.setAttribute('aria-hidden', 'true');
           mTxt.textContent = MONTH_NAMES[d.getMonth()];
           svg.appendChild(mTxt);
           monthLabelPlaced[mKey] = true;
@@ -1281,6 +1309,11 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
+      // Roving tabindex, not every cell at once: only the most recent day
+      // (the last cell pushed below) starts as the grid's one Tab stop.
+      rect.setAttribute('tabindex', '-1');
+      rect.setAttribute('role', 'img');
+      rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
@@ -1294,6 +1327,7 @@
 
       svg.appendChild(rect);
     }
+    setRovingTabStop(cellData, cellData.length - 1);
 
     gridContainer.appendChild(svg);
 
@@ -1303,8 +1337,10 @@
     // Transition: loading -> result
     revealHeatmapResult();
 
-    // Attach tooltip handlers
-    initTooltips(svg, cellData);
+    // Attach tooltip handlers. Column-per-week: one cell right is 7 days
+    // on, one cell down is the next day, and the first week starts on
+    // row startDow.
+    initTooltips(svg, cellData, { across: 7, down: 1, lead: startDow });
   }
 
   function renderHeatmapMobile(data) {
@@ -1316,7 +1352,15 @@
     var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
 
     var viewportWidth = window.innerWidth || document.documentElement.clientWidth || 320;
-    var containerWidth = gridContainer.clientWidth || Math.max(220, viewportWidth - 48);
+    // clientWidth counts padding, and #heatmap-grid carries some as room for
+    // the focus-ring (static/css/heatmap.css); the strip is sized to what is
+    // left inside it.
+    var gridStyle = getComputedStyle(gridContainer);
+    var gridInnerWidth = gridContainer.clientWidth
+      ? gridContainer.clientWidth - parseFloat(gridStyle.paddingLeft) -
+        parseFloat(gridStyle.paddingRight)
+      : 0;
+    var containerWidth = gridInnerWidth || Math.max(220, viewportWidth - 48);
     var columns = Math.floor(
       (containerWidth + MOBILE_GAP) / (MOBILE_TARGET_CELL_SIZE + MOBILE_GAP)
     );
@@ -1338,7 +1382,9 @@
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
     svg.setAttribute('width', '100%');
     svg.setAttribute('data-layout', 'mobile');
-    svg.setAttribute('role', 'img');
+    // See renderHeatmapDesktop: role="group" so cells' own role="img" +
+    // aria-label survive in the accessibility tree.
+    svg.setAttribute('role', 'group');
     svg.setAttribute('aria-label',
       'Scrobble activity strip for ' + data.username + ': ' +
       data.total_scrobbles + ' scrobbles from ' +
@@ -1363,6 +1409,10 @@
       rect.setAttribute('rx', CORNER_R);
       rect.setAttribute('ry', CORNER_R);
       rect.setAttribute('class', 'heatmap-cell');
+      // Roving tabindex: see renderHeatmapDesktop.
+      rect.setAttribute('tabindex', '-1');
+      rect.setAttribute('role', 'img');
+      rect.setAttribute('aria-label', cellAccessibleLabel(d, count));
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
@@ -1375,54 +1425,325 @@
 
       svg.appendChild(rect);
     }
+    setRovingTabStop(cellData, cellData.length - 1);
 
     gridContainer.appendChild(svg);
     legendBar.style.background = legendGradient();
 
     revealHeatmapResult();
 
-    initTooltips(svg, cellData);
+    // Row-major by `columns`: one cell right is the next day, one cell
+    // down is `columns` days on.
+    initTooltips(svg, cellData, { across: 1, down: columns, lead: 0 });
+  }
+
+  // ----------------------------------------------------------------
+  // Grid keyboard navigation (roving tabindex)
+  // ----------------------------------------------------------------
+  // Exactly one cell is a Tab stop at a time -- the rest carry
+  // tabindex="-1" -- so the grid costs one Tab press to enter and one to
+  // leave, whatever its day count. Both renderers build cellData in date
+  // order, but they lay it out differently: the desktop grid is one column
+  // per week, the mobile strip is row-major. So the arrow keys move by the
+  // renderer's own grid steps (arrowKeyTarget), and one handler serves both.
+  function setRovingTabStop(cellData, index) {
+    cellData.forEach(function (cd, i) {
+      cd.el.setAttribute('tabindex', i === index ? '0' : '-1');
+    });
+  }
+
+  /**
+   * The cellData index an arrow key moves focus to, or null for any other key.
+   *
+   * `grid` is the renderer's layout: `across` and `down` are the index steps
+   * for one cell right and one cell down, and `lead` is the number of empty
+   * slots before the first cell (the desktop grid's first week starts on
+   * its first day's weekday row). A one-index step walks along a line -- a
+   * desktop week column, a mobile row -- whose length is the other step; at
+   * the end of a line, or of the cell range, focus stays where it is rather
+   * than wrapping into the next line.
+   */
+  function arrowKeyTarget(key, index, count, grid) {
+    var step;
+    var lineLength;
+    switch (key) {
+      case 'ArrowRight':
+        step = grid.across;
+        lineLength = grid.down;
+        break;
+      case 'ArrowLeft':
+        step = -grid.across;
+        lineLength = grid.down;
+        break;
+      case 'ArrowDown':
+        step = grid.down;
+        lineLength = grid.across;
+        break;
+      case 'ArrowUp':
+        step = -grid.down;
+        lineLength = grid.across;
+        break;
+      default:
+        return null;
+    }
+    var target = index + step;
+    if (target < 0 || target >= count) return index;
+    if (Math.abs(step) === 1 &&
+        Math.floor((grid.lead + index) / lineLength) !==
+        Math.floor((grid.lead + target) / lineLength)) {
+      return index;
+    }
+    return target;
+  }
+
+  function handleCellKeydown(cellData, index, event, grid) {
+    // A held modifier makes the key someone else's shortcut -- Alt+ArrowLeft
+    // is Back, Ctrl+Home the top of the page, Shift+Arrow a selection -- so
+    // the grid neither moves nor cancels it.
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    var nextIndex;
+    if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = cellData.length - 1;
+    } else {
+      nextIndex = arrowKeyTarget(event.key, index, cellData.length, grid);
+      if (nextIndex === null) return;
+    }
+    event.preventDefault();
+    if (nextIndex === index) return;
+    setRovingTabStop(cellData, nextIndex);
+    cellData[nextIndex].el.focus();
+  }
+
+  // ----------------------------------------------------------------
+  // Keyboard focus-ring
+  // ----------------------------------------------------------------
+  /**
+   * Add the grid's one focus-ring, after every cell.
+   *
+   * A focus style on the cell itself cannot do this job. SVG paints in
+   * document order, so every cell drawn after the focused one covered its
+   * right and bottom edges, and the root <svg> clipped it round a cell on
+   * the grid's edge: on the mobile strip, where cells sit 1px apart, the
+   * first cell showed no focus cue at all. Appended last, this one <rect>
+   * paints over every cell. static/css/heatmap.css gives it its stroke and
+   * lets it paint past the SVG's own box, into room #heatmap-grid keeps
+   * round the grid, so neither the cells nor the grid move. It is moved to
+   * the focused cell rather than drawn per cell.
+   */
+  function createFocusRing(svg) {
+    var focusRing = document.createElementNS(SVG_NS, 'rect');
+    focusRing.setAttribute('class', 'heatmap-focus-ring');
+    focusRing.setAttribute('fill', 'none');
+    focusRing.setAttribute('aria-hidden', 'true');
+    focusRing.setAttribute('visibility', 'hidden');
+    svg.appendChild(focusRing);
+    return focusRing;
+  }
+
+  function showFocusRing(focusRing, cell) {
+    var read = function (name) { return parseFloat(cell.getAttribute(name)); };
+    focusRing.setAttribute('x', read('x') - RING_OFFSET);
+    focusRing.setAttribute('y', read('y') - RING_OFFSET);
+    focusRing.setAttribute('width', read('width') + 2 * RING_OFFSET);
+    focusRing.setAttribute('height', read('height') + 2 * RING_OFFSET);
+    focusRing.setAttribute('rx', CORNER_R + RING_OFFSET);
+    focusRing.setAttribute('ry', CORNER_R + RING_OFFSET);
+    focusRing.setAttribute('visibility', 'visible');
+  }
+
+  function hideFocusRing(focusRing) {
+    focusRing.setAttribute('visibility', 'hidden');
   }
 
   // ----------------------------------------------------------------
   // Tooltips
   // ----------------------------------------------------------------
-  function initTooltips(svg, cellData) {
+  // The current render's cells, read by the document-level listeners below.
+  // Those listeners are attached once per page, not once per render: every
+  // render (each search, each breakpoint crossing) used to add another pair,
+  // and each pair kept its render's cells and detached SVG alive.
+  var tooltipCellData = [];
+  var documentTooltipListenersAttached = false;
+
+  // One state answers "which cell owns the tooltip, and why": `cd` is the
+  // cell and `reason` is 'hover' (pointer over it), 'focus' (keyboard focus,
+  // as :focus-visible draws it) or 'tap' (a stationary touch). Null while
+  // the tooltip is hidden. Every listener below reads and writes this, so a
+  // scroll or a resize acts on the owner only: a focus owner is
+  // repositioned, a hover or tap owner is hidden (its cell has moved from
+  // under the pointer or finger), and nothing else is ever shown by them.
+  var tooltipOwner = null;
+
+  // A touch that travels further than this is a swipe, not a tap.
+  var TAP_MOVE_LIMIT_PX = 10;
+  var touchStart = null;
+
+  function ownTooltip(cd, reason) {
+    tooltipOwner = { cd: cd, reason: reason };
+    showTooltip(cd);
+  }
+
+  // The cell holding keyboard focus, or null: focus that a click or a tap
+  // gave a cell owns nothing.
+  function keyboardFocusedCell() {
+    var active = document.activeElement;
+    for (var i = 0; i < tooltipCellData.length; i++) {
+      var cd = tooltipCellData[i];
+      if (cd.el === active && cd.el.matches(':focus-visible')) return cd;
+    }
+    return null;
+  }
+
+  // Give the tooltip back to the keyboard-focused cell, if there is one:
+  // what the pointer leaving a hovered cell falls back to.
+  function restoreFocusOwner() {
+    var cd = keyboardFocusedCell();
+    if (cd) {
+      ownTooltip(cd, 'focus');
+    } else {
+      hideTooltip();
+    }
+  }
+
+  // A scroll or a resize moved the page under the tooltip.
+  function repositionTooltipOwner() {
+    if (!tooltipOwner) return;
+    var cd = tooltipOwner.cd;
+    if (tooltipOwner.reason === 'focus' && document.activeElement === cd.el &&
+        document.body.contains(cd.el)) {
+      showTooltip(cd);
+    } else {
+      hideTooltip();
+    }
+  }
+
+  function initTooltips(svg, cellData, grid) {
     // Create or reuse tooltip div
     if (!tooltip) {
       tooltip = document.createElement('div');
       tooltip.className = 'heatmap-tooltip';
       document.body.appendChild(tooltip);
     }
+    // The previous render's cells are gone, and so is any owner among them;
+    // a cell that takes focus afterwards claims the tooltip again.
+    hideTooltip();
+    touchStart = null;
 
-    var svgContainer = gridContainer;
+    // Every cell is in the SVG by now, so the focus-ring paints after them
+    // all.
+    var focusRing = createFocusRing(svg);
 
-    cellData.forEach(function (cd) {
-      cd.el.addEventListener('mouseenter', function (e) {
-        showTooltip(cd, e);
+    // Keyboard focus only, as :focus-visible draws it: a click focuses the
+    // cell too, and a focus-ring under the pointer adds nothing. Decided
+    // again after a key that moves nothing, because Chromium turns
+    // :focus-visible on for a clicked cell at the first key without firing
+    // a focus event.
+    function syncFocusIndicators(cd) {
+      if (cd.el.matches(':focus-visible')) {
+        showFocusRing(focusRing, cd.el);
+        ownTooltip(cd, 'focus');
+      } else {
+        hideFocusRing(focusRing);
+      }
+    }
+
+    cellData.forEach(function (cd, index) {
+      cd.el.addEventListener('mouseenter', function () {
+        ownTooltip(cd, 'hover');
       });
       cd.el.addEventListener('mouseleave', function () {
-        hideTooltip();
+        if (tooltipOwner && tooltipOwner.cd === cd) restoreFocusOwner();
       });
+      // Passive and never cancelled: a touch that starts on a cell must
+      // still be able to scroll the page. The tap itself is decided at
+      // touchend (below), from how far the finger travelled.
       cd.el.addEventListener('touchstart', function (e) {
-        e.preventDefault();
-        showTooltip(cd, e.touches[0]);
-      }, { passive: false });
+        var t = e.touches[0];
+        touchStart = { cd: cd, x: t.clientX, y: t.clientY };
+      }, { passive: true });
+      cd.el.addEventListener('focus', function () {
+        setRovingTabStop(cellData, index);
+        syncFocusIndicators(cd);
+      });
+      cd.el.addEventListener('blur', function () {
+        hideFocusRing(focusRing);
+        if (tooltipOwner && tooltipOwner.cd === cd &&
+            tooltipOwner.reason === 'focus') {
+          hideTooltip();
+        }
+      });
+      cd.el.addEventListener('keydown', function (e) {
+        // Escape dismisses the tooltip (WCAG 1.4.13) and nothing else: it
+        // is not cancelled, so a dialog or the browser still sees it.
+        if (e.key === 'Escape') {
+          hideTooltip();
+          return;
+        }
+        handleCellKeydown(cellData, index, e, grid);
+        if (e.defaultPrevented && document.activeElement === cd.el) {
+          syncFocusIndicators(cd);
+        }
+      });
     });
 
-    document.addEventListener('touchend', hideTooltip);
-    document.addEventListener('scroll', hideTooltip, true);
+    tooltipCellData = cellData;
+    if (documentTooltipListenersAttached) return;
+    documentTooltipListenersAttached = true;
+
+    // A tap shows the tooltip; any other touch end hides it. The tap's
+    // touchend is cancelled so the browser does not follow it with mouse
+    // events that would hand the tooltip to 'hover' and focus the cell.
+    // A touchend is not what scrolls the page, so cancelling it costs the
+    // swipe nothing; a swipe is not cancelled at all.
+    document.addEventListener('touchend', function (e) {
+      var start = touchStart;
+      touchStart = null;
+      var end = e.changedTouches && e.changedTouches[0];
+      if (start && end &&
+          Math.abs(end.clientX - start.x) <= TAP_MOVE_LIMIT_PX &&
+          Math.abs(end.clientY - start.y) <= TAP_MOVE_LIMIT_PX &&
+          e.target === start.cd.el) {
+        if (e.cancelable) e.preventDefault();
+        ownTooltip(start.cd, 'tap');
+      } else {
+        hideTooltip();
+      }
+    }, { passive: false });
+    // Capture-phase, because a focused cell's own scroll container (the
+    // mobile strip) does not bubble a scroll event to `document`. Focusing
+    // an off-screen cell scrolls it into view, which used to fire this
+    // listener and hide the tooltip the focus handler had just shown; now
+    // it repositions the same tooltip for the still-focused cell instead.
+    // Only the owner is touched, and only while it is shown: a clicked cell
+    // that keeps focus after the pointer leaves owns nothing, so a scroll
+    // has nothing of its to bring back. The owner is read from state that
+    // every hover, focus and tap already keeps current, so the reposition
+    // is immediate: a tooltip moved a frame later trails its cell.
+    document.addEventListener('scroll', function () {
+      if (!tooltipOwner) return;
+      if (tooltipOwner.reason !== 'focus') {
+        hideTooltip();
+        return;
+      }
+      repositionTooltipOwner();
+    }, true);
+    // Escape dismisses whichever tooltip is open (WCAG 1.4.13), including
+    // one a pointer or a tap holds while focus is elsewhere. Like the
+    // cell's own handler it does not cancel the key.
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hideTooltip();
+    });
   }
 
-  function showTooltip(cd, event) {
-    var dateStr = formatDateLong(cd.date);
-    var countStr = cd.count === 0
-      ? 'No scrobbles'
-      : cd.count + ' scrobble' + (cd.count !== 1 ? 's' : '');
-    tooltip.textContent = dateStr + ' -- ' + countStr;
+  function showTooltip(cd) {
+    tooltip.textContent = cellAccessibleLabel(cd.date, cd.count);
     tooltip.classList.add('visible');
 
-    // Position near the cell
+    // Position near the cell. The tooltip is position: fixed, so these are
+    // viewport coordinates, and a hidden one sitting off to the side never
+    // widens the page's scroll width.
     var rect = cd.el.getBoundingClientRect();
     var ttWidth  = tooltip.offsetWidth;
     var ttHeight = tooltip.offsetHeight;
@@ -1440,11 +1761,12 @@
       left = window.innerWidth - ttWidth - 4;
     }
 
-    tooltip.style.left = left + window.scrollX + 'px';
-    tooltip.style.top  = top + window.scrollY + 'px';
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top + 'px';
   }
 
   function hideTooltip() {
+    tooltipOwner = null;
     if (tooltip) {
       tooltip.classList.remove('visible');
     }
@@ -1500,9 +1822,36 @@
 
       var shouldRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
       if (shouldRenderMobile !== lastRenderMobile) {
-        renderHeatmap(lastHeatmapData);
+        rerenderKeepingFocus();
+      } else {
+        // Same layout, new width: the cells moved, and the tooltip follows
+        // its owner or goes.
+        repositionTooltipOwner();
       }
     }, 100);
+  }
+
+  /**
+   * Re-render for the other layout and give focus back to the same day.
+   *
+   * The re-render replaces every cell, so a focused one was destroyed and
+   * focus fell to <body>: a keyboard reader lost their place and the Tab
+   * stop went back to the last day. The new cell for the same date takes
+   * focus, and its focus handler makes it the Tab stop. With no cell
+   * focused beforehand, nothing takes focus.
+   */
+  function rerenderKeepingFocus() {
+    var active = document.activeElement;
+    var focusedDate = active && active.classList &&
+      active.classList.contains('heatmap-cell') && gridContainer.contains(active)
+      ? active.getAttribute('data-date')
+      : null;
+    var ringShown = focusedDate !== null && active.matches(':focus-visible');
+    renderHeatmap(lastHeatmapData);
+    if (focusedDate === null) return;
+    var cell = gridContainer.querySelector(
+      '.heatmap-cell[data-date="' + focusedDate + '"]');
+    if (cell) cell.focus({ focusVisible: ringShown });
   }
 
   // ----------------------------------------------------------------
@@ -1519,6 +1868,23 @@
   function initPreviewRamp() {
     var ramp = document.querySelector('.hm-preview__ramp');
     if (ramp) ramp.style.backgroundImage = legendGradient();
+  }
+
+  // Module top level, not inside DOMContentLoaded: a harness that loads this
+  // file via page.add_script_tag() after the document has already reached
+  // "complete" never sees a later DOMContentLoaded fire. These five
+  // functions are side-effect free, so the seam is safe to expose
+  // immediately -- but only when a test flag is set before this script
+  // runs (F-B21-18's "guarded seam"); on every other page load
+  // window.__scrobbleHeatmapTestHooks stays undefined.
+  if (window.__scrobbleHeatmapTestMode) {
+    window.__scrobbleHeatmapTestHooks = {
+      rocketColor: rocketColor,
+      countToNorm: countToNorm,
+      exportHeaderModel: exportHeaderModel,
+      exportHeaderLayout: exportHeaderLayout,
+      arrowKeyTarget: arrowKeyTarget,
+    };
   }
 
   document.addEventListener('DOMContentLoaded', function () {

@@ -37,6 +37,7 @@ import logging
 import queue
 import threading
 
+from scrobblescope import jobs
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION,
     _batch_lookup_original_release,
@@ -54,14 +55,10 @@ from scrobblescope.domain import (
     normalize_name,
     release_window,
 )
+from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import lookup_original_release
-from scrobblescope.repositories import (
-    get_job_context,
-    set_job_release_check,
-    update_job_result,
-)
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
-from scrobblescope.utils import create_optimized_session
+from scrobblescope.utils import create_optimized_session, log_failure
 from scrobblescope.worker import new_thread_event_loop
 
 # Each result's ``release_check`` field, as the results page reads it.
@@ -210,7 +207,7 @@ def _resolve_cached(job_id, candidates, cached):
             continue
         if candidate["kind"] == "result":
             original_release = hit.get("original_release")
-            update_job_result(
+            jobs.update_result(
                 job_id,
                 candidate["key"],
                 {
@@ -232,7 +229,7 @@ def _mark_unchecked(job_id, candidates):
     """
     for candidate in candidates:
         if candidate["kind"] == "result":
-            update_job_result(
+            jobs.update_result(
                 job_id, candidate["key"], {"release_check": CHECK_UNCHECKED}
             )
 
@@ -254,12 +251,13 @@ async def _lookup_cached(conn, candidates):
             # Not a hiccup: until the table exists, every finding this worker
             # pays a MusicBrainz second for is discarded and looked up again
             # on the next job.
-            logging.warning(
-                f"Original-release cache lookup failed: {exc}. "
-                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            log_failure(
+                "Original-release cache lookup failed "
+                f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                logging.WARNING,
             )
         else:
-            logging.warning(f"Original-release cache lookup failed: {exc}")
+            log_failure("Original-release cache lookup failed", logging.WARNING)
         return {}
 
 
@@ -272,28 +270,35 @@ async def _check_pending_candidates(job_id, conn, pending, params, state):
     """
     async with create_optimized_session() as session:
         for candidate in pending:
-            if get_job_context(job_id) is None:
+            if not jobs.exists(job_id):
                 logging.info(
                     f"Release checks stopped: job {job_id} is gone "
                     f"after {state['checked']}/{state['total']} checks."
                 )
                 return
             await _check_candidate(session, conn, job_id, candidate, params, state)
-            set_job_release_check(job_id, state)
+            jobs.record_stat(job_id, "release_check", state)
 
 
 async def _check_candidate(session, conn, job_id, candidate, params, state):
     """Look one candidate up, persist the finding, and record the outcome."""
     artist_norm, album_norm = candidate["key"]
-    mb_release_group, original_release = await lookup_original_release(
-        session, candidate["artist"], candidate["album"]
-    )
+    persist = True
+    try:
+        mb_release_group, original_release = await lookup_original_release(
+            session, candidate["artist"], candidate["album"]
+        )
+    except ProviderError as exc:
+        # MusicBrainz could not be read: the album keeps its provider date,
+        # and no "no match" finding is cached for the next search to trust.
+        logging.warning(f"Release check skipped ({exc.code})")
+        mb_release_group, original_release, persist = None, None, False
 
     # Persisted per check rather than batched at the end, when a connection
     # exists: the worker spends a second per candidate and up to two hours
     # per job, and a finding that is only in memory when the process
     # restarts is a request nobody gets back.
-    if conn:
+    if conn and persist:
         try:
             await _batch_persist_original_release(
                 conn, [(artist_norm, album_norm, mb_release_group, original_release)]
@@ -301,12 +306,15 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         # Fail open: an unpersisted finding is looked up again next time.
         except Exception as exc:  # noqa: BLE001
             if schema_is_out_of_date(exc):
-                logging.warning(
-                    f"Original-release persist failed (non-fatal): {exc}. "
-                    f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+                log_failure(
+                    "Original-release persist failed (non-fatal) "
+                    f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                    logging.WARNING,
                 )
             else:
-                logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+                log_failure(
+                    "Original-release persist failed (non-fatal)", logging.WARNING
+                )
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)
@@ -324,7 +332,7 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         # released in, and the row on screen still shows the provider's
         # reissue date. None on an unavailable result clears any earlier
         # value rather than leaving one the new outcome contradicts.
-        update_job_result(
+        jobs.update_result(
             job_id,
             candidate["key"],
             {"release_check": outcome, "original_release_date": original_release},
@@ -340,7 +348,7 @@ async def run_release_checks(job_id):
     enhancement over results the user can already read, so nothing here may
     take the job down with it.
     """
-    context = get_job_context(job_id)
+    context = jobs.context(job_id)
     if context is None:
         return
 
@@ -352,11 +360,15 @@ async def run_release_checks(job_id):
     _mark_unchecked(job_id, candidates)
 
     if not MUSICBRAINZ_ENABLED:
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_SKIPPED))
         return
 
     if not candidates:
-        set_job_release_check(job_id, _state(STATUS_DONE))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_DONE))
+        logging.info(
+            f"Release checks finished for job {job_id}: "
+            "0 checked, 0 moved out, 0 moved in"
+        )
         return
 
     conn = await _get_db_connection()
@@ -375,12 +387,12 @@ async def run_release_checks(job_id):
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
         state["total"] = len(pending)
-        set_job_release_check(job_id, state)
+        jobs.record_stat(job_id, "release_check", state)
 
         if pending:
             await _check_pending_candidates(job_id, conn, pending, params, state)
-    except Exception:
-        logging.exception(f"Release checks failed for job {job_id}")
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure(f"Release checks failed for job {job_id}")
     finally:
         logging.info(
             f"Release checks finished for job {job_id}: "
@@ -388,14 +400,14 @@ async def run_release_checks(job_id):
             f"{state['moved_in']} moved in"
         )
         state["status"] = STATUS_DONE
-        set_job_release_check(job_id, state)
+        jobs.record_stat(job_id, "release_check", state)
         if conn:
             try:
                 await conn.close()
             # A failed close must not mask the job's own outcome.
-            except Exception as exc:  # noqa: BLE001
-                logging.warning(
-                    f"Closing the release-check DB connection failed: {exc}"
+            except Exception:  # noqa: BLE001
+                log_failure(
+                    "Closing the release-check DB connection failed", logging.WARNING
                 )
 
 
@@ -411,8 +423,8 @@ def _worker_loop():
             job_id = _JOB_QUEUE.get()
             try:
                 loop.run_until_complete(run_release_checks(job_id))
-            except Exception:
-                logging.exception(f"Release-check worker crashed on job {job_id}")
+            except Exception:  # noqa: BLE001 -- logged by log_failure
+                log_failure(f"Release-check worker crashed on job {job_id}")
             finally:
                 _JOB_QUEUE.task_done()
     finally:  # pragma: no cover - the loop above never exits in practice
@@ -450,7 +462,7 @@ def enqueue_release_check(job_id):
             else "MUSICBRAINZ_CONTACT is unset"
         )
         logging.info(f"Release checks skipped for job {job_id}: {missing}")
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_SKIPPED))
         return False
     _ensure_worker_started()
     _JOB_QUEUE.put(job_id)

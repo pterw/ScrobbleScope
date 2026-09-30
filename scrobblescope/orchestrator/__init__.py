@@ -24,6 +24,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
+from scrobblescope import jobs
 from scrobblescope.cache import (
     _batch_lookup_metadata,
     _batch_lookup_original_release,
@@ -34,29 +35,25 @@ from scrobblescope.cache import (
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
 from scrobblescope.domain import normalize_name, normalize_track_name
-from scrobblescope.errors import SpotifyUnavailableError
+from scrobblescope.errors import (
+    SpotifyUnavailableError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.release_checks import enqueue_release_check
-from scrobblescope.repositories import (
-    add_job_unmatched,
-    cleanup_expired_jobs,
-    get_job_context,
-    set_job_error,
-    set_job_progress,
-    set_job_results,
-    set_job_stat,
-)
 from scrobblescope.spotify import (
     album_metadata_from_details,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
+    spotify_job_breaker,
 )
-from scrobblescope.unmatched import (
-    REASON_NO_SPOTIFY_MATCH,
-    partition_albums_by_threshold,
+from scrobblescope.unmatched import partition_albums_by_threshold
+from scrobblescope.utils import (
+    cleanup_expired_cache,
+    create_optimized_session,
+    log_failure,
 )
-from scrobblescope.utils import cleanup_expired_cache, create_optimized_session
 from scrobblescope.worker import (
     new_thread_event_loop,
     release_job_slot,
@@ -111,7 +108,7 @@ async def fetch_top_albums_async(
     albums_passing_filter) so the caller can record them as job stats.
 
     Args:
-        progress_cb: Optional ``Callable[[int, int], None]`` forwarded to
+        progress_cb: Optional ``Callable[[int, int, int], None]`` forwarded to
             ``fetch_all_recent_tracks_async`` for per-page progress.
     """
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
@@ -182,10 +179,22 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
 
     Mutates *cache_hits* in place by promoting newly found entries.
     Returns a list of new_metadata_rows tuples for DB persistence.
-    Raises SpotifyUnavailableError only when Spotify's token fetch fails,
-    nothing was already cached before this call, and Deezer could not
-    enrich a single album either -- a Deezer-only run that finds at least
-    one match is a valid, if partial, outcome, not a failure.
+    Spotify being down degrades, per album: a token that cannot be had, or
+    a search Spotify could not answer, sends that album to Deezer, and an
+    album Deezer cannot match either is recorded as unavailable, never as
+    "no match". Raises SpotifyUnavailableError only when Spotify gave
+    nothing for every miss (no token, or every miss either a search it did not
+    answer or a matched album whose details it did not answer), nothing was
+    already cached before this call, and Deezer could not enrich a single
+    album either -- a run that finds at least one match is a valid, if
+    partial, outcome, not a failure. A miss whose search Spotify answered
+    with "no match" is an answer, so it keeps the run from failing here, and a
+    run where both providers answered "no match" for every album succeeds
+    with no albums and its unmatched list (owner ruling 2026-09-30).
+
+    The Spotify calls run under ``spotify_job_breaker``: once one of them
+    meets a Retry-After above the cap, the rest of this job's Spotify calls
+    are skipped and those albums go to Deezer as unanswered.
     """
     if not cache_misses:
         return []
@@ -194,37 +203,59 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     new_metadata_rows = []
     token = await fetch_spotify_access_token()
     still_missing = cache_misses
+    unanswered_keys = set(cache_misses)
+    detail_unavailable_keys = set()
 
     if not token:
         logging.error(
             "Spotify token fetch failed. Falling back to Deezer for all misses."
         )
-        set_job_stat(
+        jobs.record_stat(
             job_id,
             "partial_data_warning",
             "Spotify is temporarily unavailable; checking Deezer for album details.",
         )
+        jobs.record_partial_source(job_id, "provider")
     else:
-        async with create_optimized_session() as session:
-            search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-            (
-                spotify_id_to_key,
-                spotify_id_to_original_data,
-                _search_miss_keys,
-            ) = await _run_spotify_search_phase(
-                job_id, session, cache_misses, token, search_semaphore
-            )
-            valid_spotify_ids = list(spotify_id_to_original_data.keys())
-            if valid_spotify_ids:
-                new_metadata_rows = await _run_spotify_batch_detail_phase(
-                    job_id,
-                    session,
-                    valid_spotify_ids,
-                    token,
+        with spotify_job_breaker():
+            async with create_optimized_session() as session:
+                search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
+                (
                     spotify_id_to_key,
                     spotify_id_to_original_data,
-                    cache_hits,
+                    _search_miss_keys,
+                    unanswered_keys,
+                ) = await _run_spotify_search_phase(
+                    job_id, session, cache_misses, token, search_semaphore
                 )
+                if unanswered_keys:
+                    jobs.record_stat(
+                        job_id,
+                        "partial_data_warning",
+                        "Spotify is temporarily unavailable for some albums; "
+                        "checking Deezer for their details.",
+                    )
+                    jobs.record_partial_source(job_id, "provider")
+                valid_spotify_ids = list(spotify_id_to_original_data.keys())
+                if valid_spotify_ids:
+                    new_metadata_rows = await _run_spotify_batch_detail_phase(
+                        job_id,
+                        session,
+                        valid_spotify_ids,
+                        token,
+                        spotify_id_to_key,
+                        spotify_id_to_original_data,
+                        cache_hits,
+                        detail_unavailable_keys=detail_unavailable_keys,
+                    )
+                    if detail_unavailable_keys and not unanswered_keys:
+                        jobs.record_stat(
+                            job_id,
+                            "partial_data_warning",
+                            "Spotify is temporarily unavailable for some albums; "
+                            "checking Deezer for their details.",
+                        )
+                        jobs.record_partial_source(job_id, "provider")
         still_missing = {
             key: data for key, data in cache_misses.items() if key not in cache_hits
         }
@@ -232,13 +263,32 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     if still_missing:
         async with create_optimized_session() as session:
             deezer_rows = await _run_deezer_fallback_phase(
-                job_id, session, still_missing, cache_hits
+                job_id,
+                session,
+                still_missing,
+                cache_hits,
+                spotify_unavailable_keys=unanswered_keys,
+                spotify_detail_unavailable_keys=detail_unavailable_keys,
             )
         new_metadata_rows.extend(deezer_rows)
 
-    if not token and not had_cache_hits and not new_metadata_rows:
+    # Spotify "gave nothing" for a miss when its search went unanswered or,
+    # having matched it, its details did. Both are outages, not answers.
+    spotify_gave_nothing = set(cache_misses) <= (
+        unanswered_keys | detail_unavailable_keys
+    )
+    if spotify_gave_nothing and not had_cache_hits and not new_metadata_rows:
+        if not token:
+            raise SpotifyUnavailableError(
+                "Spotify token fetch failed and Deezer could not enrich any album."
+            )
+        if detail_unavailable_keys:
+            raise SpotifyUnavailableError(
+                "Spotify could not answer a search or a details call for any "
+                "album and Deezer could not enrich any album."
+            )
         raise SpotifyUnavailableError(
-            "Spotify token fetch failed and Deezer could not enrich any album."
+            "Spotify answered no search and Deezer could not enrich any album."
         )
 
     return new_metadata_rows
@@ -265,7 +315,7 @@ async def process_albums(
     # Phase 1: DB Batch Lookup
     # =================================================================
     conn = await _get_db_connection()
-    set_job_stat(job_id, "db_cache_enabled", bool(conn))
+    jobs.record_stat(job_id, "db_cache_enabled", bool(conn))
     cached_metadata = await _lookup_cached_metadata(
         conn, job_id, list(filtered_albums.keys())
     )
@@ -286,7 +336,7 @@ async def process_albums(
             cache_misses[key] = original_data
 
     db_hit_count = len(cache_hits)
-    set_job_stat(job_id, "cache_hits", db_hit_count)
+    jobs.record_stat(job_id, "cache_hits", db_hit_count)
     logging.info(f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses")
 
     # =================================================================
@@ -318,8 +368,8 @@ async def process_albums(
     # Phase 5: Build results from unified cache_hits
     # =================================================================
     total_matched = len(cache_hits)
-    set_job_stat(job_id, "spotify_matched", total_matched)
-    set_job_stat(
+    jobs.record_stat(job_id, "spotify_matched", total_matched)
+    jobs.record_stat(
         job_id,
         "spotify_unmatched",
         len(filtered_albums) - total_matched,
@@ -342,11 +392,14 @@ def _record_lastfm_stats(job_id, fetch_metadata):
     lastfm_stats = fetch_metadata.get("stats")
     if isinstance(lastfm_stats, dict):
         for stat_key, stat_val in lastfm_stats.items():
-            set_job_stat(job_id, stat_key, stat_val)
+            jobs.record_stat(job_id, stat_key, stat_val)
     partial_warning = fetch_metadata.get("partial_data_warning")
     if partial_warning:
-        set_job_stat(job_id, "partial_data_warning", partial_warning)
-        set_job_stat(job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0))
+        jobs.record_stat(job_id, "partial_data_warning", partial_warning)
+        jobs.record_partial_source(job_id, "lastfm")
+        jobs.record_stat(
+            job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0)
+        )
 
 
 def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
@@ -389,30 +442,6 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
     return filtered_albums
 
 
-def _detect_enrichment_total_failure(job_id, results, filtered_albums):
-    """Return True and set job error if no filtered album matched any provider.
-
-    Only fires when results is empty but filtered_albums is non-empty.
-    Reads job unmatched state to count 'no_spotify_match' entries -- the
-    reason_code is unchanged (Task 5 only changed its reason text, "No
-    match on Spotify or Deezer"), so this still fires only once both
-    providers have had their turn on every album.
-    """
-    if not results and filtered_albums:
-        job_ctx = get_job_context(job_id)
-        unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
-        spotify_no_match = sum(
-            1
-            for v in unmatched.values()
-            if v.get("reason_code") == REASON_NO_SPOTIFY_MATCH
-            or (not v.get("reason_code") and v.get("reason") == "No Spotify match")
-        )
-        if spotify_no_match == len(filtered_albums):
-            set_job_error(job_id, "spotify_unavailable")
-            return True
-    return False
-
-
 def _apply_post_slice(results, limit_results):
     """Truncate results to limit_results if it is a valid integer."""
     if limit_results != "all":
@@ -428,21 +457,6 @@ def _apply_post_slice(results, limit_results):
     return results
 
 
-def _classify_exception_to_error_code(error_message):
-    """Map an exception message to a classified error code, or None.
-
-    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
-    or None for unclassified errors.
-    """
-    if "Too Many Requests" in error_message:
-        if "spotify" in error_message.lower():
-            return "spotify_rate_limited"
-        return "lastfm_rate_limited"
-    if "not found" in error_message.lower() and "user" in error_message.lower():
-        return "user_not_found"
-    return None
-
-
 async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
     """Fetch Last.fm albums and finish upstream-error or empty jobs in place.
 
@@ -450,28 +464,16 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
     album mapping proceeds to Spotify; exceptions retain the outer classifier.
     """
     step_start_time = time.time()
-    set_job_progress(
-        job_id,
-        progress=5,
-        message="Fetching your data from Last.fm...",
-        error=False,
-        phase=None,
-    )
+    jobs.advance(job_id, 5, "Fetching your data from Last.fm...")
 
-    def _lastfm_progress(pages_done, total_pages):
-        """Map page-fetching progress into the 5%-20% range."""
-        pct = 5 + int(15 * pages_done / max(total_pages, 1))
-        set_job_progress(
+    def _lastfm_progress(pages_done, total_pages, _pages_received):
+        """Report page-fetching progress inside the album fetch band."""
+        jobs.report_phase(
             job_id,
-            progress=pct,
-            message="Reading your Last.fm history...",
-            phase={
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": pages_done,
-                "total": total_pages,
-            },
+            jobs.ALBUM_LASTFM_FETCH,
+            pages_done,
+            total_pages,
+            "Reading your Last.fm history...",
         )
 
     (
@@ -492,7 +494,7 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
 
     # Upstream failure: Last.fm was unreachable
     if fetch_metadata.get("status") == "error":
-        set_job_error(
+        jobs.fail(
             job_id,
             fetch_metadata.get("reason", "lastfm_unavailable"),
             username=username,
@@ -500,18 +502,11 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
         return None
 
     for unmatched_key, item in threshold_exclusions.items():
-        add_job_unmatched(job_id, "|".join(unmatched_key), item)
+        jobs.record_unmatched(job_id, "|".join(unmatched_key), item)
 
     # Legitimate empty result: user has scrobbles but none pass filters
     if not filtered_albums:
-        set_job_results(job_id, [])
-        set_job_progress(
-            job_id,
-            progress=100,
-            message="No albums found for the specified criteria.",
-            error=False,
-            phase=None,
-        )
+        jobs.succeed(job_id, [], "No albums found for the specified criteria.")
         return None
     return filtered_albums
 
@@ -542,19 +537,19 @@ async def _process_filtered_albums(
     elapsed" log still measures from the start of the job (the start of
     ``_fetch_and_process``), not from this function's own start.
 
-    Returns the results list on success, or ``[]`` when Spotify is
-    unavailable or every album fails enrichment -- in both cases the job
-    error/results state has already been recorded before returning.
+    Returns the results list on success (empty when no album could be
+    enriched: the run still succeeds, with its unmatched list), or ``[]``
+    when Spotify is unavailable -- in which case the job error state has
+    already been recorded before returning.
     """
     filtered_albums = _apply_pre_slice(
         filtered_albums, sort_mode, limit_results, release_scope
     )
 
-    set_job_progress(
+    jobs.advance(
         job_id,
-        progress=20,
-        message=f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
-        phase=None,
+        20,
+        f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
     )
 
     step_start_time = time.time()
@@ -570,47 +565,24 @@ async def _process_filtered_albums(
             release_year,
         )
     except SpotifyUnavailableError:
-        set_job_error(job_id, "spotify_unavailable")
+        jobs.fail(job_id, "spotify_unavailable")
         return []
     step_elapsed = time.time() - step_start_time
     logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
 
-    if _detect_enrichment_total_failure(job_id, results, filtered_albums):
-        return []
-
-    set_job_progress(
-        job_id,
-        progress=80,
-        message="Adding album art to your results...",
-        phase=None,
-    )
-
-    set_job_progress(
-        job_id,
-        progress=85,
-        message="Compiling your top album list...",
-        phase=None,
-    )
-
-    set_job_progress(
-        job_id,
-        progress=90,
-        message="Finalizing list...",
-        phase=None,
-    )
+    jobs.advance(job_id, 80, "Adding album art to your results...")
+    jobs.advance(job_id, 85, "Compiling your top album list...")
+    jobs.advance(job_id, 90, "Finalizing list...")
 
     results = _apply_post_slice(results, limit_results)
 
     overall_elapsed = time.time() - overall_start_time
     logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
 
-    set_job_results(job_id, results)
-    set_job_progress(
+    jobs.succeed(
         job_id,
-        progress=100,
-        message=f"Done! Found {len(results)} albums matching your criteria.",
-        error=False,
-        phase=None,
+        results,
+        f"Done! Found {len(results)} albums matching your criteria.",
     )
     # Hand the finished job to the MusicBrainz correction worker (Task 9)
     # so it can replace reissue dates with original ones while the results
@@ -632,20 +604,19 @@ async def _fetch_and_process(
     min_tracks=3,
     limit_results="all",
 ):
-    """Fetch and process albums in the background for a single job."""
+    """Fetch and process albums in the background for a single job.
+
+    An exception that escapes the pipeline is classified by type
+    (``errors.classify_exception_to_error_code``): a typed provider failure
+    publishes its own code, and anything else is our bug and publishes
+    ``internal_error`` -- the answer the heatmap gives too.
+    """
     try:
         overall_start_time = time.time()
         cleanup_expired_cache()
-        cleanup_expired_jobs()
+        jobs.expire_stale()
 
-        set_job_progress(
-            job_id,
-            progress=0,
-            message="Initializing...",
-            error=False,
-            reset_stats=True,
-            phase=None,
-        )
+        jobs.start(job_id, "Initializing...")
 
         filtered_albums = await _fetch_job_albums(
             job_id, username, year, min_plays, min_tracks
@@ -653,12 +624,7 @@ async def _fetch_and_process(
         if filtered_albums is None:
             return []
 
-        set_job_progress(
-            job_id,
-            progress=20,
-            message="Processing your albums...",
-            phase=None,
-        )
+        jobs.advance(job_id, 20, "Processing your albums...")
 
         return await _process_filtered_albums(
             job_id,
@@ -672,39 +638,30 @@ async def _fetch_and_process(
             overall_start_time,
         )
 
-    except Exception as exc:
-        error_message = str(exc)
-        error_code = _classify_exception_to_error_code(error_message)
+    except Exception as exc:  # noqa: BLE001 -- logged by log_failure
+        # Classified by type; anything unrecognised is our bug and is
+        # published as internal_error, never with the exception's text.
+        error_code = classify_exception_to_error_code(exc) or "internal_error"
+        jobs.fail(job_id, error_code, username=username)
 
-        if error_code:
-            set_job_error(job_id, error_code, username=username)
-        else:
-            set_job_results(job_id, [])
-            set_job_progress(
-                job_id,
-                progress=100,
-                message=f"Error: {error_message}",
-                error=True,
-                error_code="unknown",
-                retryable=True,
-                phase=None,
-            )
-
-        logging.exception(f"Error processing request for {username} in {year}")
+        log_failure(f"Error processing request for {username} in {year}")
         return []
 
 
 def _report_album_failure(job_id, username, year):
     """Log the crash and publish this pipeline's terminal state.
 
-    Called from inside the helper's ``except`` block, so ``logging.exception``
-    still sees the active exception. Publishes the same ``internal_error``
-    the heatmap entry point does: two entry points, one answer (F-SWE-5).
-    Before this, the album backstop only logged, and a page polling the job
-    waited on a job that would never finish.
+    Called from inside the helper's ``except`` block, so ``log_failure``
+    still sees the active exception. This worker-level backstop always
+    publishes ``internal_error`` and does not classify; the pipelines
+    classify by exception type first (``_fetch_and_process`` for albums,
+    ``_report_heatmap_failure`` for the heatmap), so only an exception that
+    got past them lands here (F-SWE-5). Before this, the album backstop
+    only logged, and a page polling the job waited on a job that would never
+    finish.
     """
-    logging.exception(f"Unhandled error in background task for {username}/{year}")
-    set_job_error(job_id, "internal_error", username=username)
+    log_failure(f"Unhandled error in background task for {username}/{year}")
+    jobs.fail(job_id, "internal_error", username=username)
 
 
 def background_task(
@@ -781,9 +738,7 @@ __all__ = [
     "_batch_lookup_original_release",
     "_batch_persist_metadata",
     "_build_results",
-    "_classify_exception_to_error_code",
     "_cleanup_stale_metadata",
-    "_detect_enrichment_total_failure",
     "_fetch_and_process",
     "_fetch_job_albums",
     "_fetch_spotify_misses",
@@ -797,10 +752,8 @@ __all__ = [
     "_run_deezer_fallback_phase",
     "_run_spotify_batch_detail_phase",
     "_run_spotify_search_phase",
-    "add_job_unmatched",
     "album_metadata_from_details",
     "background_task",
-    "cleanup_expired_jobs",
     "create_optimized_session",
     "enqueue_release_check",
     "fetch_all_recent_tracks_async",
@@ -808,13 +761,9 @@ __all__ = [
     "fetch_spotify_access_token",
     "fetch_spotify_album_details_batch",
     "fetch_top_albums_async",
-    "get_job_context",
     "process_albums",
     "release_job_slot",
     "search_deezer_album",
     "search_for_spotify_album_id",
-    "set_job_error",
-    "set_job_progress",
-    "set_job_results",
-    "set_job_stat",
+    "spotify_job_breaker",
 ]

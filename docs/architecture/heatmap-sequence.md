@@ -11,7 +11,7 @@ sequenceDiagram
     participant UI as heatmap.js
     participant Routes as routes/
     participant Worker as worker.py
-    participant Repo as repositories.py / JOBS
+    participant Jobs as jobs.py / job store
     participant Heatmap as heatmap.py
     participant LastFM as Last.fm API
 
@@ -29,22 +29,25 @@ sequenceDiagram
         else User not found
             LastFM-->>Routes: exists false
             Routes-->>UI: JSON 404, retryable false
-        else User exists
-            LastFM-->>Routes: exists true
-            Routes->>Repo: cleanup_expired_jobs()
+        else Recent listening is private (HTTP 403, error 17)
+            LastFM-->>Routes: private
+            Routes-->>UI: JSON 403 private_profile, retryable false
+        else User exists and listening is public
+            LastFM-->>Routes: exists true, public
+            Routes->>Jobs: expire_stale()
             Routes->>Worker: acquire_job_slot()
             alt Slot exhausted
                 Worker-->>Routes: False
                 Routes-->>UI: JSON 429, retryable true
             else Slot acquired
                 Worker-->>Routes: True
-                Routes->>Repo: create_job(mode heatmap)
-                Repo-->>Routes: UUID job_id
+                Routes->>Jobs: create(mode heatmap)
+                Jobs-->>Routes: UUID job_id
                 Routes->>Worker: start_job_thread(heatmap_task, args)
                 alt Thread start fails
                     Worker->>Worker: release_job_slot()
                     Worker-->>Routes: Re-raise startup exception
-                    Routes->>Repo: delete_job(job_id)
+                    Routes->>Jobs: delete(job_id)
                     Routes-->>UI: JSON 500
                 else Daemon thread started
                     Routes-->>UI: JSON 202 with job_id
@@ -58,46 +61,45 @@ sequenceDiagram
         par Background task runs
             Worker->>Heatmap: heatmap_task(job_id, username)
             Heatmap->>Heatmap: cleanup_expired_cache() from utils (REQUEST_CACHE)
-            Heatmap->>Repo: cleanup_expired_jobs()
-            Heatmap->>Repo: Initialize progress at 0%
-            Heatmap->>Repo: Progress 5%
+            Heatmap->>Jobs: expire_stale()
+            Heatmap->>Jobs: start: progress 0%, stats cleared
+            Heatmap->>Jobs: Progress 5%
             Heatmap->>LastFM: Fetch last 365 days of recent tracks
             loop Paginated pages, 5%-80% progress
                 LastFM-->>Heatmap: Raw scrobble page
-                Heatmap->>Repo: Store page progress
+                Heatmap->>Jobs: Store page progress
             end
-            Heatmap->>Repo: set_job_stat(pages_expected and pages_received)
+            Heatmap->>Jobs: record_stat(pages_expected and pages_received)
             alt Terminal Last.fm failure
-                Heatmap->>Repo: set_job_error(lastfm_unavailable)
+                Heatmap->>Jobs: fail(lastfm_unavailable)
             else Pages available
                 opt Partial pages returned
-                    Heatmap->>Repo: set_job_stat(partial_data_warning)
-                    Note over Heatmap,Repo: Continue with the available pages
+                    Heatmap->>Jobs: record_stat(partial_data_warning)
+                    Note over Heatmap,Jobs: Continue with the available pages
                 end
-                Heatmap->>Repo: Progress 80%
+                Heatmap->>Jobs: Progress 80%
                 Heatmap->>Heatmap: Decode UTC timestamps, filter boundaries, and fill empty days
                 Heatmap->>Heatmap: Total and peak-day statistics
                 alt No scrobbles in range
-                    Heatmap->>Repo: set_job_error(no_scrobbles_in_range)
+                    Heatmap->>Jobs: fail(no_scrobbles_in_range)
                 else Results available
-                    Heatmap->>Repo: Progress 100%
-                    Heatmap->>Repo: Store daily_counts
+                    Heatmap->>Jobs: succeed: daily_counts and progress 100%, in one write
                 end
             end
             opt Unhandled exception anywhere above
-                Heatmap->>Repo: set_job_error(internal_error)
-                Note over Heatmap,Repo: A fault that reaches this backstop is ours, not an upstream's, and prevents the polling client from hanging
+                Heatmap->>Jobs: fail(classified code, else internal_error)
+                Note over Heatmap,Jobs: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls, by exception type and never by message text; an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's fallback is the same (see the Top Albums sequence)
             end
             Heatmap->>Worker: release_job_slot()
             Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block
         and UI polls progress
             loop Poll until 100% or an error
                 UI->>Routes: GET /progress?job_id=...
-                Routes->>Repo: get_job_progress(job_id)
+                Routes->>Jobs: progress(job_id)
                 alt Job missing or expired
                     Routes-->>UI: JSON 404 with error true
                 else Job found
-                    Repo-->>Routes: Progress, warning, or error state
+                    Jobs-->>Routes: Progress, warning, or error state
                     Routes-->>UI: JSON 200 progress payload
                 end
             end
@@ -108,7 +110,7 @@ sequenceDiagram
             Note over UI,Routes: heatmap_data is never requested
         else Progress reaches 100%
             UI->>Routes: GET /heatmap_data?job_id=...
-            Routes->>Repo: get_job_context(job_id)
+            Routes->>Jobs: context(job_id)
             alt Job unknown or expired
                 Routes-->>UI: JSON 404 with error true
             else Job errored
@@ -139,6 +141,9 @@ helper it imports from `utils.py`, which is not drawn as a participant. The
 inner, status-based Last.fm path's terminal error code is `lastfm_unavailable`
 because that is the only reason the fetch layer emits today; the code passes
 through whatever reason the fetch metadata carries. The outer backstop -- the
-`opt Unhandled exception anywhere above` block -- is a different path: a fault
-that escapes every inner classifier is ours, so it publishes `internal_error`
-instead (F-SWE-5).
+`opt Unhandled exception anywhere above` block -- is a different path: it
+classifies the escaped exception, by its type, with
+`errors.classify_exception_to_error_code`, the one classifier the album
+pipeline also uses, and publishes that code; a
+fault the classifier does not recognize is ours, so it publishes
+`internal_error` instead (F-SWE-5).

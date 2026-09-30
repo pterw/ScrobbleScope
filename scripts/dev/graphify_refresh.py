@@ -25,8 +25,9 @@ Two states are skips rather than rebuilds, on purpose:
 Scope
 -----
 Local development only. By owner decision ``graphify-out/`` is git-ignored
-generated data kept on the developer's machine (AGENT_NOTES.md, Architectural
-Constraints), so a CI checkout never has the manifest that ``update`` reads.
+generated data kept on the developer's machine (docs/agents/AGENT_NOTES.md,
+Architectural Constraints), so a CI checkout never has the manifest that
+``update`` reads.
 There is no workflow for this and none can work.
 
 Standard library only, on purpose: a git hook runs on whatever interpreter is

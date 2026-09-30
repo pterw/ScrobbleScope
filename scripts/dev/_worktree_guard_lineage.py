@@ -93,7 +93,7 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
                     "recognized CI checkout; live branch topology is skipped.",
                 )
             ]
-        return [
+        issues = [
             issue(
                 "ERROR",
                 "WT012",
@@ -103,6 +103,9 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
                 "this guard does not switch or create branches.",
             )
         ]
+        if snapshot.dirty:
+            issues.append(_dirty(snapshot))
+        return issues
 
     if snapshot.active_batch is None:
         return [_dirty(snapshot)] if snapshot.dirty else []
@@ -155,7 +158,15 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
             snapshot.head_tree and snapshot.head_tree == snapshot.base_tree
         )
         code, state, remediation = (
-            ("WT004", "tree-identical", identical_tree_remediation(base_ref))
+            (
+                "WT004",
+                "tree-identical",
+                # The raw ref, as `missing_base_diagnostic` passes it:
+                # the remediation labels it once and branches on its real
+                # shape. Handing it `base_ref` (already a label) printed
+                # "the local base ref configured base ref" (review C4).
+                identical_tree_remediation(snapshot.base_ref),
+            )
             if identical
             else (
                 "WT005",

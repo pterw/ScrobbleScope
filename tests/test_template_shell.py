@@ -48,7 +48,7 @@ INDEX_TOKENS = {
     "--ss-text-muted": ("#6c6676", "#908a9a"),
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
     # F-B21-40: a dedicated divider token for .index-form's border-left only.
-    # --ss-border-default stays on the other 14 form borders; see .docsync.toml.
+    # --ss-border-default stays on the other 14 form borders; see config/docsync.toml.
     "--ss-border-divider": ("#8a867e", "#68646f"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
     "--heatmap-empty": ("#c8bfad", "#262230"),
@@ -253,12 +253,27 @@ def test_shared_navigation_uses_input_mono_narrow():
 
 
 def test_migrated_wordmarks_use_theme_ink_for_letterforms():
-    """Hero and header letterforms must remain legible in dark mode."""
+    """Hero and header letterforms must remain legible in dark mode.
+
+    F-B21-23 retired the per-wrapper selector list: the assets colour
+    themselves (fill="currentColor") and shell.css sets `color` once, on the
+    shared `.ss-mark` class, rather than naming each wrapper's letterform
+    path.
+    """
     shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
 
-    assert ".site-header__mark svg #logo-text path" in shell
-    assert ".index-hero__mark svg #logo-text path" in shell
-    assert "fill: var(--shell-ink)" in shell
+    assert ".site-header__mark svg #logo-text path" not in shell
+    assert ".index-hero__mark svg #logo-text path" not in shell
+    mark_rule = re.search(r"\.ss-mark\s*\{([^}]+)\}", shell, re.S)
+    assert mark_rule
+    assert "color: var(--shell-ink)" in mark_rule.group(1)
+
+    for svg_name in (
+        "scrobble_scope_inline.svg",
+        "scrobble_scope_lockup_inline.svg",
+    ):
+        svg = (INLINE_SVG / svg_name).read_text(encoding="utf-8")
+        assert 'fill="currentColor"' in svg
 
 
 def test_header_and_nav_share_one_control_gap_token():

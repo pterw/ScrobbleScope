@@ -8,6 +8,7 @@ and not only to a case invented to make it pass.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,157 @@ from docsync.declarations import (
     load_findings_config,
 )
 from docsync.models import SyncError
+
+# ---------------------------------------------------------------------------
+# [documents] -- where docsync's own live documents live (Batch 23 WP-0 Task 2)
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentsConfig:
+    def test_absent_table_returns_todays_literal_defaults(self, tmp_path: Path):
+        from docsync.declarations import DocumentsConfig, load_documents_config
+
+        assert load_documents_config(tmp_path) == DocumentsConfig()
+        assert DocumentsConfig().playbook == "PLAYBOOK.md"
+        assert DocumentsConfig().findings == "FINDINGS.md"
+        assert DocumentsConfig().agent_notes == "AGENT_NOTES.md"
+        assert DocumentsConfig().handoff_prompt == "HANDOFF_PROMPT.md"
+
+    def test_declared_table_overrides_one_field(self, tmp_path: Path):
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            '[documents]\nplaybook = "docs/agents/PLAYBOOK.md"\n', encoding="utf-8"
+        )
+        documents = load_documents_config(tmp_path)
+        assert documents.playbook == "docs/agents/PLAYBOOK.md"
+        assert documents.findings == "FINDINGS.md"  # untouched field keeps its default
+
+    def test_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            '[documents]\nnotebook = "x.md"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError, match="unknown key 'notebook'"):
+            load_documents_config(tmp_path)
+
+    def test_non_string_value_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text("[documents]\nplaybook = 1\n", encoding="utf-8")
+        with pytest.raises(DeclarationError, match="not a string"):
+            load_documents_config(tmp_path)
+
+    @pytest.mark.parametrize(
+        "agent_notes",
+        [
+            "docs/agents/HANDOFF_PROMPT.md",
+            # "docs/./agents/HANDOFF_PROMPT.md" moved to
+            # test_a_path_not_in_normalised_form_is_refused: review B1 refuses
+            # that spelling before the duplicate check is reached.
+            "AGENTS.md",
+        ],
+    )
+    def test_two_document_roles_cannot_resolve_to_one_path(
+        self, tmp_path: Path, agent_notes: str
+    ):
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            "[documents]\n"
+            'handoff_prompt = "docs/agents/HANDOFF_PROMPT.md"\n'
+            f'agent_notes = "{agent_notes}"\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(DeclarationError, match="same path"):
+            load_documents_config(tmp_path)
+
+    @pytest.mark.parametrize(
+        "agent_notes",
+        ["../outside.md", "docs/agents/../agents/HANDOFF_PROMPT.md", "C:/outside.md"],
+    )
+    def test_document_path_cannot_escape_the_repository(
+        self, tmp_path: Path, agent_notes: str
+    ):
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            f'[documents]\nagent_notes = "{agent_notes}"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError, match="repository-relative"):
+            load_documents_config(tmp_path)
+
+    @pytest.mark.parametrize(
+        "playbook",
+        [
+            "./docs/agents/PLAYBOOK.md",
+            "docs//agents/PLAYBOOK.md",
+            "docs/./agents/PLAYBOOK.md",
+            "docs/agents/PLAYBOOK.md/",
+        ],
+    )
+    def test_a_path_not_in_normalised_form_is_refused(
+        self, tmp_path: Path, playbook: str
+    ):
+        """Review B1: each spelling resolves to the real file, and each was
+        accepted and stored raw. Live documents are keyed by the normalised
+        form, so every lookup by the declared string missed and DOC008,
+        DOC023 and the reference scan silently did not run. The refusal
+        names the spelling to write."""
+        from docsync.declarations import load_documents_config
+
+        (tmp_path / "docs" / "agents").mkdir(parents=True)
+        (tmp_path / "docs" / "agents" / "PLAYBOOK.md").write_text(
+            "# PLAYBOOK\n", encoding="utf-8"
+        )
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
+            f'[documents]\nplaybook = "{playbook}"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError) as raised:
+            load_documents_config(tmp_path)
+        assert str(raised.value) == (
+            f"[documents] 'playbook' is written {playbook!r}, which is not the "
+            "normalised repository-relative path. Write 'docs/agents/PLAYBOOK.md'."
+        )
+
+    def test_an_empty_path_says_it_is_empty(self, tmp_path: Path):
+        """Review B9: the empty string is a str, and the old message called
+        it "str, not a string"."""
+        from docsync.declarations import load_documents_config
+
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text('[documents]\nplaybook = ""\n', encoding="utf-8")
+        with pytest.raises(DeclarationError) as raised:
+            load_documents_config(tmp_path)
+        assert str(raised.value) == (
+            "[documents] gives 'playbook' as an empty string; write the "
+            "document's repository-relative path."
+        )
+
+
+def test_a_declarations_path_that_is_a_directory_is_refused(tmp_path: Path):
+    """Review C5: a directory where the default declarations file belongs was
+    read as "nothing declared", so every check ran with no declarations and
+    passed. Only an absent file means that."""
+    (tmp_path / DECLARATIONS_FILENAME).mkdir(parents=True)
+    with pytest.raises(
+        DeclarationError, match="is a directory, not a declarations file"
+    ):
+        load_declarations(tmp_path)
 
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -792,6 +944,45 @@ def test_a_bold_lead_in_counts_as_a_citable_place(tmp_path: Path) -> None:
     assert check_anchors(_files(root), [declaration]) == []
 
 
+def test_a_bold_label_ending_in_a_colon_is_cited_without_the_colon(
+    tmp_path: Path,
+) -> None:
+    """`**Co-author prohibition:** Do NOT ...` is cited as "Co-author prohibition"."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "**Co-author prohibition:** Do NOT add trailers.\n",
+            "notes.md": 'See `RULES.md` "Co-author prohibition".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_name_that_is_not_a_colon_label_still_fails(tmp_path: Path) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "**Co-author prohibition:** Do NOT add trailers.\n",
+            "notes.md": 'See `RULES.md` "Co-author prohibitions".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert len(check_anchors(_files(root), [declaration])) == 1
+
+
 def test_a_bold_lead_in_inside_a_list_item_counts_as_a_citable_place(
     tmp_path: Path,
 ) -> None:
@@ -1257,10 +1448,80 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
     tmp_path: Path,
 ) -> None:
     """Invalid TOML must name itself rather than surface as a document fault."""
-    (tmp_path / DECLARATIONS_FILENAME).write_text("[[value\n", encoding="utf-8")
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text("[[value\n", encoding="utf-8")
 
     with pytest.raises(DeclarationError, match="not valid TOML"):
         load_declarations(tmp_path)
+
+
+def test_a_non_utf8_declarations_file_is_a_declaration_error(
+    tmp_path: Path,
+) -> None:
+    """Bytes that are not valid UTF-8 must name themselves, not crash the gate.
+
+    Before this, `read_text(encoding="utf-8")` raised `UnicodeDecodeError`
+    straight out of `load_declarations`; `essentials_diagnostics` catches only
+    `DeclarationError`, so this escaped to `inspect_worktree`'s fail-closed
+    WT014 ERROR, contradicting the WARNING-only promise (finding 5).
+    """
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_bytes(b"[options]\n# \xff\xfe not utf-8\n")
+
+    with pytest.raises(DeclarationError, match="could not be read"):
+        load_declarations(tmp_path)
+
+
+def test_an_unreadable_declarations_path_is_a_declaration_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An OSError reading the file (locked, permission-denied) is also converted.
+
+    Simulated with a monkeypatched `Path.read_text` rather than a real
+    permission change, since a locked-on-Windows file cannot be reproduced
+    portably in a test.
+    """
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text("[options]\n", encoding="utf-8")
+
+    def _raise_os_error(self, *args, **kwargs):
+        raise OSError("simulated: file is locked")
+
+    monkeypatch.setattr(Path, "read_text", _raise_os_error)
+
+    with pytest.raises(DeclarationError, match="could not be read"):
+        load_declarations(tmp_path)
+
+
+class TestExplicitConfigPath:
+    def test_explicit_path_outside_repository_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_declarations
+
+        outside = tmp_path.parent / f"{tmp_path.name}-outside.toml"
+        outside.write_text("[options]\n", encoding="utf-8")
+        with pytest.raises(DeclarationError, match="inside the repository"):
+            load_declarations(tmp_path, config_path=outside)
+
+    def test_explicit_missing_path_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_declarations
+
+        with pytest.raises(DeclarationError, match="nowhere.toml"):
+            load_declarations(tmp_path, config_path=tmp_path / "nowhere.toml")
+
+    def test_default_missing_path_still_means_no_declarations(self, tmp_path: Path):
+        from docsync.declarations import load_declarations
+
+        assert load_declarations(tmp_path) == {}
+
+    def test_explicit_path_is_read_instead_of_the_default(self, tmp_path: Path):
+        from docsync.declarations import load_declarations
+
+        alt = tmp_path / "alt.toml"
+        alt.write_text("[options]\n", encoding="utf-8")
+        assert load_declarations(tmp_path, config_path=alt) == {"options": {}}
 
 
 def test_a_declaration_fault_reaches_the_cli_as_a_sync_error() -> None:
@@ -1436,9 +1697,9 @@ def test_a_retired_declaration_is_held_to_the_schema_too(tmp_path: Path) -> None
 
 def test_an_unknown_table_name_is_refused(tmp_path: Path) -> None:
     """A misspelled [[ancor]] parses, is never read, and runs one fewer check."""
-    (tmp_path / DECLARATIONS_FILENAME).write_text(
-        '[[ancor]]\nname = "x"\n', encoding="utf-8"
-    )
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text('[[ancor]]\nname = "x"\n', encoding="utf-8")
 
     with pytest.raises(DeclarationError, match="unknown table 'ancor'"):
         collect_declaration_issues(repo_root=tmp_path, live_documents={})
@@ -1450,7 +1711,9 @@ def test_a_misspelled_option_is_refused(tmp_path: Path) -> None:
     `strikethough_exempt` leaves every retired claim exempt that the author
     meant to expose, and nothing anywhere says so.
     """
-    (tmp_path / DECLARATIONS_FILENAME).write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         "[options]\nstrikethough_exempt = true\n", encoding="utf-8"
     )
 
@@ -1468,7 +1731,9 @@ def test_a_top_level_declaration_collection_must_be_a_list(
     integer raised TypeError before the per-declaration schema could produce
     the documented input error.
     """
-    (tmp_path / DECLARATIONS_FILENAME).write_text(f"{kind} = 1\n", encoding="utf-8")
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(f"{kind} = 1\n", encoding="utf-8")
 
     with pytest.raises(
         DeclarationError, match=rf"{kind!r} is int, not a list of tables"
@@ -1600,7 +1865,7 @@ def test_collect_runs_all_three_kinds_and_sorts_them(tmp_path: Path) -> None:
 
 
 def _archives_repo(tmp_path: Path, body: str) -> Path:
-    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    """A throwaway repository whose declarations file is exactly ``body``."""
     return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
 
 
@@ -1682,7 +1947,7 @@ def test_collect_declaration_issues_accepts_valid_archives(tmp_path: Path) -> No
     """A correct [archives] table is recognized, not rejected as unknown.
 
     The unknown-table guard must learn [archives] as a top-level table, or the
-    real .docsync.toml would start raising once the table is added.
+    real declarations file would start raising once the table is added.
     """
     root = _repo(
         tmp_path,
@@ -1708,7 +1973,7 @@ def test_collect_declaration_issues_still_rejects_genuinely_unknown_table(
 
 
 def _closeout_repo(tmp_path: Path, body: str) -> Path:
-    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    """A throwaway repository whose declarations file is exactly ``body``."""
     return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
 
 
@@ -1739,6 +2004,14 @@ def test_closeout_config_rejects_unknown_key(tmp_path: Path) -> None:
     """A misspelled ``admit_from`` must not silently fall back to the default."""
     root = _closeout_repo(tmp_path, "[closeout]\nadmit_from = 22\n")
     with pytest.raises(DeclarationError, match="unknown key 'admit_from'"):
+        load_closeout_config(root)
+
+
+def test_closeout_config_rejects_a_non_table(tmp_path: Path) -> None:
+    """CR9 parity: ``closeout`` written inline as a scalar is refused, not
+    silently ignored in favour of the permissive default."""
+    root = _closeout_repo(tmp_path, "closeout = 1\n")
+    with pytest.raises(DeclarationError, match="\\[closeout\\] is int, not a table"):
         load_closeout_config(root)
 
 
@@ -1789,7 +2062,7 @@ def test_collect_declaration_issues_accepts_valid_closeout(tmp_path: Path) -> No
     """A correct [closeout] table is recognized, not rejected as unknown.
 
     The unknown-table guard must learn [closeout] as a top-level table, or the
-    real .docsync.toml would start raising once the table is added.
+    real declarations file would start raising once the table is added.
     """
     root = _repo(
         tmp_path,
@@ -1844,3 +2117,404 @@ def test_findings_config_rejects_a_non_id_entry(tmp_path: Path) -> None:
     root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = [21]\n")
     with pytest.raises(DeclarationError, match="finding id"):
         load_findings_config(root)
+
+
+# ---------------------------------------------------------------------------
+# [test_count] -- the pinned test count (Batch 23 WP-0 Task 1, F-DOCSYNC-11/-22)
+# ---------------------------------------------------------------------------
+
+
+class TestTestCountConfig:
+    def test_absent_table_returns_no_pin(self, tmp_path: Path):
+        from docsync.declarations import TestCountConfig, load_test_count_config
+
+        assert load_test_count_config(tmp_path) == TestCountConfig()
+        assert TestCountConfig().pinned is None
+
+    def test_a_declared_pin_is_read(self, tmp_path: Path):
+        from docsync.declarations import load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[test_count]\npinned = 1850\n", encoding="utf-8")
+        assert load_test_count_config(tmp_path).pinned == 1850
+
+    def test_a_non_integer_pin_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[test_count]\npinned = "1850"\n', encoding="utf-8")
+        with pytest.raises(DeclarationError):
+            load_test_count_config(tmp_path)
+
+    def test_an_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[test_count]\ncount = 1850\n", encoding="utf-8")
+        with pytest.raises(DeclarationError, match="unknown key 'count'"):
+            load_test_count_config(tmp_path)
+
+    def test_a_non_table_is_refused(self, tmp_path: Path):
+        """CR9 parity: ``test_count`` written inline as a scalar is refused."""
+        from docsync.declarations import DeclarationError, load_test_count_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("test_count = 1\n", encoding="utf-8")
+        with pytest.raises(
+            DeclarationError, match="\\[test_count\\] is int, not a table"
+        ):
+            load_test_count_config(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# [untracked_essentials] -- gitignored files the workflow depends on
+# (Batch 23 WP-0 Task 7, F-B21-25)
+# ---------------------------------------------------------------------------
+
+
+class TestUntrackedEssentialsConfig:
+    def test_absent_table_returns_an_empty_tuple(self, tmp_path: Path):
+        from docsync.declarations import (
+            UntrackedEssentialsConfig,
+            load_untracked_essentials_config,
+        )
+
+        assert load_untracked_essentials_config(tmp_path) == UntrackedEssentialsConfig()
+        assert UntrackedEssentialsConfig().paths == ()
+
+    def test_declared_paths_are_read(self, tmp_path: Path):
+        from docsync.declarations import load_untracked_essentials_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+        )
+        config = load_untracked_essentials_config(tmp_path)
+        assert config.paths == ("skills-lock.json",)
+
+    def test_an_empty_paths_list_is_accepted(self, tmp_path: Path):
+        """`paths = []` reads the same as no table at all (Batch 23 WP-0
+        Task 2): the mechanism stays available for a future essential
+        without forcing a declared entry to exist.
+        """
+        from docsync.declarations import load_untracked_essentials_config
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[untracked_essentials]\npaths = []\n", encoding="utf-8")
+        config = load_untracked_essentials_config(tmp_path)
+        assert config.paths == ()
+
+    def test_a_non_string_entry_is_refused(self, tmp_path: Path):
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[untracked_essentials]\npaths = [1]\n", encoding="utf-8")
+        with pytest.raises(DeclarationError):
+            load_untracked_essentials_config(tmp_path)
+
+    def test_an_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('[untracked_essentials]\nfiles = ["x"]\n', encoding="utf-8")
+        with pytest.raises(DeclarationError, match="unknown key 'files'"):
+            load_untracked_essentials_config(tmp_path)
+
+    def test_a_non_table_is_refused(self, tmp_path: Path):
+        """CR9 parity: ``untracked_essentials`` written inline as a scalar is
+        refused."""
+        from docsync.declarations import (
+            DeclarationError,
+            load_untracked_essentials_config,
+        )
+
+        path = tmp_path / DECLARATIONS_FILENAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("untracked_essentials = 1\n", encoding="utf-8")
+        with pytest.raises(
+            DeclarationError, match="\\[untracked_essentials\\] is int, not a table"
+        ):
+            load_untracked_essentials_config(tmp_path)
+
+
+def test_collect_declaration_issues_rejects_a_string_paths_table(
+    tmp_path: Path,
+) -> None:
+    """`doc_state_sync --check` must refuse a bad [untracked_essentials] table.
+
+    Before CR2, `collect_declaration_issues` never called
+    `_untracked_essentials_config`, so a `paths` written as a bare string
+    passed `--check` and pre-commit untouched.
+    """
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = "skills-lock.json"\n'},
+    )
+    with pytest.raises(DeclarationError, match="'paths'"):
+        collect_declaration_issues(repo_root=root, live_documents={})
+
+
+def test_collect_declaration_issues_rejects_an_unknown_essentials_key(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\nfiles = ["x"]\n'},
+    )
+    with pytest.raises(DeclarationError, match="unknown key 'files'"):
+        collect_declaration_issues(repo_root=root, live_documents={})
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/etc/passwd",
+        "C:\\Windows\\System32",
+        "C:/Windows/System32",
+        "../x",
+        "a/../b",
+        "C:foo",
+    ],
+)
+def test_untracked_essentials_rejects_a_path_that_escapes_the_repository(
+    tmp_path: Path, path: str
+) -> None:
+    """CR5: a declared path must not resolve outside the repository root.
+
+    Before the fix, an absolute path (either POSIX or Windows drive form) or
+    a `..` segment was handed straight to the worktree guard, which then
+    `stat`s and echoes whatever it names -- unbounded by the repository this
+    declaration is supposed to be local to.
+    """
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = path.replace("\\", "\\\\")
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError, match=re.escape(repr(path))):
+        load_untracked_essentials_config(root)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "skills\nlock.json",
+        "skills\x1block.json",
+        # Review C1: category Cc alone let these through. U+2028 splits the
+        # rendered line, U+202E reorders it, U+00A0 pads a fake verdict.
+        "skills\u2028lock.json",
+        "skills\u202elock.json",
+        "skills\u00a0lock.json",
+    ],
+    ids=["newline", "escape", "line-separator", "bidi-override", "no-break-space"],
+)
+def test_untracked_essentials_rejects_a_path_with_an_unprintable_character(
+    tmp_path: Path, path: str
+) -> None:
+    """C4: `scripts/dev/check_worktree_alignment.py` prints a declared path
+    verbatim in a `Diagnostic.subject`; a character in it that is not
+    printable must never reach that path unsanitized, so the declaration
+    itself refuses one, the same way an absolute path or a `..` segment
+    already does.
+    """
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = "".join(
+        char if char.isprintable() else f"\\u{ord(char):04x}" for char in path
+    )
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which carries a character "
+        "that is not printable: it must be printable, since the worktree guard "
+        "echoes it verbatim in a diagnostic."
+    )
+
+
+@pytest.mark.parametrize("path", ["..\\..\\secrets.txt", "config\\x.json"])
+def test_untracked_essentials_rejects_a_backslash(tmp_path: Path, path: str) -> None:
+    """Review B5/C3: `..` was read from POSIX parts only, so `..\\..\\x` passed
+    and, on Windows, the guard stat'ed a file outside the repository."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    escaped = path.replace("\\", "\\\\")
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{escaped}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which uses a backslash: "
+        "write the repository-relative path with forward slashes."
+    )
+
+
+@pytest.mark.parametrize("path", ["", ".", "./"])
+def test_untracked_essentials_rejects_the_repository_root(
+    tmp_path: Path, path: str
+) -> None:
+    """Review C5: each of these resolved to the repository root, and the
+    guard reported the root "is a directory" instead of refusing it."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{path}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which names the repository "
+        "root: name the file this workflow depends on."
+    )
+
+
+def test_untracked_essentials_keeps_a_repeated_path_once(tmp_path: Path) -> None:
+    """Review C5: a path declared twice was reported twice."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["b", "a", "b"]\n'},
+    )
+    assert load_untracked_essentials_config(root).paths == ("b", "a")
+
+
+def test_untracked_essentials_accepts_a_plain_relative_path(tmp_path: Path) -> None:
+    """The common case -- a bare repository-relative filename -- still passes."""
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["skills-lock.json"]\n'
+        },
+    )
+    assert load_untracked_essentials_config(root).paths == ("skills-lock.json",)
+
+
+def test_collect_declaration_issues_accepts_valid_untracked_essentials(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: (
+                '[untracked_essentials]\npaths = ["skills-lock.json"]\n'
+            )
+        },
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+def test_collect_declaration_issues_accepts_an_absent_essentials_table(
+    tmp_path: Path,
+) -> None:
+    root = _repo(
+        tmp_path, {DECLARATIONS_FILENAME: "[archives]\nmax_lines = 1\ncold_days = 1\n"}
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+def _documents_repo(tmp_path: Path, playbook: str) -> Path:
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
+        f'[documents]\nplaybook = "{playbook}"\n', encoding="utf-8"
+    )
+    return tmp_path
+
+
+def test_a_document_path_through_a_junction_is_a_typed_error(tmp_path: Path):
+    """A `[documents]` path through a junction out of the repository raised a
+    bare `ValueError` from `relative_to` (Task 10 review, Minor 2)."""
+    import os
+    import subprocess
+
+    from docsync.declarations import load_documents_config
+
+    if os.name != "nt":
+        pytest.skip("directory junctions exist only on Windows")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = repo / "j"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+        check=True,
+        capture_output=True,
+    )
+    try:
+        _documents_repo(repo, "j/new.md")
+        with pytest.raises(DeclarationError, match="repository-relative path"):
+            load_documents_config(repo)
+    finally:
+        os.rmdir(link)
+
+
+def test_a_document_path_resolving_outside_the_root_is_a_typed_error(
+    tmp_path: Path, monkeypatch
+):
+    """The `relative_to` guard: whatever lets a path through
+    `resolve_within`, an escape is a `DeclarationError`, not a traceback."""
+    from docsync import declarations
+
+    repo = _documents_repo(tmp_path / "repo", "docs/x.md")
+    monkeypatch.setattr(
+        declarations, "resolve_within", lambda root, value: tmp_path / "elsewhere.md"
+    )
+    with pytest.raises(DeclarationError, match="repository-relative path"):
+        declarations.load_documents_config(repo)
+
+
+@pytest.mark.parametrize(
+    ("path", "written"),
+    [("./x.json", "x.json"), ("a//b.json", "a/b.json")],
+)
+def test_untracked_essentials_refuses_a_path_not_in_normalised_form(
+    tmp_path: Path, path: str, written: str
+) -> None:
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: f'[untracked_essentials]\npaths = ["{path}"]\n'},
+    )
+    with pytest.raises(DeclarationError) as raised:
+        load_untracked_essentials_config(root)
+    assert str(raised.value) == (
+        f"[untracked_essentials] declares {path!r}, which is not the "
+        f"normalised repository-relative path. Write {written!r}."
+    )
+
+
+def test_untracked_essentials_accepts_the_normalised_form(tmp_path: Path) -> None:
+    from docsync.declarations import load_untracked_essentials_config
+
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: '[untracked_essentials]\npaths = ["a/b.json"]\n'},
+    )
+    assert load_untracked_essentials_config(root).paths == ("a/b.json",)

@@ -24,8 +24,8 @@ def test_missing_repository_fails_before_other_git_discovery(tmp_path):
 def test_unreadable_playbook_reports_no_filesystem_detail(tmp_path):
     """An arbitrary OS error must not reach the shared diagnostic stream."""
     repo, responses = repository(tmp_path)
-    repo.joinpath("PLAYBOOK.md").unlink()
-    repo.joinpath("PLAYBOOK.md").mkdir()
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").unlink()
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").mkdir()
 
     diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
 
@@ -33,6 +33,25 @@ def test_unreadable_playbook_reports_no_filesystem_detail(tmp_path):
     rendered = f"{diagnostics[0].subject} {diagnostics[0].message}"
     assert str(repo) not in rendered
     assert "Errno" not in rendered and "error" not in rendered.lower()
+
+
+def test_unreadable_playbook_names_the_moved_path_in_the_detail(tmp_path):
+    """The OSError-branch detail names the document at its current location.
+
+    The prior literal, "PLAYBOOK.md could not be read.", survived the
+    root-cleanup move undetected because no test compared the detail text
+    itself -- only its absence of leaked filesystem detail (the sibling test
+    above). A real read failure must not report a filename the document no
+    longer lives at.
+    """
+    repo, responses = repository(tmp_path)
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").unlink()
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").mkdir()
+
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+
+    assert codes(diagnostics) == ["WT002"]
+    assert "docs/agents/PLAYBOOK.md could not be read." in diagnostics[0].message
 
 
 def test_summary_never_echoes_a_hostile_base_ref(tmp_path):
@@ -48,7 +67,7 @@ def test_summary_never_echoes_a_hostile_base_ref(tmp_path):
 
 def _between_batches(repo):
     """Rewrite the fixture PLAYBOOK so Section 3 declares no active batch."""
-    repo.joinpath("PLAYBOOK.md").write_text(
+    repo.joinpath("docs", "agents", "PLAYBOOK.md").write_text(
         "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
         "- Batch 20 is complete. No batch is open.\n\n"
         "## 4. Execution log\n",
@@ -116,6 +135,32 @@ def test_offline_venv_error_includes_local_ref_context(tmp_path):
     venv_tools(repo / ".venv")["pre_commit"].unlink()
     diagnostics = inspect_worktree(repo, offline=True, runner=FakeGit(responses))
     assert codes(diagnostics) == ["WT009", "WT013"]
+
+
+def test_missing_declared_untracked_essential_warns(tmp_path):
+    """A declared untracked-essential file absent from disk raises WT015 (F-B21-25)."""
+    repo, responses = repository(tmp_path)
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = ["skills-lock.json"]\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+    assert "WT015" in codes(diagnostics)
+
+
+def test_malformed_untracked_essentials_table_warns_not_wt014(tmp_path):
+    """CR1: through the public `inspect_worktree` boundary, a malformed
+    [untracked_essentials] table must not collapse the whole result to the
+    fail-closed WT014 -- it stays a WARNING WT015 alongside the normal
+    result."""
+    repo, responses = repository(tmp_path)
+    repo.joinpath("config").mkdir()
+    repo.joinpath("config", "docsync.toml").write_text(
+        '[untracked_essentials]\npaths = "skills-lock.json"\n', encoding="utf-8"
+    )
+    diagnostics = inspect_worktree(repo, offline=True, runner=FakeGit(responses))
+    assert "WT014" not in codes(diagnostics)
+    assert "WT015" in codes(diagnostics)
 
 
 @pytest.mark.parametrize(

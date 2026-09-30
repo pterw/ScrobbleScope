@@ -68,7 +68,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     Under ``--advisory`` the exit code is always 0. The diagnostics still
     print, unchanged. This exists so a caller can surface lineage without
-    gating on it: eleven of the fifteen codes are errors, including WT003 for
+    gating on it: eleven of the sixteen codes are errors, including WT003 for
     any branch the active batch does not name and WT004 for the identical-tree
     divergence a rebase merge always leaves. A pre-commit hook that gated on
     those would refuse every commit on a feature branch and every commit after

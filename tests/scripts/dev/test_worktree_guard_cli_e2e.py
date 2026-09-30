@@ -112,7 +112,7 @@ def test_cli_converts_runtime_failures_without_traceback_or_sensitive_text(
 def test_advisory_reports_errors_but_does_not_gate(monkeypatch, capsys):
     """--advisory prints an ERROR diagnostic and still exits 0.
 
-    Eleven of the fifteen codes are errors, WT003 and WT004 among them, so a
+    Eleven of the sixteen codes are errors, WT003 and WT004 among them, so a
     caller that gated on this command would block every commit on a branch the
     active batch does not name and every commit after a rebase merge. The flag
     lets a hook surface lineage without owning that decision.

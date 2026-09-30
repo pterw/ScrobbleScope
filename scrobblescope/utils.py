@@ -1,8 +1,11 @@
 import asyncio
+import json
 import logging
 import math
+import sys
 import threading
 import time
+from collections.abc import Sequence
 from weakref import WeakKeyDictionary
 
 import aiohttp
@@ -13,6 +16,7 @@ from scrobblescope.config import (
     APP_USER_AGENT,
     DEEZER_REQUESTS_PER_SECOND,
     LASTFM_REQUESTS_PER_SECOND,
+    MAX_RETRY_AFTER_SECONDS,
     MUSICBRAINZ_REQUESTS_PER_SECOND,
     REQUEST_CACHE_TIMEOUT,
     SPOTIFY_REQUESTS_PER_SECOND,
@@ -179,6 +183,25 @@ def get_musicbrainz_limiter():
     return _ThrottledLimiter(_MUSICBRAINZ_THROTTLE, loop_limiter)
 
 
+def log_failure(message, level=logging.ERROR):
+    """Log the exception being handled: its class at *level*, its traceback at DEBUG.
+
+    *level* defaults to ERROR; a fail-open site (a cache read or write whose
+    failure the job survives) passes ``logging.WARNING``.
+
+    Call it from inside an ``except`` block, in place of ``logging.exception``.
+    The line at *level* is *message* plus the exception's class and nothing more:
+    an exception's text can carry a provider's URL with its query string, or
+    a listener's artist, album and track names, and the traceback repeats it
+    (owner ruling 2026-09-29). Both are still in the DEBUG record for whoever
+    turns that level on, and the redacting formatter still runs over them.
+    """
+    exc_type = sys.exc_info()[0]
+    name = exc_type.__name__ if exc_type is not None else "no active exception"
+    logging.log(level, "%s: %s", message, name)
+    logging.debug("%s (traceback)", message, exc_info=True)
+
+
 def run_async_in_thread(coro):
     """Run an async coroutine synchronously in a short-lived thread.
 
@@ -187,8 +210,10 @@ def run_async_in_thread(coro):
     routes, and ``/api/artist_spotlight``. Background jobs build their own
     loop through ``worker.new_thread_event_loop`` instead.
 
-    An exception is logged here with its traceback, then re-raised in the
-    calling thread, which is the only one that can answer the request.
+    An exception is logged here at ERROR by class only (its message can
+    carry a provider's URL or a listener's names); the full traceback goes
+    to DEBUG. It is then re-raised in the calling thread, which is the only
+    one that can answer the request.
     """
     result = []
     error = []
@@ -199,8 +224,9 @@ def run_async_in_thread(coro):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             result.append(loop.run_until_complete(coro()))
-        except Exception as e:
-            logging.exception(f"Error in async thread: {e}")
+        except Exception as e:  # noqa: BLE001 - re-raised in the caller
+            logging.error(f"Error in async thread: {type(e).__name__}")
+            logging.debug("Async thread traceback", exc_info=True)
             error.append(e)
         finally:
             if loop is not None:
@@ -363,6 +389,26 @@ def format_seconds_mobile(seconds):
     return f"{days}d {hour_remainder}h"
 
 
+def parse_retry_after(value, default=1):
+    """Return a ``Retry-After`` header as whole seconds, *default* if unusable.
+
+    The header may be delta-seconds or an HTTP date, and a provider can send
+    either or garbage; a bad value must cost one retry, not the whole job
+    (F-B23-21). Negative values count as unusable.
+    """
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        return default
+    return seconds if seconds >= 0 else default
+
+
+#: What a provider that cannot be read raises: a transport failure, a timeout,
+#: or a body that is not JSON. With ``failure`` given, only these are
+#: "unavailable"; any other exception is our bug and propagates.
+PROVIDER_FAILURES = (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError)
+
+
 async def retry_with_semaphore(
     inner_fn,
     *,
@@ -376,6 +422,7 @@ async def retry_with_semaphore(
     jitter=None,
     reraise=(),
     error_label="operation",
+    failure=None,
 ):
     """Generic async retry loop with optional semaphore gating.
 
@@ -393,10 +440,35 @@ async def retry_with_semaphore(
     backoff : callable(attempt: int) -> float | float, sleep seconds on
         transient error; accepts a constant float or a callable taking the
         attempt number
-    jitter : optional callable(attempt: int) -> float, added to retry_after
+    jitter : optional callable(attempt: int) -> float, added to a Retry-After
+        sleep. The cap below is checked on the Retry-After alone, before the
+        jitter is added, so a sleep can run as long as
+        ``MAX_RETRY_AFTER_SECONDS`` plus the jitter.
     reraise : tuple of exception types to propagate immediately
-    error_label : str, used in log messages on exception
+    error_label : str, the operation key every failure line names, for
+        example ``"spotify.search"``. Never build it from an album, artist,
+        track or user name: this helper is the one place that decides what a
+        provider-failure line may say (operation, exception class, retry
+        count), so it also writes no exception message, which for an HTTP
+        client error can carry the request URL and its query.
+    failure : optional callable(kind) -> Exception or None, ``kind`` being
+        ``"rate_limited"`` or ``"unavailable"``. When given, a throttled or
+        exhausted call raises ``failure(kind)`` instead of returning
+        ``default``, so a caller can tell a provider that refused from a
+        provider that answered "no match". ``rate_limited`` when the last
+        attempt was a 429 or a Retry-After above the cap, else ``unavailable``
+        (a timeout, a connection error, a 5xx, a bad body). A factory that
+        returns None declines that kind and ``default`` is returned. With
+        ``failure`` given, only ``PROVIDER_FAILURES`` are retried and counted
+        as "unavailable"; any other exception propagates at once, so it is
+        classified as ours rather than as a provider outage.
+
+    A Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one warning
+    is logged and ``default`` is returned at once, or ``failure`` raised.
+
+    Never sleeps after the final attempt, on either path.
     """
+    kind = "unavailable"
     for attempt in range(retries):
         try:
             result_tuple = await _run_with_optional_semaphore(inner_fn, semaphore)
@@ -406,18 +478,52 @@ async def retry_with_semaphore(
 
             retry_after = get_retry_after(result_tuple)
             if retry_after is not None:
-                await _sleep_retry_after(retry_after, jitter, attempt)
+                kind = "rate_limited"
+                if retry_after > MAX_RETRY_AFTER_SECONDS:
+                    logging.warning(
+                        f"Retry-After {retry_after}s for {error_label} exceeds "
+                        f"the {MAX_RETRY_AFTER_SECONDS}s cap; giving up"
+                    )
+                    break
+                if attempt < retries - 1:
+                    await _sleep_retry_after(retry_after, jitter, attempt)
                 continue
+            kind = "unavailable"
         except reraise:
             raise
         # Broad on purpose: a retry helper retries whatever its callable
         # raises, except the declared ``reraise`` types. What it owes the
         # reader is the exception's class, so a programming error retried
-        # here cannot pass for a network blip in the log.
+        # here cannot pass for a network blip in the log. The message is
+        # left out on purpose (see ``error_label`` above).
         except Exception as e:  # noqa: BLE001
-            logging.error(f"Error in {error_label}: {type(e).__name__}: {e}")
+            if failure is not None and not isinstance(e, PROVIDER_FAILURES):
+                logging.error(f"Error in {error_label}: {type(e).__name__}")
+                raise
+            kind = "unavailable"
+            logging.error(f"Error in {error_label}: {type(e).__name__}")
 
-        await asyncio.sleep(_resolve_backoff(backoff, attempt))
+        if attempt < retries - 1:
+            await asyncio.sleep(_resolve_backoff(backoff, attempt))
+    else:
+        logging.error(f"All {retries} retries failed for {error_label}")
 
-    logging.error(f"All {retries} retries failed for {error_label}")
+    error = failure(kind) if failure is not None else None
+    if error is not None:
+        raise error
     return default
+
+
+async def cancel_and_drain(tasks: Sequence[asyncio.Future]) -> None:
+    """Cancel every unfinished task in *tasks* and wait for all to settle.
+
+    Called before an exception leaves a fan-out, so no fetch is left pending
+    on a session that is about to close. Results and exceptions of the
+    settled tasks are discarded (retrieved, so asyncio does not log them);
+    the caller re-raises the original exception unchanged. *tasks* is a
+    sequence, not any iterable, because it is walked twice.
+    """
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)

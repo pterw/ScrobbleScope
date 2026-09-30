@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -359,3 +360,81 @@ def test_journal_entries_may_not_escape_the_root(root, tmp_path):
         publish(root, {}, {})
 
     assert outside.read_bytes() == b"original\n"
+
+
+@pytest.fixture
+def junction(root, tmp_path):
+    """A real directory junction `root/j` pointing at a directory outside it."""
+    if os.name != "nt":
+        pytest.skip("directory junctions exist only on Windows")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "existing.md").write_bytes(b"outside\n")
+    link = root / "j"
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(outside)],
+        check=True,
+        capture_output=True,
+    )
+    try:
+        yield link
+    finally:
+        # rmdir on the junction itself; never a recursive delete through it.
+        os.rmdir(link)
+
+
+@pytest.mark.parametrize("leaf", ["new.md", "existing.md"])
+def test_a_junction_cannot_carry_a_path_out_of_the_root(root, junction, leaf):
+    """A junction is not a symlink to `Path.is_symlink()`: a new leaf through
+    it used to be accepted and to resolve outside the root."""
+    with pytest.raises(SyncError, match="junction"):
+        resolve_within(root, f"j/{leaf}")
+
+
+def test_a_reparse_point_is_refused_by_containment_alone(root, junction, monkeypatch):
+    """With the junction check unavailable, the leaf-independent containment
+    test still refuses a new leaf that resolves outside the root."""
+    monkeypatch.setattr(Path, "is_junction", lambda self: False)
+    with pytest.raises(SyncError, match="escapes the archive root"):
+        resolve_within(root, "j/new.md")
+
+
+def test_publication_compares_against_the_plans_bytes_not_a_fresh_read(root):
+    """The proof is only as good as the `expected` bytes it is handed: a
+    concurrent edit sinks the run when they are the bytes the plan read."""
+    page = root / "pages" / "one.md"
+    planned_from = page.read_bytes()
+    page.write_bytes(b"# edited after the plan\n")
+
+    with pytest.raises(SyncError, match="Source changed before publication"):
+        publish(root, {page: b"# planned\n"}, {page: planned_from})
+
+    assert page.read_bytes() == b"# edited after the plan\n"
+
+
+def test_an_unfinished_journal_is_reported_as_doc026(root):
+    victim = root / "pages" / "one.md"
+    assert transaction.unfinished_journal_issue(root) is None
+    transaction._write_journal(root, {victim: b"# one\n"}, {victim: b"# half\n"})
+
+    issue = transaction.unfinished_journal_issue(root)
+
+    assert issue is not None
+    assert (issue.code, issue.severity, issue.path) == (
+        "DOC026",
+        "error",
+        JOURNAL_NAME,
+    )
+
+
+def test_recover_pending_replays_the_journal_without_any_new_work(root):
+    victim = root / "pages" / "one.md"
+    transaction._write_journal(root, {victim: b"# one\n"}, {victim: b"# half\n"})
+    victim.write_bytes(b"# half\n")
+
+    assert transaction.recover_pending(root) is True
+
+    assert victim.read_bytes() == b"# one\n"
+    assert not (root / JOURNAL_NAME).exists()
+    assert not (root / LOCK_NAME).exists()
+    assert transaction.recover_pending(root) is False

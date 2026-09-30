@@ -1,424 +1,510 @@
 # ScrobbleScope: Development Methodology
 
-This document explains how ScrobbleScope was built: the orchestration
-strategy, the tooling decisions, and the reasoning behind each one. It is
-written for anyone who clones this repository and wants to understand why
-the project is structured the way it is beyond what `AGENTS.md` prescribes.
-It is explanatory documentation. Operational rules remain owned by
-`AGENTS.md`, and nothing here overrides them. One section is an exception:
-Frontend Asset Build owns the build and watch commands, and other documents
-point to it for them.
+ScrobbleScope was built by one developer working with several LLM coding
+agents. An agent has no memory between sessions, and it cannot see what
+another agent did. So nothing that matters is allowed to live only in a chat.
+Decisions, state and rules live in tracked files. Scripts and hooks check
+those files, because an agent cannot be trusted to keep them tidy by hand.
+
+The pieces, in one sentence each:
+
+- `AGENTS.md` holds the rules every agent follows.
+- `docs/agents/PLAYBOOK.md` holds the work order and the execution log.
+- `.claude/SESSION_CONTEXT.md` is the dashboard of current state.
+- `scripts/doc_state_sync.py` rotates and checks those documents.
+- `scripts/dev/check_worktree_alignment.py` checks the git worktree.
+- `scripts/dev/frontend_gate.py` drives a real browser against the app.
+- `scripts/dev/tailwind_build.py` builds the committed stylesheet.
+
+This document explains why each piece exists and shows each tool running.
+It is explanatory. `AGENTS.md` owns the operational rules, and nothing here
+overrides them. One section is an exception: Frontend Asset Build owns the
+build and watch commands, and other documents point to it. The owner plans to
+lift this workflow out into a reusable template. That intent is recorded in
+`docs/agents/AGENT_NOTES.md`, under "This repository is also a template being
+extracted". The section "This Repository Is Also a Template Being Extracted"
+below reports how far the work has gone.
+
+In every "In action" block, the output was captured from a real run. Lines cut
+for length are marked `...`. Counts and timings change from run to run, so
+read them as examples.
 
 ---
 
 ## The Core Problem: Collaborating With Amnesiac Engineers
 
-ScrobbleScope was built primarily by one developer working with several LLM coding agents -- some within VSCode and others externally -- across large gaps of time.
+The prototype-to-deployed-app work happened mostly in a compressed
+February-March sprint, with lighter follow-up work later. The project had been
+abandoned once, after a thundering-herd bug and a large monolithic `app.py`.
+Rate-limiter changes fixed the herd. The Batch 8 refactor replaced the
+monolith with Flask Blueprints and an application factory. More coding agents
+were then added, some inside VSCode and some outside it.
 
-The bulk of the prototype-to-deployed-app work happened in a compressed
-February-March sprint, with lighter follow-up work later. The project had
-initially been abandoned after encountering a thundering-herd issue and a
-large monolithic `app.py`. Rate-limiter changes addressed the herd behavior,
-while the Batch 8 refactor replaced the monolith with Flask Blueprints and an
-application factory. Additional coding agents were later integrated into the
-IDE.
+That created the central problem. An LLM has a finite context window and no
+persistent memory. It cannot tell another agent what it did. Every session
+starts from zero. A model that produced a clean refactor yesterday does not
+know it did so today. A different model does not know either.
 
-This led to the central challenge: at the time of development, LLMs have finite context windows and no
-persistent memory. Further, they cannot communicate their work to other agents. Effectively, every session starts from zero. A model that produced
-a clean architectural refactor yesterday has no idea it did so today, and a different model is oblivious to changes made by another model.
+Left unmanaged, this produces four failures:
 
-Left unmanaged, this produces:
+- **Drift**: two agents edit related files with different ideas of the
+  current state.
+- **Regression**: an agent redoes finished work, or undoes a deliberate
+  decision, because no record says why the code looks as it does.
+- **Token bloat**: one "catch-up" file grows until it fills the context window
+  before any work starts.
+- **Lost reasoning**: a review tool flags code as wrong because it cannot see
+  why the code was written that way.
 
-- **Drift**: two agents editing related files with different assumptions
-  about current state.
-- **Regression**: an agent re-implementing something already done, or
-  undoing a deliberate decision, because it has no record of why the
-  previous state was chosen.
-- **Token bloat**: a single "catch-up" file that grows unbounded and
-  eventually eats most of the context window before any work is done.
-- **Lost reasoning**: a code review tool flagging something as wrong
-  because it has no causal knowledge of why the code looks the way it does.
-
-The orchestration system described here was built specifically to address
-these failure modes.
+The orchestration system below exists to prevent these four failures.
 
 ---
 
 ## The Orchestration Architecture
 
-The external-memory layer consists of five core tracked files, the advisory
-read-on-demand `FINDINGS.md`, and two archive directories. Each has a primary
-concern, and the design goal is that canonical facts live in exactly one
-place.
+The external-memory layer is a small set of tracked files, the read-on-demand
+`docs/agents/FINDINGS.md`, and two archive directories. Each file has one
+concern. The design goal is that every fact lives in exactly one place.
 
-`HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
-session. It links to `AGENTS.md` for rules rather than summarising them:
-earlier versions did condense the rules into a cold-start checklist, and
-every summary eventually drifted from the text it summarised.
+`docs/agents/HANDOFF_PROMPT.md` holds only what is unique to starting and
+ending a session. It links to `AGENTS.md` for rules instead of summarising
+them. Earlier versions summarised the rules in a cold-start checklist, and
+every summary drifted from the text it summarised.
 
-`AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
-restating them. `README.md` is excluded from the agent memory layer; it
-exists for *people* to read and is explicitly not used for orchestration.
+`README.md` is outside this memory layer. It is written for people and is not
+used for orchestration.
 
 ### `AGENTS.md` -- Rules
 
-Written in imperative, rule-form language. Contains invariants that must
-hold across all sessions and all agents: commit format, test quality
-standards, what constitutes a side-task vs. batch work, how to bootstrap
-a new session, how to run pre-commit and doc sync. It does not contain
-current state, nor does it contain history. It is rarely subject to change.
+`AGENTS.md` states the invariants every session must keep: commit format, test
+quality, what counts as a side task and what counts as batch work, how to
+start a session, and how to run pre-commit and doc sync. It holds no current
+state and no history. It rarely changes.
 
-The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
-because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-scoped commit.
+Its language is deliberately strict ("Must", "Do not", "Forbidden"). An LLM
+handles ambiguity poorly. A wrong inference can break the pipeline or scope a
+commit wrongly.
 
-### `HANDOFF_PROMPT.md` -- Session Start and Handoff
+### `docs/agents/HANDOFF_PROMPT.md` -- Session Start and Handoff
 
-Given to any agent beginning work, and intended to be passed verbatim as
-context when delegating to a new session. It holds the two things that
-belong to no other file: verifying that repository reality matches what
-the bootstrap documents claim (branch, recent commits, test count), and
-the checklist for handing work to the next session.
+The owner gives this file to any agent that starts work, and passes it as
+context when delegating to a new session. It holds two things that belong to
+no other file:
 
-The read order, validation gates, and commit discipline it once restated
-now live only in `AGENTS.md`. Each restatement had drifted from the
-canonical text -- in one case a copy silently outlived the rule it
-described -- so the copies were replaced with pointers.
+- the check that repository reality matches what the bootstrap documents claim
+  (branch, recent commits, test count);
+- the checklist for handing work to the next session.
 
-### `AGENT_NOTES.md` -- Owner Context
+The read order, the validation gates and the commit rules once lived here too.
+They now live only in `AGENTS.md`. Each copy had drifted from the original. In
+one case a copy outlived the rule it described. So the copies became pointers.
 
-Tracks facts that belong to no other file: owner workflow preferences,
-local dev setup (Docker, Postgres, Browser MCP), architectural
-constraints discovered during development, and known open issues. Tracked
-in git so every agent -- regardless of tool or machine -- reads the same
-preferences.
+### `docs/agents/AGENT_NOTES.md` -- Owner Context
 
-### `PLAYBOOK.md` -- Work Orders
+This file records facts that belong nowhere else: the owner's workflow
+preferences, the local dev setup (Docker, Postgres, Browser MCP), constraints
+found during development, and known open issues. It is tracked in git, so
+every agent on every machine reads the same preferences. For venv rules it
+points to `AGENTS.md`.
 
-The source of truth for what work is in progress, what is next, and what
-was just completed. Structured as:
+### `docs/agents/PLAYBOOK.md` -- Work Orders
 
-- **Section 1**: Why the document exists (agent onboarding, not history).
-- **Section 2**: Ordered batch table with archive links (completed batches
-  only have a row and a `docs/history/` link).
-- **Section 3**: Active batch state. Enough detail for an agent to
-  continue mid-batch without needing to re-read anything else, saving tokens.
-- **Section 4**: Small current execution-log window. Dated entries for the active window only.
-  Older entries rotate automatically into the archive.
+The PLAYBOOK is the source of truth for what work is in progress, what is
+next, and what just finished. It has four sections:
 
-The batch/work-package (WP) structure is designed to mimic a lightweight sprint system.
+- **Section 1**: why the document exists (agent onboarding, not history).
+- **Section 2**: the ordered batch table. A finished batch keeps only a row
+  and a `docs/history/` link.
+- **Section 3**: the active batch state. It has enough detail for an agent to
+  continue mid-batch without reading anything else.
+- **Section 4**: a small window of dated execution-log entries. Older entries
+  rotate into the archive.
 
-Each batch starts with a definition document at the repository root
-(`BATCHN_DEFINITION.md`) that specifies acceptance criteria before work begins --
-this is the "definition of done" that prevents scope creep mid-batch and gives
-a later agent an unambiguous target. At close-out, the definition is archived
-under `docs/history/definitions/`.
+Batches and work packages (WPs) work like a light sprint system. Each batch
+starts with a definition document at the repository root
+(`BATCHN_DEFINITION.md`). It states the acceptance criteria before work
+begins. That prevents scope creep and gives a later agent an unambiguous
+target. At close-out the definition moves to `docs/history/definitions/`.
 
-Agents write the narrative entry; `doc_state_sync.py` performs the
-mechanical rotation, dedup, and status-block refresh. The behavioral rule
-for what an agent must check before appending a new entry lives in
-`AGENTS.md` ("Before writing to Section 4") -- this file only explains
-why the split exists: see "`doc_state_sync.py`: Why a Script, Not a
-Prompt" below.
+Agents write the narrative log entry. `doc_state_sync.py` does the mechanical
+work: rotation, deduplication and the status-block refresh. `AGENTS.md`
+("Before writing to Section 4") owns what an agent must check before it
+appends an entry. The next section explains why a script does the mechanical
+part.
 
 ### `.claude/SESSION_CONTEXT.md` -- Dashboard
 
-A machine-managed snapshot: current test count, branch, known risks,
-module structure, dependency graph, architecture overview. It is not
-a rules file and not a history file. It exists so a new agent session can read
-one file and understand the current runtime state without parsing PLAYBOOK.md
-or running tests.
+This file is a machine-managed snapshot: the current test count, the branch,
+known risks, the module structure, the dependency graph and the architecture
+overview. It is not a rules file and not a history file. A new session reads
+this one file to learn the current runtime state, instead of parsing the
+PLAYBOOK or running the tests.
+`docs/history/reports/SESSION_CONTEXT_REFERENCE.md` holds a reference snapshot
+of its format.
 
-This file lives in `.claude/` and is committed to the repo (tracked via
-an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
-It is the shared cross-agent dashboard -- all agents bootstrap from it.
-A reference snapshot (showing what the file looks like) is kept at
-`docs/history/reports/SESSION_CONTEXT_REFERENCE.md` for readers curious about
-the format.
+The file lives in `.claude/` and is committed. A `.gitignore` exception makes
+that work: `.claude/*` plus `!.claude/SESSION_CONTEXT.md`. It is committed
+because every agent must start from the same state. When it was uncommitted,
+agents started with a stale branch, test count and batch status.
 
-**Why committed?** Because every agent used in development needs to start from an identical state. Leaving it uncommitted caused
-drift: agents would start sessions with stale branch, test count, and batch
-status.
+CI does not depend on it. If the file is absent, `doc_state_sync.py` skips the
+SESSION_CONTEXT steps through `_read_lines_optional()`. The rest still runs.
+That covers a sparse checkout or a custom workflow. See commit `05c7b19` on
+`main` for the original change.
 
-Crucially, CI does not depend on it. If the file is absent, `doc_state_sync.py`
-skips SESSION_CONTEXT operations gracefully via `_read_lines_optional()`.
-The machine-managed `DOCSYNC:STATUS` block is a derived view (rebuilt from
-PLAYBOOK truth by `--fix`), which means forgetting to update it manually
-is self-correcting.
+The `DOCSYNC:STATUS` block inside the file is a derived view. `--fix` rebuilds
+it from the PLAYBOOK. Forgetting to update it by hand therefore corrects
+itself.
 
 ### `docs/history/` -- The Archive
 
-Contains completed batch definitions, per-batch logs, audits, old changelogs, etc.
-Once a batch is done, its definition moves here. Entries in PLAYBOOK Section 4 rotate
-here automatically when the window overflows. Nothing is deleted -- the
-archive exists because LLM agents benefit from being able to grep past
-decisions without loading them into the active context.
+The archive holds finished batch definitions, per-batch logs, audits and old
+changelogs. A finished batch's definition moves here. PLAYBOOK Section 4
+entries rotate here when the window overflows. Nothing is deleted. Agents can
+grep past decisions without loading them into the active context.
 
-The archive is organized into subdirectories:
-- `docs/history/definitions/`: archived batch definition files (`BATCHN_DEFINITION.md`)
-- `docs/history/logs/`: per-batch execution logs rotated from PLAYBOOK Section 4
-- `docs/history/findings/`: resolved findings rotated out of `FINDINGS.md`
-- `docs/history/reports/`: the dated one-off documents -- audits, changelogs,
-  refactor plans, the worker ADR, and the SESSION_CONTEXT format snapshot
-- `docs/logarchive/`: auto-managed monolith archive for non-batch (side-task) entries
+Its subdirectories:
 
-The other subdirectories hold structured series that a tool or a documented
-procedure writes into; `reports/` holds everything written once about one
-topic. Its documents are point-in-time records and are
-not revised to match later reorganisations, so paths cited *inside* them may
-name a pre-2026-08-14 layout. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
-stays at the top level on purpose: it is a tombstone whose job is to resolve
-references to that legacy path.
+- `docs/history/definitions/`: archived batch definitions.
+- `docs/history/logs/`: per-batch execution logs rotated from Section 4.
+- `docs/history/findings/`: resolved findings rotated out of
+  `docs/agents/FINDINGS.md`.
+- `docs/history/reports/`: dated one-off documents (audits, changelogs,
+  refactor plans, the worker ADR, the SESSION_CONTEXT snapshot). These are
+  point-in-time records. They are not revised after later reorganisations, so
+  paths inside them may name a layout from before 2026-08-14.
+- `docs/logarchive/`: the tool-managed archive for side-task entries that
+  belong to no batch.
 
-Other notable documents:
-- `reports/AUDIT_*.md` / `reports/BUGFIX_*.md`: external review findings and responses
+A tool or a documented procedure writes into every subdirectory except
+`reports/`. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` stays at the top
+level on purpose. It is a tombstone that resolves references to the legacy
+path.
 
 ---
 
 ## `doc_state_sync.py`: Why a Script, Not a Prompt
 
-The doc synchronization tool is the most non-obvious part of the
-infrastructure. In sum, as of development, you cannot ask an LLM
-to reliably rotate 50-line Markdown sections between files without
-eventually introducing content corruption, duplicate entries, or broken
-marker placement.
+You cannot ask an LLM to rotate 50-line Markdown sections between files
+without eventually getting corruption, duplicate entries or broken markers.
+This is the least obvious part of the infrastructure, so it gets the most
+space here.
 
-The problem surfaced during early PLAYBOOK maintenance: as Section 4
-grew, agents would trim it differently each session -- sometimes removing
-entries that should have been archived, sometimes duplicating content,
-sometimes moving entries across the `<!-- DOCSYNC -->` boundary markers
-in ways that broke the rotation policy. The markers themselves were
-introduced to make the boundary explicit, but LLMs would occasionally
-edit them out or misplace them.
-
-`doc_state_sync.py` makes the rotation deterministic:
-
-1. **Parses** Section 4 of PLAYBOOK.md into typed `Entry` dataclasses
-   (date, title, content lines, SHA-256 fingerprint of the full block).
-2. **Partitions** entries into current-batch (inside the DOCSYNC markers)
-   and non-current (outside) buckets.
-3. **Enforces** the keep policy: non-current entries beyond the configured
-   keep limit are moved to the archive file, never deleted.
-4. **Deduplicates** the archive by fingerprint -- the same entry content
-   can never appear twice, even if an agent manually copied an entry.
-5. **Rebuilds** the managed `<!-- DOCSYNC:STATUS-START/END -->` block in
-   `SESSION_CONTEXT.md` from PLAYBOOK truth, so the two files are always
-   consistent without manual editing. Which count wins is a rule, so it is
-   owned by `AGENTS.md` ("Integrity diagnostics"); conflicting named
-   dashboard, status, or test inventory counts are blocking integrity errors.
-6. **Enforces** live-document integrity: dead concrete references, active
-   definition metadata, archive prologue drift, and session contradictions
-   produce stable blocking diagnostics. `--fix` first writes only
-   deterministic output, then revalidates the final disk state; it does not
-   guess at semantic repairs.
-
-The script runs as a pre-commit hook (`doc-state-sync-check` in
-`.pre-commit-config.yaml`) in `--check` mode. This means any commit that
-leaves deterministic drift or a proven live-document contradiction is rejected
-at the gate, before it reaches CI.
-
-**Package structure.** The script was originally a monolithic 600-line file.
-Batch 14 decomposed it into a proper Python package (`scripts/docsync/`) with
-separate modules for parsing (`parser.py`), rendering (`renderer.py`),
-rotation/dedup logic (`logic.py`), live-document integrity (`integrity.py`),
-the CLI entrypoint (`cli.py`), and typed dataclass models (`models.py`); the
-root `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
-package. This made each concern independently testable.
-
-Batch 22 added six more modules, because the same discipline was extended to
-the things a batch close-out has to get right: `declarations.py` (the
-declared-duplicate and retired-claim checker, `[[value]]` / `[[anchor]]` /
-`[[retired]]`, reading its facts from `.docsync.toml` rather than hard-coding
-them), `closeout.py` (the six close-out signals a managed batch must satisfy),
-`archives.py` (bounded paginated archives), `findings.py` (finding lifecycle
-and rotation), `transaction.py` (crash-safe publication), and `markdown.py`
-(the shared fenced-block scanner that keeps a quoted example from parsing as
-real content).
-
-Twelve modules, and twelve matching test files in `tests/`
-(`test_docsync_archives.py`, `test_docsync_cli.py`, `test_docsync_closeout.py`,
-`test_docsync_declarations.py`, `test_docsync_findings.py`,
-`test_docsync_integrity.py`, `test_docsync_logic.py`, `test_docsync_markdown.py`,
-`test_docsync_parser.py`, `test_docsync_renderer.py`,
-`test_docsync_test_count.py`, `test_docsync_transaction.py`), plus
-`tests/scripts/dev/test_docsync_preflight.py` and `test_docsync_hook.py` for
-the two entry points that live under `scripts/dev/`. Run
-`pytest tests/test_docsync_*.py -q` for the current measured count rather than
-preserving a number here that will drift as edge-case coverage grows.
-
-**Publication is crash-safe, and that is not incidental.** Reading PLAYBOOK
-Section 4 and writing it back is a read-modify-write across several files, and
-a half-finished write would leave the corpus in a state no later agent could
-reason about: some entries rotated, others not, with the archive index
-disagreeing with the pages beside it. So every mutating mode (`--fix`,
-`--close-batch`, `--split-archive`, `--paginate-archives`, `--cold-storage`)
-publishes through `scripts/docsync/transaction.py`:
-
-1. An exclusive lock (`.docsync.lock`) makes the run single-writer.
-2. Every file it read is proved still byte-identical to what it read, so a
-   concurrent edit is a refusal rather than a silent clobber.
-3. The before-image of every path is journalled (`.docsync.journal`) *before*
-   the first write lands.
-4. Each write goes to a same-directory staging file (`.docsync-stage`) and
-   lands via `os.replace`, which is atomic on one filesystem.
-5. A run killed between two writes leaves the journal behind; the next
-   publication replays it against the on-disk state, or refuses if a
-   journalled file matches neither the before-image nor the interrupted
-   content. It never guesses which side of that disagreement is the history
-   worth keeping.
-
-The property this buys is narrower than "the tool is transactional" and it is
-worth stating precisely: a crash can lose the whole run, but it cannot leave a
-partially-published corpus. That is the guarantee the journal, the lock and the
-staged rename exist to provide.
-
-**Archives are bounded, and their ordering is deliberate.** `archives.py` caps
-a page at 500 lines by default and paginates an archive that outgrows it into
-numbered, immutable pages, keeping a flattened index so every page stays
-searchable Markdown. Page `0001` holds the *oldest* content -- version 1
-numbered pages in reading order, which put the newest entries on the oldest
-page, and reversing that is what `4b36d6a` fixed. Cold migration never reads
-the system clock: it happens only under an explicit `--cold-storage --as-of
-<ISO date>`, because a check that aged files using today's date would make the
-same commit produce different results on different days.
-
-The full module-by-module treatment, the DOC001-DOC023 diagnostic catalogue,
-and the commit-preflight and hook-installer design live in
-`docs/architecture/documentation-tooling.md`. That file is the owner; this
-section is the methodology narrative around it and deliberately does not
-restate the catalogue.
-
-**The rotation is a mechanism because agents could not be trusted with it.**
-This is the origin of the whole package, and it is worth recording in the
-engineering terms rather than the motivational ones. Rotating a section between
-two Markdown files is a read-modify-write over documents that must stay
-byte-consistent with each other, and it was performed by hand three times. Each
-attempt produced a distinct failure: an entry archived that should have stayed,
-an entry duplicated across the boundary, and a stale remark left in place after
-the text it described had moved. All three are silent -- the document still
+The problem appeared early. As PLAYBOOK Section 4 grew, agents trimmed it
+differently each session. Some removed entries that should have been
+archived. Some duplicated entries. Some moved entries across the
+`<!-- DOCSYNC -->` boundary markers and broke the rotation policy. Some
+deleted the markers. Rotation by hand was tried three times, and each try
+failed differently: an entry archived that should have stayed, an entry
+duplicated across the boundary, and a stale remark left behind after the text
+it described had moved. All three failures are silent. The document still
 renders, so nothing tells the reader it is now wrong.
 
-The response was to stop asking for care and build the three pieces that make
-the operation deterministic instead: a **parser** that reads the section into
-typed entries, a **renderer** that emits the result, and **rotation** that
-decides what moves. Those are the load-bearing parts of the package, and they
-exist precisely because the task is one an LLM is not reliable at over many
-sessions. The hooks and the diagnostics came later, once there was a mechanism
-worth guarding.
+The fix was to stop asking for care and build a mechanism: a parser that reads
+the section into typed entries, a renderer that writes the result, and a
+rotation step that decides what moves. The hooks and diagnostics came later,
+once there was a mechanism worth guarding.
 
-**"ACID" is a shorthand here, not a claim.** The publication path is usually
-described as ACID-like, and it is worth being exact about how far that carries,
-because overclaiming it would be its own kind of stale remark:
+### What the script does
 
-- **Atomicity** is real. A publication commits or does not, via the staged
-  rename, and a crash cannot leave a partially-written corpus.
-- **Consistency** is real, and enforced by a declarative rules engine rather
-  than by hand. The invariant checks are the C in the analogy.
-- **Isolation** is partially accurate. The exclusive lock makes the run
-  single-writer, but it is filesystem-, not database-, scoped: it does not
-  coordinate across machines and does not serialise readers.
-- **Durability** is accurate within filesystem semantics. The journal is on
-  disk and survives the process, but it is not an fsync-per-write guarantee
-  against power loss.
+1. **Parses** Section 4 of the PLAYBOOK into typed entries. Each has a date, a
+   title, its lines and a SHA-256 fingerprint.
+2. **Splits** the entries into current-batch (inside the DOCSYNC markers) and
+   non-current (outside them).
+3. **Enforces the keep limit.** Non-current entries beyond the limit move to
+   the archive. Nothing is deleted.
+4. **Deduplicates** the archive by fingerprint. The same entry cannot appear
+   twice, even if an agent copied it by hand.
+5. **Rebuilds** the `<!-- DOCSYNC:STATUS-START/END -->` block in
+   `SESSION_CONTEXT.md` from PLAYBOOK truth. `AGENTS.md` ("Integrity
+   diagnostics") owns the rule for which count wins when counts disagree.
+6. **Checks live-document integrity.** Dead references, active-definition
+   metadata, archive prologue drift and session contradictions each produce a
+   stable, blocking diagnostic. `--fix` writes only deterministic output, then
+   revalidates the result. It never guesses at a semantic repair.
 
-So the precise description is an **atomic file-transaction and invariant
-enforcement system**: atomic batch publishing, strict mechanistic invariant
-checking, exclusive write locks, and persistent on-disk recovery state, instead
-of uncoordinated script overwrites. The acronym is useful because it
-communicates the design intent in one word to a reader who already knows what
-those properties cost; it stops being useful the moment it is read as a
-database guarantee.
+The script runs as the `doc-state-sync-check` pre-commit hook in `--check`
+mode. The hook goes through `scripts/dev/docsync_preflight.py --worktree`. A
+commit that leaves drift, or a proven contradiction between live documents, is
+refused before it reaches CI.
 
-**What else the package carries.** Three pieces are what turn the mechanism
-into a workflow, and all three were built in the docsync close-out work:
+### In action: `--check` on a clean tree
 
-- **The commit preflight** (`scripts/dev/docsync_preflight.py`). It validates
-  the *commit candidate* rather than the working tree, so a commit cannot carry
-  a broken document set past the gate, and it is deliberately the first hook in
-  `.pre-commit-config.yaml` so nothing downstream can rewrite the files it just
-  validated.
-- **The hook installer** (`scripts/dev/install_docsync_hook.py`). Docsync has
-  to run before any other hook can touch a candidate, which pre-commit's own
-  dispatch does not give you; the installer generates a wrapper that enforces
-  the ordering and refuses to overwrite a hook it did not write. It is
-  **opt-in and not installed in this repository** -- running it for real is an
-  owner action.
-- **The CLI surface** (`scripts/doc_state_sync.py`). `--check` and `--fix` are
-  the daily pair; `--close-batch`, `--split-archive`, `--paginate-archives` and
-  `--cold-storage --as-of` are the maintenance modes, each of which publishes
-  through the transaction above.
+```text
+$ python scripts/doc_state_sync.py --check
+WARNING DOC024 docs/history/logs/BATCH22_LOG.md -- An archive under its page target of 500 lines stays a single file; ...
+Remediation: docs/history/logs/BATCH22_LOG.md has grown past the 500-line page target. Run `python scripts/doc_state_sync.py --paginate-archives` to split it into indexed, numbered pages. This warning writes nothing on its own.
+...
+WARNING: Root BATCH file detected: BATCH23_DEFINITION.md should be archived under docs/history/definitions/.
+doc_state_sync check passed (current_batch_entries=0, kept_non_current=4, rotated=0).
+```
 
-**SESSION_CONTEXT.md is optional in CI.**
+The command exits 0. A warning never blocks a commit.
 
-The file is committed to the repo and is normally present in GitHub Actions (with a standard
-`actions/checkout@v4` workspace). `doc_state_sync.py` still treats it as
-optional via `_read_lines_optional()`: if the file is missing (for
-example, in a sparse checkout or custom workflow), all operations that
-depend on it are silently skipped. Tests still pass; the PLAYBOOK rotation
-still occurs. See commit `05c7b19` on `main` for the original change.
+- `WARNING DOC024` says an archive has grown past its page target. Each
+  warning is followed by its own `Remediation:` line. The tool only reports
+  it. Splitting the archive is a separate operator command
+  (`--paginate-archives`), described in
+  `docs/architecture/documentation-tooling.md` under "CLI surface added by
+  the close-out and bounded-archives plan". An ordinary commit does not run
+  it. Per `AGENTS.md` ("Doc Sync Rules"), warnings print without changing
+  the exit code.
+- `WARNING: Root BATCH file detected` appears while a batch is active. Its
+  definition sits at the repository root until close-out archives it. It
+  needs no action mid-batch.
+- The last line is the verdict. The numbers in it describe what the check
+  saw. Only the word `passed` and the exit code matter.
 
-### Worktrees, rebase merges, and branch lineage
+### In action: a planted defect
 
-ScrobbleScope uses linked Git worktrees so a long-running batch can remain
-isolated from the owner's main checkout. A linked worktree has its own checked
-out branch and working directory, but it shares the repository's object store
-and other common Git data. Updating `main` therefore does not move the batch
-branch automatically.
+To see a failure, this run copied the tree to a scratch directory, ran
+`git init` there, and changed one declared value. `config/docsync.toml`
+declares that the light page background is `#faf7f0` in several files. The
+edit changed one copy in `static/css/shell.css` to `#faf7f1`.
 
-That distinction matters after a GitHub rebase merge. GitHub recreates the
-source commits on `main` with new commit identities, while the source branch
-continues to point at the pre-merge commits. Git can then report the branch as
-both ahead and behind even when its tree is byte-identical to `main`. This
-happened after PRs #163, #165, and #168. On two of those cycles, the stale
-branch contributed to a phantom or reverse-direction follow-up PR.
+```text
+$ python scripts/doc_state_sync.py --check
+...
+ERROR DOC009 static/css/shell.css:15 -- static/css/shell.css states 'the shared light page and navbar background' as #faf7f1 here and the declaration expects #faf7f0.
+Remediation: Every occurrence in this file must read the same. Change it, or change the declaration if the value itself has moved.
+...
+```
 
-Ignored local state is separate too. The repository's sole `.venv` normally
-lives in the primary checkout and is not copied into linked worktrees. A
-fresh shell in a linked worktree therefore cannot rely on bare `pytest` or a
-relative `.venv` path, which is why `AGENTS.md` directs those commands at the
-qualified executable from the primary checkout. A second environment inside
-the worktree would reintroduce the package-version drift that policy exists
-to prevent.
+The command exits 1, and the pre-commit hook would refuse the commit.
 
-That creates a deliberate bootstrap asymmetry. The guard must run before the
-primary checkout paths are known, so the canonical AGENTS procedure permits
-system Python only for that first, standard-library-only launch. The paths it
-reports then identify the existing environment used for later Python, pytest,
-and pre-commit commands. This paragraph explains the design; operational
-authority remains exclusively in `AGENTS.md`.
+- `ERROR DOC009` is the code. The catalogue in
+  `docs/architecture/documentation-tooling.md` explains every code.
+- `static/css/shell.css:15` is the file and line that disagree.
+- The message names the fact, the value found and the value expected.
+- `Remediation:` says what to do. Here you either put the value back, or, if
+  the value really changed, change the declaration in `config/docsync.toml`
+  in the same commit.
 
-The safe diagnosis compares both commit ancestry and tree identity. A clean,
-content-identical divergence is normally a rebase-merge artifact; a divergence
-with different trees is real work and must not receive the same reset remedy.
-Realignment is intentionally never automatic because resetting and
-force-pushing rewrite branch history and require explicit owner approval.
+The scratch copy was deleted afterwards.
 
-The shipped remediation keeps two safeguards separate. Deterministic drift
-inside live operational documents is a blocking extension of
-`doc_state_sync.py`, which runs locally and in CI. The read-only worktree
-alignment guard handles local bootstrap and post-rebase checks, and reports
-the allowed shared virtualenv path without creating or modifying an
-environment. It is not a CI topology gate: detached recognized CI reports an
-explicit skip, while the existing test workflow exercises the guard's state
-decisions. The detailed design lives in
+### In action: `--fix --test-count N`
+
+`AGENTS.md` ("Procedure before every commit") requires the suite to run first.
+The measured count then goes to the script. Never hand-edit the count. N is
+the number the `pytest -q` run just printed.
+
+```text
+$ python scripts/doc_state_sync.py --fix --test-count N
+...
+doc_state_sync wrote updates:
+- .claude\SESSION_CONTEXT.md
+- config\docsync.toml
+- docs\agents\FINDINGS.md
+doc_state_sync summary (current_batch_entries=0, kept_non_current=4, rotated=0).
+```
+
+One command wrote the number in five places across three files. The diff, in
+short:
+
+```text
+.claude/SESSION_CONTEXT.md   Tests row: "**<N> passing** across ... tracked test modules"
+.claude/SESSION_CONTEXT.md   STATUS block: "Latest validated test count: **<N> passed**."
+.claude/SESSION_CONTEXT.md   Section 6 heading: "Test structure (<N> tests)"
+config/docsync.toml          [test_count] pinned = <N>
+docs/agents/FINDINGS.md      header: "<N> tests across ... tracked test modules"
+```
+
+The tool lists every file it wrote. Stage those files with the commit. If the
+Section 4 window was over its limit, `--fix` also rotates the oldest entry
+into the archive, and that file appears in the list too. The `<N>` above stands for
+the count your own `pytest -q` run printed; it is elided here on purpose.
+
+### In action: the commit preflight refuses a control-plane change
+
+The checker cannot fairly judge a commit that also changes the checker. The
+preflight refuses that case. This run staged a one-character change to
+`scripts/docsync/models.py` in the scratch copy:
+
+```text
+$ git add scripts/docsync/models.py
+$ python scripts/dev/docsync_preflight.py --worktree
+ERROR docsync control-plane code is staged in this commit: scripts/docsync/models.py
+Refusing to run the checker against a candidate corpus while the checker's own logic is part of the same commit -- see 'Commit preflight' in docs/superpowers/specs/2026-09-15-docsync-closeout-archives-design.md. The only supported local escape is 'SKIP=doc-state-sync-check git commit', ...
+```
+
+The command exits 3. When you mean to change `scripts/docsync/`, run
+`doc_state_sync.py --check` yourself and confirm it exits 0. Then commit with
+`SKIP=doc-state-sync-check git commit`. That skips only this hook. Every other
+hook still runs. `--no-verify` is never allowed. The message says CI's
+preflight is the backstop for control-plane changes.
+
+With nothing from the control plane staged, the preflight runs the same check
+as `--check` and prints the same output.
+
+### The package
+
+The script began as one 600-line file. Batch 14 split it into the package
+`scripts/docsync/`. The root `scripts/doc_state_sync.py` is now a thin
+wrapper. Batch 22 added the modules for declared-value checks, close-out
+signals, bounded archives, finding lifecycle, crash-safe publication and a
+shared fenced-block scanner. The module map, the DOC diagnostic catalogue and
+the preflight and hook-installer design are owned by
+`docs/architecture/documentation-tooling.md`. This document does not repeat
+them. Run `pytest tests/test_docsync_*.py -q` for the current test count.
+
+### Publication is crash-safe
+
+Reading Section 4 and writing it back changes several files that must agree.
+A half-finished write would leave the corpus in a state no later agent could
+reason about. So every mutating mode (`--fix`, `--close-batch`,
+`--split-archive`, `--paginate-archives`, `--cold-storage`) publishes through
+`scripts/docsync/transaction.py`:
+
+1. An exclusive lock (`.docsync.lock`) makes the run single-writer.
+2. The run proves every file it read is still byte-identical. A concurrent
+   edit becomes a refusal, not a silent overwrite.
+3. The before-image of every path is journalled (`.docsync.journal`) before
+   the first write.
+4. Each write goes to a same-directory staging file (`.docsync-stage`) and
+   lands through `os.replace`, which is atomic on one filesystem.
+5. A run killed between two writes leaves the journal behind. The next
+   publication replays it, or refuses if a journalled file matches neither the
+   before-image nor the interrupted content. It never guesses.
+
+The guarantee is narrow. A crash can lose the whole run. It cannot leave a
+half-published corpus.
+
+"ACID" is shorthand here, not a claim:
+
+- **Atomicity** is real. A publication commits or does not.
+- **Consistency** is real. A declarative rules engine enforces the invariants.
+- **Isolation** is partial. The lock is scoped to the filesystem, not a
+  database. It does not coordinate across machines and does not block readers.
+- **Durability** holds within filesystem limits. The journal survives the
+  process, but there is no fsync per write, so power loss can still lose data.
+
+The accurate description is an atomic file-transaction and invariant-checking
+system. Read the acronym as design intent, not as a database guarantee.
+
+### Archives are bounded
+
+`archives.py` caps an archive page at 500 lines by default. An archive that
+outgrows the cap splits into numbered, immutable pages with a flattened index,
+so every page stays searchable Markdown. Page `0001` holds the oldest content.
+Version 1 numbered pages the other way round and put the newest entries on the
+oldest page. Commit `4b36d6a` fixed that.
+
+Cold migration never reads the system clock. It runs only under an explicit
+`--cold-storage --as-of <ISO date>`. A check that aged files by today's date
+would give the same commit different results on different days.
+
+### Two more parts of the workflow
+
+- **The commit preflight** (`scripts/dev/docsync_preflight.py`) validates the
+  commit candidate, not the working tree. It is the first hook in
+  `.pre-commit-config.yaml`, so no later hook can rewrite files it has
+  already validated.
+- **The hook installer** (`scripts/dev/install_docsync_hook.py`) is opt-in and
+  not installed in this repository. pre-commit's own dispatch cannot make
+  docsync run before every other hook. The installer writes a wrapper that
+  does, and it refuses to overwrite a hook it did not write. Running it for
+  real is an owner action.
+
+---
+
+## Worktrees, Rebase Merges, and Branch Lineage
+
+ScrobbleScope uses linked git worktrees, so a long batch stays isolated from
+the owner's main checkout. A linked worktree has its own branch and working
+directory. It shares the object store with the primary checkout. Updating
+`main` does not move the batch branch.
+
+### Why the guard exists
+
+After a GitHub rebase merge, `main` holds the source commits under new
+identities, while the source branch still points at the old ones. Git then
+reports the branch as both ahead and behind, even when its tree is identical to
+`main`. This happened after PRs #163, #165 and #168. On two of those cycles the
+stale branch caused a phantom or reverse-direction follow-up PR.
+
+The guard compares two things: commit ancestry and tree identity. A clean
+divergence with identical trees is normally a rebase-merge artifact. A
+divergence with different trees is real work and must not get the same reset
+remedy. Realignment is never automatic, because a reset and force-push rewrite
+history and need the owner's approval.
+
+### Where the virtualenv lives
+
+The repository has one `.venv`. It normally lives in the primary checkout and
+is not copied into linked worktrees. A fresh shell in a worktree cannot rely on
+bare `pytest` or a relative `.venv` path. So `AGENTS.md` sends those commands to
+the qualified executable in the primary checkout. A second environment inside
+the worktree would bring back the package-version drift that policy prevents.
+
+That leaves a bootstrap gap. The guard must run before the primary checkout's
+paths are known. So `AGENTS.md` permits system Python for that first launch
+only, and the guard uses the standard library alone. The paths the guard
+reports then name the environment for every later Python, pytest and
+pre-commit command. `AGENTS.md` owns the procedure. This section only explains
+the design.
+
+### In action: `check_worktree_alignment.py`
+
+The guard is read-only. It never switches branches or creates an environment.
+`--base-ref` names the local ref to compare against. These runs used a scratch
+repository with `main` as the base.
+
+On the branch the active batch names:
+
+```text
+$ python scripts/dev/check_worktree_alignment.py --base-ref main
+INFO WT000 feat/batch23-wp0-hygiene -- branch is 0 behind and 0 ahead of main; checkout kind: primary checkout; Python: ...\.venv\Scripts\python.exe; pytest: ...\.venv\Scripts\pytest.exe; pre-commit: ...\.venv\Scripts\pre-commit.exe.
+```
+
+The command exits 0. `WT000` means all clear. It reports the branch, how far
+it is from the base, and the exact Python, pytest and pre-commit paths to use
+for the rest of the session. Copy those paths.
+
+On any other branch:
+
+```text
+$ python scripts/dev/check_worktree_alignment.py --base-ref main
+ERROR WT003 fix/demo -- active Batch 23 requires branch feat/batch23-wp0-hygiene.
+Remediation: Stop and move the work to the named branch only with the owner's direction; this guard does not switch branches.
+```
+
+The command exits 1. `WT003` says the current branch is not the one the active
+batch names. The `Remediation:` line says stop and ask the owner. Do not
+switch branches on your own. Every `WT` code names its own remediation the
+same way.
+
+The guard runs as an advisory pre-commit hook, not a gate. On a feature branch
+a gate would refuse every commit. `WT003` fires for any branch the active batch
+does not name, and `WT004` fires for the identical-tree divergence that every
+rebase merge leaves. A stacked review-fix branch therefore prints `WT003`, and
+the hook still reports Passed.
+
+### How it splits from docsync
+
+Two safeguards cover two different failures. Drift inside live operational
+documents is a blocking check in `doc_state_sync.py`, which runs locally and in
+CI. The read-only worktree guard covers local bootstrap and post-rebase
+checks. It is not a CI topology gate. On a detached, recognised CI checkout it
+reports an explicit skip. The test workflow exercises the guard's state
+decisions instead.
+
+The design is in
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
-Operational behavior is owned by `AGENTS.md` and the guard itself --
-`scripts/dev/check_worktree_alignment.py` is the CLI entry point, and the
-checks live across `scripts/dev/_worktree_guard_*.py` (inspection, lineage,
-diagnostics, runner, venv, types) behind the `scripts/dev/worktree_guard.py`
-facade. Each `WT000`-`WT014` code names its own remediation. This section is
-human methodology documentation only.
+`scripts/dev/check_worktree_alignment.py` is the entry point. The checks live
+in `scripts/dev/_worktree_guard_*.py` behind the `scripts/dev/worktree_guard.py`
+facade. `docs/architecture/documentation-tooling.md` owns the module map.
 
 ---
 
 ## Frontend Asset Build
 
-Batch 21 migrated the interface to the Tailwind CSS standalone CLI and daisyUI
-bundles without a Node project; that migration is complete. The source of truth
-is `static/css/tailwind.src.css`; production
-serves the committed `static/css/tailwind.css`, so app startup never downloads
-or compiles frontend tooling.
+Batch 21 moved the interface to the Tailwind CSS standalone CLI and daisyUI
+bundles, with no Node project. That migration is complete. The source of truth
+is `static/css/tailwind.src.css`. Production serves the committed
+`static/css/tailwind.css`, so app startup never downloads or compiles frontend
+tooling.
 
-One-shot build, required before committing a source or template change:
+Run a one-shot build before committing any source or template change:
 
 ```bash
 python scripts/dev/tailwind_build.py
@@ -430,219 +516,347 @@ Watch during local UI work:
 python scripts/dev/tailwind_build.py --watch
 ```
 
-The script selects the pinned executable for the host and stores it with
-`daisyui.mjs` and `daisyui-theme.mjs` under gitignored `scripts/bin/`. It
-verifies all three files against their pinned SHA-256 values on every run. A
-missing or invalid file is fetched once and verified before atomic replacement;
-an invalid replacement stops the build.
+The script picks the pinned executable for the host. It stores that file, with
+`daisyui.mjs` and `daisyui-theme.mjs`, under the gitignored `scripts/bin/`. On
+every run it checks all three files against their pinned SHA-256 values. It
+fetches a missing or invalid file once and verifies it before an atomic
+replacement. An invalid replacement stops the build.
 
-These commands are written in primary-checkout form. In a linked worktree, run
-them with the qualified Python path printed by
-`scripts/dev/check_worktree_alignment.py`, as required by `AGENTS.md`. Run the
-one-shot command after stopping watch mode and commit both source and generated
-CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
+These commands are written for the primary checkout. In a linked worktree, use
+the qualified Python path printed by `scripts/dev/check_worktree_alignment.py`,
+as `AGENTS.md` requires. Stop watch mode before the one-shot build. Commit both
+the source and the generated CSS. CI runs the same one-shot path on Linux and
+rejects generated-file drift.
+
+### In action: `--check`
+
+`--check` rebuilds the stylesheet, then fails if the result differs from the
+committed file. Run it before you push.
+
+When the committed CSS matches its source:
+
+```text
+$ python scripts/dev/tailwind_build.py --check
+...
+Done in 239ms
+[tailwind_build] building static\css\tailwind.css
+```
+
+The command exits 0 and prints only Tailwind's own build log. Nothing needs
+committing.
+
+To see drift, this run changed one colour in `static/css/tailwind.src.css` and
+did not rebuild:
+
+```text
+$ python scripts/dev/tailwind_build.py --check
+...
+-    --color-base-100: #faf7f0;
++    --color-base-100: #faf7f1;
+...
+[tailwind_build] ERROR: committed CSS drift. static\css\tailwind.css does not match a rebuild from its source. Commit the rebuilt file.
+```
+
+The command exits 1. The `-` line is what the committed CSS says. The `+` line
+is what the source now produces. The `ERROR` line gives the fix: run
+`python scripts/dev/tailwind_build.py` without `--check`, and commit the
+rebuilt `static/css/tailwind.css` with your source change. Editing the
+generated CSS by hand does not help, because the check rebuilds it from the
+source.
 
 ---
 
 ## Frontend Browser Gate
 
-`python scripts/dev/results_behavior_tests.py` runs six isolated Chromium
-tests against the production Results scripts, using a controlled clock and
-no Flask server or external services. They cover Spotlight rotation and late
-hydration, reduced motion, leaderboard state, and tooltip timing and keyboard
-access. These browser tests run in CI after browser installation and before
-the full-page gate; they are separate from the Python `pytest` test count.
-Sampling itself lives in `scrobblescope/spotlight.py` and is covered by the
-Results route regression in `tests/test_routes.py`.
+Three test entry points drive a real Chromium. They test different things.
 
-Run `python -m playwright install chromium firefox` once after installing the
-pinned development requirements, then `python scripts/dev/frontend_gate.py`.
-Use the qualified primary-checkout Python path in a linked worktree. The gate
+**`scripts/dev/results_behavior_tests.py`** runs isolated Chromium tests
+against the production Results scripts. It uses a controlled clock and no
+Flask server or external service. The tests cover Spotlight rotation, the
+card staying hidden until every hydration settles, and the card dropping any
+candidate without a confirmed photo. They also cover reduced motion,
+leaderboard state, tooltip timing and keyboard access. A rotation swap must
+keep the visible photo and name together. Two cases guard against a card stuck
+hidden forever: a stalled hydrate request is dropped once its own timeout
+passes, and a confirmed candidate whose photo hangs past the same budget is
+dropped the same way. These tests run in CI after the browser install and
+before the full-page gate. They are separate from the Python `pytest` count.
+Sampling itself lives in `scrobblescope/spotlight.py`, and the Results route
+regression in `tests/test_routes.py` covers it.
+
+**`tests/frontend/`** is collected by `pytest`. It tests pure functions, not a
+served page. Its cases carry the `browser` marker registered in
+`pyproject.toml`. A local `pytest -q` runs them with everything else, so a
+local run needs the same Playwright Chromium build as the gate. CI's coverage
+step runs `pytest -m "not browser"` instead. It runs the marked tests in the
+"Run frontend gate" job step, after installing both browsers. See
+`.github/workflows/test.yml` for the exact invocations. Advisory `pip-audit`
+scans both `requirements.txt` and `requirements-dev.txt`.
+
+**`scripts/dev/frontend_gate.py`** is the full-page gate. Install the browsers
+once, after the pinned development requirements:
+
+```bash
+python -m playwright install chromium firefox
+python scripts/dev/frontend_gate.py
+```
+
+In a linked worktree, use the qualified primary-checkout Python path. The gate
 starts and stops its own loopback Flask server. Chromium runs the complete
-matrix; Firefox runs the static-assets and theme-token canary. UI changes
-also receive focused Firefox checks and owner visual review. `--headed`
-shows the diagnostic browser windows.
+matrix. Firefox runs the static-assets and theme-token canary. UI changes also
+get focused Firefox checks and owner visual review. `--headed` shows the
+diagnostic browser windows.
 
-**What makes it a gate rather than a screenshot run.** Three properties are
-worth naming, because each closes a way a visual check can pass while the page
-is wrong:
+### What makes it a gate rather than a screenshot run
 
-- **It serves the real application, on a port it owns.** The gate binds
-  `127.0.0.1` on port `0`, so the OS assigns an ephemeral port, and shuts the
-  server down in a `finally`. No separately running app is required, and two
-  concurrent runs cannot collide on a fixed port.
-- **It asserts computed values, not class names.** A probe checking a
-  `className` passes against a stylesheet that was never applied, so checks read
-  `getComputedStyle` and real geometry instead. The colour maths lives in
+Each of these closes a way a visual check can pass while the page is wrong:
+
+- **It serves the real application on a port it owns.** The gate binds
+  `127.0.0.1` on port `0`, so the OS picks a free port. It shuts the server
+  down in a `finally` block. No separate app needs to run, and two concurrent
+  runs cannot collide on a fixed port.
+- **It asserts computed values, not class names.** A probe that reads a
+  `className` passes against a stylesheet that was never applied. The checks
+  read `getComputedStyle` and real geometry instead. The colour maths lives in
   `_frontend_gate_colour.py` as pure functions with no page attached: WCAG
-  relative luminance and alpha-composited contrast, used to prove a translucent
-  divider token still clears 3:1 against *every* surface it can sit on rather
-  than the one it happened to be sampled over.
-- **It measures the interface at the sizes a reader actually uses.** Viewport
+  relative luminance and alpha-composited contrast. A translucent divider
+  token must clear 3:1 against every surface it can sit on, not only the one
+  it was sampled over.
+- **It measures the interface at the sizes readers use.** The viewport
   profiles cover mobile, 1080p, 1440p and 4K, plus a wide screen with a coarse
-  pointer -- because width alone does not imply a mouse: a tablet in landscape
-  and a touch laptop are both wide and both touched. Touch targets on
-  coarse-pointer profiles must measure at least 44px on their smaller side, and
-  desktop composition has to reach its proportions through layout rather than a
-  CSS `zoom` or `transform`, which would satisfy a pixel check while breaking
-  the type scale.
+  pointer. Width does not imply a mouse: a landscape tablet and a touch laptop
+  are both wide and both touched. Touch targets on coarse-pointer profiles
+  must measure at least 44px on their smaller side. Desktop composition must
+  reach its proportions through layout, not through a CSS `zoom` or
+  `transform`. A `zoom` would satisfy a pixel check and break the type scale.
 
-Stylesheet isolation is asserted per page -- exactly one framework stylesheet,
-because daisyUI, Tailwind v4 and a legacy Bootstrap file all claim `.btn`,
-`.card` and `.modal`, and loading two would let one silently win.
-CI runs the browser gate after installing both browsers. `docs/agents/ui-accessibility.md`
-owns the unit, touch-target, motion and keyboard rules the checks enforce.
+Stylesheet isolation is asserted per page. Each page must load exactly one
+framework stylesheet, because daisyUI, Tailwind v4 and a legacy Bootstrap file
+all claim `.btn`, `.card` and `.modal`. If two loaded, one would silently win.
+`docs/agents/ui-accessibility.md` owns the unit, touch-target, motion and
+keyboard rules the checks enforce.
+
+Four checks show what each closes:
+
+- `check_theme_reattaches_to_system`: a toggle choice that matches the OS
+  preference clears the stored key, so the pre-paint script can derive the
+  theme again.
+- `check_heatmap_cells_are_keyboard_accessible`: a real Tab press reaches a
+  heatmap cell whose `aria-label` and focus ring are real.
+- `check_inline_marks_need_no_wrapper_list`: the inline mark SVGs colour
+  themselves through `currentColor` and a CSS custom property, so no wrapper
+  has to list them.
+- The artist-spotlight photo checks in `_frontend_gate_spotlight_photo.py`:
+  no crop, no overlay, no animation, a non-square photo shown whole through
+  `object-fit: contain`, and the card hidden when there is no real photo.
+  A layout check from 320px to 1920px (and after a resize) requires that no
+  artist name breaks inside a word and that the card is one height for every
+  candidate. A hold check focuses the Spotify link, then hovers the card,
+  and requires that the link keeps its focus, target and name across three
+  rotation periods. It then resizes the card, with focus on the link and one
+  candidate that has no link, and requires that the height re-measure leaves
+  the link unwritten.
+
+`_frontend_gate_spotify_icon.py` adds the official Spotify icon check: the file
+each theme shows, at least 21px, half its height of clear space, and the
+spotlight link's target. The results attribution check reuses it and also
+requires the icon in the "Save image" JPEG.
+
+### In action: a passing run
+
+```text
+$ python scripts/dev/frontend_gate.py
+2026-09-29 18:05:04,736 [MainThread] [INFO] ScrobbleScope starting up, debug mode: True
+[frontend_gate] <N> of <N> checks selected; disabled: none
+...
+[frontend_gate] <N> checks passed in <M> runs across chromium, firefox (static assets & tokens canary on firefox); profiles: desktop, mobile, wide touch
+```
+
+The command exits 0 (counts elided: `config/frontend_gate_checks.toml` owns
+the manifest). This run took about two minutes. Log lines from the Flask
+server fill the middle. Ignore them. Two lines matter:
+
+- `checks selected` shows how many checks `config/frontend_gate_checks.toml`
+  enabled. A manifest that names an unknown check, or disables a required one,
+  is refused here, before any browser launches.
+- The last line is the summary. A run is one check on one browser and one
+  profile. Only the words `checks passed` and the exit code matter.
+
+### In action: a failing run
+
+To see a failure, this run changed the light page background in the committed
+`static/css/tailwind.css` to the dark ink colour, then ran the gate:
+
+```text
+$ python scripts/dev/frontend_gate.py
+[frontend_gate] <N> of <N> checks selected; disabled: none
+...
+[frontend_gate] FAIL chromium: divider contrast [desktop]: / index divider light: --ss-border-divider composites to 1.00:1 against its adjacent surface, expected at least 3:1
+[frontend_gate] FAIL chromium: release check disclosure [desktop]: corrected row's note contrasts at 1.44:1, below the 4.5:1 body-text floor
+[frontend_gate] FAIL firefox: divider contrast [desktop]: / index divider light: --ss-border-divider composites to 1.00:1 against its adjacent surface, expected at least 3:1
+```
+
+The command exits 1. Each `FAIL` line names the browser, the check, the
+profile in brackets, and the measured value against the limit. One cause can
+fail several checks, and the same check can fail on both browsers. Read the
+measured value first. A divider that composites to 1.00:1 has the same colour
+as the surface under it. Fix the value in the source CSS, rebuild with
+`tailwind_build.py`, and run the gate again. Only `FAIL` lines and the exit
+code report the result. Other server log lines, such as `Failed to fetch
+Spotify token`, are not check results.
 
 ---
 
 ## This Repository Is Also a Template Being Extracted
 
 **Owner intent, stated 2026-08-25.** The long-term goal is to lift this
-workflow out of ScrobbleScope and reuse it when building any application -- at
-least any data-visualisation or full-stack one. That is *why* the tooling is
-larger than the application it checks, and why the hardening has been
-progressive rather than a one-off: `scripts/docsync/`, the worktree guard,
-the frontend gate, `AGENTS.md`, the PLAYBOOK and FINDINGS discipline, and the
-batch and work-package structure are all intended to leave with the template.
+workflow out of ScrobbleScope and reuse it when building any application, at
+least any data-visualisation or full-stack one. That is why the tooling is
+larger than the application it checks. It is also why the hardening has been
+progressive instead of one-off. The docsync package, the worktree guard, the
+frontend gate, `AGENTS.md`, the PLAYBOOK and FINDINGS discipline, and the batch
+and work-package structure are all meant to leave with the template.
+`docs/agents/AGENT_NOTES.md` owns the owner intent and the reasoning behind the
+constraint. If this section and that one disagree, AGENT_NOTES wins.
 
-So the repository has three separable systems, and it is worth being precise
-about what each one is, because they are at very different levels of maturity
-and the difference matters to anyone planning to lift them.
+The repository holds three separable systems at different levels of maturity.
 
-**1. The documentation control plane (`scripts/docsync/`).** The most portable
-of the three, and the closest to finished. Its integrity checks are generic
-apart from the document names in `_LIVE_DOCUMENT_PATHS`, and its facts live in
-`.docsync.toml` rather than in the code -- `declarations.py` carries no
-ScrobbleScope value at all. It publishes atomically, diagnoses with typed codes
-and a remediation, and runs from a pre-commit hook and from CI.
+**1. The documentation control plane (`scripts/docsync/`).** This is the most
+portable and the closest to finished. Its integrity checks are generic, apart
+from the document names in `LIVE_DOCUMENT_RELATIVE_PATHS`. Its facts live in
+`config/docsync.toml`, not in the code. `declarations.py` carries no
+ScrobbleScope value at all. It publishes atomically, reports typed codes with a
+remediation, and runs from a pre-commit hook and from CI.
 
-**2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** Structurally
-complete: a public facade (`worktree_guard.py`), a thin CLI entry point, and
-the checks spread across seven modules by concern -- inspection, lineage,
-diagnostics, runner, venv, types. It reports `WT000`-`WT014`, each code naming
-its own remediation. It runs as an advisory pre-commit hook rather than a gate,
-and deliberately so: `WT003` fires for any branch the active batch does not
-name and `WT004` for the identical-tree divergence a rebase merge always
-leaves, so gating on it would refuse every commit on a feature branch.
+**2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** It is
+structurally complete: a public facade (`worktree_guard.py`), a thin CLI entry
+point, and checks split by concern across sibling modules. Each `WT` code names
+its own remediation. It runs as an advisory hook, not a gate, for the reason
+given in the worktree section above.
 
-**3. The frontend gate (`scripts/dev/frontend_gate.py`).** Generic in
-structure -- serve the app, drive a browser, run checks per device profile --
-and specific in its checks, which is the right split and the part that stays
-behind. The decomposition split (F-B21-51) has landed: the facade measures
-535 lines, and the checks are grouped by concern across ten `_frontend_gate_*`
-siblings -- eight own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
-`_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
-`_frontend_gate_runtime`, `_frontend_gate_theme`, `_frontend_gate_unmatched`),
-one holds pure colour maths (`_frontend_gate_colour`), and one holds shared
-state rather than a concern of its own (`_frontend_gate_shared`, the page
-inventories and other objects several slices read). The
-`frontend_gate_checks.toml` registry stays a deferred candidate.
+**3. The frontend gate (`scripts/dev/frontend_gate.py`).** Its structure is
+generic: serve the app, drive a browser, run checks per device profile. Its
+checks are specific, and they stay behind. That split is right. The
+decomposition (F-B21-51) has landed. The facade stays under the decomposition
+plan's 700-line threshold
+(`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`). The
+checks are grouped by concern across `_frontend_gate_*` sibling modules. One
+holds pure colour maths (`_frontend_gate_colour`). One holds shared state, such
+as the page inventories several slices read (`_frontend_gate_shared`). The
+manifest F-B21-51 proposed has also landed (foundation plan Task 8):
+`config/frontend_gate_checks.toml` selects which `CHECKS` run, by name.
 
-Two things that are *not* portable and should not try to be: the design system
-under `docs/design/`, and every path constant that names a ScrobbleScope file.
+Two things are not portable and should not try to be: the design system under
+`docs/design/`, and every path constant that names a ScrobbleScope file.
 
-**`.docsync.toml` was written for extraction, and it is the clearest example of
-how far that has gone and how far it has not.** The file exists as a separate
-declaration layer specifically so a second repository can supply its own
-without touching the mechanism: the checks read what to verify from it rather
-than knowing it. That split is real and it works -- `declarations.py` contains
-no ScrobbleScope value at all, which is what makes the module liftable.
+### `config/docsync.toml` shows how far extraction has gone
 
-What remains tied is the *content* of those declarations, and it is worth
-enumerating rather than summarising, because "still has semantic ties" is easy
-to say and hard to act on:
+The file exists as a separate declaration layer so a second repository can
+supply its own without touching the mechanism. The checks read what to verify
+from it. That split works. What remains tied is the content of the
+declarations:
 
 | Tie | Where | Why it is repository-specific |
 |---|---|---|
 | Document paths | `[[value.sites]]` and `[[anchor]]` entries | They name `docs/design/README.md`, `docs/design/RECONCILIATION.md`, `docs/history/definitions/BATCH21_DEFINITION.md`, `docs/architecture/documentation-tooling.md`, `docs/agents/ui-accessibility.md` |
 | Scanned corpus | `scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]` and its `allow_files` list | The document inventory a repository has is a policy choice, not a universal |
-| Section anchors | `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"` | PLAYBOOK and its section names are this workflow's vocabulary |
+| Section anchors | `[retired.allow_after] "docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"` | PLAYBOOK and its section names are this workflow's vocabulary |
 | Batch vocabulary | `[closeout] admit_from_batch = 22` | Batching is the portable idea; *which* batch is the local fact |
 | Design tokens | the `[[value]]` entries for the page background and muted text | These are ScrobbleScope's visual system, and one of them straddles source CSS, a legacy shell bridge and exact tests |
-| Live-document list | `_LIVE_DOCUMENT_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
+| Live-document list | `LIVE_DOCUMENT_RELATIVE_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
 
-The pattern is consistent: **the mechanism is generic and the facts are
-local**, which is the intended end state. The unfinished half is that those
-local facts currently live *inside this repository's config* rather than in a
-config a second repository would write for itself. That is what the deferred
-kernel plan addresses, and it is why the plan's constraint is that the new
-kernel modules "must not contain `ScrobbleScope`, `PLAYBOOK.md`, `Batch`, `WP`,
-or `docs/superpowers/` policy literals".
+The pattern is consistent. The mechanism is generic and the facts are local.
+That is the intended end state. The unfinished half is that those local facts
+still live inside this repository's config, not in a config a second
+repository would write for itself. The deferred kernel plan addresses that. Its
+constraint is that the new kernel modules "must not contain `ScrobbleScope`,
+`docs/agents/PLAYBOOK.md`, `Batch`, `WP`, or `docs/superpowers/` policy
+literals".
 
-**Why this is deliberately unfinished.** Two reasons, both of which are
-engineering rather than scheduling. First, some of it is *not* extractable
-without loss: `.docsync.toml`, the design system and the path constants encode
-this repository's own rules, and the honest description of a control plane for
-a repository is that it must know which documents that repository owns. Forcing
-genericity before there is a second consumer produces configuration indirection
-with no second consumer to justify it. Second, the parts still worth
-simplifying -- `integrity.py`, `declarations.py`, `cli.py` -- are the largest
-modules in the package, and restructuring them while Batch 22's checks are
-still settling would trade a working control plane for a tidier unfinished one.
-The plan says so itself: "Refactor by responsibility, not line count."
+### Why it is deliberately unfinished
 
-What is *not* deferred is the constraint on new work, and that one binds every
-commit: write new checks so they read their facts from the declarations layer,
-name an assumption and make it switchable instead of letting it harden into
-doctrine, prefer the standard library, and fail with a path, a line and a
-remediation. The extraction stays cheap because nothing new makes it worse.
+There are two reasons, and both are engineering reasons.
 
-**The standing constraint until the extraction is scheduled.** It is a batch of
-its own and has not been scheduled, so it must not be started as a side task.
-What binds in the meantime is narrower and more useful: write new tooling so
-the extraction stays cheap -- keep repository facts in the declarations file
-rather than in the mechanism, name an assumption and make it switchable rather
-than letting it harden into doctrine, prefer the standard library so the next
-repository does not have to agree to a new dependency, and fail with a path, a
-line and a remediation, because the reader will not be the person who wrote
-the check.
+First, some of it cannot be extracted without loss. `config/docsync.toml`, the
+design system and the path constants encode this repository's own rules. A
+control plane must know which documents its repository owns. Forcing
+genericity before a second consumer exists adds configuration indirection with
+nothing to justify it.
 
-The two extraction plans and their current status are
+Second, the modules still worth simplifying are `integrity.py`,
+`declarations.py` and `cli.py`, the largest in the package. Restructuring them
+while the Batch 22 checks were still settling would trade a working control
+plane for a tidier unfinished one. The plan says so: "Refactor by
+responsibility, not line count."
+
+### The standing constraint
+
+The extraction is a batch of its own. It has not been scheduled. Do not start
+it as a side task. Until it is scheduled, one rule binds every commit: write
+new tooling so the extraction stays cheap.
+
+- Keep repository facts in the declarations file, not in the mechanism.
+- Name an assumption and make it switchable. Do not let it harden into
+  doctrine.
+- Prefer the standard library, so the next repository does not have to accept
+  a new dependency.
+- Fail with a path, a line and a remediation. The reader will not be the person
+  who wrote the check.
+
+The two extraction plans are
 `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
 (the docsync kernel) and
 `docs/superpowers/plans/2026-09-12-reusable-frontend-ci-verification-components.md`
-(the gate components). Both carry explicit "do not execute until" conditions;
-neither is current work. Owner intent and the reasoning behind the constraint
-are owned by `AGENT_NOTES.md`, which is the authority if this section and that
-one ever disagree.
+(the gate components). Both carry explicit "do not execute until" conditions.
+Neither is current work.
 
 ---
+
 ## Claude Code Skills (tightly scoped tooling)
 
-Two project-scoped Claude Code (CC) skills provide structured entry points for
-common tasks. They are CC-specific; the portable, model-agnostic orchestration
-rules live in `AGENTS.md`. The skill definitions themselves are maintained
-locally and are not tracked in this repository (`.gitignore` excludes `.claude/`
-except `SESSION_CONTEXT.md`); this section documents their purpose for context.
+Two project-scoped Claude Code (CC) skills give structured entry points for
+common tasks. They are CC-specific. The portable, model-agnostic rules live in
+`AGENTS.md`. The skill definitions are kept locally and are not tracked here,
+because `.gitignore` excludes `.claude/` except `SESSION_CONTEXT.md`. This
+section documents their purpose.
 
 **`scrobblescope-bootstrap`** runs the canonical session bootstrap in a fixed
-read order: `AGENTS.md`, then `PLAYBOOK.md` Sections 3-4, the active batch
-definition named there, `.claude/SESSION_CONTEXT.md` Sections 1-2, and
-`AGENT_NOTES.md`, finishing with a git-state and test-baseline check against
-what those files claim. If PLAYBOOK Section 3 and SESSION_CONTEXT Section 1
-agree on the current batch and next work package, the agent has enough
-context to start. Invoke it at the start of any
-substantive session -- new feature work, refactors, or multi-WP batch work.
-Skip it when the change is too small to require batch context; the skill
-illustrates this with the anti-example "tweak the heatmap pill padding," a
-change that needs only the relevant template file, not the full bootstrap chain.
+read order:
 
-**`pr-bot-triage`** solves the problem of prioritising an incoming batch of
-PR review comments before acting on them. It reads each comment and classifies
-it as Act (address now -- actionable and in scope), Defer (valid but out of
-scope for this session or batch), or Decline (not warranted -- incorrect,
-already addressed, or rejected by the PR author). The classification standard
-lives in the skill definition itself, keeping CC-specific workflow detail out of
-`AGENTS.md`.
+1. `AGENTS.md`;
+2. `docs/agents/PLAYBOOK.md` Sections 3-4;
+3. the active batch definition named there;
+4. `.claude/SESSION_CONTEXT.md` Sections 1-2;
+5. `docs/agents/AGENT_NOTES.md`.
 
-Both skills are deliberately scoped to a single agent at a time and are not
-designed for parallel sub-agent invocation.
+It ends with a git-state and test-baseline check against what those files
+claim. If PLAYBOOK Section 3 and SESSION_CONTEXT Section 1 agree on the current
+batch and next work package, the agent can start. Invoke it at the start of any
+substantive session: new feature work, refactors, or multi-WP batch work. Skip
+it when the change is too small to need batch context. The skill's own
+anti-example is "tweak the heatmap pill padding". That change needs only the
+relevant template file.
+
+**`pr-bot-triage`** prioritises a batch of incoming PR review comments before
+anyone acts on them. It sorts each comment into one of three classes:
+
+- **Act**: actionable and in scope, so address it now.
+- **Defer**: valid but out of scope for this session or batch.
+- **Decline**: not warranted because it is incorrect, already addressed, or
+  rejected by the PR author.
+
+The classification standard lives in the skill definition. That keeps CC
+workflow detail out of `AGENTS.md`.
+
+Both skills are scoped to one agent at a time. They are not designed for
+parallel sub-agents.
 
 ---
 
 ## The Batch Structure as a Lightweight SDLC
 
-The repository uses batches and work packages as a lightweight delivery model. It maps reasonably well to familiar software-process concepts:
+Batches and work packages work as a light delivery model. They map onto
+familiar software-process concepts:
 
 | SDLC concept | ScrobbleScope equivalent |
 |---|---|
@@ -653,143 +867,131 @@ The repository uses batches and work packages as a lightweight delivery model. I
 | Code review | PR review plus automated review feedback |
 | Release | `flyctl deploy` (manual, after PR merge to `main`) |
 
-The key difference from a human SDLC is that the "team members" have
-amnesia between sessions and cannot communicate with one another as of development. This forced an unusually rigorous documentation
-discipline -- not because good documentation is a virtue in the abstract,
-but because undocumented decisions would lead to a future agent/session
-re-opening a solved problem or refactoring a prior agent's functioning code.
+The key difference from a human team is that the team members have amnesia
+between sessions and cannot talk to one another. That forced unusually strict
+documentation discipline. The reason is not that documentation is a virtue. An
+undocumented decision lets a later session reopen a solved problem, or
+refactor a prior agent's working code.
 
 ---
 
 ## How This Differs From Typical Agentic Coding / AIDD
 
-As of development, most AI-driven-development (AIDD) workflows treat the agent's context
-window, or at best a single running conversation/log, as the entire
-memory of the project.
+Most AI-driven-development (AIDD) workflows treat the agent's context window,
+or one running conversation, as the whole memory of the project. A prompt like
+"continue where you left off" or "here is the chat history" works inside one
+session. It does not survive a tool switch (Claude Code to Copilot to Gemini
+CLI), a context compaction, or a gap of days or weeks. This project runs under
+all of those conditions, with five or more agent tools.
 
-A prompt like "continue where you left off" or "here's the chat history" works fine within one session but does not
-survive a tool switch (Claude Code to Copilot to Gemini CLI), a context
-compaction, or a multi-day or multi-week gap -- exactly the conditions this project
-runs under with five+ different agent tools. The typical failure mode in
-that model is that state lives implicitly in conversation history: whoever
-has the longest, most recent transcript "knows" the project, and anyone
-else has to either read that transcript in full (token-expensive and lossy)
-or start over.
+The usual failure is that state lives in conversation history. Whoever holds
+the longest, most recent transcript "knows" the project. Everyone else must
+read that transcript in full, which is expensive and lossy, or start over.
 
-ScrobbleScope's orchestration layer inverts that assumption: state is never
-allowed to live only in a conversation. It is externalized into a small,
-strictly-scoped set of files (`AGENTS.md`, `HANDOFF_PROMPT.md`,
-`AGENT_NOTES.md`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
-`docs/history/` archive) with each file assigned exactly one concern, so
-that any agent -- regardless of vendor or context length -- can bootstrap
-full working context from a fixed, small reading list rather than from
-transcript archaeology. A few concrete departures from typical agentic
-practice follow from this:
+ScrobbleScope inverts that. State never lives only in a conversation. It sits
+in a small set of files, each with one concern: `AGENTS.md`,
+`docs/agents/HANDOFF_PROMPT.md`, `docs/agents/AGENT_NOTES.md`,
+`docs/agents/PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md` and the `docs/history/`
+archive. Any agent, from any vendor and with any context length, can rebuild
+full working context from that short reading list instead of digging through
+transcripts. Four practices follow:
 
-- **Deterministic tooling over prompted discipline for the parts that must
-  never fail.** Section rotation, archive deduplication, and cross-file
-  consistency checks are done by `doc_state_sync.py`, a plain Python script
-  with its own comprehensive test suite, not by asking the agent to "keep the
-  files tidy." Typical AIDD setups rely on the agent itself to remember and
-  re-apply formatting/bookkeeping conventions every session; here rotation
-  and archive drift are enforced by the `doc-state-sync-check` pre-commit
-  hook. Proven live-document integrity defects are blocking errors; expected
-  active-root notices remain warnings.
-- **A definition-of-done written before work starts, not inferred after.**
-  Each batch's root `BATCHN_DEFINITION.md` is committed before its WPs begin,
-  then moved under `docs/history/definitions/` at close-out, so an agent
-  resuming mid-batch (or a human auditing it later) has an unambiguous target
-  instead of having to reconstruct intent from commit messages or transcripts.
-- **Automated review suggestions are logged and adjudicated, not
-  auto-applied.** Section "On Rejecting Code Review Suggestions" below is
-  the direct consequence: a review tool (or agent) that only sees the
-  current diff, with no causal history, will sometimes recommend reverting
-  a deliberate fix. Preserving the reasoning in `PLAYBOOK.md`/`docs/history/`
-  means the next agent (or reviewer) doesn't repeat the same wrong
-  suggestion, which a purely conversational workflow has no mechanism to
-  prevent.
-- **Cost is paid up front in documentation discipline, not deferred as
-  cleanup.** A typical single-agent AIDD loop optimizes for shipping the
-  current change quickly and treats documentation as optional follow-up.
-  Because this project is designed for hand-offs between independent agent
-  sessions with no shared memory, skipping the doc update is not a
-  shortcut -- it directly causes the next session to redo or undo work.
+- **Deterministic tooling for the parts that must never fail.** Section
+  rotation, archive deduplication and cross-file consistency checks belong to
+  `doc_state_sync.py`, a plain Python script with its own test suite. Typical
+  AIDD setups ask the agent to remember the bookkeeping every session. Here the
+  `doc-state-sync-check` pre-commit hook enforces it. A proven live-document
+  defect is a blocking error. An expected active-root notice stays a warning.
+- **A definition of done written before work starts.** Each batch's root
+  `BATCHN_DEFINITION.md` is committed before its WPs begin. It moves to
+  `docs/history/definitions/` at close-out. An agent resuming mid-batch, or a
+  human auditing it later, has an unambiguous target and does not have to
+  reconstruct intent from commit messages.
+- **Review suggestions are logged and judged, not auto-applied.** "On
+  Rejecting Code Review Suggestions" below follows from this. A review tool
+  that sees only the current diff will sometimes recommend reverting a
+  deliberate fix. Keeping the reasoning in `docs/agents/PLAYBOOK.md` and
+  `docs/history/` stops the next agent or reviewer repeating the wrong
+  suggestion. A conversation-only workflow cannot do that.
+- **The documentation cost is paid up front.** A typical single-agent loop
+  ships the change and treats documentation as optional follow-up. Here, work
+  passes between independent sessions with no shared memory. Skipping the
+  doc update is not a shortcut. It makes the next session redo or undo the
+  work.
 
 ---
 
 ## On Rejecting Code Review Suggestions
 
-Not every review suggestion improves the codebase:
+Not every review suggestion improves the codebase.
 
-**Pattern 1: Correct in isolation, wrong in context.**
+**Pattern 1: Correct in isolation, wrong in context.** An automated review
+(Gemini Code Review, Batch 12 post-audit) flagged the `getComputedStyle` call
+in `results.js` as possibly redundant. In isolation that is a fair point. In
+context, the call patches a dark-mode rendering issue in the `html2canvas`
+JPEG export. Without it, the exported image gets the wrong background colour
+in dark mode. The reviewer could not see the git history of that bug, the
+session logs where the fix was built, or the test that validates it. The
+suggestion was rejected with a documented reason in the session log. The code
+stayed as it was.
 
-An automated code review (Gemini Code Review, Batch 12 post-audit) flagged the
-`getComputedStyle` call in `results.js` as potentially redundant.
+**Pattern 2: Review tool versus review context.** Automated tools review code
+as a snapshot. They do not know:
 
-In isolation, that is a reasonable observation. In context: the call existed
-specifically to patch a dark-mode rendering issue with the `html2canvas`
-JPEG export -- removing it causes the exported image to render with the
-wrong background color in dark mode.
+- which bugs were fixed on purpose with what looks like a workaround;
+- which "magic numbers" are environment-specific constants that cannot be
+  parameterised without breaking the Fly.io deploy pipeline;
+- which test patterns look vacuous but guard against a specific production
+  failure.
 
-The reviewer had no access to the git history of that bug, the session logs where the fix was developed, or the test case that validated the behavior.
-
-*Resolution:* the suggestion was rejected with a documented reason in the session log. The code was left unchanged.
-
-**Pattern 2: Review tool vs. review context.**
-
-Automated tools review code as a snapshot. They do not know:
-- Which bugs were deliberately fixed with what appears to be a workaround.
-- Which "magic numbers" are environment-specific constants that cannot be
-  parameterized without breaking the Fly.io deploy pipeline.
-- Which test patterns look vacuous but exist as regression guards for a
-  specific production failure.
-
-The response to all of these was the same: the suggestion is logged,
-evaluated against causal knowledge from the session history, and either
-acted on or rejected with explicit reasoning preserved in PLAYBOOK Section
-4 or `docs/history/`. This keeps the audit trail honest without accepting
-every automated suggestion blindly.
+The response to all of these was the same. Log the suggestion. Judge it
+against the causal knowledge in the session history. Then act on it, or reject
+it with the reasoning kept in PLAYBOOK Section 4 or `docs/history/`. That
+keeps the audit trail honest without accepting every automated suggestion.
 
 ---
 
 ## What Did Not Work Initially
 
-A short list of things that failed before the current approach stabilized:
+Four things failed before the current approach settled:
 
-- **Single long context file**: early sessions used a single STATUS.md file
-  that grew to ~400 lines. By mid-session it consumed most of the available
-  context budget, leaving little room for code. The split into PLAYBOOK
-  (detailed), SESSION_CONTEXT (summary), and archive (historical) solved this.
-- **Unpinned agent instructions**: without AGENTS.md, agents would
-  occasionally commit without running tests, use the wrong commit format,
-  or write "Added X" instead of "Add X" in subject lines. Prescriptive rules
-  in AGENTS.md made these reproducible.
-- **Manual archive management**: before `doc_state_sync.py`, agents would
-  sometimes trim Section 4 entries by hand in ways that introduced duplicate
-  content or moved entries across the DOCSYNC boundary incorrectly. The
-  pre-commit hook now catches this class of error before it lands.
-- **Nested thread pattern** (Batch 3): the original background task spawned
-  a thread that spawned another thread to run the asyncio event loop. This
-  produced unpredictable behavior under load. Removed in Batch 3.
+- **A single long context file.** Early sessions used one `STATUS.md` that grew
+  to about 400 lines. By mid-session it used most of the context budget and
+  left little room for code. Splitting it into the PLAYBOOK (detailed),
+  SESSION_CONTEXT (summary) and the archive (historical) fixed that.
+- **Unpinned agent instructions.** Without `AGENTS.md`, agents sometimes
+  committed without running tests, used the wrong commit format, or wrote
+  "Added X" instead of "Add X". Strict rules in `AGENTS.md` made these
+  failures reproducible, and then preventable.
+- **Manual archive management.** Before `doc_state_sync.py`, agents trimmed
+  Section 4 by hand. That produced duplicate content and entries moved across
+  the DOCSYNC boundary. The pre-commit hook now catches this class of error
+  before it lands.
+- **The nested thread pattern (Batch 3).** The original background task
+  started a thread that started another thread to run the asyncio event loop.
+  Behaviour under load was unpredictable. Batch 3 removed it.
 
 ---
 
 ## How to Read the Orchestration Files
 
-If you have cloned this repository and want to understand any decision:
+To understand any decision in this repository:
 
-1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md` to see what the
-   acceptance criteria were before work started.
-2. Search `PLAYBOOK.md` Section 4 and
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
-   covering the relevant date range.
-3. Search `docs/history/logs/` and `docs/logarchive/` for older dated entries.
-4. `AGENTS.md` explains how future development sessions should be started
-   and what rules govern commits, tests, and documentation.
+1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md`. It shows
+   the acceptance criteria from before the work started.
+2. Search `docs/agents/PLAYBOOK.md` Section 4 and
+   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries in the
+   relevant date range.
+3. Search `docs/history/logs/` and `docs/logarchive/` for older entries.
+4. Read `AGENTS.md` for how a session should start and which rules govern
+   commits, tests and documentation.
 
 `.claude/SESSION_CONTEXT.md` is the current-state snapshot for an active
-development session. It is committed and shared across all agents (tracked
-via `.gitignore` exception). A reference copy of its format and structure
-is at `docs/history/reports/SESSION_CONTEXT_REFERENCE.md`.
+session. It is committed and shared across all agents. A reference copy of its
+format is at `docs/history/reports/SESSION_CONTEXT_REFERENCE.md`.
 
-In sum, bootstrapping agents with the template prompt and repository documents gives each session the current project state and next task. Batch definitions and WPs provide the necessary orientation. Although this method consumes tokens, it has proven effective as a cross-session and cross-agent external-memory system. Logging decisions, deviations, and implementations preserves the reasons behind changes.
+Bootstrapping an agent with the template prompt and the repository documents
+gives each session the current state and the next task. Batch definitions and
+WPs supply the orientation. The method costs tokens. It has proven effective as
+a cross-session, cross-agent external memory. Logging decisions, deviations
+and implementations preserves the reasons behind each change.

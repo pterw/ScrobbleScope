@@ -611,7 +611,7 @@ def test_oversized_page_is_never_moved_cold(tmp_path):
 
 
 def test_cutoff_is_strict(tmp_path):
-    store, index, text = _dated(tmp_path, ["2025-09-15"] * 20)
+    store, index, text = _dated(tmp_path, ["2026-06-17"] * 20)
     _apply(store.plan(index, text))
 
     exactly_at_cutoff = store.plan(index, text, as_of=date(2026, 9, 15))
@@ -622,11 +622,23 @@ def test_cutoff_is_strict(tmp_path):
 
 
 def test_cold_days_is_configurable(tmp_path):
-    store, index, text = _dated(tmp_path, ["2026-01-01"] * 20)
+    store, index, text = _dated(tmp_path, ["2026-08-01"] * 20)
     _apply(store.plan(index, text))
 
     assert store.plan(index, text, as_of=date(2026, 9, 15)) == {}
     assert store.plan(index, text, as_of=date(2026, 9, 15), cold_days=30) != {}
+
+
+def test_default_cold_days_is_ninety(tmp_path):
+    """A finalized page 91 days old ages at the default; one 89 days old does not."""
+    store, index, text = _dated(tmp_path, ["2026-06-16"] * 20)
+    _apply(store.plan(index, text))
+    assert store.plan(index, text, as_of=date(2026, 9, 15)) != {}
+
+    (tmp_path / "second").mkdir()
+    store, index, text = _dated(tmp_path / "second", ["2026-06-18"] * 20)
+    _apply(store.plan(index, text))
+    assert store.plan(index, text, as_of=date(2026, 9, 15)) == {}
 
 
 def test_cold_migration_is_idempotent_and_preserves_content(tmp_path):
@@ -883,3 +895,24 @@ def test_page_path_is_contained_within_its_own_index_directory(tmp_path):
         relative = page_path.relative_to(nested_index.parent).as_posix()
         assert relative in rendered_index
     assert store.read(nested_index) == normalize(text)
+
+
+def test_a_crlf_checkout_of_a_paginated_archive_is_not_drift(tmp_path):
+    """A `core.autocrlf` checkout holds the same pages with CRLF endings; the
+    comparison is about content, so it must plan no change (S3-7)."""
+    store, index, text = _paginate(tmp_path)
+    for path in [index, *sorted((index.parent / "pages").glob("*.md"))]:
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+
+    assert store.plan(index, text) == {}
+
+
+def test_a_real_page_change_is_still_drift_on_a_crlf_checkout(tmp_path):
+    store, index, text = _paginate(tmp_path)
+    pages = sorted((index.parent / "pages").glob("*.md"))
+    for path in [index, *pages]:
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    changed = pages[0]
+    changed.write_bytes(changed.read_bytes().replace(b"body line 0", b"body line X"))
+
+    assert set(store.plan(index, text)) == {changed}

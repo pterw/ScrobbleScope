@@ -14,12 +14,7 @@ from scripts.dev._frontend_gate_colour import (
     _worst_divider_contrast,
 )
 from scripts.dev._frontend_gate_shared import MIGRATED_PAGES, TOGGLE_TIMEOUT_MS
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_progress,
-    set_job_results,
-)
+from scrobblescope import jobs
 
 THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
 SET_THEME_EXPRESSION = (
@@ -605,6 +600,91 @@ def check_theme_survives_blocked_storage(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_theme_reattaches_to_system(page, base_url: str) -> list[str]:
+    """A toggle choice that matches the system query clears the stored key.
+
+    `theme.js` used to write every toggle click straight to `localStorage`,
+    so a reader who picked light, then later changed their OS to light too,
+    stayed pinned to the stored value forever -- the pre-paint script's
+    `saved === null` branch, which re-derives the theme from the system
+    query, could never run again once a choice had been made (F-B21-22).
+    The fix clears the key exactly when the chosen state matches the system
+    query, so this check drives that transition both ways: diverging from
+    the system leaves a stored value behind, and returning to match it
+    removes that value immediately, before any reload.
+
+    A dedicated context pins the emulated system preference to dark for the
+    whole probe, the same `browser.new_context(color_scheme=...)` pattern
+    `check_theme_survives_blocked_storage` uses, so the click and the reload
+    below are read against a system query that never moves.
+    """
+    browser = page.context.browser
+    if browser is None:  # pragma: no cover - only for a browserless context
+        return ["theme reattaches to system check needs a browser-backed context"]
+
+    failures = []
+    context = browser.new_context(color_scheme="dark")
+    try:
+        probe = context.new_page()
+        probe.goto(f"{base_url}{MIGRATED_PAGES[0]}", wait_until="load")
+        toggle = probe.locator("[data-theme-toggle]")
+        if toggle.count() == 0:
+            return [f"{MIGRATED_PAGES[0]}: no [data-theme-toggle] control found"]
+
+        # First click: force light, diverging from the emulated dark system.
+        toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
+        diverged_theme = probe.evaluate(THEME_EXPRESSION)
+        if diverged_theme != "light":
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: forcing light produced data-theme "
+                f"{diverged_theme!r}"
+            )
+        probe.reload(wait_until="load")
+        after_diverge_theme = probe.evaluate(THEME_EXPRESSION)
+        after_diverge_store = probe.evaluate("() => localStorage.getItem('darkMode')")
+        if after_diverge_theme != "light":
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: light choice did not survive reload, "
+                f"got data-theme {after_diverge_theme!r}"
+            )
+        if after_diverge_store != "false":
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: after diverging from the system, "
+                f"localStorage['darkMode'] is {after_diverge_store!r}, "
+                "expected 'false'"
+            )
+
+        # Second click: back to dark, now matching the emulated system.
+        toggle = probe.locator("[data-theme-toggle]")
+        toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
+        rematched_store = probe.evaluate("() => localStorage.getItem('darkMode')")
+        if rematched_store is not None:
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: matching the system again left "
+                f"localStorage['darkMode'] as {rematched_store!r} instead of "
+                "clearing it"
+            )
+        probe.reload(wait_until="load")
+        rematched_theme = probe.evaluate(THEME_EXPRESSION)
+        rematched_store_after_reload = probe.evaluate(
+            "() => localStorage.getItem('darkMode')"
+        )
+        if rematched_theme != "dark":
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: with no stored key, a dark system "
+                f"resolved to data-theme {rematched_theme!r} after reload"
+            )
+        if rematched_store_after_reload is not None:
+            failures.append(
+                f"{MIGRATED_PAGES[0]}: localStorage['darkMode'] is "
+                f"{rematched_store_after_reload!r} after reload, expected no "
+                "stored key"
+            )
+    finally:
+        context.close()
+    return failures
+
+
 def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     """A theme change repaints the heatmap's zero-count cells.
 
@@ -615,8 +695,8 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     write, and nothing here noticed, because every other theme check reads CSS.
     """
     failures = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_results(
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -632,8 +712,8 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
                 "2025-01-05": 0,
             },
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
         page.locator("#heatmap-result-frame svg").wait_for(state="visible")
@@ -651,7 +731,7 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
                 }"""
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
 
     for theme, reading in readings.items():
         if not reading["fill"]:
@@ -679,8 +759,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
     named underneath.
     """
     failures = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_results(
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -690,8 +770,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             "max_count": 4,
             "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
         page.locator("#heatmap-result-frame svg").wait_for(state="visible")
@@ -718,7 +798,7 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             }"""
         )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
 
     model = state["model"]
     if not model:

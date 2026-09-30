@@ -24,13 +24,14 @@ import dataclasses
 import datetime as dt
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 # The thresholds arrive from `declarations`, which owns them because it must
 # also validate and default the `[archives]` table. Importing them here rather
-# than repeating the literals keeps one number in one place: `.docsync.toml`,
-# the default, and these signatures cannot drift apart. The dependency runs
+# than repeating the literals keeps one number in one place:
+# `config/docsync.toml`, the default, and these signatures cannot drift
+# apart. The dependency runs
 # this way, not the reverse, because `declarations` is the lighter module --
 # it reads TOML and text, while this one also needs the transaction layer.
 from docsync.declarations import (
@@ -210,6 +211,14 @@ def _join(prologue: Sequence[str], entries: Sequence[Sequence[str]]) -> str:
     return "\n\n".join(blocks) + "\n" if blocks else ""
 
 
+def _lf(payload: bytes) -> bytes:
+    """Fold CRLF to LF: a checkout with `core.autocrlf` holds the same pages
+    with CRLF endings, and the comparison is about content, not line endings
+    (S3-7). `cli._plan_document` applies the same rule to a plain document.
+    """
+    return payload.replace(b"\r\n", b"\n")
+
+
 def normalize(text: str) -> str:
     """Return the canonical rendering of one archive's logical text."""
     prologue, entries = _split(text)
@@ -277,7 +286,19 @@ class _Layout:
 class ArchiveStore:
     """Reads and plans one repository archive tree rooted at ``root``."""
 
-    def __init__(self, root: Path, max_lines: int = DEFAULT_ARCHIVE_MAX_LINES) -> None:
+    def __init__(
+        self,
+        root: Path,
+        max_lines: int = DEFAULT_ARCHIVE_MAX_LINES,
+        read_text: Callable[[Path], str] | None = None,
+    ) -> None:
+        """``read_text`` lets the caller own how a file is read.
+
+        The CLI passes a reader that records the bytes it saw, so a
+        publication can prove the files are unchanged since the plan read
+        them, and that turns undecodable bytes into a `SyncError`.
+        """
+        self._read_text = read_text or (lambda path: path.read_text(encoding="utf-8"))
         self.root = Path(root).resolve()
         if max_lines <= PAGE_HEADER_LINES:
             raise SyncError(
@@ -333,7 +354,7 @@ class ArchiveStore:
         permanently, turning a silent read into a silent, irreversible
         edit.
         """
-        lines = path.read_text(encoding="utf-8").split("\n")
+        lines = self._read_text(path).split("\n")
         if not lines or lines[0].strip() != PAGE_MARKER:
             raise SyncError(
                 f"Archive page {path} does not start with the required "
@@ -360,7 +381,7 @@ class ArchiveStore:
             # one of them, hot and cold alike, for deletion.
             self._reject_orphans(index_path, set())
             return _Layout(paginated=False, prologue=(), pages=())
-        text = index_path.read_text(encoding="utf-8")
+        text = self._read_text(index_path)
         if INDEX_START_MARKER not in text:
             # A legacy monolith may not have managed pages beside it. That
             # state is precisely the one the specification forbids -- a whole
@@ -609,7 +630,7 @@ class ArchiveStore:
         updates: dict[Path, bytes | None] = {
             path: payload
             for path, payload in desired.items()
-            if not path.is_file() or path.read_bytes() != payload
+            if not path.is_file() or _lf(path.read_bytes()) != payload
         }
         managed = self._managed_name_re(index_path.stem)
         for directory in (HOT_DIRECTORY, COLD_DIRECTORY):

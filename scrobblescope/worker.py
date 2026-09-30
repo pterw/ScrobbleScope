@@ -87,11 +87,12 @@ def run_coroutine_in_new_loop(
     failure to *close* is never swallowed -- a leaked loop must not be reported as a
     failed pipeline.
 
-    The *policy* stays with the caller, through ``on_run_error``. The album and
-    heatmap entry points deliberately answer a failed run differently today
-    (``F-SWE-5`` records both answers as wrong, and fixing that means changing a
-    caller, not this helper), so the helper shares the protocol and takes the
-    reaction as a parameter.
+    The *policy* stays with the caller, through ``on_run_error``: the helper
+    shares the protocol and takes the reaction as a parameter. Each caller
+    publishes a failed job, and what it publishes is its own choice, not this
+    helper's: the album pipeline's backstop (``_report_album_failure``) always
+    publishes ``internal_error``, the heatmap's (``_report_heatmap_failure``)
+    publishes the classified code and falls back to ``internal_error``.
 
     Args:
         coroutine: The coroutine to run, on a loop built for the calling thread. It is

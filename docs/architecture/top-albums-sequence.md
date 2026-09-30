@@ -19,7 +19,7 @@ sequenceDiagram
     participant Browser
     participant Routes as routes/
     participant Worker as worker.py
-    participant Repo as repositories.py / JOBS
+    participant Jobs as jobs.py / job store
     participant Orch as orchestrator/
     participant LastFM as Last.fm API
     participant Cache as cache.py / PostgreSQL
@@ -33,24 +33,29 @@ sequenceDiagram
     alt Missing field, non-numeric input, or year outside 2002 to this year
         Routes-->>Browser: index.html + error
     else Input valid
-        Routes->>LastFM: Read the registration year
-        alt Year predates the registration year
+        Routes->>LastFM: Check that the user exists (and read the registration year), then that recent listening is public
+        alt User not found
+            Routes-->>Browser: index.html + "not found" message, no privacy check made
+        else Recent listening is private (HTTP 403, error 17)
+            Routes-->>Browser: index.html + private-profile message
+        else Year predates the registration year
             Routes-->>Browser: index.html + error
-        else Registration year satisfied, unknown, or lookup failed
-            Routes->>Repo: cleanup_expired_jobs()
+        else Registration year satisfied, unknown, or either lookup failed
+            Note over Routes,LastFM: A failed lookup is logged and the search proceeds without the hint; only a confirmed missing user or private profile refuses
+            Routes->>Jobs: expire_stale()
             Routes->>Worker: acquire_job_slot()
             alt Slot exhausted
                 Worker-->>Routes: False
                 Routes-->>Browser: Too many requests, no job created
             else Slot acquired
                 Worker-->>Routes: True
-                Routes->>Repo: create_job(params)
-                Repo-->>Routes: UUID job_id
+                Routes->>Jobs: create(params)
+                Jobs-->>Routes: UUID job_id
                 Routes->>Worker: start_job_thread(background_task, args)
                 alt Thread start fails
                     Worker->>Worker: release_job_slot()
                     Worker-->>Routes: Re-raise startup exception
-                    Routes->>Repo: delete_job(job_id)
+                    Routes->>Jobs: delete(job_id)
                     Routes-->>Browser: Failed to start processing
                 else Daemon thread started
                     Routes-->>Browser: loading.html(job_id)
@@ -63,84 +68,86 @@ sequenceDiagram
         par Background task runs
             Worker->>Orch: background_task(job_id, parameters)
             Orch->>Orch: cleanup_expired_cache() from utils (REQUEST_CACHE)
-            Orch->>Repo: cleanup_expired_jobs()
-            Orch->>Repo: Initialize progress at 0%
-            Orch->>Repo: Progress 5%
+            Orch->>Jobs: expire_stale()
+            Orch->>Jobs: Initialize progress at 0%
+            Orch->>Jobs: Progress 5%
             Orch->>LastFM: Fetch paginated recent tracks
             loop Each page with retry and global throttling
                 LastFM-->>Orch: Scrobbles + page progress
-                Orch->>Repo: Progress 5%-20%
+                Orch->>Jobs: Progress 5%-20%
             end
             Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
-            Orch->>Repo: Persist one below_threshold exclusion per album, with its counts and failed thresholds
-            Note over Orch,Repo: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
-            Orch->>Repo: Aggregation stats, and partial_data_warning when pages were dropped
+            Orch->>Jobs: Aggregation stats, and partial_data_warning plus record_partial_source(lastfm) when pages were dropped (failed, or malformed after every retry)
             alt Terminal Last.fm failure
-                Orch->>Repo: set_job_error(lastfm_unavailable)
-                Note over Orch,Repo: set_job_error also stores an empty result list
+                Orch->>Jobs: fail(lastfm_unavailable)
+                Note over Orch,Jobs: jobs.fail also stores an empty result list
             else Pages available
+                Orch->>Jobs: Persist one below_threshold exclusion per album, with its counts and failed thresholds
+                Note over Orch,Jobs: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
                 alt No albums pass filters
-                    Orch->>Repo: Store empty results and progress 100%
-                    Note over Orch,Repo: Terminal -- no pre-slice, cache, or Spotify
+                    Orch->>Jobs: succeed: empty results and progress 100%, in one write
+                    Note over Orch,Jobs: Terminal -- no pre-slice, cache, or Spotify
                 else Albums pass filters
-                    Orch->>Repo: Progress 20%
+                    Orch->>Jobs: Progress 20%
                     Orch->>Orch: Pre-slice eligible albums to _MAX_ALBUM_CAP 500 for every sort mode
-                    Orch->>Repo: Progress 20% + prepared album count
+                    Orch->>Jobs: Progress 20% + prepared album count
                     Orch->>Cache: Open connection (None when DB disabled)
-                    Orch->>Repo: set_job_stat(db_cache_enabled)
+                    Orch->>Jobs: record_stat(db_cache_enabled)
                     alt DB unavailable
-                        Orch->>Repo: set_job_stat(db_cache_warning)
+                        Orch->>Jobs: record_stat(db_cache_warning)
                         Note over Orch,Cache: No lookup, cleanup, or persistence -- every album is a miss
                     else DB connected
                         Orch->>Cache: Batch lookup all album keys
                         alt Lookup fails
-                            Orch->>Repo: set_job_stat(db_cache_warning), cached metadata stays empty
+                            Orch->>Jobs: record_stat(db_cache_warning), cached metadata stays empty
                             Note over Orch,Cache: Fail-open -- every album becomes a miss, persistence still allowed
                         else Lookup succeeds
                             Cache-->>Orch: Matching in-TTL rows only
-                            Orch->>Repo: set_job_stat(db_cache_lookup_hits)
+                            Orch->>Jobs: record_stat(db_cache_lookup_hits)
                         end
                         Orch->>Cache: Clean stale rows (both lookup outcomes)
                     end
                     Orch->>Orch: Partition cache hits and misses (runs with or without a connection)
-                    Orch->>Repo: set_job_stat(cache_hits)
+                    Orch->>Jobs: record_stat(cache_hits)
 
                     alt Cache misses exist
+                        Note over Orch,Jobs: Every partial_data_warning below (token, search, details, Deezer fallback) also calls record_partial_source(provider)
                         Orch->>Spotify: Fetch token
-                        alt Token fetch fails
-                            Orch->>Repo: set_job_stat(partial_data_warning)
+                        alt Token fetch fails (a non-200 answer, a timeout, or a refused connection)
+                            Orch->>Jobs: record_stat(partial_data_warning) and record_partial_source(provider)
                             Note over Orch,Spotify: No search or detail call; every miss goes to Deezer
                         else Token acquired
                             Orch->>Spotify: Search albums
-                            Spotify-->>Orch: Spotify IDs, or search misses
-                            Orch->>Repo: Progress 20%-40%
+                            Spotify-->>Orch: Spotify IDs, search misses, or searches it could not answer (429, 5xx, timeout)
+                            Note over Orch: An unanswered album degrades to Deezer; the siblings carry on
+                            Orch->>Jobs: Progress 20%-40%
                             opt At least one album matched
                                 Orch->>Spotify: Batch-fetch matched album details
                                 Spotify-->>Orch: Dates, art, and track durations
-                                Orch->>Repo: Progress 40%-60%
+                                Orch->>Jobs: Progress 40%-60%
                                 Note over Orch: A matched album promotes into cache_hits
                             end
                         end
-                        opt Misses remain -- a search miss, a detail failure, or no token
+                        opt Misses remain -- a search miss, an unanswered search, a detail failure, or no token
                             Orch->>Deezer: Search, then fetch detail and track list, per album
                             Deezer-->>Orch: Date, art, and track durations
-                            Orch->>Repo: Progress 60%-75%
-                            alt No token, nothing was cached beforehand, and Deezer matched nothing
+                            Orch->>Jobs: Progress 60%-75%
+                            alt Spotify gave nothing for every miss (an unanswered search or unanswered details), nothing was cached beforehand, and Deezer matched nothing
                                 Orch->>Orch: raise SpotifyUnavailableError
                             else At least one album enriched, or cache hits existed
                                 Note over Orch: Continue -- a partly enriched run is a valid outcome
                             end
                         end
                         opt Albums neither provider could enrich
-                            Orch->>Repo: Unmatched reason No match on Spotify or Deezer
+                            Orch->>Jobs: Unmatched reason No match on Spotify or Deezer, or Could not be checked when a provider did not answer
                         end
                         opt DB connected and new metadata rows exist
                             Orch->>Cache: Persist fresh metadata
-                            Orch->>Repo: set_job_stat(db_cache_persisted)
+                            Orch->>Jobs: record_stat(db_cache_persisted)
                             Note over Orch,Cache: A persist failure is non-fatal and sets db_cache_warning
                         end
                     else All metadata is cached
-                        Note over Orch,Spotify: No Spotify or Deezer call, while JOBS stats still update
+                        Note over Orch,Spotify: No Spotify or Deezer call, while job stats still update
                     end
                     opt DB connected
                         Orch->>Cache: Close connection
@@ -148,53 +155,49 @@ sequenceDiagram
                     end
 
                     alt SpotifyUnavailableError reached background_task
-                        Orch->>Repo: set_job_error(spotify_unavailable)
-                        Note over Orch,Repo: Terminal -- no merge, and the stored result list is empty
+                        Orch->>Jobs: fail(spotify_unavailable)
+                        Note over Orch,Jobs: Terminal -- no merge, and the stored result list is empty
                     else Metadata available
-                        Orch->>Repo: set_job_stat(spotify_matched and spotify_unmatched)
+                        Orch->>Jobs: record_stat(spotify_matched and spotify_unmatched)
                         Orch->>Orch: Apply release filter, compute playtime, and rank
-                        Orch->>Repo: Unmatched entries for albums failing the release filter
-                        Orch->>Repo: get_job_context(job_id) to count No Spotify match entries
-                        alt Every album returned No Spotify match
-                            Orch->>Repo: set_job_error(spotify_unavailable)
-                        else Ranked results, possibly emptied by the release filter
-                            Orch->>Repo: Progress 60%-90%
-                            Orch->>Orch: Post-slice to limit_results
-                            Orch->>Repo: Store results and progress 100%
-                            Orch->>Repo: enqueue_release_check(job_id)
-                            Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
-                        end
+                        Orch->>Jobs: Unmatched entries for albums failing the release filter
+                        Note over Orch,Jobs: Ranked results, possibly emptied by the release filter or because every album was No match -- a finished run, never a failure
+                        Orch->>Jobs: Progress 60%-90%
+                        Orch->>Orch: Post-slice to limit_results
+                        Orch->>Jobs: succeed: results and progress 100%, in one write
+                        Orch->>ReleaseChecks: enqueue_release_check(job_id)
+                        Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
                     end
                 end
             end
             opt A correction pass was queued
-                ReleaseChecks->>Repo: Read this job's candidate albums
+                ReleaseChecks->>Jobs: Read this job's candidate albums
                 ReleaseChecks->>Cache: Look up the findings already known
                 loop Each album still unknown, capped per job
                     ReleaseChecks->>MusicBrainz: Look up the release group's first-release-date
                     MusicBrainz-->>ReleaseChecks: A trusted match, or nothing close enough
                     ReleaseChecks->>Cache: Persist the finding, hit and miss alike
-                    ReleaseChecks->>Repo: Mark a moved-out row in place
+                    ReleaseChecks->>Jobs: Mark a moved-out row in place
                 end
-                ReleaseChecks->>Repo: set_job_release_check(running, then done)
+                ReleaseChecks->>Jobs: record_stat(release_check: running, then done)
             end
             opt Unhandled exception inside _fetch_and_process
-                Orch->>Repo: Classified error code, or empty results with a retryable unknown error
+                Orch->>Jobs: fail(classified code, else internal_error): empty results, no exception text shown
             end
             opt Exception escaping that handler
-                Orch->>Repo: set_job_error(internal_error)
-                Note over Orch,Repo: background_task logs it and publishes internal_error, so a polling page stops
+                Orch->>Jobs: fail(internal_error)
+                Note over Orch,Jobs: background_task logs it and publishes internal_error, so a polling page stops
             end
             Orch->>Worker: release_job_slot()
             Note over Orch,Worker: In worker.run_coroutine_in_new_loop's finally, called from background_task -- always reached because event-loop setup is inside the try block
         and Browser polls progress
             loop Poll until 100% or an error
                 Browser->>Routes: GET /progress?job_id=...
-                Routes->>Repo: get_job_progress(job_id)
+                Routes->>Jobs: progress(job_id)
                 alt Job missing or expired
                     Routes-->>Browser: JSON 404 with error true
                 else Job found
-                    Repo-->>Routes: Progress, stats, error state, and retry metadata
+                    Jobs-->>Routes: Progress, stats, error state, and retry metadata
                     Routes-->>Browser: JSON 200 progress payload
                 end
             end
@@ -216,7 +219,7 @@ sequenceDiagram
             alt job_id missing
                 Routes-->>Browser: error.html -- Missing Job Identifier
             else job_id present
-                Routes->>Repo: get_job_context(job_id)
+                Routes->>Jobs: context(job_id)
                 alt Job unknown or expired
                     Routes-->>Browser: error.html -- Results Not Found
                 else Job errored
@@ -230,7 +233,7 @@ sequenceDiagram
                     opt User opens the unmatched list
                         Browser->>Routes: GET /unmatched?job_id=...
                         Routes-->>Browser: unmatched.html, one panel per reason, sorted by reason code
-                        Note over Browser,Routes: below_threshold, then release_scope, then no_spotify_match
+                        Note over Browser,Routes: below_threshold, release_scope, no_spotify_match, then provider_unavailable
                     end
                 end
             end
@@ -244,7 +247,7 @@ empty-result terminal simply discard the grouped set. The cache lookup returns
 hits only, and the hit/miss partition runs on the full candidate set whether or
 not a connection was opened.
 
-`set_job_error` writes an empty result list as well as the error state, so an
+`jobs.fail` writes an empty result list as well as the error state, so an
 errored job holds `[]` rather than `None`. `results_complete` depends on that
 difference: `None` means the results are not stored yet.
 
@@ -264,11 +267,43 @@ being retried separately. Persistence happens in the caller (Phase 4) after
 that call returns, which is why the diagram shows it after Deezer: one row set
 is written for both providers, not one per provider.
 
-`SpotifyUnavailableError` is raised on three conditions together -- no token,
-nothing cached before this call, and Deezer matched nothing -- so a Deezer-only
-run that finds even one album is a valid partial outcome rather than a failure.
+`SpotifyUnavailableError` is raised on three conditions together -- Spotify
+gave nothing for every miss (no token, or every miss either a search it did not
+answer or a matched album whose details it did not answer), nothing cached
+before this call, and Deezer matched nothing -- so a run that finds even one
+album is a valid partial outcome rather than a failure. A "no match" answer is
+an answer: it keeps the run alive here, and a run where both providers answered
+"no match" for every album succeeds with no albums (owner ruling 2026-09-30):
+the Results page says none were found and links to the Unmatched breakdown,
+where each album reads "No match on Spotify or Deezer".
 An earlier revision of this diagram drew the no-cache-hits case as an immediate
 raise, which was wrong before Batch 22 added Deezer and is wrong now.
+
+Errors are classified by type, not by message text. A provider call that
+cannot be answered -- a 429 or a Retry-After above the cap, a 5xx, a timeout,
+and for Spotify a 400 or 403 or a 401 that a fresh token does not cure; for
+Deezer an HTTP 429 or 403 -- raises `ProviderError`, never a "no match". A
+Spotify token is refreshed a minute before it expires, and a 401 drops the
+cached token once and retries once with a fresh one. Within one job (one
+event loop) the refresh is single-flight: concurrent expiries or 401s cost one
+token request, and if it fails the calls waiting on it get no token. Once a
+Spotify call meets a Retry-After above the cap, or refuses three requests in a
+row, or rejects a freshly fetched token, that job sends Spotify no further
+requests (a per-job breaker, checked again right before each request so a
+queued call is stopped too; another job is unaffected) and its remaining
+albums go to Deezer. For Spotify the search phase
+catches it per album: the album degrades to Deezer, and if Deezer has nothing
+either it is listed under the distinct `provider_unavailable` reason, not as a
+no-match. The same holds for an album Spotify's search matched but whose detail
+call (batch or single) it could not answer. Each row's text says which provider
+was unavailable and which had no match. Only when Spotify gave nothing for every miss (no search or details call
+answered) and Deezer enriched nothing does the job fail, as the retryable
+`spotify_unavailable`. A Deezer or
+MusicBrainz call that cannot be answered degrades too: the album is left
+unenriched (Deezer: listed as unavailable), no finding is cached for
+MusicBrainz, and the job carries a partial-data warning. Any exception nothing
+classifies is our bug and publishes `internal_error`, with no exception text
+shown.
 
 The correction pass is queued, never awaited, and is enqueued only on the happy
 path: the error handlers below it store an empty result list, and an empty list

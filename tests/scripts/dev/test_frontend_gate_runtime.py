@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import socket
+import urllib.request
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -122,15 +124,15 @@ def test_server_setup_failure_restores_jobs_and_page_inventories() -> None:
     with (
         patch("scripts.dev._frontend_gate_runtime.create_app"),
         patch(
-            "scripts.dev._frontend_gate_runtime.create_job",
+            "scripts.dev._frontend_gate_runtime.jobs.create",
             side_effect=("album-job", "heatmap-job"),
         ),
-        patch("scripts.dev._frontend_gate_runtime.set_job_progress"),
+        patch("scripts.dev._frontend_gate_runtime.jobs.advance"),
         patch(
             "scripts.dev._frontend_gate_runtime.make_server",
             side_effect=OSError("bind failed"),
         ),
-        patch("scripts.dev._frontend_gate_runtime.delete_job") as delete_job,
+        patch("scripts.dev._frontend_gate_runtime.jobs.delete") as delete_job,
         pytest.raises(OSError, match="bind failed"),
     ):
         with serve_app():
@@ -162,3 +164,18 @@ def test_install_cdn_routes_respects_live_fonts_flag() -> None:
     page = MagicMock()
     _frontend_gate_runtime.install_cdn_routes(page, live_fonts=True)
     page.route.assert_not_called()
+
+
+def test_an_idle_connection_does_not_stall_the_served_app() -> None:
+    """A browser's speculative pre-connection sends nothing. A single-threaded
+    server waits on it, so every later request stalls until it is dropped
+    (S4-10); a threaded one answers the second connection at once."""
+    with serve_app() as base_url:
+        host, port = base_url.removeprefix("http://").split(":")
+        with socket.create_connection((host, int(port)), timeout=2):
+            with urllib.request.urlopen(
+                f"{base_url}/static/css/shell.css", timeout=3
+            ) as reply:
+                status = reply.status
+
+    assert status == 200

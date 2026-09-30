@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-20
+Last updated: 2026-09-30
 
 ---
 
@@ -9,17 +9,19 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1821 passing** across 67 test modules |
+| Tests | **2493 passing** across 83 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 23 status | **Active**. WP-0 is next. Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
+| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
 - `MAX_ACTIVE_JOBS` (default 5 since 2026-07-31; was 10) caps concurrent
   background jobs via `worker.py`.
+- `MAX_RETRY_AFTER_SECONDS` (`config.py`, default 30) caps the `Retry-After` sleep in
+  `retry_with_semaphore`; a longer value is a failed attempt, not a wait.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_MAX_ALBUM_CAP = 500` in `orchestrator/__init__.py` limits Spotify fetch across all sort modes.
@@ -27,21 +29,21 @@ Last updated: 2026-09-20
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
 - Heatmap fetch speed is rate-limit bound; measurement and rationale live in
-  FINDINGS.md F-B18-11 (single source).
+  docs/agents/FINDINGS.md F-B18-11 (single source).
 
 ---
 
 ## 2. Execution status (machine-managed)
 
-`PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
+`docs/agents/PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
 
 <!-- DOCSYNC:STATUS-START -->
-- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
+- Source of truth: PLAYBOOK Section 3 and Section 4.
 - Current batch: Batch 23.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **1821 passed**.
+- Latest validated test count: **2493 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -53,15 +55,17 @@ Last updated: 2026-09-20
 app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
-  errors.py                 # SpotifyUnavailableError, ERROR_CODES
+  errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
-  api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary
-  utils.py                  # rate limiters, session pooling, request caching
-  repositories.py           # JOBS dict, jobs_lock, job state CRUD
+  api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
+  utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
+  jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
+  enrichment.py             # AlbumMetadata, the one contract every enrichment provider returns
   spotify.py                # fetch_spotify_access_token, search, batch details
+  deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
   orchestrator/
@@ -69,41 +73,50 @@ scrobblescope/
     _search.py               # Spotify parallel-search phase
     _details.py              # Spotify batch-detail phase
     _cache.py                # DB metadata cache lookup/persist phase
+    _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   spotlight.py              # pure artist aggregation and stable sample selection
-  unmatched.py              # stable reason codes, category metadata, deterministic grouping
+  unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
   routes/
     __init__.py              # facade: Blueprint bp, shared job-context helpers, error handlers
     pages.py                  # home page
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
     api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
-templates/                  # base, index, loading, results, unmatched, error
+templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
-  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
+  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
-  css/                      # global, index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (11 files)
-  js/                       # theme, page_motion, index, loading, loading-progress, results, results-spotlight, unmatched, heatmap
+  css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
+  js/                       # theme, page_motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     dev_start.py            # Postgres container check plus Flask launch
     tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
+    docsync_preflight.py    # docsync check run against the staged tree (or the checkout) before a commit
+    install_docsync_hook.py # inspects and, on request, installs the docsync preflight hook
+    graphify_refresh.py     # refreshes the local graphify graph when enough work has accumulated
+    results_behavior_tests.py # Chromium behaviour tests for the Results page
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
     _frontend_gate_assets.py # stylesheet isolation
     _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
     _frontend_gate_forms.py # form validation, validator races, initial visibility
+    _frontend_gate_heatmap_access.py # heatmap cell keyboard reachability, aria-label and focus ring
     _frontend_gate_layout.py # fonts, text scaling, touch targets, scale parity
     _frontend_gate_pipeline.py # loading composition, progress state machines, spotlight
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _frontend_gate_runtime.py # Playwright loading, browser launch, served app, route policy
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
+    _frontend_gate_spotify_icon.py # official Spotify icon: size, file, clear space, link target
+    _frontend_gate_spotlight_photo.py # artist spotlight photo: no crop, overlay, animation, or fake
     _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
-    _frontend_gate_unmatched.py # unmatched report contract and width sweep
+    _frontend_gate_unmatched.py # unmatched report contract, width sweep, portraits and artwork corners
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
+    _worktree_guard_essentials.py # WT015: declared, gitignored files the workflow depends on
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
     _worktree_guard_runner.py # sanitized Git runner and discovery parsing
     _worktree_guard_inspection.py # read-only collection orchestration
@@ -113,10 +126,15 @@ scripts/
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError
+    markdown.py             # shared scanner: prose lines and markers outside fences and comments
+    transaction.py          # locked, journalled multi-file publication and path containment
     parser.py               # Markdown sections, markers, entries, and batch state
     renderer.py             # managed status, PLAYBOOK, and archive rendering
     logic.py                # rotation, deduplication, and authoritative test count
     declarations.py         # declared DOC009-DOC011 value, anchor, and retired-claim checks
+    archives.py             # bounded, paginated archives and cold storage
+    closeout.py             # batch close-out records and their diagnostics
+    findings.py             # finding lifecycle parsing and rotation planning
     integrity.py            # live-document semantic integrity diagnostics
     cli.py                  # file I/O, final-state enforcement, and exit codes
   testing/
@@ -135,58 +153,74 @@ domain.py        <- (leaf)
 config.py        <- (leaf)
 api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
-cache.py         <- config
+cache.py         <- config, utils
 worker.py        <- config
-repositories.py  <- config, domain, errors
-lastfm.py        <- config, utils
-spotify.py       <- config, utils
+jobs.py          <- config, errors
+enrichment.py    <- (leaf)
+lastfm.py        <- config, errors, utils
+spotify.py       <- config, domain, enrichment, errors, utils
+deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
-musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker
-orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
-orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
-orchestrator/_details.py  <- config, domain; orchestrator (facade)
-orchestrator/_cache.py    <- orchestrator (facade)
-orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
-heatmap.py       <- lastfm, repositories, utils, worker
+musicbrainz.py   <- config, domain, errors, utils
+release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, unmatched, utils, worker
+orchestrator/__init__.py  <- cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
+orchestrator/_search.py   <- config, errors, jobs, utils; orchestrator (facade, for patchable cross-cutting calls)
+orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
+orchestrator/_cache.py    <- cache, jobs, utils; orchestrator (facade)
+orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orchestrator (facade)
+orchestrator/_results.py  <- domain, jobs, unmatched, utils
+heatmap.py       <- errors, jobs, lastfm, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- config, domain, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
-routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
-routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
-app.py           <- routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
+routes/album_flow.py    <- jobs, orchestrator, spotlight, unmatched, utils; routes (facade)
+routes/heatmap_flow.py  <- heatmap, jobs, utils; routes (facade)
+routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
+app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
+docsync/markdown.py  <- (leaf; standard library only)
 docsync/models.py    <- (leaf)
-docsync/parser.py    <- docsync/models
+docsync/transaction.py <- docsync/models
+docsync/parser.py    <- docsync/markdown, docsync/models
 docsync/renderer.py  <- docsync/models, docsync/parser
-docsync/logic.py     <- docsync/models, docsync/parser, docsync/renderer
-docsync/declarations.py <- docsync/models
-docsync/integrity.py <- docsync/declarations, docsync/logic, docsync/models, docsync/parser, docsync/renderer
-docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
+docsync/logic.py     <- docsync/markdown, docsync/models, docsync/parser, docsync/renderer
+docsync/declarations.py <- docsync/markdown, docsync/models, docsync/transaction
+docsync/archives.py  <- docsync/declarations, docsync/markdown, docsync/models, docsync/transaction
+docsync/closeout.py  <- docsync/declarations, docsync/markdown, docsync/models, docsync/parser
+docsync/findings.py  <- docsync/archives, docsync/declarations, docsync/markdown, docsync/models
+docsync/integrity.py <- docsync/closeout, docsync/declarations, docsync/findings, docsync/logic, docsync/markdown, docsync/models, docsync/parser, docsync/renderer
+docsync/cli.py       <- docsync/archives, docsync/closeout, docsync/declarations, docsync/findings, docsync/integrity, docsync/logic, docsync/models, docsync/parser, docsync/renderer, docsync/transaction
 doc_state_sync.py    <- docsync/cli
 dev/_worktree_guard_types.py <- (leaf; standard library only)
 dev/_worktree_guard_diagnostics.py <- dev/_worktree_guard_types
+dev/_worktree_guard_essentials.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types; docsync/declarations
 dev/_worktree_guard_lineage.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
 dev/_worktree_guard_runner.py <- dev/_worktree_guard_types
 dev/_worktree_guard_venv.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
-dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
-dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
+dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_essentials, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
+dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_essentials, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
+dev/docsync_preflight.py <- dev/_worktree_guard_venv
+dev/install_docsync_hook.py <- dev/_worktree_guard_venv
+dev/graphify_refresh.py <- (leaf; standard library only)
+dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
+dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
-dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_results.py <- repositories
-dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
+dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; jobs
+dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); jobs; werkzeug.serving; playwright (imported late)
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
-dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_unmatched.py <- repositories
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
+dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_results; jobs
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---
@@ -200,10 +234,10 @@ in its focused owner files rather than growing a second copy here.
 ```
 User submits form (index.html)
   -> POST /results_loading (routes/album_flow.py)
-    -> cleanup_expired_jobs()
-    -> acquire_job_slot() [worker.py] -- BEFORE create_job; on failure the
+    -> jobs.expire_stale()
+    -> acquire_job_slot() [worker.py] -- BEFORE jobs.create; on failure the
        request is rejected and no job is created
-    -> create_job(params) -> UUID in JOBS dict
+    -> jobs.create(params) -> UUID in the job store
     -> start_job_thread(background_task, args=(...)) [worker.py]
        -- worker runs an injected callable; it does not import orchestrator
        -- on failure, start_job_thread releases the slot before re-raising,
@@ -222,7 +256,7 @@ background_task (orchestrator/__init__.py, daemon Thread):
       3: Spotify fetch for misses only, then Deezer for Spotify's misses
       4: DB batch persist + conn.close() in finally
       5: Build results (cached original-release dates applied here)
-         -> set_job_results() -> enqueue_release_check(job_id)
+         -> jobs.succeed() -> enqueue_release_check(job_id)
 
 release_checks.py (one process-wide daemon thread, own loop, FIFO job queue):
   -> MusicBrainz at 1 req/s, capped per job, both hits and misses cached
@@ -239,7 +273,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1821 tests)
+## 6. Test structure (2493 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
@@ -255,6 +289,15 @@ and `doc_state_sync.py --fix` writes it; see PLAYBOOK Section 4.
 
 Layout: `tests/` mirrors the package, with `tests/scripts/dev/` covering the
 developer tooling and `tests/services/` the Last.fm and Spotify paths.
+`tests/frontend/` is a Chromium-backed harness for pure JS functions
+(`heatmap.js` today), collected by `pytest` under the `browser` marker
+registered in `pyproject.toml`; CI's coverage step deselects it with
+`-m "not browser"` and runs it separately after installing the browsers.
+`tests/fixtures/` holds provider response bodies transcribed from Last.fm's
+and Spotify's own docs (`lastfm_recenttracks_page.json`,
+`spotify_get_album.json`), read by `tests/test_provider_fixtures.py`'s shape
+tests. `tests/test_pipeline_integration.py` runs the album pipeline on a
+real background thread instead.
 
 ---
 

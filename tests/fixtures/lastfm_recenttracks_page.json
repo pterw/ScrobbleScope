@@ -1,0 +1,28 @@
+{
+  "recenttracks": {
+    "track": [
+      {
+        "artist": {
+          "mbid": "2f9ecbed-27be-40e6-abca-6de49d50299e",
+          "#text": "Aretha Franklin"
+        },
+        "name": "Sisters Are Doing It For Themselves",
+        "album": {
+          "mbid": "",
+          "#text": "Who's Zoomin' Who?"
+        },
+        "date": {
+          "uts": "1213031819",
+          "#text": "9 Jun 2008, 17:16"
+        }
+      }
+    ],
+    "@attr": {
+      "user": "RJ",
+      "page": "1",
+      "perPage": "10",
+      "totalPages": "3019",
+      "total": "30186"
+    }
+  }
+}

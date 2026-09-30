@@ -2,8 +2,8 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22). See
 ``scrobblescope/orchestrator/_search.py`` for why cross-cutting dependencies
-(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``,
-``set_job_progress``) are read through the live ``orchestrator`` module
+(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``)
+are read through the live ``orchestrator`` module
 reference rather than imported directly.
 """
 
@@ -12,8 +12,10 @@ import logging
 import time
 from math import ceil
 
+from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_BATCH_CONCURRENCY
+from scrobblescope.utils import cancel_and_drain
 
 
 async def _run_spotify_batch_detail_phase(
@@ -24,11 +26,17 @@ async def _run_spotify_batch_detail_phase(
     spotify_id_to_key,
     spotify_id_to_original_data,
     cache_hits,
+    detail_unavailable_keys=None,
 ):
     """Batch-fetch Spotify album details for all found IDs.
 
     Reports progress in the 40-60% range. Promotes enriched albums into
     cache_hits (mutated in place). Returns new_metadata_rows.
+
+    Spotify matched these albums, so one whose details it could not answer
+    for (a 5xx, a timeout, a capped 429) is not a "no match": its key is
+    added to *detail_unavailable_keys* (mutated in place, when given) so the
+    Deezer fallback can record it as unavailable if Deezer misses it too.
     """
     new_metadata_rows = []
     batch_size = 20
@@ -69,32 +77,36 @@ async def _run_spotify_batch_detail_phase(
             on_fallback=report_fallback,
         )
 
-    batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
+    batch_tasks = [
+        asyncio.ensure_future(fetch_batch_with_semaphore(batch))
+        for batch in batch_groups
+    ]
 
     all_album_details = {}
     batches_done = 0
-    for fut in asyncio.as_completed(batch_tasks):
-        batch_result = await fut
-        all_album_details.update(batch_result)
-        batches_done += 1
-        # Map batch progress into the 40%-60% range
-        pct = 40 + int(20 * batches_done / max(num_batches, 1))
-        enriched_so_far = len(all_album_details)
-        _orchestrator.set_job_progress(
-            job_id,
-            progress=pct,
-            message=(
+    try:
+        for fut in asyncio.as_completed(batch_tasks):
+            batch_result = await fut
+            all_album_details.update(batch_result)
+            if detail_unavailable_keys is not None:
+                detail_unavailable_keys.update(
+                    spotify_id_to_key[spotify_id]
+                    for spotify_id in getattr(batch_result, "unanswered", ())
+                )
+            batches_done += 1
+            enriched_so_far = len(all_album_details)
+            jobs.report_phase(
+                job_id,
+                jobs.SPOTIFY_DETAILS,
+                batches_done,
+                num_batches,
                 f"Enriched {enriched_so_far}/"
-                f"{len(valid_spotify_ids)} albums from Spotify..."
-            ),
-            phase={
-                "key": "spotify_details",
-                "label": "Fetching Spotify details",
-                "unit": "batch",
-                "current": batches_done,
-                "total": num_batches,
-            },
-        )
+                f"{len(valid_spotify_ids)} albums from Spotify...",
+            )
+    finally:
+        # An unexpected exception from one batch must not leave its siblings
+        # running on a session that is about to close (F-B23-24).
+        await cancel_and_drain(batch_tasks)
 
     batch_duration = time.time() - batch_start_time
     logging.info(

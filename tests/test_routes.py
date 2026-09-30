@@ -1,25 +1,18 @@
 # tests/test_routes.py
+import hashlib
+import html
 import json
 import re
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.domain import normalize_name
 from scrobblescope.orchestrator import background_task
-from scrobblescope.repositories import (
-    JOBS,
-    add_job_unmatched,
-    create_job,
-    get_job_progress,
-    get_job_unmatched,
-    jobs_lock,
-    set_job_error,
-    set_job_progress,
-    set_job_release_check,
-    set_job_results,
-)
 from scrobblescope.routes import (
+    _PRIVATE_PROFILE_MESSAGE,
     _filter_results_for_display,
     _get_filter_description,
     _group_unmatched_by_reason,
@@ -104,7 +97,7 @@ def test_heatmap_page_without_saved_job_uses_dedicated_empty_state(client):
 
 def test_home_heatmap_mode_starts_fresh_without_forgetting_latest_job(client):
     """The index selector opens a new form while navigation keeps the latest run."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     with client.session_transaction() as browser_session:
         browser_session["latest_heatmap_job_id"] = job_id
 
@@ -122,7 +115,7 @@ def test_home_heatmap_mode_starts_fresh_without_forgetting_latest_job(client):
 
 def test_heatmap_page_embeds_latest_session_job_for_resume(client):
     """The Heatmap destination should resume this browser's latest run."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     with client.session_transaction() as browser_session:
         browser_session["latest_heatmap_job_id"] = job_id
 
@@ -135,7 +128,7 @@ def test_heatmap_page_embeds_latest_session_job_for_resume(client):
 
 def test_heatmap_page_accepts_explicit_job_then_saves_it(client):
     """An explicit compatibility ID should seed later clean Heatmap visits."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
 
     response = client.get(f"/heatmap?job_id={job_id}")
 
@@ -204,7 +197,7 @@ def test_validate_user_missing_username(client):
 
 def test_results_complete_renders_no_matches_for_empty_results(client):
     """A completed job with empty results should render the no-matches UI."""
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -217,13 +210,7 @@ def test_results_complete_renders_no_matches_for_empty_results(client):
             "limit_results": "10",
         }
     )
-    set_job_results(job_id, [])
-    set_job_progress(
-        job_id,
-        progress=100,
-        message="No albums found for the specified criteria.",
-        error=False,
-    )
+    jobs.succeed(job_id, [], "No albums found for the specified criteria.")
 
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
@@ -239,8 +226,8 @@ def test_results_complete_error_with_error_code(client):
     WHEN /results_complete is POSTed
     THEN the error page should mention the issue is temporary.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "spotify_unavailable")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "spotify_unavailable")
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 503
     assert b">503</span>" in response.data
@@ -254,8 +241,8 @@ def test_progress_endpoint_returns_error_metadata(client):
     WHEN the /progress endpoint is queried
     THEN the JSON should include error classification fields.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_rate_limited")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_rate_limited")
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["error"] is True
@@ -270,8 +257,8 @@ def test_progress_endpoint_no_error_metadata_on_success(client):
     WHEN the /progress endpoint is queried
     THEN the JSON should NOT include error classification fields.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_progress(job_id, progress=50, message="Working...", error=False)
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.advance(job_id, 50, "Working...")
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["error"] is False
@@ -285,7 +272,7 @@ def test_progress_endpoint_returns_phase_payload(client):
     WHEN the /progress endpoint is queried
     THEN the exact JSON phase payload should survive the route.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     phase = {
         "key": "lastfm_fetch",
         "label": "Fetching scrobbles",
@@ -293,7 +280,7 @@ def test_progress_endpoint_returns_phase_payload(client):
         "current": 23,
         "total": 102,
     }
-    set_job_progress(job_id, progress=20, message="Fetching scrobbles", phase=phase)
+    jobs.advance(job_id, 20, "Fetching scrobbles", phase=phase)
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["phase"] == {
@@ -320,8 +307,8 @@ def test_progress_endpoint_no_phase_when_unset_or_error(client):
     assert "phase" not in res_404.get_json()
 
     # 3. Classified error on existing job
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_unavailable")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_unavailable")
     res_err = client.get(f"/progress?job_id={job_id}")
     assert "phase" not in res_err.get_json()
 
@@ -374,20 +361,19 @@ def test_results_loading_capacity_exceeded_returns_error(client):
     assert b"Too many requests" in response.data
 
 
-def test_results_loading_thread_start_failure_renders_error(client):
+def test_results_loading_thread_start_failure_renders_error(client, fresh_job_store):
     """
     GIVEN start_job_thread raises (e.g. OS resource exhaustion after slot acquire)
     WHEN POST /results_loading is processed
-    THEN the route renders the index page gracefully and leaves no orphan job in JOBS.
+    THEN the route renders the index page gracefully and leaves no orphan job in the job store.
 
-    Previously this test patched delete_job and only asserted assert_called_once(),
+    Previously this test patched jobs.delete and only asserted assert_called_once(),
     which verified the mock was called but not which job_id was passed, and left the
-    actual JOBS dict containing the orphaned entry unchecked.  This version drops the
-    mock and asserts directly on JOBS state: any regression in the cleanup path
+    job store containing the orphaned entry unchecked.  This version drops the
+    mock and asserts directly on the job store: any regression in the cleanup path
     (wrong job_id, missing call, wrong branch) will cause the assertion to fail.
     """
-    with jobs_lock:
-        jobs_before = set(JOBS.keys())
+    jobs_before = set(fresh_job_store.ids())
 
     with (
         patch(
@@ -405,10 +391,9 @@ def test_results_loading_thread_start_failure_renders_error(client):
     assert response.status_code == 200
     assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
-    # The route must have called delete_job on the job it created: JOBS must be
+    # The route must have called jobs.delete on the job it created: the store must be
     # back to its pre-request size with no orphan entry left behind.
-    with jobs_lock:
-        assert set(JOBS.keys()) == jobs_before
+    assert set(fresh_job_store.ids()) == jobs_before
 
 
 def test_results_loading_valid_post(client):
@@ -447,7 +432,7 @@ def test_results_loading_private_profile_does_not_start_a_job(client):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
 
     assert response.status_code == 200
-    assert b"private" in response.data.lower()
+    assert html.escape(_PRIVATE_PROFILE_MESSAGE) in response.data.decode("utf-8")
     mock_start.assert_not_called()
 
 
@@ -517,7 +502,7 @@ def test_results_complete_with_results_renders_data(client):
     WHEN POST /results_complete is submitted
     THEN it should render the results page with album data and the tojson bridge.
     """
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -530,7 +515,7 @@ def test_results_complete_with_results_renders_data(client):
             "limit_results": "all",
         }
     )
-    set_job_results(
+    jobs.succeed(
         job_id,
         [
             {
@@ -544,8 +529,8 @@ def test_results_complete_with_results_renders_data(client):
                 "spotify_id": "abc123",
             },
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
@@ -558,11 +543,12 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
     """
     GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album
     WHEN POST /results_complete is submitted
-    THEN each row links to album_url (not a spotify_id-derived Spotify URL) and
-         carries a provider attribution badge naming its own provider (Batch 22
-         WP-1 Task 6).
+    THEN each row links to album_url (not a spotify_id-derived Spotify URL);
+         the Deezer row carries a text badge naming Deezer (Batch 22 WP-1 Task
+         6), while the Spotify row is attributed once for the list by the
+         official Spotify icon instead of a per-row badge (F-B21-60).
     """
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -575,7 +561,7 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
             "limit_results": "all",
         }
     )
-    set_job_results(
+    jobs.succeed(
         job_id,
         [
             {
@@ -603,8 +589,8 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
                 "album_url": "https://www.deezer.com/album/dz-1",
             },
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.post("/results_complete", data={"job_id": job_id})
     html = response.data.decode("utf-8")
@@ -614,8 +600,11 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
     # Neither row's link is reconstructed from spotify_id -- each uses its
     # own provider's album_url, so a Deezer row must never point at Spotify.
     assert "open.spotify.com/album/dz-1" not in html
-    assert re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
-        "Spotify row is missing its provider attribution badge"
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
+        "Spotify row carries a per-row badge; Spotify is attributed once per list"
+    )
+    assert 'id="results-spotify-attribution"' in html, (
+        "Spotify row's list has no Spotify icon attribution"
     )
     assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html), (
         "Deezer row is missing its provider attribution badge"
@@ -671,8 +660,8 @@ def test_unmatched_api_returns_data(client):
     WHEN GET /api/unmatched is requested with that job_id
     THEN it should return the unmatched albums and count.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "artist::album_key",
         {
@@ -681,7 +670,7 @@ def test_unmatched_api_returns_data(client):
             "reason": "Released in 1997, outside filter year",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "lizzy mcalpine|older",
         {
@@ -713,7 +702,7 @@ def _release_check_job(states, release_check=None):
     None leaves the result without the field at all, which is what a result
     looks like before the worker has touched it.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     results = []
     for (artist, album), state in states.items():
         result = {
@@ -726,9 +715,9 @@ def _release_check_job(states, release_check=None):
             result["release_check"] = value
             result["original_release_date"] = original
         results.append(result)
-    set_job_results(job_id, results)
+    jobs.succeed(job_id, results, "Done")
     if release_check is not None:
-        set_job_release_check(job_id, release_check)
+        jobs.record_stat(job_id, "release_check", release_check)
     return job_id
 
 
@@ -766,7 +755,7 @@ def test_release_checks_api_rejects_a_heatmap_job(client):
     WHEN GET /api/release_checks is requested with its job_id
     THEN it should return 404: release checks belong to the album flow.
     """
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     response = client.get(f"/api/release_checks?job_id={job_id}")
     assert response.status_code == 404
     assert response.get_json()["status"] == "error"
@@ -864,12 +853,13 @@ def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
     WHEN GET /api/release_checks is requested
     THEN that result is skipped rather than crashing the endpoint.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(
-        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}]
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(
+        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}], "Done"
     )
-    set_job_release_check(
+    jobs.record_stat(
         job_id,
+        "release_check",
         {"status": "done", "checked": 1, "total": 1, "moved_out": 0, "moved_in": 0},
     )
 
@@ -914,29 +904,28 @@ def test_reset_progress_success_resets_job_state(client):
     WHEN /reset_progress is called with that job_id
     THEN progress, results, and unmatched state should reset successfully.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(job_id, [{"artist": "A", "album": "B"}])
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(job_id, [{"artist": "A", "album": "B"}], "Done")
+    jobs.record_unmatched(
         job_id,
         "a|b",
         {"artist": "A", "album": "B", "reason": "No Spotify match"},
     )
-    set_job_progress(job_id, progress=88, message="Before reset", error=True)
+    jobs.fail(job_id, "internal_error")
 
     response = client.post("/reset_progress", data={"job_id": job_id})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress["progress"] == 0
     assert progress["message"] == "Reset successful"
     assert progress["error"] is False
 
-    unmatched = get_job_unmatched(job_id)
+    unmatched = jobs.unmatched(job_id)
     assert unmatched == {}
-    with jobs_lock:
-        assert JOBS[job_id]["results"] is None
+    assert jobs.context(job_id)["results"] is None
 
 
 def test_unmatched_view_missing_job_id_renders_error_page(client):
@@ -970,8 +959,8 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     WHEN POST /unmatched_view is submitted
     THEN it should render the unmatched report with grouped reason sections.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "threshold|album",
         {
@@ -989,7 +978,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {
@@ -999,7 +988,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "no_spotify_match",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "b|two",
         {
@@ -1009,7 +998,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "release_scope",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "c|three",
         {
@@ -1022,10 +1011,9 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
-    assert b"Albums That Didn't Match Your Filter" in response.data
-    assert (
-        b"Outside Release Filter" in response.data or b"release_scope" in response.data
-    )
+    assert b"Albums that didn't match your filter" in response.data
+    assert b"Outside release filter" in response.data
+    assert b"No match found" in response.data
     assert b"Artist B" in response.data
     assert b"Artist C" in response.data
     assert b"Audit &amp; Discovery" not in response.data
@@ -1039,6 +1027,248 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     )
 
 
+def _unmatched_panel(html, reason_key):
+    """The markup of one reason panel, from its section to the next one."""
+    start = html.index(f'data-reason="{reason_key}"')
+    end = html.find("<section", start)
+    return html[start : end if end != -1 else len(html)]
+
+
+def _unmatched_row(html, album):
+    """The markup of the table row that names `album`."""
+    name = html.index(album)
+    start = html.rindex("<tr", 0, name)
+    return html[start : html.index("</tr>", name)]
+
+
+def _unmatched_row_note(row):
+    """The row note's text, or None when the row prints no note."""
+    match = re.search(
+        r'class="unmatched-row-note[^"]*"[^>]*>\s*(.*?)\s*</span>', row, re.S
+    )
+    return match.group(1) if match else None
+
+
+THRESHOLD_REASON = (
+    "Played 7 times across 2 unique tracks; minimum is 10 plays and 3 unique tracks"
+)
+
+
+def _seed_every_unmatched_reason(job_id):
+    """One row per note rule: shortfall, legacy threshold, release, no match,
+    and an album a provider could not check."""
+    jobs.record_unmatched(
+        job_id,
+        "threshold|shortfall",
+        {
+            "artist": "Short Artist",
+            "album": "Shortfall Album",
+            "play_count": 8,
+            "track_count": 3,
+            "reason": (
+                "Played 8 times across 3 unique tracks; minimum is 10 plays and "
+                "3 unique tracks"
+            ),
+            "shortfall": "2 plays short",
+            "reason_code": "below_threshold",
+        },
+    )
+    jobs.record_unmatched(
+        job_id,
+        "threshold|legacy",
+        {
+            "artist": "Legacy Artist",
+            "album": "Legacy Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "reason": THRESHOLD_REASON,
+            "reason_code": "below_threshold",
+        },
+    )
+    jobs.record_unmatched(
+        job_id,
+        "release|album",
+        {
+            "artist": "Release Artist",
+            "album": "Release Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
+    )
+    jobs.record_unmatched(
+        job_id,
+        "nomatch|album",
+        {
+            "artist": "Nomatch Artist",
+            "album": "Nomatch Album",
+            "reason": "No match on Spotify or Deezer",
+            "reason_code": "no_spotify_match",
+        },
+    )
+    jobs.record_unmatched(
+        job_id,
+        "unavailable|album",
+        {
+            "artist": "Unavailable Artist",
+            "album": "Unavailable Album",
+            "reason": "Spotify was unavailable and Deezer had no match",
+            "reason_code": "provider_unavailable",
+        },
+    )
+
+
+def test_unmatched_view_row_note_says_what_is_particular_to_the_row(client):
+    """
+    GIVEN a threshold row with a shortfall, a legacy threshold row without one,
+          a release row, a no-match row and a could-not-be-checked row
+    WHEN POST /unmatched_view is submitted
+    THEN the note is the shortfall, the reason, the reason, absent, and the
+         reason (it says which provider was down), and the shortfall note
+         keeps the full sentence on its `title`.
+
+    The fourth "Reason detail" column is gone: its sentence repeated the
+    panel's heading on every row (docs/design/RECONCILIATION.md section 18).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    shortfall_row = _unmatched_row(html, "Shortfall Album")
+    assert _unmatched_row_note(shortfall_row) == "2 plays short"
+    assert 'title="Played 8 times across 3 unique tracks;' in shortfall_row
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Legacy Threshold Album"))
+        == THRESHOLD_REASON
+    )
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Release Album"))
+        == "Released in 2018 (filter requires 2024)"
+    )
+    assert _unmatched_row_note(_unmatched_row(html, "Nomatch Album")) is None
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Unavailable Album"))
+        == "Spotify was unavailable and Deezer had no match"
+    )
+    assert "Reason detail" not in html
+    assert "unmatched-reason-detail" not in html
+
+
+def test_unmatched_view_shows_the_could_not_be_checked_panel(client):
+    """
+    GIVEN one album in each of the four reasons, one of them a provider that
+          could not answer
+    WHEN POST /unmatched_view is submitted
+    THEN four panels render, the fourth titled "Could not be checked" with its
+         hint, and the album sits in it rather than in the no-match panel.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    assert 'data-panels="4"' in html
+    panel = _unmatched_panel(html, "provider_unavailable")
+    assert "Could not be checked" in panel
+    assert "Search again in a few minutes" in panel
+    assert "Unavailable Album" in panel
+    assert "Unavailable Album" not in _unmatched_panel(html, "no_spotify_match")
+
+
+def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
+    """
+    GIVEN one album in each reason panel
+    WHEN POST /unmatched_view is submitted
+    THEN only the threshold panel's metric header says "Plays / tracks"; the
+         other panels hold a bare play count and say "Plays".
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    header = re.compile(r'<th scope="col"[^>]*text-right[^>]*>([^<]*)</th>')
+    assert header.findall(_unmatched_panel(html, "below_threshold")) == [
+        "Plays / tracks"
+    ]
+    for reason_key in ("release_scope", "no_spotify_match", "provider_unavailable"):
+        assert header.findall(_unmatched_panel(html, reason_key)) == ["Plays"]
+    assert html.count("Plays / tracks") == 1
+
+
+@pytest.mark.parametrize(
+    ("albums", "expected"),
+    [
+        pytest.param(1, "2025 \u00b7 1 album left out of your results", id="singular"),
+        pytest.param(2, "2025 \u00b7 2 albums left out of your results", id="plural"),
+    ],
+)
+def test_unmatched_view_subtitle_counts_the_albums_left_out(client, albums, expected):
+    """
+    GIVEN a job with one or two unmatched albums
+    WHEN POST /unmatched_view is submitted
+    THEN the line under the headline is the year and the count, and the
+         filter bar states the filter once, with no "Listening year" and no
+         "Total unmatched" (both moved to the line above).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    for index in range(albums):
+        jobs.record_unmatched(
+            job_id,
+            f"artist|album-{index}",
+            {
+                "artist": f"Artist {index}",
+                "album": f"Album {index}",
+                "reason": "Released in 2018 (filter requires 2024)",
+                "reason_code": "release_scope",
+            },
+        )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
+    text = " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
+    assert text == expected
+    assert "Total unmatched" not in html
+    assert "Listening year" not in html
+    filter_bar = re.search(r'class="results-filter-bar">(.*?)</div>', html, re.S)
+    bar_text = " ".join(re.sub(r"<[^>]+>", "", filter_bar.group(1)).split())
+    assert bar_text.startswith("Filter: ")
+    assert bar_text.endswith("\u226510 plays \u00b7 \u22653 unique tracks")
+
+
+def test_unmatched_view_portrait_image_is_not_lazy(client):
+    """
+    GIVEN release and no-match rows with no album artwork
+    WHEN POST /unmatched_view is submitted
+    THEN each hidden portrait `<img>` carries no `loading` attribute.
+
+    A hidden lazy image is never fetched, so the `load` event that reveals it
+    never fired and the portrait never appeared (F-B23-14). unmatched.js
+    already defers the request until the row nears the viewport.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    # The release, no-match and unavailable rows have no album artwork, so each
+    # gets a slot.
+    portraits = re.findall(r"<img[^>]*unmatched-artist-image[^>]*>", html)
+    assert len(portraits) == 3
+    assert [tag for tag in portraits if "loading" in tag] == []
+
+
 def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
     """
     GIVEN a release-scope-filtered album whose metadata came from Deezer
@@ -1047,8 +1277,8 @@ def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
          Spotify link built from a (here, absent) spotify_id (Batch 22 WP-1
          Task 6; mirrors the same fix in _build_results for the results page).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "deezer|filtered",
         {
@@ -1072,9 +1302,11 @@ def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
 
 def test_unmatched_view_renders_artwork_in_every_reason_group(client):
     """
-    GIVEN one album in each of the three reason groups
+    GIVEN one album in each of the four reason groups
     WHEN POST /unmatched_view is submitted
-    THEN every group must render the sized artwork container.
+    THEN every group must render the sized artwork container, and the groups
+    come in the order below_threshold, release_scope, no_spotify_match,
+    provider_unavailable (the DOM, and so the tab, order).
 
     Mutation: restore the `reason_key != 'below_threshold'` guard around the
     artwork block and this fails -- the below-threshold panel then renders no
@@ -1083,8 +1315,8 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
     a cover in the release_scope group only, which is why a green gate shipped
     the omission.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "threshold|album",
         {
@@ -1095,7 +1327,7 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "b|two",
         {
@@ -1105,7 +1337,7 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "release_scope",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {
@@ -1115,13 +1347,29 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "no_spotify_match",
         },
     )
+    jobs.record_unmatched(
+        job_id,
+        "d|four",
+        {
+            "artist": "Artist D",
+            "album": "Album Four",
+            "reason": "Spotify and Deezer were both unavailable",
+            "reason_code": "provider_unavailable",
+        },
+    )
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
 
     html = response.data.decode("utf-8")
-    reasons = ("below_threshold", "release_scope", "no_spotify_match")
-    positions = sorted(html.index(f'data-reason="{reason}"') for reason in reasons)
+    reasons = (
+        "below_threshold",
+        "release_scope",
+        "no_spotify_match",
+        "provider_unavailable",
+    )
+    positions = [html.index(f'data-reason="{reason}"') for reason in reasons]
+    assert positions == sorted(positions), "the reason groups are out of order"
     for index, start in enumerate(positions):
         end = positions[index + 1] if index + 1 < len(positions) else len(html)
         assert "unmatched-artwork" in html[start:end], (
@@ -1140,9 +1388,9 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
     should be 20 or 25. A route assertion pins that ruling so a later edit
     cannot quietly restore the larger step.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     for index in range(40):
-        add_job_unmatched(
+        jobs.record_unmatched(
             job_id,
             f"artist|album-{index}",
             {
@@ -1165,7 +1413,7 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
 
 def test_loading_page_uses_job_context_at_canonical_url(client):
     """GET /loading should rebuild the loading view from the stored job."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     response = client.get(f"/loading?job_id={job_id}")
 
@@ -1182,8 +1430,8 @@ def test_loading_page_uses_job_context_at_canonical_url(client):
 
 def test_results_page_uses_job_context_at_canonical_url(client):
     """GET /results should render completed data without a form resubmission."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(
         job_id,
         [
             {
@@ -1197,8 +1445,8 @@ def test_results_page_uses_job_context_at_canonical_url(client):
                 "spotify_id": "abc123",
             }
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.get(f"/results?job_id={job_id}")
 
@@ -1213,8 +1461,8 @@ def test_results_page_uses_job_context_at_canonical_url(client):
 
 def test_unmatched_page_uses_job_context_at_canonical_url(client):
     """GET /unmatched should render the report and a stable results link."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {"artist": "Artist A", "album": "Album One", "reason": "No match"},
@@ -1234,7 +1482,7 @@ def test_unmatched_page_uses_job_context_at_canonical_url(client):
 
 def test_unmatched_page_with_zero_rows_renders_a_clear_empty_state(client):
     """A zero unmatched count must not be described as a populated report."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     response = client.get(f"/unmatched?job_id={job_id}")
 
@@ -1534,7 +1782,7 @@ def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):
     assert token_match, "CSRF token not found in index page HTML"
     token = token_match.group(1).decode()
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     response = csrf_app_client.post(
         "/reset_progress",
         data={"job_id": job_id},
@@ -1628,10 +1876,9 @@ def test_heatmap_loading_no_job_slot(client):
     assert data["retryable"] is True
 
 
-def test_heatmap_loading_thread_failure_cleans_up(client):
+def test_heatmap_loading_thread_failure_cleans_up(client, fresh_job_store):
     """POST /heatmap_loading returns 500 and deletes orphan job on thread failure."""
-    with jobs_lock:
-        jobs_before = set(JOBS.keys())
+    jobs_before = set(fresh_job_store.ids())
 
     with (
         patch(
@@ -1650,8 +1897,7 @@ def test_heatmap_loading_thread_failure_cleans_up(client):
     assert data["error"] is True
     assert data["retryable"] is True
     # Orphan job must have been cleaned up.
-    with jobs_lock:
-        assert set(JOBS.keys()) == jobs_before
+    assert set(fresh_job_store.ids()) == jobs_before
 
 
 def test_heatmap_loading_user_check_unavailable(client):
@@ -1686,7 +1932,7 @@ def test_heatmap_loading_json_body(client):
 
 def test_heatmap_data_completed_with_results(client):
     """GET /heatmap_data for a completed job returns 200 with daily_counts."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     heatmap_results = {
         "username": "testuser",
         "from_date": "2024-01-01",
@@ -1694,8 +1940,7 @@ def test_heatmap_data_completed_with_results(client):
         "total_scrobbles": 500,
         "daily_counts": {"2024-06-15": 12, "2024-06-16": 3},
     }
-    set_job_results(job_id, heatmap_results)
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
+    jobs.succeed(job_id, heatmap_results, "Done!")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -1707,8 +1952,8 @@ def test_heatmap_data_completed_with_results(client):
 
 def test_heatmap_data_completed_with_error(client):
     """GET /heatmap_data for a failed job returns 200 with error details."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_rate_limited")
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_rate_limited")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -1739,8 +1984,8 @@ def test_heatmap_data_expired_job(client):
 
 def test_heatmap_data_still_processing(client):
     """GET /heatmap_data for an in-progress job returns 202 with ready=false."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_progress(job_id, progress=45, message="Fetching page 3...", error=False)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.advance(job_id, 45, "Fetching page 3...")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 202
@@ -1749,14 +1994,14 @@ def test_heatmap_data_still_processing(client):
 
 
 def test_heatmap_data_error_with_empty_results(client):
-    """Error jobs have results=[] via set_job_error; must return error, not ready.
+    """Error jobs have results=[] via jobs.fail; must return error, not ready.
 
-    set_job_error() calls set_job_results(job_id, []), which is truthy for
-    ``is not None``. The error check must come before the results check to
+    jobs.fail() stores an empty results list, which is not None and so counts as
+    ready. The error check must come before the results check to
     avoid returning ``{"ready": true, ...}`` with an empty list.
     """
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_error(job_id, "no_scrobbles_in_range", username="testuser")
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.fail(job_id, "no_scrobbles_in_range", username="testuser")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -1876,8 +2121,7 @@ def test_artist_spotlight_api_fallback_when_token_fails(client, monkeypatch):
 
 
 def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
-    """Results page context includes top_artist_name, top_artist_scrobbles, top_artist_album_count, top_artist_image."""
-    from scrobblescope import routes
+    """Results page context includes top_artist_name, top_artist_scrobbles, top_artist_album_count."""
 
     results_data = [
         {
@@ -1902,8 +2146,8 @@ def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
     ]
 
     monkeypatch.setattr(
-        routes,
-        "get_job_context",
+        jobs,
+        "context",
         lambda job_id: {
             "progress": {},
             "results": results_data,
@@ -1927,62 +2171,12 @@ def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
     html = response.get_data(as_text=True)
     assert 'data-artist="Radiohead"' in html
     assert "350 scrobbles across 2 albums in 2024" in html
-    assert 'src="https://example.com/okcomputer.jpg"' in html
-
-
-def test_results_page_top_artist_image_from_first_available_album(client, monkeypatch):
-    """If top artist's first album lacks an image, top_artist_image resolves from their next album."""
-    from scrobblescope import routes
-
-    results_data = [
-        {
-            "album": "Pablo Honey",
-            "artist": "Radiohead",
-            "play_count": 200,
-            "spotify_id": "sp-1",
-            # No album_image
-        },
-        {
-            "album": "The Bends",
-            "artist": "Radiohead",
-            "play_count": 150,
-            "spotify_id": "sp-2",
-            "album_image": "https://example.com/thebends.jpg",
-        },
-    ]
-
-    monkeypatch.setattr(
-        routes,
-        "get_job_context",
-        lambda job_id: {
-            "progress": {},
-            "results": results_data,
-            "params": {
-                "username": "tester",
-                "year": "2024",
-                "release_scope": "any",
-                "decade": "",
-                "release_year": "",
-                "sort_mode": "plays",
-                "min_plays": 1,
-                "min_tracks": 1,
-                "mode": "album",
-            },
-            "unmatched": {},
-        },
-    )
-
-    response = client.get("/results?job_id=test-job")
-    assert response.status_code == 200
-    html = response.get_data(as_text=True)
-    assert 'src="https://example.com/thebends.jpg"' in html
 
 
 def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
     client, monkeypatch
 ):
     """A completed job exposes one stable five-artist spotlight rotation."""
-    from scrobblescope import routes
 
     results_data = [
         {
@@ -2009,8 +2203,8 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
     )
 
     monkeypatch.setattr(
-        routes,
-        "get_job_context",
+        jobs,
+        "context",
         lambda job_id: {
             "progress": {},
             "results": results_data,
@@ -2044,6 +2238,9 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
 
     assert first == second
     assert names == ["Artist 9", "Artist 7", "Artist 3", "Artist 1", "Artist 0"]
+    # F-B21-60: a seed never carries an album cover as the artist photo; the
+    # client shows only a Spotify photo it has confirmed itself.
+    assert [artist["image_url"] for artist in first] == [""] * 5
 
 
 @pytest.mark.parametrize("status", [404, 500])
@@ -2057,9 +2254,9 @@ def test_error_handler_badge_matches_http_status(client, status):
     assert f">{status}</span>" in html
 
 
-def test_heatmap_privacy_service_failure_preserves_saved_job(client):
+def test_heatmap_privacy_service_failure_preserves_saved_job(client, fresh_job_store):
     """Failed privacy preflight neither creates a job nor replaces saved results."""
-    previous_jobs = set(JOBS)
+    previous_jobs = set(fresh_job_store.ids())
     with client.session_transaction() as saved:
         saved["latest_heatmap_job_id"] = "previous-job"
     with (
@@ -2072,7 +2269,7 @@ def test_heatmap_privacy_service_failure_preserves_saved_job(client):
         response = client.post("/heatmap_loading", data={"username": "testuser"})
     assert response.status_code == 503
     assert response.json["retryable"] is True
-    assert set(JOBS) == previous_jobs
+    assert set(fresh_job_store.ids()) == previous_jobs
     with client.session_transaction() as saved:
         assert saved["latest_heatmap_job_id"] == "previous-job"
 
@@ -2081,7 +2278,7 @@ def test_heatmap_privacy_service_failure_preserves_saved_job(client):
 @pytest.mark.parametrize("wrong_mode", [False, True], ids=["missing", "wrong-mode"])
 def test_explicit_unavailable_album_job_returns_matching_404(client, path, wrong_mode):
     """Missing and wrong-mode IDs fail without retaining a stale saved pointer."""
-    job_id = create_job(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
+    job_id = jobs.create(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
     with client.session_transaction() as saved:
         saved["latest_album_job_id"] = job_id
     response = client.get(path, query_string={"job_id": job_id})
@@ -2104,15 +2301,20 @@ def test_loading_page_missing_identifier_returns_matching_400(client):
 )
 @pytest.mark.parametrize(
     "error_code, expected_status",
-    [(None, 202), ("internal_failure", 500), ("user_not_found", 404)],
+    [
+        (None, 202),
+        ("internal_failure", 500),
+        ("user_not_found", 404),
+        ("private_profile", 403),
+    ],
 )
 def test_results_job_state_matches_http_status(
     client, method, path, error_code, expected_status
 ):
     """Pending and terminal jobs expose their state through both status and badge."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     if error_code:
-        set_job_error(job_id, error_code, username="testuser")
+        jobs.fail(job_id, error_code, username="testuser")
     response = client.open(path, method=method, query_string={"job_id": job_id})
     assert response.status_code == expected_status
     assert f">{expected_status}</span>".encode() in response.data
@@ -2188,3 +2390,668 @@ def test_heatmap_capacity_refusal_states_the_configured_cap(client):
 
     assert response.status_code == 429
     assert "all 7 search slots are busy" in response.get_json()["message"]
+
+
+#: The official Spotify icon files (F-B21-60), committed byte-for-byte from
+#: developer.spotify.com's 2024-spotify-logo-icon.zip, with their SHA-256.
+SPOTIFY_ICON_SHA256 = {
+    "/static/images/brand/spotify/Primary_Logo_Black_RGB.svg": (
+        "5595afea0e6f009b1dd8529511204d0fd5ca035e49c85409d1697063b3c27a05"
+    ),
+    "/static/images/brand/spotify/Primary_Logo_White_RGB.svg": (
+        "8929d148f54cede78f0f36ce90df815e5ea5e5559e7faeccad3669302ef2daa1"
+    ),
+}
+
+
+def _provider_row(provider, index=0):
+    """One completed-results row sourced from `provider`."""
+    host = "open.spotify.com" if provider == "spotify" else "www.deezer.com"
+    return {
+        "artist": f"{provider.title()} Band {index}",
+        "album": f"{provider.title()} Album {index}",
+        "play_count": 40 - index,
+        "play_time": "10m",
+        "play_time_seconds": 600,
+        "release_date": "2025-01-01",
+        "album_image": f"https://example.com/{provider}-{index}.jpg",
+        "spotify_id": f"sp-{index}" if provider == "spotify" else "",
+        "provider": provider,
+        "album_url": f"https://{host}/album/{provider}-{index}",
+    }
+
+
+def _render_results(client, rows):
+    """Render /results_complete for a finished job holding `rows`."""
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_spotify_icon_files_are_served_byte_for_byte(client):
+    """
+    GIVEN the two official Spotify icon files under static/images/brand/spotify
+    WHEN each is requested
+    THEN it is served as SVG with exactly the SHA-256 of Spotify's own file --
+         no redrawn, recoloured or edited copy (F-B21-60).
+    """
+    for path, digest in SPOTIFY_ICON_SHA256.items():
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert response.mimetype == "image/svg+xml", path
+        assert hashlib.sha256(response.data).hexdigest() == digest, path
+        response.close()
+
+
+def test_results_spotlight_link_shows_the_official_spotify_icon(client):
+    """
+    GIVEN a completed job with Spotify-sourced albums
+    WHEN the results page renders
+    THEN the spotlight's Spotify link holds the official icon files (black for
+         light, white for dark) instead of the old arrow glyph, opens a new
+         tab, keeps its accessible name, and stays hidden with no target until
+         the client confirms a Spotify candidate and sets its artist URL
+         (F-B21-60).
+    """
+    html = _render_results(client, [_provider_row("spotify")])
+    link = re.search(r'<a id="spotlight-spotify-link"(.*?)</a>', html, re.DOTALL)
+    assert link, "spotlight Spotify link is missing"
+    markup = link.group(1)
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in markup, path
+    assert "<svg" not in markup, "the old arrow glyph is still inline"
+    opening_tag = markup.split(">", 1)[0]
+    assert 'target="_blank"' in opening_tag
+    assert 'rel="noopener noreferrer"' in opening_tag
+    assert re.search(
+        r'aria-label="View [^"]+ on Spotify \(opens in new tab\)"', opening_tag
+    )
+    assert re.search(r'class="spotlight-spotify-link hidden\b', opening_tag)
+    assert "href=" not in opening_tag
+
+
+def test_results_attribute_spotify_once_inside_the_export_wrapper(client):
+    """
+    GIVEN a completed job whose rows are all Spotify-sourced
+    WHEN the results page renders
+    THEN one Spotify icon attribution sits inside #results-table-wrapper (the
+         element the "Save image" export captures), before the table, and no
+         row repeats a Spotify badge (F-B21-60).
+    """
+    html = _render_results(
+        client, [_provider_row("spotify", 0), _provider_row("spotify", 1)]
+    )
+    assert html.count('id="results-spotify-attribution"') == 1
+    wrapper = html.index('id="results-table-wrapper"')
+    attribution = html.index('id="results-spotify-attribution"')
+    table = html.index('id="results-table"')
+    assert wrapper < attribution < table
+    strip = html[attribution:table]
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in strip, path
+    assert "Album artwork and links from Spotify<" in strip
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+
+
+def test_results_without_spotify_rows_show_no_spotify_attribution(client):
+    """
+    GIVEN a completed job whose only row is Deezer-sourced
+    WHEN the results page renders
+    THEN no Spotify list attribution appears, and the Deezer row keeps its
+         own text badge (F-B22-4, open for Deezer).
+    """
+    html = _render_results(client, [_provider_row("deezer")])
+    assert 'id="results-spotify-attribution"' not in html
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html)
+
+
+def test_results_mixed_providers_say_which_rows_spotify_covers(client):
+    """
+    GIVEN a completed job with Spotify and Deezer rows
+    WHEN the results page renders
+    THEN the Spotify attribution says it excludes rows naming another
+         provider, so it never claims the Deezer row as Spotify content.
+    """
+    html = _render_results(
+        client, [_provider_row("spotify"), _provider_row("deezer", 1)]
+    )
+    assert (
+        "Album artwork and links from Spotify, except rows that name another provider"
+        in html
+    )
+
+
+def _unmatched_html(client, key, item):
+    """Render /unmatched_view for a job holding one unmatched `item`."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(job_id, key, item)
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_unmatched_view_attributes_spotify_once_for_the_page(client):
+    """
+    GIVEN an unmatched album whose metadata came from Spotify
+    WHEN POST /unmatched_view is submitted
+    THEN the page carries one Spotify icon attribution and the row repeats no
+         Spotify badge (F-B21-60).
+    """
+    html = _unmatched_html(
+        client,
+        "spotify|filtered",
+        {
+            "artist": "Spotify Filtered Artist",
+            "album": "Spotify Filtered Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/spotify-filtered.jpg",
+            "spotify_id": "sp-filtered",
+            "provider": "spotify",
+            "album_url": "https://open.spotify.com/album/sp-filtered",
+        },
+    )
+    assert html.count('id="unmatched-spotify-attribution"') == 1
+    strip = html[html.index('id="unmatched-spotify-attribution"') :]
+    strip = strip.split("</div>", 1)[0]
+    for path in SPOTIFY_ICON_SHA256:
+        assert f'src="{path}"' in strip, path
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+
+
+def test_unmatched_view_with_only_deezer_rows_shows_no_spotify_attribution(client):
+    """
+    GIVEN an unmatched album with Deezer artwork and no Spotify content
+    WHEN POST /unmatched_view is submitted
+    THEN no Spotify attribution appears on the page.
+    """
+    html = _unmatched_html(
+        client,
+        "deezer|only",
+        {
+            "artist": "Deezer Only Artist",
+            "album": "Deezer Only Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/deezer-only.jpg",
+            "spotify_id": None,
+            "provider": "deezer",
+            "album_url": "https://www.deezer.com/album/dz-only",
+        },
+    )
+    assert 'id="unmatched-spotify-attribution"' not in html
+
+
+def test_results_deezer_row_without_a_url_still_names_its_provider(client):
+    """
+    GIVEN a completed job with a Spotify row and a Deezer row that has artwork
+          but no album_url
+    WHEN the results page renders
+    THEN the Deezer row names Deezer as plain text (no link), the Spotify row
+         names no provider, and the banner still excepts rows that name
+         another provider, so the Deezer artwork is never read as Spotify's.
+    """
+    deezer = _provider_row("deezer", 1)
+    deezer["album_url"] = ""
+    html = _render_results(client, [_provider_row("spotify"), deezer])
+    assert re.search(r"<span[^>]*provider-badge[^>]*>\s*deezer\s*</span>", html)
+    assert "www.deezer.com" not in html
+    assert not re.search(r"provider-badge[^>]*>\s*spotify\s*<", html)
+    assert ", except rows that name another provider" in html
+
+
+def test_results_clause_is_absent_when_every_row_is_spotify(client):
+    """
+    GIVEN a completed job whose rows are all Spotify-sourced
+    WHEN the results page renders
+    THEN the banner does not mention rows that name another provider.
+    """
+    html = _render_results(
+        client, [_provider_row("spotify"), _provider_row("spotify", 1)]
+    )
+    assert "Album artwork and links from Spotify<" in html
+    assert "except rows that name another provider" not in html
+
+
+def _unmatched_release_scope_item(provider, index, url=True):
+    """One unmatched release-scope item sourced from `provider`."""
+    host = "open.spotify.com" if provider == "spotify" else "www.deezer.com"
+    return {
+        "artist": f"{provider.title()} Artist {index}",
+        "album": f"{provider.title()} Album {index}",
+        "reason": "Released in 2018 (filter requires 2024)",
+        "reason_code": "release_scope",
+        "album_image": f"https://example.com/{provider}-{index}.jpg",
+        "spotify_id": f"sp-{index}" if provider == "spotify" else None,
+        "provider": provider,
+        "album_url": f"https://{host}/album/{provider}-{index}" if url else "",
+    }
+
+
+def _unmatched_html_for(client, items):
+    """Render /unmatched_view for a job holding several unmatched `items`."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    for index, item in enumerate(items):
+        jobs.record_unmatched(job_id, f"{item['provider']}|{index}", item)
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def test_unmatched_view_clause_appears_only_when_a_row_names_another_provider(
+    client,
+):
+    """
+    GIVEN one job of Spotify rows only and one that adds a Deezer row
+    WHEN POST /unmatched_view is submitted for each
+    THEN only the second banner excepts rows that name another provider.
+    """
+    spotify_only = _unmatched_html_for(
+        client, [_unmatched_release_scope_item("spotify", 0)]
+    )
+    assert 'id="unmatched-spotify-attribution"' in spotify_only
+    assert "artist photos from Spotify<" in spotify_only
+    assert "except rows that name another provider" not in spotify_only
+
+    mixed = _unmatched_html_for(
+        client,
+        [
+            _unmatched_release_scope_item("spotify", 0),
+            _unmatched_release_scope_item("deezer", 1),
+        ],
+    )
+    assert "artist photos from Spotify, except rows that name another provider" in mixed
+
+
+def test_unmatched_view_deezer_row_without_a_url_still_names_its_provider(client):
+    """
+    GIVEN an unmatched Deezer row with artwork and no album_url next to a
+          Spotify row
+    WHEN POST /unmatched_view is submitted
+    THEN the Deezer row names Deezer as plain text, so the banner's Spotify
+         claim never covers it.
+    """
+    html = _unmatched_html_for(
+        client,
+        [
+            _unmatched_release_scope_item("spotify", 0),
+            _unmatched_release_scope_item("deezer", 1, url=False),
+        ],
+    )
+    assert re.search(r"<span[^>]*provider-badge[^>]*>\s*deezer\s*</span>", html)
+    assert "www.deezer.com" not in html
+    assert "except rows that name another provider" in html
+
+
+def test_results_loading_missing_user_is_not_found_and_skips_the_privacy_check(client):
+    """
+    GIVEN Last.fm does not know the user
+    WHEN POST /results_loading is submitted
+    THEN the answer is "not found" (as the heatmap route gives), the privacy
+    check is never made and no job starts.
+    """
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": False, "registered_year": None},
+        ),
+        patch("scrobblescope.routes._check_profile_is_public") as mock_privacy,
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert response.status_code == 200
+    assert b"was not found on Last.fm" in response.data
+    mock_privacy.assert_not_called()
+    mock_start.assert_not_called()
+
+
+def test_results_loading_existing_private_user_is_refused_after_the_exists_check(
+    client,
+):
+    """An existing user is then checked for privacy; a private one is refused."""
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch(
+            "scrobblescope.routes._check_profile_is_public", return_value=False
+        ) as mock_privacy,
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    page = response.data.decode("utf-8")
+    assert html.escape(_PRIVATE_PROFILE_MESSAGE) in page
+    assert "was not found on Last.fm" not in page
+    mock_privacy.assert_called_once_with("flounder14")
+    mock_start.assert_not_called()
+
+
+def test_results_loading_existing_public_user_starts_a_job(client):
+    """An existing public user gets a job and the loading redirect."""
+    with (
+        patch(
+            "scrobblescope.routes._check_user_exists",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes._check_profile_is_public", return_value=True),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert response.status_code == 303
+    mock_start.assert_called_once()
+
+
+def test_unmatched_coverless_deezer_row_shows_a_placeholder_not_a_spotify_portrait(
+    client,
+):
+    """
+    GIVEN an unmatched Deezer row with no cover art beside a coverless row that
+          has no provider
+    WHEN POST /unmatched_view is submitted
+    THEN only the provider-less row gets the Spotify artist-portrait slot; the
+         Deezer row shows the plain initials placeholder, so no Spotify
+         imagery is fetched for a row the banner says is not Spotify content
+         (S2-5).
+    """
+    deezer = _unmatched_release_scope_item("deezer", 1)
+    deezer["album_image"] = ""
+    plain = _unmatched_release_scope_item("deezer", 2)
+    plain.update(provider="", album_image="", album_url="", album="Plain Album")
+    html = _unmatched_html_for(client, [deezer, plain])
+    assert html.count("data-artist-image") == 1
+    assert 'data-artist-name="Deezer Artist 1"' not in html
+    assert 'data-artist-name="Deezer Artist 2"' in html
+    assert "unmatched-artist-image" in html  # the provider-less row's slot
+    assert re.search(r'unmatched-artwork[^>]*aria-hidden="true">\s*DE\s*<', html)
+
+
+def test_unmatched_only_coverless_deezer_rows_show_no_spotify_attribution(client):
+    """
+    GIVEN an unmatched page whose only row is a coverless Deezer row
+    WHEN POST /unmatched_view is submitted
+    THEN the page carries no Spotify attribution, since it shows no Spotify
+         content (S2-5).
+    """
+    deezer = _unmatched_release_scope_item("deezer", 1)
+    deezer["album_image"] = ""
+    html = _unmatched_html_for(client, [deezer])
+    assert 'id="unmatched-spotify-attribution"' not in html
+    assert "data-artist-image" not in html
+
+
+def test_spotify_icon_reserves_its_box_before_the_svg_arrives(client):
+    """
+    GIVEN a results page with a Spotify row
+    WHEN it renders
+    THEN both icon files carry width and height attributes from the file's own
+         viewBox, so the attribution line does not shift when the SVG loads
+         (S2-26).
+    """
+    html = _render_results(client, [_provider_row("spotify")])
+    icons = re.findall(r"<img[^>]*spotify-icon[^>]*>", html)
+    assert len(icons) >= 2
+    for tag in icons:
+        assert 'width="236"' in tag and 'height="225"' in tag, tag
+
+
+def test_artist_spotlight_api_failure_line_carries_no_artist_or_message(
+    client, monkeypatch, caplog
+):
+    """A failed spotlight lookup logs the operation and exception class only:
+    not the artist searched for, not the exception message (which for an HTTP
+    client error carries the request URL and query)."""
+    import logging
+
+    from scrobblescope import routes
+
+    def _boom(_fetch):
+        raise RuntimeError("failed q=Wjkl Distinctive Artist")
+
+    monkeypatch.setattr(routes, "fetch_spotify_access_token", lambda: None)
+    monkeypatch.setattr(routes, "run_async_in_thread", _boom)
+    with caplog.at_level(logging.DEBUG):
+        response = client.get("/api/artist_spotlight?artist=Wjkl+Distinctive+Artist")
+
+    assert response.status_code == 200
+    assert "Error in spotify.artist_spotlight: RuntimeError" in caplog.text
+    for record in caplog.records:
+        assert "Wjkl" not in record.getMessage()
+
+
+def test_results_loading_registration_check_failure_logs_no_message(client, caplog):
+    """The optional registration-year check writes the exception class, not
+    its message, when the Last.fm call fails."""
+    import logging
+
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=RuntimeError("failed url=https://x/?q=Zqxv"),
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+        caplog.at_level(logging.DEBUG),
+    ):
+        client.post("/results_loading", data=VALID_FORM_DATA)
+
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "Registration year check failed for flounder14" in text
+    assert "RuntimeError" in text
+    assert "Zqxv" not in text
+
+
+# --- Partial runs are disclosed on Results (review 4, frontend 3) ---
+
+
+def _partial_run_page(client, warning, sources=(), unmatched_codes=()):
+    """Render Results for a finished job that recorded a degrade `warning`.
+
+    `sources` are the kinds the orchestrator records beside the sentence
+    ("lastfm", "provider"); `unmatched_codes` are the reason codes of the
+    unmatched albums the job holds.
+    """
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+    jobs.succeed(job_id, [_provider_row("spotify")], "Done!")
+    if warning:
+        jobs.record_stat(job_id, "partial_data_warning", warning)
+    for source in sources:
+        jobs.record_partial_source(job_id, source)
+    for n, code in enumerate(unmatched_codes):
+        jobs.record_unmatched(
+            job_id,
+            f"gone{n}|album",
+            {
+                "artist": "Gone",
+                "album": f"Album {n}",
+                "reason": "prose the page does not read",
+                "reason_code": code,
+                "play_count": 12,
+            },
+        )
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _partial_notice_tag(page):
+    match = re.search(
+        r'<p class="results-partial-notice"[^>]*id="results-partial-notice"[^>]*>'
+        r"(.*?)</p>",
+        page,
+        re.S,
+    )
+    return match
+
+
+def test_results_says_a_provider_outage_made_the_run_partial_and_links_the_albums(
+    client,
+):
+    """
+    GIVEN a finished job that recorded a provider degrade and holds an album
+          that could not be checked
+    WHEN Results renders
+    THEN one role="status" line above the table says the ranking may be
+         incomplete and links to the Unmatched page
+    """
+    page = _partial_run_page(
+        client,
+        "Spotify is temporarily unavailable for some albums; "
+        "checking Deezer for their details.",
+        sources=["provider"],
+        unmatched_codes=["provider_unavailable"],
+    )
+    match = _partial_notice_tag(page)
+    assert match, "no partial-run notice on the Results page"
+    assert 'role="status"' in match.group(0)
+    assert "could not answer for some albums" in match.group(1)
+    assert 'href="/unmatched"' in match.group(1)
+    assert page.index("results-partial-notice") < page.index("results-table-wrapper")
+
+
+def test_results_says_when_lastfm_dropped_pages_and_does_not_offer_the_unmatched_link(
+    client,
+):
+    """
+    GIVEN a finished job that lost Last.fm pages
+    WHEN Results renders
+    THEN the line carries the page-loss sentence itself and no link, since no
+         album was left unchecked by it
+    """
+    warning = (
+        "Note: 3 of 10 Last.fm pages failed to load (30% data loss). "
+        "Results may be incomplete."
+    )
+    match = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            warning,
+            sources=["lastfm"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert match
+    assert "3 of 10 Last.fm pages failed to load" in match.group(1)
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_follows_the_recorded_kind_not_the_sentence(client):
+    """
+    GIVEN warnings whose wording is not the orchestrator's today, one recorded
+          as Last.fm page loss and one as a provider outage
+    WHEN Results renders each
+    THEN the kind decides the copy and the link, so rewording the sentence in
+         the orchestrator cannot silently swap one for the other
+    """
+    lastfm = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            "Some scrobble pages did not come back.",
+            sources=["lastfm"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert lastfm
+    assert "Some scrobble pages did not come back." in lastfm.group(1)
+    assert "href=" not in lastfm.group(1)
+
+    provider = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            "Deezer took a nap for Last.fm pages.",
+            sources=["provider"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert provider
+    assert "could not answer for some albums" in provider.group(1)
+    assert 'href="/unmatched"' in provider.group(1)
+
+
+def test_results_of_a_complete_run_carries_no_partial_notice(client):
+    page = _partial_run_page(client, None)
+    assert 'id="results-partial-notice"' not in page
+
+
+def test_results_partial_notice_omits_the_link_when_nothing_is_unmatched(client):
+    page = _partial_run_page(
+        client, "Deezer could not be reached.", sources=["provider"]
+    )
+    match = _partial_notice_tag(page)
+    assert match
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_links_only_to_albums_that_could_not_be_checked(client):
+    """
+    GIVEN a provider degrade and an unmatched list holding only an album that
+          fell below the listening minimums (nothing was left unchecked)
+    WHEN Results renders
+    THEN the line says so but does not send the reader to an Unmatched page
+         that has no "Could not be checked" group
+    """
+    page = _partial_run_page(
+        client,
+        "Spotify is temporarily unavailable for some albums; "
+        "checking Deezer for their details.",
+        sources=["provider"],
+        unmatched_codes=["below_threshold", "no_spotify_match"],
+    )
+    match = _partial_notice_tag(page)
+    assert match
+    assert "could not answer for some albums" in match.group(1)
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_and_link_have_a_focus_ring_and_touch_size():
+    """The Results link carries the page focus ring and a 44px coarse-pointer size."""
+    css = (Path(__file__).resolve().parents[1] / "static/css/results.css").read_text(
+        encoding="utf-8"
+    )
+    assert ".results-partial-notice__link:focus-visible" in css
+    coarse = re.search(
+        r"@media \(any-pointer: coarse\)\s*\{\s*\.results-partial-notice__link"
+        r"\s*\{([^}]*)\}",
+        css,
+    )
+    assert coarse, "no coarse-pointer rule for the partial-notice link"
+    assert "min-height: 44px" in coarse.group(1)
+
+
+def test_loading_partial_warning_is_announced_as_status(client):
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    page = client.get(f"/loading?job_id={job_id}").data.decode("utf-8")
+    assert re.search(r'<p[^>]*id="partial-warning"[^>]*role="status"', page)
+
+
+@pytest.mark.parametrize(
+    ("path", "container", "message"),
+    [
+        ("/", "heatmap-error", "heatmap-error-message"),
+        ("/loading?job_id={job_id}", "error-container", "error-text"),
+    ],
+)
+def test_wait_panel_error_is_an_alert_holding_the_message_element(
+    client, path, container, message
+):
+    """
+    GIVEN either page that includes the shared wait panel
+    WHEN it renders
+    THEN the error block is role="alert" and the element the scripts write the
+         failure text into sits inside it, so the text is announced when the
+         block is revealed
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    page = client.get(path.format(job_id=job_id)).data.decode("utf-8")
+    block = re.search(
+        rf'<div class="wait-panel__error[^"]*" id="{container}"([^>]*)>(.*?)</div>\s*</div>',
+        page,
+        re.S,
+    )
+    assert block, container
+    assert 'role="alert"' in block.group(1)
+    assert f'id="{message}"' in block.group(2)

@@ -28,6 +28,21 @@ GENERIC_SECTION_RE = re.compile(r"^##\s+")
 # ---------------------------------------------------------------------------
 
 ENTRY_HEADING_RE = re.compile(r"^###\s+(\d{4}-\d{2}-\d{2})\s+-\s+(.+?)\s*$")
+
+# Placed here, not in logic.py or integrity.py, though only those two modules
+# read it: both import it at top level (logic.py for the SESSION_CONTEXT
+# rewrite, integrity.py -- re-exported under its own name -- for DOC006), and
+# parser.py is the leaf both already import without either importing the
+# other. A copy in either module would need a deferred import of the other to
+# reach it, deadlocking whichever import order a caller happens to use.
+SESSION_CURRENT_COUNT_RES = (
+    re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
+    re.compile(
+        r"^- Latest validated test count:\s*\*\*(\d+)\s+"
+        r"(?:tests?\s+)?pass(?:ing|ed)\*\*\.\s*$"
+    ),
+    re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
+)
 BATCH_COMPLETE_RE = re.compile(r"\bBatch\s+(\d+)\s+is\s+complete\b", re.IGNORECASE)
 BATCH_NOT_DEFINED_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+not\s+yet\s+defined\b", re.IGNORECASE
@@ -236,11 +251,33 @@ def _extract_entry_batch(entry: Entry) -> int | None:
     return int(match.group(1)) if match else None
 
 
+#: Anchored at the end: the line may close with an optional ``.`` and
+#: trailing whitespace only. Without the anchor, ``**Status:** WP-4 complete
+#: (pending review)`` matched too -- the parenthetical qualifies "complete"
+#: right out of being complete, and the unanchored pattern read it as the
+#: genuine close anyway.
+WP_COMPLETE_STATUS_RE = re.compile(
+    r"^\s*\*\*Status:\*\*\s+WP-(\d+)\s+complete\.?\s*$", re.IGNORECASE
+)
+
+
 def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
+    """Return every work-package number an entry's body explicitly closes.
+
+    A heading's ``(Batch N WP-X)`` tag still identifies which package an
+    entry belongs to (still read by `_extract_entry_batch` for rotation); it
+    no longer, by itself, means that package is done. Only an explicit
+    ``**Status:** WP-N complete`` line in the entry body marks WP-N done
+    (F-DOCSYNC-15, Q4 = a): a multi-commit work package's earlier commits
+    carry the tag without that line and must not claim the whole package
+    finished.
+    """
     numbers: set[int] = set()
     for entry in entries:
-        for raw in re.findall(r"\bWP-(\d+)\b", entry.heading):
-            numbers.add(int(raw))
+        for line in entry.lines:
+            match = WP_COMPLETE_STATUS_RE.match(line)
+            if match is not None:
+                numbers.add(int(match.group(1)))
     return sorted(numbers)
 
 

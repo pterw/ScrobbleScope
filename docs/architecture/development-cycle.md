@@ -7,7 +7,7 @@ validation feeds the next iteration.
 ```mermaid
 flowchart TD
     Request([Owner request, issue, or review finding]) --> Triage{Review finding<br/>or comment job?}
-    Triage -->|No| Context[Read canonical context<br/>AGENTS.md, PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, AGENT_NOTES.md]
+    Triage -->|No| Context[Read canonical context<br/>AGENTS.md, docs/agents/PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, docs/agents/AGENT_NOTES.md]
     Triage -->|Yes| Fetch[Fetch the thread or comments first]
     Fetch --> Actionable{Comment job with<br/>nothing actionable?}
     Actionable -->|Yes| Stop([Stop without full bootstrap])
@@ -21,8 +21,8 @@ flowchart TD
     Design --> Implement[Implement one work package<br/>with tests and required docs]
     Implement --> Targeted[Run targeted and adversarial checks]
     Targeted --> Docs[Update source-of-truth documents<br/>and the dated execution log]
-    Docs --> Sync[Run doc_state_sync.py --fix]
-    Sync --> Gates[Run full validation gates<br/>pytest, pre-commit, docsync --check,<br/>and the frontend gate from WP-2 on]
+    Docs --> Sync[Run doc_state_sync.py --fix --test-count N]
+    Sync --> Gates[Run full validation gates<br/>pytest -q, incl. tests/frontend browser marker,<br/>pre-commit, docsync --check,<br/>results_behavior_tests.py and the frontend gate<br/>from WP-2 on]
     Gates --> SelfReview[Read changed files whole<br/>and sweep sibling claims]
     SelfReview --> Commit[Create one conventional commit<br/>with specific staged paths]
     Commit --> Authorize{Push authorized?}
@@ -66,3 +66,12 @@ other commit. Three actions always need explicit instruction whatever the
 session: force-pushes, history rewrites, and anything targeting `main`. A
 Copilot session that has been authorized to push uses the platform progress
 tool rather than shell `git` or `gh`.
+
+`CI` (the `Quality Gate` workflow) runs the docsync preflight, then
+pre-commit with `worktree-alignment` skipped, then `pytest -m "not browser"`
+with coverage, then every test carrying the `browser` marker (selected by
+marker across the whole tree, not by folder) and
+`scripts/dev/frontend_gate.py` after installing both browsers, and advisory
+`pip-audit` last -- against both `requirements.txt` and
+`requirements-dev.txt` now that the dev-only pins moved out of the
+production file.

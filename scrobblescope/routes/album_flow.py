@@ -11,16 +11,12 @@ import logging
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 
+from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
-from scrobblescope.repositories import (
-    cleanup_expired_jobs,
-    create_job,
-    delete_job,
-    reset_job_state,
-    set_job_progress,
-)
 from scrobblescope.spotlight import select_spotlight_artists
+from scrobblescope.unmatched import REASON_PROVIDER_UNAVAILABLE
+from scrobblescope.utils import log_failure
 
 bp = _routes.bp
 
@@ -57,7 +53,11 @@ def _filter_results_for_display(results_data, sort_mode):
 
 
 def _get_filter_description(release_scope, decade, release_year, listening_year):
-    """Generate a readable description of the active release-year filter."""
+    """Generate a readable description of the active release-year filter.
+
+    Wording only; the years each scope accepts are the table in
+    ``domain.release_window``.
+    """
     if release_scope == "all":
         return "all albums (no release year filter)"
     elif release_scope == "same":
@@ -114,11 +114,41 @@ def reset_progress():
     if not job_id:
         return jsonify({"status": "error", "message": "Missing job identifier."}), 400
 
-    if not reset_job_state(job_id):
+    if not jobs.reset(job_id, "Reset successful"):
         return jsonify({"status": "error", "message": "Job not found."}), 404
 
-    set_job_progress(job_id, message="Reset successful", error=False)
     return jsonify({"status": "success"})
+
+
+def _partial_run_notice(stats, unchecked_count):
+    """Return ``(text, link_to_unmatched)`` for a degraded run, or ``("", False)``.
+
+    The orchestrator records ``partial_data_warning`` (the loading page shows
+    it for three seconds) and, beside it, ``partial_data_sources``: which kind
+    of degradation it was, ``"lastfm"`` (pages dropped) or ``"provider"``
+    (Spotify or Deezer could not answer). This reads the kind, never the
+    wording. The Results page is where the ranking is read, so it says so
+    there too. Last.fm's own sentence already reads as plain copy; the
+    provider sentences are written for the loading page ("checking Deezer for
+    their details"), so Results words them afresh. Only a provider outage
+    leaves albums under "could not be checked", so only that notice links to
+    the Unmatched page, and only when ``unchecked_count`` albums are there.
+    """
+    stats = stats or {}
+    sources = stats.get("partial_data_sources") or []
+    if not sources:
+        return "", False
+    lastfm_text = ""
+    if "lastfm" in sources:
+        lastfm_text = "Some Last.fm pages failed to load, so results may be incomplete."
+        if "provider" not in sources:
+            return stats.get("partial_data_warning") or lastfm_text, False
+    return (
+        (lastfm_text + " " if lastfm_text else "")
+        + "Spotify or Deezer could not answer for some albums in this run, so "
+        "the ranking may be missing albums or details.",
+        bool(unchecked_count),
+    )
 
 
 def _render_results_page():
@@ -160,6 +190,9 @@ def _render_results_page():
         if error_code == "user_not_found":
             details = "Please check the username and try again."
             status_code = 404
+        elif error_code == "private_profile":
+            details = "Make recent listening public on Last.fm, then search again."
+            status_code = 403
         return (
             render_template(
                 "error.html",
@@ -199,7 +232,15 @@ def _render_results_page():
     filtered_results = _filter_results_for_display(results_data, sort_mode)
 
     unmatched_count = len(job_context.get("unmatched", {}))
+    unchecked_count = sum(
+        1
+        for item in job_context.get("unmatched", {}).values()
+        if item.get("reason_code") == REASON_PROVIDER_UNAVAILABLE
+    )
     has_durations = any(a.get("play_time_seconds", 0) > 0 for a in (results_data or []))
+    partial_notice, partial_notice_links_unmatched = _partial_run_notice(
+        progress_payload.get("stats"), unchecked_count
+    )
 
     if not filtered_results:
         filter_description = _get_filter_description(
@@ -218,6 +259,8 @@ def _render_results_page():
             min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
+            partial_notice=partial_notice,
+            partial_notice_links_unmatched=partial_notice_links_unmatched,
             has_durations=has_durations,
             filter_description=filter_description,
             job_id=job_id,
@@ -235,7 +278,6 @@ def _render_results_page():
     top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
     top_artist_album_count = spotlight_artist.get("album_count", 0)
     top_artist_play_time = spotlight_artist.get("play_time", "")
-    top_artist_image = spotlight_artist.get("image_url", "")
 
     return render_template(
         "results.html",
@@ -250,13 +292,14 @@ def _render_results_page():
         min_tracks=min_tracks,
         no_matches=False,
         unmatched_count=unmatched_count,
+        partial_notice=partial_notice,
+        partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
         job_id=job_id,
         top_artist_name=top_artist_name,
         top_artist_scrobbles=top_artist_scrobbles,
         top_artist_album_count=top_artist_album_count,
         top_artist_play_time=top_artist_play_time,
-        top_artist_image=top_artist_image,
         spotlight_artists=spotlight_artists,
         release_check=release_check,
     )
@@ -386,6 +429,13 @@ def results_loading():
 
     try:
         user_info = _routes._check_user_exists(username)
+        # Existence first, as the heatmap route does: a user Last.fm does not
+        # know gets "not found", never a privacy verdict about a ghost.
+        if not user_info["exists"]:
+            return render_template(
+                "index.html",
+                error=f"User '{username}' was not found on Last.fm.",
+            )
         if not _routes._check_profile_is_public(username):
             return render_template("index.html", error=_routes._PRIVATE_PROFILE_MESSAGE)
         registered_year = user_info.get("registered_year")
@@ -400,13 +450,12 @@ def results_loading():
     # The registration-year hint is optional; the search proceeds without it.
     except Exception as exc:  # noqa: BLE001
         logging.warning(
-            "Registration year check failed for %s; proceeding without it: %s: %s",
+            "Registration year check failed for %s; proceeding without it: %s",
             username,
             type(exc).__name__,
-            exc,
         )
 
-    cleanup_expired_jobs()
+    jobs.expire_stale()
 
     if not _routes.acquire_job_slot():
         return render_template(
@@ -426,7 +475,7 @@ def results_loading():
         "limit_results": limit_results,
     }
 
-    job_id = create_job(params)
+    job_id = jobs.create(params)
 
     try:
         _routes.start_job_thread(
@@ -444,9 +493,9 @@ def results_loading():
                 limit_results,
             ),
         )
-    except Exception:
-        logging.exception("Failed to start background task thread")
-        delete_job(job_id)
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure("Failed to start background task thread")
+        jobs.delete(job_id)
         return render_template(
             "index.html",
             error="Failed to start processing. Please try again.",

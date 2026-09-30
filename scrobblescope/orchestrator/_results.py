@@ -2,15 +2,12 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22). Pure
 synchronous logic -- no I/O -- except for the one cross-cutting call,
-``add_job_unmatched``, which the existing test suite patches at
-``scrobblescope.orchestrator.add_job_unmatched``; see
-``scrobblescope/orchestrator/_search.py`` for why that call goes through the
-live ``orchestrator`` module reference rather than a direct import.
+``jobs.record_unmatched``.
 """
 
 import logging
 
-from scrobblescope import orchestrator as _orchestrator
+from scrobblescope import jobs
 from scrobblescope.domain import _matches_release_criteria, normalize_name
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import format_seconds, format_seconds_mobile
@@ -29,6 +26,10 @@ def _get_user_friendly_reason(
 
     Pure function: data-in, string-out.  Extracted from process_albums so it
     can be unit-tested in isolation without mocking the async I/O pipeline.
+
+    This is wording only. Which years each scope accepts is the table in
+    ``domain.release_window``; the branches here mirror its rows so the reader
+    is told the year the filter wanted, and must change with it.
     """
     if release_scope == "all":
         return "Should not be filtered (All Years selected)"
@@ -112,11 +113,12 @@ def _build_results(
     keyed by the same ``(artist_norm, album_norm)`` tuples as *cache_hits*,
     holding any already-cached MusicBrainz finding
     (``{"mb_release_group": ..., "original_release": ...}``). A finding with
-    a non-null ``original_release`` drives both the release filter and the
-    displayed date in place of the provider's own date, which survives as
-    ``provider_release_date`` on the result. No finding, or one whose
-    ``original_release`` is null (a cached "checked, nothing found"),
-    leaves behaviour unchanged from before this parameter existed.
+    a non-null ``original_release`` replaces the provider's date for the
+    release filter and the display, and a null one (a cached "checked,
+    nothing found") leaves behaviour unchanged. How the date is chosen, and
+    why ``provider_release_date`` is kept, is explained once in
+    ``docs/architecture/runtime-system.md`` ("How an album gets its release
+    date").
 
     Pure synchronous logic -- no I/O.  Extracted from process_albums Phase 5
     so the data-transformation layer can be tested independently of the async
@@ -143,7 +145,7 @@ def _build_results(
             reason = _get_user_friendly_reason(
                 release_date, release_scope, year, decade, release_year, corrected
             )
-            logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
+            logging.debug(f"Skipped an album outside the release scope: {reason}")
             unmatched_key = "|".join(normalize_name(artist, album))
             unmatched_entry = {
                 "artist": artist,
@@ -163,7 +165,7 @@ def _build_results(
                 # is worth a request, and it cannot tell without this field.
                 "provider_release_date": provider_release_date,
             }
-            _orchestrator.add_job_unmatched(job_id, unmatched_key, unmatched_entry)
+            jobs.record_unmatched(job_id, unmatched_key, unmatched_entry)
             continue
 
         track_durations = cached.get("track_durations") or {}
@@ -188,9 +190,9 @@ def _build_results(
             "album_url": _album_url(cached),
             # Carries the cache_hits key -- already the normalized
             # (artist_norm, album_norm) tuple, no extra normalize_name call
-            # needed -- forward so update_job_result (repositories.py) can
-            # match by key comparison instead of re-deriving one per lookup
-            # under jobs_lock. Not surfaced anywhere: results.html and the
+            # needed -- forward so jobs.update_result can match by
+            # key comparison instead of re-deriving one per lookup under the
+            # store's exclusion. Not surfaced anywhere: results.html and the
             # JSON endpoints read named fields only, never dump the dict.
             "_normalized_key": key,
         }

@@ -63,6 +63,16 @@
         {% endfor %}
         {% set has_durations = ns.has %}
     {% endif %}
+    {# A degraded run says so where the ranking is read (partial_data_warning).
+       Rendered with the page, above the table, so nothing moves later. #}
+    {% if partial_notice %}
+    <p class="results-partial-notice" id="results-partial-notice" role="status">
+        {{ partial_notice }}
+        {% if partial_notice_links_unmatched %}
+        <a href="{{ url_for('main.unmatched_page') }}" class="results-partial-notice__link">See the albums that could not be checked</a>
+        {% endif %}
+    </p>
+    {% endif %}
     <!-- StatBlock Mini-Table (one row at every width; numerals sized below
         the page header so the hierarchy stays with the h1) -->
     <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
@@ -138,6 +148,19 @@
             </div>
             {% endif %}
             <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
+                {# Spotify attribution, once for the whole list (F-B21-60): the
+                   guidelines ask for Spotify's logo or icon with Spotify content,
+                   not a mark on every item. It sits inside the wrapper so the
+                   "Save image" export (html2canvas on this wrapper) carries it.
+                   Rows from any other provider name it on their own row. #}
+                {% set spotify_rows = album_list|selectattr('provider', 'equalto', 'spotify')|list %}
+                {% set other_provider_rows = album_list|selectattr('provider')|rejectattr('provider', 'equalto', 'spotify')|list %}
+                {% if spotify_rows %}
+                <div id="results-spotify-attribution" class="provider-attribution">
+                    {% include "partials/_spotify_icon.html" %}
+                    <span class="provider-attribution__text">Album artwork and links from Spotify{% if other_provider_rows %}, except rows that name another provider{% endif %}</span>
+                </div>
+                {% endif %}
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
                         <tr class="border-b border-[var(--ss-border-default)] bg-transparent text-xs font-mono font-normal uppercase tracking-wider text-[var(--ss-text-muted)]">
@@ -162,8 +185,8 @@
                             data-play-time="{{ album.play_time|default('') }}"
                             data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
                             data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
-                            data-album-image="{{ album.album_image|default('') }}"
-                            data-spotify-id="{{ album.spotify_id|default('') }}"
+                            data-album-image="{{ album.album_image|default('', true) }}"
+                            data-spotify-id="{{ album.spotify_id|default('', true) }}"
                             data-provider="{{ album.provider|default('') }}"
                             data-album-url="{{ album.album_url|default('') }}">
                             <!-- Semantic Rank with glow hover -->
@@ -184,14 +207,14 @@
                                     {% if album.album_image %}
                                     <img src="{{ album.album_image }}"
                                          alt="{{ album.album }} cover"
-                                         class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] object-cover flex-shrink-0"
+                                         class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] flex-shrink-0"
                                          loading="lazy"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% else %}
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% endif %}
@@ -208,17 +231,27 @@
                                         <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
                                             {{ album.artist }}
                                         </span>
-                                        {# Provider attribution (Batch 22 WP-2 Task 6). Deezer requires "a
-                                           clearly visible Deezer Logo" on any app using its API
-                                           (developers.deezer.com/guidelines#local and /guidelines/logo);
-                                           Spotify's own content rules make the same demand (F-B21-60). This
-                                           text link is the interim measure -- swapping in each provider's
-                                           official logo asset is tracked separately (F-B22-4) since neither
-                                           asset could be sourced from here. #}
-                                        {% if album.provider and album.album_url %}
-                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
+                                        {# Per-row provider attribution (Batch 22 WP-2 Task 6), now for
+                                           non-Spotify rows only: Spotify rows are attributed once for the
+                                           whole list by the official icon above the table (F-B21-60).
+                                           A non-Spotify row always names its provider: a link when it has
+                                           a URL, the same badge as plain text when it has none, so the
+                                           banner's Spotify claim never covers it.
+                                           Deezer requires "a clearly visible Deezer Logo" on any app using
+                                           its API (developers.deezer.com/guidelines/logo), but its logo
+                                           files are published only through the deezerbrand.com portal,
+                                           which serves them from a third-party CDN behind a signed-in API,
+                                           so no official file could be taken from Deezer's own domains.
+                                           Until one is supplied this text link stands in for Deezer's logo
+                                           (F-B22-4, open for Deezer only). #}
+                                        {% if album.provider and album.provider != 'spotify' %}
+                                        {% if album.album_url %}
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
                                             {{ album.provider }}
                                         </a>
+                                        {% else %}
+                                        <span class="provider-badge">{{ album.provider }}</span>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                 </div>
@@ -267,58 +300,47 @@
 
                 </div>
 
-                <!-- Top Artist Spotlight Card (Full-Bleed Editorial Monograph) -->
-                {% set spotlight_fallback_img = top_artist_image if top_artist_image else (album_list[0].album_image if album_list and album_list[0].album_image else '') %}
+                <!-- Top Artist Spotlight Card: square photo, never cropped,
+                     overlaid or animated (F-B21-60). Hidden until the client
+                     confirms a candidate with a real Spotify photo. -->
                 {% if album_list %}
                 <div id="artist-spotlight-card"
                      data-artist="{{ top_artist_name|default(album_list[0].artist) }}"
-                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)]">
-                    {% if spotlight_fallback_img %}
+                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] p-4 md:p-[calc(1.25rem*var(--results-scale))] space-y-3"
+                     style="display:none">
+                    <h3 class="results-rail-title text-[var(--color-base-content)]">
+                        Artist spotlight
+                    </h3>
                     <div id="spotlight-card-content" class="spotlight-card-content">
-                        <img id="spotlight-artist-img"
-                             src="{{ spotlight_fallback_img }}"
-                             alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
-                             class="absolute w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
-                             loading="lazy" decoding="async">
-                        <!-- Top subtle scrim with monograph tags -->
-                        <div class="spotlight-scrim-top">
-                            <span class="results-rail-title text-white/95 drop-shadow-sm">Artist Spotlight</span>
-                            <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--color-primary)] drop-shadow-sm font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
+                        <div class="spotlight-image-box">
+                            <img id="spotlight-artist-img"
+                                 alt=""
+                                 class="spotlight-artist-photo"
+                                 loading="lazy" decoding="async">
                         </div>
-                        <!-- Bottom 50% scrim with artist details -->
-                        <div class="spotlight-scrim-bottom">
-                            <div class="flex items-baseline justify-between gap-2 pointer-events-auto">
-                                <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-white leading-tight drop-shadow-sm truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                        <div class="spotlight-details">
+                            <div class="flex items-start justify-between gap-2">
+                                <p id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2 [overflow-wrap:anywhere]" title="{{ top_artist_name|default(album_list[0].artist) }}">
                                     {{ top_artist_name|default(album_list[0].artist) }}
-                                </h3>
+                                </p>
+                                {# The official Spotify icon, linking to the artist on Spotify
+                                   (F-B21-60). `.spotlight-spotify-link` pads the 24px icon by
+                                   half its height on every side: that padding is Spotify's clear
+                                   space and makes the 48px touch target. #}
                                 <a id="spotlight-spotify-link"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   class="spotlight-spotify-link hidden focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs flex items-center justify-center flex-shrink-0"
                                    aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
                                    title="View on Spotify">
-                                    <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M6 3h7v7M13 3L6 10" />
-                                    </svg>
+                                    {% include "partials/_spotify_icon.html" %}
                                 </a>
                             </div>
-                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal">
-                                <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-white/95 {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
+                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">
+                                <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-[var(--ss-text-muted)] {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                             </p>
+                            <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
                         </div>
                     </div>
-                    {% else %}
-                    <!-- Fallback: no Spotify image -- text-only spotlight -->
-                    <div id="spotlight-card-content" class="spotlight-no-image p-4 md:p-[calc(1.25rem*var(--results-scale))] flex flex-col gap-1">
-                        <span class="results-rail-title text-[var(--ss-text-muted)]">Artist Spotlight</span>
-                        <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
-                            {{ top_artist_name|default(album_list[0].artist) }}
-                        </h3>
-                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">
-                            <span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
-                        </p>
-                        <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
-                    </div>
-                    {% endif %}
                 </div>
                 {% endif %}
 

@@ -25,7 +25,7 @@ import os
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
-from docsync.models import SyncError
+from docsync.models import IntegrityIssue, SyncError
 
 #: Runtime state, written beside the archive it guards. Both are ignored by
 #: Git: a lock or a half-finished journal is machine state for one run, not
@@ -48,10 +48,16 @@ def resolve_within(root: Path, candidate: Path | str) -> Path:
 
     This is a real security boundary, not a tidiness check: a page reference
     or a managed path comes out of a Markdown index that anyone can edit, and
-    a `..`, an absolute path, or a symlink would let that text direct a write
-    anywhere the process can reach. Each component between the root and the
-    target is inspected, because a symlinked *directory* redirects a path
-    whose own final component is perfectly ordinary.
+    a `..`, an absolute path, a symlink or a Windows directory junction would
+    let that text direct a write anywhere the process can reach. Each
+    component between the root and the target is inspected, because a
+    symlinked or junctioned *directory* redirects a path whose own final
+    component is perfectly ordinary. A junction is not a symlink to
+    `Path.is_symlink()`, so it is refused on its own (`Path.is_junction()`
+    is False off Windows). The containment test does not depend on the leaf
+    existing: the deepest existing ancestor of the result must resolve
+    inside the root, which also catches a reparse point of another kind,
+    such as a mount point.
     """
     root_real = Path(root).resolve()
     if not root_real.is_dir():
@@ -83,7 +89,14 @@ def resolve_within(root: Path, candidate: Path | str) -> Path:
             raise SyncError(
                 f"Refusing to follow a symlink inside the archive: {walked}"
             )
-    if walked.exists() and not walked.resolve().is_relative_to(root_real):
+        if walked.is_junction():
+            raise SyncError(
+                f"Refusing to follow a junction inside the archive: {walked}"
+            )
+    anchor = walked
+    while not anchor.exists() and anchor != root_real:
+        anchor = anchor.parent
+    if not anchor.resolve().is_relative_to(root_real):
         raise SyncError(f"Path escapes the archive root: {candidate}")
     return walked
 
@@ -214,6 +227,50 @@ def _recover(root: Path) -> None:
     for path, payload in restores.items():
         _restore(path, payload)
     journal.unlink()
+
+
+def unfinished_journal_issue(root: Path) -> IntegrityIssue | None:
+    """Return the DOC026 diagnostic when an interrupted publication left a journal.
+
+    A run killed between two writes leaves history in `.docsync.journal` and
+    nowhere else: the journal is git-ignored, so a commit of that tree
+    succeeds and the history exists only as base64 in an untracked file. The
+    corpus can look perfectly consistent (the entries were removed from one
+    document and not yet added to the other), so no other check notices.
+    """
+    journal = Path(root) / JOURNAL_NAME
+    if not journal.is_file():
+        return None
+    return IntegrityIssue(
+        code="DOC026",
+        severity="error",
+        path=JOURNAL_NAME,
+        line=None,
+        invariant="No interrupted publication is waiting to be recovered.",
+        remediation=(
+            "A docsync run was killed between two writes and its before-images "
+            "are only in this git-ignored journal. Delete a stale "
+            f"`{LOCK_NAME}` if no run is active, then run "
+            "`python scripts/doc_state_sync.py --fix`: it replays the journal "
+            "(restoring every file to its pre-run bytes) before planning "
+            "anything, and refuses if a file was edited since."
+        ),
+    )
+
+
+def recover_pending(root: Path) -> bool:
+    """Replay an interrupted publication's journal now; say whether one existed.
+
+    `publish` only recovers when there is drift to publish, so a corpus that
+    looks consistent after a crash was never recovered. `--fix` calls this
+    first, under the same single-writer lock, whatever it finds afterwards.
+    """
+    root = Path(root)
+    if not (root / JOURNAL_NAME).is_file():
+        return False
+    with _exclusive_lock(root):
+        _recover(root)
+    return True
 
 
 @contextlib.contextmanager
