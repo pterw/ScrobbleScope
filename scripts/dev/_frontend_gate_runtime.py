@@ -126,7 +126,10 @@ def serve_app() -> Iterator[str]:
             MIGRATED_PAGES.append(loading_path)
             ALL_PAGES.append(loading_path)
 
-            server = make_server("127.0.0.1", 0, app)
+            # Threaded: a browser's speculative pre-connection sends nothing,
+            # and a single-threaded server blocks on it, so every later
+            # request queues behind an idle socket (S4-10).
+            server = make_server("127.0.0.1", 0, app, threaded=True)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             thread_started = True

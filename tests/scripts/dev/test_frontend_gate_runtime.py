@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import socket
+import urllib.request
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -162,3 +164,18 @@ def test_install_cdn_routes_respects_live_fonts_flag() -> None:
     page = MagicMock()
     _frontend_gate_runtime.install_cdn_routes(page, live_fonts=True)
     page.route.assert_not_called()
+
+
+def test_an_idle_connection_does_not_stall_the_served_app() -> None:
+    """A browser's speculative pre-connection sends nothing. A single-threaded
+    server waits on it, so every later request stalls until it is dropped
+    (S4-10); a threaded one answers the second connection at once."""
+    with serve_app() as base_url:
+        host, port = base_url.removeprefix("http://").split(":")
+        with socket.create_connection((host, int(port)), timeout=2):
+            with urllib.request.urlopen(
+                f"{base_url}/static/css/shell.css", timeout=3
+            ) as reply:
+                status = reply.status
+
+    assert status == 200

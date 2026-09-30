@@ -131,6 +131,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - Make four gate checks judge what they name
+
+Side task, no batch tag: four frontend-gate checks, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+S4-2: the spotlight photo fade check now keeps the rotation ticking and fails unless a swap fell inside its 1000ms sampling window. S4-5: the unmatched focus-ring check counts only pixels the ring adds (a second shot, still focused, with the ring forced off). S4-6: `_PHOTO_PAINT_JS` intersects every clipping ancestor and flags `clip-path`, and the first photo check now runs the crop judgement too. S4-10: the gate serves threaded, so an idle connection cannot stall a check. The heatmap ring reading is made deterministic (box read before and after the shot, retake on movement, scroll nudge for the tooltip, fonts-and-frames wait) for the 2026-09-29 flake, and the hold check catches only Playwright's `TimeoutError` (Codacy B110). Each changed check was proved on a planted defect, red on the old code and green on the new; a browser test runs the paint probe on a clipping grandparent.
+
+Edited existing test helper: `_crop_overlay_page` in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` (the first photo check now also reads the paint probe and the new sample shape), used by `test_a_pseudo_element_scrim_and_a_transform_animation_are_reported`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods` and `test_the_first_photo_check_also_judges_the_crop`. Filed F-B23-36 (P3: S4-3, S4-4, S4-7, S4-8, S4-9, S4-11, the tooltip note, the flake as fixed by inference).
+
+Validation: `pytest -q` -- **2277 passed**.
+
 ### 2026-09-29 - The job module gives a job's life one interface over a storage seam
 
 Side task, no batch tag: the job module (`scrobblescope/jobs.py`), a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -160,11 +170,3 @@ Owner ruling (2026-09-29): Repo Assist is not configured properly and is dropped
 Edited tests: every test in `tests/test_ci_workflows.py` asserted on the Repo Assist workflow, so the module is rewritten around `test.yml`: `test_test_job_env_passes_no_secret` (job-level env carries no secrets reference) and `test_env_reader_flags_a_secret_and_a_missing_block`. Filed F-B23-32, F-B23-33 and F-B23-34 (P3, S6-3, S6-4, S6-5). Owner action: delete the Repo Assist repository secrets (for example CODEX_API_KEY, COPILOT_GITHUB_TOKEN) in GitHub settings if nothing else uses them.
 
 Validation: `pytest -q` -- **2238 passed**.
-
-### 2026-09-29 - Provider-failure docstring made true; async-thread traceback kept at DEBUG
-
-Side task, no batch tag: the `RedactingFormatter` docstring corrected and `run_async_in_thread`'s traceback moved to DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The land review found the docstring still said `run_async_in_thread` writes the api_key in its message; it now names its DEBUG traceback and `get_cached_response`'s debug line as the two remaining sites. Per the owner's Q5 ruling (2026-09-29, "At ERROR, log the exception type only; the full traceback goes to DEBUG"), `run_async_in_thread` keeps its class-only ERROR line and adds a DEBUG line with `exc_info=True`. The caplog test `test_run_async_in_thread_error_line_carries_the_class_never_the_message` now asserts the ERROR record has no exception info or message and a DEBUG record carries the traceback; proven red with the DEBUG line removed.
-
-Validation: `pytest -q` -- **2242 passed**.

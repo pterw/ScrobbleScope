@@ -247,3 +247,42 @@ def test_focus_ring_parks_the_pointer_and_settles_before_each_screenshot() -> No
         # a settle after the pointer is parked, and another after the blur
         assert any(park < s < first for park in parks for s in settles)
         assert any(first < s < second for s in settles)
+
+
+def test_focus_ring_is_the_difference_between_two_focused_shots() -> None:
+    """The second shot keeps focus and drops only the ring, so a tint the row
+    gains on focus is in both shots and is not counted as a ring (S4-5)."""
+    page = _focus_page()
+    assert _frontend_gate_unmatched._focus_ring_failures(page) == []
+    calls = [
+        (call.args[0], call.args[1:]) if call[0] == "evaluate" else (call[0], ())
+        for call in page.method_calls
+        if call[0] in ("evaluate", "screenshot")
+    ]
+    off = _frontend_gate_unmatched._RING_OFF_JS
+    back = _frontend_gate_unmatched._RING_BACK_JS
+    scripts = [script for script, _ in calls]
+    assert not any(".blur()" in str(script) for script in scripts)
+    first_off = scripts.index(off)
+    assert scripts[first_off - 1] == "screenshot"
+    assert calls[first_off][1] == (".album-link",)
+    assert scripts[first_off + 2] == "screenshot"
+    assert scripts[first_off + 3] == back
+    assert scripts.count(off) == scripts.count(back) == 2
+
+
+def test_focus_ring_is_switched_back_on_when_the_second_shot_fails() -> None:
+    page = _focus_page()
+    page.screenshot.side_effect = [b"png", RuntimeError("screenshot failed")]
+    with pytest.raises(RuntimeError, match="screenshot failed"):
+        _frontend_gate_unmatched._focus_ring_failures(page)
+    scripts = [call.args[0] for call in page.method_calls if call[0] == "evaluate"]
+    assert scripts[-1] is _frontend_gate_unmatched._RING_BACK_JS
+
+
+def test_the_ring_switch_turns_off_the_outline_and_box_shadow_of_the_focused_link() -> (
+    None
+):
+    script = _frontend_gate_unmatched._RING_OFF_JS
+    assert ":focus { outline: none !important;" in script
+    assert "box-shadow: none !important" in script

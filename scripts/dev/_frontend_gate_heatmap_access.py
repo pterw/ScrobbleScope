@@ -138,14 +138,15 @@ _RING_SAMPLES_PER_SIDE = 5
 _RING_COLOUR_TOLERANCE = 24
 
 #: Reads a viewport screenshot (base64 PNG) back in the page and reports, per
-#: side of the cell for `a.date`, the share of sample points along the side's
-#: middle 60% that have an accent-coloured pixel within `a.reach` CSS pixels
-#: outside the edge. Pixels, not styles: a ring a later cell covers, or the
-#: SVG clips, scores 0 on that side whatever its computed outline says.
+#: side of the cell, the share of sample points along the side's middle 60%
+#: that have an accent-coloured pixel within `a.reach` CSS pixels outside the
+#: edge. The cell's box (`a.box`) and the viewport width (`a.width`) are the
+#: ones read just before the screenshot and confirmed unchanged just after it
+#: (`_ring_coverage`): reading them here, after the screenshot, put the box
+#: wherever the page had moved to since. Pixels, not styles: a ring a later
+#: cell covers, or the SVG clips, scores 0 on that side whatever its computed
+#: outline says.
 _RING_PAINT_JS = """async (a) => {
-    const el = document.querySelector(
-        '.heatmap-cell[data-date="' + a.date + '"]');
-    if (!el) return null;
     const img = new Image();
     img.src = 'data:image/png;base64,' + a.png;
     await img.decode();
@@ -162,7 +163,7 @@ _RING_PAINT_JS = """async (a) => {
     sctx.fillStyle = a.accent;
     sctx.fillRect(0, 0, 1, 1);
     const accent = sctx.getImageData(0, 0, 1, 1).data;
-    const scale = canvas.width / window.innerWidth;
+    const scale = canvas.width / a.width;
     const isAccent = (x, y) => {
         const px = Math.floor(x * scale);
         const py = Math.floor(y * scale);
@@ -173,7 +174,7 @@ _RING_PAINT_JS = """async (a) => {
         return [0, 1, 2].every(
             (c) => Math.abs(pixels[i + c] - accent[c]) <= a.tolerance);
     };
-    const box = el.getBoundingClientRect();
+    const box = a.box;
     const sides = {
         top: (t, d) => [t, box.top - d],
         bottom: (t, d) => [t, box.bottom + d],
@@ -202,29 +203,83 @@ _RING_PAINT_JS = """async (a) => {
 }"""
 
 
+#: The cell's box, the focus ring's box and the viewport they sit in, in CSS
+#: pixels, or null when there is no such cell. Compared before and after a
+#: screenshot: equal means the page held still while it was taken, the ring
+#: included.
+_CELL_GEOMETRY_JS = """(date) => {
+    const el = document.querySelector('.heatmap-cell[data-date="' + date + '"]');
+    if (!el) return null;
+    const box = el.getBoundingClientRect();
+    const ring = document.querySelector('.heatmap-focus-ring');
+    const ringBox = ring ? ring.getBoundingClientRect() : null;
+    return {
+        box: {left: box.left, top: box.top, right: box.right, bottom: box.bottom},
+        ring: ringBox && {left: ringBox.left, top: ringBox.top,
+            right: ringBox.right, bottom: ringBox.bottom,
+            visibility: ring.getAttribute('visibility')},
+        width: window.innerWidth,
+        height: window.innerHeight,
+    };
+}"""
+
+#: Resolves once the web fonts loading now have loaded and two frames have
+#: drawn what they changed.
+_LAYOUT_SETTLED_JS = """() => document.fonts.ready.then(() => new Promise(
+    (r) => requestAnimationFrame(() => requestAnimationFrame(r))))"""
+
+#: What the page itself does when the layout may have moved under it: a
+#: `scroll` makes heatmap.js reposition the tooltip it is showing. A tooltip
+#: left at the position it had before a reflow can sit over the ring, and
+#: nothing but a scroll or a resize moves it.
+_LAYOUT_MOVED_JS = "() => document.dispatchEvent(new Event('scroll'))"
+
+#: How many times a screenshot is retaken because the page moved while it was
+#: taken (a late web font or a scroll settling shifts the cell), before the
+#: page is called unsettled.
+_RING_SHOT_ATTEMPTS = 5
+
+
 def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
     """Per side of the cell for `date`, the share of its samples showing the
-    accent just outside its edge, read off a screenshot of the viewport."""
+    accent just outside its edge, read off a screenshot of the viewport.
+
+    The cell's box is read before the screenshot and again after it, and the
+    screenshot is judged only when the two agree: a page that moved in
+    between (for instance the Adobe Fonts kit, which can land after the `load` event and
+    reflows the text above the grid) would put the box where the pixels are
+    not, and every side would read as bare. Each attempt first has the page
+    reposition its tooltip (one left where the cell was can sit over the ring)
+    and waits for fonts and frames to settle; a moved page is shot again, and
+    one that never holds still raises rather than report a ring."""
     page.evaluate(
         "(date) => document.querySelector('.heatmap-cell[data-date=\"' + date"
         " + '\"]').scrollIntoView({block: 'center', inline: 'nearest'})",
         date,
     )
-    page.evaluate(
-        "() => new Promise((r) => requestAnimationFrame("
-        "() => requestAnimationFrame(r)))"
-    )
-    png = base64.b64encode(page.screenshot()).decode("ascii")
-    return page.evaluate(
-        _RING_PAINT_JS,
-        {
-            "png": png,
-            "date": date,
-            "accent": accent,
-            "reach": _RING_REACH_PX,
-            "samples": _RING_SAMPLES_PER_SIDE,
-            "tolerance": _RING_COLOUR_TOLERANCE,
-        },
+    for _ in range(_RING_SHOT_ATTEMPTS):
+        page.evaluate(_LAYOUT_MOVED_JS)
+        page.evaluate(_LAYOUT_SETTLED_JS)
+        before = page.evaluate(_CELL_GEOMETRY_JS, date)
+        if before is None:
+            return None
+        png = base64.b64encode(page.screenshot()).decode("ascii")
+        if page.evaluate(_CELL_GEOMETRY_JS, date) == before:
+            return page.evaluate(
+                _RING_PAINT_JS,
+                {
+                    "png": png,
+                    "box": before["box"],
+                    "width": before["width"],
+                    "accent": accent,
+                    "reach": _RING_REACH_PX,
+                    "samples": _RING_SAMPLES_PER_SIDE,
+                    "tolerance": _RING_COLOUR_TOLERANCE,
+                },
+            )
+    raise RuntimeError(
+        f"the cell for {date!r} kept moving while its screenshot was taken "
+        f"({_RING_SHOT_ATTEMPTS} attempts), so its focus ring could not be read"
     )
 
 

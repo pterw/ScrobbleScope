@@ -19,6 +19,14 @@ Section 3 now says that these seams come before the Spotify import and which wor
 
 Validation: `pytest -q` -- **2223 passed**.
 
+### 2026-09-29 - Provider-failure docstring made true; async-thread traceback kept at DEBUG
+
+Side task, no batch tag: the `RedactingFormatter` docstring corrected and `run_async_in_thread`'s traceback moved to DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The land review found the docstring still said `run_async_in_thread` writes the api_key in its message; it now names its DEBUG traceback and `get_cached_response`'s debug line as the two remaining sites. Per the owner's Q5 ruling (2026-09-29, "At ERROR, log the exception type only; the full traceback goes to DEBUG"), `run_async_in_thread` keeps its class-only ERROR line and adds a DEBUG line with `exc_info=True`. The caplog test `test_run_async_in_thread_error_line_carries_the_class_never_the_message` now asserts the ERROR record has no exception info or message and a DEBUG record carries the traceback; proven red with the DEBUG line removed.
+
+Validation: `pytest -q` -- **2242 passed**.
+
 ### 2026-09-29 - Provider failure lines name the operation, never album, artist or track
 
 Side task, no batch tag: provider failure log lines carry an operation key and an exception class, not names, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

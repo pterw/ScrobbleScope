@@ -103,11 +103,14 @@ _RING_SIDES = ("top", "right", "bottom", "left")
 #: third row by plays), so the report renders a provider badge.
 _DEEZER_SCOPE_ROW = 4
 
-#: Decodes the focused and blurred screenshots in the page (the gate has no
-#: image library) and counts the changed pixels in the four bands outside the
-#: link's box. Pixels inside the box are not counted: the link turns orange
-#: and gains an underline on focus whether or not its ring paints.
-_RING_PIXELS_JS = """async ({focused, blurred, box, clip, threshold}) => {
+#: Decodes the two screenshots of the focused link in the page (the gate has
+#: no image library) -- one with the browser's focus ring, one with the ring
+#: switched off and everything else identical -- and counts the changed pixels
+#: in the four bands outside the link's box. Both shots are focused, so a
+#: tint the row gains on focus is in both and cancels: only the ring differs.
+#: Pixels inside the box are not counted: the link turns orange and gains an
+#: underline on focus whether or not its ring paints.
+_RING_PIXELS_JS = """async ({ringed, bare, box, clip, threshold}) => {
     const decode = async data => {
         const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
         const bitmap = await createImageBitmap(new Blob([bytes], {type: 'image/png'}));
@@ -118,8 +121,8 @@ _RING_PIXELS_JS = """async ({focused, blurred, box, clip, threshold}) => {
         context.drawImage(bitmap, 0, 0);
         return context.getImageData(0, 0, bitmap.width, bitmap.height);
     };
-    const a = await decode(focused);
-    const b = await decode(blurred);
+    const a = await decode(ringed);
+    const b = await decode(bare);
     if (a.width !== b.width || a.height !== b.height) {
         return {error: `screenshots differ in size: ${a.width}x${a.height} `
             + `and ${b.width}x${b.height}`};
@@ -458,6 +461,19 @@ def _row_layout_failures(page) -> list[str]:
     return failures
 
 
+#: Switches off every focus indicator the link draws for the second shot: the
+#: outline, and a box-shadow some designs use instead. Nothing else changes,
+#: so the two shots differ by the ring alone.
+_RING_OFF_JS = """selector => {
+    const style = document.createElement('style');
+    style.id = 'gate-focus-ring-off';
+    style.textContent = `${selector}:focus { outline: none !important; `
+        + 'box-shadow: none !important; }';
+    document.head.appendChild(style);
+}"""
+_RING_BACK_JS = """() => document.getElementById('gate-focus-ring-off')?.remove()"""
+
+
 def _ring_side_failures(label: str, width: int, counts: dict) -> list[str]:
     """Name the sides of a focus ring that painted nothing.
 
@@ -479,9 +495,11 @@ def _ring_side_failures(label: str, width: int, counts: dict) -> list[str]:
 def _focus_ring_failures(page) -> list[str]:
     """The album title link's and the provider badge's focus rings paint whole.
 
-    Judged on pixels: each link is reached by a real Tab press, screenshotted
-    focused and then blurred, and every side outside its box must change. A
-    computed outline cannot see this defect: a ring that a clipping ancestor
+    Judged on pixels: each link is reached by a real Tab press and
+    screenshotted focused, then screenshotted again, still focused, with its
+    focus ring switched off, and every side outside its box must differ
+    between the two. Blurring for the second shot would count any tint the
+    row gains on focus as a ring. A computed outline cannot see this defect: a ring that a clipping ancestor
     cuts computes the same as one that is whole, and the text column's
     `overflow-hidden` once cut both. The ring is the browser's own, so no
     colour is tested.
@@ -544,15 +562,18 @@ def _focus_ring_failures(page) -> list[str]:
         # transition settle before each shot.
         page.mouse.move(0, 0)
         page.evaluate(_SETTLE_JS)
-        focused = page.screenshot(clip=clip, animations="disabled")
-        page.evaluate("selector => document.querySelector(selector).blur()", selector)
-        page.evaluate(_SETTLE_JS)
-        blurred = page.screenshot(clip=clip, animations="disabled")
+        ringed = page.screenshot(clip=clip, animations="disabled")
+        page.evaluate(_RING_OFF_JS, selector)
+        try:
+            page.evaluate(_SETTLE_JS)
+            bare = page.screenshot(clip=clip, animations="disabled")
+        finally:
+            page.evaluate(_RING_BACK_JS)
         counts = page.evaluate(
             _RING_PIXELS_JS,
             {
-                "focused": base64.b64encode(focused).decode("ascii"),
-                "blurred": base64.b64encode(blurred).decode("ascii"),
+                "ringed": base64.b64encode(ringed).decode("ascii"),
+                "bare": base64.b64encode(bare).decode("ascii"),
                 "box": box,
                 "clip": clip,
                 "threshold": _FOCUS_RING_DIFF,

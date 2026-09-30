@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2254 tests across 82 tracked test modules.
+2277 tests across 82 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -816,6 +816,21 @@ Two P3 gaps in the archive store were left when the docsync publication fixes la
 Candidate for a second guard on CRLF checkouts (S3-7): a `.gitattributes` `eol=lf` rule for `docs/logarchive/**` and `docs/history/**`. It is optional, since `ArchiveStore._diff` now folds line endings.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S3-5 and S3-8.
+
+### F-B23-36: six small frontend-gate checks judge less than they name
+
+Small gaps the third review of PR #245 (S4) found in the gate's checks, left open when Task 17 fixed S4-2, S4-5, S4-6 and S4-10:
+
+- S4-3: the spotlight Spotify link "targets the shown artist" is compared with a URL every mocked candidate shares (`check_spotlight_spotify_icon_size_and_link_target`). Derive the mock's URL from the requested artist and compare with `data-artist`.
+- S4-4: `theme tokens` passes when `--color-primary` and `--bars-color` are both undefined, since both probes compute to transparent. Assert primary has alpha 1 or a literal per theme.
+- S4-7: the inline-mark paint check reads only path, rect, circle, line, polyline and polygon, so an `<ellipse>`, `<text>` or `<use>` letterform is never read.
+- S4-8: the headline wrap and scale checks compare against NaN when `line-height` computes to `normal`. Fail on a non-finite measurement.
+- S4-9: "N checks passed in M runs" is computed from the tables (`PLANNED_RUNS`), not from what ran, and counts the advisory `fonts` check as passed.
+- S4-11: `scripts/dev/results_behavior_tests.py` is not among the checks a session is told to run before a commit (CI runs it).
+- Noticed in Task 17: the heatmap tooltip is repositioned only on scroll and resize, so a layout reflow leaves it over the focused cell.
+- Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S4-3, S4-4, S4-7, S4-8, S4-9 and S4-11.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

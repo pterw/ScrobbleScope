@@ -6,6 +6,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from scripts.dev import _frontend_gate_spotlight_photo, frontend_gate
 from tests.scripts.dev.gate_parity import defined_names
@@ -218,8 +220,18 @@ def test_the_no_photo_check_fails_on_a_visible_card() -> None:
     assert failures == ["spotlight card is visible ('block') with no confirmed photo"]
 
 
+def _steady_samples() -> list[dict]:
+    """A window in which the artist changed and the opacity never did."""
+    return [
+        {"opacity": ["1", "1"], "index": str(index), "ticks": index}
+        for index in (0, 0, 1, 1, 2)
+    ]
+
+
 def _crop_overlay_page(overlap: list, motion: list) -> MagicMock:
     def evaluate(script, *args):
+        if script is _frontend_gate_spotlight_photo._PHOTO_PAINT_JS:
+            return _geometry()
         if "naturalWidth" in script and "getBoundingClientRect" in script:
             return {
                 "naturalWidth": 300,
@@ -231,7 +243,7 @@ def _crop_overlay_page(overlap: list, motion: list) -> MagicMock:
             return overlap
         if script is _frontend_gate_spotlight_photo._PHOTO_MOTION_JS:
             return motion
-        return [["1", "1"]]
+        return _steady_samples()
 
     return _check_page(evaluate=evaluate)
 
@@ -430,3 +442,151 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
     assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
     assert "__spotlightTicks += 1" in page.add_init_script.call_args.args[0]
     assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)
+
+
+def test_a_window_with_a_swap_and_steady_opacity_passes() -> None:
+    assert (
+        _frontend_gate_spotlight_photo.spotlight_fade_failures(_steady_samples()) == []
+    )
+
+
+def test_opacity_that_moves_during_a_swap_fails() -> None:
+    samples = _steady_samples()
+    samples[2]["opacity"] = ["1", "0.4"]
+    failures = _frontend_gate_spotlight_photo.spotlight_fade_failures(samples)
+    assert len(failures) == 1
+    assert failures[0].startswith(
+        "spotlight photo opacity changed during a rotation tick: "
+    )
+
+
+def test_steady_opacity_over_a_window_with_no_swap_fails_instead_of_passing() -> None:
+    """The one-shot tick once fired before sampling began, so every sample was
+    identical and the check passed whatever a swap did (S4-2)."""
+    samples = [{"opacity": ["1", "1"], "index": "3", "ticks": 4} for _ in range(5)]
+    failures = _frontend_gate_spotlight_photo.spotlight_fade_failures(samples)
+    assert len(failures) == 1
+    assert "never swapped the artist while opacity was sampled" in failures[0]
+
+
+def test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods() -> (
+    None
+):
+    script = _frontend_gate_spotlight_photo._PHOTO_SAMPLE_JS
+    assert "dataset.spotlightIndex" in script
+    assert "}, 1000);" in script
+    page = _crop_overlay_page([], [])
+    _run(
+        _frontend_gate_spotlight_photo.check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
+        page,
+    )
+    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
+
+
+def test_a_photo_cut_by_a_clipping_ancestor_names_it() -> None:
+    """A height cap with overflow hidden on the card content leaves 42% of the
+    photo visible; the clip the reading reports is the intersection (S4-6)."""
+    failures = _frontend_gate_spotlight_photo.photo_crop_failures(
+        _geometry(
+            clip={"left": 0.0, "top": 0.0, "right": 100.0, "bottom": 40.0},
+            clippedBy=["spotlight-card-content"],
+        )
+    )
+    assert len(failures) == 1
+    assert "on the bottom (clipped by spotlight-card-content)" in failures[0]
+
+
+_CLIPPED_GRANDPARENT_HTML = """<!doctype html><html><body style="margin:0">
+<div id="grand" style="overflow:hidden;width:200px;height:40px">
+<div id="parent"><div class="spotlight-image-box" style="width:100px;height:100px">
+<img id="spotlight-artist-img" src="{src}"
+     style="width:100%;height:100%;object-fit:contain"></div></div></div>
+</body></html>"""
+
+
+@pytest.mark.browser
+def test_the_paint_probe_reports_a_clipping_grandparent_and_its_box() -> None:
+    """Runs `_PHOTO_PAINT_JS` in Chromium on a photo box whose parent does not
+    clip but whose grandparent does (S4-6): a probe that read only the parent
+    would report no clip and a clip box of the whole 100px photo box."""
+    from scripts.dev._frontend_gate_runtime import _launch_browser, _load_playwright
+
+    html = _CLIPPED_GRANDPARENT_HTML.replace(
+        "{src}", _frontend_gate_spotlight_photo.SQUARE_PHOTO_DATA_URL
+    )
+    with _load_playwright()() as playwright:
+        browser = _launch_browser(playwright, "chromium")
+        try:
+            page = browser.new_page()
+            page.set_content(html)
+            page.wait_for_function(
+                "() => document.querySelector('#spotlight-artist-img').complete"
+            )
+            reading = page.evaluate(_frontend_gate_spotlight_photo._PHOTO_PAINT_JS)
+        finally:
+            browser.close()
+    assert reading["clippedBy"] == ["grand"]
+    assert reading["clip"]["bottom"] == pytest.approx(40.0)
+    assert reading["clip"]["right"] == pytest.approx(100.0)
+    failures = _frontend_gate_spotlight_photo.photo_crop_failures(reading)
+    assert len(failures) == 1 and "clipped by grand" in failures[0]
+
+
+def test_the_first_photo_check_also_judges_the_crop() -> None:
+    page = _crop_overlay_page([], [])
+    real = page.evaluate.side_effect
+
+    def cut(script, *args):
+        if script is _frontend_gate_spotlight_photo._PHOTO_PAINT_JS:
+            return _geometry(
+                clip={"left": 0.0, "top": 0.0, "right": 100.0, "bottom": 40.0}
+            )
+        return real(script, *args)
+
+    page.evaluate.side_effect = cut
+    failures = _run(
+        _frontend_gate_spotlight_photo.check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
+        page,
+    )
+    assert len(failures) == 1 and "spotlight photo is cropped" in failures[0]
+
+
+def _hold_page(wait_error: Exception) -> MagicMock:
+    page = MagicMock()
+    page.evaluate.return_value = {
+        "focused": True,
+        "visible": True,
+        "href": "h",
+        "label": "l",
+        "artist": "A",
+        "ticks": 0,
+    }
+    page.wait_for_function.side_effect = wait_error
+    return page
+
+
+def _run_hold(page: MagicMock) -> list[str]:
+    check = _frontend_gate_spotlight_photo.check_artist_spotlight_holds_still_while_focused_or_hovered
+    with (
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
+            return_value="job-1",
+        ),
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.delete"),
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
+            return_value=None,
+        ),
+    ):
+        return check(page, "http://127.0.0.1:0")
+
+
+def test_a_timed_out_hold_wait_is_judged_by_the_tick_count() -> None:
+    failures = _run_hold(_hold_page(PlaywrightTimeoutError("no ticks")))
+    assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)
+
+
+def test_a_crashed_page_during_the_hold_wait_propagates() -> None:
+    """A broad except once swallowed this and reported a tick count instead."""
+    with pytest.raises(PlaywrightError, match="Target crashed"):
+        _run_hold(_hold_page(PlaywrightError("Target crashed")))

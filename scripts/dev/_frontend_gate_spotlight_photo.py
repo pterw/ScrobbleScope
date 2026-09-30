@@ -229,6 +229,52 @@ _PHOTO_MOTION_JS = """() => {
 }"""
 
 
+#: Samples the photo's and its content's opacity every 40ms for a second --
+#: five periods of the sped-up rotation -- with the artist shown at each
+#: sample.
+_PHOTO_SAMPLE_JS = """() => new Promise(resolve => {
+    const img = document.querySelector('#spotlight-artist-img');
+    const content = document.querySelector('#spotlight-card-content');
+    const card = document.querySelector('#artist-spotlight-card');
+    const samples = [];
+    const sample = () => samples.push({
+        opacity: [getComputedStyle(img).opacity, getComputedStyle(content).opacity],
+        index: card.dataset.spotlightIndex,
+        ticks: window.__spotlightTicks,
+    });
+    sample();
+    const interval = window.setInterval(sample, 40);
+    window.setTimeout(() => {
+        window.clearInterval(interval);
+        resolve(samples);
+    }, 1000);
+})"""
+
+
+def spotlight_fade_failures(samples: list[dict]) -> list[str]:
+    """Judge the samples of `_PHOTO_SAMPLE_JS`: the artist changed in the
+    window, and no opacity did.
+
+    Opacity that holds still proves nothing unless a swap happened while it
+    was sampled: a window that missed every rotation tick would read as
+    steady whatever the swap does to the photo.
+    """
+    failures = []
+    shown = {sample["index"] for sample in samples}
+    if len(shown) < 2:
+        failures.append(
+            "spotlight rotation never swapped the artist while opacity was "
+            f"sampled (only index {sorted(shown, key=str)} shown), so a fade "
+            "on the swap would not have been seen"
+        )
+    if len({tuple(sample["opacity"]) for sample in samples}) > 1:
+        failures.append(
+            "spotlight photo opacity changed during a rotation tick: "
+            f"{[sample['opacity'] for sample in samples]}"
+        )
+    return failures
+
+
 def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
     page, base_url: str
 ) -> list[str]:
@@ -236,7 +282,7 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
     job_id = _seed_spotlight_job()
     failures = []
     try:
-        _install_spotlight_fetch_mock(page, SQUARE_PHOTO_DATA_URL)
+        _install_spotlight_fetch_mock(page, SQUARE_PHOTO_DATA_URL, keep_rotating=True)
         page.goto(
             f"{base_url}{RESULTS_PATH}?job_id={job_id}",
             wait_until="domcontentloaded",
@@ -278,29 +324,15 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
         # No animation: the photo and its wrapping content never fade -- the
         # deleted opacity handoff (Step 3) animated `#spotlight-card-content`,
         # not the <img> itself, so both are sampled -- and none of them runs
-        # an animation or transitions transform or filter.
-        opacity_samples = page.evaluate(
-            """() => new Promise(resolve => {
-                const img = document.querySelector('#spotlight-artist-img');
-                const content = document.querySelector('#spotlight-card-content');
-                const samples = [];
-                const sample = () => samples.push([
-                    getComputedStyle(img).opacity,
-                    getComputedStyle(content).opacity,
-                ]);
-                sample();
-                const interval = window.setInterval(sample, 40);
-                window.setTimeout(() => {
-                    window.clearInterval(interval);
-                    resolve(samples);
-                }, 400);
-            })"""
-        )
-        distinct = {tuple(sample) for sample in opacity_samples}
-        if len(distinct) > 1:
-            failures.append(
-                f"spotlight photo opacity changed during a rotation tick: {opacity_samples}"
-            )
+        # an animation or transitions transform or filter. The rotation keeps
+        # ticking (see `_install_spotlight_fetch_mock`), and each sample
+        # records which artist is shown, so `spotlight_fade_failures` can tell
+        # a window that held a swap from one that never did.
+        samples = page.evaluate(_PHOTO_SAMPLE_JS)
+        failures.extend(spotlight_fade_failures(samples))
+        # Not cut by any clipping ancestor either: the ratio above reads only
+        # the image's own box, which a clipping ancestor leaves whole.
+        failures.extend(photo_crop_failures(page.evaluate(_PHOTO_PAINT_JS)))
         motion = page.evaluate(_PHOTO_MOTION_JS)
         if motion:
             failures.append(f"spotlight photo is animated: {', '.join(motion)}")
@@ -311,10 +343,13 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
 
 #: Measures what is painted, and what clips it. The painted content box is what
 #: `object-fit: contain` draws, placed by `object-position` inside the image's
-#: own content box; the clip is the padding box of `.spotlight-image-box`,
-#: which is what its `overflow: hidden` cuts to. A transform, an individual
+#: own content box; the clip is the intersection of the padding boxes of
+#: `.spotlight-image-box` and of every ancestor above it whose overflow is not
+#: visible (a height cap with `overflow: hidden` on the card content or the
+#: card cuts the photo as surely as the box does). A transform, an individual
 #: transform property or a `clip-path` on the image or that box scales or cuts
-#: the photo without touching `object-fit`, so each is reported.
+#: the photo without touching `object-fit`, and a `clip-path` on any ancestor
+#: cuts it too, so each is reported.
 _PHOTO_PAINT_JS = """() => {
     const img = document.querySelector('#spotlight-artist-img');
     const box = img.closest('.spotlight-image-box');
@@ -330,12 +365,35 @@ _PHOTO_PAINT_JS = """() => {
         right: rect.right - px(style.borderRightWidth) - px(style.paddingRight),
         bottom: rect.bottom - px(style.borderBottomWidth) - px(style.paddingBottom),
     };
+    // What cuts the photo is every ancestor that clips: the photo box always
+    // (it is the design's clip), and any other ancestor up to the page whose
+    // overflow is not visible, each on the axes it clips. The page itself
+    // (body, html) scrolls rather than crops, so it is not counted.
     const clip = {
         left: boxRect.left + px(boxStyle.borderLeftWidth),
         top: boxRect.top + px(boxStyle.borderTopWidth),
         right: boxRect.right - px(boxStyle.borderRightWidth),
         bottom: boxRect.bottom - px(boxStyle.borderBottomWidth),
     };
+    const clippedBy = [];
+    for (let el = box.parentElement; el && el !== document.body
+            && el !== document.documentElement; el = el.parentElement) {
+        const own = getComputedStyle(el);
+        const clipsX = own.overflowX !== 'visible';
+        const clipsY = own.overflowY !== 'visible';
+        if (!clipsX && !clipsY) continue;
+        const ownRect = el.getBoundingClientRect();
+        if (clipsX) {
+            clip.left = Math.max(clip.left, ownRect.left + px(own.borderLeftWidth));
+            clip.right = Math.min(clip.right, ownRect.right - px(own.borderRightWidth));
+        }
+        if (clipsY) {
+            clip.top = Math.max(clip.top, ownRect.top + px(own.borderTopWidth));
+            clip.bottom = Math.min(clip.bottom,
+                ownRect.bottom - px(own.borderBottomWidth));
+        }
+        clippedBy.push(el.id || el.className || el.tagName);
+    }
     const innerWidth = inner.right - inner.left;
     const innerHeight = inner.bottom - inner.top;
     const scale = Math.min(innerWidth / img.naturalWidth, innerHeight / img.naturalHeight);
@@ -351,10 +409,16 @@ _PHOTO_PAINT_JS = """() => {
     painted.right = painted.left + paintedWidth;
     painted.bottom = painted.top + paintedHeight;
     const moved = [];
-    for (let el = img; el; el = el === box ? null : el.parentElement) {
+    for (let el = img; el && el !== document.documentElement;
+            el = el.parentElement) {
         const own = getComputedStyle(el);
-        const name = el === img ? 'the photo' : 'the photo box';
-        ['transform', 'scale', 'translate', 'rotate', 'clipPath'].forEach(property => {
+        const name = el === img ? 'the photo'
+            : el === box ? 'the photo box' : `an ancestor (${el.id || el.tagName})`;
+        // A transform only matters on the photo and its box, which scale it;
+        // a clip-path cuts it wherever it sits.
+        const properties = el === img || el === box
+            ? ['transform', 'scale', 'translate', 'rotate', 'clipPath'] : ['clipPath'];
+        properties.forEach(property => {
             if (own[property] && own[property] !== 'none') {
                 moved.push(`${name} has ${property} ${own[property]}`);
             }
@@ -365,6 +429,7 @@ _PHOTO_PAINT_JS = """() => {
         objectFit: style.objectFit,
         painted,
         clip,
+        clippedBy,
         moved,
     };
 }"""
@@ -377,10 +442,10 @@ def photo_crop_failures(geometry: dict) -> list[str]:
     """Judge one reading of `_PHOTO_PAINT_JS`: is the whole photo shown?
 
     The photo is uncropped when what is painted -- placed by `object-fit` and
-    the natural ratio -- lies inside the box that clips it, and nothing
-    scales or clips the image on the way. Deriving the painted box from the
-    image element's own box would always fit it; the clipping ancestor is the
-    thing that can cut the photo.
+    the natural ratio -- lies inside the box its clipping ancestors leave it,
+    and nothing scales or clips the image on the way. Deriving the painted box from the
+    image element's own box would always fit it; the clipping ancestors are
+    the thing that can cut the photo, and every one of them is consulted.
     """
     if geometry.get("noBox"):
         return ["spotlight photo has no .spotlight-image-box ancestor to clip it"]
@@ -409,6 +474,11 @@ def photo_crop_failures(geometry: dict) -> list[str]:
             f"the {clip['right'] - clip['left']:.1f}x"
             f"{clip['bottom'] - clip['top']:.1f} box that clips it on the "
             f"{', '.join(outside)}"
+            + (
+                f" (clipped by {', '.join(map(str, geometry['clippedBy']))})"
+                if geometry.get("clippedBy")
+                else ""
+            )
         )
     return failures
 
@@ -418,7 +488,7 @@ def check_artist_spotlight_photo_not_cropped_when_non_square(
 ) -> list[str]:
     """A non-square confirmed photo is shown whole, not cropped to fill the
     square photo box (F-B21-60 / B1): `object-fit` is `contain`, the painted
-    photo lies inside the box that clips it, and nothing scales or clips it."""
+    photo lies inside the box its clipping ancestors leave it, and nothing scales or clips it."""
     job_id = _seed_spotlight_job()
     failures = []
     try:
@@ -700,6 +770,11 @@ def check_artist_spotlight_holds_still_while_focused_or_hovered(
     focus on the Spotify link, or the pointer over the card, the link keeps
     its focus, its target and its name across several rotation periods
     (S2-2)."""
+    # Imported here, not at module level: the gate reports a missing
+    # Playwright with the install command (`_load_playwright`), which a
+    # module-level import would pre-empt with a bare ImportError.
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
     job_id = _seed_spotlight_job(LAYOUT_ARTISTS)
     url = f"{base_url}{RESULTS_PATH}?job_id={job_id}"
     failures = []
@@ -720,7 +795,9 @@ def check_artist_spotlight_holds_still_while_focused_or_hovered(
                     f"() => window.__spotlightTicks >= {before['ticks'] + HOLD_PERIODS}",
                     timeout=5_000,
                 )
-            except Exception:  # noqa: BLE001 - reported below by the tick count
+            except PlaywrightTimeoutError:
+                # Reported below by the tick count. Only a timeout is
+                # tolerated: a crashed page or a script error propagates.
                 pass
             failures.extend(
                 spotlight_hold_failures(before, page.evaluate(_LINK_STATE_JS), held_by)
