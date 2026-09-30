@@ -548,7 +548,8 @@ def check_artist_spotlight_card_hidden_with_no_photo(page, base_url: str) -> lis
                 f"{counts[0]} candidates, {counts[1]} requests, {counts[2]} answers"
             )
             return failures
-        # The candidates settle in the microtasks after the last answer; two
+        # Negative wait (nothing may appear), so a fixed time is right: the
+        # candidates settle in the microtasks after the last answer; two
         # frames and one sped-up rotation tick (200ms) cover a wrong reveal.
         page.evaluate(
             "() => new Promise(r => requestAnimationFrame(() => "

@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2493 tests across 83 tracked test modules.
+2496 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -762,7 +762,7 @@ Small gaps the third review of PR #245 (S4) found in the gate's checks, left ope
 - S4-9: "N checks passed in M runs" is computed from the tables (`PLANNED_RUNS`), not from what ran, and counts the advisory `fonts` check as passed.
 - S4-11: `scripts/dev/results_behavior_tests.py` is not among the checks a session is told to run before a commit (CI runs it).
 - Noticed in Task 17: the heatmap tooltip is repositioned only on scroll and resize, so a layout reflow leaves it over the focused cell.
-- Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs. It recurred at dce6f148 with no other browser run on the machine (F-B23-39), so the inferred cause is at most part of it.
+- Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs. It recurred at dce6f148 with no other browser run on the machine (F-B23-39), so the inferred cause is at most part of it. The 250 ms fixed sleeps in the heatmap-access checks are now waits for the page's transitions to finish (F-B23-39); whether that ends the ring flake is not yet shown.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S4-3, S4-4, S4-7, S4-8, S4-9 and S4-11.
 
@@ -797,6 +797,8 @@ Each failure below passed on an immediate re-run of the same tree, and none was 
 - `heatmap cells keyboard access [mobile]` again at dce6f148, after the inferred fix and with no other browser run on the machine, and on the re-run `unmatched report [desktop]` raised `Page.goto: net::ERR_NO_BUFFER_SPACE`.
 
 - `validator network failure` ("expected the first validation, held 0") has a named cause (R4-tests-gates-1, review 4 of PR #245): the forms gate counted validator requests after a fixed 400 ms sleep against the page's 300 ms debounce, so a loaded machine that ran the debounce late read a count of zero. The gate now polls for the requests (bounded), which Task 31 fixed; a probe with the debounce raised to 1200 ms failed the old module three times and passes the new one. The other flakes above have other causes. The gate also prints the app subresources that failed to load beside any FAIL, so the next flake names its cause.
+
+Two more named causes (2026-09-30, after PR #245 and PR #251 merged): `index design tokens` failed on CI with `a valid username border is rgb(113, 207, 152), expected rgb(111, 207, 151)` because the check slept a fixed 250 ms after adding `is-valid`, against a 200 ms border-color transition in `static/css/index.css`, so a loaded runner read mid-transition; and the heatmap focus-ring flake recurred on CI (run 36726578353), in a module with 16 fixed sleeps. The side-task commit "Wait for transitions to finish, not a fixed sleep" replaces every sleep that waited for a transition, paint, scroll or focus with `wait_for_settled` or `wait_for_scroll_past` (`scripts/dev/_frontend_gate_shared.py`), which wait for the browser's own "finished" signal; the sleeps that remain are negative waits or poll intervals, each commented. The loading-composition fill and the `ERR_NO_BUFFER_SPACE` failure are not shown to be transitions and stay open here.
 
 The last error is Windows running short of socket buffers (WSAENOBUFS): the machine was under heavy load (a busy desktop browser and about 1,600 loopback sockets in TIME_WAIT; no gate browser had leaked). A stylesheet that fails to load under that pressure would explain the transparent fill and the unpainted ring. Not proven; no fix in this PR. Next step: run the gate on an idle machine or in CI several times and compare.
 

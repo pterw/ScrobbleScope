@@ -8,6 +8,7 @@ from scripts.dev._frontend_gate_colour import (
     _contrast_ratio,
     _parse_rgb_string,
 )
+from scripts.dev._frontend_gate_shared import wait_for_settled
 from scripts.dev._frontend_gate_spotify_icon import spotify_icon_failures
 from scrobblescope import jobs
 from scrobblescope.domain import format_album_key, normalize_name
@@ -580,6 +581,8 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
             failures.append("moved-in albums were not announced with a reload action")
 
         settled = len(requests)
+        # Kept fixed: a negative wait. The check proves NO further poll
+        # arrives after the terminal status, so it must sit out the interval.
         probe.wait_for_timeout(5_000)
         if len(requests) > settled:
             failures.append(
@@ -591,7 +594,7 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
         try:
             for width in (390, 1280):
                 probe.set_viewport_size({"width": width, "height": 800})
-                probe.wait_for_timeout(100)
+                wait_for_settled(probe)
                 if probe.evaluate(
                     "() => document.documentElement.scrollWidth > innerWidth"
                 ):
