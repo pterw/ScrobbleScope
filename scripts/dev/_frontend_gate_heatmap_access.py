@@ -62,7 +62,11 @@ from __future__ import annotations
 import base64
 import datetime
 
-from scripts.dev._frontend_gate_shared import MIGRATED_PAGES
+from scripts.dev._frontend_gate_shared import (
+    MIGRATED_PAGES,
+    wait_for_scroll_past,
+    wait_for_settled,
+)
 from scrobblescope import jobs
 
 #: The heatmap path this check drives. Looked up rather than hard-coded a
@@ -615,11 +619,10 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
             scroll_before = page.evaluate(_SCROLL_RESET_JS)
             cell_locator = page.locator(f'.heatmap-cell[data-date="{landed_date}"]')
             cell_locator.evaluate("(el) => el.focus()")
-            # Give the browser's own scroll-into-view and the tooltip's
-            # requestAnimationFrame reposition a turn to settle, then let
-            # its 0.15s CSS opacity transition finish.
-            page.evaluate("() => new Promise((r) => requestAnimationFrame(r))")
-            page.wait_for_timeout(250)
+            # Let the browser's own scroll-into-view, the tooltip's
+            # requestAnimationFrame reposition and its 0.15s CSS opacity
+            # transition finish.
+            wait_for_settled(page)
             scroll_after = page.evaluate(_SCROLL_READ_JS)
             if scroll_after["events"] == 0:
                 failures.append(
@@ -845,7 +848,7 @@ def _check_clicked_cell(page, layout, accent: str, date: str) -> list[str]:
             "keyboard focus only (:focus-visible)"
         )
     page.mouse.move(0, 0)
-    page.wait_for_timeout(250)
+    wait_for_settled(page)
     before = page.evaluate(_TOOLTIP_AND_FOCUS_JS)
     if before["focused"] != date or before["shown"]:
         failures.append(
@@ -1192,7 +1195,7 @@ def _seed_year_job() -> tuple[str, str]:
 
 def _tap_shows_tooltip(page, cell: dict) -> list[str]:
     page.touchscreen.tap(cell["x"], cell["y"])
-    page.wait_for_timeout(300)
+    wait_for_settled(page)
     box = page.evaluate(_TOOLTIP_BOX_JS)
     expected = _expected_cell_label(cell["date"], int(cell["count"]))
     if box["shown"] and box["text"] == expected:
@@ -1220,7 +1223,10 @@ def _swipe_scrolls_chromium(page, cell: dict) -> list[str]:
             {"type": "touchMove", "touchPoints": [{"x": x, "y": y - 25 * step}]},
         )
     session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
-    page.wait_for_timeout(400)
+    # The swipe's fling scrolls on the compositor; wait for it to land. A
+    # swipe that never scrolls times out here and is reported below.
+    wait_for_scroll_past(page, before)
+    wait_for_settled(page)
     after = page.evaluate("() => window.scrollY")
     session.detach()
     if after <= before:
@@ -1260,7 +1266,7 @@ def check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip(
             )
         failures.extend(_tap_shows_tooltip(page, cell))
         page.touchscreen.tap(2, 2)
-        page.wait_for_timeout(300)
+        wait_for_settled(page)
         if page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
             failures.append("a tap outside the grid left the cell's tooltip shown")
         if page.context.browser.browser_type.name == "chromium":
@@ -1310,7 +1316,7 @@ def _escape_dismisses_hover_tooltip(page, base_url: str, job_id: str) -> list[st
     hovered = cells[len(cells) // 2]
     over = _cell_box(page, hovered["date"])
     page.mouse.move(over["x"], over["y"])
-    page.wait_for_timeout(250)
+    wait_for_settled(page)
     if not page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
         return ["a hovered cell showed no tooltip; the Escape probe proves nothing"]
     page.keyboard.press("Escape")
@@ -1346,7 +1352,7 @@ def _keyboard_tooltip_follows_scroll_at_once(
     _open_year(page, base_url, job_id, {"width": 1280, "height": 500})
     if _tab_into_grid(page) is None:
         return ["Tab never reaches a heatmap cell; no scroll-lag probe"]
-    page.wait_for_timeout(250)
+    wait_for_settled(page)
     reading = page.evaluate(_SCROLL_AND_READ_JS)
     if not reading["moved"]:
         return ["the page did not scroll; the scroll-lag probe proves nothing"]
@@ -1377,12 +1383,12 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         clicked = cells[len(cells) // 3]
         page.locator(f'.heatmap-cell[data-date="{clicked["date"]}"]').click()
         page.mouse.move(0, 0)
-        page.wait_for_timeout(250)
+        wait_for_settled(page)
         page.set_viewport_size({"width": 700, "height": 800})
         page.locator('#heatmap-result-frame svg[data-layout="mobile"]').wait_for(
             state="visible"
         )
-        page.wait_for_timeout(300)
+        wait_for_settled(page, after_timer_ms=100)
         if page.evaluate(_TOOLTIP_BOX_JS)["shown"]:
             failures.append(
                 "after a click, the pointer leaving and a re-render into the "
@@ -1399,10 +1405,12 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         page.locator(f'.heatmap-cell[data-date="{clicked["date"]}"]').click()
         over = _cell_box(page, hovered["date"])
         page.mouse.move(over["x"], over["y"])
-        page.wait_for_timeout(250)
+        wait_for_settled(page)
         clicked_label = _expected_cell_label(clicked["date"], int(clicked["count"]))
+        before = page.evaluate("() => window.scrollY")
         page.mouse.wheel(0, 300)
-        page.wait_for_timeout(400)
+        wait_for_scroll_past(page, before)  # no scroll is reported below
+        wait_for_settled(page)
         box = page.evaluate(_TOOLTIP_BOX_JS)
         if box["scrollY"] == 0:
             failures.append(
@@ -1422,10 +1430,9 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         for _ in range(10):
             page.keyboard.press("ArrowLeft")
         focused = page.evaluate(_ACTIVE_CELL_JS)["date"]
-        page.evaluate(_TWO_FRAMES_JS)
-        page.wait_for_timeout(250)
+        wait_for_settled(page)
         page.set_viewport_size({"width": 1000, "height": 720})
-        page.wait_for_timeout(400)
+        wait_for_settled(page, after_timer_ms=100)
         box = page.evaluate(_TOOLTIP_BOX_JS)
         cell = _cell_box(page, focused)
         overlaps = box["top"] < cell["bottom"] and box["bottom"] > cell["top"]
@@ -1459,14 +1466,14 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         _open_year(page, base_url, job_id, _WIDE_VIEWPORT)
         far = _cell_box(page, last_date)
         page.mouse.move(far["x"], far["y"])
-        page.wait_for_timeout(250)
+        wait_for_settled(page)
         page.mouse.move(0, 0)
-        page.wait_for_timeout(250)
+        wait_for_settled(page)
         page.set_viewport_size(_NARROW_VIEWPORT)
         page.locator('#heatmap-result-frame svg[data-layout="mobile"]').wait_for(
             state="visible"
         )
-        page.wait_for_timeout(300)
+        wait_for_settled(page, after_timer_ms=100)
         box = page.evaluate(_TOOLTIP_BOX_JS)
         if box["scrollWidth"] > box["clientWidth"]:
             failures.append(

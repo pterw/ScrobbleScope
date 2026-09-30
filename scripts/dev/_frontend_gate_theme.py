@@ -13,7 +13,11 @@ from scripts.dev._frontend_gate_colour import (
     _is_forbidden_surface,
     _worst_divider_contrast,
 )
-from scripts.dev._frontend_gate_shared import MIGRATED_PAGES, TOGGLE_TIMEOUT_MS
+from scripts.dev._frontend_gate_shared import (
+    MIGRATED_PAGES,
+    TOGGLE_TIMEOUT_MS,
+    wait_for_settled,
+)
 from scrobblescope import jobs
 
 THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
@@ -158,8 +162,8 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
         )
         page.evaluate("document.querySelector('#username').classList.add('is-valid')")
         # Border colour transitions for 200ms. Read the settled state a user
-        # sees, not the first animation frame after the class changes.
-        page.wait_for_timeout(250)
+        # sees, not a frame mid-transition.
+        wait_for_settled(page)
         state = page.evaluate(
             """() => {
                 const username = document.querySelector('#username');
@@ -378,7 +382,7 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
             }"""
         )
         page.locator("#mode-tab-heatmap").click()
-        page.wait_for_timeout(220)
+        wait_for_settled(page)
         switched_hero = page.evaluate(
             """() => {
                 const copy = document.querySelector('.index-hero__copy');
@@ -721,7 +725,7 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
         readings = {}
         for theme in ("light", "dark"):
             page.evaluate(SET_THEME_EXPRESSION, theme)
-            page.wait_for_timeout(120)
+            wait_for_settled(page)
             readings[theme] = page.evaluate(
                 """() => {
                     const cell = document.querySelector('.heatmap-cell[data-count="0"]');

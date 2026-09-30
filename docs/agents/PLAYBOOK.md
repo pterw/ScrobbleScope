@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - Frontend-gate checks wait for transitions instead of sleeping
+
+Side task, no batch tag: frontend-gate checks wait for the browser to finish a transition instead of sleeping a fixed time, a fix for the gate flakes seen after PR #245 and PR #251 merged, on its own branch off `main`. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Cause: `index design tokens` added `is-valid`, slept a fixed 250 ms and read `borderColor`, while `static/css/index.css` gives the field a 200 ms border-color transition (PR #251 CI: `rgb(113, 207, 152)`, expected `rgb(111, 207, 151)`). That left 50 ms of slack, so a loaded runner read mid-transition. The heatmap-access checks had the same shape in 16 fixed sleeps.
+
+Fix: `scripts/dev/_frontend_gate_shared.py` gains `wait_for_settled` (two frames, then every running finite CSS transition and animation under the element or document finishes, then two frames; a bounded wait that raises, so the check fails with a message) and `wait_for_scroll_past`. Every sleep that waited for a transition, paint, scroll or focus to settle now calls one of them: 1 in `_frontend_gate_layout.py`, 1 in `_frontend_gate_results.py`, 3 in `_frontend_gate_theme.py` and 16 in `_frontend_gate_heatmap_access.py` (a debounce-bound resize wait passes `after_timer_ms=100`, which outlasts the page's 100 ms resize timer). Fixed waits that remain each carry a comment: the negative waits (nothing more may happen) and the poll intervals of bounded wait-for-state loops. Each converted check still fails on its planted defect, and three tests in `tests/scripts/dev/test_frontend_gate_shared.py` drive the helper in a real Chromium page: a 60 s animation fails at the 300 ms bound with its message, a 150 ms one returns, a missing element is named.
+
+One more flake the load runs exposed: `pipeline state machines` read `window.__scrobbleGateFastRedirect` on a loading page the gate's own timers redirect within about 100 ms of load, so a loaded machine could destroy the evaluate mid-call ("Execution context was destroyed"). The read now follows the redirect; the init script runs on every document, so the flag is set there too. The cause is by elimination (the only evaluate in that check on a page that navigates itself), not reproduced.
+
+Validation: `pytest -q` -- **2496 passed**.
+
 ### 2026-09-30 - A flaky spotlight height test made deterministic
 
 Side task, no batch tag: a test-only fix after PR #245 merged, on its own branch off `main`. `scripts/dev/results_behavior_tests.py::test_a_remeasure_under_focus_ignores_a_link_the_candidate_lacks` failed on Linux CI in 3 of about 6 runs (including the push to `main` after the merge) with `'116px' != '134px'`, and never in local whole-file runs.
@@ -173,23 +185,5 @@ Dashboards: SESSION_CONTEXT Section 3 no longer lists `global.css` (10 css files
 Code: the `heatmap_task` and `_report_album_failure` docstrings now say the album backstop always publishes `internal_error` while the heatmap classifies first. `.results-partial-notice__link` drops `white-space: nowrap` so the link wraps at 320px; confirmed at 320px by a Playwright measure of the notice with the shipped markup (page scrollWidth 320, no horizontal overflow), since the frontend gate renders no partial notice; the frontend gate and `results_behavior_tests.py` pass.
 
 Known limit: an album-details 404 between Spotify refusals does not reset the per-job "three consecutive refusals" count; only a 200 does.
-
-Validation: `pytest -q` -- **2487 passed**.
-
-### 2026-09-30 - Partial runs disclosed on Results; forms gate waits for requests
-
-Side task, no batch tag: partial runs disclosed on Results and a forms gate that waits for requests, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Results: a run degraded by dropped Last.fm pages or a Spotify/Deezer outage says so in one `role="status"` line above the stat block and table. The orchestrator now records the kind as data beside the sentence (`jobs.record_partial_source`, stat `partial_data_sources`, values `lastfm` and `provider`), and `_partial_run_notice` in `routes/album_flow.py` reads that, never the wording. Last.fm's own sentence is shown as written; the provider case is reworded for the results page. The link to Unmatched appears only when an album is filed as `provider_unavailable` ("could not be checked"), not for any unmatched album. The link has the focus ring and, under `any-pointer: coarse`, a 44px height. The loading page's `#partial-warning` is `role="status"`.
-
-Announcements: `.wait-panel__error` (shared by both loading pages) is `role="alert"`, chosen over keeping the text in a live region because the heatmap page clears its phase line on error. On the album loading page `showFailure` also empties the polite phase line, so a failure is read out once.
-
-Forms gate: the sleep-then-count waits are a bounded poll on the request count (`_wait_for_held`: 5 s bound, 150 ms settle so a surplus request is still caught), and the 503 check and the network-failure check wait, bounded, for the page's message instead of a fixed 100 ms. The remaining 100 ms wait is a negative proof (the verdict must not change). `record_load_faults` in `frontend_gate.py` prints app stylesheets, scripts and fonts that failed to load beside any FAIL (advisory; it never changes pass or fail). Live probes: with the debounce raised to 1200 ms the old module failed three checks and the new one none; with the message written 600 ms late the check passes, and with the wait removed it fails.
-
-Smaller: both privacy route tests assert the real message; the CI no-secrets guard reads the whole workflow; comments that cited review ids or described the spotlight wrongly say the reason in words. `routes/album_flow.py` now imports `unmatched` (SESSION_CONTEXT dependency graph updated). The Task 30 breaker test also asserts that every album still went to Deezer after the breaker tripped.
-
-Bookkeeping: F-B23-41 (row links under 44px, the gate measures no populated row) and F-B23-42 (spotlight rotation has no pause control for touch or keyboard readers) are filed; F-B23-39 names the forms gate's sleep against the 300 ms debounce as the cause of its "held 0" flake.
-
-Edited existing tests: `test_results_loading_private_profile_does_not_start_a_job`, `test_results_loading_existing_private_user_is_refused_after_the_exists_check`, `test_test_job_env_passes_no_secret`, `test_deezer_throttling_degrades_and_records_the_album_as_unavailable`, `test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable`, `test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no_match`, `test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searches` and `test_process_albums_partial_cache_token_failure_uses_cached_results` (each also asserts the recorded kind, the breaker test also that Deezer was asked for every album).
 
 Validation: `pytest -q` -- **2487 passed**.

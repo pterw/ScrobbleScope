@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Partial runs disclosed on Results; forms gate waits for requests
+
+Side task, no batch tag: partial runs disclosed on Results and a forms gate that waits for requests, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Results: a run degraded by dropped Last.fm pages or a Spotify/Deezer outage says so in one `role="status"` line above the stat block and table. The orchestrator now records the kind as data beside the sentence (`jobs.record_partial_source`, stat `partial_data_sources`, values `lastfm` and `provider`), and `_partial_run_notice` in `routes/album_flow.py` reads that, never the wording. Last.fm's own sentence is shown as written; the provider case is reworded for the results page. The link to Unmatched appears only when an album is filed as `provider_unavailable` ("could not be checked"), not for any unmatched album. The link has the focus ring and, under `any-pointer: coarse`, a 44px height. The loading page's `#partial-warning` is `role="status"`.
+
+Announcements: `.wait-panel__error` (shared by both loading pages) is `role="alert"`, chosen over keeping the text in a live region because the heatmap page clears its phase line on error. On the album loading page `showFailure` also empties the polite phase line, so a failure is read out once.
+
+Forms gate: the sleep-then-count waits are a bounded poll on the request count (`_wait_for_held`: 5 s bound, 150 ms settle so a surplus request is still caught), and the 503 check and the network-failure check wait, bounded, for the page's message instead of a fixed 100 ms. The remaining 100 ms wait is a negative proof (the verdict must not change). `record_load_faults` in `frontend_gate.py` prints app stylesheets, scripts and fonts that failed to load beside any FAIL (advisory; it never changes pass or fail). Live probes: with the debounce raised to 1200 ms the old module failed three checks and the new one none; with the message written 600 ms late the check passes, and with the wait removed it fails.
+
+Smaller: both privacy route tests assert the real message; the CI no-secrets guard reads the whole workflow; comments that cited review ids or described the spotlight wrongly say the reason in words. `routes/album_flow.py` now imports `unmatched` (SESSION_CONTEXT dependency graph updated). The Task 30 breaker test also asserts that every album still went to Deezer after the breaker tripped.
+
+Bookkeeping: F-B23-41 (row links under 44px, the gate measures no populated row) and F-B23-42 (spotlight rotation has no pause control for touch or keyboard readers) are filed; F-B23-39 names the forms gate's sleep against the 300 ms debounce as the cause of its "held 0" flake.
+
+Edited existing tests: `test_results_loading_private_profile_does_not_start_a_job`, `test_results_loading_existing_private_user_is_refused_after_the_exists_check`, `test_test_job_env_passes_no_secret`, `test_deezer_throttling_degrades_and_records_the_album_as_unavailable`, `test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable`, `test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no_match`, `test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searches` and `test_process_albums_partial_cache_token_failure_uses_cached_results` (each also asserts the recorded kind, the breaker test also that Deezer was asked for every album).
+
+Validation: `pytest -q` -- **2487 passed**.
+
 ### 2026-09-30 - Provider refusals read as outages; an all-miss run finishes
 
 Side task, no batch tag: provider refusals read as outages and an all-miss run finishing, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

@@ -307,6 +307,8 @@ def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]
 
             pending[0].abort("failed")
             handled.append(pending[0])
+            # Kept fixed: a negative wait. The check proves the aborted older
+            # request changes nothing, so it gives a late clear time to land.
             page.wait_for_timeout(100)
             if page.locator(selector).evaluate("input => input.checkValidity()"):
                 failures.append(

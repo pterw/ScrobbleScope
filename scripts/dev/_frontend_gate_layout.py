@@ -16,6 +16,7 @@ from scripts.dev._frontend_gate_shared import (
     ALL_PAGES,
     MIGRATED_PAGES,
     _reach_state,
+    wait_for_settled,
 )
 
 FONTS_READY_EXPRESSION = "document.fonts.ready"
@@ -418,7 +419,7 @@ def _measure_fixed_state(page, base_url, actions):
     page.goto(f"{base_url}/", wait_until="load")
     _reach_state(page, actions)
     page.evaluate(FONTS_READY_EXPRESSION)
-    page.wait_for_timeout(350)
+    wait_for_settled(page)
     return page.evaluate(
         """() => {
             const visible = selector => [...document.querySelectorAll(selector)]

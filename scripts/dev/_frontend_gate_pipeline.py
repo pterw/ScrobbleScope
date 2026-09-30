@@ -178,6 +178,8 @@ def _assert_loading_progress_state(
         if scale is not None and abs(scale - expected_scalex) <= tolerance:
             break
         if hasattr(page, "wait_for_timeout"):
+            # Kept fixed: the poll interval of a bounded wait-for-state loop,
+            # not a guess at how long a transition takes.
             page.wait_for_timeout(60)
 
     failures = []
@@ -474,6 +476,7 @@ def _exercise_replaced_job_progress(
         for _ in range(100):
             if held_routes:
                 break
+            # Kept fixed: poll interval of a bounded wait-for-state loop.
             page.wait_for_timeout(50)
         if not held_routes:
             failures.append(
@@ -500,6 +503,8 @@ def _exercise_replaced_job_progress(
                 },
             },
         )
+        # Kept fixed: a negative wait. The check proves the stale response
+        # changes nothing, so it gives a wrongly applied one time to show.
         page.wait_for_timeout(150)
         current_valuenow = page.locator(HEATMAP_PROGRESS_TRACK).get_attribute(
             "aria-valuenow"
@@ -586,9 +591,13 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         "Done",
     )
     page.goto(f"{base_url}{loading_path}", wait_until="load")
+    page.wait_for_url(f"{base_url}/results")
+    # Read after the redirect, not before it: the init script makes the page
+    # redirect about 50ms after load, so an evaluate on the loading document
+    # raced it ("Execution context was destroyed"). The init script runs on
+    # every document, so the flag is set here too.
     if not page.evaluate("window.__scrobbleGateFastRedirect === true"):
         failures.append("pipeline timer init script did not execute")
-    page.wait_for_url(f"{base_url}/results")
     if "Gate Album" not in page.locator("body").inner_text():
         failures.append("album success did not render the saved result")
 
@@ -837,6 +846,7 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
             spotlight_requests = page.evaluate("window.__spotlightRequests")
             if len(spotlight_requests) >= 5:
                 break
+            # Kept fixed: poll interval of a bounded wait-for-state loop.
             page.wait_for_timeout(50)
         if len(spotlight_requests) != 5:
             failures.append(
