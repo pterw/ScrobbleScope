@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from scrobblescope.errors import classify_exception_to_error_code
+from scrobblescope.errors import (
+    PrivateProfileError,
+    UserNotFoundError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.lastfm import (
     _is_well_formed_page,
     check_profile_is_public,
@@ -238,7 +242,7 @@ async def test_fetch_recent_tracks_page_404_raises_user_not_found():
     """
     GIVEN Last.fm responds with 404 for a page fetch
     WHEN fetch_recent_tracks_page_async runs
-    THEN it should raise ValueError for user-not-found classification.
+    THEN it should raise UserNotFoundError, which classifies as user_not_found.
     """
     session = MagicMock()
     resp_404 = AsyncMock()
@@ -251,10 +255,11 @@ async def test_fetch_recent_tracks_page_404_raises_user_not_found():
             "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
         ),
     ):
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(UserNotFoundError) as excinfo:
             await fetch_recent_tracks_page_async(
                 session, "ghost_user_xyz", 1, 2, page=1, retries=1
             )
+    assert classify_exception_to_error_code(excinfo.value) == "user_not_found"
 
 
 @pytest.mark.asyncio
@@ -733,7 +738,7 @@ async def test_fetch_recent_tracks_page_still_caches_a_well_formed_page(
 class _PageFetchLedger:
     """Fake page fetcher recording how many fetches started and settled.
 
-    Page 1 reports six pages. Page 3 raises the mid-job 404 ValueError;
+    Page 1 reports six pages. Page 3 raises the mid-job 404 UserNotFoundError;
     every other later page waits far longer than the test runs, so it is
     still in flight when page 3 raises unless something cancels it.
     """
@@ -749,7 +754,7 @@ class _PageFetchLedger:
         try:
             if page == 3:
                 await asyncio.sleep(0.01)
-                raise ValueError("User 'ghost' not found on Last.fm")
+                raise UserNotFoundError()
             await asyncio.sleep(30)
             return _make_page(6)
         finally:
@@ -763,7 +768,7 @@ async def _run_fetch_all_with_raising_page(ledger, progress_cb):
     ):
         mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(UserNotFoundError) as excinfo:
             await fetch_all_recent_tracks_async("ghost", 0, 1, progress_cb=progress_cb)
     return excinfo.value
 
@@ -776,17 +781,16 @@ async def _run_fetch_all_with_raising_page(ledger, progress_cb):
 )
 async def test_fetch_all_cancels_sibling_fetches_when_one_page_raises(progress_cb):
     """
-    GIVEN a six-page fetch where page 3 raises the 404 ValueError
+    GIVEN a six-page fetch where page 3 raises the 404 UserNotFoundError
     WHEN fetch_all_recent_tracks_async runs, with or without progress_cb
-    THEN the same ValueError reaches the caller unwrapped, and every page
+    THEN the same exception reaches the caller unwrapped, and every page
     fetch that started has settled (none left pending) (review A2).
     """
     ledger = _PageFetchLedger()
 
     exc = await _run_fetch_all_with_raising_page(ledger, progress_cb)
 
-    assert type(exc) is ValueError
-    assert str(exc) == "User 'ghost' not found on Last.fm"
+    assert type(exc) is UserNotFoundError
     assert ledger.started == 5
     assert ledger.settled == ledger.started
 
@@ -904,8 +908,8 @@ async def test_page_fetch_reports_a_private_profile_without_retrying(private_via
     """
     GIVEN Last.fm answers a job's page fetch with a 403 (or error 17 in a 200)
     WHEN fetch_recent_tracks_page_async runs with retries available
-    THEN it raises at once (one request, no retry) and the message classifies
-    as private_profile, not as an outage.
+    THEN it raises PrivateProfileError at once (one request, no retry), which
+    classifies as private_profile, not as an outage.
     """
     session = MagicMock()
     resp = AsyncMock()
@@ -923,13 +927,13 @@ async def test_page_fetch_reports_a_private_profile_without_retrying(private_via
         ),
         patch("asyncio.sleep", new_callable=AsyncMock),
     ):
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(PrivateProfileError) as excinfo:
             await fetch_recent_tracks_page_async(
                 session, "went_private", 1, 2, page=1, retries=3
             )
 
     assert session.get.call_count == 1
-    assert classify_exception_to_error_code(str(excinfo.value)) == "private_profile"
+    assert classify_exception_to_error_code(excinfo.value) == "private_profile"
 
 
 # --- F-B23-30: a lone recenttracks.track object -------------------------------
@@ -972,3 +976,80 @@ async def test_lone_track_object_is_normalised_to_a_one_item_list():
 def test_page_with_a_track_of_any_other_shape_is_not_well_formed(bad_track):
     assert _is_well_formed_page(_page_with_track(bad_track)) is False
     assert _is_well_formed_page(_page_with_track([])) is True
+
+
+# --- F-B23-21: only the typed failures skip the retries ------------------------
+
+
+@pytest.mark.asyncio
+async def test_page_fetch_retries_a_malformed_retry_after_instead_of_raising():
+    """
+    GIVEN Last.fm answers 429 with an HTTP-date Retry-After, then a good page
+    WHEN fetch_recent_tracks_page_async runs
+    THEN the bad header costs one retry and the page is returned; before, its
+    ValueError ended the job with no retry.
+    """
+    session = MagicMock()
+    throttled = AsyncMock()
+    throttled.status = 429
+    throttled.headers = {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}
+    good = AsyncMock()
+    good.status = 200
+    good.json.return_value = _make_page(1)
+    session.get.side_effect = [
+        make_response_context(throttled),
+        make_response_context(good),
+    ]
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch("scrobblescope.lastfm.set_cached_response"),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        page = await fetch_recent_tracks_page_async(
+            session, "someone", 1, 2, page=1, retries=3
+        )
+
+    assert page == _make_page(1)
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_page_fetch_reads_an_error_body_leniently_and_retries():
+    """
+    GIVEN Last.fm answers 500 with a body that is not valid UTF-8
+    WHEN fetch_recent_tracks_page_async reads the body to log its size
+    THEN it decodes with errors="replace" and the fetch is retried, rather
+    than a UnicodeDecodeError ending the job.
+    """
+    session = MagicMock()
+    bad_body = MagicMock()
+    bad_body.status = 500
+    bad_body.content_type = "text/html"
+
+    decoded_with = []
+
+    async def text(errors="strict"):
+        decoded_with.append(errors)
+        return b"\xff\xfe".decode("utf-8", errors=errors)
+
+    bad_body.text = text
+    session.get.return_value = make_response_context(bad_body)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        page = await fetch_recent_tracks_page_async(
+            session, "someone", 1, 2, page=1, retries=2
+        )
+
+    assert page is None
+    assert session.get.call_count == 2
+    assert decoded_with == ["replace", "replace"]

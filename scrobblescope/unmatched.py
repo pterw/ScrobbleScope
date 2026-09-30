@@ -12,6 +12,9 @@ from typing import Any
 REASON_BELOW_THRESHOLD = "below_threshold"
 REASON_RELEASE_SCOPE = "release_scope"
 REASON_NO_SPOTIFY_MATCH = "no_spotify_match"
+#: The album could not be checked because Spotify (or Deezer) did not answer.
+#: Distinct from a no-match: a retry may well find it.
+REASON_PROVIDER_UNAVAILABLE = "provider_unavailable"
 
 #: Human copy, badges, and fix hints associated with each reason code.
 CATEGORY_METADATA = {
@@ -32,6 +35,12 @@ CATEGORY_METADATA = {
         "description": "Albums found in your Last.fm history that could not be matched on Spotify or Deezer.",
         "badge": "Not Found",
         "fix_hint": "Check album title formatting or artist naming on Last.fm.",
+    },
+    REASON_PROVIDER_UNAVAILABLE: {
+        "title": "Could not be checked",
+        "description": "Albums we could not look up because Spotify or Deezer was not answering.",
+        "badge": "Unavailable",
+        "fix_hint": "Search again in a few minutes; these albums may match then.",
     },
 }
 
@@ -185,6 +194,7 @@ def group_unmatched_albums(
             REASON_BELOW_THRESHOLD,
             REASON_RELEASE_SCOPE,
             REASON_NO_SPOTIFY_MATCH,
+            REASON_PROVIDER_UNAVAILABLE,
         ]
         return (order.index(k) if k in order else 99, k)
 

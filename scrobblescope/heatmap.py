@@ -229,7 +229,7 @@ def _report_heatmap_failure(job_id, username, exc):
 
     Called from inside the helper's ``except`` block, so ``logging.exception``
     still sees the active exception. ``exc`` is classified the same way the
-    album pipeline classifies its own unhandled exceptions (one owner,
+    album pipeline classifies its own unhandled exceptions, by exception type (one owner,
     ``errors.classify_exception_to_error_code`` -- F-SWE-5), so a known
     upstream failure that escapes ``_fetch_and_process_heatmap`` (a Last.fm
     404, a rate limit) is blamed on its actual source. An exception the
@@ -239,7 +239,7 @@ def _report_heatmap_failure(job_id, username, exc):
     ``_fetch_and_process_heatmap`` still publishes its own code.
     """
     logging.exception(f"Unhandled error in heatmap task for {username}")
-    error_code = classify_exception_to_error_code(str(exc)) or "internal_error"
+    error_code = classify_exception_to_error_code(exc) or "internal_error"
     jobs.fail(job_id, error_code, username=username)
 
 

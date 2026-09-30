@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope import jobs
-from scrobblescope.errors import SpotifyUnavailableError
+from scrobblescope.errors import ProviderError, SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _PLAYTIME_ALBUM_CAP,
     _fetch_and_process,
@@ -756,13 +756,13 @@ def test_background_task_crash_publishes_internal_error():
 
 
 @pytest.mark.asyncio
-async def test_fetch_and_process_unclassified_exception_publishes_unknown():
+async def test_fetch_and_process_unclassified_exception_publishes_internal_error():
     """
-    GIVEN the Last.fm fetch raises an exception the classifier does not know
+    GIVEN the Last.fm fetch raises an exception nothing classifies
     WHEN _fetch_and_process runs
-    THEN the job ends as a retryable ``unknown`` error carrying the raw text,
-    with empty results. This is the album pipeline's answer as it stands; the
-    heatmap answers the same case with internal_error (F-B23-22, open).
+    THEN the job ends as a non-retryable ``internal_error`` with empty results
+    and the generic message: the exception's text never reaches the browser.
+    This is the heatmap's answer too (F-B23-22).
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
 
@@ -777,6 +777,62 @@ async def test_fetch_and_process_unclassified_exception_publishes_unknown():
     ctx = jobs.context(job_id)
     assert ctx["results"] == []
     assert ctx["progress"]["error"] is True
-    assert ctx["progress"]["error_code"] == "unknown"
-    assert ctx["progress"]["retryable"] is True
-    assert ctx["progress"]["message"] == "Error: boom"
+    assert ctx["progress"]["error_code"] == "internal_error"
+    assert ctx["progress"]["error_source"] == "internal"
+    assert ctx["progress"]["retryable"] is False
+    assert "boom" not in ctx["progress"]["message"]
+    assert ctx["progress"]["message"].startswith("Something went wrong on our side")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("kind", "code"),
+    [
+        ("unavailable", "spotify_unavailable"),
+        ("rate_limited", "spotify_rate_limited"),
+    ],
+)
+async def test_fetch_and_process_typed_spotify_failure_publishes_retryable_code(
+    kind, code
+):
+    """
+    GIVEN a ProviderError for Spotify escapes the album pipeline (an ordinary
+    Spotify search outage no longer does: it degrades per album, and the
+    aggregate rule raises SpotifyUnavailableError instead)
+    WHEN _fetch_and_process runs
+    THEN the classifier wiring answers with that provider's code, retryable,
+    blaming Spotify, and never falls through to internal_error.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_top_albums_async",
+        new_callable=AsyncMock,
+        side_effect=ProviderError("spotify", kind),
+    ):
+        await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    progress = jobs.progress(job_id)
+    assert progress["error_code"] == code
+    assert progress["error_source"] == "spotify"
+    assert progress["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_message_that_reads_like_not_found_is_ours():
+    """
+    GIVEN an unrelated exception whose text holds "user" and "not found"
+    WHEN _fetch_and_process runs
+    THEN it is not user_not_found: classification is by type, so the job ends
+    as internal_error (F-B23-16).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_top_albums_async",
+        new_callable=AsyncMock,
+        side_effect=KeyError("user row not found"),
+    ):
+        await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    assert jobs.progress(job_id)["error_code"] == "internal_error"

@@ -3,7 +3,8 @@ import logging
 
 import pytest
 
-from scrobblescope.utils import retry_with_semaphore
+from scrobblescope.errors import ProviderError
+from scrobblescope.utils import parse_retry_after, retry_with_semaphore
 
 
 @pytest.mark.asyncio
@@ -361,3 +362,122 @@ async def test_failure_lines_name_the_operation_and_class_never_the_message(capl
         assert "Wjkl" not in record.getMessage()
         assert "Zqxv" not in record.getMessage()
         assert "api.example.com" not in record.getMessage()
+
+
+# --- typed failure instead of the miss value (Codex 4140219720) --------------
+
+
+def _spotify_failure(kind):
+    return ProviderError("spotify", kind)
+
+
+@pytest.mark.asyncio
+async def test_retry_after_above_cap_raises_the_typed_failure_not_the_default(
+    monkeypatch,
+):
+    """
+    GIVEN a call throttled with a Retry-After above the cap and a ``failure``
+    WHEN the retry helper gives up
+    THEN it raises the rate-limited failure after one call, instead of
+    returning ``default``, which the caller would read as "no match".
+    """
+    slept = _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        return (None, 86400, False)
+
+    with pytest.raises(ProviderError) as excinfo:
+        await retry_with_semaphore(inner, **_kwargs(failure=_spotify_failure))
+
+    assert excinfo.value.code == "spotify_rate_limited"
+    assert len(calls) == 1
+    assert slept == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("outcome", "code"),
+    [
+        ("raise", "spotify_unavailable"),
+        ("not_done", "spotify_unavailable"),
+        ("throttled", "spotify_rate_limited"),
+    ],
+)
+async def test_exhausted_retries_raise_the_typed_failure(monkeypatch, outcome, code):
+    """
+    GIVEN a call that keeps timing out, failing, or being throttled
+    WHEN every retry is spent and a ``failure`` is given
+    THEN it raises unavailable for a timeout or a bad answer and rate_limited
+    when the last attempt was a 429; the default is not returned.
+    """
+    _record_sleeps(monkeypatch)
+
+    async def inner():
+        if outcome == "raise":
+            raise TimeoutError
+        if outcome == "throttled":
+            return (None, 5, False)
+        return (None, None, False)
+
+    with pytest.raises(ProviderError) as excinfo:
+        await retry_with_semaphore(inner, **_kwargs(failure=_spotify_failure))
+
+    assert excinfo.value.code == code
+
+
+@pytest.mark.asyncio
+async def test_a_failure_factory_can_decline_and_the_default_is_returned(monkeypatch):
+    """
+    GIVEN a ``failure`` factory that returns None for the kind that occurred
+    WHEN the retries are spent
+    THEN the helper returns ``default`` as it always did.
+    """
+    _record_sleeps(monkeypatch)
+
+    async def inner():
+        return (None, None, False)
+
+    result = await retry_with_semaphore(inner, **_kwargs(failure=lambda kind: None))
+
+    assert result == "default"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("7", 7),
+        ("0", 0),
+        (None, 1),
+        ("", 1),
+        ("Wed, 21 Oct 2026 07:28:00 GMT", 1),
+        ("soon", 1),
+        ("-5", 1),
+    ],
+)
+def test_parse_retry_after_never_raises(value, expected):
+    """A malformed or missing Retry-After becomes the default, never an error."""
+    assert parse_retry_after(value) == expected
+
+
+@pytest.mark.asyncio
+async def test_an_exception_that_is_not_a_provider_failure_propagates(monkeypatch):
+    """
+    GIVEN a ``failure`` factory and a callable that raises a programming error
+    WHEN the retry helper runs
+    THEN the error propagates after one call, un-retried and unlabelled, so
+    it is classified as ours (internal_error) and not as a provider outage;
+    a network failure (TimeoutError, aiohttp.ClientError) is still retried.
+    """
+    _record_sleeps(monkeypatch)
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        raise AttributeError("'list' object has no attribute 'get'")
+
+    with pytest.raises(AttributeError):
+        await retry_with_semaphore(inner, **_kwargs(failure=_spotify_failure))
+
+    assert len(calls) == 1

@@ -9,7 +9,7 @@ Last updated: 2026-09-29
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2277 passing** across 82 tracked test modules |
+| Tests | **2341 passing** across 82 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -43,7 +43,7 @@ Last updated: 2026-09-29
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2277 passed**.
+- Latest validated test count: **2341 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -55,7 +55,7 @@ Last updated: 2026-09-29
 app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
-  errors.py                 # SpotifyUnavailableError, ERROR_CODES, classify_exception_to_error_code
+  errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching
@@ -77,7 +77,7 @@ scrobblescope/
     _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   spotlight.py              # pure artist aggregation and stable sample selection
-  unmatched.py              # stable reason codes, category metadata, threshold shortfall copy, deterministic grouping
+  unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
   routes/
     __init__.py              # facade: Blueprint bp, shared job-context helpers, error handlers
     pages.py                  # home page
@@ -154,16 +154,16 @@ worker.py        <- config
 jobs.py          <- config, errors
 enrichment.py    <- (leaf)
 lastfm.py        <- config, errors, utils
-spotify.py       <- config, domain, enrichment, utils
-deezer.py        <- config, domain, enrichment, utils
+spotify.py       <- config, domain, enrichment, errors, utils
+deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
-musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, jobs, musicbrainz, unmatched, utils, worker
+musicbrainz.py   <- config, domain, errors, utils
+release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, unmatched, utils, worker
 orchestrator/__init__.py  <- cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
-orchestrator/_search.py   <- config, domain, jobs, unmatched; orchestrator (facade, for patchable cross-cutting calls)
+orchestrator/_search.py   <- config, domain, errors, jobs, lastfm, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain, jobs; orchestrator (facade)
 orchestrator/_cache.py    <- jobs; orchestrator (facade)
-orchestrator/_deezer_fallback.py <- domain, jobs, lastfm, unmatched; orchestrator (facade)
+orchestrator/_deezer_fallback.py <- domain, errors, jobs, lastfm, unmatched; orchestrator (facade)
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
 heatmap.py       <- errors, jobs, lastfm, utils, worker
 spotlight.py     <- utils
@@ -265,7 +265,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2277 tests)
+## 6. Test structure (2341 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

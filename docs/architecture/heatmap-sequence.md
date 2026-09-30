@@ -88,7 +88,7 @@ sequenceDiagram
             end
             opt Unhandled exception anywhere above
                 Heatmap->>Jobs: fail(classified code, else internal_error)
-                Note over Heatmap,Jobs: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls; an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's own fallback differs (a retryable unknown, see the Top Albums sequence)
+                Note over Heatmap,Jobs: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls, by exception type and never by message text; an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's fallback is the same (see the Top Albums sequence)
             end
             Heatmap->>Worker: release_job_slot()
             Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block
@@ -142,7 +142,8 @@ inner, status-based Last.fm path's terminal error code is `lastfm_unavailable`
 because that is the only reason the fetch layer emits today; the code passes
 through whatever reason the fetch metadata carries. The outer backstop -- the
 `opt Unhandled exception anywhere above` block -- is a different path: it
-classifies the escaped exception with `errors.classify_exception_to_error_code`,
-the one classifier the album pipeline also uses, and publishes that code; a
+classifies the escaped exception, by its type, with
+`errors.classify_exception_to_error_code`, the one classifier the album
+pipeline also uses, and publishes that code; a
 fault the classifier does not recognize is ours, so it publishes
 `internal_error` instead (F-SWE-5).

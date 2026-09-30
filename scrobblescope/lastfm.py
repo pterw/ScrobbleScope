@@ -11,11 +11,12 @@ from scrobblescope.config import (
     LASTFM_REQUESTS_PER_SECOND,
     MAX_CONCURRENT_LASTFM,
 )
-from scrobblescope.errors import PRIVATE_PROFILE_MARKER
+from scrobblescope.errors import PrivateProfileError, UserNotFoundError
 from scrobblescope.utils import (
     create_optimized_session,
     get_cached_response,
     get_lastfm_limiter,
+    parse_retry_after,
     retry_with_semaphore,
     set_cached_response,
 )
@@ -189,7 +190,9 @@ async def fetch_recent_tracks_page_async(
     A body that is not a well-formed page (see ``_is_well_formed_page``) is
     treated like a non-200 response: retried, and None if it stays bad. Only
     a well-formed page is cached.
-    Raises ``ValueError`` if the user is not found (HTTP 404).
+    Raises ``UserNotFoundError`` if the user is not found (HTTP 404) and
+    ``PrivateProfileError`` if the profile is private (HTTP 403 or error 17);
+    neither is retried.
     """
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
@@ -215,7 +218,7 @@ async def fetch_recent_tracks_page_async(
             logging.debug(f"Requesting Last.fm page {page}")
             async with session.get(url, params=params) as resp:
                 if resp.status == 429:
-                    retry_after = int(resp.headers.get("Retry-After", "1"))
+                    retry_after = parse_retry_after(resp.headers.get("Retry-After"))
                     logging.warning(
                         f"⚠️ LAST.FM RATE LIMIT (429) on page {page}! "
                         f"Retry after {retry_after}s. "
@@ -224,15 +227,15 @@ async def fetch_recent_tracks_page_async(
                     return None, retry_after
                 if resp.status == 403:
                     # Error 17: the profile went private after the preflight.
-                    # Retrying cannot help; classified as private_profile.
+                    # Retrying cannot help; typed as PrivateProfileError.
                     logging.error(f"Profile of {username} is private on Last.fm")
-                    raise ValueError(f"Last.fm {PRIVATE_PROFILE_MARKER}")
+                    raise PrivateProfileError()
                 if resp.status == 404:
                     # User not found
                     logging.error(f"User {username} not found on Last.fm")
-                    raise ValueError(f"User '{username}' not found on Last.fm")
+                    raise UserNotFoundError()
                 if resp.status != 200:
-                    body = await resp.text()
+                    body = await resp.text(errors="replace")
                     # Status, size and type only: a recenttracks body carries
                     # the listener's track, artist and album names.
                     logging.warning(
@@ -249,7 +252,7 @@ async def fetch_recent_tracks_page_async(
                 try:
                     data = await resp.json()
                 except (aiohttp.ContentTypeError, ValueError):
-                    body = await resp.text()
+                    body = await resp.text(errors="replace")
                     logging.error(
                         f"❌ Invalid JSON from Last.fm page {page}: "
                         f"{len(body.encode('utf-8'))} bytes, "
@@ -262,7 +265,7 @@ async def fetch_recent_tracks_page_async(
                 # is never cached, so a bad 200 is not replayed to every retry
                 # for an hour.
                 if isinstance(data, dict) and str(data.get("error")) == "17":
-                    raise ValueError(f"Last.fm {PRIVATE_PROFILE_MARKER}")
+                    raise PrivateProfileError()
                 _normalise_track_list(data)
                 if not _is_well_formed_page(data):
                     logging.warning(
@@ -281,7 +284,7 @@ async def fetch_recent_tracks_page_async(
         extract_result=lambda t: t[0],
         default=None,
         backoff=lambda a: min(0.25 * (a + 1), 1.0),
-        reraise=(ValueError,),
+        reraise=(UserNotFoundError, PrivateProfileError),
         error_label=f"lastfm.page {page}",
     )
 

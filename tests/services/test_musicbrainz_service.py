@@ -1,9 +1,11 @@
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from scrobblescope.config import APP_USER_AGENT
+from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import (
     _build_release_group_query,
     _musicbrainz_headers,
@@ -345,10 +347,13 @@ async def test_lookup_failure_lines_carry_no_album_or_artist(caplog):
     """
     GIVEN the MusicBrainz transport raises with the query text in its message
     WHEN lookup_original_release exhausts its retries
-    THEN no record at any level names the album or artist.
+    THEN it raises ProviderError musicbrainz_unavailable, and no record at
+    any level names the album or artist.
     """
     session = MagicMock()
-    session.get.side_effect = RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+    session.get.side_effect = aiohttp.ClientConnectionError(
+        f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}"
+    )
 
     with (
         patch("scrobblescope.musicbrainz.MUSICBRAINZ_ENABLED", True),
@@ -360,13 +365,70 @@ async def test_lookup_failure_lines_carry_no_album_or_artist(caplog):
         patch("asyncio.sleep", new_callable=AsyncMock),
         caplog.at_level(logging.DEBUG),
     ):
-        result = await lookup_original_release(
-            session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2
-        )
+        with pytest.raises(ProviderError) as excinfo:
+            await lookup_original_release(session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2)
 
-    assert result == (None, None)
+    assert excinfo.value.code == "musicbrainz_unavailable"
     assert "All 2 retries failed for musicbrainz.lookup" in caplog.text
     assert caplog.records
     for record in caplog.records:
         assert _LEAK_ALBUM not in record.getMessage()
         assert _LEAK_ARTIST not in record.getMessage()
+
+
+@pytest.mark.asyncio
+async def test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match():
+    """
+    GIVEN MusicBrainz answers 503 (its rate-limit signal) on every attempt
+    WHEN lookup_original_release runs
+    THEN it raises ProviderError musicbrainz_rate_limited; (None, None) is a
+    cacheable "no match" and a throttled call must never pass for one.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 503
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", "me@example.com"),
+        patch(
+            "scrobblescope.musicbrainz.get_musicbrainz_limiter",
+            return_value=NoopAsyncContext(),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await lookup_original_release(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "musicbrainz_rate_limited"
+
+
+@pytest.mark.asyncio
+async def test_lookup_raises_unavailable_on_a_5xx_not_a_cacheable_no_match():
+    """
+    GIVEN MusicBrainz answers HTTP 500 on every attempt
+    WHEN lookup_original_release runs
+    THEN it raises ProviderError musicbrainz_unavailable after every retry;
+    returning (None, None) would be cached as a false negative that outlives
+    the outage.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 500
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", "me@example.com"),
+        patch(
+            "scrobblescope.musicbrainz.get_musicbrainz_limiter",
+            return_value=NoopAsyncContext(),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await lookup_original_release(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "musicbrainz_unavailable"
+    assert session.get.call_count == 2

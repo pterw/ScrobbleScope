@@ -344,21 +344,21 @@ def test_fail_on_a_missing_job_returns_false():
     assert jobs.fail("nonexistent_job_id", "internal_error") is False
 
 
-def test_fail_unclassified_keeps_the_raw_text_and_is_retryable():
+def test_fail_internal_error_replaces_results_and_is_not_retryable():
     job_id = _new_job()
     jobs.succeed(job_id, [{"artist": "A"}], "Done")
 
-    assert jobs.fail_unclassified(job_id, "boom") is True
+    assert jobs.fail(job_id, "internal_error") is True
 
     ctx = jobs.context(job_id)
     assert ctx["results"] == []
     progress = ctx["progress"]
-    assert progress["message"] == "Error: boom"
+    assert progress["message"].startswith("Something went wrong on our side")
     assert progress["error"] is True
-    assert progress["error_code"] == "unknown"
-    assert progress["retryable"] is True
+    assert progress["error_code"] == "internal_error"
+    assert progress["retryable"] is False
     assert progress["progress"] == 100
-    assert "error_source" not in progress
+    assert progress["error_source"] == "internal"
 
 
 # --- update_result -----------------------------------------------------------

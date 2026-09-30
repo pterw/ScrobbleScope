@@ -112,12 +112,13 @@ sequenceDiagram
 
                     alt Cache misses exist
                         Orch->>Spotify: Fetch token
-                        alt Token fetch fails
+                        alt Token fetch fails (a non-200 answer, a timeout, or a refused connection)
                             Orch->>Jobs: record_stat(partial_data_warning)
                             Note over Orch,Spotify: No search or detail call; every miss goes to Deezer
                         else Token acquired
                             Orch->>Spotify: Search albums
-                            Spotify-->>Orch: Spotify IDs, or search misses
+                            Spotify-->>Orch: Spotify IDs, search misses, or searches it could not answer (429, 5xx, timeout)
+                            Note over Orch: An unanswered album degrades to Deezer; the siblings carry on
                             Orch->>Jobs: Progress 20%-40%
                             opt At least one album matched
                                 Orch->>Spotify: Batch-fetch matched album details
@@ -126,18 +127,18 @@ sequenceDiagram
                                 Note over Orch: A matched album promotes into cache_hits
                             end
                         end
-                        opt Misses remain -- a search miss, a detail failure, or no token
+                        opt Misses remain -- a search miss, an unanswered search, a detail failure, or no token
                             Orch->>Deezer: Search, then fetch detail and track list, per album
                             Deezer-->>Orch: Date, art, and track durations
                             Orch->>Jobs: Progress 60%-75%
-                            alt No token, nothing was cached beforehand, and Deezer matched nothing
+                            alt Spotify answered no search, nothing was cached beforehand, and Deezer matched nothing
                                 Orch->>Orch: raise SpotifyUnavailableError
                             else At least one album enriched, or cache hits existed
                                 Note over Orch: Continue -- a partly enriched run is a valid outcome
                             end
                         end
                         opt Albums neither provider could enrich
-                            Orch->>Jobs: Unmatched reason No match on Spotify or Deezer
+                            Orch->>Jobs: Unmatched reason No match on Spotify or Deezer, or Could not be checked when a provider did not answer
                         end
                         opt DB connected and new metadata rows exist
                             Orch->>Cache: Persist fresh metadata
@@ -184,7 +185,7 @@ sequenceDiagram
                 ReleaseChecks->>Jobs: record_stat(release_check: running, then done)
             end
             opt Unhandled exception inside _fetch_and_process
-                Orch->>Jobs: fail(classified code), or fail_unclassified: empty results with a retryable unknown error
+                Orch->>Jobs: fail(classified code, else internal_error): empty results, no exception text shown
             end
             opt Exception escaping that handler
                 Orch->>Jobs: fail(internal_error)
@@ -235,7 +236,7 @@ sequenceDiagram
                     opt User opens the unmatched list
                         Browser->>Routes: GET /unmatched?job_id=...
                         Routes-->>Browser: unmatched.html, one panel per reason, sorted by reason code
-                        Note over Browser,Routes: below_threshold, then release_scope, then no_spotify_match
+                        Note over Browser,Routes: below_threshold, release_scope, no_spotify_match, then provider_unavailable
                     end
                 end
             end
@@ -269,11 +270,27 @@ being retried separately. Persistence happens in the caller (Phase 4) after
 that call returns, which is why the diagram shows it after Deezer: one row set
 is written for both providers, not one per provider.
 
-`SpotifyUnavailableError` is raised on three conditions together -- no token,
-nothing cached before this call, and Deezer matched nothing -- so a Deezer-only
-run that finds even one album is a valid partial outcome rather than a failure.
+`SpotifyUnavailableError` is raised on three conditions together -- Spotify
+answered no search at all (no token, or every search unanswered), nothing
+cached before this call, and Deezer matched nothing -- so a run that finds even
+one album is a valid partial outcome rather than a failure.
 An earlier revision of this diagram drew the no-cache-hits case as an immediate
 raise, which was wrong before Batch 22 added Deezer and is wrong now.
+
+Errors are classified by type, not by message text. A provider call that
+cannot be answered -- a 429 or a Retry-After above the cap, a 5xx, a timeout --
+raises `ProviderError`, never a "no match". For Spotify the search phase
+catches it per album: the album degrades to Deezer, and if Deezer has nothing
+either it is listed under the distinct `provider_unavailable` reason, not as a
+no-match. The same holds for an album Spotify's search matched but whose detail
+call (batch or single) it could not answer. Each row's text says which provider
+was unavailable and which had no match. Only when no Spotify search was answered and Deezer enriched nothing
+does the job fail, as the retryable `spotify_unavailable`. A Deezer or
+MusicBrainz call that cannot be answered degrades too: the album is left
+unenriched (Deezer: listed as unavailable), no finding is cached for
+MusicBrainz, and the job carries a partial-data warning. Any exception nothing
+classifies is our bug and publishes `internal_error`, with no exception text
+shown.
 
 The correction pass is queued, never awaited, and is enqueued only on the happy
 path: the error handlers below it store an empty result list, and an empty list

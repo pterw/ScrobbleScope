@@ -21,6 +21,7 @@ from scrobblescope.config import (
     MUSICBRAINZ_SEARCH_RETRIES,
 )
 from scrobblescope.domain import normalize_name
+from scrobblescope.errors import provider_failure
 from scrobblescope.utils import get_musicbrainz_limiter, retry_with_semaphore
 
 _MIN_MATCH_SCORE = 90
@@ -100,6 +101,10 @@ async def lookup_original_release(
     when MusicBrainz is disabled or no contact is configured: MusicBrainz
     requires one in every request's User-Agent, and a client without it
     risks being throttled or blocked.
+
+    Raises ``ProviderError`` when MusicBrainz could not be read (throttled
+    through every retry, a 5xx, a timeout). That is not "no match": the
+    caller must not cache it as one.
     """
     if not MUSICBRAINZ_ENABLED or not MUSICBRAINZ_CONTACT:
         return None, None
@@ -116,6 +121,10 @@ async def lookup_original_release(
             ) as response:
                 if response.status == _RATE_LIMIT_STATUS:
                     return None, 1, False
+                if response.status >= 500:
+                    # An outage, not an answer: retried, then raised as
+                    # musicbrainz_unavailable, never cached as "no match".
+                    return None, None, False
                 if response.status != 200:
                     return None, None, True
                 data = await response.json()
@@ -137,5 +146,6 @@ async def lookup_original_release(
         default=None,
         backoff=1,
         error_label="musicbrainz.lookup",
+        failure=provider_failure("musicbrainz"),
     )
     return result if result is not None else (None, None)

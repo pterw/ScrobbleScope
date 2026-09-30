@@ -5,6 +5,7 @@ import pytest
 from scrobblescope.unmatched import (
     REASON_BELOW_THRESHOLD,
     REASON_NO_SPOTIFY_MATCH,
+    REASON_PROVIDER_UNAVAILABLE,
     REASON_RELEASE_SCOPE,
     describe_shortfall,
     group_unmatched_albums,
@@ -180,3 +181,32 @@ def test_group_unmatched_albums_ranks_top_offenders_deterministically():
         "Low Plays",
         "Unknown Plays",
     ]
+
+
+def test_provider_unavailable_is_its_own_group_with_its_own_copy():
+    """
+    GIVEN one album with no match and one that could not be checked
+    WHEN the unmatched items are grouped
+    THEN they are two separate groups with their own copy, so a listener is
+    never told an album has no match because a provider was down.
+    """
+    data = {
+        "a|a": {
+            "artist": "A",
+            "album": "A",
+            "reason": "Spotify was unavailable and Deezer had no match",
+            "reason_code": REASON_PROVIDER_UNAVAILABLE,
+        },
+        "b|b": {
+            "artist": "B",
+            "album": "B",
+            "reason": "No match on Spotify or Deezer",
+            "reason_code": REASON_NO_SPOTIFY_MATCH,
+        },
+    }
+
+    groups, counts, metadata = group_unmatched_albums(data)
+
+    assert set(groups) == {REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILABLE}
+    assert counts[REASON_PROVIDER_UNAVAILABLE] == 1
+    assert metadata[REASON_PROVIDER_UNAVAILABLE]["title"] == "Could not be checked"

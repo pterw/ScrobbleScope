@@ -16,6 +16,7 @@ only fetches data.
 from scrobblescope.config import DEEZER_DETAIL_RETRIES, DEEZER_SEARCH_RETRIES
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.enrichment import AlbumMetadata
+from scrobblescope.errors import provider_failure
 from scrobblescope.utils import get_deezer_limiter, retry_with_semaphore
 
 _DEEZER_ERROR_QUOTA = 4
@@ -23,8 +24,10 @@ _DEEZER_ERROR_QUOTA = 4
 
 def _deezer_error_code(data):
     """Return the numeric error code from a Deezer error body, or None."""
+    if not isinstance(data, dict):
+        return None
     error = data.get("error")
-    return error.get("code") if error else None
+    return error.get("code") if isinstance(error, dict) else None
 
 
 async def _deezer_request(session, url, params, limiter):
@@ -41,6 +44,10 @@ async def _deezer_request(session, url, params, limiter):
     """
     async with limiter:
         async with session.get(url, params=params) as response:
+            if response.status >= 500:
+                # An outage, not an answer: retried, then raised as
+                # deezer_unavailable rather than read as "no match".
+                return None, None, False
             if response.status != 200:
                 return None, None, True
             data = await response.json()
@@ -60,7 +67,10 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
     over the real album. A candidate is accepted only when
     ``normalize_name(candidate_artist, candidate_title)`` equals the key
     built from *artist*/*album* -- this never returns "the first result"
-    as a guess. Returns None if no candidate matches.
+    as a guess. Returns None if no candidate matches. Raises ``ProviderError``
+    when Deezer could not be read: throttled past the Retry-After cap or
+    through every retry, a 5xx, a timeout. That is not "no match", and the
+    caller records the album as unavailable instead.
     """
     key = normalize_name(artist, album)
     url = "https://api.deezer.com/search/album"
@@ -71,9 +81,17 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
         data, retry_after, done = await _deezer_request(session, url, params, limiter)
         if data is None:
             return None, retry_after, done
-        for candidate in data.get("data", []):
-            candidate_artist = candidate.get("artist", {}).get("name", "")
-            candidate_title = candidate.get("title", "")
+        # Every read tolerates a null or a foreign shape as "no candidate":
+        # enrichment degrades, it never fails the job on a strange body.
+        candidates = data.get("data") if isinstance(data, dict) else None
+        for candidate in candidates if isinstance(candidates, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            artist_object = candidate.get("artist")
+            candidate_artist = (
+                artist_object.get("name") if isinstance(artist_object, dict) else ""
+            ) or ""
+            candidate_title = candidate.get("title") or ""
             if normalize_name(candidate_artist, candidate_title) == key:
                 return candidate.get("id"), None, True
         return None, None, True
@@ -87,6 +105,7 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
         default=None,
         backoff=1,
         error_label="deezer.search",
+        failure=provider_failure("deezer"),
     )
 
 
@@ -106,6 +125,7 @@ async def _fetch_deezer_json(session, url, params, retries, error_label):
         default=None,
         backoff=1,
         error_label=error_label,
+        failure=provider_failure("deezer"),
     )
 
 
@@ -115,7 +135,8 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
     ``/album/{id}`` lists at most 25 tracks even when ``nb_tracks`` reports
     more (the White Album reports 30 and lists 25); ``/album/{id}/tracks``
     with ``limit=500`` returns every track's duration in seconds. Returns
-    None if either request fails after retries.
+    None when Deezer answers that the album is not there. Raises
+    ``ProviderError`` when Deezer could not be read (see ``search_deezer_album``).
     """
     album = await _fetch_deezer_json(
         session,
@@ -142,7 +163,7 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
     track_durations = {
         normalize_track_name(t["title"]): t.get("duration", 0)
         for t in tracks.get("data", [])
-        if isinstance(t, dict) and isinstance(t.get("title", ""), str)
+        if isinstance(t, dict) and isinstance(t.get("title"), str)
     }
     return AlbumMetadata(
         provider="deezer",

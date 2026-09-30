@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope import jobs
+from scrobblescope.errors import UserNotFoundError
 from scrobblescope.heatmap import (
     _aggregate_daily_counts,
     _fetch_and_process_heatmap,
@@ -636,8 +637,30 @@ class TestHeatmapTask:
         assert progress["retryable"] is False
 
     def test_user_not_found_crash_publishes_user_not_found(self):
-        """A Last.fm 404 ValueError escaping the pipeline is classified as
-        user_not_found, not blamed on the app as internal_error (Finding 1)."""
+        """A Last.fm 404 (UserNotFoundError) escaping the pipeline is classified
+        as user_not_found, not blamed on the app as internal_error (Finding 1)."""
+        from tests.helpers import TEST_JOB_PARAMS
+
+        job_id = jobs.create(TEST_JOB_PARAMS)
+        with (
+            patch("scrobblescope.heatmap.release_job_slot"),
+            patch(
+                "scrobblescope.heatmap._fetch_and_process_heatmap",
+                new_callable=AsyncMock,
+                side_effect=UserNotFoundError(),
+            ),
+        ):
+            heatmap_task(job_id, "ghost")
+
+        progress = jobs.progress(job_id)
+        assert progress["error"] is True
+        assert progress["error_code"] == "user_not_found"
+        assert progress["error_source"] == "lastfm"
+        assert progress["retryable"] is False
+
+    def test_untyped_not_found_text_is_ours_not_user_not_found(self):
+        """An unrelated ValueError whose text reads "user ... not found" is not
+        user_not_found: classification is by type (F-B23-16)."""
         from tests.helpers import TEST_JOB_PARAMS
 
         job_id = jobs.create(TEST_JOB_PARAMS)
@@ -652,9 +675,7 @@ class TestHeatmapTask:
             heatmap_task(job_id, "ghost")
 
         progress = jobs.progress(job_id)
-        assert progress["error"] is True
-        assert progress["error_code"] == "user_not_found"
-        assert progress["error_source"] == "lastfm"
+        assert progress["error_code"] == "internal_error"
         assert progress["retryable"] is False
 
 

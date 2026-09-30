@@ -351,17 +351,6 @@ def fail(job_id, error_code, username=None, retry_after=None):
     )
 
 
-def fail_unclassified(job_id, detail):
-    """Finish the job with the album pipeline's unclassified-exception answer.
-
-    Code ``unknown``, retryable, carrying the raw exception text. It is a
-    separate verb because the heatmap pipeline answers the same case with
-    ``internal_error`` (F-B23-22, open): when the owner picks one answer this
-    collapses into ``fail``.
-    """
-    return _fail(job_id, f"Error: {detail}", "unknown", None, True, None)
-
-
 def reset(job_id, message=None):
     """Return the job to its initial state, keeping its params; False if gone."""
 

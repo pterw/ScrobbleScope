@@ -2,10 +2,16 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from scrobblescope import jobs
 from scrobblescope.cache import _cleanup_stale_metadata
+from scrobblescope.errors import (
+    ProviderError,
+    SpotifyUnavailableError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.orchestrator import _run_spotify_search_phase
 from tests.helpers import TEST_JOB_PARAMS
 
@@ -426,13 +432,19 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
         patch("scrobblescope.jobs.advance"),
         patch("scrobblescope.jobs.record_unmatched") as mock_unmatched,
     ):
-        id_to_key, id_to_data, search_miss_keys = await _run_spotify_search_phase(
+        (
+            id_to_key,
+            id_to_data,
+            search_miss_keys,
+            unanswered_keys,
+        ) = await _run_spotify_search_phase(
             job_id, session, cache_misses, "fake_token", semaphore
         )
 
     assert id_to_key == {}
     assert id_to_data == {}
     assert search_miss_keys == {("artist1", "album1"), ("artist2", "album2")}
+    assert unanswered_keys == set()
     mock_unmatched.assert_not_called()
 
 
@@ -606,3 +618,470 @@ async def test_deezer_fallback_reports_progress_inside_its_band():
         "current": 4,
         "total": 4,
     }
+
+
+@pytest.mark.asyncio
+async def test_spotify_search_unanswered_album_does_not_cancel_its_siblings():
+    """
+    GIVEN one album's Spotify search cannot be answered (ProviderError) while
+    its siblings find an id and a miss
+    WHEN the search phase runs
+    THEN the siblings complete normally and only the unanswered album comes
+    back in ``unanswered_keys``, neither found nor a miss: one bad album
+    cannot block an account.
+    """
+
+    async def search(session, artist, album, token, semaphore=None):
+        if artist == "bad":
+            raise ProviderError("spotify", "unavailable")
+        return "sp-1" if artist == "hit" else None
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {(a, "alb"): {} for a in ("bad", "hit", "miss")}
+    with patch(
+        "scrobblescope.orchestrator.search_for_spotify_album_id", side_effect=search
+    ):
+        (
+            id_to_key,
+            _id_to_data,
+            miss_keys,
+            unanswered_keys,
+        ) = await _run_spotify_search_phase(
+            job_id, MagicMock(), misses, "tok", asyncio.Semaphore(5)
+        )
+
+    assert id_to_key == {"sp-1": ("hit", "alb")}
+    assert miss_keys == {("miss", "alb")}
+    assert unanswered_keys == {("bad", "alb")}
+
+
+@pytest.mark.asyncio
+async def test_spotify_search_unexpected_error_cancels_siblings_and_propagates():
+    """
+    GIVEN one album's search raises something that is not a provider failure
+    (our bug) while its siblings are in flight
+    WHEN the search phase runs
+    THEN the error propagates after every sibling has been cancelled and
+    settled, so nothing outlives the session and the job fails as ours.
+    """
+    settled = []
+
+    async def search(session, artist, album, token, semaphore=None):
+        if artist == "bad":
+            raise KeyError("our bug")
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            settled.append(artist)
+            raise
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {(a, "alb"): {} for a in ("bad", "s1", "s2")}
+    with patch(
+        "scrobblescope.orchestrator.search_for_spotify_album_id", side_effect=search
+    ):
+        with pytest.raises(KeyError):
+            await _run_spotify_search_phase(
+                job_id, MagicMock(), misses, "tok", asyncio.Semaphore(5)
+            )
+
+    assert sorted(settled) == ["s1", "s2"]
+
+
+@pytest.mark.asyncio
+async def test_deezer_throttling_degrades_and_records_the_album_as_unavailable():
+    """
+    GIVEN Deezer is throttled for one album and matches another
+    WHEN the Deezer fallback phase runs
+    THEN the matched album is enriched, the throttled one is listed as
+    "provider unavailable" (never "No match on Spotify or Deezer"), the job
+    carries a partial-data warning and is not in error (Codex 4140219720;
+    enrichment never fails the job).
+    """
+    from scrobblescope.orchestrator._deezer_fallback import _run_deezer_fallback_phase
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    data = {"original_artist": "A", "original_album": "B", "play_count": 3}
+    misses = {("throttled", "alb"): dict(data), ("found", "alb"): dict(data)}
+    metadata = MagicMock(
+        release_date="2020-01-01",
+        image_url="img",
+        track_durations={"t": 1},
+        provider="deezer",
+        album_id="9",
+        url="u",
+    )
+    metadata.as_cache_row.return_value = ("found", "alb")
+
+    async def search(session, artist, album):
+        if artist == "throttled":
+            raise ProviderError("deezer", "rate_limited")
+        return 9
+
+    cache_hits = {}
+    with (
+        patch("scrobblescope.orchestrator.search_deezer_album", side_effect=search),
+        patch(
+            "scrobblescope.orchestrator.fetch_deezer_album",
+            new_callable=AsyncMock,
+            return_value=metadata,
+        ),
+    ):
+        rows = await _run_deezer_fallback_phase(job_id, MagicMock(), misses, cache_hits)
+
+    assert rows == [("found", "alb")]
+    assert list(cache_hits) == [("found", "alb")]
+    unmatched = jobs.unmatched(job_id)
+    assert [v["reason_code"] for v in unmatched.values()] == ["provider_unavailable"]
+    assert "No match" not in next(iter(unmatched.values()))["reason"]
+    progress = jobs.progress(job_id)
+    assert progress["error"] is False
+    assert "Deezer" in progress["stats"]["partial_data_warning"]
+
+
+def _plain_album(name):
+    return {
+        "original_artist": name.title(),
+        "original_album": "Album",
+        "play_count": 5,
+        "track_counts": {"t": 5},
+    }
+
+
+def _deezer_metadata(key):
+    metadata = MagicMock(
+        release_date="2020-01-01",
+        image_url="img",
+        track_durations={"t": 1},
+        provider="deezer",
+        album_id="9",
+        url="u",
+    )
+    metadata.as_cache_row.return_value = key
+    return metadata
+
+
+def _fake_session_ctx(session=None):
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=session or MagicMock())
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return ctx
+
+
+async def _run_misses_with_spotify_down(
+    job_id, cache_misses, *, deezer_finds=(), search=None
+):
+    """Run _fetch_spotify_misses with a Spotify token but failing searches."""
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+
+    async def deezer_search(session, artist, album):
+        return 9 if (artist, album) in deezer_finds else None
+
+    async def fetch_deezer(session, album_id):
+        return _deezer_metadata(("found", "album"))
+
+    async def down(session, artist, album, token, semaphore=None):
+        raise ProviderError("spotify", "unavailable")
+
+    hits = {}
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _fake_session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            side_effect=search or down,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
+        ),
+    ):
+        rows = await _fetch_spotify_misses(job_id, cache_misses, hits)
+    return rows, hits
+
+
+@pytest.mark.asyncio
+async def test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable():
+    """
+    GIVEN every Spotify search is unanswered, Deezer matches one album only
+    WHEN the misses are enriched
+    THEN the job is not failed: the Deezer album is enriched, the other is
+    listed with the provider-unavailable reason (never "no match"), and a
+    partial-data warning is set.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("found", "album"): _plain_album("found"),
+        ("lost", "album"): _plain_album("lost"),
+    }
+
+    rows, hits = await _run_misses_with_spotify_down(
+        job_id, misses, deezer_finds={("found", "album")}
+    )
+
+    assert rows == [("found", "album")]
+    assert list(hits) == [("found", "album")]
+    unmatched = jobs.unmatched(job_id)
+    assert [v["reason_code"] for v in unmatched.values()] == ["provider_unavailable"]
+    assert next(iter(unmatched.values()))["artist"] == "Lost"
+    assert "Spotify" in jobs.progress(job_id)["stats"]["partial_data_warning"]
+
+
+@pytest.mark.asyncio
+async def test_spotify_answering_no_search_and_deezer_matching_nothing_fails_retryable():
+    """
+    GIVEN no Spotify search is answered and Deezer enriches nothing
+    WHEN the misses are enriched
+    THEN SpotifyUnavailableError is raised (published as the retryable
+    spotify_unavailable) and every album was listed as unavailable first.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {("a", "album"): _plain_album("a"), ("b", "album"): _plain_album("b")}
+
+    with pytest.raises(SpotifyUnavailableError, match="answered no search") as excinfo:
+        await _run_misses_with_spotify_down(job_id, misses)
+
+    codes = [v["reason_code"] for v in jobs.unmatched(job_id).values()]
+    assert codes == ["provider_unavailable", "provider_unavailable"]
+    assert classify_exception_to_error_code(excinfo.value) == "spotify_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_one_answered_spotify_search_keeps_the_job_alive_when_deezer_has_nothing():
+    """
+    GIVEN one Spotify search is answered (a miss) and one is unanswered, and
+    Deezer matches neither
+    WHEN the misses are enriched
+    THEN no error is raised (Spotify did answer something) and the two albums
+    carry different reasons: no match for the answered miss, unavailable for
+    the other.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("miss", "album"): _plain_album("miss"),
+        ("bad", "album"): _plain_album("bad"),
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        if artist == "bad":
+            raise ProviderError("spotify", "rate_limited")
+        return None
+
+    rows, hits = await _run_misses_with_spotify_down(job_id, misses, search=search)
+
+    assert rows == [] and hits == {}
+    reasons = {v["artist"]: v["reason_code"] for v in jobs.unmatched(job_id).values()}
+    assert reasons == {"Miss": "no_spotify_match", "Bad": "provider_unavailable"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "deezer_finds", [True, False], ids=["deezer_matches", "deezer_empty"]
+)
+@pytest.mark.parametrize(
+    "failure",
+    [TimeoutError(), aiohttp.ClientConnectionError("no route")],
+    ids=["timeout", "connection_error"],
+)
+async def test_spotify_token_transport_failure_degrades_and_fails_only_if_deezer_finds_nothing(
+    failure, deezer_finds
+):
+    """
+    GIVEN the Spotify token request times out or is refused
+    WHEN the misses are enriched
+    THEN a Deezer match keeps the job alive, and with no Deezer match at all
+    SpotifyUnavailableError (retryable spotify_unavailable) is raised, never a
+    raw timeout (which would publish the non-retryable internal_error).
+    """
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+
+    token_session = MagicMock()
+    token_session.post.side_effect = failure
+    misses = {("found", "album"): _plain_album("found")}
+
+    async def deezer_search(session, artist, album):
+        return 9 if deezer_finds else None
+
+    async def fetch_deezer(session, album_id):
+        return _deezer_metadata(("found", "album"))
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    with (
+        patch(
+            "scrobblescope.spotify.spotify_token_cache",
+            {"token": None, "expires_at": 0},
+        ),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            return_value=_fake_session_ctx(token_session),
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _fake_session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
+        ),
+    ):
+        if deezer_finds:
+            rows = await _fetch_spotify_misses(job_id, misses, {})
+            assert rows == [("found", "album")]
+        else:
+            with pytest.raises(SpotifyUnavailableError, match="token fetch failed"):
+                await _fetch_spotify_misses(job_id, misses, {})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("spotify_search_down", "spotify_details_down", "deezer_down", "expected"),
+    [
+        (
+            True,
+            False,
+            False,
+            "Spotify was unavailable and Deezer had no match",
+        ),
+        (True, False, True, "Spotify and Deezer were both unavailable"),
+        (
+            False,
+            True,
+            False,
+            "Spotify matched it but could not load its details, "
+            "and Deezer had no match",
+        ),
+        (
+            False,
+            True,
+            True,
+            "Spotify matched it but could not load its details, "
+            "and Deezer was unavailable",
+        ),
+        (
+            False,
+            False,
+            True,
+            "Deezer was unavailable and Spotify had no match",
+        ),
+    ],
+    ids=[
+        "spotify_search_down_deezer_no_match",
+        "spotify_search_down_deezer_down",
+        "spotify_details_down_deezer_no_match",
+        "spotify_details_down_deezer_down",
+        "spotify_no_match_deezer_down",
+    ],
+)
+async def test_unavailable_row_text_names_what_each_provider_said(
+    spotify_search_down, spotify_details_down, deezer_down, expected
+):
+    """
+    GIVEN an album neither provider matched, with each provider either not
+    answering or answering "no match"
+    WHEN the Deezer fallback phase records it
+    THEN the row carries the provider-unavailable reason and exactly the text
+    for that combination, never claiming a provider "had no match" when it
+    did not answer.
+    """
+    from scrobblescope.orchestrator._deezer_fallback import _run_deezer_fallback_phase
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    key = ("artist", "album")
+
+    async def search(session, artist, album):
+        if deezer_down:
+            raise ProviderError("deezer", "unavailable")
+        return None
+
+    with patch("scrobblescope.orchestrator.search_deezer_album", side_effect=search):
+        await _run_deezer_fallback_phase(
+            job_id,
+            MagicMock(),
+            {key: _plain_album("artist")},
+            {},
+            spotify_unavailable_keys={key} if spotify_search_down else frozenset(),
+            spotify_detail_unavailable_keys=(
+                {key} if spotify_details_down else frozenset()
+            ),
+        )
+
+    (row,) = jobs.unmatched(job_id).values()
+    assert row["reason_code"] == "provider_unavailable"
+    assert row["reason"] == expected
+
+
+@pytest.mark.asyncio
+async def test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no_match():
+    """
+    GIVEN Spotify's search matches two albums, its detail call answers for one
+    and cannot be answered for the other, and Deezer matches neither
+    WHEN the misses are enriched
+    THEN the job is not failed, the album with details is enriched, and the
+    other is listed provider_unavailable (never no_spotify_match) with a
+    partial-data warning.
+    """
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+    from scrobblescope.spotify import AlbumDetails
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("good", "album"): _plain_album("good"),
+        ("bad", "album"): _plain_album("bad"),
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        return f"sp-{artist}"
+
+    async def batch(session, ids, token, semaphore=None, on_fallback=None):
+        return AlbumDetails(
+            {"sp-good": {"release_date": "2020-01-01"}}, unanswered={"sp-bad"}
+        )
+
+    async def deezer_search(session, artist, album):
+        return None
+
+    hits = {}
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _fake_session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            side_effect=search,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            side_effect=batch,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
+        ),
+    ):
+        rows = await _fetch_spotify_misses(job_id, misses, hits)
+
+    assert list(hits) == [("good", "album")]
+    assert len(rows) == 1
+    (row,) = jobs.unmatched(job_id).values()
+    assert row["artist"] == "Bad"
+    assert row["reason_code"] == "provider_unavailable"
+    assert row["reason"].startswith("Spotify matched it but could not load")
+    assert "Spotify" in jobs.progress(job_id)["stats"]["partial_data_warning"]

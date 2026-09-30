@@ -78,6 +78,7 @@ flowchart LR
     ReleaseChecks --> Cache
     ReleaseChecks --> JobModule
     ReleaseChecks --> Domain
+    ReleaseChecks --> Errors
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
     ReleaseChecks --> Worker
@@ -85,11 +86,14 @@ flowchart LR
     SpotifyClient --> Utils
     SpotifyClient --> Domain
     SpotifyClient --> Enrichment
+    SpotifyClient --> Errors
     DeezerClient --> Utils
     DeezerClient --> Domain
     DeezerClient --> Enrichment
+    DeezerClient --> Errors
     MusicBrainzClient --> Utils
     MusicBrainzClient --> Domain
+    MusicBrainzClient --> Errors
     Spotlight --> Utils
     Utils --> ApiLogging
 

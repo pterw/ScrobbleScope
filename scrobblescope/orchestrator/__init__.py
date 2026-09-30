@@ -177,10 +177,14 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
 
     Mutates *cache_hits* in place by promoting newly found entries.
     Returns a list of new_metadata_rows tuples for DB persistence.
-    Raises SpotifyUnavailableError only when Spotify's token fetch fails,
-    nothing was already cached before this call, and Deezer could not
-    enrich a single album either -- a Deezer-only run that finds at least
-    one match is a valid, if partial, outcome, not a failure.
+    Spotify being down degrades, per album: a token that cannot be had, or
+    a search Spotify could not answer, sends that album to Deezer, and an
+    album Deezer cannot match either is recorded as unavailable, never as
+    "no match". Raises SpotifyUnavailableError only when Spotify answered
+    no search at all (no token, or every search unanswered), nothing was
+    already cached before this call, and Deezer could not enrich a single
+    album either -- a run that finds at least one match is a valid, if
+    partial, outcome, not a failure.
     """
     if not cache_misses:
         return []
@@ -189,6 +193,8 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     new_metadata_rows = []
     token = await fetch_spotify_access_token()
     still_missing = cache_misses
+    unanswered_keys = set(cache_misses)
+    detail_unavailable_keys = set()
 
     if not token:
         logging.error(
@@ -206,9 +212,17 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                 spotify_id_to_key,
                 spotify_id_to_original_data,
                 _search_miss_keys,
+                unanswered_keys,
             ) = await _run_spotify_search_phase(
                 job_id, session, cache_misses, token, search_semaphore
             )
+            if unanswered_keys:
+                jobs.record_stat(
+                    job_id,
+                    "partial_data_warning",
+                    "Spotify is temporarily unavailable for some albums; "
+                    "checking Deezer for their details.",
+                )
             valid_spotify_ids = list(spotify_id_to_original_data.keys())
             if valid_spotify_ids:
                 new_metadata_rows = await _run_spotify_batch_detail_phase(
@@ -219,7 +233,15 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                     spotify_id_to_key,
                     spotify_id_to_original_data,
                     cache_hits,
+                    detail_unavailable_keys=detail_unavailable_keys,
                 )
+                if detail_unavailable_keys and not unanswered_keys:
+                    jobs.record_stat(
+                        job_id,
+                        "partial_data_warning",
+                        "Spotify is temporarily unavailable for some albums; "
+                        "checking Deezer for their details.",
+                    )
         still_missing = {
             key: data for key, data in cache_misses.items() if key not in cache_hits
         }
@@ -227,13 +249,23 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     if still_missing:
         async with create_optimized_session() as session:
             deezer_rows = await _run_deezer_fallback_phase(
-                job_id, session, still_missing, cache_hits
+                job_id,
+                session,
+                still_missing,
+                cache_hits,
+                spotify_unavailable_keys=unanswered_keys,
+                spotify_detail_unavailable_keys=detail_unavailable_keys,
             )
         new_metadata_rows.extend(deezer_rows)
 
-    if not token and not had_cache_hits and not new_metadata_rows:
+    spotify_answered_nothing = len(unanswered_keys) == len(cache_misses)
+    if spotify_answered_nothing and not had_cache_hits and not new_metadata_rows:
+        if not token:
+            raise SpotifyUnavailableError(
+                "Spotify token fetch failed and Deezer could not enrich any album."
+            )
         raise SpotifyUnavailableError(
-            "Spotify token fetch failed and Deezer could not enrich any album."
+            "Spotify answered no search and Deezer could not enrich any album."
         )
 
     return new_metadata_rows
@@ -574,7 +606,13 @@ async def _fetch_and_process(
     min_tracks=3,
     limit_results="all",
 ):
-    """Fetch and process albums in the background for a single job."""
+    """Fetch and process albums in the background for a single job.
+
+    An exception that escapes the pipeline is classified by type
+    (``errors.classify_exception_to_error_code``): a typed provider failure
+    publishes its own code, and anything else is our bug and publishes
+    ``internal_error`` -- the answer the heatmap gives too.
+    """
     try:
         overall_start_time = time.time()
         cleanup_expired_cache()
@@ -603,13 +641,10 @@ async def _fetch_and_process(
         )
 
     except Exception as exc:
-        error_message = str(exc)
-        error_code = classify_exception_to_error_code(error_message)
-
-        if error_code:
-            jobs.fail(job_id, error_code, username=username)
-        else:
-            jobs.fail_unclassified(job_id, error_message)
+        # Classified by type; anything unrecognised is our bug and is
+        # published as internal_error, never with the exception's text.
+        error_code = classify_exception_to_error_code(exc) or "internal_error"
+        jobs.fail(job_id, error_code, username=username)
 
         logging.exception(f"Error processing request for {username} in {year}")
         return []
@@ -620,7 +655,8 @@ def _report_album_failure(job_id, username, year):
 
     Called from inside the helper's ``except`` block, so ``logging.exception``
     still sees the active exception. Publishes the same ``internal_error``
-    the heatmap entry point does: two entry points, one answer (F-SWE-5).
+    the heatmap entry point does, and ``_fetch_and_process`` answers an
+    unclassified exception the same way: one answer everywhere (F-SWE-5).
     Before this, the album backstop only logged, and a page polling the job
     waited on a job that would never finish.
     """

@@ -1,9 +1,11 @@
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
+from scrobblescope.errors import ProviderError
 from tests.helpers import NoopAsyncContext, make_response_context
 
 
@@ -201,11 +203,12 @@ async def test_fetch_deezer_album_pulls_full_track_list_beyond_album_endpoint_ca
 
 
 @pytest.mark.asyncio
-async def test_fetch_deezer_album_returns_none_when_album_details_fail():
+async def test_fetch_deezer_album_raises_unavailable_when_album_details_fail():
     """
-    GIVEN the album-details request never succeeds
+    GIVEN the album-details request never succeeds (HTTP 500)
     WHEN fetch_deezer_album runs
-    THEN it returns None without calling the tracks endpoint at all.
+    THEN it raises ProviderError deezer_unavailable, not None (an outage is
+    not "no match"), without calling the tracks endpoint at all.
     """
     session = MagicMock()
     resp = AsyncMock()
@@ -215,18 +218,20 @@ async def test_fetch_deezer_album_returns_none_when_album_details_fail():
     with patch(
         "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
     ):
-        result = await fetch_deezer_album(session, 79484, retries=1)
+        with pytest.raises(ProviderError) as excinfo:
+            await fetch_deezer_album(session, 79484, retries=1)
 
-    assert result is None
+    assert excinfo.value.code == "deezer_unavailable"
     assert session.get.call_count == 1
 
 
 @pytest.mark.asyncio
-async def test_fetch_deezer_album_returns_none_when_tracks_fail():
+async def test_fetch_deezer_album_raises_unavailable_when_tracks_fail():
     """
-    GIVEN album details succeed but the tracks endpoint never does
+    GIVEN album details succeed but the tracks endpoint never does (HTTP 500)
     WHEN fetch_deezer_album runs
-    THEN it returns None rather than an AlbumMetadata with no durations.
+    THEN it raises ProviderError deezer_unavailable rather than returning an
+    AlbumMetadata with no durations, or None.
     """
     session = MagicMock()
     album_resp = AsyncMock()
@@ -251,9 +256,10 @@ async def test_fetch_deezer_album_returns_none_when_tracks_fail():
     with patch(
         "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
     ):
-        result = await fetch_deezer_album(session, 1, retries=1)
+        with pytest.raises(ProviderError) as excinfo:
+            await fetch_deezer_album(session, 1, retries=1)
 
-    assert result is None
+    assert excinfo.value.code == "deezer_unavailable"
 
 
 @pytest.mark.asyncio
@@ -305,10 +311,13 @@ async def test_search_failure_lines_carry_no_album_or_artist(caplog):
     """
     GIVEN the Deezer transport raises with the query text in its message
     WHEN search_deezer_album exhausts its retries
-    THEN no record at any level names the album or artist.
+    THEN it raises ProviderError deezer_unavailable, and no record at any
+    level names the album or artist.
     """
     session = MagicMock()
-    session.get.side_effect = RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+    session.get.side_effect = aiohttp.ClientConnectionError(
+        f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}"
+    )
 
     with (
         patch(
@@ -317,13 +326,141 @@ async def test_search_failure_lines_carry_no_album_or_artist(caplog):
         patch("asyncio.sleep", new_callable=AsyncMock),
         caplog.at_level(logging.DEBUG),
     ):
-        result = await search_deezer_album(
-            session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2
-        )
+        with pytest.raises(ProviderError) as excinfo:
+            await search_deezer_album(session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2)
 
-    assert result is None
+    assert excinfo.value.code == "deezer_unavailable"
     assert "All 2 retries failed for deezer.search" in caplog.text
     assert caplog.records
     for record in caplog.records:
         assert _LEAK_ALBUM not in record.getMessage()
         assert _LEAK_ARTIST not in record.getMessage()
+
+
+@pytest.mark.asyncio
+async def test_fetch_deezer_album_skips_a_track_with_no_title_key():
+    """
+    GIVEN /album/{id}/tracks lists a track object with no ``title`` key at all
+    WHEN fetch_deezer_album runs
+    THEN that track is skipped and the rest are returned: the old filter read
+    a missing title as "" (a str), passed it, and t["title"] raised KeyError,
+    losing the album's Deezer metadata (Codex 4140219711).
+    """
+    session = MagicMock()
+
+    album_resp = AsyncMock()
+    album_resp.status = 200
+    album_resp.json = AsyncMock(return_value={"id": 1, "link": "https://x/1"})
+
+    tracks_resp = AsyncMock()
+    tracks_resp.status = 200
+    tracks_resp.json = AsyncMock(
+        return_value={
+            "data": [
+                {"duration": 50},
+                {"title": "Real Track", "duration": 200},
+            ]
+        }
+    )
+
+    def route(url, params=None, **kwargs):
+        if url.endswith("/tracks"):
+            return make_response_context(tracks_resp)
+        return make_response_context(album_resp)
+
+    session.get.side_effect = route
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 1)
+
+    assert result.track_durations == {"real track": 200}
+
+
+@pytest.mark.asyncio
+async def test_search_deezer_album_raises_when_throttled_not_no_match():
+    """
+    GIVEN Deezer answers its quota error (code 4) on every attempt
+    WHEN search_deezer_album runs
+    THEN it raises ProviderError deezer_rate_limited, not None: a throttled
+    search says nothing about whether the album exists (Codex 4140219720).
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value={"error": {"type": "Exception", "code": 4}})
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await search_deezer_album(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "deezer_rate_limited"
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_deezer_search_5xx_on_every_attempt_raises_unavailable_not_no_match():
+    """
+    GIVEN Deezer answers HTTP 500 on every attempt
+    WHEN the album is searched
+    THEN ProviderError deezer_unavailable is raised after every retry, not
+    None: an outage must not read as "no match" (the album is then recorded
+    as unavailable, not as one Deezer does not have).
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 500
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await search_deezer_album(session, "Artist", "Album", retries=2)
+
+    assert excinfo.value.code == "deezer_unavailable"
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"data": None},
+        {"data": "not a list"},
+        {"data": [None, "junk", {"id": 1, "title": None, "artist": None}]},
+        {"data": [{"id": 1, "title": "Rumours", "artist": "Fleetwood Mac"}]},
+        ["not", "a", "dict"],
+    ],
+    ids=["null_data", "string_data", "null_fields", "string_artist", "list_body"],
+)
+async def test_search_deezer_album_reads_a_strange_body_as_a_miss(body):
+    """
+    GIVEN Deezer answers 200 with a body of an unexpected shape (a null
+    "data", a null "artist", a non-object candidate, a list)
+    WHEN search_deezer_album runs
+    THEN it reads that as no match and returns None: enrichment degrades, it
+    never raises TypeError/AttributeError and fails the job as internal_error.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value=body)
+    session.get.return_value = make_response_context(resp)
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await search_deezer_album(session, "Fleetwood Mac", "Rumours")
+
+    assert result is None

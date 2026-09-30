@@ -14,6 +14,7 @@ import pytest
 
 from scrobblescope import jobs, release_checks
 from scrobblescope.domain import normalize_name
+from scrobblescope.errors import ProviderError
 from scrobblescope.release_checks import (
     _release_year,
     _select_candidates,
@@ -945,3 +946,24 @@ def test_enqueue_release_check_names_the_missing_contact_in_the_skip_line(caplog
         assert enqueue_release_check(job_id) is False
 
     assert "MUSICBRAINZ_CONTACT is unset" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_throttled_musicbrainz_caches_no_finding_and_keeps_the_result():
+    """
+    GIVEN MusicBrainz stays throttled for a candidate
+    WHEN the worker checks it
+    THEN nothing is persisted (no false "no match" for the next search to
+    trust), the result is marked unavailable, and the job still ends "done".
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(side_effect=ProviderError("musicbrainz", "rate_limited"))
+    persist = AsyncMock()
+    with _worker_patches(lookup, persist=persist):
+        await run_release_checks(job_id)
+
+    persist.assert_not_awaited()
+    result = jobs.context(job_id)["results"][0]
+    assert result["release_check"] == release_checks.CHECK_UNAVAILABLE
+    assert result["original_release_date"] is None
+    assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "done"

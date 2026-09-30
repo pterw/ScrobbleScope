@@ -25,11 +25,17 @@ async def _run_spotify_batch_detail_phase(
     spotify_id_to_key,
     spotify_id_to_original_data,
     cache_hits,
+    detail_unavailable_keys=None,
 ):
     """Batch-fetch Spotify album details for all found IDs.
 
     Reports progress in the 40-60% range. Promotes enriched albums into
     cache_hits (mutated in place). Returns new_metadata_rows.
+
+    Spotify matched these albums, so one whose details it could not answer
+    for (a 5xx, a timeout, a capped 429) is not a "no match": its key is
+    added to *detail_unavailable_keys* (mutated in place, when given) so the
+    Deezer fallback can record it as unavailable if Deezer misses it too.
     """
     new_metadata_rows = []
     batch_size = 20
@@ -77,6 +83,11 @@ async def _run_spotify_batch_detail_phase(
     for fut in asyncio.as_completed(batch_tasks):
         batch_result = await fut
         all_album_details.update(batch_result)
+        if detail_unavailable_keys is not None:
+            detail_unavailable_keys.update(
+                spotify_id_to_key[spotify_id]
+                for spotify_id in getattr(batch_result, "unanswered", ())
+            )
         batches_done += 1
         enriched_so_far = len(all_album_details)
         jobs.report_phase(

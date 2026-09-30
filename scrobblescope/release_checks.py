@@ -55,6 +55,7 @@ from scrobblescope.domain import (
     normalize_name,
     release_window,
 )
+from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import lookup_original_release
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import create_optimized_session
@@ -281,15 +282,22 @@ async def _check_pending_candidates(job_id, conn, pending, params, state):
 async def _check_candidate(session, conn, job_id, candidate, params, state):
     """Look one candidate up, persist the finding, and record the outcome."""
     artist_norm, album_norm = candidate["key"]
-    mb_release_group, original_release = await lookup_original_release(
-        session, candidate["artist"], candidate["album"]
-    )
+    persist = True
+    try:
+        mb_release_group, original_release = await lookup_original_release(
+            session, candidate["artist"], candidate["album"]
+        )
+    except ProviderError as exc:
+        # MusicBrainz could not be read: the album keeps its provider date,
+        # and no "no match" finding is cached for the next search to trust.
+        logging.warning(f"Release check skipped ({exc.code})")
+        mb_release_group, original_release, persist = None, None, False
 
     # Persisted per check rather than batched at the end, when a connection
     # exists: the worker spends a second per candidate and up to two hours
     # per job, and a finding that is only in memory when the process
     # restarts is a request nobody gets back.
-    if conn:
+    if conn and persist:
         try:
             await _batch_persist_original_release(
                 conn, [(artist_norm, album_norm, mb_release_group, original_release)]

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import math
 import threading
@@ -367,6 +368,26 @@ def format_seconds_mobile(seconds):
     return f"{days}d {hour_remainder}h"
 
 
+def parse_retry_after(value, default=1):
+    """Return a ``Retry-After`` header as whole seconds, *default* if unusable.
+
+    The header may be delta-seconds or an HTTP date, and a provider can send
+    either or garbage; a bad value must cost one retry, not the whole job
+    (F-B23-21). Negative values count as unusable.
+    """
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError):
+        return default
+    return seconds if seconds >= 0 else default
+
+
+#: What a provider that cannot be read raises: a transport failure, a timeout,
+#: or a body that is not JSON. With ``failure`` given, only these are
+#: "unavailable"; any other exception is our bug and propagates.
+PROVIDER_FAILURES = (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError)
+
+
 async def retry_with_semaphore(
     inner_fn,
     *,
@@ -380,6 +401,7 @@ async def retry_with_semaphore(
     jitter=None,
     reraise=(),
     error_label="operation",
+    failure=None,
 ):
     """Generic async retry loop with optional semaphore gating.
 
@@ -399,7 +421,8 @@ async def retry_with_semaphore(
         attempt number
     jitter : optional callable(attempt: int) -> float, added to retry_after
         (a Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one
-        warning is logged and ``default`` is returned at once)
+        warning is logged and ``default`` is returned at once, or ``failure``
+        raised)
     reraise : tuple of exception types to propagate immediately
     error_label : str, the operation key every failure line names, for
         example ``"spotify.search"``. Never build it from an album, artist,
@@ -407,9 +430,21 @@ async def retry_with_semaphore(
         provider-failure line may say (operation, exception class, retry
         count), so it also writes no exception message, which for an HTTP
         client error can carry the request URL and its query.
+    failure : optional callable(kind) -> Exception or None, ``kind`` being
+        ``"rate_limited"`` or ``"unavailable"``. When given, a throttled or
+        exhausted call raises ``failure(kind)`` instead of returning
+        ``default``, so a caller can tell a provider that refused from a
+        provider that answered "no match". ``rate_limited`` when the last
+        attempt was a 429 or a Retry-After above the cap, else ``unavailable``
+        (a timeout, a connection error, a 5xx, a bad body). A factory that
+        returns None declines that kind and ``default`` is returned. With
+        ``failure`` given, only ``PROVIDER_FAILURES`` are retried and counted
+        as "unavailable"; any other exception propagates at once, so it is
+        classified as ours rather than as a provider outage.
 
     Never sleeps after the final attempt, on either path.
     """
+    kind = "unavailable"
     for attempt in range(retries):
         try:
             result_tuple = await _run_with_optional_semaphore(inner_fn, semaphore)
@@ -419,15 +454,17 @@ async def retry_with_semaphore(
 
             retry_after = get_retry_after(result_tuple)
             if retry_after is not None:
+                kind = "rate_limited"
                 if retry_after > MAX_RETRY_AFTER_SECONDS:
                     logging.warning(
                         f"Retry-After {retry_after}s for {error_label} exceeds "
                         f"the {MAX_RETRY_AFTER_SECONDS}s cap; giving up"
                     )
-                    return default
+                    break
                 if attempt < retries - 1:
                     await _sleep_retry_after(retry_after, jitter, attempt)
                 continue
+            kind = "unavailable"
         except reraise:
             raise
         # Broad on purpose: a retry helper retries whatever its callable
@@ -436,10 +473,18 @@ async def retry_with_semaphore(
         # here cannot pass for a network blip in the log. The message is
         # left out on purpose (see ``error_label`` above).
         except Exception as e:  # noqa: BLE001
+            if failure is not None and not isinstance(e, PROVIDER_FAILURES):
+                logging.error(f"Error in {error_label}: {type(e).__name__}")
+                raise
+            kind = "unavailable"
             logging.error(f"Error in {error_label}: {type(e).__name__}")
 
         if attempt < retries - 1:
             await asyncio.sleep(_resolve_backoff(backoff, attempt))
+    else:
+        logging.error(f"All {retries} retries failed for {error_label}")
 
-    logging.error(f"All {retries} retries failed for {error_label}")
+    error = failure(kind) if failure is not None else None
+    if error is not None:
+        raise error
     return default

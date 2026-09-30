@@ -2,8 +2,10 @@ import logging
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
+from scrobblescope.errors import ProviderError
 from scrobblescope.spotify import (
     album_metadata_from_details,
     fetch_spotify_access_token,
@@ -93,16 +95,17 @@ async def test_fetch_spotify_album_details_batch_retries_429_then_succeeds():
 @pytest.mark.asyncio
 async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
     """
-    GIVEN Spotify album-details batch fetch returns a non-200 non-429 status
+    GIVEN Spotify album-details batch fetch returns a non-200, non-429,
+    non-5xx status (a 400: Spotify answered, refusing)
     WHEN fetch_spotify_album_details_batch runs
     THEN it should return an empty dict without retry sleep.
     """
     session = MagicMock()
 
-    resp_500 = AsyncMock()
-    resp_500.status = 500
-    resp_500.text = AsyncMock(return_value="upstream failure")
-    session.get.return_value = make_response_context(resp_500)
+    resp_400 = AsyncMock()
+    resp_400.status = 400
+    resp_400.text = AsyncMock(return_value="upstream failure")
+    session.get.return_value = make_response_context(resp_400)
 
     with (
         patch(
@@ -116,8 +119,8 @@ async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
 
     assert result == {}
     assert mock_sleep.await_count == 0
-    # A server error is not an endpoint removal: fetching album by album
-    # would multiply the load on a struggling upstream (F-B21-59).
+    # A refusal is not an endpoint removal: fetching album by album would
+    # multiply the load for nothing (F-B21-59).
     assert session.get.call_count == 1
 
 
@@ -377,16 +380,16 @@ async def test_search_returns_none_on_empty_results():
 @pytest.mark.asyncio
 async def test_search_returns_none_on_non_200_non_429():
     """
-    GIVEN Spotify search returns a 500 error (not 429)
+    GIVEN Spotify search returns a 404 (not 429, not a 5xx)
     WHEN search_for_spotify_album_id runs
-    THEN it should return None without retrying (done=True on non-429).
+    THEN it should return None without retrying (done=True on a client error).
     """
     session = MagicMock()
 
-    resp_500 = AsyncMock()
-    resp_500.status = 500
+    resp_404 = AsyncMock()
+    resp_404.status = 404
 
-    session.get.return_value = make_response_context(resp_500)
+    session.get.return_value = make_response_context(resp_404)
 
     with patch(
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
@@ -587,7 +590,7 @@ async def test_search_failure_lines_carry_no_album_or_artist(caplog):
             resp.status = 429
             resp.headers = {"Retry-After": "1"}
             return make_response_context(resp)
-        raise RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+        raise aiohttp.ClientConnectionError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
 
     session.get.side_effect = next_response
 
@@ -598,11 +601,228 @@ async def test_search_failure_lines_carry_no_album_or_artist(caplog):
         patch("asyncio.sleep", new_callable=AsyncMock),
         caplog.at_level(logging.DEBUG),
     ):
-        result = await search_for_spotify_album_id(
-            session, _LEAK_ARTIST, _LEAK_ALBUM, "token"
+        with pytest.raises(ProviderError):
+            await search_for_spotify_album_id(
+                session, _LEAK_ARTIST, _LEAK_ALBUM, "token"
+            )
+
+    assert "Spotify 429 on spotify.search" in caplog.text
+    assert "Error in spotify.search: ClientConnectionError" in caplog.text
+    _assert_no_names_logged(caplog)
+
+
+# --- typed failures: Spotify is required, so an unanswered search is not a miss --
+
+
+def _search_with(session):
+    return search_for_spotify_album_id(session, "Artist", "Album", "token")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["status_500", "timeout"])
+async def test_search_raises_spotify_unavailable_when_spotify_cannot_answer(failure):
+    """
+    GIVEN Spotify search answers 500 (or times out) on every attempt
+    WHEN search_for_spotify_album_id runs
+    THEN every attempt is made and it raises ProviderError spotify_unavailable,
+    retryable, instead of returning None as "no match".
+    """
+    session = MagicMock()
+    if failure == "status_500":
+        resp = AsyncMock()
+        resp.status = 500
+        session.get.return_value = make_response_context(resp)
+    else:
+        session.get.side_effect = TimeoutError()
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await _search_with(session)
+
+    assert excinfo.value.code == "spotify_unavailable"
+    assert session.get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_search_throttled_past_the_cap_raises_rate_limited_not_no_match():
+    """
+    GIVEN Spotify search answers 429 with a Retry-After far above the cap
+    WHEN search_for_spotify_album_id runs
+    THEN it raises ProviderError spotify_rate_limited after one call; before,
+    it returned None and the album was recorded unmatched (Codex 4140219720).
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 429
+    resp.headers = {"Retry-After": "86400"}
+    session.get.return_value = make_response_context(resp)
+
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        with pytest.raises(ProviderError) as excinfo:
+            await _search_with(session)
+
+    assert excinfo.value.code == "spotify_rate_limited"
+    assert session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_search_retries_a_malformed_retry_after():
+    """
+    GIVEN Spotify answers 429 with a non-numeric Retry-After, then a match
+    WHEN search_for_spotify_album_id runs
+    THEN the bad header is retried after the default wait and the id returned.
+    """
+    session = MagicMock()
+    throttled = AsyncMock()
+    throttled.status = 429
+    throttled.headers = {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}
+    found = AsyncMock()
+    found.status = 200
+    found.json = AsyncMock(return_value={"albums": {"items": [{"id": "sp1"}]}})
+    session.get.side_effect = [
+        make_response_context(throttled),
+        make_response_context(found),
+    ]
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        assert await _search_with(session) == "sp1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure",
+    [TimeoutError(), aiohttp.ClientConnectionError("no route")],
+    ids=["timeout", "connection_error"],
+)
+async def test_fetch_spotify_access_token_returns_none_on_transport_failure(failure):
+    """
+    GIVEN the Spotify token endpoint times out or refuses the connection
+    WHEN fetch_spotify_access_token is called
+    THEN it returns None, exactly as for a non-200 answer, so the caller
+    degrades to Deezer; before, the exception escaped and the job failed as
+    "our bug" (internal_error, not retryable).
+    """
+    fake_cache = {"token": None, "expires_at": 0}
+    mock_session = MagicMock()
+    mock_session.post.side_effect = failure
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", fake_cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "test_id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "test_secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+    ):
+        token = await fetch_spotify_access_token()
+
+    assert token is None
+    assert fake_cache["token"] is None
+
+
+def _status_response(status):
+    resp = AsyncMock()
+    resp.status = status
+    resp.text = AsyncMock(return_value="upstream failure")
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_album_details_batch_5xx_reports_every_id_unanswered():
+    """
+    GIVEN the batch details endpoint answers 500 on every attempt
+    WHEN fetch_spotify_album_details_batch runs
+    THEN it retries, returns no details and lists every requested id as
+    unanswered: Spotify did not answer, which is not "no details".
+    """
+    session = MagicMock()
+    session.get.return_value = make_response_context(_status_response(500))
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await fetch_spotify_album_details_batch(
+            session, ["id_1", "id_2"], "token", retries=2
         )
 
-    assert result is None
-    assert "Spotify 429 on spotify.search" in caplog.text
-    assert "Error in spotify.search: RuntimeError" in caplog.text
-    _assert_no_names_logged(caplog)
+    assert result == {}
+    assert result.unanswered == {"id_1", "id_2"}
+    assert session.get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_album_details_batch_terminal_miss_is_not_unanswered():
+    """
+    GIVEN the batch endpoint answers 200 without one of the requested albums
+    WHEN fetch_spotify_album_details_batch runs
+    THEN that id is absent from the details and NOT unanswered: Spotify
+    answered, so it is not recorded as an outage.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value={"albums": [{"id": "id_1"}, None]})
+    session.get.return_value = make_response_context(resp)
+
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_album_details_batch(
+            session, ["id_1", "id_2"], "token", retries=2
+        )
+
+    assert set(result) == {"id_1"}
+    assert result.unanswered == frozenset()
+
+
+@pytest.mark.asyncio
+async def test_single_album_fallback_reports_only_the_failed_album_unanswered():
+    """
+    GIVEN the batch endpoint is gone (404), and of the single-album calls one
+    answers 200 and the other answers 500 every time
+    WHEN fetch_spotify_album_details_batch falls back album by album
+    THEN the good album is returned, the failing one is listed as unanswered,
+    and one failure does not lose its sibling.
+    """
+    session = MagicMock()
+
+    def get(url, **kwargs):
+        if url.endswith("/albums"):
+            return make_response_context(_status_response(404))
+        if url.endswith("good"):
+            return make_response_context(_single_album_response("good"))
+        return make_response_context(_status_response(500))
+
+    session.get.side_effect = get
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await fetch_spotify_album_details_batch(
+            session, ["good", "bad"], "token", retries=2
+        )
+
+    assert set(result) == {"good"}
+    assert result.unanswered == {"bad"}

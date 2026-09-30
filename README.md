@@ -121,8 +121,9 @@ next.
 - Export CSV with the current ordering and full release dates, or save the
   complete leaderboard as a JPEG, including from a mobile viewport.
 - Open the Unmatched report to see every album left out of your results, in
-  up to three groups: not enough listening, a release outside your filter, and
-  no match on Spotify or Deezer. Each album says why it was left out, and each
+  up to four groups: not enough listening, a release outside your filter, no
+  match on Spotify or Deezer, and albums that could not be checked because a
+  provider was not answering. Each album says why it was left out, and each
   group names the change that would include its albums.
 
 ### Scrobble Heatmap

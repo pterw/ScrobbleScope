@@ -5,7 +5,13 @@ import pytest
 
 from scrobblescope import jobs
 from scrobblescope.domain import release_window
-from scrobblescope.errors import classify_exception_to_error_code
+from scrobblescope.errors import (
+    PrivateProfileError,
+    ProviderError,
+    SpotifyUnavailableError,
+    UserNotFoundError,
+    classify_exception_to_error_code,
+)
 from scrobblescope.orchestrator import (
     _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
@@ -543,24 +549,47 @@ def test_apply_post_slice_malformed_limit_no_error(caplog):
 
 
 def test_classify_exception_to_error_code_spotify_rate_limited():
-    """'Too Many Requests' + 'spotify' -> 'spotify_rate_limited'."""
+    """A typed Spotify rate limit -> 'spotify_rate_limited'."""
     assert (
-        classify_exception_to_error_code("spotify Too Many Requests")
+        classify_exception_to_error_code(ProviderError("spotify", "rate_limited"))
         == "spotify_rate_limited"
     )
 
 
 def test_classify_exception_to_error_code_user_not_found():
-    """'user not found' -> 'user_not_found'."""
-    assert (
-        classify_exception_to_error_code("User not found on Last.fm")
-        == "user_not_found"
-    )
+    """The typed Last.fm not-found -> 'user_not_found'."""
+    assert classify_exception_to_error_code(UserNotFoundError()) == "user_not_found"
 
 
-def test_classify_exception_to_error_code_unclassified_returns_none():
-    """'connection timeout' -> None."""
-    assert classify_exception_to_error_code("connection timeout") is None
+@pytest.mark.parametrize(
+    ("exc", "code"),
+    [
+        (PrivateProfileError(), "private_profile"),
+        (ProviderError("spotify", "unavailable"), "spotify_unavailable"),
+        (SpotifyUnavailableError("token"), "spotify_unavailable"),
+    ],
+)
+def test_classify_exception_to_error_code_typed_failures(exc, code):
+    """Each typed failure answers its own code."""
+    assert classify_exception_to_error_code(exc) == code
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError("User 'ghost' not found on Last.fm"),
+        RuntimeError("Too Many Requests from spotify"),
+        RuntimeError("Last.fm profile is private"),
+        TimeoutError("connection timeout"),
+        ProviderError("deezer", "rate_limited"),
+    ],
+)
+def test_classify_exception_to_error_code_ignores_message_text(exc):
+    """Text that reads like a known failure, on an untyped exception, is ours.
+
+    (A provider with no ERROR_CODES entry is not a job failure either.)
+    """
+    assert classify_exception_to_error_code(exc) is None
 
 
 def test_detect_enrichment_total_failure_fires_when_all_unmatched():

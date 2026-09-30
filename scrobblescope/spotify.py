@@ -3,6 +3,8 @@ import base64
 import logging
 import time
 
+import aiohttp
+
 from scrobblescope.config import (
     SPOTIFY_BATCH_RETRIES,
     SPOTIFY_CLIENT_ID,
@@ -12,9 +14,11 @@ from scrobblescope.config import (
 )
 from scrobblescope.domain import normalize_track_name
 from scrobblescope.enrichment import AlbumMetadata
+from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
     create_optimized_session,
     get_spotify_limiter,
+    parse_retry_after,
     retry_with_semaphore,
 )
 
@@ -22,7 +26,8 @@ from scrobblescope.utils import (
 async def fetch_spotify_access_token():
     """Return a valid Spotify access token, refreshing from the API if expired.
 
-    Returns None when no token can be had, and every caller already treats
+    Returns None when no token can be had (a non-200 answer, a timeout or a
+    connection error on the token request), and every caller already treats
     None as "Spotify unavailable": the album pipeline falls back to Deezer
     and the spotlight keeps the artwork on screen. Missing credentials take
     that same path. They used to be `assert`ed, which `python -O` strips and
@@ -43,25 +48,38 @@ async def fetch_spotify_access_token():
     encoded = base64.b64encode(credentials.encode("utf-8")).decode("ascii")
     headers = {"Authorization": f"Basic {encoded}"}
     data = {"grant_type": "client_credentials"}
-    async with create_optimized_session() as s:
-        async with s.post(url, data=data, headers=headers) as r:
-            if r.status == 200:
-                token_data = await r.json()
-                spotify_token_cache.update(
-                    {
-                        "token": token_data["access_token"],
-                        "expires_at": time.time() + token_data["expires_in"],
-                    }
-                )
-                return spotify_token_cache["token"]
+    try:
+        async with create_optimized_session() as s:
+            async with s.post(url, data=data, headers=headers) as r:
+                if r.status == 200:
+                    token_data = await r.json()
+                    spotify_token_cache.update(
+                        {
+                            "token": token_data["access_token"],
+                            "expires_at": time.time() + token_data["expires_in"],
+                        }
+                    )
+                    return spotify_token_cache["token"]
+    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+        # The token endpoint not answering is Spotify being unavailable, the
+        # same as a non-200 answer: the caller degrades to Deezer.
+        logging.error(f"Spotify token request failed: {type(exc).__name__}")
     logging.error("Failed to fetch Spotify token")
     return None
 
 
 async def search_for_spotify_album_id(session, artist, album, token, semaphore=None):
     """
-    Searches Spotify for a single album and returns its Spotify ID.
+    Searches Spotify for a single album and returns its Spotify ID, or None
+    when Spotify answered and had no match.
     Optimized: Uses relaxed query first (faster, higher success rate).
+
+    A search Spotify could not answer is not a miss: a 429 (or a Retry-After
+    above the cap), a 5xx, a timeout or a connection error that outlasts the
+    retries raises ``ProviderError`` (``spotify_rate_limited`` or
+    ``spotify_unavailable``). The search phase catches it per album, so that
+    album falls back to Deezer and, failing that, is listed as unavailable;
+    the job fails only when no search was answered and Deezer enriched nothing.
     """
     headers = {"Authorization": f"Bearer {token}"}
     # Use relaxed query directly - it has better success rate and avoids double-search
@@ -74,11 +92,16 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
                 "https://api.spotify.com/v1/search", params=params, headers=headers
             ) as response:
                 if response.status == 429:
-                    retry_after = int(response.headers.get("Retry-After", "1"))
+                    retry_after = parse_retry_after(response.headers.get("Retry-After"))
                     logging.warning(
                         f"Spotify 429 on spotify.search. Retry in {retry_after}s"
                     )
                     return None, retry_after, False
+
+                if response.status >= 500:
+                    # An outage, not an answer: retried, and raised as
+                    # spotify_unavailable once the retries are spent.
+                    return None, None, False
 
                 if response.status != 200:
                     return None, None, True
@@ -101,6 +124,7 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
         backoff=1,
         jitter=lambda a: (abs(hash((artist, album, a))) % 200) / 1000.0,
         error_label="spotify.search",
+        failure=provider_failure("spotify"),
     )
 
 
@@ -112,13 +136,29 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
 BATCH_ENDPOINT_GONE_STATUSES = frozenset({403, 404, 410})
 
 
+class AlbumDetails(dict):
+    """Album details keyed by Spotify ID, plus the IDs Spotify could not answer.
+
+    A plain ``dict`` to every reader. ``unanswered`` holds the IDs whose
+    detail call was refused or failed (a 5xx, a timeout, a 429 that outlasted
+    the retries), as distinct from an ID Spotify answered but returned nothing
+    for. The detail phase files those albums as unavailable, not as unmatched.
+    """
+
+    def __init__(self, details=(), unanswered=()):
+        super().__init__(details)
+        self.unanswered = frozenset(unanswered)
+
+
 async def fetch_spotify_album_details_single(
     session, album_id, token, retries=SPOTIFY_BATCH_RETRIES
 ):
     """Fetch one album from GET /v1/albums/{id}; return None if unavailable.
 
     Returns the same album object the batch endpoint returns inside its
-    `albums` list, so callers need no second extraction path.
+    `albums` list, so callers need no second extraction path. None means
+    Spotify answered without the album. A call Spotify could not answer (a
+    5xx, a timeout, a 429 that outlasts the retries) raises ``ProviderError``.
     """
     url = f"https://api.spotify.com/v1/albums/{album_id}"
     headers = {"Authorization": f"Bearer {token}"}
@@ -130,8 +170,10 @@ async def fetch_spotify_album_details_single(
                 if response.status == 200:
                     return await response.json(), None, True
                 if response.status == 429:
-                    retry_after = int(response.headers.get("Retry-After", "1"))
+                    retry_after = parse_retry_after(response.headers.get("Retry-After"))
                     return None, retry_after, False
+                if response.status >= 500:
+                    return None, None, False
                 return None, None, True
 
     return await retry_with_semaphore(
@@ -144,18 +186,31 @@ async def fetch_spotify_album_details_single(
         backoff=lambda a: 2**a,
         jitter=lambda a: (abs(hash((album_id, a))) % 200) / 1000.0,
         error_label="spotify.album_details",
+        failure=provider_failure("spotify"),
     )
 
 
 async def _fetch_album_details_one_by_one(session, album_ids, token, retries):
-    """Fetch albums individually and key them by ID, dropping unavailable ones."""
-    albums = await asyncio.gather(
-        *(
-            fetch_spotify_album_details_single(session, album_id, token, retries)
-            for album_id in album_ids
-        )
+    """Fetch albums individually and key them by ID, dropping unavailable ones.
+
+    An album Spotify could not answer for is dropped and listed in the
+    result's ``unanswered``; one such album does not lose its siblings.
+    """
+    unanswered = set()
+
+    async def fetch_one(album_id):
+        try:
+            return await fetch_spotify_album_details_single(
+                session, album_id, token, retries
+            )
+        except ProviderError:
+            unanswered.add(album_id)
+            return None
+
+    albums = await asyncio.gather(*(fetch_one(album_id) for album_id in album_ids))
+    return AlbumDetails(
+        {album["id"]: album for album in albums if album}, unanswered=unanswered
     )
-    return {album["id"]: album for album in albums if album}
 
 
 async def fetch_spotify_album_details_batch(
@@ -173,6 +228,10 @@ async def fetch_spotify_album_details_batch(
     When the batch endpoint answers with a status in
     BATCH_ENDPOINT_GONE_STATUSES, falls back to one GET /v1/albums/{id} call
     per album and calls ``on_fallback(status)`` so the caller can report it.
+
+    Returns an ``AlbumDetails`` (a dict). A batch Spotify could not answer (a
+    5xx, a timeout, a 429 that outlasts the retries) comes back empty with
+    every requested ID in ``unanswered``: unavailable, not "no details".
     """
     if not album_ids:
         return {}
@@ -202,7 +261,7 @@ async def fetch_spotify_album_details_batch(
                         True,
                     )
                 if response.status == 429:
-                    retry_after = int(response.headers.get("Retry-After", "1"))
+                    retry_after = parse_retry_after(response.headers.get("Retry-After"))
                     logging.warning(
                         f"⚠️ Batch fetch 429 hit. Retrying after {retry_after}s."
                     )
@@ -210,25 +269,31 @@ async def fetch_spotify_album_details_batch(
                 if response.status in BATCH_ENDPOINT_GONE_STATUSES:
                     gone_status = response.status
                     return {}, None, True
+                if response.status >= 500:
+                    return {}, None, False
                 logging.error(
                     f"Failed to fetch batch album details. Status: {response.status}, Body: {await response.text()}"
                 )
                 return {}, None, True
 
-    details = await retry_with_semaphore(
-        fetch_once,
-        retries=retries,
-        semaphore=semaphore,
-        is_done=lambda t: t[2],
-        get_retry_after=lambda t: t[1],
-        extract_result=lambda t: t[0],
-        default={},
-        backoff=lambda a: 2**a,
-        jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
-        error_label="spotify.batch_details",
-    )
+    try:
+        details = await retry_with_semaphore(
+            fetch_once,
+            retries=retries,
+            semaphore=semaphore,
+            is_done=lambda t: t[2],
+            get_retry_after=lambda t: t[1],
+            extract_result=lambda t: t[0],
+            default={},
+            backoff=lambda a: 2**a,
+            jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
+            error_label="spotify.batch_details",
+            failure=provider_failure("spotify"),
+        )
+    except ProviderError:
+        return AlbumDetails(unanswered=album_ids)
     if gone_status is None:
-        return details
+        return AlbumDetails(details)
     if on_fallback is not None:
         on_fallback(gone_status)
     return await _fetch_album_details_one_by_one(session, album_ids, token, retries)

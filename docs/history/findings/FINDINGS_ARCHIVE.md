@@ -9,6 +9,43 @@ Newest rotation first.
 
 ---
 
+### F-B23-22: the album pipeline answers an unclassified exception with `unknown`, retryable, and the heatmap with `internal_error`, though the docstrings claim parity -- RESOLVED
+
+`scrobblescope/orchestrator/__init__.py` `_fetch_and_process` ends its except branch with `error_code="unknown"` (not a member of `ERROR_CODES`), retryable, carrying the raw exception text; `heatmap.py` `heatmap_task` publishes `internal_error`. The docstrings of `errors.classify_exception_to_error_code`, `heatmap.heatmap_task` and `_report_album_failure`, and the archived closure of F-SWE-5, all say the two pipelines answer alike. The album behaviour predates PR #245; the docstrings were written by it. Owner decision: make the album fallback `internal_error` (which flips `retryable` to false and stops showing raw text to the user), or keep the split and reword the docstrings to say so. Either way a test is missing: the mutant `error_code = None` in that branch survives the full suite, so a test must assert the published code and the retryable flag for an unclassified exception in the album pipeline.
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  Both pipelines classify by type and publish `internal_error` (not retryable, no exception text) for an exception nothing classifies; `unknown` and `jobs.fail_unclassified` are deleted, and the `error_code = None` mutant now fails a test.
+  Source: third review of PR #245 (2026-09-29), S1-5.
+
+### F-B23-21: `reraise=(ValueError,)` in the Last.fm page fetch ends the job on any ValueError, skipping every retry -- RESOLVED
+
+`scrobblescope/services/lastfm.py` `fetch_recent_tracks_page_async` passes `reraise=(ValueError,)` to `retry_with_semaphore` so that the 404 "user not found" it raises as a `ValueError` is not retried. That tuple matches every `ValueError` subclass, so a non-integer or HTTP-date `Retry-After` (the header parse raises `ValueError`) and a non-UTF-8 error body (`UnicodeDecodeError`) also skip all three attempts and end the whole job: `internal_error` in the heatmap, the raw exception text in the album pipeline. The mechanism was reproduced in the review; no live trigger has been seen. The fix is the typed not-found exception that F-B23-16 already proposes, with `reraise` narrowed to it, plus a defensive `Retry-After` parse and `text(errors="replace")` on the error body. This is the same typed exception as F-B23-16, so land them together.
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  The Last.fm 404 is the typed `UserNotFoundError` and `reraise` is narrowed to it and `PrivateProfileError`; `Retry-After` is parsed defensively (a bad value is retried) and both error-body reads use `text(errors="replace")`.
+  Source: third review of PR #245 (2026-09-29), S1-4.
+
+### F-B23-16: the error classifier matches bare substrings -- RESOLVED
+
+`scrobblescope/errors.py` `classify_exception_to_error_code` answers `user_not_found` for any
+exception message that contains both "not found" and "user", in any case, and
+`spotify_rate_limited` or `lastfm_rate_limited` for any message holding "Too Many
+Requests". Both pipelines call it on every unhandled exception before falling back to
+`internal_error`: the album pipeline (`orchestrator/__init__.py`, `_fetch_and_process`)
+and, since this branch, the heatmap pipeline (`heatmap.py`, `_report_heatmap_failure`). No
+current raise site produces a colliding message, so nothing is misreported today; an
+unrelated exception whose text happens to hold both words would be blamed on the user. The
+fix is a typed exception for the Last.fm 404 (and the rate limits), classified by type, which
+is larger than a fix-wave change. The same typed exception is the fix for F-B23-21
+(`reraise=(ValueError,)` in the Last.fm page fetch), so the two land together.
+
+- [x] **Status:** resolved
+  **Completed:** 2026-09-30
+  Errors are classified by exception type (`UserNotFoundError`, `PrivateProfileError`, `ProviderError`, `SpotifyUnavailableError`); the message-substring branches are deleted and a test holds an unrelated exception whose text reads "user not found" to `internal_error`.
+  Source: second /code-review of PR #245, Section A, finding A3, 2026-09-29.
+
 ### F-DOCSYNC-19: `--check` has no diagnostic for an interrupted publication -- RESOLVED
 
 Transactional publication recovers a crash mid-publish by replaying its

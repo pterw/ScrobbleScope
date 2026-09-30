@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2277 tests across 82 tracked test modules.
+2341 tests across 82 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -666,23 +666,6 @@ title. Pre-existing, not Spotify-specific.
 
 Status: open (P2). Source: Task 1 code report, 2026-09-28.
 
-### F-B23-16: the error classifier matches bare substrings
-
-`scrobblescope/errors.py` `classify_exception_to_error_code` answers `user_not_found` for any
-exception message that contains both "not found" and "user", in any case, and
-`spotify_rate_limited` or `lastfm_rate_limited` for any message holding "Too Many
-Requests". Both pipelines call it on every unhandled exception before falling back to
-`internal_error`: the album pipeline (`orchestrator/__init__.py`, `_fetch_and_process`)
-and, since this branch, the heatmap pipeline (`heatmap.py`, `_report_heatmap_failure`). No
-current raise site produces a colliding message, so nothing is misreported today; an
-unrelated exception whose text happens to hold both words would be blamed on the user. The
-fix is a typed exception for the Last.fm 404 (and the rate limits), classified by type, which
-is larger than a fix-wave change. The same typed exception is the fix for F-B23-21
-(`reraise=(ValueError,)` in the Last.fm page fetch), so the two land together.
-
-- [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section A, finding A3,
-  2026-09-29.
-
 ### F-B23-17: a Section 4 Validation line with no number passes --check
 
 Two landings on 2026-09-29 committed the entry template's placeholder,
@@ -725,18 +708,6 @@ to this finding.
 
 - [ ] **Status:** open (P2). Source: second /code-review of PR #245, Section F, finding F8,
   2026-09-29.
-
-### F-B23-21: `reraise=(ValueError,)` in the Last.fm page fetch ends the job on any ValueError, skipping every retry
-
-`scrobblescope/services/lastfm.py` `fetch_recent_tracks_page_async` passes `reraise=(ValueError,)` to `retry_with_semaphore` so that the 404 "user not found" it raises as a `ValueError` is not retried. That tuple matches every `ValueError` subclass, so a non-integer or HTTP-date `Retry-After` (the header parse raises `ValueError`) and a non-UTF-8 error body (`UnicodeDecodeError`) also skip all three attempts and end the whole job: `internal_error` in the heatmap, the raw exception text in the album pipeline. The mechanism was reproduced in the review; no live trigger has been seen. The fix is the typed not-found exception that F-B23-16 already proposes, with `reraise` narrowed to it, plus a defensive `Retry-After` parse and `text(errors="replace")` on the error body. This is the same typed exception as F-B23-16, so land them together.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S1-4.
-
-### F-B23-22: the album pipeline answers an unclassified exception with `unknown`, retryable, and the heatmap with `internal_error`, though the docstrings claim parity
-
-`scrobblescope/orchestrator/__init__.py` `_fetch_and_process` ends its except branch with `error_code="unknown"` (not a member of `ERROR_CODES`), retryable, carrying the raw exception text; `heatmap.py` `heatmap_task` publishes `internal_error`. The docstrings of `errors.classify_exception_to_error_code`, `heatmap.heatmap_task` and `_report_album_failure`, and the archived closure of F-SWE-5, all say the two pipelines answer alike. The album behaviour predates PR #245; the docstrings were written by it. Owner decision: make the album fallback `internal_error` (which flips `retryable` to false and stops showing raw text to the user), or keep the split and reword the docstrings to say so. Either way a test is missing: the mutant `error_code = None` in that branch survives the full suite, so a test must assert the published code and the retryable flag for an unclassified exception in the album pipeline.
-
-- [ ] **Status:** open (P2, owner decision). Source: third review of PR #245 (2026-09-29), S1-5.
 
 ### F-B23-25: the mobile heatmap strip is sized from a hidden container on first render and not re-laid-out on a rotation inside the mobile range
 
@@ -831,6 +802,12 @@ Small gaps the third review of PR #245 (S4) found in the gate's checks, left ope
 - Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S4-3, S4-4, S4-7, S4-8, S4-9 and S4-11.
+
+### F-B23-37: Deezer may answer a busy service with an HTTP 200 error body that `_deezer_request` reads as a terminal miss
+
+`scrobblescope/deezer.py` `_deezer_request` retries only error code 4 (quota) from a 200 body carrying `{"error": {"code": N}}`; every other code is a terminal miss, so the album is recorded as having no match on Deezer. The Task 18 review recalled that Deezer signals "service busy" with code 700 in such a body, which would be an outage read as "no match". UNVERIFIED: the code and its meaning come from memory and were not read at Deezer's documentation. Verify against Deezer's documented error codes before any fix; if 700 (or another code) means "try later", treat it as not-done so the retry helper raises `deezer_unavailable`, and add a test.
+
+- [ ] **Status:** open (P3). Source: Task 18 review (2026-09-30), Minor 2.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

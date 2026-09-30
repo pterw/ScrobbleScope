@@ -1052,7 +1052,8 @@ THRESHOLD_REASON = (
 
 
 def _seed_every_unmatched_reason(job_id):
-    """One row per note rule: shortfall, legacy threshold, release, no match."""
+    """One row per note rule: shortfall, legacy threshold, release, no match,
+    and an album a provider could not check."""
     jobs.record_unmatched(
         job_id,
         "threshold|shortfall",
@@ -1101,15 +1102,26 @@ def _seed_every_unmatched_reason(job_id):
             "reason_code": "no_spotify_match",
         },
     )
+    jobs.record_unmatched(
+        job_id,
+        "unavailable|album",
+        {
+            "artist": "Unavailable Artist",
+            "album": "Unavailable Album",
+            "reason": "Spotify was unavailable and Deezer had no match",
+            "reason_code": "provider_unavailable",
+        },
+    )
 
 
 def test_unmatched_view_row_note_says_what_is_particular_to_the_row(client):
     """
     GIVEN a threshold row with a shortfall, a legacy threshold row without one,
-          a release row and a no-match row
+          a release row, a no-match row and a could-not-be-checked row
     WHEN POST /unmatched_view is submitted
-    THEN the note is the shortfall, the reason, the reason, and absent, and
-         the shortfall note keeps the full sentence on its `title`.
+    THEN the note is the shortfall, the reason, the reason, absent, and the
+         reason (it says which provider was down), and the shortfall note
+         keeps the full sentence on its `title`.
 
     The fourth "Reason detail" column is gone: its sentence repeated the
     panel's heading on every row (docs/design/RECONCILIATION.md section 18).
@@ -1133,8 +1145,35 @@ def test_unmatched_view_row_note_says_what_is_particular_to_the_row(client):
         == "Released in 2018 (filter requires 2024)"
     )
     assert _unmatched_row_note(_unmatched_row(html, "Nomatch Album")) is None
+    assert (
+        _unmatched_row_note(_unmatched_row(html, "Unavailable Album"))
+        == "Spotify was unavailable and Deezer had no match"
+    )
     assert "Reason detail" not in html
     assert "unmatched-reason-detail" not in html
+
+
+def test_unmatched_view_shows_the_could_not_be_checked_panel(client):
+    """
+    GIVEN one album in each of the four reasons, one of them a provider that
+          could not answer
+    WHEN POST /unmatched_view is submitted
+    THEN four panels render, the fourth titled "Could not be checked" with its
+         hint, and the album sits in it rather than in the no-match panel.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _seed_every_unmatched_reason(job_id)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    assert 'data-panels="4"' in html
+    panel = _unmatched_panel(html, "provider_unavailable")
+    assert "Could not be checked" in panel
+    assert "Search again in a few minutes" in panel
+    assert "Unavailable Album" in panel
+    assert "Unavailable Album" not in _unmatched_panel(html, "no_spotify_match")
 
 
 def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
@@ -1155,7 +1194,7 @@ def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
     assert header.findall(_unmatched_panel(html, "below_threshold")) == [
         "Plays / tracks"
     ]
-    for reason_key in ("release_scope", "no_spotify_match"):
+    for reason_key in ("release_scope", "no_spotify_match", "provider_unavailable"):
         assert header.findall(_unmatched_panel(html, reason_key)) == ["Plays"]
     assert html.count("Plays / tracks") == 1
 
@@ -1220,9 +1259,10 @@ def test_unmatched_view_portrait_image_is_not_lazy(client):
     html = response.data.decode("utf-8")
 
     assert response.status_code == 200
-    # The release and no-match rows have no album artwork, so both get a slot.
+    # The release, no-match and unavailable rows have no album artwork, so each
+    # gets a slot.
     portraits = re.findall(r"<img[^>]*unmatched-artist-image[^>]*>", html)
-    assert len(portraits) == 2
+    assert len(portraits) == 3
     assert [tag for tag in portraits if "loading" in tag] == []
 
 
