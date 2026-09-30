@@ -2699,3 +2699,56 @@ def test_results_loading_existing_public_user_starts_a_job(client):
 
     assert response.status_code == 303
     mock_start.assert_called_once()
+
+
+def test_unmatched_coverless_deezer_row_shows_a_placeholder_not_a_spotify_portrait(
+    client,
+):
+    """
+    GIVEN an unmatched Deezer row with no cover art beside a coverless row that
+          has no provider
+    WHEN POST /unmatched_view is submitted
+    THEN only the provider-less row gets the Spotify artist-portrait slot; the
+         Deezer row shows the plain initials placeholder, so no Spotify
+         imagery is fetched for a row the banner says is not Spotify content
+         (S2-5).
+    """
+    deezer = _unmatched_release_scope_item("deezer", 1)
+    deezer["album_image"] = ""
+    plain = _unmatched_release_scope_item("deezer", 2)
+    plain.update(provider="", album_image="", album_url="", album="Plain Album")
+    html = _unmatched_html_for(client, [deezer, plain])
+    assert html.count("data-artist-image") == 1
+    assert 'data-artist-name="Deezer Artist 1"' not in html
+    assert 'data-artist-name="Deezer Artist 2"' in html
+    assert "unmatched-artist-image" in html  # the provider-less row's slot
+    assert re.search(r'unmatched-artwork[^>]*aria-hidden="true">\s*DE\s*<', html)
+
+
+def test_unmatched_only_coverless_deezer_rows_show_no_spotify_attribution(client):
+    """
+    GIVEN an unmatched page whose only row is a coverless Deezer row
+    WHEN POST /unmatched_view is submitted
+    THEN the page carries no Spotify attribution, since it shows no Spotify
+         content (S2-5).
+    """
+    deezer = _unmatched_release_scope_item("deezer", 1)
+    deezer["album_image"] = ""
+    html = _unmatched_html_for(client, [deezer])
+    assert 'id="unmatched-spotify-attribution"' not in html
+    assert "data-artist-image" not in html
+
+
+def test_spotify_icon_reserves_its_box_before_the_svg_arrives(client):
+    """
+    GIVEN a results page with a Spotify row
+    WHEN it renders
+    THEN both icon files carry width and height attributes from the file's own
+         viewBox, so the attribution line does not shift when the SVG loads
+         (S2-26).
+    """
+    html = _render_results(client, [_provider_row("spotify")])
+    icons = re.findall(r"<img[^>]*spotify-icon[^>]*>", html)
+    assert len(icons) >= 2
+    for tag in icons:
+        assert 'width="236"' in tag and 'height="225"' in tag, tag

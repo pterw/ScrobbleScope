@@ -152,6 +152,8 @@ from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
     _reach_state,
 )
 from scripts.dev._frontend_gate_spotify_icon import (  # noqa: E402, F401
+    check_export_icon_keeps_its_size,
+    check_spotify_icon_follows_system_under_forced_colors,
     check_spotlight_spotify_icon_size_and_link_target,
 )
 from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
@@ -256,6 +258,12 @@ CHECKS = (
         STATIC_ASSETS,
     ),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    (
+        "export keeps spotify icon size",
+        check_export_icon_keeps_its_size,
+        (DESKTOP,),
+        STATIC_ASSETS,
+    ),
     (
         "heatmap zero cells follow theme",
         check_heatmap_zero_cells_follow_theme,
@@ -433,6 +441,12 @@ CHECKS = (
         "spotlight spotify icon size and link target",
         check_spotlight_spotify_icon_size_and_link_target,
         (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "spotify icon follows system under forced colors",
+        check_spotify_icon_follows_system_under_forced_colors,
+        (DESKTOP,),
         LAYOUT_PIPELINE,
     ),
     (

@@ -401,6 +401,35 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.page.clock.run_for(450)
         self.assertIn("is-visible", tip.get_attribute("class"))
 
+    def test_tooltip_names_the_provider_each_link_opens(self):
+        """A Deezer row's hint says Deezer, a Spotify row's says Spotify, and
+        a row with no provider is a Spotify row; each link describes itself by
+        the hint that names its own provider."""
+        self.start(
+            "results.js",
+            '<table><tr data-provider="spotify"><td><a class="album-link" href="#a">A</a></td></tr>'
+            '<tr data-provider="deezer"><td><a class="album-link" href="#b">B</a></td></tr>'
+            '<tr><td><a class="album-link" href="#c">C</a></td></tr></table>',
+            {},
+        )
+        described = self.page.locator(".album-link").evaluate_all(
+            "links => links.map(link => document.getElementById("
+            "link.getAttribute('aria-describedby')).textContent)"
+        )
+        self.assertEqual(
+            described,
+            [
+                "Open this album on Spotify (new tab)",
+                "Open this album on Deezer (new tab)",
+                "Open this album on Spotify (new tab)",
+            ],
+        )
+        self.page.keyboard.press("Tab")
+        self.page.keyboard.press("Tab")
+        visible = self.page.locator(".album-link-tooltip.is-visible")
+        self.assertEqual(visible.count(), 1)
+        self.assertEqual(visible.text_content(), "Open this album on Deezer (new tab)")
+
     def test_tooltip_keyboard_escape_and_scroll(self):
         """Keyboard access is immediate, shared and dismissible without a mouse."""
         tip = self.tooltip()

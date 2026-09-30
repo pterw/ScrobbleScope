@@ -505,10 +505,11 @@
 /* The official Spotify icon (F-B21-60; markup in
    templates/partials/_spotify_icon.html). Spotify's minimum is 21px, so it is
    a fixed 24px tall -- never scaled by --results-scale, which could shrink it
-   -- and its width follows the file's own aspect ratio. Both monochrome files
-   are in the page; the theme shows one, never a recoloured copy: black on the
-   light theme's off-white surface, white on the dark theme's near-black one
-   (green is for pure black or white only). */
+   -- and its width follows the file's own aspect ratio (the img's width and
+   height attributes reserve that ratio before the file arrives). Both
+   monochrome files are in the page; the theme shows one, never a recoloured
+   copy: black on the light theme's off-white surface, white on the dark
+   theme's near-black one (green is for pure black or white only). */
 .spotify-icon {
     display: block;
     flex-shrink: 0;
@@ -523,6 +524,31 @@
 
 [data-theme="dark"] .spotify-icon--on-dark {
     display: block;
+}
+
+/* Forced colours replace the page's own palette with the system's, so the
+   saved theme can disagree with what is behind the icon: a dark saved theme on
+   a light system palette shows the white file on white and it disappears.
+   Choose the file from the system's scheme there, not from data-theme. The
+   `:root` and doubled class lift these above the data-theme rules. */
+@media (forced-colors: active) and (prefers-color-scheme: light) {
+    :root .spotify-icon.spotify-icon--on-light {
+        display: block;
+    }
+
+    :root .spotify-icon.spotify-icon--on-dark {
+        display: none;
+    }
+}
+
+@media (forced-colors: active) and (prefers-color-scheme: dark) {
+    :root .spotify-icon.spotify-icon--on-light {
+        display: none;
+    }
+
+    :root .spotify-icon.spotify-icon--on-dark {
+        display: block;
+    }
 }
 
 /* Spotify's clear space is half the icon's height (12px) on every side. The

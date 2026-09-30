@@ -68,7 +68,7 @@
     {% set attribution = namespace(spotify=false, other=false) %}
     {% for reason_key, albums in reasons.items() %}
         {% for item in albums %}
-            {% if item.provider == 'spotify' or (reason_key != 'below_threshold' and not item.album_image) %}
+            {% if item.provider == 'spotify' or (reason_key != 'below_threshold' and not item.album_image and not item.provider) %}
                 {% set attribution.spotify = true %}
             {% endif %}
             {% if item.provider and item.provider != 'spotify' %}
@@ -168,6 +168,15 @@
                                              loading="lazy"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                         <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
+                                            {{ item.album[:2]|upper }}
+                                        </div>
+                                        {% elif item.provider and item.provider != 'spotify' %}
+                                        {# A coverless row from another provider gets the plain
+                                           placeholder, never a Spotify artist portrait: the page's
+                                           banner says such rows are not Spotify content, and the
+                                           portrait is fetched from Spotify (S2-5). Only rows with no
+                                           provider, or a Spotify one, reach the slot below. #}
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% else %}

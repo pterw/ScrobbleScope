@@ -5,9 +5,14 @@
    black or white background, otherwise black on light and white on dark. The
    app's surfaces are neither pure white (light theme) nor pure black (dark
    theme), so the theme swaps between the two monochrome files; CSS in
-   results.css shows the one that matches data-theme. The alt text is empty
+   results.css shows the one that matches data-theme (under forced colours,
+   the one that matches the system palette, because the saved theme may
+   disagree with it and the wrong file would vanish). The width and height
+   attributes are the file's own viewBox in whole pixels: they only reserve
+   the box's aspect ratio (CSS sets the 24px height), so the attribution line
+   does not shift when the SVG arrives. The alt text is empty
    because every caller names Spotify in words next to it (a link's
    aria-label, or visible text). Sizing (24px tall, over the 21px minimum)
    and clear space live on `.spotify-icon` and its wrappers. #}
-<img class="spotify-icon spotify-icon--on-light" src="{{ url_for('static', filename='images/brand/spotify/Primary_Logo_Black_RGB.svg') }}" alt="" height="24" decoding="async">
-<img class="spotify-icon spotify-icon--on-dark" src="{{ url_for('static', filename='images/brand/spotify/Primary_Logo_White_RGB.svg') }}" alt="" height="24" decoding="async">
+<img class="spotify-icon spotify-icon--on-light" src="{{ url_for('static', filename='images/brand/spotify/Primary_Logo_Black_RGB.svg') }}" alt="" width="236" height="225" decoding="async">
+<img class="spotify-icon spotify-icon--on-dark" src="{{ url_for('static', filename='images/brand/spotify/Primary_Logo_White_RGB.svg') }}" alt="" width="236" height="225" decoding="async">

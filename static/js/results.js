@@ -139,20 +139,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
             const exportSurface = `rgb(${red}, ${green}, ${blue})`;
             // html2canvas 1.4 drops an SVG <img> once onclone widens the
-            // wrapper, so the image would carry Spotify artwork without the
-            // Spotify icon (F-B21-60). Hand the clone a raster of the same
-            // official file, drawn by the browser at export scale, unchanged.
+            // wrapper, and Firefox draws a raster <img> handed to the clone at
+            // half its size (12.7px, under Spotify's 21px minimum; F-B21-60).
+            // So the clone gets a <canvas> holding a raster of the same
+            // official file, drawn by the browser at export scale, unchanged:
+            // html2canvas paints a canvas at its own box size in both engines.
+            // An icon that fails to load stops the export: an image with
+            // Spotify artwork and no attribution must not look like success.
             const iconRasters = new Map();
-            targetElement.querySelectorAll('img.spotify-icon').forEach(icon => {
-                if (!icon.complete || !icon.offsetWidth) return;
+            const shownIcons = [...targetElement.querySelectorAll('img.spotify-icon')]
+                .filter(icon => icon.offsetWidth > 0);
+            const iconsReady = Promise.all(shownIcons.map(icon => icon.decode().then(() => {
+                const box = icon.getBoundingClientRect();
                 const raster = document.createElement('canvas');
-                raster.width = Math.ceil(icon.offsetWidth * 3);
-                raster.height = Math.ceil(icon.offsetHeight * 3);
+                raster.width = Math.ceil(box.width * 3);
+                raster.height = Math.ceil(box.height * 3);
                 raster.getContext('2d').drawImage(icon, 0, 0, raster.width, raster.height);
-                iconRasters.set(icon.getAttribute('src'), raster.toDataURL('image/png'));
+                iconRasters.set(icon.getAttribute('src'), { raster, box });
+            }))).then(() => true, err => {
+                console.error('Spotify icon did not load for the export:', err);
+                showToast('Could not save image: the Spotify icon did not load.', 'error');
+                return false;
             });
 
-            window.html2canvas(targetElement, {
+            iconsReady.then(ready => ready && window.html2canvas(targetElement, {
                 scale: 3,
                 useCORS: true,
                 backgroundColor: bgColor,
@@ -192,8 +202,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     clonedWrapper?.querySelectorAll('img.spotify-icon').forEach(icon => {
-                        const raster = iconRasters.get(icon.getAttribute('src'));
-                        if (raster) icon.src = raster;
+                        const painted = iconRasters.get(icon.getAttribute('src'));
+                        if (!painted) return;
+                        const canvas = clonedDoc.createElement('canvas');
+                        canvas.width = painted.raster.width;
+                        canvas.height = painted.raster.height;
+                        canvas.getContext('2d').drawImage(painted.raster, 0, 0);
+                        canvas.className = icon.className;
+                        canvas.style.width = `${painted.box.width}px`;
+                        canvas.style.height = `${painted.box.height}px`;
+                        icon.replaceWith(canvas);
                     });
                 },
             }).then(canvas => {
@@ -209,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).catch(err => {
                 console.error('Error creating image:', err);
                 showToast('Failed to create image.', 'error');
-            });
+            }));
         });
     }
 
@@ -296,23 +314,42 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMetricButtons(resultsTable.dataset.metric);
     }
 
-    // One tooltip outside the clipped table serves every Spotify album link.
+    // Hints sit outside the clipped table, one per provider so that every
+    // link's aria-describedby names the provider that link opens: a Deezer
+    // row never says Spotify. A row with no provider is a Spotify row.
     const albumLinks = document.querySelectorAll('.album-link');
     if (albumLinks.length) {
-        const tooltip = textNode('div', 'album-link-tooltip', 'Open this album on Spotify (new tab)');
-        tooltip.id = 'album-link-tooltip';
-        tooltip.setAttribute('role', 'tooltip');
-        document.body.appendChild(tooltip);
+        const tooltips = new Map();
         let tooltipTimer;
+
+        /** The provider a link opens, as its row records it. */
+        function providerOf(link) {
+            return link.closest('tr')?.dataset.provider || 'spotify';
+        }
+
+        /** The hint for this link's provider, created on first use. */
+        function tooltipFor(link) {
+            const provider = providerOf(link);
+            if (!tooltips.has(provider)) {
+                const name = provider.charAt(0).toUpperCase() + provider.slice(1);
+                const tooltip = textNode('div', 'album-link-tooltip', `Open this album on ${name} (new tab)`);
+                tooltip.id = provider === 'spotify' ? 'album-link-tooltip' : `album-link-tooltip-${provider}`;
+                tooltip.setAttribute('role', 'tooltip');
+                document.body.appendChild(tooltip);
+                tooltips.set(provider, tooltip);
+            }
+            return tooltips.get(provider);
+        }
 
         /** Dismiss both a pending hover and the currently displayed hint. */
         function hideAlbumTooltip() {
             window.clearTimeout(tooltipTimer);
-            tooltip.classList.remove('is-visible');
+            tooltips.forEach(tooltip => tooltip.classList.remove('is-visible'));
         }
 
-        /** Position the shared hint below its link, keeping it on screen. */
+        /** Position the link's hint below it, keeping it on screen. */
         function showAlbumTooltip(link) {
+            const tooltip = tooltipFor(link);
             const box = link.getBoundingClientRect();
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
             tooltip.style.left = `${Math.max(rem, Math.min(box.left, innerWidth - tooltip.offsetWidth - rem))}px`;
@@ -321,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         albumLinks.forEach(link => {
-            link.setAttribute('aria-describedby', tooltip.id);
+            link.setAttribute('aria-describedby', tooltipFor(link).id);
             link.addEventListener('mouseenter', () => {
                 hideAlbumTooltip();
                 tooltipTimer = window.setTimeout(() => showAlbumTooltip(link), 450);
@@ -334,8 +371,10 @@ document.addEventListener('DOMContentLoaded', () => {
             link.addEventListener('blur', hideAlbumTooltip);
             link.addEventListener('click', hideAlbumTooltip);
         });
-        tooltip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
-        tooltip.addEventListener('mouseleave', hideAlbumTooltip);
+        tooltips.forEach(tooltip => {
+            tooltip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
+            tooltip.addEventListener('mouseleave', hideAlbumTooltip);
+        });
         window.addEventListener('scroll', hideAlbumTooltip, { passive: true });
         window.addEventListener('resize', hideAlbumTooltip);
         document.addEventListener('keydown', event => {
