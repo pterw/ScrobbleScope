@@ -2272,3 +2272,27 @@ class TestPublicationSafety:
         name = cli_mod._repository_relative(outside)
 
         assert name.endswith("BATCH10_LOG.md")
+
+    def test_snapshot_raises_sync_error_for_an_unreadable_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The staleness baseline turns an unreadable file into a SyncError.
+
+        `_read_text` does the same for a managed document; a bare `OSError` from
+        the baseline loop would surface as a traceback, not exit 2.
+        """
+        import builtins
+
+        target = tmp_path / "PLAYBOOK.md"
+        target.write_text("x\n", encoding="utf-8")
+        real_open = builtins.open
+
+        def refuse(file, *args, **kwargs):
+            if Path(file) == target:
+                raise PermissionError(13, "Permission denied")
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "open", refuse)
+
+        with pytest.raises(SyncError, match="PLAYBOOK.md could not be read"):
+            cli_mod._snapshot(target)

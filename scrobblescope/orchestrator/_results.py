@@ -26,6 +26,10 @@ def _get_user_friendly_reason(
 
     Pure function: data-in, string-out.  Extracted from process_albums so it
     can be unit-tested in isolation without mocking the async I/O pipeline.
+
+    This is wording only. Which years each scope accepts is the table in
+    ``domain.release_window``; the branches here mirror its rows so the reader
+    is told the year the filter wanted, and must change with it.
     """
     if release_scope == "all":
         return "Should not be filtered (All Years selected)"
@@ -109,11 +113,12 @@ def _build_results(
     keyed by the same ``(artist_norm, album_norm)`` tuples as *cache_hits*,
     holding any already-cached MusicBrainz finding
     (``{"mb_release_group": ..., "original_release": ...}``). A finding with
-    a non-null ``original_release`` drives both the release filter and the
-    displayed date in place of the provider's own date, which survives as
-    ``provider_release_date`` on the result. No finding, or one whose
-    ``original_release`` is null (a cached "checked, nothing found"),
-    leaves behaviour unchanged from before this parameter existed.
+    a non-null ``original_release`` replaces the provider's date for the
+    release filter and the display, and a null one (a cached "checked,
+    nothing found") leaves behaviour unchanged. How the date is chosen, and
+    why ``provider_release_date`` is kept, is explained once in
+    ``docs/architecture/runtime-system.md`` ("How an album gets its release
+    date").
 
     Pure synchronous logic -- no I/O.  Extracted from process_albums Phase 5
     so the data-transformation layer can be tested independently of the async

@@ -49,11 +49,12 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
 
     # Captures the real threading.Thread that start_job_thread creates for
     # *this* job, so the test can join it before leaving the `with` block:
-    # the helper itself never returns or exposes the Thread it builds, so this is the least invasive seam that still runs a genuine
-    # daemon thread. Patching threading.Thread patches the one process-wide
-    # `threading` module, so other real threads started meanwhile (the
-    # registration-year check's own worker thread, asyncio's proactor
-    # helper) are also constructed through this subclass; filtering on
+    # the helper itself never returns or exposes the Thread it builds, so this
+    # is the least invasive seam that still runs a genuine daemon thread.
+    # Patching threading.Thread patches the one process-wide `threading`
+    # module, so other real threads started meanwhile (the registration-year
+    # check's own worker thread, asyncio's proactor helper) are also
+    # constructed through this subclass; filtering on
     # ``target is background_task`` is what picks out the right one.
     created_threads = []
     real_thread = threading.Thread
@@ -141,10 +142,10 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
 
         # jobs.succeed runs before enqueue_release_check in
         # _process_filtered_albums, so /progress reporting 100 does not prove
-        # the MusicBrainz hand-off has happened yet. Join the real background thread -- still inside the
-        # `with` block, so the network/MusicBrainz mocks are still active for
-        # whatever the thread does next -- before trusting anything past this
-        # point.
+        # the MusicBrainz hand-off has happened yet. Join the real background
+        # thread -- still inside the `with` block, so the network/MusicBrainz
+        # mocks are still active for whatever the thread does next -- before
+        # trusting anything past this point.
         assert len(created_threads) == 1, (
             "expected exactly one background_task thread for this job, got "
             f"{len(created_threads)}"

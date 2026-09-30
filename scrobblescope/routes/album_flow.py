@@ -52,7 +52,11 @@ def _filter_results_for_display(results_data, sort_mode):
 
 
 def _get_filter_description(release_scope, decade, release_year, listening_year):
-    """Generate a readable description of the active release-year filter."""
+    """Generate a readable description of the active release-year filter.
+
+    Wording only; the years each scope accepts are the table in
+    ``domain.release_window``.
+    """
     if release_scope == "all":
         return "all albums (no release year filter)"
     elif release_scope == "same":

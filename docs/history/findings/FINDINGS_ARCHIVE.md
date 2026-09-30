@@ -9,6 +9,18 @@ Newest rotation first.
 
 ---
 
+### F-B23-29: small cleanups the third review of PR #245 found, none changing behaviour a user sees -- RESOLVED
+
+One bundle, to be taken opportunistically. The frontend items (S2-18, S2-20, S2-21, S2-22, most of S2-23, the Codacy const arrows and the Task 9-11 review minors) landed with F-B23-27 and F-B23-28; what is left:
+
+- `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait) (S1-15).
+- S2-23 leftovers: the `#heatmap-grid` ring-room CSS and padding subtraction in `renderHeatmapMobile`, with its false "sized to what is left inside it" comment (they belong to F-B23-25's layout fix); the server-rendered spotlight card body and the `top_artist_*` route variables in `routes/album_flow.py`, dead because JS overwrites them; the badge markup copied four times (Rule of Three: the CSS is one rule now, the markup is still two copies per page); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
+- `scripts/dev/_frontend_gate_layout.py` comments cite "Step 5", a label no tracked file defines.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-30
+Closed in part: the frontend items, the S2-23 comment and the provider-badge CSS landed with 5aeac2a7 (fix(ui)), and the failure-rule items with 7ce59bf0. The items no commit did, including the hand-written visually-hidden (sr-only) pattern, are filed as F-B23-38.
+
 ### F-B23-27: a long artist credit paints over the plays and date columns on the Results page from 768px -- RESOLVED
 
 `templates/results.html` `.album-info` is a flex item without `min-width: 0`, so its `truncate` artist span never shrinks: at 1024px an artist credit of about 65 characters runs from x 192 to 674 while its cell ends at 324, painting over the plays and release-date columns with no ellipsis. The same happens at 768, 1280 and 1920px, and on `main`. `static/css/results.css` fixes only widths below 768px, and `unmatched.css` already carries the `min-width: 0` rule for the unmatched table. Fix: `.results-table .album-info { min-width: 0 }` in `results.css` (Tailwind's `min-w-0` is dead under this theme, F-B21-52).

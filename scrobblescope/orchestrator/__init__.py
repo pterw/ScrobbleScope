@@ -185,7 +185,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     a search Spotify could not answer, sends that album to Deezer, and an
     album Deezer cannot match either is recorded as unavailable, never as
     "no match". Raises SpotifyUnavailableError only when Spotify gave
-    nothing for any miss (no token, or every miss either a search it did not
+    nothing for every miss (no token, or every miss either a search it did not
     answer or a matched album whose details it did not answer), nothing was
     already cached before this call, and Deezer could not enrich a single
     album either -- a run that finds at least one match is a valid, if

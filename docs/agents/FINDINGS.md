@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2423 tests across 83 tracked test modules.
+2424 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -721,16 +721,6 @@ to this finding.
 
 - [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-12.
 
-### F-B23-29: small cleanups the third review of PR #245 found, none changing behaviour a user sees
-
-One bundle, to be taken opportunistically. The frontend items (S2-18, S2-20, S2-21, S2-22, most of S2-23, the Codacy const arrows and the Task 9-11 review minors) landed with F-B23-27 and F-B23-28; what is left:
-
-- `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait) (S1-15).
-- S2-23 leftovers: the `#heatmap-grid` ring-room CSS and padding subtraction in `renderHeatmapMobile`, with its false "sized to what is left inside it" comment (they belong to F-B23-25's layout fix); the server-rendered spotlight card body and the `top_artist_*` route variables in `routes/album_flow.py`, dead because JS overwrites them; the badge markup copied four times (Rule of Three: the CSS is one rule now, the markup is still two copies per page); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
-- `scripts/dev/_frontend_gate_layout.py` comments cite "Step 5", a label no tracked file defines.
-
-- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
-
 ### F-B23-32: provider URLs reach href and src unchecked
 
 Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_results.py` `_album_url`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
@@ -739,7 +729,7 @@ Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_re
 
 ### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path
 
-`routes/api.py` (line 215) passes `request.args["artist_id"]` into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`, line 288), so `../` segments make the server call any GET route under the app's token. No client sends the parameter.
+`routes/api.py` passes `request.args["artist_id"]` unvalidated into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`), so `../` segments make the server call any GET route under the app's token, though no client sends the parameter.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-4.
 
@@ -771,7 +761,7 @@ Small gaps the third review of PR #245 (S4) found in the gate's checks, left ope
 - S4-9: "N checks passed in M runs" is computed from the tables (`PLANNED_RUNS`), not from what ran, and counts the advisory `fonts` check as passed.
 - S4-11: `scripts/dev/results_behavior_tests.py` is not among the checks a session is told to run before a commit (CI runs it).
 - Noticed in Task 17: the heatmap tooltip is repositioned only on scroll and resize, so a layout reflow leaves it over the focused cell.
-- Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs.
+- Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs. It recurred at dce6f148 with no other browser run on the machine (F-B23-39), so the inferred cause is at most part of it.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S4-3, S4-4, S4-7, S4-8, S4-9 and S4-11.
 
@@ -780,6 +770,34 @@ Small gaps the third review of PR #245 (S4) found in the gate's checks, left ope
 `scrobblescope/deezer.py` `_deezer_request` retries only error code 4 (quota) from a 200 body carrying `{"error": {"code": N}}`; every other code is a terminal miss, so the album is recorded as having no match on Deezer. The Task 18 review recalled that Deezer signals "service busy" with code 700 in such a body, which would be an outage read as "no match". UNVERIFIED: the code and its meaning come from memory and were not read at Deezer's documentation. Verify against Deezer's documented error codes before any fix; if 700 (or another code) means "try later", treat it as not-done so the retry helper raises `deezer_unavailable`, and add a test.
 
 - [ ] **Status:** open (P3). Source: Task 18 review (2026-09-30), Minor 2.
+
+### F-B23-38: leftovers of F-B23-29 that no commit has done
+
+Filed when F-B23-29 was closed: what it listed and the commits since have not done.
+
+- `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait) (S1-15).
+- The `#heatmap-grid` ring-room CSS (`static/css/heatmap.css`) and the padding subtraction in `renderHeatmapMobile` (`static/js/heatmap.js`) are still there; they belong to F-B23-25's layout fix.
+- The server-rendered spotlight card body in `templates/results.html` and the `top_artist_*` route variables in `routes/album_flow.py` are still dead, since JS overwrites them.
+- The provider badge markup is still two copies per page (the CSS is one rule).
+- The theme does not follow the system setting live: `static/js/theme.js` reads `prefers-color-scheme` only at load and on a switch change.
+- `scripts/dev/_frontend_gate_layout.py` comments (lines 580, 647, 703) still cite "Step 5", a label no tracked file defines.
+- The visually-hidden (sr-only) pattern is still written by hand four times (`static/css/index.css` twice, `static/css/shell.css`, `static/css/unmatched.css`) instead of one shared rule or Tailwind's `sr-only` utility.
+
+- [ ] **Status:** open (P3). Source: F-B23-29 (third review of PR #245, 2026-09-29), S1-15 and S2-23.
+
+### F-B23-39: the frontend gate fails intermittently on checks the commit under test did not touch
+
+Each failure below passed on an immediate re-run of the same tree, and none was on a file the commit changed:
+
+- `heatmap cells keyboard access [mobile]`: the focus ring "paints no rgb(106, 75, 175) pixel" at ccc2c921 (F-B23-36 records the inferred fix).
+- `validator network failure`: "expected the first validation, held 0" during the landing of the error-classification commit (7ce59bf0).
+- `loading composition [mobile]`: "/loading progress fill is rgba(0, 0, 0, 0), expected rgb(106, 75, 175)" at 89d12bd.
+
+- `heatmap cells keyboard access [mobile]` again at dce6f148, after the inferred fix and with no other browser run on the machine, and on the re-run `unmatched report [desktop]` raised `Page.goto: net::ERR_NO_BUFFER_SPACE`.
+
+The last error is Windows running short of socket buffers (WSAENOBUFS): the machine was under heavy load (a busy desktop browser and about 1,600 loopback sockets in TIME_WAIT; no gate browser had leaked). A stylesheet that fails to load under that pressure would explain the transparent fill and the unpainted ring. Not proven; no fix in this PR. Next step: run the gate on an idle machine or in CI several times and compare.
+
+- [ ] **Status:** open (P3). Source: gate runs of the third-review fix session (2026-09-29 to 2026-09-30).
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

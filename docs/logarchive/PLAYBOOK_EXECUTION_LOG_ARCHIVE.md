@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Errors classified by type in both pipelines; an unrecognised error is ours
+
+Side task, no batch tag: typed error classification, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Typed `UserNotFoundError`, `PrivateProfileError` and `ProviderError(source, kind)` replace message substrings: the classifier reads the exception's type only. The album pipeline publishes `internal_error` (not retryable, no exception text) for an exception nothing classifies, as the heatmap does; `jobs.fail_unclassified` and the code `unknown` are deleted. Owner ruling 2026-09-30 (degrade, fail if all fail): a Spotify search, detail call or token request that cannot be answered no longer cancels its siblings or fails the job. That album falls back to Deezer and, if Deezer misses it too, is listed under a new fourth unmatched reason, `provider_unavailable` ("Could not be checked"), never as "no match"; each row's text says which provider was down and which had no match. The job fails `spotify_unavailable` (retryable) only when Spotify answered no search and Deezer enriched nothing. Deezer and MusicBrainz 5xx and timeouts raise `ProviderError` (Deezer: the album is listed unavailable; MusicBrainz caches no finding), and a Deezer search body of an unexpected shape reads as a miss. The retry helper treats only network and JSON-decode errors as "unavailable"; `Retry-After` is parsed defensively and `reraise` narrowed. Also fixed: Deezer track with no title key (Codex 4140219711) and a throttled call read as "no match" (Codex 4140219720). README's Unmatched feature list now names four groups. Closes F-B23-16, F-B23-21 and F-B23-22; files F-B23-37 (P3: a Deezer 200 "busy" body, unverified).
+
+Deviation from the brief: a Last.fm 429 stays `lastfm_unavailable` (the brief said `*_rate_limited`); both are retryable and raising from the page fetch would end partial-page tolerance.
+
+Edited existing tests: `test_fetch_recent_tracks_page_404_raises_user_not_found`, `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (through `_PageFetchLedger` and `_run_fetch_all_with_raising_page`) and `test_page_fetch_reports_a_private_profile_without_retrying` in `test_lastfm_service.py`; `test_classify_exception_to_error_code_spotify_rate_limited` and `test_classify_exception_to_error_code_user_not_found` (typed args) and `test_classify_exception_to_error_code_unclassified_returns_none` (replaced by `..._ignores_message_text`) in `test_orchestrator_helpers.py`; `test_fetch_and_process_unclassified_exception_publishes_unknown` (renamed `..._publishes_internal_error`); `test_user_not_found_crash_publishes_user_not_found` in `test_heatmap.py`; `test_fail_unclassified_keeps_the_raw_text_and_is_retryable` (renamed `test_fail_internal_error_replaces_results_and_is_not_retryable`); `test_search_returns_none_on_non_200_non_429` (500 changed to 404) and `test_search_failure_lines_carry_no_album_or_artist` (expects `ProviderError`) in `test_spotify_service.py`, plus `test_fetch_spotify_album_details_batch_non_200_returns_empty_dict` (500 changed to 400: a 5xx is now retried and reported unanswered); `test_search_failure_lines_carry_no_album_or_artist`, `test_fetch_deezer_album_returns_none_when_album_details_fail` and `..._when_tracks_fail` (renamed `..._raises_unavailable_when_...`) in `test_deezer_service.py`; `test_lookup_failure_lines_carry_no_album_or_artist` in `test_musicbrainz_service.py`; `test_run_spotify_search_phase_all_misses_returns_empty_maps` (unpacks the fourth value) in `test_orchestrator_fetch_spotify.py`; and in `test_routes.py` the shared helper `_seed_every_unmatched_reason` (now seeds a `provider_unavailable` row), used by `test_unmatched_view_row_note_says_what_is_particular_to_the_row`, `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` and `test_unmatched_view_portrait_image_is_not_lazy` (three portraits, not two).
+
+Validation: `pytest -q` -- **2341 passed**.
+
 ### 2026-09-30 - Make four gate checks judge what they name
 
 Side task, no batch tag: four frontend-gate checks, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -19,7 +31,7 @@ Edited existing test helper: `_crop_overlay_page` in `tests/scripts/dev/test_fro
 
 Validation: `pytest -q` -- **2277 passed**.
 
-### 2026-09-30 - Second architecture review tracked and scheduled
+### 2026-09-29 - Second architecture review tracked and scheduled
 
 Side task, no batch tag: the second deepening review of the codebase is tracked at `docs/history/reports/architecture-review-20260930-0040.html`, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 

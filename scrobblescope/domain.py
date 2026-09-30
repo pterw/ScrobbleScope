@@ -136,7 +136,29 @@ def release_window(release_scope, year, decade=None, release_year=None):
     ``_matches_release_criteria`` and the correction worker's
     ``release_checks._window_end``. Each used to restate the same scope
     table (``same``, ``previous``, ``decade``, ``custom``); this is now the
-    single place it is written (F-B23-5).
+    single place the machine rule is written (F-B23-5).
+
+    The scope table, for a listening year ``Y``:
+
+    ========== ===============================================
+    scope      accepted release years
+    ========== ===============================================
+    all        every year (returns ``None``)
+    same       ``Y``
+    previous   ``Y - 1``
+    decade     the ten years of ``decade`` (``"1990s"`` is 1990-1999)
+    custom     the one year in ``release_year``
+    ========== ===============================================
+
+    The prose that describes a scope to a reader is separate wording, not a
+    second copy of the rule. The main sites are
+    ``_results._get_user_friendly_reason`` (why one album was excluded, with
+    corrected and uncorrected phrasing), ``album_flow._get_filter_description``
+    (the results header) and, in the browser, ``scopeTagText`` in
+    ``index.js``, the filter bar in ``results.html`` and the scope line in
+    ``loading.html``; ``docs/design/README.md`` lists the scope values too.
+    The list is not exhaustive: a new scope changes this table first, then
+    ``grep`` for the scope names (``same``, ``previous``) to find each wording.
 
     Returns ``None`` when the scope accepts every year: ``"all"``, an
     unrecognized scope, or a ``"decade"``/``"custom"`` scope whose companion

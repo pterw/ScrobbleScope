@@ -187,22 +187,37 @@ silent:
   JavaScript. The gate's "heatmap zero cells follow theme" check owns it;
   before the check existed, the whole gate stayed green while the cells kept
   their light colour on a dark page.
-- **A displayed release year is not always the provider's.** Spotify and
-  Deezer both date a remaster by its reissue, and the year filters mean the
-  year the album first came out, so `release_checks.py` corrects the date
-  from MusicBrainz's release group. The provider's own date is kept beside it
-  as `provider_release_date` rather than overwritten, because it is still the
-  right date for the provider's page a row links to. The correction runs
-  after `jobs.succeed`, never before: MusicBrainz allows one request per
-  second per IP, so waiting for it would hold a whole result set behind a
-  minute of lookups. `docs/design/RECONCILIATION.md` records the same fact
-  for the design system, since the year a reader sees is now sourced from
-  two places.
+- **How an album gets its release date, in one place.** The date is decided
+  in four steps, and this bullet is the only full account of them. (1) The
+  metadata cache is read first: a cached row already holds `release_date` and
+  skips every provider call. (2) For each miss, Spotify is searched, then its
+  album details are fetched. (3) An album Spotify could not enrich falls to
+  Deezer, which supplies the date instead. `process_albums` in
+  `orchestrator/__init__.py` orchestrates steps 1 to 3, and
+  `_persist_new_metadata` writes the enriched rows back to the cache, so a
+  later job reads them free. (4) When the results list is built
+  (`orchestrator/_results.py`), the album's date is the MusicBrainz original
+  release date if one is already cached for it, otherwise the provider's own
+  date. The provider's date is kept beside it as `provider_release_date`
+  rather than overwritten, because it is still the right date for the
+  provider's page a row links to. The chosen date goes to
+  `domain.release_window`, the one owner of the release-scope table, to
+  decide whether the album is shown or listed as excluded by release scope.
+  The correction matters because Spotify and Deezer both date a remaster by
+  its reissue while the year filters mean the year the album first came out.
+  What MusicBrainz has not yet been asked about is corrected afterwards by
+  `release_checks.py`, which reads the same rule. That correction runs after
+  `jobs.succeed`, never before: MusicBrainz allows one request per second per
+  IP, so waiting for it would hold a whole result set behind a minute of
+  lookups. `docs/design/RECONCILIATION.md` records the same fact for the
+  design system, since the year a reader sees is now sourced from two places,
+  and `docs/architecture/top-albums-sequence.md` draws the order of calls.
 - **The correction worker is one thread for the whole process.** It owns its
   own event loop and a FIFO queue of job ids. More threads would only queue
   behind the same process-wide limiter while multiplying database connections
   and the ways one job's state can be raced. The worker and the album filter
-  both read the release-window rule, `release_window`, from `domain.py`.
+  both read the release-window rule from `domain.py`, described in the
+  release-date bullet above.
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track

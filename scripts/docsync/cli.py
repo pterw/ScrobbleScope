@@ -203,11 +203,16 @@ def _snapshot(path: Path) -> bytes | None:
     that method to learn which files the corpus really opened, and this
     baseline loop reads every path `read_paths` names, so going through the
     same method would make "every read path is proved" true by construction.
+    An unreadable file is a `SyncError`, as in `_read_text`, never a bare
+    `OSError`.
     """
     if not path.is_file():
         return None
-    with open(path, "rb") as handle:
-        return handle.read()
+    try:
+        with open(path, "rb") as handle:
+            return handle.read()
+    except OSError as error:
+        raise SyncError(f"{path} could not be read: {error}") from None
 
 
 def _read_lines(path: Path) -> list[str]:
