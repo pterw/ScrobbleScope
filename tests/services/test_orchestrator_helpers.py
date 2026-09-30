@@ -303,9 +303,10 @@ async def test_lookup_cached_original_release_failure_is_non_fatal(caplog):
         result = await _lookup_cached_original_release(mock_conn, album_keys)
 
     assert result == {}
-    assert "Original-release cache lookup failed (non-fatal): database unavailable" in (
+    assert "Original-release cache lookup failed (non-fatal): RuntimeError" in (
         caplog.text
     )
+    assert "database unavailable" not in caplog.text
 
 
 def test_build_results_cached_original_release_excludes_album_outside_filter():
@@ -677,6 +678,84 @@ def test_detect_enrichment_total_failure_does_not_fire_for_other_reason_codes():
         },
     ):
         assert _detect_enrichment_total_failure(job_id, [], filtered) is False
+
+
+def _detect_with_unmatched(unmatched):
+    """Run the detector on empty results over *unmatched*; return (fired, fail mock)."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    filtered = {(f"a{i}", "b"): {} for i in range(len(unmatched))}
+    with (
+        patch("scrobblescope.jobs.context", return_value={"unmatched": unmatched}),
+        patch("scrobblescope.jobs.fail") as mock_err,
+    ):
+        return _detect_enrichment_total_failure(job_id, [], filtered), mock_err
+
+
+def test_detect_enrichment_total_failure_ignores_provider_unavailable_rows():
+    """Every album unavailable (Deezer down, Spotify answered no match) is no failure.
+
+    The rule counts only ``no_spotify_match``: an unavailable row is not proof
+    that both providers answered, and a Spotify outage was already raised where
+    the calls are seen. The run ends with no albums and its unmatched list.
+    """
+    from scrobblescope.unmatched import REASON_PROVIDER_UNAVAILABLE
+
+    fired, mock_err = _detect_with_unmatched(
+        {
+            "a0|b": {"reason_code": REASON_PROVIDER_UNAVAILABLE},
+            "a1|b": {"reason_code": REASON_PROVIDER_UNAVAILABLE},
+        }
+    )
+
+    assert fired is False
+    mock_err.assert_not_called()
+
+
+def test_detect_enrichment_total_failure_does_not_fire_on_a_mix_with_zero_results():
+    """A no-match row beside an unavailable row is not "every album matched nothing".
+
+    Follows the owner ruling's letter (fail only when Spotify answered no search
+    and Deezer enriched nothing): here Spotify answered at least one search.
+    """
+    from scrobblescope.unmatched import (
+        REASON_NO_SPOTIFY_MATCH,
+        REASON_PROVIDER_UNAVAILABLE,
+    )
+
+    fired, mock_err = _detect_with_unmatched(
+        {
+            "a0|b": {"reason_code": REASON_NO_SPOTIFY_MATCH},
+            "a1|b": {"reason_code": REASON_PROVIDER_UNAVAILABLE},
+        }
+    )
+
+    assert fired is False
+    mock_err.assert_not_called()
+
+
+def test_detect_enrichment_total_failure_does_not_fire_when_results_exist():
+    """One enriched album is a success, whatever the unmatched list says."""
+    from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    filtered = {("a", "b"): {}, ("c", "d"): {}}
+    with (
+        patch(
+            "scrobblescope.jobs.context",
+            return_value={
+                "unmatched": {
+                    "a|b": {"reason_code": REASON_NO_SPOTIFY_MATCH},
+                    "c|d": {"reason_code": REASON_NO_SPOTIFY_MATCH},
+                }
+            },
+        ),
+        patch("scrobblescope.jobs.fail") as mock_err,
+    ):
+        assert (
+            _detect_enrichment_total_failure(job_id, [{"artist": "x"}], filtered)
+            is False
+        )
+    mock_err.assert_not_called()
 
 
 def _tied_albums(count):

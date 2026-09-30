@@ -17,7 +17,7 @@ from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_REQUESTS_PER_SECOND, SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.errors import ProviderError
-from scrobblescope.lastfm import _cancel_and_drain
+from scrobblescope.utils import cancel_and_drain
 
 
 async def _run_spotify_search_phase(
@@ -87,7 +87,7 @@ async def _run_spotify_search_phase(
     finally:
         # An unexpected exception from one search must not leave its siblings
         # running on a session that is about to close.
-        await _cancel_and_drain(search_tasks)
+        await cancel_and_drain(search_tasks)
 
     spotify_id_to_key = {}
     spotify_id_to_original_data = {}

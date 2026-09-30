@@ -131,6 +131,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - One rule decides a failed run; tracebacks kept at DEBUG
+
+Side task, no batch tag: one rule for a failed run and tracebacks kept at DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Run failure: a Top Albums run fails as the retryable `spotify_unavailable` only when Spotify gave nothing for every miss (no token, or every miss a search it did not answer or a matched album whose details it did not answer), nothing was cached before, and Deezer enriched nothing; `_detect_enrichment_total_failure` keeps only the case its rows prove (every album `no_spotify_match`), and a mix with zero results follows the ruling's letter and ends as a success with no albums. A Deezer album body that cannot be read is a miss; a track list that is missing or unreadable keeps the album with no durations. `utils.cancel_and_drain` is public (the private `lastfm` name is deleted); lastfm, the Deezer fallback and the search phase use it, and the details fan-out and the one-by-one details gather in `spotify.py`, which lacked it, now drain too (the search fan-out already did), so no remainder of F-B23-24 is left.
+
+Tracebacks (owner ruling 2026-09-29, "Extend the rule"): `utils.log_failure(message, level)` logs the exception's class at the level and the traceback at DEBUG; it replaces all ten `logging.exception` sites, and the `{exc}` database messages at WARNING (`orchestrator/_cache.py`, `release_checks.py`, `cache.py` incl. the connect retries) follow it. Eight new `# noqa: BLE001` mark the sites ruff no longer sees as logged (two more sit inside `worker.py`'s existing noqa'd except). The rule is added to `docs/agents/global-rules.md` Rule 6. Task 25's "owner question pending" is answered here. Also: `RedactingFormatter`'s docstring is an open list, `retry_with_semaphore`'s docstring is corrected, `api_logging._record` derives elapsed itself, the dead gather path of `fetch_pages_batch_async` is deleted, `test_pipeline_integration.py` cites functions and F-ids instead of stale line numbers, and `docs/architecture/top-albums-sequence.md` states the one rule.
+
+Edited existing tests: `test_progress_cb_none_uses_gather_path` (deleted, replaced by `test_fetch_all_without_a_progress_callback_still_fetches_every_page`), `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (parametrize ids only), the `_record` call sites of four `test_api_logging.py` span tests, and `test_lookup_cached_original_release_failure_is_non_fatal` (asserts the class, not the text).
+
+New tests: `test_fetch_deezer_album_reads_a_strange_body_as_a_miss` (album bodies only), a keep-the-album test for an unreadable track list, `test_one_by_one_details_cancel_and_settle_siblings_on_an_unexpected_error`, and six more sites (both cache.py connect-retry lines, the release_checks persist and connection-close lines, and the schema-out-of-date variants of the three remediation messages) in `test_fail_open_database_sites_log_the_class_only_at_warning`.
+
+Validation: `pytest -q` -- **2410 passed**.
+
 ### 2026-09-30 - Tests that fail on the defect they guard
 
 Side task, no batch tag: tests that fail on the defect they guard, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -162,13 +176,3 @@ S4-2: the spotlight photo fade check now keeps the rotation ticking and fails un
 Edited existing test helper: `_crop_overlay_page` in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` (the first photo check now also reads the paint probe and the new sample shape), used by `test_a_pseudo_element_scrim_and_a_transform_animation_are_reported`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods` and `test_the_first_photo_check_also_judges_the_crop`. Filed F-B23-36 (P3: S4-3, S4-4, S4-7, S4-8, S4-9, S4-11, the tooltip note, the flake as fixed by inference).
 
 Validation: `pytest -q` -- **2277 passed**.
-
-### 2026-09-29 - The job module gives a job's life one interface over a storage seam
-
-Side task, no batch tag: the job module (`scrobblescope/jobs.py`), a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-A job's rules (one ending, results or an error; the lease renewed only by writes; results and 100% in one write) lived in seven callers of `repositories.py`, and F-B23-22 was the proof: two pipelines, two failure answers. They now live in `jobs.py`: `create`, `advance`, `report_phase`, `record_stat`, `record_unmatched`, `succeed`, `update_result`, `fail`, `fail_unclassified`, `reset`, `mark_interrupted` and the reads, over a `JobStore` seam with one adapter, `MemoryJobStore` (the old dict, lock and TTL). Task 20 adds the Postgres adapter and reruns the same `tests/test_jobs.py` suite through its `STORE_FACTORIES`. `repositories.py` is deleted with no shim and every caller, including the eight frontend-gate modules, is migrated. The progress vocabulary is folded in: five named bands replace the `phase` literals and the `base + int(span * done / total)` arithmetic, and both Last.fm callbacks take three arguments, so `_notify_progress_cb`'s signature sniffing is gone. `job_interrupted` joins `ERROR_CODES`. Percent values are unchanged.
-
-Owner ruling (2026-09-29): seam commits may edit existing tests, and each edited test is named in the commit body; `BATCH23_DEFINITION.md`'s compatibility list, F-B23-1 paragraph and Acceptance bullet are amended to say so (Part A's own line is left as written). Edited existing tests: call sites and patch targets only, plus the assertions dropped or changed, each named in the commit body with where it is still guarded: `test_progress_callback_sends_correct_percentages` (the 100% dict, the error keys and the 0% init dict), `test_happy_path_stores_correct_result_dict` (`succeed` writes the results and 100% as one write) and `test_seed_spotlight_job_seeds_several_artists_and_marks_it_done` (the separate 100% write); the Last.fm progress callback also takes three arguments. `tests/test_repositories.py` keeps only its database-helper tests; its job tests moved to the new `tests/test_jobs.py` (45 tests), and one test was renamed. Not done here: `mark_interrupted` is not wired at startup (Task 20 wires it with the database adapter); `fail_unclassified` keeps F-B23-22 open. Test modules 81 to 82.
-
-Validation: `pytest -q` -- **2254 passed**.

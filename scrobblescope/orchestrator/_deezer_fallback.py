@@ -15,11 +15,11 @@ from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.domain import normalize_name
 from scrobblescope.errors import ProviderError
-from scrobblescope.lastfm import _cancel_and_drain
 from scrobblescope.unmatched import (
     REASON_NO_SPOTIFY_MATCH,
     REASON_PROVIDER_UNAVAILABLE,
 )
+from scrobblescope.utils import cancel_and_drain
 
 #: Row text for an album neither provider matched, by what each provider said.
 #: One line per distinct combination, so the row never claims a provider
@@ -176,7 +176,7 @@ async def _run_deezer_fallback_phase(
     finally:
         # An exception from one album must not leave its siblings running on
         # a session that is about to close (F-B23-24).
-        await _cancel_and_drain(tasks)
+        await cancel_and_drain(tasks)
 
     existing = jobs.progress(job_id) or {}
     if unchecked and not existing.get("stats", {}).get("partial_data_warning"):

@@ -64,12 +64,14 @@ class RedactingFormatter(logging.Formatter):
     """Formatter that replaces the value of ``api_key`` with ``[redacted]``.
 
     Protects Last.fm's key from every line the app writes, tracebacks
-    included. Two sites still put it there: the DEBUG traceback of
-    ``utils.run_async_in_thread`` (its ERROR line names the class only)
-    and ``utils.get_cached_response``'s debug line (its cache key embeds
-    the URL). ``utils.retry_with_semaphore``'s error line (on a connect
-    timeout) and ``routes.album_flow.results_loading``'s registration-year
-    warning were two more until they stopped writing exception messages.
+    included. What can still carry it: every DEBUG traceback (the ERROR line
+    of a failure names its class only: ``utils.log_failure``, and
+    ``utils.run_async_in_thread``) and ``utils.get_cached_response``'s debug
+    line (its cache key embeds the URL), and any future line that writes an
+    exception's message. ``utils.retry_with_semaphore``'s error line (on a
+    connect timeout) and ``routes.album_flow.results_loading``'s
+    registration-year warning were two more until they stopped writing
+    exception messages.
     The trace hook's own query exclusion is the first layer; this is
     the backstop at the output layer.
     """
@@ -131,16 +133,18 @@ def _elapsed_ms(start, end):
     return (end - start) * 1000
 
 
-def _record(session, provider, outcome, elapsed_ms, start, end):
+def _record(session, provider, outcome, start, end):
     """Fold one call's outcome into *session*'s per-provider tally.
 
-    *start* and *end* are the same ``time.monotonic()`` readings the caller
-    used to compute *elapsed_ms* -- one clock read per end event, so the
-    per-call line's milliseconds and this tally's figures never drift apart.
-    The tally keeps the earliest *start* and latest *end* seen for
-    *provider*, so ``_emit_summaries`` can report the span those calls
-    covered alongside the summed *elapsed_ms*.
+    *start* and *end* are the ``time.monotonic()`` readings the caller also
+    used for the per-call line -- one clock read per end event, so that
+    line's milliseconds and this tally's figures never drift apart. The
+    elapsed time is derived here from them (``_elapsed_ms``). The tally keeps
+    the earliest *start* and latest *end* seen for *provider*, so
+    ``_emit_summaries`` can report the span those calls covered alongside
+    the summed elapsed time.
     """
+    elapsed_ms = _elapsed_ms(start, end)
     tally = getattr(session, _TALLY_ATTR, None)
     if tally is None:
         tally = {}
@@ -192,7 +196,7 @@ async def _on_request_end(session, trace_config_ctx, params):
                 retry_after,
             ),
         )
-        _record(session, provider, str(status), elapsed_ms, start, end)
+        _record(session, provider, str(status), start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_end failed", exc_info=True)
 
@@ -218,7 +222,7 @@ async def _on_request_exception(session, trace_config_ctx, params):
                 provider, params.method, params.url, exc_name, elapsed_ms
             )
         )
-        _record(session, provider, exc_name, elapsed_ms, start, end)
+        _record(session, provider, exc_name, start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_exception failed", exc_info=True)
 

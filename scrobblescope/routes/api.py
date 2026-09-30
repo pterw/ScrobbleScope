@@ -16,7 +16,7 @@ from scrobblescope import routes as _routes
 from scrobblescope.domain import format_album_key
 from scrobblescope.release_checks import CHECK_UNCHECKED, STATUS_PENDING
 from scrobblescope.spotify import fetch_spotify_artist_spotlight
-from scrobblescope.utils import create_optimized_session
+from scrobblescope.utils import create_optimized_session, log_failure
 
 bp = _routes.bp
 
@@ -36,8 +36,8 @@ def validate_user():
             return jsonify(
                 {"valid": False, "message": _routes._PRIVATE_PROFILE_MESSAGE}
             )
-    except Exception:
-        logging.exception("Username validation failed")
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure("Username validation failed")
         return (
             jsonify(
                 {

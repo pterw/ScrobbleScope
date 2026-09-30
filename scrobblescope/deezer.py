@@ -59,6 +59,11 @@ async def _deezer_request(session, url, params, limiter):
             return data, None, True
 
 
+def _seconds(value):
+    """Return *value* as a whole number of seconds, or 0 when it is not one."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETRIES):
     """Search Deezer for *artist*/*album* and return the matching album ID.
 
@@ -135,7 +140,10 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
     ``/album/{id}`` lists at most 25 tracks even when ``nb_tracks`` reports
     more (the White Album reports 30 and lists 25); ``/album/{id}/tracks``
     with ``limit=500`` returns every track's duration in seconds. Returns
-    None when Deezer answers that the album is not there. Raises
+    None when Deezer answers that the album is not there, or answers with an
+    album body of an unexpected shape (a null, a list): a miss, never a
+    TypeError. A track list that is missing or not a list keeps the album,
+    with no durations: its release metadata is still good. Raises
     ``ProviderError`` when Deezer could not be read (see ``search_deezer_album``).
     """
     album = await _fetch_deezer_json(
@@ -145,7 +153,9 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
         retries,
         "deezer.album_details",
     )
-    if album is None:
+    # A null or foreign body shape is a miss, exactly as it is in the search:
+    # enrichment degrades, it never fails the job on a strange answer.
+    if not isinstance(album, dict):
         return None
 
     tracks = await _fetch_deezer_json(
@@ -155,21 +165,28 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
         retries,
         "deezer.album_tracks",
     )
-    if tracks is None:
-        return None
+    track_rows = tracks.get("data") if isinstance(tracks, dict) else None
+    if not isinstance(track_rows, list):
+        track_rows = []
 
     # A track whose title is null (or not text) is skipped: normalising it
-    # would raise TypeError and fail the whole job (F-B23-24).
+    # would raise TypeError and fail the whole job (F-B23-24). A duration that
+    # is not a number counts as 0 rather than poisoning the play-time sum.
     track_durations = {
-        normalize_track_name(t["title"]): t.get("duration", 0)
-        for t in tracks.get("data", [])
+        normalize_track_name(t["title"]): _seconds(t.get("duration"))
+        for t in track_rows
         if isinstance(t, dict) and isinstance(t.get("title"), str)
     }
+    link = album.get("link")
+    release_date = album.get("release_date")
+    cover = album.get("cover_xl")
     return AlbumMetadata(
         provider="deezer",
         album_id=str(album_id),
-        url=album.get("link", f"https://www.deezer.com/album/{album_id}"),
-        release_date=album.get("release_date", ""),
-        image_url=album.get("cover_xl"),
+        url=link
+        if isinstance(link, str)
+        else f"https://www.deezer.com/album/{album_id}",
+        release_date=release_date if isinstance(release_date, str) else "",
+        image_url=cover if isinstance(cover, str) else None,
         track_durations=track_durations,
     )

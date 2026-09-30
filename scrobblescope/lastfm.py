@@ -13,6 +13,7 @@ from scrobblescope.config import (
 )
 from scrobblescope.errors import PrivateProfileError, UserNotFoundError
 from scrobblescope.utils import (
+    cancel_and_drain,
     create_optimized_session,
     get_cached_response,
     get_lastfm_limiter,
@@ -167,20 +168,6 @@ def _page_defect(data: Any) -> str:
     return "missing recenttracks.@attr.totalPages"
 
 
-async def _cancel_and_drain(tasks) -> None:
-    """Cancel every unfinished task in *tasks* and wait for all to settle.
-
-    Called before an exception leaves a fan-out, so no page fetch is left
-    pending on a session that is about to close. Results and exceptions of
-    the settled tasks are discarded (retrieved, so asyncio does not log
-    them); the caller re-raises the original exception unchanged.
-    """
-    for task in tasks:
-        if not task.done():
-            task.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
-
-
 async def fetch_recent_tracks_page_async(
     session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):
@@ -289,32 +276,6 @@ async def fetch_recent_tracks_page_async(
     )
 
 
-async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
-    """
-    Fetch Last.fm pages with controlled concurrency to respect rate limits.
-    Semaphore (MAX_CONCURRENT_LASTFM) caps in-flight requests; rate limiter
-    (_LASTFM_LIMITER) caps throughput. Called once with all pages rather than
-    in sequential batches to avoid idle gaps. If one page raises, the other
-    page fetches are cancelled and awaited before the exception propagates.
-    """
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
-
-    async def fetch_with_semaphore(page):
-        return await fetch_recent_tracks_page_async(
-            session, username, from_ts, to_ts, page, semaphore=semaphore
-        )
-
-    tasks = [asyncio.ensure_future(fetch_with_semaphore(p)) for p in pages]
-    try:
-        results = await asyncio.gather(*tasks)
-    finally:
-        await _cancel_and_drain(tasks)
-
-    successful = sum(1 for r in results if r is not None)
-    logging.debug(f"Batch {min(pages)}-{max(pages)}: {successful}/{len(results)} pages")
-    return results
-
-
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=None):
     """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple.
 
@@ -344,41 +305,38 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
             progress_cb(1, total_pages, len(all_pages))
 
         if total_pages > 1:
-            remaining = range(2, total_pages + 1)
-
-            if progress_cb is not None:
-                # Per-page progress: use as_completed instead of gather
-                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
-                tasks = [
-                    asyncio.ensure_future(
-                        fetch_recent_tracks_page_async(
-                            session,
-                            username,
-                            from_ts,
-                            to_ts,
-                            p,
-                            semaphore=semaphore,
-                        )
+            # One fan-out for every caller, with or without a progress
+            # callback. The semaphore (MAX_CONCURRENT_LASTFM) caps in-flight
+            # requests and the rate limiter caps throughput; all remaining
+            # pages are submitted at once rather than in sequential batches,
+            # to avoid idle gaps.
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
+            tasks = [
+                asyncio.ensure_future(
+                    fetch_recent_tracks_page_async(
+                        session,
+                        username,
+                        from_ts,
+                        to_ts,
+                        p,
+                        semaphore=semaphore,
                     )
-                    for p in remaining
-                ]
-                completed = 1  # page 1 already done
-                try:
-                    for fut in asyncio.as_completed(tasks):
-                        result = await fut
-                        completed += 1
-                        if result is not None:
-                            all_pages.append(result)
-                        progress_cb(completed, total_pages, len(all_pages))
-                finally:
-                    # An exception (the mid-job 404) must not leave sibling
-                    # fetches pending on a session that is about to close.
-                    await _cancel_and_drain(tasks)
-            else:
-                results = await fetch_pages_batch_async(
-                    session, username, from_ts, to_ts, remaining
                 )
-                all_pages.extend([r for r in results if r])
+                for p in range(2, total_pages + 1)
+            ]
+            completed = 1  # page 1 already done
+            try:
+                for fut in asyncio.as_completed(tasks):
+                    result = await fut
+                    completed += 1
+                    if result is not None:
+                        all_pages.append(result)
+                    if progress_cb is not None:
+                        progress_cb(completed, total_pages, len(all_pages))
+            finally:
+                # An exception (the mid-job 404) must not leave sibling
+                # fetches pending on a session that is about to close.
+                await cancel_and_drain(tasks)
 
         fetch_elapsed = time.time() - fetch_start_time
         logging.info(

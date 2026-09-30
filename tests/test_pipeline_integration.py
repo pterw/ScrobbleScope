@@ -26,8 +26,8 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         album that survived the Spotify phase (F-LOAD-2).
     """
     # 2025-06-15T12:00:00Z: inside fetch_top_albums_async's year=2025 window
-    # (orchestrator/__init__.py:118-119); an out-of-window uts is silently
-    # dropped at :144-149 before albums is ever built.
+    # (its from/to bounds); an out-of-window uts is silently dropped inside
+    # fetch_top_albums_async before albums is ever built.
     lastfm_page = {
         "recenttracks": {
             "track": [
@@ -48,9 +48,8 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
     o = "scrobblescope.orchestrator."
 
     # Captures the real threading.Thread that start_job_thread creates for
-    # *this* job, so the test can join it before leaving the `with` block
-    # (CR1/CR2): the helper itself never returns or exposes the Thread it
-    # builds, so this is the least invasive seam that still runs a genuine
+    # *this* job, so the test can join it before leaving the `with` block:
+    # the helper itself never returns or exposes the Thread it builds, so this is the least invasive seam that still runs a genuine
     # daemon thread. Patching threading.Thread patches the one process-wide
     # `threading` module, so other real threads started meanwhile (the
     # registration-year check's own worker thread, asyncio's proactor
@@ -99,8 +98,9 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         ),
         patch(o + "_batch_lookup_metadata", new_callable=AsyncMock, return_value={}),
         patch(o + "_batch_persist_metadata", new_callable=AsyncMock),
-        # Closes the unconditional MusicBrainz call (orchestrator/__init__.py:619)
-        # by mock, not by accident of MUSICBRAINZ_ENABLED/_CONTACT in this env.
+        # Closes the unconditional MusicBrainz call (enqueue_release_check in
+        # _process_filtered_albums) by mock, not by accident of
+        # MUSICBRAINZ_ENABLED/_CONTACT in this env.
         patch(o + "enqueue_release_check") as mock_enqueue,
     ):
         resp = client.post(
@@ -139,10 +139,9 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
                 "/progress", query_string={"job_id": job_id}
             ).get_json()
 
-        # CR1/CR2: jobs.succeed runs before enqueue_release_check in
-        # _process_filtered_albums (orchestrator/__init__.py:607-619), so
-        # /progress reporting 100 does not prove the MusicBrainz hand-off has
-        # happened yet. Join the real background thread -- still inside the
+        # jobs.succeed runs before enqueue_release_check in
+        # _process_filtered_albums, so /progress reporting 100 does not prove
+        # the MusicBrainz hand-off has happened yet. Join the real background thread -- still inside the
         # `with` block, so the network/MusicBrainz mocks are still active for
         # whatever the thread does next -- before trusting anything past this
         # point.
@@ -168,8 +167,8 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         # that), not after the `with` block tore it down.
         mock_enqueue.assert_called_once_with(job_id)
 
-    # CR2: the concurrency slot acquire_job_slot() granted for this job must
-    # be fully released by the time the background thread (joined above) has
+    # The concurrency slot acquire_job_slot() granted for this job must be
+    # fully released by the time the background thread (joined above) has
     # finished -- release_job_slot runs in run_coroutine_in_new_loop's
     # `finally`, on the same thread. Drain the semaphore to prove every slot,
     # including this job's, is free, then give them all back.
@@ -183,9 +182,8 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         f"only {acquired} were"
     )
 
-    # F-LOAD-2's roadmap line names the real /results_loading -> /progress ->
-    # /results_complete path: finish it by requesting the real completion
-    # route and checking the album actually reached the page.
+    # Finish the real /results_loading -> /progress -> /results_complete path:
+    # request the real completion route and check the album reached the page.
     results_resp = client.post(
         "/results_complete", data={"job_id": job_id}, follow_redirects=False
     )

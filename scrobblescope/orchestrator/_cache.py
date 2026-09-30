@@ -19,6 +19,7 @@ from scrobblescope.cache import (
 from scrobblescope.cache import (
     schema_is_out_of_date as _schema_is_out_of_date,
 )
+from scrobblescope.utils import log_failure
 
 
 async def _lookup_cached_metadata(conn, job_id, album_keys):
@@ -41,12 +42,13 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
     # Fail open: a failed cache read makes every album a miss, not a failed job.
     except Exception as exc:  # noqa: BLE001
         if _schema_is_out_of_date(exc):
-            logging.warning(
-                f"DB lookup failed, proceeding without cache: {exc}. "
-                f"{_SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            log_failure(
+                "DB lookup failed, proceeding without cache "
+                f"({_SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                logging.WARNING,
             )
         else:
-            logging.warning(f"DB lookup failed, proceeding without cache: {exc}")
+            log_failure("DB lookup failed, proceeding without cache", logging.WARNING)
         jobs.record_stat(
             job_id, "db_cache_warning", "DB lookup failed; cache bypassed."
         )
@@ -68,8 +70,8 @@ async def _lookup_cached_original_release(conn, keys):
     try:
         return await _orchestrator._batch_lookup_original_release(conn, keys)
     # Fail open: a missing correction only skips the display upgrade.
-    except Exception as exc:  # noqa: BLE001
-        logging.warning(f"Original-release cache lookup failed (non-fatal): {exc}")
+    except Exception:  # noqa: BLE001
+        log_failure("Original-release cache lookup failed (non-fatal)", logging.WARNING)
         return {}
 
 
@@ -84,6 +86,6 @@ async def _persist_new_metadata(conn, job_id, new_metadata_rows):
             f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
         )
     # Fail open: a failed persist costs the next job a lookup, not this one.
-    except Exception as exc:  # noqa: BLE001
-        logging.warning(f"DB persist failed (non-fatal): {exc}")
+    except Exception:  # noqa: BLE001
+        log_failure("DB persist failed (non-fatal)", logging.WARNING)
         jobs.record_stat(job_id, "db_cache_warning", "DB persist failed.")

@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2365 tests across 82 tracked test modules.
+2410 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -737,15 +737,14 @@ to this finding.
 
 One bundle, to be taken opportunistically:
 
-- `utils.retry_with_semaphore` docstring: the sentence about the `Retry-After` cap sits inside the `jitter` entry; and jitter can push a capped sleep slightly past `MAX_RETRY_AFTER_SECONDS` (Task 3 review minors).
-- `api_logging._record` takes an elapsed value the caller derives; deriving it inside would shrink the signature. `lastfm.fetch_pages_batch_async` has a gather path that no production caller reaches (one fan-out, one drain would do); `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait, the dead path should go) (S1-15).
+- `tests/test_routes.py` has duplicate helpers and row factories (Rule of Three: the helpers may wait) (S1-15).
 - `static/js/heatmap.js` labels the 15 day and month `<text>` nodes of the grid without `aria-hidden`, so the accessibility tree lists them as a loose text run before the 365 named cells (S2-18).
 - `templates/results.html` `data-album-image` and `data-spotify-id` use `default('')`, which leaves "None" for a Deezer row; `default('', true)` covers it. Nothing reads them today (S2-20).
 - The `.provider-badge` span is 10px uppercase in `input-mono`, under the 12px small-label floor and off the narrow face; one `.provider-badge` rule for all four copies of the badge markup would fix both (S2-21).
 - Comments a cold reader cannot resolve: `results-spotlight.js` cites "B2", "B3" and "B3 follow-up"; `results.css` `.spotlight-details` cites "polish round 2"; `tests/frontend/conftest.py` says "see Step 1"; none of those labels exists in a tracked file. `.spotlight-image-box` calls the results thumbnail 4rem/4.5rem (it is 3rem/3.5rem), the threshold-column comment ("holds either") and `renderHeatmapMobile`'s "sized to what is left inside it" are false (see F-B23-28 and F-B23-25) (S2-22).
 - S2-23 bundle: the `#heatmap-grid` ring-room CSS (a container that never scrolls at any width) and the padding subtraction in `renderHeatmapMobile`; the server-rendered spotlight card body and the `top_artist_*` route variables, dead because JS overwrites them; unused remnants in `results-spotlight.js` (a `content` id lookup, a `hidden`/`opacity-0` reset on an `<img>`, a once-read `state.reducedMotion`, `formatDurationMobile`) and an unread `event` parameter of `showTooltip`; the badge markup copied four times (Rule of Three: may wait); a `sr-only` re-implementation; the theme not following the system setting live. The five photo preloads are recorded on F-B23-20.
 
-- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), Task 3 review minors, S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S1-15, S2-18, S2-20, S2-21, S2-22, S2-23.
 
 ### F-B23-32: provider URLs reach href and src unchecked
 

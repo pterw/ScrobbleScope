@@ -310,8 +310,8 @@ def test_span_is_not_the_sum_of_per_call_durations(caplog):
     read as though the provider itself ran faster than that."""
     session = SimpleNamespace()
     with caplog.at_level(logging.DEBUG):
-        _record(session, "X", "200", (0.1 - 0.0) * 1000, 0.0, 0.1)
-        _record(session, "X", "200", (10.2 - 10.0) * 1000, 10.0, 10.2)
+        _record(session, "X", "200", 0.0, 0.1)
+        _record(session, "X", "200", 10.0, 10.2)
         _emit_summaries(session)
 
     summary_lines = _messages(caplog, logging.INFO, "X:")
@@ -323,8 +323,8 @@ def test_overlapping_calls_make_time_in_calls_exceed_the_span(caplog):
     in calls than the span they occupy; that is correct, not a bug."""
     session = SimpleNamespace()
     with caplog.at_level(logging.DEBUG):
-        _record(session, "X", "200", 1000.0, 0.0, 1.0)
-        _record(session, "X", "200", 1000.0, 0.0, 1.0)
+        _record(session, "X", "200", 0.0, 1.0)
+        _record(session, "X", "200", 0.0, 1.0)
         _emit_summaries(session)
 
     summary_lines = _messages(caplog, logging.INFO, "X:")
@@ -334,8 +334,8 @@ def test_overlapping_calls_make_time_in_calls_exceed_the_span(caplog):
 def test_an_exception_ending_after_the_last_success_extends_the_span(caplog):
     session = SimpleNamespace()
     with caplog.at_level(logging.DEBUG):
-        _record(session, "X", "200", 100.0, 0.0, 0.1)
-        _record(session, "X", "RuntimeError", 200.0, 0.2, 0.4)
+        _record(session, "X", "200", 0.0, 0.1)
+        _record(session, "X", "RuntimeError", 0.2, 0.4)
         _emit_summaries(session)
 
     summary_lines = _messages(caplog, logging.INFO, "X:")
@@ -355,8 +355,8 @@ def test_span_runs_from_the_earliest_start_when_the_later_call_is_recorded_first
     """
     session = SimpleNamespace()
     with caplog.at_level(logging.DEBUG):
-        _record(session, "X", "200", 1000.0, 105.0, 106.0)
-        _record(session, "X", "200", 1000.0, 100.0, 101.0)
+        _record(session, "X", "200", 105.0, 106.0)
+        _record(session, "X", "200", 100.0, 101.0)
         _emit_summaries(session)
 
     summary_lines = _messages(caplog, logging.INFO, "X:")

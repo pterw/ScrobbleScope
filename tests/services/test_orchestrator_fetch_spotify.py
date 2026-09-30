@@ -1085,3 +1085,277 @@ async def test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no
     assert row["reason_code"] == "provider_unavailable"
     assert row["reason"].startswith("Spotify matched it but could not load")
     assert "Spotify" in jobs.progress(job_id)["stats"]["partial_data_warning"]
+
+
+async def _run_process_with_spotify_details(
+    job_id, misses, *, search, details, deezer_finds=(), process=False
+):
+    """Run the enrichment with a Spotify token, *search* and *details* stubs.
+
+    With ``process=True`` the whole ``_process_filtered_albums`` tail runs
+    (no DB), so the job's published state can be read afterwards; otherwise
+    only ``_fetch_spotify_misses`` runs and returns ``(rows, hits)``.
+    """
+    import time
+
+    from scrobblescope.orchestrator import (
+        _fetch_spotify_misses,
+        _process_filtered_albums,
+    )
+
+    async def deezer_search(session, artist, album):
+        return 9 if (artist, album) in deezer_finds else None
+
+    async def fetch_deezer(session, album_id):
+        return _deezer_metadata(("found", "album"))
+
+    hits = {}
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _fake_session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            side_effect=search,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            side_effect=details,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
+        ),
+        patch(
+            "scrobblescope.orchestrator._get_db_connection",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch("scrobblescope.orchestrator.enqueue_release_check"),
+    ):
+        if process:
+            return await _process_filtered_albums(
+                job_id, misses, 2024, "playcount", "all", None, None, "all", time.time()
+            )
+        rows = await _fetch_spotify_misses(job_id, misses, hits)
+    return rows, hits
+
+
+async def _matched_by_search(session, artist, album, token, semaphore=None):
+    return f"sp-{artist}"
+
+
+def _all_details_unanswered(*spotify_ids):
+    from scrobblescope.spotify import AlbumDetails
+
+    async def batch(session, ids, token, semaphore=None, on_fallback=None):
+        return AlbumDetails({}, unanswered=set(ids) & set(spotify_ids))
+
+    return batch
+
+
+@pytest.mark.asyncio
+async def test_every_spotify_details_call_unanswered_and_deezer_empty_fails_retryable():
+    """
+    GIVEN every search is answered (a match) but every details call is not, and
+    Deezer enriches nothing
+    WHEN the misses are enriched
+    THEN SpotifyUnavailableError is raised (published as the retryable
+    spotify_unavailable), not a "Done! Found 0 albums" run, and both albums
+    were listed provider_unavailable first.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {("a", "album"): _plain_album("a"), ("b", "album"): _plain_album("b")}
+
+    with pytest.raises(SpotifyUnavailableError, match="details call") as excinfo:
+        await _run_process_with_spotify_details(
+            job_id,
+            misses,
+            search=_matched_by_search,
+            details=_all_details_unanswered("sp-a", "sp-b"),
+        )
+
+    codes = [v["reason_code"] for v in jobs.unmatched(job_id).values()]
+    assert codes == ["provider_unavailable", "provider_unavailable"]
+    assert classify_exception_to_error_code(excinfo.value) == "spotify_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_a_run_whose_every_detail_call_fails_publishes_spotify_unavailable():
+    """
+    GIVEN the album tail runs with every Spotify details call unanswered and
+    Deezer matching nothing
+    WHEN _process_filtered_albums finishes
+    THEN the job is failed spotify_unavailable and retryable with no results,
+    where before it ended "Done" with zero albums.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {("a", "album"): _plain_album("a"), ("b", "album"): _plain_album("b")}
+
+    returned = await _run_process_with_spotify_details(
+        job_id,
+        misses,
+        search=_matched_by_search,
+        details=_all_details_unanswered("sp-a", "sp-b"),
+        process=True,
+    )
+
+    progress = jobs.progress(job_id)
+    assert returned == []
+    assert progress["error"] is True
+    assert progress["error_code"] == "spotify_unavailable"
+    assert progress["retryable"] is True
+    assert jobs.context(job_id)["results"] == []
+
+
+@pytest.mark.asyncio
+async def test_details_unanswered_for_every_album_but_one_deezer_match_is_not_a_failure():
+    """
+    GIVEN every details call is unanswered but Deezer matches one album
+    WHEN the misses are enriched
+    THEN no error is raised and the Deezer album is enriched: a partial run
+    stays a success, and the other album is listed unavailable.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("found", "album"): _plain_album("found"),
+        ("lost", "album"): _plain_album("lost"),
+    }
+
+    rows, hits = await _run_process_with_spotify_details(
+        job_id,
+        misses,
+        search=_matched_by_search,
+        details=_all_details_unanswered("sp-found", "sp-lost"),
+        deezer_finds={("found", "album")},
+    )
+
+    assert rows == [("found", "album")]
+    assert list(hits) == [("found", "album")]
+    (row,) = jobs.unmatched(job_id).values()
+    assert row["artist"] == "Lost"
+    assert row["reason_code"] == "provider_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_a_no_match_answer_beside_an_unanswered_details_call_does_not_fail():
+    """
+    GIVEN one album's search is answered "no match", another's search matches
+    but its details are unanswered, and Deezer matches neither
+    WHEN the misses are enriched
+    THEN no error is raised: Spotify did answer something, so the run is the
+    ruling's letter (fail only when Spotify answered nothing) and ends with no
+    albums and an unmatched list carrying each album's own reason.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("miss", "album"): _plain_album("miss"),
+        ("bad", "album"): _plain_album("bad"),
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        return None if artist == "miss" else f"sp-{artist}"
+
+    rows, hits = await _run_process_with_spotify_details(
+        job_id,
+        misses,
+        search=search,
+        details=_all_details_unanswered("sp-bad"),
+    )
+
+    assert rows == [] and hits == {}
+    reasons = {v["artist"]: v["reason_code"] for v in jobs.unmatched(job_id).values()}
+    assert reasons == {"Miss": "no_spotify_match", "Bad": "provider_unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_details_fan_out_cancels_and_settles_siblings_when_one_batch_raises():
+    """
+    GIVEN three detail batches where the first raises an unexpected error and
+    the other two would sleep far longer than the test runs
+    WHEN the batch detail phase runs
+    THEN the error reaches the caller unwrapped and both siblings were
+    cancelled and settled before it did (F-B23-24). Mutation: drop the
+    ``cancel_and_drain`` in the phase's finally block and the siblings are
+    still pending, so ``cancelled`` stays 0.
+    """
+    from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    ids = [f"sp-{i}" for i in range(41)]  # 3 batches of at most 20
+    id_to_key = {spotify_id: (spotify_id, "album") for spotify_id in ids}
+    cancelled = []
+
+    async def batch(session, batch_ids, token, semaphore=None, on_fallback=None):
+        if batch_ids[0] == "sp-0":
+            await asyncio.sleep(0.01)
+            raise RuntimeError("unexpected")
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            cancelled.append(batch_ids[0])
+            raise
+
+    with patch(
+        "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+        side_effect=batch,
+    ):
+        async with asyncio.timeout(2):
+            with pytest.raises(RuntimeError, match="unexpected"):
+                await _run_spotify_batch_detail_phase(
+                    job_id, MagicMock(), ids, "tok", id_to_key, {}, {}
+                )
+
+    assert sorted(cancelled) == ["sp-20", "sp-40"]
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_zero_result_run_succeeds_and_each_album_keeps_its_own_reason():
+    """
+    GIVEN some Spotify searches are answered "no match", the rest are
+    unanswered, and Deezer enriches nothing, so the run has zero albums
+    WHEN the album tail runs end to end
+    THEN the job is not failed (Spotify did answer something: the ruling's
+    letter) and ends with zero albums, and the unmatched breakdown carries
+    each album's own reason, provider_unavailable included.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        ("a", "album"): _plain_album("a"),
+        ("b", "album"): _plain_album("b"),
+        ("c", "album"): _plain_album("c"),
+        ("d", "album"): _plain_album("d"),
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        if artist in ("c", "d"):
+            raise ProviderError("spotify", "rate_limited")
+        return None
+
+    returned = await _run_process_with_spotify_details(
+        job_id,
+        misses,
+        search=search,
+        details=_all_details_unanswered(),
+        process=True,
+    )
+
+    progress = jobs.progress(job_id)
+    assert returned == []
+    assert progress["error"] is False
+    assert jobs.context(job_id)["results"] == []
+    reasons = {v["artist"]: v["reason_code"] for v in jobs.unmatched(job_id).values()}
+    assert reasons == {
+        "A": "no_spotify_match",
+        "B": "no_spotify_match",
+        "C": "provider_unavailable",
+        "D": "provider_unavailable",
+    }

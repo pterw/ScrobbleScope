@@ -51,7 +51,11 @@ from scrobblescope.unmatched import (
     REASON_NO_SPOTIFY_MATCH,
     partition_albums_by_threshold,
 )
-from scrobblescope.utils import cleanup_expired_cache, create_optimized_session
+from scrobblescope.utils import (
+    cleanup_expired_cache,
+    create_optimized_session,
+    log_failure,
+)
 from scrobblescope.worker import (
     new_thread_event_loop,
     release_job_slot,
@@ -180,11 +184,15 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     Spotify being down degrades, per album: a token that cannot be had, or
     a search Spotify could not answer, sends that album to Deezer, and an
     album Deezer cannot match either is recorded as unavailable, never as
-    "no match". Raises SpotifyUnavailableError only when Spotify answered
-    no search at all (no token, or every search unanswered), nothing was
+    "no match". Raises SpotifyUnavailableError only when Spotify gave
+    nothing for any miss (no token, or every miss either a search it did not
+    answer or a matched album whose details it did not answer), nothing was
     already cached before this call, and Deezer could not enrich a single
     album either -- a run that finds at least one match is a valid, if
-    partial, outcome, not a failure.
+    partial, outcome, not a failure. A miss whose search Spotify answered
+    with "no match" is an answer, so it keeps the run from failing here
+    (see ``_detect_enrichment_total_failure`` for the run where every answer
+    was "no match").
     """
     if not cache_misses:
         return []
@@ -258,11 +266,20 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
             )
         new_metadata_rows.extend(deezer_rows)
 
-    spotify_answered_nothing = len(unanswered_keys) == len(cache_misses)
-    if spotify_answered_nothing and not had_cache_hits and not new_metadata_rows:
+    # Spotify "gave nothing" for a miss when its search went unanswered or,
+    # having matched it, its details did. Both are outages, not answers.
+    spotify_gave_nothing = set(cache_misses) <= (
+        unanswered_keys | detail_unavailable_keys
+    )
+    if spotify_gave_nothing and not had_cache_hits and not new_metadata_rows:
         if not token:
             raise SpotifyUnavailableError(
                 "Spotify token fetch failed and Deezer could not enrich any album."
+            )
+        if detail_unavailable_keys:
+            raise SpotifyUnavailableError(
+                "Spotify could not answer a search or a details call for any "
+                "album and Deezer could not enrich any album."
             )
         raise SpotifyUnavailableError(
             "Spotify answered no search and Deezer could not enrich any album."
@@ -419,13 +436,26 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
 
 
 def _detect_enrichment_total_failure(job_id, results, filtered_albums):
-    """Return True and set job error if no filtered album matched any provider.
+    """Return True and fail the job when every album ended as "no match".
 
-    Only fires when results is empty but filtered_albums is non-empty.
-    Reads job unmatched state to count 'no_spotify_match' entries -- the
-    reason_code is unchanged (Task 5 only changed its reason text, "No
-    match on Spotify or Deezer"), so this still fires only once both
-    providers have had their turn on every album.
+    This is the second of the two places that can fail a run
+    ``spotify_unavailable``, and it decides only the case the first cannot.
+    ``_fetch_spotify_misses`` sees the calls and raises when Spotify gave
+    nothing for every album (an unanswered search or unanswered details) and
+    Deezer enriched nothing. This function sees only the job's unmatched rows,
+    which cannot say which provider was down, so it fires only on the one
+    shape they do prove: results are empty, ``filtered_albums`` is not, and
+    every album was recorded as ``no_spotify_match`` -- both providers
+    answered and neither had it, so a whole account matching nothing is read
+    as Spotify giving nothing.
+
+    A ``provider_unavailable`` row does not count: a run holding one is not
+    failed here. Where it came from decides: an outage on Spotify's side was
+    already raised by ``_fetch_spotify_misses``; one from Deezer being down
+    while Spotify answered "no match" (or a mix of the two kinds of row)
+    ends as a successful run with no albums and its unmatched list, which is
+    the owner ruling's letter -- fail only when Spotify answered nothing and
+    Deezer enriched nothing. Release-scope rows never count either.
     """
     if not results and filtered_albums:
         job_ctx = jobs.context(job_id)
@@ -640,27 +670,27 @@ async def _fetch_and_process(
             overall_start_time,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- logged by log_failure
         # Classified by type; anything unrecognised is our bug and is
         # published as internal_error, never with the exception's text.
         error_code = classify_exception_to_error_code(exc) or "internal_error"
         jobs.fail(job_id, error_code, username=username)
 
-        logging.exception(f"Error processing request for {username} in {year}")
+        log_failure(f"Error processing request for {username} in {year}")
         return []
 
 
 def _report_album_failure(job_id, username, year):
     """Log the crash and publish this pipeline's terminal state.
 
-    Called from inside the helper's ``except`` block, so ``logging.exception``
+    Called from inside the helper's ``except`` block, so ``log_failure``
     still sees the active exception. Publishes the same ``internal_error``
     the heatmap entry point does, and ``_fetch_and_process`` answers an
     unclassified exception the same way: one answer everywhere (F-SWE-5).
     Before this, the album backstop only logged, and a page polling the job
     waited on a job that would never finish.
     """
-    logging.exception(f"Unhandled error in background task for {username}/{year}")
+    log_failure(f"Unhandled error in background task for {username}/{year}")
     jobs.fail(job_id, "internal_error", username=username)
 
 

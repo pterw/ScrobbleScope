@@ -16,6 +16,7 @@ from scrobblescope.domain import normalize_track_name
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
+    cancel_and_drain,
     create_optimized_session,
     get_spotify_limiter,
     parse_retry_after,
@@ -207,7 +208,13 @@ async def _fetch_album_details_one_by_one(session, album_ids, token, retries):
             unanswered.add(album_id)
             return None
 
-    albums = await asyncio.gather(*(fetch_one(album_id) for album_id in album_ids))
+    tasks = [asyncio.ensure_future(fetch_one(album_id)) for album_id in album_ids]
+    try:
+        albums = await asyncio.gather(*tasks)
+    finally:
+        # An error other than ProviderError must not leave the siblings
+        # running on a session that is about to close (F-B23-24).
+        await cancel_and_drain(tasks)
     return AlbumDetails(
         {album["id"]: album for album in albums if album}, unanswered=unanswered
     )

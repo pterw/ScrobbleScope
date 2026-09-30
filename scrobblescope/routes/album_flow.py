@@ -15,6 +15,7 @@ from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
 from scrobblescope.spotlight import select_spotlight_artists
+from scrobblescope.utils import log_failure
 
 bp = _routes.bp
 
@@ -444,8 +445,8 @@ def results_loading():
                 limit_results,
             ),
         )
-    except Exception:
-        logging.exception("Failed to start background task thread")
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure("Failed to start background task thread")
         jobs.delete(job_id)
         return render_template(
             "index.html",

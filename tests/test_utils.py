@@ -10,6 +10,7 @@ from scrobblescope.utils import (
     REQUEST_CACHE,
     _cache_lock,
     _GlobalThrottle,
+    cancel_and_drain,
     cleanup_expired_cache,
     create_optimized_session,
     format_seconds,
@@ -259,3 +260,78 @@ def test_create_optimized_session_sends_shared_user_agent():
             return session.headers.get("User-Agent")
 
     assert asyncio.run(_user_agent()) == APP_USER_AGENT
+
+
+# ------------------------------------------------------------------ #
+# cancel_and_drain tests                                              #
+# ------------------------------------------------------------------ #
+
+
+async def _forever(cancelled):
+    try:
+        await asyncio.sleep(30)
+    except asyncio.CancelledError:
+        cancelled.append(True)
+        raise
+
+
+def test_cancel_and_drain_cancels_pending_tasks_and_waits_for_them_to_settle():
+    """
+    GIVEN two tasks still sleeping
+    WHEN cancel_and_drain returns
+    THEN both are cancelled and settled, not left pending on a loop that is
+    about to close. Mutation: drop the cancel loop and the 30 s sleeps run
+    into the timeout; drop the gather and the tasks are cancelled but not yet
+    settled when the drain returns.
+    """
+
+    async def scenario():
+        cancelled = []
+        tasks = [asyncio.ensure_future(_forever(cancelled)) for _ in range(2)]
+        await asyncio.sleep(0)  # let both start
+        async with asyncio.timeout(2):
+            await cancel_and_drain(tasks)
+        # Read the state at the moment the drain returns: asyncio.run would
+        # cancel and settle any straggler on its way out and hide a missing gather.
+        return [task.cancelled() for task in tasks], list(cancelled)
+
+    states, cancelled = asyncio.run(scenario())
+
+    assert states == [True, True]
+    assert cancelled == [True, True]
+
+
+def test_cancel_and_drain_leaves_finished_tasks_and_swallows_their_exceptions():
+    """
+    GIVEN one task that returned, one that raised, one still sleeping
+    WHEN cancel_and_drain runs
+    THEN the drain itself raises nothing, the finished task keeps its result,
+    the failed one keeps its exception (retrieved, so asyncio does not log it),
+    and only the sleeper is cancelled.
+    """
+
+    async def ok():
+        return "kept"
+
+    async def boom():
+        raise RuntimeError("boom")
+
+    async def scenario():
+        cancelled = []
+        done = asyncio.ensure_future(ok())
+        failed = asyncio.ensure_future(boom())
+        sleeper = asyncio.ensure_future(_forever(cancelled))
+        await asyncio.sleep(0.01)
+        await cancel_and_drain([done, failed, sleeper])
+        return done, failed, sleeper.cancelled()
+
+    done, failed, sleeper_cancelled = asyncio.run(scenario())
+
+    assert done.result() == "kept"
+    assert isinstance(failed.exception(), RuntimeError)
+    assert sleeper_cancelled
+
+
+def test_cancel_and_drain_accepts_an_empty_list():
+    """GIVEN no tasks WHEN cancel_and_drain runs THEN it returns without error."""
+    assert asyncio.run(cancel_and_drain([])) is None

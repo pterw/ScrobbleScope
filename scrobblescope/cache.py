@@ -9,6 +9,7 @@ except ImportError:
     asyncpg = None
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_DAYS
+from scrobblescope.utils import log_failure
 
 # Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
 # before any module in scrobblescope is imported, so the value is guaranteed
@@ -83,22 +84,19 @@ async def _get_db_connection():
             conn = await asyncpg.connect(dsn, timeout=connect_timeout_seconds)
             return conn
         # The cache is optional: any connect failure disables it for this job.
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             if attempt >= max_attempts:
-                logging.warning(
-                    "DB cache unavailable (db-down): connection failed after %s "
-                    "attempts (cache disabled): %s",
-                    max_attempts,
-                    exc,
+                log_failure(
+                    f"DB cache unavailable (db-down): connection failed after "
+                    f"{max_attempts} attempts (cache disabled)",
+                    logging.WARNING,
                 )
                 return None
             delay = base_delay_seconds * (2 ** (attempt - 1))
-            logging.warning(
-                "DB connection attempt %s/%s failed (db-down): %s. Retrying in %.2fs.",
-                attempt,
-                max_attempts,
-                exc,
-                delay,
+            log_failure(
+                f"DB connection attempt {attempt}/{max_attempts} failed (db-down), "
+                f"retrying in {delay:.2f}s",
+                logging.WARNING,
             )
             await asyncio.sleep(delay)
 
@@ -162,8 +160,8 @@ async def _cleanup_stale_metadata(conn):
         )
         logging.info("Stale cache cleanup: %s", result)
     # Opportunistic housekeeping; a failure must never reach the job.
-    except Exception as exc:  # noqa: BLE001
-        logging.warning("Stale cache cleanup failed (non-fatal): %s", exc)
+    except Exception:  # noqa: BLE001
+        log_failure("Stale cache cleanup failed (non-fatal)", logging.WARNING)
 
 
 async def _batch_persist_metadata(conn, rows):

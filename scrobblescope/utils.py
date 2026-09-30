@@ -2,8 +2,10 @@ import asyncio
 import json
 import logging
 import math
+import sys
 import threading
 import time
+from collections.abc import Sequence
 from weakref import WeakKeyDictionary
 
 import aiohttp
@@ -179,6 +181,25 @@ def get_musicbrainz_limiter():
         _MUSICBRAINZ_LIMITERS, MUSICBRAINZ_REQUESTS_PER_SECOND, 1
     )
     return _ThrottledLimiter(_MUSICBRAINZ_THROTTLE, loop_limiter)
+
+
+def log_failure(message, level=logging.ERROR):
+    """Log the exception being handled: its class at *level*, its traceback at DEBUG.
+
+    *level* defaults to ERROR; a fail-open site (a cache read or write whose
+    failure the job survives) passes ``logging.WARNING``.
+
+    Call it from inside an ``except`` block, in place of ``logging.exception``.
+    The line at *level* is *message* plus the exception's class and nothing more:
+    an exception's text can carry a provider's URL with its query string, or
+    a listener's artist, album and track names, and the traceback repeats it
+    (owner ruling 2026-09-29). Both are still in the DEBUG record for whoever
+    turns that level on, and the redacting formatter still runs over them.
+    """
+    exc_type = sys.exc_info()[0]
+    name = exc_type.__name__ if exc_type is not None else "no active exception"
+    logging.log(level, "%s: %s", message, name)
+    logging.debug("%s (traceback)", message, exc_info=True)
 
 
 def run_async_in_thread(coro):
@@ -419,10 +440,10 @@ async def retry_with_semaphore(
     backoff : callable(attempt: int) -> float | float, sleep seconds on
         transient error; accepts a constant float or a callable taking the
         attempt number
-    jitter : optional callable(attempt: int) -> float, added to retry_after
-        (a Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one
-        warning is logged and ``default`` is returned at once, or ``failure``
-        raised)
+    jitter : optional callable(attempt: int) -> float, added to a Retry-After
+        sleep. The cap below is checked on the Retry-After alone, before the
+        jitter is added, so a sleep can run as long as
+        ``MAX_RETRY_AFTER_SECONDS`` plus the jitter.
     reraise : tuple of exception types to propagate immediately
     error_label : str, the operation key every failure line names, for
         example ``"spotify.search"``. Never build it from an album, artist,
@@ -441,6 +462,9 @@ async def retry_with_semaphore(
         ``failure`` given, only ``PROVIDER_FAILURES`` are retried and counted
         as "unavailable"; any other exception propagates at once, so it is
         classified as ours rather than as a provider outage.
+
+    A Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one warning
+    is logged and ``default`` is returned at once, or ``failure`` raised.
 
     Never sleeps after the final attempt, on either path.
     """
@@ -488,3 +512,18 @@ async def retry_with_semaphore(
     if error is not None:
         raise error
     return default
+
+
+async def cancel_and_drain(tasks: Sequence[asyncio.Future]) -> None:
+    """Cancel every unfinished task in *tasks* and wait for all to settle.
+
+    Called before an exception leaves a fan-out, so no fetch is left pending
+    on a session that is about to close. Results and exceptions of the
+    settled tasks are discarded (retrieved, so asyncio does not log them);
+    the caller re-raises the original exception unchanged. *tasks* is a
+    sequence, not any iterable, because it is walked twice.
+    """
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)

@@ -464,3 +464,132 @@ async def test_search_deezer_album_reads_a_strange_body_as_a_miss(body):
         result = await search_deezer_album(session, "Fleetwood Mac", "Rumours")
 
     assert result is None
+
+
+def _album_session(album_body, tracks_body):
+    """A session answering /album/{id} with *album_body*, /tracks with *tracks_body*."""
+    session = MagicMock()
+    album_resp = AsyncMock()
+    album_resp.status = 200
+    album_resp.json = AsyncMock(return_value=album_body)
+    tracks_resp = AsyncMock()
+    tracks_resp.status = 200
+    tracks_resp.json = AsyncMock(return_value=tracks_body)
+
+    def route(url, params=None, **kwargs):
+        if url.endswith("/tracks"):
+            return make_response_context(tracks_resp)
+        return make_response_context(album_resp)
+
+    session.get.side_effect = route
+    return session
+
+
+_GOOD_ALBUM = {"id": 1, "link": "https://x/1", "release_date": "2020-01-01"}
+_GOOD_TRACKS = {"data": [{"title": "Real Track", "duration": 200}]}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("album_body", "tracks_body"),
+    [
+        (["not", "a", "dict"], _GOOD_TRACKS),
+        ("a string", _GOOD_TRACKS),
+    ],
+    ids=["album_list", "album_string"],
+)
+async def test_fetch_deezer_album_reads_a_strange_body_as_a_miss(
+    album_body, tracks_body
+):
+    """
+    GIVEN /album/{id} answers 200 with a body of an unexpected shape (a list,
+    a string)
+    WHEN fetch_deezer_album runs
+    THEN it returns None, a miss, exactly as the search does: never a
+    TypeError or AttributeError, which would publish internal_error for the
+    whole job.
+    """
+    session = _album_session(album_body, tracks_body)
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 1)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tracks_body",
+    [
+        {},
+        ["not", "a", "dict"],
+        "a string",
+        {"data": None},
+        {"data": "not a list"},
+        {"data": {"title": "Real Track"}},
+    ],
+    ids=[
+        "tracks_empty_object",
+        "tracks_list",
+        "tracks_string",
+        "tracks_null_data",
+        "tracks_string_data",
+        "tracks_object_data",
+    ],
+)
+async def test_fetch_deezer_album_keeps_the_album_when_the_track_list_is_unreadable(
+    tracks_body,
+):
+    """
+    GIVEN a readable album body but a tracks body with no usable `data` list
+    (missing key, null, a string, an object, or not an object at all)
+    WHEN fetch_deezer_album runs
+    THEN the album is kept with its release metadata and no track durations:
+    only an album body that cannot be read is a miss (the pre-15a behaviour
+    for a missing `data` key).
+    """
+    session = _album_session(_GOOD_ALBUM, tracks_body)
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 1)
+
+    assert result is not None
+    assert result.release_date == "2020-01-01"
+    assert result.url == "https://x/1"
+    assert result.track_durations == {}
+
+
+@pytest.mark.asyncio
+async def test_fetch_deezer_album_keeps_the_album_when_optional_fields_are_odd():
+    """
+    GIVEN an album whose link, release date and cover are null or not text, and
+    tracks whose durations are null, text or a bool
+    WHEN fetch_deezer_album runs
+    THEN the album is still returned, with the defaults for what was odd and a
+    duration of 0 for each odd one: a null duration left in the map would raise
+    TypeError in the play-time sum later.
+    """
+    album = {"id": 1, "link": None, "release_date": None, "cover_xl": 42}
+    tracks = {
+        "data": [
+            {"title": "Null", "duration": None},
+            {"title": "Text", "duration": "180"},
+            {"title": "Bool", "duration": True},
+            {"title": "Good", "duration": 200},
+        ]
+    }
+    session = _album_session(album, tracks)
+
+    with patch(
+        "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_deezer_album(session, 7)
+
+    assert result.url == "https://www.deezer.com/album/7"
+    assert result.release_date == ""
+    assert result.image_url is None
+    assert result.track_durations == {"null": 0, "text": 0, "bool": 0, "good": 200}

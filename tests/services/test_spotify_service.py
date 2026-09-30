@@ -826,3 +826,43 @@ async def test_single_album_fallback_reports_only_the_failed_album_unanswered():
 
     assert set(result) == {"good"}
     assert result.unanswered == {"bad"}
+
+
+@pytest.mark.asyncio
+async def test_one_by_one_details_cancel_and_settle_siblings_on_an_unexpected_error():
+    """
+    GIVEN three per-album detail calls where the first raises an unexpected
+    error and the other two would sleep far longer than the test runs
+    WHEN the albums are fetched one by one
+    THEN the error reaches the caller unwrapped and both siblings were
+    cancelled and settled before it did (F-B23-24). Mutation: drop the
+    ``cancel_and_drain`` in the finally block and the siblings are still
+    pending, so ``cancelled`` stays empty.
+    """
+    import asyncio
+
+    from scrobblescope.spotify import _fetch_album_details_one_by_one
+
+    cancelled = []
+
+    async def single(session, album_id, token, retries):
+        if album_id == "a":
+            await asyncio.sleep(0.01)
+            raise RuntimeError("unexpected")
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            cancelled.append(album_id)
+            raise
+
+    with patch(
+        "scrobblescope.spotify.fetch_spotify_album_details_single",
+        side_effect=single,
+    ):
+        async with asyncio.timeout(2):
+            with pytest.raises(RuntimeError, match="unexpected"):
+                await _fetch_album_details_one_by_one(
+                    MagicMock(), ["a", "b", "c"], "tok", 0
+                )
+
+    assert sorted(cancelled) == ["b", "c"]

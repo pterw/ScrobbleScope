@@ -144,6 +144,12 @@ deviation from this rule, and may be declined by citing it.
 - Parse inbound data defensively through fallback accessors. Ignore unexpected
   new upstream fields rather than raising.
 - Network drops and timeouts happen mid-pipeline and cause retries.
+- A failure is logged by its exception type, never by its text. At ERROR (and
+  at WARNING with `exc_info=True`) write the type only; the full traceback goes
+  to DEBUG. An exception's text can carry a provider's URL, its query string,
+  or a listener's artist, album and track names, and a traceback repeats it.
+  `utils.log_failure` does this from inside an `except` block; use it instead
+  of `logging.exception`.
 - Every state-changing pipeline request carries a deterministic idempotency
   key, so a retry cannot create a duplicate mutation upstream.
 

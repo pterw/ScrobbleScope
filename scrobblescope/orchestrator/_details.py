@@ -15,6 +15,7 @@ from math import ceil
 from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_BATCH_CONCURRENCY
+from scrobblescope.utils import cancel_and_drain
 
 
 async def _run_spotify_batch_detail_phase(
@@ -76,28 +77,36 @@ async def _run_spotify_batch_detail_phase(
             on_fallback=report_fallback,
         )
 
-    batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
+    batch_tasks = [
+        asyncio.ensure_future(fetch_batch_with_semaphore(batch))
+        for batch in batch_groups
+    ]
 
     all_album_details = {}
     batches_done = 0
-    for fut in asyncio.as_completed(batch_tasks):
-        batch_result = await fut
-        all_album_details.update(batch_result)
-        if detail_unavailable_keys is not None:
-            detail_unavailable_keys.update(
-                spotify_id_to_key[spotify_id]
-                for spotify_id in getattr(batch_result, "unanswered", ())
+    try:
+        for fut in asyncio.as_completed(batch_tasks):
+            batch_result = await fut
+            all_album_details.update(batch_result)
+            if detail_unavailable_keys is not None:
+                detail_unavailable_keys.update(
+                    spotify_id_to_key[spotify_id]
+                    for spotify_id in getattr(batch_result, "unanswered", ())
+                )
+            batches_done += 1
+            enriched_so_far = len(all_album_details)
+            jobs.report_phase(
+                job_id,
+                jobs.SPOTIFY_DETAILS,
+                batches_done,
+                num_batches,
+                f"Enriched {enriched_so_far}/"
+                f"{len(valid_spotify_ids)} albums from Spotify...",
             )
-        batches_done += 1
-        enriched_so_far = len(all_album_details)
-        jobs.report_phase(
-            job_id,
-            jobs.SPOTIFY_DETAILS,
-            batches_done,
-            num_batches,
-            f"Enriched {enriched_so_far}/"
-            f"{len(valid_spotify_ids)} albums from Spotify...",
-        )
+    finally:
+        # An unexpected exception from one batch must not leave its siblings
+        # running on a session that is about to close (F-B23-24).
+        await cancel_and_drain(batch_tasks)
 
     batch_duration = time.time() - batch_start_time
     logging.info(

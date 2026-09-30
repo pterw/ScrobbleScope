@@ -395,34 +395,34 @@ async def test_progress_cb_single_page():
 
 
 @pytest.mark.asyncio
-async def test_progress_cb_none_uses_gather_path():
+async def test_fetch_all_without_a_progress_callback_still_fetches_every_page():
     """
-    GIVEN a multi-page fetch with progress_cb=None
+    GIVEN a three-page fetch with progress_cb=None, page 3 failing (None)
     WHEN fetch_all_recent_tracks_async runs
-    THEN fetch_pages_batch_async is called (gather path), not as_completed.
+    THEN pages 2 and 3 are both requested, the page that answered is kept, and
+    the metadata reports the dropped one: the no-callback call takes the same
+    single fan-out the callback call does.
     """
-    page_payload = _make_page(2)
+    page_payload = _make_page(3)
+    requested = []
+
+    async def fake_page(session, username, from_ts, to_ts, page, **kwargs):
+        requested.append(page)
+        return None if page == 3 else page_payload
 
     with (
-        patch(
-            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
-            new_callable=AsyncMock,
-            return_value=page_payload,
-        ),
+        patch("scrobblescope.lastfm.fetch_recent_tracks_page_async", new=fake_page),
         patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
-        patch(
-            "scrobblescope.lastfm.fetch_pages_batch_async",
-            new_callable=AsyncMock,
-            return_value=[page_payload],
-        ) as mock_batch,
     ):
         mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
         mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
 
         pages, meta = await fetch_all_recent_tracks_async("user", 0, 1)
 
-    mock_batch.assert_called_once()
-    assert meta["status"] == "ok"
+    assert sorted(requested) == [1, 2, 3]
+    assert len(pages) == 2
+    assert meta["status"] == "partial"
+    assert meta["pages_dropped"] == 1
 
 
 @pytest.mark.asyncio
@@ -786,7 +786,7 @@ async def _run_fetch_all_with_raising_page(ledger, progress_cb):
 @pytest.mark.parametrize(
     "progress_cb",
     [MagicMock(), None],
-    ids=["as-completed-path", "batch-gather-path"],
+    ids=["with-progress-callback", "without-progress-callback"],
 )
 async def test_fetch_all_cancels_sibling_fetches_when_one_page_raises(progress_cb):
     """

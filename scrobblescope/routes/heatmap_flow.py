@@ -6,13 +6,12 @@ that live on the facade (``_check_user_exists``, ``_check_profile_is_public``,
 (``_routes``) rather than imported directly.
 """
 
-import logging
-
 from flask import jsonify, render_template, request, session
 
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.heatmap import heatmap_task
+from scrobblescope.utils import log_failure
 
 bp = _routes.bp
 
@@ -65,8 +64,8 @@ def _validate_heatmap_user(username):
     """
     try:
         user_info = _routes._check_user_exists(username)
-    except Exception:
-        logging.exception("User existence check failed for %s", username)
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure(f"User existence check failed for {username}")
         return (
             jsonify(
                 {
@@ -104,8 +103,8 @@ def _validate_heatmap_user(username):
                 ),
                 403,
             )
-    except Exception:
-        logging.exception("Profile privacy check failed for %s", username)
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure(f"Profile privacy check failed for {username}")
         return (
             jsonify(
                 {
@@ -143,8 +142,8 @@ def _dispatch_heatmap_job(username):
 
     try:
         _routes.start_job_thread(heatmap_task, args=(job_id, username))
-    except Exception:
-        logging.exception("Failed to start heatmap task thread")
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure("Failed to start heatmap task thread")
         jobs.delete(job_id)
         return (
             jsonify(

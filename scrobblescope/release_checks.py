@@ -58,7 +58,7 @@ from scrobblescope.domain import (
 from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import lookup_original_release
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
-from scrobblescope.utils import create_optimized_session
+from scrobblescope.utils import create_optimized_session, log_failure
 from scrobblescope.worker import new_thread_event_loop
 
 # Each result's ``release_check`` field, as the results page reads it.
@@ -251,12 +251,13 @@ async def _lookup_cached(conn, candidates):
             # Not a hiccup: until the table exists, every finding this worker
             # pays a MusicBrainz second for is discarded and looked up again
             # on the next job.
-            logging.warning(
-                f"Original-release cache lookup failed: {exc}. "
-                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            log_failure(
+                "Original-release cache lookup failed "
+                f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                logging.WARNING,
             )
         else:
-            logging.warning(f"Original-release cache lookup failed: {exc}")
+            log_failure("Original-release cache lookup failed", logging.WARNING)
         return {}
 
 
@@ -305,12 +306,15 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         # Fail open: an unpersisted finding is looked up again next time.
         except Exception as exc:  # noqa: BLE001
             if schema_is_out_of_date(exc):
-                logging.warning(
-                    f"Original-release persist failed (non-fatal): {exc}. "
-                    f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+                log_failure(
+                    "Original-release persist failed (non-fatal) "
+                    f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                    logging.WARNING,
                 )
             else:
-                logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+                log_failure(
+                    "Original-release persist failed (non-fatal)", logging.WARNING
+                )
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)
@@ -387,8 +391,8 @@ async def run_release_checks(job_id):
 
         if pending:
             await _check_pending_candidates(job_id, conn, pending, params, state)
-    except Exception:
-        logging.exception(f"Release checks failed for job {job_id}")
+    except Exception:  # noqa: BLE001 -- logged by log_failure
+        log_failure(f"Release checks failed for job {job_id}")
     finally:
         logging.info(
             f"Release checks finished for job {job_id}: "
@@ -401,9 +405,9 @@ async def run_release_checks(job_id):
             try:
                 await conn.close()
             # A failed close must not mask the job's own outcome.
-            except Exception as exc:  # noqa: BLE001
-                logging.warning(
-                    f"Closing the release-check DB connection failed: {exc}"
+            except Exception:  # noqa: BLE001
+                log_failure(
+                    "Closing the release-check DB connection failed", logging.WARNING
                 )
 
 
@@ -419,8 +423,8 @@ def _worker_loop():
             job_id = _JOB_QUEUE.get()
             try:
                 loop.run_until_complete(run_release_checks(job_id))
-            except Exception:
-                logging.exception(f"Release-check worker crashed on job {job_id}")
+            except Exception:  # noqa: BLE001 -- logged by log_failure
+                log_failure(f"Release-check worker crashed on job {job_id}")
             finally:
                 _JOB_QUEUE.task_done()
     finally:  # pragma: no cover - the loop above never exits in practice

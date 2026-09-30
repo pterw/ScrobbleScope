@@ -88,7 +88,7 @@ Resolved in Task 13: `check_profile_is_public` caches only a well-formed public 
 - [x] **Status:** resolved
 **Completed:** 2026-09-29
 
-Resolved in Task 13: `fetch_deezer_album` skips a track whose title is null or not text, and the Deezer fallback fan-out is wrapped in try/finally `_cancel_and_drain`, so no sibling request is left running. The search and details fan-outs are not part of this closure.
+Resolved in Task 13: `fetch_deezer_album` skips a track whose title is null or not text, and the Deezer fallback fan-out is wrapped in try/finally `cancel_and_drain` (public in `utils` since Task 15a; it was a private `lastfm` helper), so no sibling request is left running. The search fan-out already drained; the details fan-out and `spotify._fetch_album_details_one_by_one` gained the same try/finally in Task 15a, each with a test, so no fan-out is left without it.
 
 ### F-B23-30: a Last.fm page whose `recenttracks.track` is a single object would be read as a list of dict keys -- RESOLVED
 
