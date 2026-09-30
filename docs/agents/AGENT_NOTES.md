@@ -123,7 +123,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   `_cache_lock`, `_PLAYTIME_ALBUM_CAP`): see SESSION_CONTEXT Section 1
   "Key runtime facts" (single source; do not restate values here).
 - **Single worker, multiple threads:** Gunicorn runs `--workers 1 --threads 4`.
-  Multiple workers would break the in-process `JOBS` dict. This is intentional.
+  Multiple workers would break the in-process job store (`jobs.MemoryJobStore`). This is intentional.
 - **Windows asyncio:** background threads build their event loop through
   `worker.new_thread_event_loop`, never inline. It uses a `ProactorEventLoop`
   on Windows, where Werkzeug's reloader otherwise breaks asyncpg; the reason

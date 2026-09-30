@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.heatmap import (
     _aggregate_daily_counts,
     _fetch_and_process_heatmap,
@@ -266,19 +267,20 @@ class TestFetchAndProcessHeatmap:
 
     @pytest.mark.asyncio
     async def test_upstream_error_sets_job_error(self):
-        """When Last.fm returns an error, set_job_error is called and we return."""
+        """When Last.fm returns an error, jobs.fail is called and we return."""
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch("scrobblescope.heatmap.set_job_progress"),
-            patch("scrobblescope.heatmap.set_job_stat"),
+            patch("scrobblescope.jobs.expire_stale"),
+            patch("scrobblescope.jobs.start"),
+            patch("scrobblescope.jobs.advance"),
+            patch("scrobblescope.jobs.record_stat"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 return_value=([], {"status": "error", "reason": "lastfm_unavailable"}),
             ),
-            patch("scrobblescope.heatmap.set_job_error") as mock_set_error,
-            patch("scrobblescope.heatmap.set_job_results") as mock_set_results,
+            patch("scrobblescope.jobs.fail") as mock_set_error,
+            patch("scrobblescope.jobs.succeed") as mock_set_results,
         ):
             await _fetch_and_process_heatmap("job-1", "testuser")
             mock_set_error.assert_called_once_with(
@@ -300,16 +302,17 @@ class TestFetchAndProcessHeatmap:
         }
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch("scrobblescope.heatmap.set_job_progress"),
+            patch("scrobblescope.jobs.expire_stale"),
+            patch("scrobblescope.jobs.start"),
+            patch("scrobblescope.jobs.advance"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 return_value=([page], meta),
             ),
-            patch("scrobblescope.heatmap.set_job_stat") as mock_stat,
-            patch("scrobblescope.heatmap.set_job_results") as mock_results,
-            patch("scrobblescope.heatmap.set_job_error") as mock_error,
+            patch("scrobblescope.jobs.record_stat") as mock_stat,
+            patch("scrobblescope.jobs.succeed") as mock_results,
+            patch("scrobblescope.jobs.fail") as mock_error,
         ):
             await _fetch_and_process_heatmap("job-2", "partialuser")
 
@@ -340,16 +343,17 @@ class TestFetchAndProcessHeatmap:
         }
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch("scrobblescope.heatmap.set_job_progress"),
+            patch("scrobblescope.jobs.expire_stale"),
+            patch("scrobblescope.jobs.start"),
+            patch("scrobblescope.jobs.advance"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 return_value=([], meta),  # partial status but no tracks returned
             ),
-            patch("scrobblescope.heatmap.set_job_stat") as mock_stat,
-            patch("scrobblescope.heatmap.set_job_error") as mock_error,
-            patch("scrobblescope.heatmap.set_job_results") as mock_results,
+            patch("scrobblescope.jobs.record_stat") as mock_stat,
+            patch("scrobblescope.jobs.fail") as mock_error,
+            patch("scrobblescope.jobs.succeed") as mock_results,
         ):
             await _fetch_and_process_heatmap("job-partial-zero", "partialuser")
 
@@ -371,16 +375,17 @@ class TestFetchAndProcessHeatmap:
         meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch("scrobblescope.heatmap.set_job_progress"),
-            patch("scrobblescope.heatmap.set_job_stat"),
+            patch("scrobblescope.jobs.expire_stale"),
+            patch("scrobblescope.jobs.start"),
+            patch("scrobblescope.jobs.advance"),
+            patch("scrobblescope.jobs.record_stat"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 return_value=([], meta),
             ),
-            patch("scrobblescope.heatmap.set_job_error") as mock_error,
-            patch("scrobblescope.heatmap.set_job_results") as mock_results,
+            patch("scrobblescope.jobs.fail") as mock_error,
+            patch("scrobblescope.jobs.succeed") as mock_results,
         ):
             await _fetch_and_process_heatmap("job-3", "emptyuser")
             mock_error.assert_called_once_with(
@@ -406,34 +411,27 @@ class TestFetchAndProcessHeatmap:
         stored_result = {}
         completion_events = []
 
-        def _capture_result(job_id, results):
+        def _capture_success(job_id, results, message):
             stored_result.update(results)
-            completion_events.append("results")
-            return True
-
-        def _capture_progress(job_id, **kwargs):
-            if kwargs.get("progress") == 100:
-                completion_events.append("ready")
+            completion_events.append(message)
             return True
 
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch(
-                "scrobblescope.heatmap.set_job_progress",
-                side_effect=_capture_progress,
-            ),
-            patch("scrobblescope.heatmap.set_job_stat"),
+            patch("scrobblescope.jobs.expire_stale"),
+            patch("scrobblescope.jobs.start"),
+            patch("scrobblescope.jobs.advance"),
+            patch("scrobblescope.jobs.record_stat"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 return_value=([page], meta),
             ),
             patch(
-                "scrobblescope.heatmap.set_job_results",
-                side_effect=_capture_result,
+                "scrobblescope.jobs.succeed",
+                side_effect=_capture_success,
             ),
-            patch("scrobblescope.heatmap.set_job_error") as mock_error,
+            patch("scrobblescope.jobs.fail") as mock_error,
         ):
             await _fetch_and_process_heatmap("job-4", "happyuser")
             mock_error.assert_not_called()
@@ -446,22 +444,21 @@ class TestFetchAndProcessHeatmap:
         assert stored_result["max_count"] == 2  # yesterday had 2
         assert stored_result["daily_counts"][yesterday.isoformat()] == 2
         assert stored_result["daily_counts"][today.isoformat()] == 1
-        assert completion_events == ["results", "ready"]
+        # The payload and the 100% travel in one call: no window between them.
+        assert completion_events == ["Heatmap ready!"]
 
     @pytest.mark.asyncio
     async def test_success_is_readable_through_repository_at_100_percent(self):
         """A real job exposes its payload whenever progress reports complete."""
-        from scrobblescope.repositories import create_job, delete_job, get_job_context
-
         today = datetime.now(timezone.utc).date()
         page = _wrap_tracks([_make_track(today)])
         metadata = {"status": "ok", "pages_expected": 1, "pages_received": 1}
-        job_id = create_job({"username": "wired-user", "mode": "heatmap"})
+        job_id = jobs.create({"username": "wired-user", "mode": "heatmap"})
 
         try:
             with (
                 patch("scrobblescope.heatmap.cleanup_expired_cache"),
-                patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+                patch("scrobblescope.jobs.expire_stale"),
                 patch(
                     "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                     new_callable=AsyncMock,
@@ -470,7 +467,7 @@ class TestFetchAndProcessHeatmap:
             ):
                 await _fetch_and_process_heatmap(job_id, "wired-user")
 
-            context = get_job_context(job_id)
+            context = jobs.context(job_id)
             assert context is not None
             assert context["progress"]["progress"] == 100
             assert context["progress"]["error"] is False
@@ -479,7 +476,7 @@ class TestFetchAndProcessHeatmap:
             assert context["progress"]["stats"]["pages_received"] == 1
             assert context["progress"]["stats"]["active_days"] == 1
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
 
     @pytest.mark.asyncio
     async def test_progress_callback_sends_correct_percentages(self):
@@ -490,55 +487,47 @@ class TestFetchAndProcessHeatmap:
 
         progress_calls = []
 
-        def _capture_progress(job_id, **kwargs):
-            if "progress" in kwargs:
-                progress_calls.append(kwargs)
+        def _capture_advance(job_id, percent, message, phase=None):
+            progress_calls.append(
+                {"progress": percent, "message": message, "phase": phase}
+            )
             return True
 
+        started = []
+
         async def _fetch_with_progress(*_args, **kwargs):
-            kwargs["progress_cb"](1, 1)
+            kwargs["progress_cb"](1, 1, 1)
             return [page], meta
 
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+            patch("scrobblescope.jobs.expire_stale"),
             patch(
-                "scrobblescope.heatmap.set_job_progress",
-                side_effect=_capture_progress,
+                "scrobblescope.jobs.start",
+                side_effect=lambda job_id, message: started.append(message),
             ),
-            patch("scrobblescope.heatmap.set_job_stat"),
+            patch("scrobblescope.jobs.advance", side_effect=_capture_advance),
+            patch("scrobblescope.jobs.record_stat"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
                 side_effect=_fetch_with_progress,
             ),
-            patch("scrobblescope.heatmap.set_job_results"),
-            patch("scrobblescope.heatmap.set_job_error"),
+            patch("scrobblescope.jobs.succeed"),
+            patch("scrobblescope.jobs.fail"),
         ):
             await _fetch_and_process_heatmap("job-5", "progressuser")
 
         # The phase owns the operation name; the live statistic owns N / T.
-        assert {
-            "progress": 0,
-            "message": "Initializing heatmap...",
-            "error": False,
-            "reset_stats": True,
-        } in progress_calls
+        assert started == ["Initializing heatmap..."]
         assert {
             "progress": 5,
             "message": "Fetching your scrobble history from Last.fm...",
-            "error": False,
             "phase": None,
         } in progress_calls
         assert {
             "progress": 80,
             "message": "Counting your daily scrobbles...",
-            "phase": None,
-        } in progress_calls
-        assert {
-            "progress": 100,
-            "message": "Heatmap ready!",
-            "error": False,
             "phase": None,
         } in progress_calls
         page_calls = [
@@ -590,7 +579,7 @@ class TestHeatmapTask:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("boom"),
             ),
-            patch("scrobblescope.heatmap.set_job_error"),
+            patch("scrobblescope.jobs.fail"),
         ):
             # Should NOT raise -- heatmap_task catches exceptions.
             heatmap_task("job-err", "user")
@@ -603,7 +592,7 @@ class TestHeatmapTask:
                 "asyncio.set_event_loop", side_effect=RuntimeError("loop setup failed")
             ),
             patch("scrobblescope.heatmap.release_job_slot") as mock_release,
-            patch("scrobblescope.heatmap.set_job_error"),
+            patch("scrobblescope.jobs.fail"),
         ):
             heatmap_task("job-loop-err", "user")
             mock_release.assert_called_once()
@@ -618,7 +607,7 @@ class TestHeatmapTask:
             patch("asyncio.ProactorEventLoop", return_value=mock_loop, create=True),
             patch("asyncio.set_event_loop"),
             patch("scrobblescope.heatmap.release_job_slot") as mock_release,
-            patch("scrobblescope.heatmap.set_job_error"),
+            patch("scrobblescope.jobs.fail"),
         ):
             with pytest.raises(RuntimeError, match="close failed"):
                 heatmap_task("job-loop-err", "user")
@@ -627,10 +616,9 @@ class TestHeatmapTask:
     def test_unhandled_crash_publishes_internal_error(self):
         """A crash that escapes the pipeline ends the job as internal_error,
         not as a Last.fm outage that never happened (F-SWE-5)."""
-        from scrobblescope.repositories import create_job, get_job_progress
         from tests.helpers import TEST_JOB_PARAMS
 
-        job_id = create_job(TEST_JOB_PARAMS)
+        job_id = jobs.create(TEST_JOB_PARAMS)
         with (
             patch("scrobblescope.heatmap.release_job_slot"),
             patch(
@@ -641,7 +629,7 @@ class TestHeatmapTask:
         ):
             heatmap_task(job_id, "user")
 
-        progress = get_job_progress(job_id)
+        progress = jobs.progress(job_id)
         assert progress["error"] is True
         assert progress["error_code"] == "internal_error"
         assert progress["error_source"] == "internal"
@@ -650,10 +638,9 @@ class TestHeatmapTask:
     def test_user_not_found_crash_publishes_user_not_found(self):
         """A Last.fm 404 ValueError escaping the pipeline is classified as
         user_not_found, not blamed on the app as internal_error (Finding 1)."""
-        from scrobblescope.repositories import create_job, get_job_progress
         from tests.helpers import TEST_JOB_PARAMS
 
-        job_id = create_job(TEST_JOB_PARAMS)
+        job_id = jobs.create(TEST_JOB_PARAMS)
         with (
             patch("scrobblescope.heatmap.release_job_slot"),
             patch(
@@ -664,7 +651,7 @@ class TestHeatmapTask:
         ):
             heatmap_task(job_id, "ghost")
 
-        progress = get_job_progress(job_id)
+        progress = jobs.progress(job_id)
         assert progress["error"] is True
         assert progress["error_code"] == "user_not_found"
         assert progress["error_source"] == "lastfm"
@@ -715,9 +702,7 @@ class TestHeatmapPhaseProgress:
     @pytest.mark.asyncio
     async def test_heatmap_lastfm_phase_and_cleared_at_completion(self):
         """Heatmap pipeline reports exact Last.fm phase and clears phase at completion."""
-        from scrobblescope.repositories import create_job, get_job_progress
-
-        job_id = create_job({"username": "user", "mode": "heatmap"})
+        job_id = jobs.create({"username": "user", "mode": "heatmap"})
         observed_phase = None
 
         today = datetime.now(timezone.utc).date()
@@ -728,12 +713,12 @@ class TestHeatmapPhaseProgress:
             nonlocal observed_phase
             if progress_cb:
                 progress_cb(23, 102, 23)
-                observed_phase = get_job_progress(job_id).get("phase")
+                observed_phase = jobs.progress(job_id).get("phase")
             return [page], meta
 
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
-            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+            patch("scrobblescope.jobs.expire_stale"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 side_effect=fake_fetch,
@@ -748,5 +733,5 @@ class TestHeatmapPhaseProgress:
             "current": 23,
             "total": 102,
         }
-        final_progress = get_job_progress(job_id)
+        final_progress = jobs.progress(job_id)
         assert "phase" not in final_progress

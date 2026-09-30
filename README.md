@@ -335,7 +335,7 @@ module, so the clients stay thin:
 | `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret and API-key validation |
 | `routes/` | One blueprint split by concern -- the home page, the album flow, the heatmap flow, and the small JSON endpoints. Handlers parse the request, start or read a job, and render |
 | `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
-| `repositories.py` | The in-memory job store and every read and write to it, each under one lock |
+| `jobs.py` | The job module: the lifecycle of one search (create, advance, record, succeed or fail, reset, read, expire) and the rules that keep a job coherent, over a storage seam whose one adapter today is an in-memory store under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
 | `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, with no enrichment step |
 | `lastfm.py`, `spotify.py`, `deezer.py`, `musicbrainz.py` | One module per external API, each owning that provider's quirks and nothing else |
@@ -668,7 +668,7 @@ docs/design/            Design snapshot and recorded implementation overrides
 
 The `tests/` tree mirrors the package: `tests/services/` covers the API
 clients and the pipeline phases, `tests/scripts/dev/` covers the developer
-tooling itself, and the rest covers routes, templates and repositories. The
+tooling itself, and the rest covers routes, templates and the job module. The
 listing above omits generated and machine-local files -- the compiled
 stylesheet's inputs, the browser binaries the gate downloads, and the local
 virtual environment.

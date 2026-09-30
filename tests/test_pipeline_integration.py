@@ -139,7 +139,7 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
                 "/progress", query_string={"job_id": job_id}
             ).get_json()
 
-        # CR1/CR2: set_job_progress(100) runs before enqueue_release_check in
+        # CR1/CR2: jobs.succeed runs before enqueue_release_check in
         # _process_filtered_albums (orchestrator/__init__.py:607-619), so
         # /progress reporting 100 does not prove the MusicBrainz hand-off has
         # happened yet. Join the real background thread -- still inside the

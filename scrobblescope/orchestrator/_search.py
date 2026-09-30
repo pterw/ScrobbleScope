@@ -2,8 +2,8 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22): this module
 owns the parallel-search step only. Every dependency that ``orchestrator``
-also exposes to tests as a patchable attribute (``search_for_spotify_album_id``,
-``set_job_progress``, ``add_job_unmatched``) is read through the live
+also exposes to tests as a patchable attribute (``search_for_spotify_album_id``)
+is read through the live
 ``orchestrator`` module reference below rather than imported directly, so a
 ``mock.patch("scrobblescope.orchestrator.X")`` in the existing test suite
 still reaches the call site now that it lives in a different file.
@@ -13,6 +13,7 @@ import asyncio
 import logging
 import time
 
+from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_REQUESTS_PER_SECOND, SPOTIFY_SEARCH_CONCURRENCY
 
@@ -61,19 +62,12 @@ async def _run_spotify_search_phase(
         result = await fut
         search_results.append(result)
         searches_done += 1
-        # Map search progress into the 20%-40% range
-        pct = 20 + int(20 * searches_done / max(total_searches, 1))
-        _orchestrator.set_job_progress(
+        jobs.report_phase(
             job_id,
-            progress=pct,
-            message=(f"Searching Spotify: {searches_done}/{total_searches} albums..."),
-            phase={
-                "key": "spotify_search",
-                "label": "Searching Spotify",
-                "unit": "album",
-                "current": searches_done,
-                "total": total_searches,
-            },
+            jobs.SPOTIFY_SEARCH,
+            searches_done,
+            total_searches,
+            f"Searching Spotify: {searches_done}/{total_searches} albums...",
         )
 
     spotify_id_to_key = {}

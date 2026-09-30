@@ -14,12 +14,7 @@ from scripts.dev._frontend_gate_colour import (
     _worst_divider_contrast,
 )
 from scripts.dev._frontend_gate_shared import MIGRATED_PAGES, TOGGLE_TIMEOUT_MS
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_progress,
-    set_job_results,
-)
+from scrobblescope import jobs
 
 THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
 SET_THEME_EXPRESSION = (
@@ -700,8 +695,8 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     write, and nothing here noticed, because every other theme check reads CSS.
     """
     failures = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_results(
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -717,8 +712,8 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
                 "2025-01-05": 0,
             },
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
         page.locator("#heatmap-result-frame svg").wait_for(state="visible")
@@ -736,7 +731,7 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
                 }"""
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
 
     for theme, reading in readings.items():
         if not reading["fill"]:
@@ -764,8 +759,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
     named underneath.
     """
     failures = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_results(
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -775,8 +770,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             "max_count": 4,
             "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
         page.locator("#heatmap-result-frame svg").wait_for(state="visible")
@@ -803,7 +798,7 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             }"""
         )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
 
     model = state["model"]
     if not model:

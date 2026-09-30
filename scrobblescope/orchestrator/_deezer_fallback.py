@@ -11,6 +11,7 @@ import asyncio
 import logging
 import time
 
+from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.domain import normalize_name
 from scrobblescope.lastfm import _cancel_and_drain
@@ -56,18 +57,12 @@ async def _run_deezer_fallback_phase(job_id, session, misses, cache_hits):
         for fut in asyncio.as_completed(tasks):
             key, data, metadata = await fut
             done += 1
-            pct = 60 + int(15 * done / max(total, 1))
-            _orchestrator.set_job_progress(
+            jobs.report_phase(
                 job_id,
-                progress=pct,
-                message=f"Checking Deezer: {done}/{total} albums...",
-                phase={
-                    "key": "deezer_fallback",
-                    "label": "Checking Deezer",
-                    "unit": "album",
-                    "current": done,
-                    "total": total,
-                },
+                jobs.DEEZER_FALLBACK,
+                done,
+                total,
+                f"Checking Deezer: {done}/{total} albums...",
             )
 
             if metadata is not None:
@@ -91,7 +86,7 @@ async def _run_deezer_fallback_phase(job_id, session, misses, cache_hits):
                 unmatched_key = "|".join(
                     normalize_name(original_artist, original_album)
                 )
-                _orchestrator.add_job_unmatched(
+                jobs.record_unmatched(
                     job_id,
                     unmatched_key,
                     {

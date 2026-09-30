@@ -18,7 +18,7 @@ from werkzeug.serving import make_server
 
 from app import create_app
 from scripts.dev._frontend_gate_shared import ALL_PAGES, GATE_JOB_IDS, MIGRATED_PAGES
-from scrobblescope.repositories import create_job, delete_job, set_job_progress
+from scrobblescope import jobs
 
 SETUP_COMMAND = "python -m playwright install chromium firefox"
 
@@ -102,7 +102,7 @@ def serve_app() -> Iterator[str]:
         previous_job_ids = dict(GATE_JOB_IDS)
         try:
             app = create_app()
-            loading_job_id = create_job(
+            loading_job_id = jobs.create(
                 {
                     "username": "frontend-gate",
                     "year": 2025,
@@ -114,14 +114,9 @@ def serve_app() -> Iterator[str]:
                     "mode": "album",
                 }
             )
-            set_job_progress(
-                loading_job_id,
-                progress=42,
-                message="Fetching scrobbles - page 21 / 50",
-                error=False,
-            )
+            jobs.advance(loading_job_id, 42, "Fetching scrobbles - page 21 / 50")
             loading_path = f"/loading?job_id={loading_job_id}"
-            heatmap_job_id = create_job(
+            heatmap_job_id = jobs.create(
                 {
                     "username": "frontend-gate",
                     "mode": "heatmap",
@@ -149,8 +144,8 @@ def serve_app() -> Iterator[str]:
                 if loading_path in ALL_PAGES:
                     ALL_PAGES.remove(loading_path)
             if loading_job_id is not None:
-                delete_job(loading_job_id)
+                jobs.delete(loading_job_id)
             if heatmap_job_id is not None:
-                delete_job(heatmap_job_id)
+                jobs.delete(heatmap_job_id)
             GATE_JOB_IDS.clear()
             GATE_JOB_IDS.update(previous_job_ids)

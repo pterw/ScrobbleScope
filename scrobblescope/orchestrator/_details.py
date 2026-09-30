@@ -2,8 +2,8 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22). See
 ``scrobblescope/orchestrator/_search.py`` for why cross-cutting dependencies
-(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``,
-``set_job_progress``) are read through the live ``orchestrator`` module
+(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``)
+are read through the live ``orchestrator`` module
 reference rather than imported directly.
 """
 
@@ -12,6 +12,7 @@ import logging
 import time
 from math import ceil
 
+from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_BATCH_CONCURRENCY
 
@@ -77,23 +78,14 @@ async def _run_spotify_batch_detail_phase(
         batch_result = await fut
         all_album_details.update(batch_result)
         batches_done += 1
-        # Map batch progress into the 40%-60% range
-        pct = 40 + int(20 * batches_done / max(num_batches, 1))
         enriched_so_far = len(all_album_details)
-        _orchestrator.set_job_progress(
+        jobs.report_phase(
             job_id,
-            progress=pct,
-            message=(
-                f"Enriched {enriched_so_far}/"
-                f"{len(valid_spotify_ids)} albums from Spotify..."
-            ),
-            phase={
-                "key": "spotify_details",
-                "label": "Fetching Spotify details",
-                "unit": "batch",
-                "current": batches_done,
-                "total": num_batches,
-            },
+            jobs.SPOTIFY_DETAILS,
+            batches_done,
+            num_batches,
+            f"Enriched {enriched_so_far}/"
+            f"{len(valid_spotify_ids)} albums from Spotify...",
         )
 
     batch_duration = time.time() - batch_start_time

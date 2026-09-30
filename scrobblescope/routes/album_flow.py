@@ -11,15 +11,9 @@ import logging
 
 from flask import jsonify, redirect, render_template, request, session, url_for
 
+from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
-from scrobblescope.repositories import (
-    cleanup_expired_jobs,
-    create_job,
-    delete_job,
-    reset_job_state,
-    set_job_progress,
-)
 from scrobblescope.spotlight import select_spotlight_artists
 
 bp = _routes.bp
@@ -114,10 +108,9 @@ def reset_progress():
     if not job_id:
         return jsonify({"status": "error", "message": "Missing job identifier."}), 400
 
-    if not reset_job_state(job_id):
+    if not jobs.reset(job_id, "Reset successful"):
         return jsonify({"status": "error", "message": "Job not found."}), 404
 
-    set_job_progress(job_id, message="Reset successful", error=False)
     return jsonify({"status": "success"})
 
 
@@ -413,7 +406,7 @@ def results_loading():
             type(exc).__name__,
         )
 
-    cleanup_expired_jobs()
+    jobs.expire_stale()
 
     if not _routes.acquire_job_slot():
         return render_template(
@@ -433,7 +426,7 @@ def results_loading():
         "limit_results": limit_results,
     }
 
-    job_id = create_job(params)
+    job_id = jobs.create(params)
 
     try:
         _routes.start_job_thread(
@@ -453,7 +446,7 @@ def results_loading():
         )
     except Exception:
         logging.exception("Failed to start background task thread")
-        delete_job(job_id)
+        jobs.delete(job_id)
         return render_template(
             "index.html",
             error="Failed to start processing. Please try again.",

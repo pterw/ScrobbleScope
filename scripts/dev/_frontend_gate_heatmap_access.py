@@ -63,12 +63,7 @@ import base64
 import datetime
 
 from scripts.dev._frontend_gate_shared import MIGRATED_PAGES
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_progress,
-    set_job_results,
-)
+from scrobblescope import jobs
 
 #: The heatmap path this check drives. Looked up rather than hard-coded a
 #: second time, so a path that stops being migrated is caught here too.
@@ -354,7 +349,7 @@ def _shift_iso_date(iso_date: str, days: int) -> str:
 def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str]:
     """Tab reaches one cell; arrow keys rove it; scroll never hides its tip."""
     failures: list[str] = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     # A single-day range makes the "exactly one cell carries tabindex=0"
     # audit vacuous (1 of 1 always passes): seed a wide range instead, with
     # one non-zero day so the aria-label assertion still exercises a real
@@ -368,7 +363,7 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
     to_date = _shift_iso_date(from_date, 499)
     seeded_date = "2025-01-01"
     seeded_count = 5
-    set_job_results(
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -378,8 +373,8 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
             "max_count": seeded_count,
             "daily_counts": {seeded_date: seeded_count},
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     try:
         page.goto(f"{base_url}{HEATMAP_PATH}?job_id={job_id}", wait_until="load")
         svg = page.locator("#heatmap-result-frame svg")
@@ -593,7 +588,7 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
                 _check_clicked_cell(page, layout, accent_color, interior_date)
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -896,8 +891,8 @@ def check_heatmap_document_listeners_attach_once(page, base_url: str) -> list[st
     installs, and the viewport it resizes, end with this check.
     """
     failures: list[str] = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_results(
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -907,8 +902,8 @@ def check_heatmap_document_listeners_attach_once(page, base_url: str) -> list[st
             "max_count": 3,
             "daily_counts": {"2025-01-01": 3},
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     probe = page.context.new_page()
     try:
         probe.set_viewport_size(_WIDE_VIEWPORT)
@@ -935,7 +930,7 @@ def check_heatmap_document_listeners_attach_once(page, base_url: str) -> list[st
                 )
     finally:
         probe.close()
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -965,11 +960,11 @@ def check_heatmap_focus_survives_breakpoint(page, base_url: str) -> list[str]:
     resizes ends with this check.
     """
     failures: list[str] = []
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     # The window the app really renders (WINDOW_DAYS in heatmap.js): a short
     # range scales the desktop grid up several times over, and the ring's
     # paint with it, past where _check_ring_painted looks.
-    set_job_results(
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -979,8 +974,8 @@ def check_heatmap_focus_survives_breakpoint(page, base_url: str) -> list[str]:
             "max_count": 3,
             "daily_counts": {"2025-01-01": 3},
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     probe = page.context.new_page()
     try:
         probe.set_viewport_size(_WIDE_VIEWPORT)
@@ -1043,7 +1038,7 @@ def check_heatmap_focus_survives_breakpoint(page, base_url: str) -> list[str]:
             )
     finally:
         probe.close()
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -1097,11 +1092,11 @@ _SEED_DAYS = 365
 def _seed_year_job() -> tuple[str, str]:
     """A finished heatmap job over the app's 365-day window, with a spread of
     non-zero days so cells carry different labels. Returns (job id, last day)."""
-    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     from_date = "2025-01-01"
     to_date = _shift_iso_date(from_date, _SEED_DAYS - 1)
     counts = {_shift_iso_date(from_date, n): 1 + n % 9 for n in range(0, _SEED_DAYS, 3)}
-    set_job_results(
+    jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
@@ -1111,8 +1106,8 @@ def _seed_year_job() -> tuple[str, str]:
             "max_count": max(counts.values()),
             "daily_counts": counts,
         },
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     return job_id, to_date
 
 
@@ -1192,7 +1187,7 @@ def check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip(
         if page.context.browser.browser_type.name == "chromium":
             failures.extend(_swipe_scrolls_chromium(page, cell))
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -1359,5 +1354,5 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
                 f":focus-visible is {ring['fv']} but its ring is {ring['ring']!r}"
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures

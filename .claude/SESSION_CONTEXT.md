@@ -9,7 +9,7 @@ Last updated: 2026-09-29
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2252 passing** across 81 tracked test modules |
+| Tests | **2254 passing** across 82 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -43,7 +43,7 @@ Last updated: 2026-09-29
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2252 passed**.
+- Latest validated test count: **2254 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -59,7 +59,7 @@ scrobblescope/
   domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching
-  repositories.py           # JOBS dict, jobs_lock, job state CRUD
+  jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
@@ -151,27 +151,27 @@ api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
 cache.py         <- config
 worker.py        <- config
-repositories.py  <- config, errors
+jobs.py          <- config, errors
 enrichment.py    <- (leaf)
 lastfm.py        <- config, errors, utils
 spotify.py       <- config, domain, enrichment, utils
 deezer.py        <- config, domain, enrichment, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker
-orchestrator/__init__.py  <- cache, config, deezer, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
-orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
-orchestrator/_details.py  <- config, domain; orchestrator (facade)
-orchestrator/_cache.py    <- orchestrator (facade)
-orchestrator/_deezer_fallback.py <- domain, lastfm, unmatched; orchestrator (facade)
-orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
-heatmap.py       <- errors, lastfm, repositories, utils, worker
+release_checks.py <- cache, config, domain, jobs, musicbrainz, unmatched, utils, worker
+orchestrator/__init__.py  <- cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
+orchestrator/_search.py   <- config, domain, jobs, unmatched; orchestrator (facade, for patchable cross-cutting calls)
+orchestrator/_details.py  <- config, domain, jobs; orchestrator (facade)
+orchestrator/_cache.py    <- jobs; orchestrator (facade)
+orchestrator/_deezer_fallback.py <- domain, jobs, lastfm, unmatched; orchestrator (facade)
+orchestrator/_results.py  <- domain, jobs, unmatched, utils
+heatmap.py       <- errors, jobs, lastfm, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- config, domain, lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
-routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
-routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
+routes/album_flow.py    <- jobs, orchestrator, spotlight; routes (facade)
+routes/heatmap_flow.py  <- heatmap, jobs; routes (facade)
+routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
 app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
@@ -202,16 +202,16 @@ dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
-dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; repositories
+dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
-dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; repositories
-dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
+dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; jobs
+dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); jobs; werkzeug.serving; playwright (imported late)
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
-dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; repositories
-dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; repositories
-dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_results; repositories
+dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
+dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_results; jobs
 dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
@@ -226,10 +226,10 @@ in its focused owner files rather than growing a second copy here.
 ```
 User submits form (index.html)
   -> POST /results_loading (routes/album_flow.py)
-    -> cleanup_expired_jobs()
-    -> acquire_job_slot() [worker.py] -- BEFORE create_job; on failure the
+    -> jobs.expire_stale()
+    -> acquire_job_slot() [worker.py] -- BEFORE jobs.create; on failure the
        request is rejected and no job is created
-    -> create_job(params) -> UUID in JOBS dict
+    -> jobs.create(params) -> UUID in the job store
     -> start_job_thread(background_task, args=(...)) [worker.py]
        -- worker runs an injected callable; it does not import orchestrator
        -- on failure, start_job_thread releases the slot before re-raising,
@@ -248,7 +248,7 @@ background_task (orchestrator/__init__.py, daemon Thread):
       3: Spotify fetch for misses only, then Deezer for Spotify's misses
       4: DB batch persist + conn.close() in finally
       5: Build results (cached original-release dates applied here)
-         -> set_job_results() -> enqueue_release_check(job_id)
+         -> jobs.succeed() -> enqueue_release_check(job_id)
 
 release_checks.py (one process-wide daemon thread, own loop, FIFO job queue):
   -> MusicBrainz at 1 req/s, capped per job, both hits and misses cached
@@ -265,7 +265,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2252 tests)
+## 6. Test structure (2254 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

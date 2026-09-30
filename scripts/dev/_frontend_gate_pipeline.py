@@ -1,7 +1,7 @@
 """Pipeline checks: loading composition, progress state machines, spotlight.
 
 A slice of the frontend gate (F-B21-51). The state-machine checks write real
-job state through `scrobblescope.repositories` and watch the page follow it,
+job state through `scrobblescope.jobs` and watch the page follow it,
 because the defects they guard -- a stale message outliving its phase, a
 replaced job still delivering progress -- exist only in that interaction.
 """
@@ -11,17 +11,7 @@ from __future__ import annotations
 import re
 
 from scripts.dev._frontend_gate_shared import GATE_JOB_IDS, MIGRATED_PAGES
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    get_job_context,
-    get_job_progress,
-    reset_job_state,
-    set_job_error,
-    set_job_progress,
-    set_job_results,
-    set_job_stat,
-)
+from scrobblescope import jobs
 
 ALBUM_PROGRESS_TRACK = "#progress-track"
 ALBUM_PROGRESS_BAR = "#progress-bar"
@@ -95,15 +85,10 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     # stores it in the browser session; deleting it afterward lets the next
     # request clear that pointer instead of making later form checks resume a
     # synthetic in-progress run.
-    heatmap_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_stat(heatmap_job_id, "pages_received", 7)
-    set_job_stat(heatmap_job_id, "pages_expected", 12)
-    set_job_progress(
-        heatmap_job_id,
-        progress=48,
-        message="Reading your Last.fm history...",
-        error=False,
-    )
+    heatmap_job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.record_stat(heatmap_job_id, "pages_received", 7)
+    jobs.record_stat(heatmap_job_id, "pages_expected", 12)
+    jobs.advance(heatmap_job_id, 48, "Reading your Last.fm history...")
     try:
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
         page.locator("#heatmap-progress-text").filter(
@@ -124,7 +109,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
             })"""
         )
     finally:
-        delete_job(heatmap_job_id)
+        jobs.delete(heatmap_job_id)
     if heatmap_state["progress"] != "48":
         failures.append("/heatmap did not render backend-owned progress")
     if heatmap_state["counterCount"] != 0:
@@ -248,26 +233,24 @@ def _check_phase_repository_isolation(album_job_id) -> list[str]:
         "current": 23,
         "total": 102,
     }
-    set_job_progress(
-        album_job_id, progress=20, message=FETCHING_SCROBBLES, phase=test_phase
-    )
+    jobs.advance(album_job_id, 20, FETCHING_SCROBBLES, phase=test_phase)
     test_phase["current"] = 99
-    prog_caller = get_job_progress(album_job_id)
-    ctx_caller = get_job_context(album_job_id)
+    prog_caller = jobs.progress(album_job_id)
+    ctx_caller = jobs.context(album_job_id)
     if not prog_caller or prog_caller.get("phase", {}).get("current") != 23:
-        failures.append("repository get_job_progress leaked caller phase mutation")
+        failures.append("jobs.progress leaked caller phase mutation")
     if (
         not ctx_caller
         or ctx_caller.get("progress", {}).get("phase", {}).get("current") != 23
     ):
-        failures.append("repository get_job_context leaked caller phase mutation")
+        failures.append("jobs.context leaked caller phase mutation")
 
-    prog_view = get_job_progress(album_job_id)
-    ctx_view = get_job_context(album_job_id)
+    prog_view = jobs.progress(album_job_id)
+    ctx_view = jobs.context(album_job_id)
     if prog_view is not None and isinstance(prog_view.get("phase"), dict):
         prog_view["phase"]["current"] = 77
     else:
-        failures.append("repository get_job_progress returned invalid phase structure")
+        failures.append("jobs.progress returned invalid phase structure")
     if (
         ctx_view is not None
         and isinstance(ctx_view.get("progress"), dict)
@@ -275,19 +258,17 @@ def _check_phase_repository_isolation(album_job_id) -> list[str]:
     ):
         ctx_view["progress"]["phase"]["current"] = 88
     else:
-        failures.append("repository get_job_context returned invalid phase structure")
+        failures.append("jobs.context returned invalid phase structure")
 
-    prog_returned = get_job_progress(album_job_id)
-    ctx_returned = get_job_context(album_job_id)
+    prog_returned = jobs.progress(album_job_id)
+    ctx_returned = jobs.context(album_job_id)
     if not prog_returned or prog_returned.get("phase", {}).get("current") != 23:
-        failures.append("repository get_job_progress leaked returned phase mutation")
+        failures.append("jobs.progress leaked returned phase mutation")
     if (
         not ctx_returned
         or ctx_returned.get("progress", {}).get("phase", {}).get("current") != 23
     ):
-        failures.append(
-            "repository get_job_context leaked returned context phase mutation"
-        )
+        failures.append("jobs.context leaked returned context phase mutation")
 
     return failures
 
@@ -298,10 +279,10 @@ def _exercise_counted_progress(
     """Exercise the shared counted-to-uncounted transition on either client."""
     track, bar, text = selectors
     failures = []
-    set_job_progress(
+    jobs.advance(
         job_id,
-        progress=20,
-        message=FETCHING_SCROBBLES,
+        20,
+        FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
             "label": FETCHING_SCROBBLES,
@@ -324,10 +305,10 @@ def _exercise_counted_progress(
         )
     )
 
-    set_job_progress(
+    jobs.advance(
         job_id,
-        progress=90,
-        message=FETCHING_SCROBBLES,
+        90,
+        FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
             "label": FETCHING_SCROBBLES,
@@ -349,12 +330,7 @@ def _exercise_counted_progress(
         )
     )
 
-    set_job_progress(
-        job_id,
-        progress=92,
-        message=COUNTING_SCROBBLES,
-        phase=None,
-    )
+    jobs.advance(job_id, 92, COUNTING_SCROBBLES)
     page.locator(text).filter(has_text=COUNTING_SCROBBLES).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
@@ -386,10 +362,10 @@ def _exercise_album_progress(page, base_url, album_job_id, loading_path) -> list
             "album",
         )
     )
-    set_job_progress(
+    jobs.advance(
         album_job_id,
-        progress=20,
-        message=FETCHING_SCROBBLES,
+        20,
+        FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
             "label": FETCHING_SCROBBLES,
@@ -410,7 +386,7 @@ def _exercise_heatmap_progress(
 ) -> list[str]:
     """Drive counted, uncounted and zero-total phases on the heatmap page."""
     failures = []
-    reset_job_state(heatmap_job_id)
+    jobs.reset(heatmap_job_id)
     failures.extend(
         _exercise_counted_progress(
             page,
@@ -421,10 +397,10 @@ def _exercise_heatmap_progress(
             "heatmap",
         )
     )
-    set_job_progress(
+    jobs.advance(
         heatmap_job_id,
-        progress=15,
-        message=FETCHING_SCROBBLES,
+        15,
+        FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
             "label": FETCHING_SCROBBLES,
@@ -463,11 +439,11 @@ def _exercise_replaced_job_progress(
     """
     failures = []
     # 5. Out-of-order response rejection and job replacement
-    replacement_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
-    set_job_progress(
+    replacement_job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    jobs.advance(
         replacement_job_id,
-        progress=80,
-        message=FETCHING_SCROBBLES,
+        80,
+        FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
             "label": FETCHING_SCROBBLES,
@@ -539,7 +515,7 @@ def _exercise_replaced_job_progress(
     finally:
         page.unroute("**/heatmap_loading")
         page.unroute("**/progress?job_id=*")
-        delete_job(replacement_job_id)
+        jobs.delete(replacement_job_id)
 
     return failures
 
@@ -592,8 +568,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
 
     failures.extend(_exercise_loading_progress_phases(page, base_url))
 
-    reset_job_state(album_job_id)
-    set_job_results(
+    jobs.reset(album_job_id)
+    jobs.succeed(
         album_job_id,
         [
             {
@@ -607,8 +583,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
                 "spotify_id": "gate-album",
             }
         ],
+        "Done",
     )
-    set_job_progress(album_job_id, progress=100, message="Done", error=False)
     page.goto(f"{base_url}{loading_path}", wait_until="load")
     if not page.evaluate("window.__scrobbleGateFastRedirect === true"):
         failures.append("pipeline timer init script did not execute")
@@ -616,8 +592,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     if "Gate Album" not in page.locator("body").inner_text():
         failures.append("album success did not render the saved result")
 
-    reset_job_state(album_job_id)
-    set_job_error(album_job_id, "lastfm_rate_limited")
+    jobs.reset(album_job_id)
+    jobs.fail(album_job_id, "lastfm_rate_limited")
     page.goto(f"{base_url}{loading_path}", wait_until="load")
     page.locator("#retry-button").wait_for(state="visible")
     if not page.url.startswith(f"{base_url}/loading"):
@@ -636,8 +612,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     if source_line.is_visible():
         failures.append("an internal failure still showed an upstream source line")
 
-    reset_job_state(album_job_id)
-    set_job_error(album_job_id, "user_not_found", username="frontend-gate")
+    jobs.reset(album_job_id)
+    jobs.fail(album_job_id, "user_not_found", username="frontend-gate")
     page.goto(f"{base_url}{loading_path}", wait_until="load")
     page.wait_for_url(f"{base_url}/results")
     if not page.locator(".error-icon").is_visible():
@@ -648,8 +624,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     # content box. The result should use that available width as confidently
     # as the index composition measured by the large-display check.
     page.set_viewport_size({"width": 1920, "height": 945})
-    reset_job_state(heatmap_job_id)
-    set_job_results(
+    jobs.reset(heatmap_job_id)
+    jobs.succeed(
         heatmap_job_id,
         {
             "username": "frontend-gate",
@@ -658,8 +634,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
             "total_scrobbles": 4,
             "daily_counts": {"2025-01-01": 4},
         },
+        "Done",
     )
-    set_job_progress(heatmap_job_id, progress=100, message="Done", error=False)
     page.goto(f"{base_url}{heatmap_path}", wait_until="load")
     page.locator("#heatmap-result.is-handing-off").wait_for(state="visible")
     handoff_state = page.evaluate(
@@ -720,15 +696,15 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     if header_wordmark_display == "none":
         failures.append("heatmap success did not restore the header wordmark")
 
-    reset_job_state(heatmap_job_id)
-    set_job_error(heatmap_job_id, "lastfm_rate_limited")
+    jobs.reset(heatmap_job_id)
+    jobs.fail(heatmap_job_id, "lastfm_rate_limited")
     page.goto(f"{base_url}{heatmap_path}", wait_until="load")
     page.locator("#heatmap-error").wait_for(state="visible")
     if not page.locator("#heatmap-retry-btn").is_visible():
         failures.append("heatmap retryable failure did not offer Retry")
 
-    reset_job_state(heatmap_job_id)
-    set_job_error(heatmap_job_id, "user_not_found", username="frontend-gate")
+    jobs.reset(heatmap_job_id)
+    jobs.fail(heatmap_job_id, "user_not_found", username="frontend-gate")
     page.goto(f"{base_url}{heatmap_path}", wait_until="load")
     page.locator("#heatmap-error").wait_for(state="visible")
     if page.locator("#heatmap-retry-btn").is_visible():
@@ -749,14 +725,9 @@ def check_pipeline_state_machines(page, base_url: str) -> list[str]:
         return _exercise_pipeline_state_machines(probe, base_url)
     finally:
         probe.close()
-        reset_job_state(GATE_JOB_IDS["album"])
-        set_job_progress(
-            GATE_JOB_IDS["album"],
-            progress=42,
-            message="Fetching scrobbles - page 21 / 50",
-            error=False,
-        )
-        reset_job_state(GATE_JOB_IDS["heatmap"])
+        jobs.reset(GATE_JOB_IDS["album"])
+        jobs.advance(GATE_JOB_IDS["album"], 42, "Fetching scrobbles - page 21 / 50")
+        jobs.reset(GATE_JOB_IDS["heatmap"])
 
 
 def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
@@ -776,7 +747,7 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
     slow candidate's photo is still unconfirmed, then reveals once every
     hydration -- fast and slow -- has settled, and then rotates normally.
     """
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "frontend-gate",
             "year": 2025,
@@ -790,7 +761,7 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
     )
     failures = []
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 {
@@ -805,8 +776,8 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
                 }
                 for index in range(10)
             ],
+            "Done",
         )
-        set_job_progress(job_id, progress=100, message="Done", error=False)
         page.add_init_script(
             """(() => {
                 const nativeInterval = window.setInterval;
@@ -915,5 +886,5 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
         except Exception:  # noqa: BLE001 - converted to an actionable gate failure
             failures.append("artist spotlight did not rotate through its sample")
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures

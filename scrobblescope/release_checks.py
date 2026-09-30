@@ -37,6 +37,7 @@ import logging
 import queue
 import threading
 
+from scrobblescope import jobs
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION,
     _batch_lookup_original_release,
@@ -55,11 +56,6 @@ from scrobblescope.domain import (
     release_window,
 )
 from scrobblescope.musicbrainz import lookup_original_release
-from scrobblescope.repositories import (
-    get_job_context,
-    set_job_release_check,
-    update_job_result,
-)
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import create_optimized_session
 from scrobblescope.worker import new_thread_event_loop
@@ -210,7 +206,7 @@ def _resolve_cached(job_id, candidates, cached):
             continue
         if candidate["kind"] == "result":
             original_release = hit.get("original_release")
-            update_job_result(
+            jobs.update_result(
                 job_id,
                 candidate["key"],
                 {
@@ -232,7 +228,7 @@ def _mark_unchecked(job_id, candidates):
     """
     for candidate in candidates:
         if candidate["kind"] == "result":
-            update_job_result(
+            jobs.update_result(
                 job_id, candidate["key"], {"release_check": CHECK_UNCHECKED}
             )
 
@@ -272,14 +268,14 @@ async def _check_pending_candidates(job_id, conn, pending, params, state):
     """
     async with create_optimized_session() as session:
         for candidate in pending:
-            if get_job_context(job_id) is None:
+            if jobs.context(job_id) is None:
                 logging.info(
                     f"Release checks stopped: job {job_id} is gone "
                     f"after {state['checked']}/{state['total']} checks."
                 )
                 return
             await _check_candidate(session, conn, job_id, candidate, params, state)
-            set_job_release_check(job_id, state)
+            jobs.record_stat(job_id, "release_check", state)
 
 
 async def _check_candidate(session, conn, job_id, candidate, params, state):
@@ -324,7 +320,7 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         # released in, and the row on screen still shows the provider's
         # reissue date. None on an unavailable result clears any earlier
         # value rather than leaving one the new outcome contradicts.
-        update_job_result(
+        jobs.update_result(
             job_id,
             candidate["key"],
             {"release_check": outcome, "original_release_date": original_release},
@@ -340,7 +336,7 @@ async def run_release_checks(job_id):
     enhancement over results the user can already read, so nothing here may
     take the job down with it.
     """
-    context = get_job_context(job_id)
+    context = jobs.context(job_id)
     if context is None:
         return
 
@@ -352,11 +348,11 @@ async def run_release_checks(job_id):
     _mark_unchecked(job_id, candidates)
 
     if not MUSICBRAINZ_ENABLED:
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_SKIPPED))
         return
 
     if not candidates:
-        set_job_release_check(job_id, _state(STATUS_DONE))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_DONE))
         logging.info(
             f"Release checks finished for job {job_id}: "
             "0 checked, 0 moved out, 0 moved in"
@@ -379,7 +375,7 @@ async def run_release_checks(job_id):
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
         state["total"] = len(pending)
-        set_job_release_check(job_id, state)
+        jobs.record_stat(job_id, "release_check", state)
 
         if pending:
             await _check_pending_candidates(job_id, conn, pending, params, state)
@@ -392,7 +388,7 @@ async def run_release_checks(job_id):
             f"{state['moved_in']} moved in"
         )
         state["status"] = STATUS_DONE
-        set_job_release_check(job_id, state)
+        jobs.record_stat(job_id, "release_check", state)
         if conn:
             try:
                 await conn.close()
@@ -454,7 +450,7 @@ def enqueue_release_check(job_id):
             else "MUSICBRAINZ_CONTACT is unset"
         )
         logging.info(f"Release checks skipped for job {job_id}: {missing}")
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
+        jobs.record_stat(job_id, "release_check", _state(STATUS_SKIPPED))
         return False
     _ensure_worker_started()
     _JOB_QUEUE.put(job_id)

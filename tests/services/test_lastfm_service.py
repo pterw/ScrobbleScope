@@ -336,7 +336,7 @@ async def test_progress_cb_called_per_page():
     """
     GIVEN a 3-page fetch with progress_cb provided
     WHEN fetch_all_recent_tracks_async runs
-    THEN progress_cb is invoked 3 times: (1,3), (2,3), (3,3).
+    THEN progress_cb is invoked 3 times: (1,3,1), (2,3,2), (3,3,3).
     """
     cb = MagicMock()
     page_payload = _make_page(3)
@@ -355,10 +355,10 @@ async def test_progress_cb_called_per_page():
         pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
 
     assert cb.call_count == 3
-    # First call is always (1, total_pages) after page 1
-    cb.assert_any_call(1, 3)
+    # First call is always (1, total_pages, 1) after page 1
+    cb.assert_any_call(1, 3, 1)
     # Final call should report all pages done
-    cb.assert_any_call(3, 3)
+    cb.assert_any_call(3, 3, 3)
     assert meta["status"] == "ok"
 
 
@@ -367,7 +367,7 @@ async def test_progress_cb_single_page():
     """
     GIVEN a 1-page fetch with progress_cb provided
     WHEN fetch_all_recent_tracks_async runs
-    THEN progress_cb is invoked exactly once with (1, 1).
+    THEN progress_cb is invoked exactly once with (1, 1, 1).
     """
     cb = MagicMock()
     page_payload = _make_page(1)
@@ -385,7 +385,7 @@ async def test_progress_cb_single_page():
 
         pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
 
-    cb.assert_called_once_with(1, 1)
+    cb.assert_called_once_with(1, 1, 1)
     assert len(pages) == 1
 
 
@@ -454,15 +454,15 @@ async def test_progress_cb_counts_failed_pages():
 
 
 @pytest.mark.asyncio
-async def test_progress_cb_provides_received_count_for_extended_callbacks():
+async def test_progress_cb_provides_received_count():
     """
     GIVEN a 3-page fetch where page 3 fails (returns None)
-    WHEN fetch_all_recent_tracks_async runs with a callback accepting pages_received
+    WHEN fetch_all_recent_tracks_async runs with a three-argument callback
     THEN pages_received accurately reflects only successful pages (2, not 3).
     """
     recorded = []
 
-    def cb(pages_done, total_pages, pages_received=None):
+    def cb(pages_done, total_pages, pages_received):
         recorded.append((pages_done, total_pages, pages_received))
 
     page_payload = _make_page(3)

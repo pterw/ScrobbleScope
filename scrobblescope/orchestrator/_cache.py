@@ -5,12 +5,13 @@ functions are ``process_albums``'s Phase 1 (DB Batch Lookup) and Phase 4 (DB
 Batch Persist) blocks, extracted verbatim with the connection still owned and
 closed by the caller. See ``scrobblescope/orchestrator/_search.py`` for why
 ``_batch_lookup_metadata``, ``_batch_persist_metadata``,
-``_cleanup_stale_metadata`` and ``set_job_stat`` are read through the live
-``orchestrator`` module reference rather than imported directly.
+and ``_cleanup_stale_metadata`` are read through the live ``orchestrator``
+module reference rather than imported directly.
 """
 
 import logging
 
+from scrobblescope import jobs
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION as _SCHEMA_OUT_OF_DATE_REMEDIATION,
@@ -24,7 +25,7 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
     """DB Batch Lookup. Returns {} without raising if the DB read failed."""
     cached_metadata = {}
     if not conn:
-        _orchestrator.set_job_stat(
+        jobs.record_stat(
             job_id,
             "db_cache_warning",
             "DB cache unavailable; using Spotify fallback.",
@@ -33,7 +34,7 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
 
     try:
         cached_metadata = await _orchestrator._batch_lookup_metadata(conn, album_keys)
-        _orchestrator.set_job_stat(job_id, "db_cache_lookup_hits", len(cached_metadata))
+        jobs.record_stat(job_id, "db_cache_lookup_hits", len(cached_metadata))
         logging.info(
             f"DB cache: {len(cached_metadata)} hits / {len(album_keys)} total albums"
         )
@@ -46,7 +47,7 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
             )
         else:
             logging.warning(f"DB lookup failed, proceeding without cache: {exc}")
-        _orchestrator.set_job_stat(
+        jobs.record_stat(
             job_id, "db_cache_warning", "DB lookup failed; cache bypassed."
         )
         cached_metadata = {}
@@ -78,11 +79,11 @@ async def _persist_new_metadata(conn, job_id, new_metadata_rows):
         return
     try:
         await _orchestrator._batch_persist_metadata(conn, new_metadata_rows)
-        _orchestrator.set_job_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
+        jobs.record_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
         logging.info(
             f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
         )
     # Fail open: a failed persist costs the next job a lookup, not this one.
     except Exception as exc:  # noqa: BLE001
         logging.warning(f"DB persist failed (non-fatal): {exc}")
-        _orchestrator.set_job_stat(job_id, "db_cache_warning", "DB persist failed.")
+        jobs.record_stat(job_id, "db_cache_warning", "DB persist failed.")

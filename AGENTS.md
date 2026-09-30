@@ -253,7 +253,7 @@ where that entry goes and how it is tagged:
 **Forbidden patterns** (tests must challenge real behaviour, not just
 confirm mocks were called):
 - Mock-call-only with no argument check and no state assertion.
-- Return-value-only when the real consumer reads shared state (`JOBS` dict).
+- Return-value-only when the real consumer reads shared state (the job store).
 - Vacuous: passes if the function under test is deleted.
 - Near-duplicate: same code path, no unique regression protection.
 - Happy-path only: new helpers must have at least one adversarial test.

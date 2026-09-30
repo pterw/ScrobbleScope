@@ -9,13 +9,8 @@ from scripts.dev._frontend_gate_colour import (
     _parse_rgb_string,
 )
 from scripts.dev._frontend_gate_spotify_icon import spotify_icon_failures
+from scrobblescope import jobs
 from scrobblescope.domain import format_album_key, normalize_name
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_release_check,
-    set_job_results,
-)
 
 #: Spotify's corner radius for its artwork: 4px on small and medium devices,
 #: 8px on large ones (F-B23-12). A tablet (768px) is a medium device, so the
@@ -109,7 +104,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
     Reuse the configured page so CDN policy and navigation deadlines survive.
     Remove only this check's route and job afterward. CSV follows visible ranks.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
 
@@ -118,7 +113,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         route.fulfill(json={})
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 {
@@ -138,6 +133,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
                     "release_date": "2025-02-03",
                 },
             ],
+            "Done",
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
@@ -179,7 +175,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         try:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 
@@ -195,7 +191,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
     provider-labelled text link, standing in for Deezer's logo until an
     official file is supplied (F-B22-4).
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
 
@@ -203,7 +199,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
         route.fulfill(json={})
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 {
@@ -231,6 +227,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
                     "album_url": "https://www.deezer.com/album/dz-gate-1",
                 },
             ],
+            "Done",
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
@@ -308,7 +305,7 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
         try:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 
@@ -379,7 +376,7 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
     replies here are scripted rather than waiting on a MusicBrainz pass that
     runs at one request per second.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     probe = page
     failures = []
     requests = []
@@ -419,15 +416,17 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
         )
 
     try:
-        set_job_results(
+        jobs.succeed(
             job_id,
             [
                 _release_check_row("Fleetwood Mac", "Rumours", "2011-01-24"),
                 _release_check_row("Radiohead", "OK Computer", "2025-06-16"),
             ],
+            "Done",
         )
-        set_job_release_check(
+        jobs.record_stat(
             job_id,
+            "release_check",
             {
                 "status": "running",
                 "checked": 0,
@@ -499,7 +498,7 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
             probe.unroute("**/api/release_checks?*", release_checks)
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
-            delete_job(job_id)
+            jobs.delete(job_id)
     return failures
 
 

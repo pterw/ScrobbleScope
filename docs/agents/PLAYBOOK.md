@@ -131,6 +131,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - The job module gives a job's life one interface over a storage seam
+
+Side task, no batch tag: the job module (`scrobblescope/jobs.py`), a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+A job's rules (one ending, results or an error; the lease renewed only by writes; results and 100% in one write) lived in seven callers of `repositories.py`, and F-B23-22 was the proof: two pipelines, two failure answers. They now live in `jobs.py`: `create`, `advance`, `report_phase`, `record_stat`, `record_unmatched`, `succeed`, `update_result`, `fail`, `fail_unclassified`, `reset`, `mark_interrupted` and the reads, over a `JobStore` seam with one adapter, `MemoryJobStore` (the old dict, lock and TTL). Task 20 adds the Postgres adapter and reruns the same `tests/test_jobs.py` suite through its `STORE_FACTORIES`. `repositories.py` is deleted with no shim and every caller, including the eight frontend-gate modules, is migrated. The progress vocabulary is folded in: five named bands replace the `phase` literals and the `base + int(span * done / total)` arithmetic, and both Last.fm callbacks take three arguments, so `_notify_progress_cb`'s signature sniffing is gone. `job_interrupted` joins `ERROR_CODES`. Percent values are unchanged.
+
+Owner ruling (2026-09-29): seam commits may edit existing tests, and each edited test is named in the commit body; `BATCH23_DEFINITION.md`'s compatibility list, F-B23-1 paragraph and Acceptance bullet are amended to say so (Part A's own line is left as written). Edited existing tests: call sites and patch targets only, plus the assertions dropped or changed, each named in the commit body with where it is still guarded: `test_progress_callback_sends_correct_percentages` (the 100% dict, the error keys and the 0% init dict), `test_happy_path_stores_correct_result_dict` (`succeed` writes the results and 100% as one write) and `test_seed_spotlight_job_seeds_several_artists_and_marks_it_done` (the separate 100% write); the Last.fm progress callback also takes three arguments. `tests/test_repositories.py` keeps only its database-helper tests; its job tests moved to the new `tests/test_jobs.py` (45 tests), and one test was renamed. Not done here: `mark_interrupted` is not wired at startup (Task 20 wires it with the database adapter); `fail_unclassified` keeps F-B23-22 open. Test modules 81 to 82.
+
+Validation: `pytest -q` -- **2254 passed**.
+
 ### 2026-09-29 - Refuse a stale or unfinished docsync publication; ignore CRLF in archives
 
 Side task, no batch tag: docsync publication safety and CRLF archive drift, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -156,19 +166,5 @@ Validation: `pytest -q` -- **2238 passed**.
 Side task, no batch tag: the `RedactingFormatter` docstring corrected and `run_async_in_thread`'s traceback moved to DEBUG, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 
 The land review found the docstring still said `run_async_in_thread` writes the api_key in its message; it now names its DEBUG traceback and `get_cached_response`'s debug line as the two remaining sites. Per the owner's Q5 ruling (2026-09-29, "At ERROR, log the exception type only; the full traceback goes to DEBUG"), `run_async_in_thread` keeps its class-only ERROR line and adds a DEBUG line with `exc_info=True`. The caplog test `test_run_async_in_thread_error_line_carries_the_class_never_the_message` now asserts the ERROR record has no exception info or message and a DEBUG record carries the traceback; proven red with the DEBUG line removed.
-
-Validation: `pytest -q` -- **2242 passed**.
-
-### 2026-09-29 - Provider failure lines name the operation, never album, artist or track
-
-Side task, no batch tag: provider failure log lines carry an operation key and an exception class, not names, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Architecture pass 2, B-2: `retry_with_semaphore` was handed a free `error_label` built from album and artist, and logged it and the exception message at ERROR, so Spotify, Deezer and MusicBrainz failures wrote the listener's names (and aiohttp's request URL) into the logs. The helper now owns what a failure line may say: callers pass an operation key (`spotify.search`, `deezer.album_tracks`, `musicbrainz.lookup`, `lastfm.page <n>`) and each line reads `Error in <key>: <ExceptionClass>`, the message dropped. The Spotify 429 warning, both artist-spotlight warnings (`spotify.py`, `routes/api.py`), the registration-year warning in `routes/album_flow.py` and the `_results.py` skip debug line follow the same rule. `api_logging.py`'s docstring names the helper as the enforcement point.
-
-Same class, found on landing: `lastfm.py` logged `body[:200]` on an unexpected status and on invalid JSON, and a recenttracks body carries track, artist and album names; both lines now give status, byte length and content type only. `run_async_in_thread` logged `str(e)` with a traceback at ERROR; it now logs the class only, at ERROR without a traceback.
-
-One caplog test per provider, per helper, per Last.fm line, for `run_async_in_thread`, the `_results` line and the two route lines, each proven red with the old line restored. Edited existing tests, all of which asserted leaked content: the Last.fm page-failure label (`test_lastfm_service.py`), the Last.fm invalid-JSON body quote (same file), the Spotify spotlight network-error message (`test_spotify_service.py`), and the `run_async_in_thread` redaction test (`test_api_logging.py`, which no longer sees a message to redact and now asserts the class line and the absent key).
-
-Known, not fixed: `spotify.py` logs the provider response body on a batch failure (neither a name nor an exception message); the `logging.exception` sites that format only a Last.fm username still write tracebacks that carry `str(exc)` (owner question pending: extend the rule to tracebacks?).
 
 Validation: `pytest -q` -- **2242 passed**.

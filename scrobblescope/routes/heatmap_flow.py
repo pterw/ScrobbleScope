@@ -2,8 +2,7 @@
 
 See ``scrobblescope/routes/__init__.py`` for why cross-cutting dependencies
 that live on the facade (``_check_user_exists``, ``_check_profile_is_public``,
-``_latest_heatmap_job``, ``acquire_job_slot``, ``start_job_thread``,
-``get_job_context``) are read through the live ``routes`` module reference
+``_latest_heatmap_job``, ``acquire_job_slot``, ``start_job_thread``) are read through the live ``routes`` module reference
 (``_routes``) rather than imported directly.
 """
 
@@ -11,9 +10,9 @@ import logging
 
 from flask import jsonify, render_template, request, session
 
+from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.heatmap import heatmap_task
-from scrobblescope.repositories import cleanup_expired_jobs, create_job, delete_job
 
 bp = _routes.bp
 
@@ -126,7 +125,7 @@ def _dispatch_heatmap_job(username):
     Remove orphan job state if thread startup fails; the worker launcher
     owns releasing the reserved slot on that failure path.
     """
-    cleanup_expired_jobs()
+    jobs.expire_stale()
 
     if not _routes.acquire_job_slot():
         return (
@@ -140,13 +139,13 @@ def _dispatch_heatmap_job(username):
             429,
         )
 
-    job_id = create_job({"username": username, "mode": "heatmap"})
+    job_id = jobs.create({"username": username, "mode": "heatmap"})
 
     try:
         _routes.start_job_thread(heatmap_task, args=(job_id, username))
     except Exception:
         logging.exception("Failed to start heatmap task thread")
-        delete_job(job_id)
+        jobs.delete(job_id)
         return (
             jsonify(
                 {
@@ -177,7 +176,7 @@ def heatmap_data():
             400,
         )
 
-    ctx = _routes.get_job_context(job_id)
+    ctx = jobs.context(job_id)
     if ctx is None:
         return (
             jsonify({"error": True, "message": "Job not found or expired."}),

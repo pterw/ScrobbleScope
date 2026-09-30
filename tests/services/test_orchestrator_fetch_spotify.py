@@ -4,10 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.orchestrator import _run_spotify_search_phase
-from scrobblescope.repositories import create_job
-from scrobblescope.repositories import set_job_progress as real_set
 from tests.helpers import TEST_JOB_PARAMS
 
 
@@ -63,7 +62,7 @@ async def test_fetch_spotify_misses_malformed_album_details():
     """
     from scrobblescope.orchestrator import _fetch_spotify_misses
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_misses = {
         ("artist1", "album1"): {
             "play_count": 10,
@@ -154,7 +153,7 @@ async def test_batch_detail_fallback_is_logged_once_per_job(caplog):
     """
     from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     ids = [f"sp{i}" for i in range(45)]  # 3 batches of up to 20
 
     async def _fallback_every_batch(
@@ -186,7 +185,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     """
     GIVEN _fetch_spotify_misses searches for 5 Spotify albums
     WHEN each search completes via asyncio.as_completed
-    THEN set_job_progress is called with values in the 20%-40% range
+    THEN the job advances with values in the 20%-40% range
     and messages like "Searching Spotify: N/T albums...".
 
     Arithmetic: pct = 20 + int(20 * searches_done / total_searches)
@@ -194,7 +193,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     """
     from scrobblescope.orchestrator import _fetch_spotify_misses
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     cache_misses = {
         (f"artist{i}", f"album{i}"): {
@@ -227,9 +226,11 @@ async def test_fetch_spotify_misses_reports_search_progress():
 
     progress_calls = []
 
-    def _tracking_set(jid, **kwargs):
-        progress_calls.append(kwargs)
-        return real_set(jid, **kwargs)
+    real_advance = jobs.advance
+
+    def _tracking_advance(jid, percent, message, phase=None):
+        progress_calls.append({"progress": percent, "message": message, "phase": phase})
+        return real_advance(jid, percent, message, phase=phase)
 
     with (
         patch(
@@ -252,8 +253,8 @@ async def test_fetch_spotify_misses_reports_search_progress():
             side_effect=_batch_details,
         ),
         patch(
-            "scrobblescope.orchestrator.set_job_progress",
-            side_effect=_tracking_set,
+            "scrobblescope.jobs.advance",
+            side_effect=_tracking_advance,
         ),
     ):
         await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
@@ -287,7 +288,7 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     """
     GIVEN _fetch_spotify_misses processes 2 batches of Spotify album details
     WHEN each batch completes via asyncio.as_completed
-    THEN set_job_progress is called with values in the 40%-60% range
+    THEN the job advances with values in the 40%-60% range
     and messages like "Enriched N/T albums from Spotify...".
 
     Arithmetic: pct = 40 + int(20 * batches_done / num_batches)
@@ -295,7 +296,7 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     """
     from scrobblescope.orchestrator import _fetch_spotify_misses
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     # Build 25 cache misses to produce 2 batches (batch_size=20)
     cache_misses = {
@@ -330,9 +331,11 @@ async def test_fetch_spotify_misses_reports_batch_progress():
 
     progress_calls = []
 
-    def _tracking_set(jid, **kwargs):
-        progress_calls.append(kwargs)
-        return real_set(jid, **kwargs)
+    real_advance = jobs.advance
+
+    def _tracking_advance(jid, percent, message, phase=None):
+        progress_calls.append({"progress": percent, "message": message, "phase": phase})
+        return real_advance(jid, percent, message, phase=phase)
 
     with (
         patch(
@@ -355,8 +358,8 @@ async def test_fetch_spotify_misses_reports_batch_progress():
             side_effect=_batch_details,
         ),
         patch(
-            "scrobblescope.orchestrator.set_job_progress",
-            side_effect=_tracking_set,
+            "scrobblescope.jobs.advance",
+            side_effect=_tracking_advance,
         ),
     ):
         await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
@@ -396,7 +399,7 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
     empty and every key comes back in search_miss_keys. Batch 22 WP-1
     Task 5: the search phase no longer registers unmatched itself -- Deezer
     gets a fallback attempt first, so the caller owns that decision."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_misses = {
         ("artist1", "album1"): {
             "original_artist": "Artist1",
@@ -420,8 +423,8 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("scrobblescope.orchestrator.set_job_progress"),
-        patch("scrobblescope.orchestrator.add_job_unmatched") as mock_unmatched,
+        patch("scrobblescope.jobs.advance"),
+        patch("scrobblescope.jobs.record_unmatched") as mock_unmatched,
     ):
         id_to_key, id_to_data, search_miss_keys = await _run_spotify_search_phase(
             job_id, session, cache_misses, "fake_token", semaphore
@@ -440,7 +443,7 @@ async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
     attempt rather than returning immediately, so Deezer is mocked too."""
     from scrobblescope.orchestrator import _fetch_spotify_misses
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     with (
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
@@ -465,8 +468,8 @@ async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("scrobblescope.orchestrator.set_job_progress"),
-        patch("scrobblescope.orchestrator.add_job_unmatched"),
+        patch("scrobblescope.jobs.advance"),
+        patch("scrobblescope.jobs.record_unmatched"),
     ):
         result = await _fetch_spotify_misses(
             job_id,
@@ -487,8 +490,8 @@ async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
 
 @pytest.mark.asyncio
 async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
-    """All set_job_progress calls from search phase have progress in [20, 40]."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    """All advance calls from the search phase have progress in [20, 40]."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
     cache_misses = {
         (f"artist{i}", f"album{i}"): {
             "original_artist": f"Artist{i}",
@@ -503,9 +506,8 @@ async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
 
     progress_values = []
 
-    def capture_progress(job_id, **kwargs):
-        if "progress" in kwargs:
-            progress_values.append(kwargs["progress"])
+    def capture_progress(job_id, percent, message, phase=None):
+        progress_values.append(percent)
 
     with (
         patch(
@@ -514,7 +516,7 @@ async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
             return_value="some_id",
         ),
         patch(
-            "scrobblescope.orchestrator.set_job_progress",
+            "scrobblescope.jobs.advance",
             side_effect=capture_progress,
         ),
     ):
@@ -551,9 +553,56 @@ async def test_deezer_fallback_cancels_and_drains_siblings_when_one_album_raises
     misses = {(a, "alb"): {} for a in ("bad", "s1", "s2", "s3")}
     with (
         patch("scrobblescope.orchestrator.search_deezer_album", side_effect=search),
-        patch("scrobblescope.orchestrator.set_job_progress"),
+        patch("scrobblescope.jobs.advance"),
     ):
         with pytest.raises(TypeError, match="boom"):
             await _run_deezer_fallback_phase("job", MagicMock(), misses, {})
 
     assert sorted(settled) == ["s1", "s2", "s3"]
+
+
+@pytest.mark.asyncio
+async def test_deezer_fallback_reports_progress_inside_its_band():
+    """
+    GIVEN four albums the Deezer fallback checks
+    WHEN each check completes
+    THEN the job advances through the 60%-75% band with the Deezer phase
+    payload: 60 + int(15 * done / 4) is 63, 67, 71, 75.
+    """
+    from scrobblescope.orchestrator._deezer_fallback import _run_deezer_fallback_phase
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    misses = {
+        (f"artist{i}", "alb"): {
+            "original_artist": f"Artist{i}",
+            "original_album": "Alb",
+            "play_count": 1,
+        }
+        for i in range(4)
+    }
+    seen = []
+    real_advance = jobs.advance
+
+    def tracking_advance(jid, percent, message, phase=None):
+        seen.append((percent, message, phase))
+        return real_advance(jid, percent, message, phase=phase)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch("scrobblescope.jobs.advance", side_effect=tracking_advance),
+    ):
+        await _run_deezer_fallback_phase(job_id, MagicMock(), misses, {})
+
+    assert [percent for percent, _, _ in seen] == [63, 67, 71, 75]
+    assert seen[-1][1] == "Checking Deezer: 4/4 albums..."
+    assert seen[-1][2] == {
+        "key": "deezer_fallback",
+        "label": "Checking Deezer",
+        "unit": "album",
+        "current": 4,
+        "total": 4,
+    }

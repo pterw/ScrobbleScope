@@ -14,12 +14,7 @@ from __future__ import annotations
 import json
 
 from scripts.dev._frontend_gate_shared import MIGRATED_PAGES
-from scrobblescope.repositories import (
-    create_job,
-    delete_job,
-    set_job_progress,
-    set_job_results,
-)
+from scrobblescope import jobs
 
 #: The migrated results page. Derived from the shared inventory rather than a
 #: literal, so a future rename of the route is a one-place fix.
@@ -56,7 +51,7 @@ def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None)
     and must never leak into `image_url` as a fake artist photo (F-B21-60,
     Round 2 V1). What each artist's *confirmed* photo resolves to is decided
     separately, by `_install_spotlight_fetch_mock`."""
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "frontend-gate",
             "year": 2025,
@@ -72,7 +67,7 @@ def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None)
         artists = tuple(
             (f"Photo Artist {index}", 1, 2520 - index) for index in range(10)
         )
-    set_job_results(
+    jobs.succeed(
         job_id,
         [
             {
@@ -88,8 +83,8 @@ def _seed_spotlight_job(artists: tuple[tuple[str, int, int], ...] | None = None)
             for index, (name, albums, seconds) in enumerate(artists)
             for album in range(albums)
         ],
+        "Done",
     )
-    set_job_progress(job_id, progress=100, message="Done", error=False)
     return job_id
 
 
@@ -310,7 +305,7 @@ def check_artist_spotlight_photo_has_no_crop_overlay_or_animation(
         if motion:
             failures.append(f"spotlight photo is animated: {', '.join(motion)}")
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -438,7 +433,7 @@ def check_artist_spotlight_photo_not_cropped_when_non_square(
             return failures
         failures.extend(photo_crop_failures(page.evaluate(_PHOTO_PAINT_JS)))
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -489,7 +484,7 @@ def check_artist_spotlight_card_hidden_with_no_photo(page, base_url: str) -> lis
                 f"spotlight card is visible ({display!r}) with no confirmed photo"
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -655,7 +650,7 @@ def check_artist_spotlight_name_whole_and_card_height_fixed(
                 spotlight_layout_failures(samples, where, len(LAYOUT_ARTISTS))
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -731,5 +726,5 @@ def check_artist_spotlight_holds_still_while_focused_or_hovered(
                 spotlight_hold_failures(before, page.evaluate(_LINK_STATE_JS), held_by)
             )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures

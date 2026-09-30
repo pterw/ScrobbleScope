@@ -28,7 +28,7 @@ from scripts.dev._frontend_gate_spotlight_photo import (
     _install_spotlight_fetch_mock,
     _seed_spotlight_job,
 )
-from scrobblescope.repositories import create_job, delete_job, set_job_results
+from scrobblescope import jobs
 
 #: Spotify's digital minimum for the icon on its own.
 MIN_ICON_PX = 21
@@ -230,7 +230,7 @@ def check_spotlight_spotify_icon_size_and_link_target(page, base_url: str) -> li
             )
         )
     finally:
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures
 
 
@@ -302,9 +302,9 @@ def check_export_icon_keeps_its_size(page, base_url: str) -> list[str]:
     minimum. The ink inside the icon's box on the decoded download, divided by
     the export's scale, must clear MIN_ICON_PX in whichever engine runs this.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     try:
-        set_job_results(job_id, [_SPOTIFY_ROW])
+        jobs.succeed(job_id, [_SPOTIFY_ROW], "Done")
         page.route("**/api/artist_spotlight?*", lambda route: route.fulfill(json={}))
         page.goto(
             f"{base_url}/results?job_id={job_id}",
@@ -329,7 +329,7 @@ def check_export_icon_keeps_its_size(page, base_url: str) -> list[str]:
         return [f"JPEG export (Spotify icon size) failed: {type(exc).__name__}: {exc}"]
     finally:
         page.unroute("**/api/artist_spotlight?*")
-        delete_job(job_id)
+        jobs.delete(job_id)
     if min(ink["width"], ink["height"]) < MIN_ICON_PX:
         return [
             f"JPEG export shows the Spotify icon at {ink['width']:.1f}x"
@@ -348,10 +348,10 @@ def check_spotify_icon_follows_system_under_forced_colors(
     is black on black or white on white and vanishes. Each system scheme is
     paired with the opposite saved theme and must still show its own file.
     """
-    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
     failures = []
     try:
-        set_job_results(job_id, [_SPOTIFY_ROW])
+        jobs.succeed(job_id, [_SPOTIFY_ROW], "Done")
         page.route("**/api/artist_spotlight?*", lambda route: route.fulfill(json={}))
         page.goto(
             f"{base_url}/results?job_id={job_id}",
@@ -387,5 +387,5 @@ def check_spotify_icon_follows_system_under_forced_colors(
     finally:
         page.emulate_media(forced_colors="null", color_scheme="null")
         page.unroute("**/api/artist_spotlight?*")
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures

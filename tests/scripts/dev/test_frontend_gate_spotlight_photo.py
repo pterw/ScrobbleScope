@@ -48,26 +48,21 @@ def test_square_photo_data_url_declares_equal_width_and_height() -> None:
 def test_seed_spotlight_job_seeds_several_artists_and_marks_it_done() -> None:
     with (
         patch(
-            "scripts.dev._frontend_gate_spotlight_photo.create_job",
+            "scripts.dev._frontend_gate_spotlight_photo.jobs.create",
             return_value="job-1",
         ) as create_job,
-        patch(
-            "scripts.dev._frontend_gate_spotlight_photo.set_job_results"
-        ) as set_job_results,
-        patch(
-            "scripts.dev._frontend_gate_spotlight_photo.set_job_progress"
-        ) as set_job_progress,
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.succeed") as succeed,
     ):
         job_id = _frontend_gate_spotlight_photo._seed_spotlight_job()
 
     assert job_id == "job-1"
     create_job.assert_called_once()
-    results = set_job_results.call_args.args[1]
+    succeed.assert_called_once()
+    assert succeed.call_args.args[0] == "job-1"
+    assert succeed.call_args.args[2] == "Done"
+    results = succeed.call_args.args[1]
     artists = {entry["artist"] for entry in results}
     assert len(artists) > 1, "the seeded job must sample more than one artist"
-    set_job_progress.assert_called_once_with(
-        "job-1", progress=100, message="Done", error=False
-    )
 
 
 def test_install_spotlight_fetch_mock_carries_the_photo_url() -> None:
@@ -163,7 +158,7 @@ def _run(check, page):
             "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
             return_value="job-1",
         ),
-        patch("scripts.dev._frontend_gate_spotlight_photo.delete_job") as delete_job,
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.delete") as delete_job,
     ):
         failures = check(page, "http://127.0.0.1:0")
     delete_job.assert_called_once_with("job-1")
@@ -340,7 +335,7 @@ def _run_layout(check, page):
             "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
             return_value="job-1",
         ) as seed,
-        patch("scripts.dev._frontend_gate_spotlight_photo.delete_job") as delete_job,
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.delete") as delete_job,
     ):
         failures = check(page, "http://127.0.0.1:0")
     seed.assert_called_once_with(_frontend_gate_spotlight_photo.LAYOUT_ARTISTS)
@@ -351,15 +346,12 @@ def _run_layout(check, page):
 def test_the_seed_can_give_an_artist_several_albums() -> None:
     with (
         patch(
-            "scripts.dev._frontend_gate_spotlight_photo.create_job", return_value="j"
+            "scripts.dev._frontend_gate_spotlight_photo.jobs.create", return_value="j"
         ),
-        patch(
-            "scripts.dev._frontend_gate_spotlight_photo.set_job_results"
-        ) as set_job_results,
-        patch("scripts.dev._frontend_gate_spotlight_photo.set_job_progress"),
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.succeed") as succeed,
     ):
         _frontend_gate_spotlight_photo._seed_spotlight_job((("Radiohead", 3, 900),))
-    rows = set_job_results.call_args.args[1]
+    rows = succeed.call_args.args[1]
     assert [row["artist"] for row in rows] == ["Radiohead"] * 3
     assert len({row["album"] for row in rows}) == 3
     assert {row["play_time_seconds"] for row in rows} == {900}
@@ -426,7 +418,7 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
             "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
             return_value="job-1",
         ),
-        patch("scripts.dev._frontend_gate_spotlight_photo.delete_job"),
+        patch("scripts.dev._frontend_gate_spotlight_photo.jobs.delete"),
         patch(
             "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
             return_value=None,

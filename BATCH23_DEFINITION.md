@@ -120,8 +120,9 @@ Batch 23 is complete only when all of these product outcomes hold:
   upload-limit behaviour remains compatible, except for the approved WP-0
   Part C fixes. The shared admission refactor and WP-6's additive statistics,
   aggregation fields and presentation are permitted. Existing Last.fm tests
-  remain unmodified except for the documented Part C fixes; new tests cover
-  the additions.
+  remain unmodified except for the documented Part C fixes and for a WP-0
+  seam refactor commit, whose body names every edited test (owner ruling,
+  2026-09-29); new tests cover the additions.
 - Both sources gain the same new statistics, computed from data the pipeline
   already holds, with no additional API calls.
 - The interface reads correctly for both sources: "plays" rather than
@@ -514,7 +515,8 @@ rows, exclusions and the new statistics -- instead of writing exclusions
 into the job as a side effect. That is where WP-6's per-album statistics
 would live. Settle it after WP-0's provider repairs and before this work
 package is designed. Scheduling it inside Batch 23 needs an explicit scope
-amendment, and a migration that keeps the Last.fm path's tests unmodified.
+amendment, and a migration that keeps the Last.fm path's tests unmodified or
+names each edited test.
 
 **Statistics contract before implementation.** The specialized plan names
 which population each summary covers (all accepted plays, eligible albums
@@ -566,9 +568,11 @@ silently change existing ranking and percentage semantics.
 - Request/directory failures create no job. Content failures found during
   parsing terminate the job with the classified error, release capacity
   and discard the buffer. Both paths give an actionable message.
-- The Last.fm path's tests pass unmodified throughout the batch. The one
+- The Last.fm path's tests pass unmodified throughout the batch. One
   exception is an assertion that a WP-0 Part C finding fix must change; that
-  commit's body names it (owner ruling, 2026-09-23).
+  commit's body names it (owner ruling, 2026-09-23). A second exception: a
+  WP-0 seam refactor commit may edit existing tests, and its body names every
+  edited test (owner ruling, 2026-09-29).
 - Peak memory is measured, not assumed: `tracemalloc` and process peak RSS
   (VmHWM on Fly/Linux) on the real export, locally and on Fly. Include the
   receiving multipart requests, admitted/waiting buffers, parser working

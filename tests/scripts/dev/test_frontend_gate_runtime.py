@@ -122,15 +122,15 @@ def test_server_setup_failure_restores_jobs_and_page_inventories() -> None:
     with (
         patch("scripts.dev._frontend_gate_runtime.create_app"),
         patch(
-            "scripts.dev._frontend_gate_runtime.create_job",
+            "scripts.dev._frontend_gate_runtime.jobs.create",
             side_effect=("album-job", "heatmap-job"),
         ),
-        patch("scripts.dev._frontend_gate_runtime.set_job_progress"),
+        patch("scripts.dev._frontend_gate_runtime.jobs.advance"),
         patch(
             "scripts.dev._frontend_gate_runtime.make_server",
             side_effect=OSError("bind failed"),
         ),
-        patch("scripts.dev._frontend_gate_runtime.delete_job") as delete_job,
+        patch("scripts.dev._frontend_gate_runtime.jobs.delete") as delete_job,
         pytest.raises(OSError, match="bind failed"),
     ):
         with serve_app():

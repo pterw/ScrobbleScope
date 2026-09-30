@@ -35,7 +35,7 @@ listed for completeness and is not graded.
 | `scrobblescope/heatmap.py` | yes |
 | `scrobblescope/lastfm.py` | yes |
 | `scrobblescope/orchestrator.py` | yes |
-| `scrobblescope/repositories.py` | yes |
+| `scrobblescope/jobs.py` | yes |
 | `scrobblescope/routes.py` | yes |
 | `scrobblescope/spotify.py` | yes |
 | `scrobblescope/utils.py` | yes |
@@ -57,7 +57,7 @@ for it deliberately:
 | Depth | Modules | What it means |
 |---|---|---|
 | **Deep** | `orchestrator.py`, `routes.py`, `utils.py` | Read whole, more than once where the flow is hard to hold. Two of the three are what WP-7 modifies, so the migration verdict rests on them. This is where the session's time belongs. |
-| **Standard** | `lastfm.py`, `heatmap.py`, `repositories.py`, `cache.py`, `app.py`, `spotify.py` | Read whole once. Grade, cite what you find. |
+| **Standard** | `lastfm.py`, `heatmap.py`, `jobs.py`, `cache.py`, `app.py`, `spotify.py` | Read whole once. Grade, cite what you find. |
 | **Light** | `domain.py`, `errors.py`, `worker.py`, `config.py` | 40 to 70 lines each. Read whole -- it takes a minute -- grade, move on. Do not hunt for findings in 40 lines of constants. |
 
 Depth directs attention; it is not permission to skip. Every cell is still
@@ -166,7 +166,7 @@ F-AUDIT-1, several of which sit in modules this audit grades.
 
 **Standing design decisions are choices, not findings:** F-LOAD-3/4/5 and the
 `docs/agents/AGENT_NOTES.md` Architectural Constraints -- in-memory REQUEST_CACHE,
-single-worker JOBS dict, TTL-on-write cache, ProactorEventLoop guard.
+single-worker in-memory job store, TTL-on-write cache, ProactorEventLoop guard.
 
 The audit's value is NET-NEW findings and a defensible per-module grade,
 not volume.

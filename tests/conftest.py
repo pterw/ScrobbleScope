@@ -64,6 +64,22 @@ def fresh_job_slots():
     worker._active_jobs_semaphore = original
 
 
+@pytest.fixture(autouse=True)
+def fresh_job_store():
+    """Give every test its own empty job store, and hand it to tests that ask.
+
+    Jobs used to pile up in one process-wide dict for the whole session, so a
+    test that counted jobs had to diff before and after. A fresh store per
+    test makes ``fresh_job_store.ids()`` the whole truth.
+    """
+    from scrobblescope import jobs
+
+    store = jobs.MemoryJobStore()
+    previous = jobs.use_store(store)
+    yield store
+    jobs.use_store(previous)
+
+
 @pytest.fixture
 def client():
     """Create a test client for the Flask application."""

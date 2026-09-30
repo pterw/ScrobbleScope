@@ -2,15 +2,12 @@
 
 Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22). Pure
 synchronous logic -- no I/O -- except for the one cross-cutting call,
-``add_job_unmatched``, which the existing test suite patches at
-``scrobblescope.orchestrator.add_job_unmatched``; see
-``scrobblescope/orchestrator/_search.py`` for why that call goes through the
-live ``orchestrator`` module reference rather than a direct import.
+``jobs.record_unmatched``.
 """
 
 import logging
 
-from scrobblescope import orchestrator as _orchestrator
+from scrobblescope import jobs
 from scrobblescope.domain import _matches_release_criteria, normalize_name
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import format_seconds, format_seconds_mobile
@@ -163,7 +160,7 @@ def _build_results(
                 # is worth a request, and it cannot tell without this field.
                 "provider_release_date": provider_release_date,
             }
-            _orchestrator.add_job_unmatched(job_id, unmatched_key, unmatched_entry)
+            jobs.record_unmatched(job_id, unmatched_key, unmatched_entry)
             continue
 
         track_durations = cached.get("track_durations") or {}
@@ -188,9 +185,9 @@ def _build_results(
             "album_url": _album_url(cached),
             # Carries the cache_hits key -- already the normalized
             # (artist_norm, album_norm) tuple, no extra normalize_name call
-            # needed -- forward so update_job_result (repositories.py) can
-            # match by key comparison instead of re-deriving one per lookup
-            # under jobs_lock. Not surfaced anywhere: results.html and the
+            # needed -- forward so jobs.update_result can match by
+            # key comparison instead of re-deriving one per lookup under the
+            # store's exclusion. Not surfaced anywhere: results.html and the
             # JSON endpoints read named fields only, never dump the dict.
             "_normalized_key": key,
         }

@@ -49,7 +49,7 @@ MUSICBRAINZ_CHECKS_PER_JOB = int(os.getenv("MUSICBRAINZ_CHECKS_PER_JOB", "60"))
 
 # Global state tracking
 REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
-# A job expires this long after its last write (repositories.cleanup_expired_jobs).
+# A job expires this long after its last write (jobs.expire_stale).
 # Reads never renew it: Batch 23 promises an uploaded export is forgotten
 # within this window, and a polling tab must not extend that.
 JOB_TTL_SECONDS = 2 * 60 * 60

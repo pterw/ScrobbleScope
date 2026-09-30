@@ -11,14 +11,10 @@ import logging
 from flask import jsonify, request
 from flask_wtf.csrf import generate_csrf
 
+from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.domain import format_album_key
 from scrobblescope.release_checks import CHECK_UNCHECKED, STATUS_PENDING
-from scrobblescope.repositories import (
-    get_job_context,
-    get_job_progress,
-    get_job_unmatched,
-)
 from scrobblescope.spotify import fetch_spotify_artist_spotlight
 from scrobblescope.utils import create_optimized_session
 
@@ -83,7 +79,7 @@ def progress():
             400,
         )
 
-    progress_payload = get_job_progress(job_id)
+    progress_payload = jobs.progress(job_id)
     if progress_payload is None:
         return (
             jsonify(
@@ -110,7 +106,7 @@ def unmatched_data():
             400,
         )
 
-    unmatched_data = get_job_unmatched(job_id)
+    unmatched_data = jobs.unmatched(job_id)
     if unmatched_data is None:
         return jsonify({"count": 0, "data": {}, "error": "Job not found."}), 404
 
@@ -147,7 +143,7 @@ def _changed_albums(results):
     ``unchecked``: the page already renders every row, so the only thing it
     needs from this endpoint is what changed. A result with no
     ``_normalized_key`` cannot be addressed by the page either, so it is
-    skipped for the same reason ``update_job_result`` never matches one.
+    skipped for the same reason ``jobs.update_result`` never matches one.
     """
     albums = []
     for result in results or []:
@@ -187,7 +183,7 @@ def release_checks():
     if not job_id:
         return _release_check_error("Missing job identifier.", 400)
 
-    job_context = get_job_context(job_id)
+    job_context = jobs.context(job_id)
     if job_context is None:
         return _release_check_error("Job not found or expired.", 404)
     if job_context.get("params", {}).get("mode", "album") != "album":

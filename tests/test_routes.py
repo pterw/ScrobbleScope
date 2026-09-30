@@ -6,20 +6,9 @@ from unittest.mock import patch
 
 import pytest
 
+from scrobblescope import jobs
 from scrobblescope.domain import normalize_name
 from scrobblescope.orchestrator import background_task
-from scrobblescope.repositories import (
-    JOBS,
-    add_job_unmatched,
-    create_job,
-    get_job_progress,
-    get_job_unmatched,
-    jobs_lock,
-    set_job_error,
-    set_job_progress,
-    set_job_release_check,
-    set_job_results,
-)
 from scrobblescope.routes import (
     _filter_results_for_display,
     _get_filter_description,
@@ -105,7 +94,7 @@ def test_heatmap_page_without_saved_job_uses_dedicated_empty_state(client):
 
 def test_home_heatmap_mode_starts_fresh_without_forgetting_latest_job(client):
     """The index selector opens a new form while navigation keeps the latest run."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     with client.session_transaction() as browser_session:
         browser_session["latest_heatmap_job_id"] = job_id
 
@@ -123,7 +112,7 @@ def test_home_heatmap_mode_starts_fresh_without_forgetting_latest_job(client):
 
 def test_heatmap_page_embeds_latest_session_job_for_resume(client):
     """The Heatmap destination should resume this browser's latest run."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     with client.session_transaction() as browser_session:
         browser_session["latest_heatmap_job_id"] = job_id
 
@@ -136,7 +125,7 @@ def test_heatmap_page_embeds_latest_session_job_for_resume(client):
 
 def test_heatmap_page_accepts_explicit_job_then_saves_it(client):
     """An explicit compatibility ID should seed later clean Heatmap visits."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
 
     response = client.get(f"/heatmap?job_id={job_id}")
 
@@ -205,7 +194,7 @@ def test_validate_user_missing_username(client):
 
 def test_results_complete_renders_no_matches_for_empty_results(client):
     """A completed job with empty results should render the no-matches UI."""
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -218,13 +207,7 @@ def test_results_complete_renders_no_matches_for_empty_results(client):
             "limit_results": "10",
         }
     )
-    set_job_results(job_id, [])
-    set_job_progress(
-        job_id,
-        progress=100,
-        message="No albums found for the specified criteria.",
-        error=False,
-    )
+    jobs.succeed(job_id, [], "No albums found for the specified criteria.")
 
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
@@ -240,8 +223,8 @@ def test_results_complete_error_with_error_code(client):
     WHEN /results_complete is POSTed
     THEN the error page should mention the issue is temporary.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "spotify_unavailable")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "spotify_unavailable")
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 503
     assert b">503</span>" in response.data
@@ -255,8 +238,8 @@ def test_progress_endpoint_returns_error_metadata(client):
     WHEN the /progress endpoint is queried
     THEN the JSON should include error classification fields.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_rate_limited")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_rate_limited")
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["error"] is True
@@ -271,8 +254,8 @@ def test_progress_endpoint_no_error_metadata_on_success(client):
     WHEN the /progress endpoint is queried
     THEN the JSON should NOT include error classification fields.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_progress(job_id, progress=50, message="Working...", error=False)
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.advance(job_id, 50, "Working...")
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["error"] is False
@@ -286,7 +269,7 @@ def test_progress_endpoint_returns_phase_payload(client):
     WHEN the /progress endpoint is queried
     THEN the exact JSON phase payload should survive the route.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     phase = {
         "key": "lastfm_fetch",
         "label": "Fetching scrobbles",
@@ -294,7 +277,7 @@ def test_progress_endpoint_returns_phase_payload(client):
         "current": 23,
         "total": 102,
     }
-    set_job_progress(job_id, progress=20, message="Fetching scrobbles", phase=phase)
+    jobs.advance(job_id, 20, "Fetching scrobbles", phase=phase)
     response = client.get(f"/progress?job_id={job_id}")
     data = response.get_json()
     assert data["phase"] == {
@@ -321,8 +304,8 @@ def test_progress_endpoint_no_phase_when_unset_or_error(client):
     assert "phase" not in res_404.get_json()
 
     # 3. Classified error on existing job
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_unavailable")
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_unavailable")
     res_err = client.get(f"/progress?job_id={job_id}")
     assert "phase" not in res_err.get_json()
 
@@ -375,20 +358,19 @@ def test_results_loading_capacity_exceeded_returns_error(client):
     assert b"Too many requests" in response.data
 
 
-def test_results_loading_thread_start_failure_renders_error(client):
+def test_results_loading_thread_start_failure_renders_error(client, fresh_job_store):
     """
     GIVEN start_job_thread raises (e.g. OS resource exhaustion after slot acquire)
     WHEN POST /results_loading is processed
-    THEN the route renders the index page gracefully and leaves no orphan job in JOBS.
+    THEN the route renders the index page gracefully and leaves no orphan job in the job store.
 
-    Previously this test patched delete_job and only asserted assert_called_once(),
+    Previously this test patched jobs.delete and only asserted assert_called_once(),
     which verified the mock was called but not which job_id was passed, and left the
-    actual JOBS dict containing the orphaned entry unchecked.  This version drops the
-    mock and asserts directly on JOBS state: any regression in the cleanup path
+    job store containing the orphaned entry unchecked.  This version drops the
+    mock and asserts directly on the job store: any regression in the cleanup path
     (wrong job_id, missing call, wrong branch) will cause the assertion to fail.
     """
-    with jobs_lock:
-        jobs_before = set(JOBS.keys())
+    jobs_before = set(fresh_job_store.ids())
 
     with (
         patch(
@@ -406,10 +388,9 @@ def test_results_loading_thread_start_failure_renders_error(client):
     assert response.status_code == 200
     assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
-    # The route must have called delete_job on the job it created: JOBS must be
+    # The route must have called jobs.delete on the job it created: the store must be
     # back to its pre-request size with no orphan entry left behind.
-    with jobs_lock:
-        assert set(JOBS.keys()) == jobs_before
+    assert set(fresh_job_store.ids()) == jobs_before
 
 
 def test_results_loading_valid_post(client):
@@ -518,7 +499,7 @@ def test_results_complete_with_results_renders_data(client):
     WHEN POST /results_complete is submitted
     THEN it should render the results page with album data and the tojson bridge.
     """
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -531,7 +512,7 @@ def test_results_complete_with_results_renders_data(client):
             "limit_results": "all",
         }
     )
-    set_job_results(
+    jobs.succeed(
         job_id,
         [
             {
@@ -545,8 +526,8 @@ def test_results_complete_with_results_renders_data(client):
                 "spotify_id": "abc123",
             },
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
@@ -564,7 +545,7 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
          6), while the Spotify row is attributed once for the list by the
          official Spotify icon instead of a per-row badge (F-B21-60).
     """
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "flounder14",
             "year": 2025,
@@ -577,7 +558,7 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
             "limit_results": "all",
         }
     )
-    set_job_results(
+    jobs.succeed(
         job_id,
         [
             {
@@ -605,8 +586,8 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
                 "album_url": "https://www.deezer.com/album/dz-1",
             },
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.post("/results_complete", data={"job_id": job_id})
     html = response.data.decode("utf-8")
@@ -676,8 +657,8 @@ def test_unmatched_api_returns_data(client):
     WHEN GET /api/unmatched is requested with that job_id
     THEN it should return the unmatched albums and count.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "artist::album_key",
         {
@@ -686,7 +667,7 @@ def test_unmatched_api_returns_data(client):
             "reason": "Released in 1997, outside filter year",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "lizzy mcalpine|older",
         {
@@ -718,7 +699,7 @@ def _release_check_job(states, release_check=None):
     None leaves the result without the field at all, which is what a result
     looks like before the worker has touched it.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     results = []
     for (artist, album), state in states.items():
         result = {
@@ -731,9 +712,9 @@ def _release_check_job(states, release_check=None):
             result["release_check"] = value
             result["original_release_date"] = original
         results.append(result)
-    set_job_results(job_id, results)
+    jobs.succeed(job_id, results, "Done")
     if release_check is not None:
-        set_job_release_check(job_id, release_check)
+        jobs.record_stat(job_id, "release_check", release_check)
     return job_id
 
 
@@ -771,7 +752,7 @@ def test_release_checks_api_rejects_a_heatmap_job(client):
     WHEN GET /api/release_checks is requested with its job_id
     THEN it should return 404: release checks belong to the album flow.
     """
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     response = client.get(f"/api/release_checks?job_id={job_id}")
     assert response.status_code == 404
     assert response.get_json()["status"] == "error"
@@ -869,12 +850,13 @@ def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
     WHEN GET /api/release_checks is requested
     THEN that result is skipped rather than crashing the endpoint.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(
-        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}]
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(
+        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}], "Done"
     )
-    set_job_release_check(
+    jobs.record_stat(
         job_id,
+        "release_check",
         {"status": "done", "checked": 1, "total": 1, "moved_out": 0, "moved_in": 0},
     )
 
@@ -919,29 +901,28 @@ def test_reset_progress_success_resets_job_state(client):
     WHEN /reset_progress is called with that job_id
     THEN progress, results, and unmatched state should reset successfully.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(job_id, [{"artist": "A", "album": "B"}])
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(job_id, [{"artist": "A", "album": "B"}], "Done")
+    jobs.record_unmatched(
         job_id,
         "a|b",
         {"artist": "A", "album": "B", "reason": "No Spotify match"},
     )
-    set_job_progress(job_id, progress=88, message="Before reset", error=True)
+    jobs.fail(job_id, "internal_error")
 
     response = client.post("/reset_progress", data={"job_id": job_id})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"
 
-    progress = get_job_progress(job_id)
+    progress = jobs.progress(job_id)
     assert progress["progress"] == 0
     assert progress["message"] == "Reset successful"
     assert progress["error"] is False
 
-    unmatched = get_job_unmatched(job_id)
+    unmatched = jobs.unmatched(job_id)
     assert unmatched == {}
-    with jobs_lock:
-        assert JOBS[job_id]["results"] is None
+    assert jobs.context(job_id)["results"] is None
 
 
 def test_unmatched_view_missing_job_id_renders_error_page(client):
@@ -975,8 +956,8 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     WHEN POST /unmatched_view is submitted
     THEN it should render the unmatched report with grouped reason sections.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "threshold|album",
         {
@@ -994,7 +975,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {
@@ -1004,7 +985,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "no_spotify_match",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "b|two",
         {
@@ -1014,7 +995,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
             "reason_code": "release_scope",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "c|three",
         {
@@ -1072,7 +1053,7 @@ THRESHOLD_REASON = (
 
 def _seed_every_unmatched_reason(job_id):
     """One row per note rule: shortfall, legacy threshold, release, no match."""
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "threshold|shortfall",
         {
@@ -1088,7 +1069,7 @@ def _seed_every_unmatched_reason(job_id):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "threshold|legacy",
         {
@@ -1100,7 +1081,7 @@ def _seed_every_unmatched_reason(job_id):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "release|album",
         {
@@ -1110,7 +1091,7 @@ def _seed_every_unmatched_reason(job_id):
             "reason_code": "release_scope",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "nomatch|album",
         {
@@ -1133,7 +1114,7 @@ def test_unmatched_view_row_note_says_what_is_particular_to_the_row(client):
     The fourth "Reason detail" column is gone: its sentence repeated the
     panel's heading on every row (docs/design/RECONCILIATION.md section 18).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     _seed_every_unmatched_reason(job_id)
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
@@ -1163,7 +1144,7 @@ def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
     THEN only the threshold panel's metric header says "Plays / tracks"; the
          other panels hold a bare play count and say "Plays".
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     _seed_every_unmatched_reason(job_id)
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
@@ -1194,9 +1175,9 @@ def test_unmatched_view_subtitle_counts_the_albums_left_out(client, albums, expe
          filter bar states the filter once, with no "Listening year" and no
          "Total unmatched" (both moved to the line above).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     for index in range(albums):
-        add_job_unmatched(
+        jobs.record_unmatched(
             job_id,
             f"artist|album-{index}",
             {
@@ -1232,7 +1213,7 @@ def test_unmatched_view_portrait_image_is_not_lazy(client):
     never fired and the portrait never appeared (F-B23-14). unmatched.js
     already defers the request until the row nears the viewport.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     _seed_every_unmatched_reason(job_id)
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
@@ -1253,8 +1234,8 @@ def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
          Spotify link built from a (here, absent) spotify_id (Batch 22 WP-1
          Task 6; mirrors the same fix in _build_results for the results page).
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "deezer|filtered",
         {
@@ -1289,8 +1270,8 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
     a cover in the release_scope group only, which is why a green gate shipped
     the omission.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "threshold|album",
         {
@@ -1301,7 +1282,7 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "below_threshold",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "b|two",
         {
@@ -1311,7 +1292,7 @@ def test_unmatched_view_renders_artwork_in_every_reason_group(client):
             "reason_code": "release_scope",
         },
     )
-    add_job_unmatched(
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {
@@ -1346,9 +1327,9 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
     should be 20 or 25. A route assertion pins that ruling so a later edit
     cannot quietly restore the larger step.
     """
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     for index in range(40):
-        add_job_unmatched(
+        jobs.record_unmatched(
             job_id,
             f"artist|album-{index}",
             {
@@ -1371,7 +1352,7 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
 
 def test_loading_page_uses_job_context_at_canonical_url(client):
     """GET /loading should rebuild the loading view from the stored job."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     response = client.get(f"/loading?job_id={job_id}")
 
@@ -1388,8 +1369,8 @@ def test_loading_page_uses_job_context_at_canonical_url(client):
 
 def test_results_page_uses_job_context_at_canonical_url(client):
     """GET /results should render completed data without a form resubmission."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    set_job_results(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.succeed(
         job_id,
         [
             {
@@ -1403,8 +1384,8 @@ def test_results_page_uses_job_context_at_canonical_url(client):
                 "spotify_id": "abc123",
             }
         ],
+        "Done!",
     )
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
 
     response = client.get(f"/results?job_id={job_id}")
 
@@ -1419,8 +1400,8 @@ def test_results_page_uses_job_context_at_canonical_url(client):
 
 def test_unmatched_page_uses_job_context_at_canonical_url(client):
     """GET /unmatched should render the report and a stable results link."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
         job_id,
         "a|one",
         {"artist": "Artist A", "album": "Album One", "reason": "No match"},
@@ -1440,7 +1421,7 @@ def test_unmatched_page_uses_job_context_at_canonical_url(client):
 
 def test_unmatched_page_with_zero_rows_renders_a_clear_empty_state(client):
     """A zero unmatched count must not be described as a populated report."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
 
     response = client.get(f"/unmatched?job_id={job_id}")
 
@@ -1740,7 +1721,7 @@ def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):
     assert token_match, "CSRF token not found in index page HTML"
     token = token_match.group(1).decode()
 
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     response = csrf_app_client.post(
         "/reset_progress",
         data={"job_id": job_id},
@@ -1834,10 +1815,9 @@ def test_heatmap_loading_no_job_slot(client):
     assert data["retryable"] is True
 
 
-def test_heatmap_loading_thread_failure_cleans_up(client):
+def test_heatmap_loading_thread_failure_cleans_up(client, fresh_job_store):
     """POST /heatmap_loading returns 500 and deletes orphan job on thread failure."""
-    with jobs_lock:
-        jobs_before = set(JOBS.keys())
+    jobs_before = set(fresh_job_store.ids())
 
     with (
         patch(
@@ -1856,8 +1836,7 @@ def test_heatmap_loading_thread_failure_cleans_up(client):
     assert data["error"] is True
     assert data["retryable"] is True
     # Orphan job must have been cleaned up.
-    with jobs_lock:
-        assert set(JOBS.keys()) == jobs_before
+    assert set(fresh_job_store.ids()) == jobs_before
 
 
 def test_heatmap_loading_user_check_unavailable(client):
@@ -1892,7 +1871,7 @@ def test_heatmap_loading_json_body(client):
 
 def test_heatmap_data_completed_with_results(client):
     """GET /heatmap_data for a completed job returns 200 with daily_counts."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
     heatmap_results = {
         "username": "testuser",
         "from_date": "2024-01-01",
@@ -1900,8 +1879,7 @@ def test_heatmap_data_completed_with_results(client):
         "total_scrobbles": 500,
         "daily_counts": {"2024-06-15": 12, "2024-06-16": 3},
     }
-    set_job_results(job_id, heatmap_results)
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
+    jobs.succeed(job_id, heatmap_results, "Done!")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -1913,8 +1891,8 @@ def test_heatmap_data_completed_with_results(client):
 
 def test_heatmap_data_completed_with_error(client):
     """GET /heatmap_data for a failed job returns 200 with error details."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_error(job_id, "lastfm_rate_limited")
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.fail(job_id, "lastfm_rate_limited")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -1945,8 +1923,8 @@ def test_heatmap_data_expired_job(client):
 
 def test_heatmap_data_still_processing(client):
     """GET /heatmap_data for an in-progress job returns 202 with ready=false."""
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_progress(job_id, progress=45, message="Fetching page 3...", error=False)
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.advance(job_id, 45, "Fetching page 3...")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 202
@@ -1955,14 +1933,14 @@ def test_heatmap_data_still_processing(client):
 
 
 def test_heatmap_data_error_with_empty_results(client):
-    """Error jobs have results=[] via set_job_error; must return error, not ready.
+    """Error jobs have results=[] via jobs.fail; must return error, not ready.
 
-    set_job_error() calls set_job_results(job_id, []), which is truthy for
-    ``is not None``. The error check must come before the results check to
+    jobs.fail() stores an empty results list, which is not None and so counts as
+    ready. The error check must come before the results check to
     avoid returning ``{"ready": true, ...}`` with an empty list.
     """
-    job_id = create_job(HEATMAP_JOB_PARAMS)
-    set_job_error(job_id, "no_scrobbles_in_range", username="testuser")
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.fail(job_id, "no_scrobbles_in_range", username="testuser")
 
     response = client.get(f"/heatmap_data?job_id={job_id}")
     assert response.status_code == 200
@@ -2083,7 +2061,6 @@ def test_artist_spotlight_api_fallback_when_token_fails(client, monkeypatch):
 
 def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
     """Results page context includes top_artist_name, top_artist_scrobbles, top_artist_album_count."""
-    from scrobblescope import routes
 
     results_data = [
         {
@@ -2108,8 +2085,8 @@ def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
     ]
 
     monkeypatch.setattr(
-        routes,
-        "get_job_context",
+        jobs,
+        "context",
         lambda job_id: {
             "progress": {},
             "results": results_data,
@@ -2139,7 +2116,6 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
     client, monkeypatch
 ):
     """A completed job exposes one stable five-artist spotlight rotation."""
-    from scrobblescope import routes
 
     results_data = [
         {
@@ -2166,8 +2142,8 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
     )
 
     monkeypatch.setattr(
-        routes,
-        "get_job_context",
+        jobs,
+        "context",
         lambda job_id: {
             "progress": {},
             "results": results_data,
@@ -2214,9 +2190,9 @@ def test_error_handler_badge_matches_http_status(client, status):
     assert f">{status}</span>" in html
 
 
-def test_heatmap_privacy_service_failure_preserves_saved_job(client):
+def test_heatmap_privacy_service_failure_preserves_saved_job(client, fresh_job_store):
     """Failed privacy preflight neither creates a job nor replaces saved results."""
-    previous_jobs = set(JOBS)
+    previous_jobs = set(fresh_job_store.ids())
     with client.session_transaction() as saved:
         saved["latest_heatmap_job_id"] = "previous-job"
     with (
@@ -2229,7 +2205,7 @@ def test_heatmap_privacy_service_failure_preserves_saved_job(client):
         response = client.post("/heatmap_loading", data={"username": "testuser"})
     assert response.status_code == 503
     assert response.json["retryable"] is True
-    assert set(JOBS) == previous_jobs
+    assert set(fresh_job_store.ids()) == previous_jobs
     with client.session_transaction() as saved:
         assert saved["latest_heatmap_job_id"] == "previous-job"
 
@@ -2238,7 +2214,7 @@ def test_heatmap_privacy_service_failure_preserves_saved_job(client):
 @pytest.mark.parametrize("wrong_mode", [False, True], ids=["missing", "wrong-mode"])
 def test_explicit_unavailable_album_job_returns_matching_404(client, path, wrong_mode):
     """Missing and wrong-mode IDs fail without retaining a stale saved pointer."""
-    job_id = create_job(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
+    job_id = jobs.create(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
     with client.session_transaction() as saved:
         saved["latest_album_job_id"] = job_id
     response = client.get(path, query_string={"job_id": job_id})
@@ -2267,9 +2243,9 @@ def test_results_job_state_matches_http_status(
     client, method, path, error_code, expected_status
 ):
     """Pending and terminal jobs expose their state through both status and badge."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     if error_code:
-        set_job_error(job_id, error_code, username="testuser")
+        jobs.fail(job_id, error_code, username="testuser")
     response = client.open(path, method=method, query_string={"job_id": job_id})
     assert response.status_code == expected_status
     assert f">{expected_status}</span>".encode() in response.data
@@ -2378,9 +2354,8 @@ def _provider_row(provider, index=0):
 
 def _render_results(client, rows):
     """Render /results_complete for a finished job holding `rows`."""
-    job_id = create_job(dict(TEST_JOB_PARAMS))
-    set_job_results(job_id, rows)
-    set_job_progress(job_id, progress=100, message="Done!", error=False)
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+    jobs.succeed(job_id, rows, "Done!")
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
     return response.data.decode("utf-8")
@@ -2481,8 +2456,8 @@ def test_results_mixed_providers_say_which_rows_spotify_covers(client):
 
 def _unmatched_html(client, key, item):
     """Render /unmatched_view for a job holding one unmatched `item`."""
-    job_id = create_job(TEST_JOB_PARAMS)
-    add_job_unmatched(job_id, key, item)
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(job_id, key, item)
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
     return response.data.decode("utf-8")
@@ -2588,9 +2563,9 @@ def _unmatched_release_scope_item(provider, index, url=True):
 
 def _unmatched_html_for(client, items):
     """Render /unmatched_view for a job holding several unmatched `items`."""
-    job_id = create_job(TEST_JOB_PARAMS)
+    job_id = jobs.create(TEST_JOB_PARAMS)
     for index, item in enumerate(items):
-        add_job_unmatched(job_id, f"{item['provider']}|{index}", item)
+        jobs.record_unmatched(job_id, f"{item['provider']}|{index}", item)
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
     return response.data.decode("utf-8")

@@ -22,7 +22,7 @@ import json
 from urllib.parse import parse_qs, urlparse
 
 from scripts.dev._frontend_gate_results import artwork_radius_failures
-from scrobblescope.repositories import add_job_unmatched, create_job, delete_job
+from scrobblescope import jobs
 
 #: Narrowest window at which two unmatched panels share a row. Below it each
 #: panel takes the full width. Owner ruling, 2026-09-13: at 1024px two panels
@@ -564,7 +564,7 @@ def _focus_ring_failures(page) -> list[str]:
 
 def check_unmatched_report(page, base_url: str) -> list[str]:
     """Exercise the populated report contract and its ten-row disclosure."""
-    job_id = create_job(
+    job_id = jobs.create(
         {
             "username": "frontend-gate",
             "year": 2025,
@@ -600,7 +600,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
     spotlight_pattern = "**/api/artist_spotlight?*"
     page.route(spotlight_pattern, fulfill_spotlight)
     try:
-        add_job_unmatched(
+        jobs.record_unmatched(
             job_id,
             "below-threshold",
             {
@@ -631,7 +631,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             else:
                 provider, spotify_id = "spotify", f"scope-album-{index}"
                 album_url = f"https://open.spotify.com/album/scope-album-{index}"
-            add_job_unmatched(
+            jobs.record_unmatched(
                 job_id,
                 f"scope-{index}",
                 {
@@ -647,7 +647,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 },
             )
         for index, artist in enumerate(UNMATCHED_PORTRAITS):
-            add_job_unmatched(
+            jobs.record_unmatched(
                 job_id,
                 f"missing-spotify-{index}",
                 {
@@ -978,5 +978,5 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         failures.extend(_unmatched_panel_width_sweep(page))
     finally:
         page.unroute(spotlight_pattern, fulfill_spotlight)
-        delete_job(job_id)
+        jobs.delete(job_id)
     return failures

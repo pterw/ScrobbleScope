@@ -67,8 +67,8 @@ def test_pipeline_state_machine_uses_a_disposable_page() -> None:
             {"album": "album-job", "heatmap": "heatmap-job"},
             clear=True,
         ),
-        patch("scripts.dev._frontend_gate_pipeline.reset_job_state"),
-        patch("scripts.dev._frontend_gate_pipeline.set_job_progress"),
+        patch("scripts.dev._frontend_gate_pipeline.jobs.reset"),
+        patch("scripts.dev._frontend_gate_pipeline.jobs.advance"),
         patch(
             "scripts.dev._frontend_gate_pipeline._exercise_pipeline_state_machines",
             side_effect=RuntimeError("pipeline failed"),
@@ -181,20 +181,18 @@ def test_assert_loading_progress_state_reports_mismatches() -> None:
 
 def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> None:
     """The extracted diagnostic exercises real storage and detects missing snapshots."""
-    job = _frontend_gate_pipeline.create_job({"username": "probe"})
+    job = _frontend_gate_pipeline.jobs.create({"username": "probe"})
     try:
         assert _frontend_gate_pipeline._check_phase_repository_isolation(job) == []
-        assert _frontend_gate_pipeline.get_job_progress(job)["phase"]["current"] == 23
+        assert _frontend_gate_pipeline.jobs.progress(job)["phase"]["current"] == 23
         with (
-            patch.object(
-                _frontend_gate_pipeline, "get_job_progress", return_value=None
-            ),
-            patch.object(_frontend_gate_pipeline, "get_job_context", return_value=None),
+            patch.object(_frontend_gate_pipeline.jobs, "progress", return_value=None),
+            patch.object(_frontend_gate_pipeline.jobs, "context", return_value=None),
         ):
             failures = _frontend_gate_pipeline._check_phase_repository_isolation(job)
         assert len(failures) == 6
     finally:
-        _frontend_gate_pipeline.delete_job(job)
+        _frontend_gate_pipeline.jobs.delete(job)
 
 
 def _replaced_job_page(request_arrives: bool):
@@ -221,9 +219,11 @@ def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
     """The old response is delivered after an in-page replacement and checked."""
     page, held, handlers = _replaced_job_page(request_arrives=True)
     with (
-        patch.object(_frontend_gate_pipeline, "create_job", return_value="replacement"),
-        patch.object(_frontend_gate_pipeline, "set_job_progress"),
-        patch.object(_frontend_gate_pipeline, "delete_job") as delete,
+        patch.object(
+            _frontend_gate_pipeline.jobs, "create", return_value="replacement"
+        ),
+        patch.object(_frontend_gate_pipeline.jobs, "advance"),
+        patch.object(_frontend_gate_pipeline.jobs, "delete") as delete,
     ):
         failures = _frontend_gate_pipeline._exercise_replaced_job_progress(
             page, "http://local", "old-job", "/heatmap?job_id=old-job"
@@ -260,9 +260,11 @@ def test_replaced_job_probe_fails_when_the_old_request_never_arrives() -> None:
     """A poll that was never held cannot pass the stale-response check."""
     page, held, _handlers = _replaced_job_page(request_arrives=False)
     with (
-        patch.object(_frontend_gate_pipeline, "create_job", return_value="replacement"),
-        patch.object(_frontend_gate_pipeline, "set_job_progress"),
-        patch.object(_frontend_gate_pipeline, "delete_job") as delete,
+        patch.object(
+            _frontend_gate_pipeline.jobs, "create", return_value="replacement"
+        ),
+        patch.object(_frontend_gate_pipeline.jobs, "advance"),
+        patch.object(_frontend_gate_pipeline.jobs, "delete") as delete,
     ):
         failures = _frontend_gate_pipeline._exercise_replaced_job_progress(
             page, "http://local", "old-job", "/heatmap?job_id=old-job"
@@ -277,7 +279,7 @@ def test_replaced_job_probe_fails_when_the_old_request_never_arrives() -> None:
 @pytest.mark.parametrize("client", ("album", "heatmap"))
 def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) -> None:
     """Both clients receive the same phase transitions and report an uncleared fraction."""
-    job = _frontend_gate_pipeline.create_job({"username": "probe"})
+    job = _frontend_gate_pipeline.jobs.create({"username": "probe"})
     page = MagicMock()
     snapshots = []
     expected = [
@@ -292,7 +294,7 @@ def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) ->
 
     def read_state(script, selectors):
         """Capture the producer state before returning the simulated browser frame."""
-        snapshots.append(_frontend_gate_pipeline.get_job_progress(job))
+        snapshots.append(_frontend_gate_pipeline.jobs.progress(job))
         value, text, transform = expected[len(snapshots) - 1]
         return {
             "valuenow": value,
@@ -327,4 +329,4 @@ def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) ->
             None,
         ]
     finally:
-        _frontend_gate_pipeline.delete_job(job)
+        _frontend_gate_pipeline.jobs.delete(job)

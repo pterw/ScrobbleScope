@@ -4,10 +4,10 @@ This module owns the heatmap processing pipeline: fetch recent tracks for the
 last 365 days, bucket each scrobble into a calendar date, and store a
 ``{date_str: count}`` dict as the job result.  It reuses the existing Last.fm
 fetch infrastructure (``lastfm.fetch_all_recent_tracks_async``), the job state
-machine (``repositories.*``), and the concurrency slot system (``worker.*``).
+machine (``jobs.*``), and the concurrency slot system (``worker.*``).
 
 Dependency chain (leaf-ward):
-    heatmap <- errors, lastfm, repositories, utils, worker
+    heatmap <- errors, jobs, lastfm, utils, worker
 
 No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
 deals only with raw scrobble counts per day.
@@ -19,15 +19,9 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 
+from scrobblescope import jobs
 from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
-from scrobblescope.repositories import (
-    cleanup_expired_jobs,
-    set_job_error,
-    set_job_progress,
-    set_job_results,
-    set_job_stat,
-)
 from scrobblescope.utils import cleanup_expired_cache
 from scrobblescope.worker import (
     new_thread_event_loop,
@@ -128,18 +122,12 @@ async def _fetch_and_process_heatmap(job_id, username):
         100%    -- store results
 
     On upstream errors or zero scrobbles the job terminates early with a
-    classified error via ``set_job_error``.
+    classified error via ``jobs.fail``.
     """
     # Phase 0%: housekeeping --------------------------------------------------
     cleanup_expired_cache()
-    cleanup_expired_jobs()
-    set_job_progress(
-        job_id,
-        progress=0,
-        message="Initializing heatmap...",
-        error=False,
-        reset_stats=True,
-    )
+    jobs.expire_stale()
+    jobs.start(job_id, "Initializing heatmap...")
 
     # Compute the 365-day window (today inclusive). All datetimes are UTC
     # so the fetch range and bucket boundaries agree regardless of the
@@ -156,32 +144,19 @@ async def _fetch_and_process_heatmap(job_id, username):
     to_ts = int(now.timestamp())
 
     # Phase 5-80%: fetch Last.fm pages ----------------------------------------
-    def _heatmap_progress(pages_done, total_pages, pages_received=None):
-        """Map page-fetching progress into the 5%-80% range."""
-        pct = 5 + int(75 * pages_done / max(total_pages, 1))
-        received = pages_received if pages_received is not None else pages_done
-        set_job_stat(job_id, "pages_received", received)
-        set_job_stat(job_id, "pages_expected", total_pages)
-        set_job_progress(
+    def _heatmap_progress(pages_done, total_pages, pages_received):
+        """Report page-fetching progress inside the heatmap's fetch band."""
+        jobs.record_stat(job_id, "pages_received", pages_received)
+        jobs.record_stat(job_id, "pages_expected", total_pages)
+        jobs.report_phase(
             job_id,
-            progress=pct,
-            message="Reading your Last.fm history...",
-            phase={
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": pages_done,
-                "total": total_pages,
-            },
+            jobs.HEATMAP_LASTFM_FETCH,
+            pages_done,
+            total_pages,
+            "Reading your Last.fm history...",
         )
 
-    set_job_progress(
-        job_id,
-        progress=5,
-        message="Fetching your scrobble history from Last.fm...",
-        error=False,
-        phase=None,
-    )
+    jobs.advance(job_id, 5, "Fetching your scrobble history from Last.fm...")
 
     fetch_start = time.time()
     pages, fetch_metadata = await fetch_all_recent_tracks_async(
@@ -191,12 +166,12 @@ async def _fetch_and_process_heatmap(job_id, username):
     logging.info(f"Heatmap Last.fm fetch for {username}: {fetch_elapsed:.1f}s")
 
     # Record fetch stats for observability.
-    set_job_stat(job_id, "pages_expected", fetch_metadata.get("pages_expected", 0))
-    set_job_stat(job_id, "pages_received", fetch_metadata.get("pages_received", 0))
+    jobs.record_stat(job_id, "pages_expected", fetch_metadata.get("pages_expected", 0))
+    jobs.record_stat(job_id, "pages_received", fetch_metadata.get("pages_received", 0))
 
     # Upstream error guard: Last.fm was unreachable.
     if fetch_metadata.get("status") == "error":
-        set_job_error(
+        jobs.fail(
             job_id,
             fetch_metadata.get("reason", "lastfm_unavailable"),
             username=username,
@@ -208,7 +183,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         dropped = fetch_metadata["pages_dropped"]
         expected = fetch_metadata["pages_expected"]
         pct = round((dropped / expected) * 100)
-        set_job_stat(
+        jobs.record_stat(
             job_id,
             "partial_data_warning",
             f"Note: {dropped} of {expected} Last.fm pages failed "
@@ -216,30 +191,25 @@ async def _fetch_and_process_heatmap(job_id, username):
         )
 
     # Phase 80-90%: aggregate daily counts ------------------------------------
-    set_job_progress(
-        job_id,
-        progress=80,
-        message="Counting your daily scrobbles...",
-        phase=None,
-    )
+    jobs.advance(job_id, 80, "Counting your daily scrobbles...")
     daily_counts = _aggregate_daily_counts(pages, from_date, to_date)
 
     total = sum(daily_counts.values())
     max_count = max(daily_counts.values()) if daily_counts else 0
     active_days = sum(1 for count in daily_counts.values() if count)
-    set_job_stat(job_id, "total_scrobbles", total)
-    set_job_stat(job_id, "active_days", active_days)
+    jobs.record_stat(job_id, "total_scrobbles", total)
+    jobs.record_stat(job_id, "active_days", active_days)
 
     # Phase 90%: zero-scrobble guard ------------------------------------------
     if total == 0:
-        set_job_error(job_id, "no_scrobbles_in_range", username=username)
+        jobs.fail(job_id, "no_scrobbles_in_range", username=username)
         return
 
     # Phase 100%: store results -----------------------------------------------
-    # The progress endpoint is the browser's completion signal. Store the
-    # payload first so a client that observes 100% can always read a ready
-    # result immediately, rather than racing the two repository writes.
-    set_job_results(
+    # The progress endpoint is the browser's completion signal. ``succeed``
+    # stores the payload and the 100% in one write, so a client that observes
+    # 100% can always read a ready result immediately.
+    jobs.succeed(
         job_id,
         {
             "username": username,
@@ -249,13 +219,7 @@ async def _fetch_and_process_heatmap(job_id, username):
             "max_count": max_count,
             "daily_counts": daily_counts,
         },
-    )
-    set_job_progress(
-        job_id,
-        progress=100,
-        message="Heatmap ready!",
-        error=False,
-        phase=None,
+        "Heatmap ready!",
     )
     logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
@@ -276,7 +240,7 @@ def _report_heatmap_failure(job_id, username, exc):
     """
     logging.exception(f"Unhandled error in heatmap task for {username}")
     error_code = classify_exception_to_error_code(str(exc)) or "internal_error"
-    set_job_error(job_id, error_code, username=username)
+    jobs.fail(job_id, error_code, username=username)
 
 
 def heatmap_task(job_id, username):
@@ -293,7 +257,7 @@ def heatmap_task(job_id, username):
     run_coroutine_in_new_loop(
         _fetch_and_process_heatmap(job_id, username),
         # Explicit, for the same reason as the album entry point: these tests patch
-        # ``scrobblescope.heatmap.release_job_slot`` and ``...heatmap.set_job_error``.
+        # ``scrobblescope.heatmap.release_job_slot`` and ``scrobblescope.jobs.fail``.
         make_loop=new_thread_event_loop,
         release_slot=release_job_slot,
         on_run_error=lambda exc: _report_heatmap_failure(job_id, username, exc),

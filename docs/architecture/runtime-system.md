@@ -26,7 +26,7 @@ flowchart LR
         App[app.py<br/>application factory]
         Routes[routes/<br/>Blueprint and handlers]
         Worker[worker.py<br/>job slots, thread event loops]
-        Repo[repositories.py<br/>JOBS + lifecycle CRUD]
+        JobModule[jobs.py<br/>job lifecycle + storage seam]
         Album[orchestrator/<br/>album pipeline]
         Heatmap[heatmap.py<br/>daily aggregation]
         LastFMClient[lastfm.py]
@@ -45,7 +45,7 @@ flowchart LR
     end
 
     App -.->|imported inside create_app| Routes
-    Routes --> Repo
+    Routes --> JobModule
     Routes --> Worker
     Routes --> Album
     Routes --> Heatmap
@@ -62,21 +62,21 @@ flowchart LR
     Album --> ReleaseChecks
     Album --> Cache
     Album --> Domain
-    Album --> Repo
+    Album --> JobModule
     Album --> Utils
     Album --> Errors
     Album --> Unmatched
     Heatmap --> Worker
     Heatmap --> LastFMClient
-    Heatmap --> Repo
+    Heatmap --> JobModule
     Heatmap --> Utils
     Heatmap --> Errors
-    Repo --> Errors
+    JobModule --> Errors
     App --> ApiLogging
     Routes --> ReleaseChecks
     ReleaseChecks --> MusicBrainzClient
     ReleaseChecks --> Cache
-    ReleaseChecks --> Repo
+    ReleaseChecks --> JobModule
     ReleaseChecks --> Domain
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
@@ -99,7 +99,7 @@ flowchart LR
     Routes -.->|canonical pages| Pages["/ , /results, /heatmap,<br/>/unmatched, /loading"]
     Routes -.->|JSON APIs| APIs["/progress, /api/unmatched,<br/>/api/artist_spotlight, /api/release_checks,<br/>/validate_user"]
 
-    Repo --> Jobs[(In-memory JOBS<br/>2-hour expiry)]
+    JobModule --> JobStore[(MemoryJobStore<br/>the one adapter today,<br/>2-hour expiry)]
     Utils --> RequestCache[(REQUEST_CACHE)]
     LastFMClient -->|HTTPS| LastFMAPI[(Last.fm API)]
     SpotifyClient -->|HTTPS| SpotifyAPI[(Spotify API)]
@@ -120,9 +120,9 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,Repo,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors runtime
+    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors runtime
     class Pages,APIs runtime
-    class Jobs,RequestCache state
+    class JobStore,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external
     class Gunicorn,Release deploy
 ```
@@ -140,7 +140,7 @@ attaches to both log handlers before anything else logs. `heatmap.py` imports
 
 `config.py` is not drawn: **eleven** of the nodes shown here import it at
 module level, and those edges would cross and hide the flow. They are
-`worker.py`, `repositories.py`, `cache.py`, `utils.py`, `lastfm.py`,
+`worker.py`, `jobs.py`, `cache.py`, `utils.py`, `lastfm.py`,
 `spotify.py`, `deezer.py`, `musicbrainz.py`, `release_checks.py`, `routes/`
 (one file: `__init__.py`, for `MAX_ACTIVE_JOBS`), and `orchestrator/` (three
 of its files: `__init__.py`, `_search.py`, `_details.py`). A twelfth node,
@@ -151,6 +151,20 @@ list with a module-level `ast` walk for `scrobblescope.config` imports.
 by concern and by phase respectively); this view stays at the package level
 rather than drawing every submodule. The complete import graph, submodules
 included, lives in SESSION_CONTEXT Section 4.
+
+`jobs.py` is the one owner of a job's life. Its interface is the lifecycle:
+`create`, `start`, `advance` and `report_phase` (a counted step inside a phase
+band, so the percent arithmetic lives once), `record_stat`,
+`record_unmatched`, `succeed` (results and the 100% in one write), `fail` (a
+code from `errors.ERROR_CODES`, results forced to `[]`), `reset`,
+`update_result` (the correction worker), the reads `progress`, `context` and
+`unmatched`, `expire_stale`, and `mark_interrupted` for a store that outlives
+the process. A job ends with results or an error, never both, and only a write
+renews the two-hour lease. The storage sits behind the `JobStore` protocol
+(`insert`, `read`, `modify`, `modify_all`, `remove`, `remove_stale`, `ids`);
+`MemoryJobStore`, one dict under one lock, is the only adapter today, and
+`tests/test_jobs.py` drives every rule through the interface so a second
+adapter runs the same suite. Callers never compose job state by hand.
 
 Five things this view deliberately makes visible, because breaking them is
 silent:
@@ -175,7 +189,7 @@ silent:
   from MusicBrainz's release group. The provider's own date is kept beside it
   as `provider_release_date` rather than overwritten, because it is still the
   right date for the provider's page a row links to. The correction runs
-  after `set_job_results`, never before: MusicBrainz allows one request per
+  after `jobs.succeed`, never before: MusicBrainz allows one request per
   second per IP, so waiting for it would hold a whole result set behind a
   minute of lookups. `docs/design/RECONCILIATION.md` records the same fact
   for the design system, since the year a reader sees is now sourced from
@@ -188,7 +202,7 @@ silent:
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track
-  minimum are written straight to the unmatched repository and cost no Spotify
+  minimum are recorded straight as unmatched and cost no Spotify
   quota. `unmatched.py` owns that partition and the stable reason codes;
   `spotlight.py` owns artist sampling for `/api/artist_spotlight`.
 - **Every provider call is logged the same way, and a logging failure never

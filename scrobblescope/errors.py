@@ -59,6 +59,13 @@ ERROR_CODES = {
         "retryable": False,
         "message": "Something went wrong on our side and the search stopped. Please start a new search.",
     },
+    # A job a restart left mid-run (``jobs.mark_interrupted``). Retryable: the
+    # search itself was fine, the process holding it went away.
+    "job_interrupted": {
+        "source": "internal",
+        "retryable": True,
+        "message": "The search was interrupted by a restart. Please start a new search.",
+    },
 }
 
 
