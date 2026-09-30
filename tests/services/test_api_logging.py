@@ -468,9 +468,24 @@ def test_run_async_in_thread_error_log_never_carries_the_api_key():
         root.removeHandler(handler)
 
     text = stream.getvalue()
-    assert "Error in async thread" in text
-    assert "[redacted]" in text
+    assert "Error in async thread: ClientResponseError" in text
     assert "SECRET-KEY-4" not in text
+
+
+def test_run_async_in_thread_error_line_carries_the_class_never_the_message(caplog):
+    async def _raises():
+        raise RuntimeError("failed for 'Zqxv Album' by 'Wjkl Artist'")
+
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(RuntimeError):
+            run_async_in_thread(_raises)
+
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors
+    for record in errors:
+        assert "RuntimeError" in record.getMessage()
+    assert "Zqxv" not in caplog.text
+    assert "Wjkl" not in caplog.text
 
 
 # --- S1-13: the drain's own cancellations are not provider failures ----------

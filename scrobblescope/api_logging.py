@@ -18,6 +18,13 @@ parameter (for example ``user.getrecenttracks``), named explicitly because
 the bare path (``/2.0/``) does not say which call it was. Request/response
 bodies and headers are never logged, except the response's ``Retry-After``.
 
+The rule for the failure lines the providers write is enforced in one place,
+``utils.retry_with_semaphore``: callers hand it an operation key (for example
+``"spotify.search"``), never a name built from an album, artist or track, and
+it writes no exception message, because aiohttp puts the request URL, query
+included, into ``str(exc)``. ``RedactingFormatter`` cannot stand in for that:
+it knows an ``api_key`` when it sees one and cannot know a name.
+
 Every trace callback catches its own errors: a logging failure must never
 fail the request it is describing.
 """
@@ -57,12 +64,12 @@ class RedactingFormatter(logging.Formatter):
     """Formatter that replaces the value of ``api_key`` with ``[redacted]``.
 
     Protects Last.fm's key from every line the app writes, tracebacks
-    included. Four sites put it there before this existed:
-    ``utils.run_async_in_thread`` (message and traceback),
-    ``routes.album_flow.results_loading``'s registration-year warning,
-    ``utils.retry_with_semaphore``'s error line on a connect timeout and
+    included. Two sites still put it there:
+    ``utils.run_async_in_thread`` (message and traceback) and
     ``utils.get_cached_response``'s debug line (its cache key embeds the
-    URL). The trace hook's own query exclusion is the first layer; this is
+    URL). ``utils.retry_with_semaphore``'s error line (on a connect
+    timeout) and ``routes.album_flow.results_loading``'s registration-year
+    warning were two more until they stopped writing exception messages. The trace hook's own query exclusion is the first layer; this is
     the backstop at the output layer.
     """
 

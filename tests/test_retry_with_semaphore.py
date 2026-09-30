@@ -326,3 +326,38 @@ async def test_rate_limit_on_final_attempt_does_not_sleep(monkeypatch):
     assert result == "default"
     assert len(calls) == 2
     assert slept == [10]
+
+
+@pytest.mark.asyncio
+async def test_failure_lines_name_the_operation_and_class_never_the_message(caplog):
+    """
+    GIVEN a callable that raises an error whose message carries a request URL
+        with an album and artist in its query (as aiohttp's do)
+    WHEN retries run out
+    THEN every line names the operation key and the exception class, and no
+        record at any level carries the message.
+    """
+    secret = "https://api.example.com/search?q=Wjkl+Zqxv"
+
+    async def inner():
+        raise ConnectionError(f"cannot reach url='{secret}'")
+
+    with caplog.at_level(logging.DEBUG):
+        result = await retry_with_semaphore(
+            inner,
+            retries=2,
+            is_done=lambda t: True,
+            get_retry_after=lambda t: None,
+            extract_result=lambda t: t,
+            default="fallback",
+            backoff=lambda _: 0,
+            error_label="spotify.search",
+        )
+
+    assert result == "fallback"
+    assert "Error in spotify.search: ConnectionError" in caplog.text
+    assert "All 2 retries failed for spotify.search" in caplog.text
+    for record in caplog.records:
+        assert "Wjkl" not in record.getMessage()
+        assert "Zqxv" not in record.getMessage()
+        assert "api.example.com" not in record.getMessage()

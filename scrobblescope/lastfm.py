@@ -234,8 +234,12 @@ async def fetch_recent_tracks_page_async(
                     raise ValueError(f"User '{username}' not found on Last.fm")
                 if resp.status != 200:
                     body = await resp.text()
+                    # Status, size and type only: a recenttracks body carries
+                    # the listener's track, artist and album names.
                     logging.warning(
-                        f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
+                        f"❌ Unexpected Last.fm status {resp.status} on page {page}: "
+                        f"{len(body.encode('utf-8'))} bytes, "
+                        f"content type {resp.content_type}"
                     )
                     return None, None
                 # Only the parse is guarded: an HTML page served as 200
@@ -248,7 +252,9 @@ async def fetch_recent_tracks_page_async(
                 except (aiohttp.ContentTypeError, ValueError):
                     body = await resp.text()
                     logging.error(
-                        f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
+                        f"❌ Invalid JSON from Last.fm page {page}: "
+                        f"{len(body.encode('utf-8'))} bytes, "
+                        f"content type {resp.content_type}"
                     )
                     return None, None
                 # A page that is not well-formed (an error payload served as a
@@ -277,7 +283,7 @@ async def fetch_recent_tracks_page_async(
         default=None,
         backoff=lambda a: min(0.25 * (a + 1), 1.0),
         reraise=(ValueError,),
-        error_label=f"Last.fm page {page}",
+        error_label=f"lastfm.page {page}",
     )
 
 

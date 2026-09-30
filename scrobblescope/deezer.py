@@ -86,7 +86,7 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
         extract_result=lambda t: t[0],
         default=None,
         backoff=1,
-        error_label=f"Deezer search for '{album}' by '{artist}'",
+        error_label="deezer.search",
     )
 
 
@@ -122,7 +122,7 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
         f"https://api.deezer.com/album/{album_id}",
         None,
         retries,
-        f"Deezer album details for '{album_id}'",
+        "deezer.album_details",
     )
     if album is None:
         return None
@@ -132,7 +132,7 @@ async def fetch_deezer_album(session, album_id, retries=DEEZER_DETAIL_RETRIES):
         f"https://api.deezer.com/album/{album_id}/tracks",
         {"limit": 500},
         retries,
-        f"Deezer album tracks for '{album_id}'",
+        "deezer.album_tracks",
     )
     if tracks is None:
         return None

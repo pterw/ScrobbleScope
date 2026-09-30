@@ -136,6 +136,6 @@ async def lookup_original_release(
         extract_result=lambda t: t[0],
         default=None,
         backoff=1,
-        error_label=f"MusicBrainz release-group search for '{album}' by '{artist}'",
+        error_label="musicbrainz.lookup",
     )
     return result if result is not None else (None, None)

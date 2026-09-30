@@ -166,7 +166,40 @@ async def test_fetch_recent_tracks_page_reports_an_unparseable_body(json_error, 
 
     assert result is None
     assert "Invalid JSON from Last.fm page 1" in caplog.text
-    assert "<html>maintenance" in caplog.text
+    assert "bytes" in caplog.text
+    assert "maintenance" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_tracks_page_unexpected_status_logs_no_body(caplog):
+    """
+    GIVEN Last.fm answers 500 with a body naming a listener's track and artist
+    WHEN fetch_recent_tracks_page_async runs
+    THEN the warning carries status, size and type, never the body.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 500
+    resp.content_type = "application/json"
+    resp.text = AsyncMock(return_value='{"track": "Zqxv Song", "artist": "Wjkl Band"}')
+    session.get.return_value = make_response_context(resp)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG),
+    ):
+        await fetch_recent_tracks_page_async(
+            session, "flounder14", 1, 2, page=1, retries=1
+        )
+
+    assert "Unexpected Last.fm status 500" in caplog.text
+    assert "application/json" in caplog.text
+    assert "Zqxv" not in caplog.text
+    assert "Wjkl" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -197,7 +230,7 @@ async def test_fetch_recent_tracks_page_does_not_call_other_failures_invalid_jso
 
     assert result is None
     assert "Invalid JSON" not in caplog.text
-    assert "RuntimeError: connection reset mid-body" in caplog.text
+    assert "Error in lastfm.page 1: RuntimeError" in caplog.text
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -293,3 +294,36 @@ async def test_fetch_deezer_album_skips_a_track_with_a_null_title():
         result = await fetch_deezer_album(session, 1)
 
     assert result.track_durations == {"real track": 200}
+
+
+_LEAK_ALBUM = "Zqxv Distinctive Album"
+_LEAK_ARTIST = "Wjkl Distinctive Artist"
+
+
+@pytest.mark.asyncio
+async def test_search_failure_lines_carry_no_album_or_artist(caplog):
+    """
+    GIVEN the Deezer transport raises with the query text in its message
+    WHEN search_deezer_album exhausts its retries
+    THEN no record at any level names the album or artist.
+    """
+    session = MagicMock()
+    session.get.side_effect = RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+
+    with (
+        patch(
+            "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await search_deezer_album(
+            session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2
+        )
+
+    assert result is None
+    assert "All 2 retries failed for deezer.search" in caplog.text
+    assert caplog.records
+    for record in caplog.records:
+        assert _LEAK_ALBUM not in record.getMessage()
+        assert _LEAK_ARTIST not in record.getMessage()

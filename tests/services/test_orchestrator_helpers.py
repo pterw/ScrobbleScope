@@ -694,3 +694,25 @@ def test_apply_pre_slice_cap_is_independent_of_input_order():
 
     assert len(forward) == _MAX_ALBUM_CAP
     assert set(forward) == set(backward)
+
+
+def test_build_results_skip_line_carries_no_album_or_artist(caplog):
+    """The debug line for a release-scope exclusion names neither the album
+    nor the artist (Batch 23 Data handling), only the reason."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = _corrected_cache_hits("2011-11-11")
+    (entry,) = cache_hits.values()
+    entry["original"]["original_artist"] = "Wjkl Distinctive Artist"
+    entry["original"]["original_album"] = "Zqxv Distinctive Album"
+
+    with caplog.at_level(logging.DEBUG):
+        results = _build_results(
+            cache_hits, job_id, year=1999, sort_mode="playcount", release_scope="same"
+        )
+
+    assert results == []
+    skipped = [r.getMessage() for r in caplog.records if "Skipped" in r.getMessage()]
+    assert skipped, "the exclusion was not logged"
+    for text in skipped:
+        assert "Wjkl" not in text
+        assert "Zqxv" not in text

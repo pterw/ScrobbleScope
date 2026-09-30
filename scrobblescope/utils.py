@@ -188,8 +188,9 @@ def run_async_in_thread(coro):
     routes, and ``/api/artist_spotlight``. Background jobs build their own
     loop through ``worker.new_thread_event_loop`` instead.
 
-    An exception is logged here with its traceback, then re-raised in the
-    calling thread, which is the only one that can answer the request.
+    An exception is logged here by class only (its message can carry a
+    provider's URL or a listener's names), then re-raised in the calling
+    thread, which is the only one that can answer the request.
     """
     result = []
     error = []
@@ -200,8 +201,8 @@ def run_async_in_thread(coro):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             result.append(loop.run_until_complete(coro()))
-        except Exception as e:
-            logging.exception(f"Error in async thread: {e}")
+        except Exception as e:  # noqa: BLE001 - re-raised in the caller
+            logging.error(f"Error in async thread: {type(e).__name__}")
             error.append(e)
         finally:
             if loop is not None:
@@ -398,7 +399,12 @@ async def retry_with_semaphore(
         (a Retry-After above ``MAX_RETRY_AFTER_SECONDS`` is not slept: one
         warning is logged and ``default`` is returned at once)
     reraise : tuple of exception types to propagate immediately
-    error_label : str, used in log messages on exception
+    error_label : str, the operation key every failure line names, for
+        example ``"spotify.search"``. Never build it from an album, artist,
+        track or user name: this helper is the one place that decides what a
+        provider-failure line may say (operation, exception class, retry
+        count), so it also writes no exception message, which for an HTTP
+        client error can carry the request URL and its query.
 
     Never sleeps after the final attempt, on either path.
     """
@@ -425,9 +431,10 @@ async def retry_with_semaphore(
         # Broad on purpose: a retry helper retries whatever its callable
         # raises, except the declared ``reraise`` types. What it owes the
         # reader is the exception's class, so a programming error retried
-        # here cannot pass for a network blip in the log.
+        # here cannot pass for a network blip in the log. The message is
+        # left out on purpose (see ``error_label`` above).
         except Exception as e:  # noqa: BLE001
-            logging.error(f"Error in {error_label}: {type(e).__name__}: {e}")
+            logging.error(f"Error in {error_label}: {type(e).__name__}")
 
         if attempt < retries - 1:
             await asyncio.sleep(_resolve_backoff(backoff, attempt))

@@ -76,7 +76,7 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
                 if response.status == 429:
                     retry_after = int(response.headers.get("Retry-After", "1"))
                     logging.warning(
-                        f"Spotify 429 on '{album}' by '{artist}'. Retry in {retry_after}s"
+                        f"Spotify 429 on spotify.search. Retry in {retry_after}s"
                     )
                     return None, retry_after, False
 
@@ -100,7 +100,7 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
         default=None,
         backoff=1,
         jitter=lambda a: (abs(hash((artist, album, a))) % 200) / 1000.0,
-        error_label=f"Spotify search for '{album}' by '{artist}'",
+        error_label="spotify.search",
     )
 
 
@@ -143,7 +143,7 @@ async def fetch_spotify_album_details_single(
         default=None,
         backoff=lambda a: 2**a,
         jitter=lambda a: (abs(hash((album_id, a))) % 200) / 1000.0,
-        error_label=f"Spotify album details for '{album_id}'",
+        error_label="spotify.album_details",
     )
 
 
@@ -225,7 +225,7 @@ async def fetch_spotify_album_details_batch(
         default={},
         backoff=lambda a: 2**a,
         jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
-        error_label="Spotify batch album details",
+        error_label="spotify.batch_details",
     )
     if gone_status is None:
         return details
@@ -324,8 +324,5 @@ async def fetch_spotify_artist_spotlight(
             )
     # The spotlight is decorative; None keeps the card's existing artwork.
     except Exception as e:  # noqa: BLE001
-        logging.warning(
-            f"Error querying Spotify artist spotlight for '{artist_name or artist_id}': "
-            f"{type(e).__name__}: {e}"
-        )
+        logging.warning(f"Error in spotify.artist_spotlight: {type(e).__name__}")
     return None

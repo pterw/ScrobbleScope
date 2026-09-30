@@ -231,10 +231,7 @@ def artist_spotlight():
             return jsonify(data)
     # The spotlight is decorative; the album artwork already shown stands in.
     except Exception as e:  # noqa: BLE001
-        logging.warning(
-            f"Error fetching artist spotlight for '{artist_name or artist_id}': "
-            f"{type(e).__name__}: {e}"
-        )
+        logging.warning(f"Error in spotify.artist_spotlight: {type(e).__name__}")
 
     return jsonify(
         {

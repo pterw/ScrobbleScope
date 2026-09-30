@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -333,3 +334,39 @@ async def test_lookup_disabled_by_flag_makes_no_request():
 
     assert result == (None, None)
     session.get.assert_not_called()
+
+
+_LEAK_ALBUM = "Zqxv Distinctive Album"
+_LEAK_ARTIST = "Wjkl Distinctive Artist"
+
+
+@pytest.mark.asyncio
+async def test_lookup_failure_lines_carry_no_album_or_artist(caplog):
+    """
+    GIVEN the MusicBrainz transport raises with the query text in its message
+    WHEN lookup_original_release exhausts its retries
+    THEN no record at any level names the album or artist.
+    """
+    session = MagicMock()
+    session.get.side_effect = RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+
+    with (
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", "me@example.com"),
+        patch(
+            "scrobblescope.musicbrainz.get_musicbrainz_limiter",
+            return_value=NoopAsyncContext(),
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await lookup_original_release(
+            session, _LEAK_ARTIST, _LEAK_ALBUM, retries=2
+        )
+
+    assert result == (None, None)
+    assert "All 2 retries failed for musicbrainz.lookup" in caplog.text
+    assert caplog.records
+    for record in caplog.records:
+        assert _LEAK_ALBUM not in record.getMessage()
+        assert _LEAK_ARTIST not in record.getMessage()

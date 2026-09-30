@@ -2752,3 +2752,48 @@ def test_spotify_icon_reserves_its_box_before_the_svg_arrives(client):
     assert len(icons) >= 2
     for tag in icons:
         assert 'width="236"' in tag and 'height="225"' in tag, tag
+
+
+def test_artist_spotlight_api_failure_line_carries_no_artist_or_message(
+    client, monkeypatch, caplog
+):
+    """A failed spotlight lookup logs the operation and exception class only:
+    not the artist searched for, not the exception message (which for an HTTP
+    client error carries the request URL and query)."""
+    import logging
+
+    from scrobblescope import routes
+
+    def _boom(_fetch):
+        raise RuntimeError("failed q=Wjkl Distinctive Artist")
+
+    monkeypatch.setattr(routes, "fetch_spotify_access_token", lambda: None)
+    monkeypatch.setattr(routes, "run_async_in_thread", _boom)
+    with caplog.at_level(logging.DEBUG):
+        response = client.get("/api/artist_spotlight?artist=Wjkl+Distinctive+Artist")
+
+    assert response.status_code == 200
+    assert "Error in spotify.artist_spotlight: RuntimeError" in caplog.text
+    for record in caplog.records:
+        assert "Wjkl" not in record.getMessage()
+
+
+def test_results_loading_registration_check_failure_logs_no_message(client, caplog):
+    """The optional registration-year check writes the exception class, not
+    its message, when the Last.fm call fails."""
+    import logging
+
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=RuntimeError("failed url=https://x/?q=Zqxv"),
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+        caplog.at_level(logging.DEBUG),
+    ):
+        client.post("/results_loading", data=VALID_FORM_DATA)
+
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "Registration year check failed for flounder14" in text
+    assert "RuntimeError" in text
+    assert "Zqxv" not in text

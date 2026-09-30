@@ -505,7 +505,11 @@ async def test_artist_spotlight_network_error_preserves_fallback(caplog):
             session, "Requested", token="token"
         )
     assert result is None
-    assert "transport unavailable" in caplog.text
+    assert "Error in spotify.artist_spotlight: RuntimeError" in caplog.text
+    # The message (an HTTP client's carries the request URL) and the artist
+    # name stay out of the line.
+    assert "transport unavailable" not in caplog.text
+    assert "Requested" not in caplog.text
 
 
 def test_album_metadata_from_details_translates_one_payload():
@@ -552,3 +556,53 @@ def test_album_metadata_from_details_degrades_field_by_field(images):
     assert meta.release_date == ""
     assert meta.image_url is None
     assert meta.track_durations == {}
+
+
+_LEAK_ALBUM = "Zqxv Distinctive Album"
+_LEAK_ARTIST = "Wjkl Distinctive Artist"
+
+
+def _assert_no_names_logged(caplog):
+    """No record, at any level, carries the listener's album or artist."""
+    assert caplog.records, "the failure path logged nothing; the test proves nothing"
+    for record in caplog.records:
+        text = record.getMessage()
+        assert _LEAK_ALBUM not in text, text
+        assert _LEAK_ARTIST not in text, text
+
+
+@pytest.mark.asyncio
+async def test_search_failure_lines_carry_no_album_or_artist(caplog):
+    """
+    GIVEN Spotify search answers 429 twice and then the transport raises with
+        the query text in its message
+    WHEN search_for_spotify_album_id gives up
+    THEN neither the warning nor the error lines name the album or artist.
+    """
+    session = MagicMock()
+
+    def next_response(*args, **kwargs):
+        if session.get.call_count <= 2:
+            resp = AsyncMock()
+            resp.status = 429
+            resp.headers = {"Retry-After": "1"}
+            return make_response_context(resp)
+        raise RuntimeError(f"failed q={_LEAK_ARTIST} {_LEAK_ALBUM}")
+
+    session.get.side_effect = next_response
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.DEBUG),
+    ):
+        result = await search_for_spotify_album_id(
+            session, _LEAK_ARTIST, _LEAK_ALBUM, "token"
+        )
+
+    assert result is None
+    assert "Spotify 429 on spotify.search" in caplog.text
+    assert "Error in spotify.search: RuntimeError" in caplog.text
+    _assert_no_names_logged(caplog)

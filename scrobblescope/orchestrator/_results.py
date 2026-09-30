@@ -143,7 +143,7 @@ def _build_results(
             reason = _get_user_friendly_reason(
                 release_date, release_scope, year, decade, release_year, corrected
             )
-            logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
+            logging.debug(f"Skipped an album outside the release scope: {reason}")
             unmatched_key = "|".join(normalize_name(artist, album))
             unmatched_entry = {
                 "artist": artist,

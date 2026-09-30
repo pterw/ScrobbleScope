@@ -131,6 +131,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Provider failure lines name the operation, never album, artist or track
+
+Side task, no batch tag: provider failure log lines carry an operation key and an exception class, not names, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Architecture pass 2, B-2: `retry_with_semaphore` was handed a free `error_label` built from album and artist, and logged it and the exception message at ERROR, so Spotify, Deezer and MusicBrainz failures wrote the listener's names (and aiohttp's request URL) into the logs. The helper now owns what a failure line may say: callers pass an operation key (`spotify.search`, `deezer.album_tracks`, `musicbrainz.lookup`, `lastfm.page <n>`) and each line reads `Error in <key>: <ExceptionClass>`, the message dropped. The Spotify 429 warning, both artist-spotlight warnings (`spotify.py`, `routes/api.py`), the registration-year warning in `routes/album_flow.py` and the `_results.py` skip debug line follow the same rule. `api_logging.py`'s docstring names the helper as the enforcement point.
+
+Same class, found on landing: `lastfm.py` logged `body[:200]` on an unexpected status and on invalid JSON, and a recenttracks body carries track, artist and album names; both lines now give status, byte length and content type only. `run_async_in_thread` logged `str(e)` with a traceback at ERROR; it now logs the class only, at ERROR without a traceback.
+
+One caplog test per provider, per helper, per Last.fm line, for `run_async_in_thread`, the `_results` line and the two route lines, each proven red with the old line restored. Edited existing tests, all of which asserted leaked content: the Last.fm page-failure label (`test_lastfm_service.py`), the Last.fm invalid-JSON body quote (same file), the Spotify spotlight network-error message (`test_spotify_service.py`), and the `run_async_in_thread` redaction test (`test_api_logging.py`, which no longer sees a message to redact and now asserts the class line and the absent key).
+
+Known, not fixed: `spotify.py` logs the provider response body on a batch failure (neither a name nor an exception message); the `logging.exception` sites that format only a Last.fm username still write tracebacks that carry `str(exc)` (owner question pending: extend the rule to tracebacks?).
+
+Validation: `pytest -q` -- **2242 passed**.
+
 ### 2026-09-29 - Spotify attribution holds in exports and forced colours; each link names its own provider
 
 Side task, no batch tag: keeping the Spotify icon in the saved image and in forced colours, and naming each provider on its own link, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -160,13 +174,5 @@ Side task, no batch tag: the second deepening review of the codebase is tracked 
 The review walked the routes, the orchestrator's phase modules, the provider contract, the cache, the worker and the results, spotlight and loading scripts, and checked every candidate in the five earlier architecture reports against the code: four done, three partial, five open, five already planned. Two findings are live defects, confirmed by reading the code: three providers log the album and artist they searched for at ERROR level, against the logging module's own rule; and the album route's single `try` treats an outage in the user or privacy check as a failed registration-year hint and starts the job anyway. Four album filters (`sort_mode`, `release_scope`, `decade`, `limit_results`) are never validated.
 
 Section 3 now says that these seams come before the Spotify import and which work package each one gates. The owner added the report to `docs/history/reports/`; no code changed.
-
-Validation: `pytest -q` -- **2223 passed**.
-
-### 2026-09-29 - User checked before privacy; only a public verdict cached; payload edge cases
-
-Side task, no batch tag: checking the user before privacy, caching only a public verdict and handling Deezer and Last.fm payload edge cases, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-`results_loading` now asks `check_user_exists` first, so a missing user gets "User 'x' was not found on Last.fm." (a 200 re-render of `index.html`, accepted: it matches this route's other form errors) and the privacy check never runs for it. `check_profile_is_public` never caches a private verdict (error 17 in a 200 counts as private), caches only a body with a `recenttracks` dict, and treats a cache hit as public; `check_user_exists` maps error 6 in a 200 to not found and caches only a body with a `user` dict. A new `private_profile` code in `ERROR_CODES` (lastfm, not retryable) is raised by `fetch_once` on a 403 or error 17 without retry, classified through `errors.PRIVATE_PROFILE_MARKER`; the album results page answers it with a 403 and a "make listening public" detail. Browser check: `heatmap.js` and `loading.js` read the server's `retryable` flag and message, keep no code-to-message map, so nothing changed there. `fetch_deezer_album` skips a null or non-text track title; the Deezer fallback tasks run under try/finally `_cancel_and_drain` (no TaskGroup). `_normalise_track_list` turns a lone `track` object into a list before `_is_well_formed_page`, which now refuses any other non-list `track`. A cancelled request logs at DEBUG and is not recorded. New edges `lastfm -> errors` and `_deezer_fallback -> lastfm` are in the SESSION_CONTEXT graph. Closes F-B23-23, F-B23-24 and F-B23-30. Tests added in five existing modules, none edited; mutation-checked. Last.fm errors 10 and 26 remain unverified.
 
 Validation: `pytest -q` -- **2223 passed**.
