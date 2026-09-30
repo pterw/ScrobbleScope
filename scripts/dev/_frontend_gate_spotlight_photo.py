@@ -105,7 +105,8 @@ def _install_spotlight_fetch_mock(
     (`window.__spotlightRequests` / `__spotlightResponses`), so a check can
     prove hydration ran instead of waiting a fixed time and hoping. The sped-up
     interval fires once by default; `keep_rotating` keeps it repeating, for a
-    check that must see every candidate."""
+    check that must see every candidate, and counts each period in
+    `window.__spotlightTicks`."""
     page.add_init_script(
         f"""(() => {{
             const nativeInterval = window.setInterval;
@@ -113,10 +114,16 @@ def _install_spotlight_fetch_mock(
             window.__spotlightPhotoUrl = {json.dumps(image_url)};
             window.__spotlightRequests = 0;
             window.__spotlightResponses = 0;
+            window.__spotlightTicks = 0;
             const keepRotating = {json.dumps(keep_rotating)};
             window.setInterval = (callback, delay, ...args) => {{
                 if (delay === 7000 && keepRotating) {{
-                    return nativeInterval(callback, 200, ...args);
+                    // Counted, so a check can wait for whole rotation periods
+                    // to pass instead of sleeping and hoping.
+                    return nativeInterval(() => {{
+                        window.__spotlightTicks += 1;
+                        callback();
+                    }}, 200, ...args);
                 }}
                 if (delay === 7000) return window.setTimeout(callback, 200, ...args);
                 return nativeInterval(callback, delay, ...args);
@@ -646,6 +653,82 @@ def check_artist_spotlight_name_whole_and_card_height_fixed(
             samples = page.evaluate(_LAYOUT_SAMPLE_JS)
             failures.extend(
                 spotlight_layout_failures(samples, where, len(LAYOUT_ARTISTS))
+            )
+    finally:
+        delete_job(job_id)
+    return failures
+
+
+#: What the link and the card say now, to compare before and after a hold.
+_LINK_STATE_JS = """() => {
+    const link = document.getElementById('spotlight-spotify-link');
+    const card = document.getElementById('artist-spotlight-card');
+    return {
+        focused: document.activeElement === link,
+        visible: link.getClientRects().length > 0,
+        href: link.getAttribute('href'),
+        label: link.getAttribute('aria-label'),
+        artist: card.dataset.artist,
+        ticks: window.__spotlightTicks,
+    };
+}"""
+
+#: Rotation periods the card must sit through while held (S2-2: at least two).
+HOLD_PERIODS = 3
+
+
+def spotlight_hold_failures(before: dict, after: dict, held_by: str) -> list[str]:
+    """Judge one hold: while `held_by` (focus or the pointer) was on the card,
+    at least `HOLD_PERIODS` rotation periods passed and nothing changed."""
+    failures = []
+    passed = after["ticks"] - before["ticks"]
+    if passed < HOLD_PERIODS:
+        failures.append(
+            f"spotlight hold ({held_by}): only {passed} rotation periods passed, "
+            "so holding still was not tested"
+        )
+    for key in ("focused", "visible", "href", "label", "artist"):
+        if held_by == "pointer" and key in ("focused", "visible"):
+            continue
+        if before[key] != after[key]:
+            failures.append(
+                f"spotlight hold ({held_by}): {key} changed from "
+                f"{before[key]!r} to {after[key]!r} while the card was in use"
+            )
+    return failures
+
+
+def check_artist_spotlight_holds_still_while_focused_or_hovered(
+    page, base_url: str
+) -> list[str]:
+    """The rotation never moves a link the reader is using: with keyboard
+    focus on the Spotify link, or the pointer over the card, the link keeps
+    its focus, its target and its name across several rotation periods
+    (S2-2)."""
+    job_id = _seed_spotlight_job(LAYOUT_ARTISTS)
+    url = f"{base_url}{RESULTS_PATH}?job_id={job_id}"
+    failures = []
+    try:
+        _install_spotlight_fetch_mock(page, SQUARE_PHOTO_DATA_URL, keep_rotating=True)
+        error = _open_spotlight_card(page, url, LAYOUT_VIEWPORTS[3], "spotlight hold")
+        if error:
+            return [error]
+        for held_by in ("focus", "pointer"):
+            if held_by == "focus":
+                page.focus("#spotlight-spotify-link")
+            else:
+                page.evaluate("() => document.activeElement.blur()")
+                page.hover("#artist-spotlight-card")
+            before = page.evaluate(_LINK_STATE_JS)
+            try:
+                page.wait_for_function(
+                    f"() => window.__spotlightTicks >= {before['ticks'] + HOLD_PERIODS}",
+                    timeout=5_000,
+                )
+            except Exception:  # noqa: BLE001 - reported below by the tick count
+                pass
+            failures.extend(
+                spotlight_hold_failures(before, page.evaluate(_LINK_STATE_JS), held_by)
             )
     finally:
         delete_job(job_id)

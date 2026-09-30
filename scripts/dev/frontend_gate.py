@@ -156,6 +156,7 @@ from scripts.dev._frontend_gate_spotify_icon import (  # noqa: E402, F401
 )
 from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
     check_artist_spotlight_card_hidden_with_no_photo,
+    check_artist_spotlight_holds_still_while_focused_or_hovered,
     check_artist_spotlight_name_whole_and_card_height_fixed,
     check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
     check_artist_spotlight_photo_not_cropped_when_non_square,
@@ -419,6 +420,12 @@ CHECKS = (
     (
         "artist spotlight name whole and card height fixed",
         check_artist_spotlight_name_whole_and_card_height_fixed,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight holds still while focused or hovered",
+        check_artist_spotlight_holds_still_while_focused_or_hovered,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

@@ -97,14 +97,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /** Apply the current candidate. Swaps are instant: no fade, no delay. */
-    function renderCandidate(view, state) {
+    function renderCandidate(view, state, { keepLink = false } = {}) {
         const index = state.index;
         const candidate = state.candidates[index];
         if (!candidate) return;
         renderText(view, candidate, index, state.candidates.length);
         renderDuration(view, candidate);
         renderPortrait(view, candidate);
-        renderLink(view, candidate);
+        if (!keepLink) renderLink(view, candidate);
+    }
+
+    /** True while the reader is using the card: the pointer is over it, or
+     *  focus is inside it. Read from the document rather than from focus
+     *  events alone, so a window that loses focus (which leaves the element
+     *  focused) still counts. */
+    function cardInUse(view, state) {
+        return state.pointerInside || view.card.contains(document.activeElement);
+    }
+
+    /** Track the pointer over the card, for `cardInUse` (S2-2). */
+    function watchCardUse(view, state) {
+        view.card.addEventListener('pointerenter', () => { state.pointerInside = true; });
+        view.card.addEventListener('pointerleave', () => { state.pointerInside = false; });
+        // Focus needs no listener: `cardInUse` reads `document.activeElement`,
+        // so focus moving between elements inside the card never counts as
+        // leaving it, and nothing can go stale.
     }
 
     /** Hold the card at the height of its tallest candidate, so the sticky
@@ -116,14 +133,18 @@ document.addEventListener('DOMContentLoaded', () => {
      *  card's width (and so its layout) changes, and once fonts have loaded. */
     function reserveCardHeight(view, state) {
         const card = view.card;
+        // A focused link must never be hidden or retargeted, even for the
+        // instant of a measurement: leave the link alone while focus is in
+        // the card (S2-2).
+        const keepLink = card.contains(document.activeElement);
         card.style.minHeight = '';
         let tallest = 0;
         state.candidates.forEach((_, index) => {
-            renderCandidate(view, { ...state, index });
+            renderCandidate(view, { ...state, index }, { keepLink });
             tallest = Math.max(tallest, card.getBoundingClientRect().height);
         });
         card.style.minHeight = `${tallest}px`;
-        renderCandidate(view, state);
+        renderCandidate(view, state, { keepLink });
     }
 
     /** Keep the reserved height right as the card's layout changes. */
@@ -209,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!view.card || !Array.isArray(artists) || !artists.length) return;
         const state = {
             candidates: artists.map(artist => ({ ...artist })), index: 0,
+            pointerInside: false,
             reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         };
         // Every hydrateCandidate call settles (resolves or rejects into its own
@@ -226,8 +248,9 @@ document.addEventListener('DOMContentLoaded', () => {
             reserveCardHeight(view, state);
             watchCardLayout(view, state);
             if (state.reducedMotion || state.candidates.length < 2) return;
+            watchCardUse(view, state);
             setInterval(() => {
-                if (document.hidden) return;
+                if (document.hidden || cardInUse(view, state)) return;
                 state.index = (state.index + 1) % state.candidates.length;
                 renderCandidate(view, state);
             }, 7000);

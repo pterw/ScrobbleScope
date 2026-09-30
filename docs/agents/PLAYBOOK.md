@@ -131,6 +131,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - The spotlight holds still while its link has focus or the pointer
+
+Side task, no batch tag: pausing the artist spotlight rotation while its link has focus or the pointer is over it, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The 7s rotation used to rewrite the Spotify link's target while a keyboard user had it focused, and when the next artist had no link the focused link was hidden and focus dropped to `<body>`. `static/js/results-spotlight.js` now skips a tick while the pointer is over the card (`pointerenter`/`pointerleave`) or `card.contains(document.activeElement)`; reading `activeElement` instead of `focusin`/`focusout` with `relatedTarget` gives the same result for moves inside the card and stays right when the window loses focus. `reserveCardHeight` (the height reserve) skips the link while focus is in the card, so its measuring pass never hides or retargets a focused link. Reduced motion is unchanged. New frontend-gate check `check_artist_spotlight_holds_still_while_focused_or_hovered` (Chromium and Firefox) counts ticks in `window.__spotlightTicks`, waits for 3 with no fixed sleep, then asserts focus, href, label and artist are unchanged for keyboard focus and then pointer hover; 4 new tests in `tests/scripts/dev/test_frontend_gate_spotlight_photo.py`, no existing test edited, and a `DEVELOPMENT.md` bullet.
+
+Live probe (R6, code phase): with the pause removed the check went red in Chromium (`spotlight hold (focus): label changed from 'View Godspeed You! Black Emperor on Spotify ...' to 'View Sufjan Stevens ...'`, and the same for pointer); restored, it is green. Mutating `if passed < HOLD_PERIODS` to `if False` fails 2 unit tests. Known limit: the mock gives every candidate a link, so the gate cannot show the no-link-candidate-while-focused variant directly; the pause guards it.
+
+Validation: `pytest -q` -- **2230 passed**.
+
 ### 2026-09-30 - Second architecture review tracked and scheduled
 
 Side task, no batch tag: the second deepening review of the codebase is tracked at `docs/history/reports/architecture-review-20260930-0040.html`, part of Batch 23 WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -156,11 +166,3 @@ Side task, no batch tag: giving the spotlight artist name a whole line and holdi
 From 1024px to about 1230px the name got a 46-110px column beside the fixed photo and broke inside words (S2-1), and the card changed height between candidates so the sticky rail jumped every 7s (S2-10). `.spotlight-card-content` now wraps and `.spotlight-details` has a flex basis, so the details drop under the photo whenever the card cannot give the name that column; the line-count `min-height` is deleted. `results-spotlight.js` `reserveCardHeight` renders each candidate once, measures the card and holds the tallest as `min-height`; `watchCardLayout` re-runs it when the card width changes and when fonts load. Photo rules and the 4px/8px radius step are unchanged. A new frontend-gate check, `artist spotlight name whole and card height fixed`, runs at 320, 390, 1024, 1180 and 1920px plus a 1024 to 1920 resize and fails on a mid-word break or a card height that varies across candidates. Live probe: with the old CSS the check fails in both browsers (`the name of 'Radiohead' breaks inside the word 'Radiohead'` at 1024px); with the old JS it fails (`the card height changes between candidates`); with `watchCardLayout` removed it fails after the resize. Tests: 7 new in `test_frontend_gate_spotlight_photo.py`, no existing test edited. A name needing more than two lines at the narrowest widths is still clamped (`line-clamp-2`, full name in `title`).
 
 Validation: `pytest -q` -- **2207 passed**.
-
-### 2026-09-29 - Heatmap strip scrolls under a swipe; one owner for the tooltip
-
-Side task, no batch tag: letting a swipe scroll the heatmap strip and giving its tooltip one owner, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-The per-cell `touchstart` in `static/js/heatmap.js` is now passive and only records the start point; the single document `touchend` listener decides a tap (moved at most 10 px, same cell, touchend cancelled to suppress emulated mouse events) and hides the tooltip otherwise, so a swipe is never cancelled. One `tooltipOwner` (hover, focus or tap) now owns the tooltip: focus owns it only under `:focus-visible`, scroll hides a hover or tap owner and repositions a focus owner, resize repositions or hides it, Escape hides it, and a handled key that moves nothing re-runs the ring decision. The tooltip is `position: fixed` in `static/css/heatmap.css` so it cannot widen the page. Two new frontend-gate checks cover it (`heatmap touch swipe scrolls and tap shows tooltip`, `heatmap tooltip has one owner`; 41 checks). No test module added or removed.
-
-Validation: `pytest -q` -- **2195 passed**.

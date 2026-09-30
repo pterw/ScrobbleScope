@@ -363,3 +363,78 @@ def test_the_seed_can_give_an_artist_several_albums() -> None:
     assert [row["artist"] for row in rows] == ["Radiohead"] * 3
     assert len({row["album"] for row in rows}) == 3
     assert {row["play_time_seconds"] for row in rows} == {900}
+
+
+def _hold(**changes) -> tuple[dict, dict]:
+    before = {
+        "focused": True,
+        "visible": True,
+        "href": "https://open.spotify.com/artist/a",
+        "label": "View A on Spotify (opens in new tab)",
+        "artist": "A",
+        "ticks": 4,
+    }
+    return before, {**before, "ticks": 7, **changes}
+
+
+def test_a_hold_that_changes_nothing_over_three_periods_passes() -> None:
+    before, after = _hold()
+    assert (
+        _frontend_gate_spotlight_photo.spotlight_hold_failures(before, after, "focus")
+        == []
+    )
+
+
+def test_a_focused_link_that_was_retargeted_or_lost_focus_fails() -> None:
+    before, after = _hold(label="View B on Spotify (opens in new tab)", focused=False)
+    failures = _frontend_gate_spotlight_photo.spotlight_hold_failures(
+        before, after, "focus"
+    )
+    assert failures == [
+        "spotlight hold (focus): focused changed from True to False while the "
+        "card was in use",
+        "spotlight hold (focus): label changed from 'View A on Spotify (opens in "
+        "new tab)' to 'View B on Spotify (opens in new tab)' while the card was "
+        "in use",
+    ]
+
+
+def test_a_hold_judged_over_too_few_periods_fails() -> None:
+    before, after = _hold(ticks=5)
+    failures = _frontend_gate_spotlight_photo.spotlight_hold_failures(
+        before, after, "pointer"
+    )
+    assert failures == [
+        "spotlight hold (pointer): only 1 rotation periods passed, so holding "
+        "still was not tested"
+    ]
+
+
+def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
+    page = MagicMock()
+    page.evaluate.return_value = {
+        "focused": True,
+        "visible": True,
+        "href": "h",
+        "label": "l",
+        "artist": "A",
+        "ticks": 0,
+    }
+    check = _frontend_gate_spotlight_photo.check_artist_spotlight_holds_still_while_focused_or_hovered
+    with (
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._seed_spotlight_job",
+            return_value="job-1",
+        ),
+        patch("scripts.dev._frontend_gate_spotlight_photo.delete_job"),
+        patch(
+            "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
+            return_value=None,
+        ),
+    ):
+        failures = check(page, "http://127.0.0.1:0")
+    page.focus.assert_called_once_with("#spotlight-spotify-link")
+    page.hover.assert_called_once_with("#artist-spotlight-card")
+    assert "const keepRotating = true" in page.add_init_script.call_args.args[0]
+    assert "__spotlightTicks += 1" in page.add_init_script.call_args.args[0]
+    assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)

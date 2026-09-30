@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-29 - Heatmap strip scrolls under a swipe; one owner for the tooltip
+
+Side task, no batch tag: letting a swipe scroll the heatmap strip and giving its tooltip one owner, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+The per-cell `touchstart` in `static/js/heatmap.js` is now passive and only records the start point; the single document `touchend` listener decides a tap (moved at most 10 px, same cell, touchend cancelled to suppress emulated mouse events) and hides the tooltip otherwise, so a swipe is never cancelled. One `tooltipOwner` (hover, focus or tap) now owns the tooltip: focus owns it only under `:focus-visible`, scroll hides a hover or tap owner and repositions a focus owner, resize repositions or hides it, Escape hides it, and a handled key that moves nothing re-runs the ring decision. The tooltip is `position: fixed` in `static/css/heatmap.css` so it cannot widen the page. Two new frontend-gate checks cover it (`heatmap touch swipe scrolls and tap shows tooltip`, `heatmap tooltip has one owner`; 41 checks). No test module added or removed.
+
+Validation: `pytest -q` -- **2195 passed**.
+
 ### 2026-09-29 - The stale-progress gate check replaces the job inside one page, so it can fail
 
 Side task, no batch tag: making the frontend gate's stale-progress check able to fail, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
