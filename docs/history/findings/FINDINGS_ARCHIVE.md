@@ -9,6 +9,17 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-19: `--check` has no diagnostic for an interrupted publication -- RESOLVED
+
+Transactional publication recovers a crash mid-publish by replaying its
+journal against the on-disk state on the next writer, but a read-only
+`--check` run gives no signal that a journal is present and an earlier
+publish was interrupted -- recovery exists, a diagnostic does not.
+- [x] **Status:** resolved
+  **Completed:** 2026-09-29
+  `--check` reports DOC026 while `.docsync.journal` exists and `--fix` replays it first (S3-2, third review of PR #245).
+  Source: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md` DoD row 29, GPT Sol Max review.
+
 ### F-B23-23: the Last.fm privacy check caches verdicts it should not, and a private profile met inside a job is reported as an outage -- RESOLVED
 
 `lastfm.check_profile_is_public` caches the private verdict for `REQUEST_CACHE_TIMEOUT` (3600s), so a user told to make the profile public and try again is refused from the cache for an hour. The mirror case: a cached public verdict lets a profile that has since gone private start a job, and the job fails as `lastfm_unavailable`, retryable, for the rest of the hour. `check_user_exists` caches any 200 body, so error 6 ("user not found") is cached as `exists=True`. Inside a job, `fetch_once`'s non-200 branch retries a 403 (Last.fm error 17) three times and reports "Last.fm unavailable, try again", and `ERROR_CODES` has no `private_profile` code. Invalid-key errors 10 and 26 may behave the same (unverified). The 403-in-job part is plausible rather than reproduced; the caching parts were reproduced. Fix shape: cache only a well-formed public answer, and add a `private_profile` code that a 403 or error 17 maps to without retry.

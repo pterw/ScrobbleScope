@@ -171,7 +171,7 @@ came before it.
 ## The DOC code catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025` issues
+blocks.** It returns typed `DOC001`-`DOC020`, `DOC023`, `DOC024`, `DOC025` and `DOC026` issues
 and exits 1 on any error-severity one; a warning -- `DOC024`, `DOC025`, and
 `DOC023`'s grandfathered-finding count -- prints and leaves the exit code
 alone. In practice the codes that bite most often are `DOC001` (a
@@ -223,7 +223,8 @@ suppresses the whole rotation rather than repairing a contradiction by guess:
 - **DOC015 -- non-terminal outcome.** A checked finding states exactly
   `resolved` or `no action`; a checked `open` finding is this code.
 - **DOC016 -- completion date.** Checkbox and date must agree, and the date
-  must be a real calendar day written as strict ISO.
+  must be a real calendar day written as strict ISO. An unchecked box whose
+  outcome says `resolved` or `no action` is also this code.
 - **DOC017 -- unexplained no action.** `no action` requires an explanation
   in the finding body.
 - **DOC018 -- duplicate ID.** An F-ID lives in exactly one of the active and
@@ -273,6 +274,20 @@ above -- the writable tail is never checked, and neither is a cold or
 oversized page. Neither warning
 writes anything; both are read only by `--check`/`--fix`, which never
 paginate or age a file on their own.
+
+**DOC026 is the unfinished-publication code**, implemented in
+`scripts/docsync/transaction.py`. It blocks while a `.docsync.journal` exists
+at the repository root. A run killed between two writes leaves the only
+copy of the history it was moving in that git-ignored journal, and the corpus
+can look consistent (entries already removed from PLAYBOOK, not yet added to
+the archive), so nothing else notices and a commit of the tree succeeds.
+`--check` reports it and exits 1. `--fix` replays the journal first, under the
+single-writer lock and whether or not it then finds drift, restoring every
+file to its pre-run bytes; it refuses, leaving the journal, if a journalled
+file was edited since. Delete a stale `.docsync.lock` first if no run is
+active.
+`--check` run during a live `--fix` sees the journal and reports DOC026 too;
+that is transient, so re-run it after the fix finishes.
 
 **DOC025 is a warning-only pin-staleness check**, implemented in
 `scripts/docsync/integrity.py`. It fires only when exactly one Section 4
@@ -405,7 +420,18 @@ a journal and a lock: the journal records the pre-image of every path before
 the write, so a crash mid-publish is recovered by replaying the journal
 against the on-disk state, and the lock (`.docsync.lock`) prevents two
 publishers from interleaving writes to the same corpus. Neither file is
-meant to survive a clean run; both are gitignored.
+meant to survive a clean run; both are gitignored, which is why `--check`
+raises DOC026 while a journal exists and `--fix` replays it before planning.
+
+The staleness proof compares each file with the bytes the plan *first read*,
+recorded as `cli.py` reads it (`_READ_RECORD`), not with a fresh read taken at
+publish time: a document edited between the plan and the publication sinks the
+run with `Source changed before publication` and nothing is written. The
+declarations file is read by another module, so it is baselined when the
+corpus finishes loading. Every managed document is read through one helper, so
+an undecodable file exits 2 as malformed input rather than raising, and an
+archive page compares equal to its planned bytes whatever its line endings (a
+`core.autocrlf` checkout holds the same pages with CRLF).
 
 **The finding lifecycle format** a finding must carry to become rotation-
 eligible: exactly one checkbox-bearing `**Status:**` line, and, only when

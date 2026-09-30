@@ -19,6 +19,18 @@ Section 3 now says that these seams come before the Spotify import and which wor
 
 Validation: `pytest -q` -- **2223 passed**.
 
+### 2026-09-29 - Spotify attribution holds in exports and forced colours; each link names its own provider
+
+Side task, no batch tag: keeping the Spotify icon in the saved image and in forced colours, and naming each provider on its own link, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+S2-4 and S2-19: the "Save image" JPEG carried the Spotify icon at about 12px in Firefox (html2canvas paints a raster `<img>` in the clone at half size there; the raster itself was right). `results.js` now awaits `icon.decode()` on each shown icon, draws a raster at three times the box, and in `onclone` swaps the `<img>` for a `<canvas>` at the on-page box size; a failed decode aborts the export with an error toast, so there is no silent success without attribution. S2-11: `results.css` picks the icon file from `prefers-color-scheme` under `forced-colors: active`, not from the saved theme. S2-26: both icon `<img>` tags carry `width="236" height="225"` (the file's viewBox), so the line does not shift when the SVG arrives. S2-15: `results.js` builds one album-link tooltip per provider from the row's `data-provider` (Spotify keeps `album-link-tooltip`, others get `album-link-tooltip-<provider>`), and each link's `aria-describedby` names its own provider. S2-5: `unmatched.html` gives a coverless row with a non-Spotify provider the plain placeholder, with no artist-portrait slot, and the page attribution no longer counts such a row as Spotify content.
+
+Two new frontend-gate checks, `export keeps spotify icon size` (Chromium and Firefox; measures the icon in the exported image at >= 21px) and `spotify icon follows system under forced colors` (Chromium). The gate is now 45 checks (measured after Task 10's check landed). Live probes: with the old `results.js` the export check is red in Firefox (`JPEG export shows the Spotify icon at 12.0x12.3px, below the 21px minimum`) and green in Chromium; with the old `results.css` the forced-colours check is red for both the system-light and system-dark cases; restored, both are green. One new `results_behavior_tests.py` test (`test_tooltip_names_the_provider_each_link_opens`) fails on the old JS, and 3 new tests in `tests/test_routes.py` fail on the old templates. No existing test edited.
+
+Known limits: the Firefox canary now also runs the results-page export check (about 5s more). Forced colours is checked in Chromium only. Legacy unmatched rows with an empty provider still show a Spotify portrait, because they have no provider to exclude; only rows naming another provider get the placeholder.
+
+Validation: `pytest -q` -- **2233 passed**.
+
 ### 2026-09-29 - The spotlight holds still while its link has focus or the pointer
 
 Side task, no batch tag: pausing the artist spotlight rotation while its link has focus or the pointer is over it, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

@@ -25,7 +25,7 @@ import os
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
-from docsync.models import SyncError
+from docsync.models import IntegrityIssue, SyncError
 
 #: Runtime state, written beside the archive it guards. Both are ignored by
 #: Git: a lock or a half-finished journal is machine state for one run, not
@@ -227,6 +227,50 @@ def _recover(root: Path) -> None:
     for path, payload in restores.items():
         _restore(path, payload)
     journal.unlink()
+
+
+def unfinished_journal_issue(root: Path) -> IntegrityIssue | None:
+    """Return the DOC026 diagnostic when an interrupted publication left a journal.
+
+    A run killed between two writes leaves history in `.docsync.journal` and
+    nowhere else: the journal is git-ignored, so a commit of that tree
+    succeeds and the history exists only as base64 in an untracked file. The
+    corpus can look perfectly consistent (the entries were removed from one
+    document and not yet added to the other), so no other check notices.
+    """
+    journal = Path(root) / JOURNAL_NAME
+    if not journal.is_file():
+        return None
+    return IntegrityIssue(
+        code="DOC026",
+        severity="error",
+        path=JOURNAL_NAME,
+        line=None,
+        invariant="No interrupted publication is waiting to be recovered.",
+        remediation=(
+            "A docsync run was killed between two writes and its before-images "
+            "are only in this git-ignored journal. Delete a stale "
+            f"`{LOCK_NAME}` if no run is active, then run "
+            "`python scripts/doc_state_sync.py --fix`: it replays the journal "
+            "(restoring every file to its pre-run bytes) before planning "
+            "anything, and refuses if a file was edited since."
+        ),
+    )
+
+
+def recover_pending(root: Path) -> bool:
+    """Replay an interrupted publication's journal now; say whether one existed.
+
+    `publish` only recovers when there is drift to publish, so a corpus that
+    looks consistent after a crash was never recovered. `--fix` calls this
+    first, under the same single-writer lock, whatever it finds afterwards.
+    """
+    root = Path(root)
+    if not (root / JOURNAL_NAME).is_file():
+        return False
+    with _exclusive_lock(root):
+        _recover(root)
+    return True
 
 
 @contextlib.contextmanager

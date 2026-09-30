@@ -842,3 +842,20 @@ def test_closed_elsewhere_in_a_finding_is_not_a_claim(line):
     work packages and PRs all the time. Only the status label is read, and
     only when "closed" is the first thing it says."""
     assert collect_rot_issues(_active(_legacy("F-B21-25", line))) == []
+
+
+@pytest.mark.parametrize("outcome", ["resolved", "no action"])
+def test_unchecked_terminal_outcome_blocks_rotation(outcome):
+    """`- [ ] **Status:** resolved` is a closure nobody finished (S3-6)."""
+    block = "\n".join(
+        [
+            "### F-B22-19: unchecked but says finished",
+            "",
+            f"- [ ] **Status:** {outcome}",
+            "",
+        ]
+    )
+    rotation = plan_findings(_active(block), ARCHIVE_PROLOGUE)
+
+    assert "DOC016" in _codes(rotation)
+    assert rotation.rotated_ids == ()

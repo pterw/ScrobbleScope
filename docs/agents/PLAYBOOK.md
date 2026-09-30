@@ -131,6 +131,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-29 - Refuse a stale or unfinished docsync publication; ignore CRLF in archives
+
+Side task, no batch tag: docsync publication safety and CRLF archive drift, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+An interrupted publication leaves history only in the git-ignored `.docsync.journal` and both modes used to exit 0 (S3-2). New DOC026 makes `--check` exit 1 while the journal exists, and `--fix` replays it first, under the lock, restoring every file to its pre-run bytes; it refuses if a journalled file was edited since. Chose recovery on the next run over reordering the writes, since restoring pre-run bytes and re-planning cannot lose history for any file mix. Publication now compares against the bytes each file had when the plan first read it, so a concurrent edit is refused and nothing is written (S3-3). `ArchiveStore._diff` folds CRLF to LF, so a CRLF checkout of a paginated archive is not drift while a real content change still is (S3-7). Non-UTF-8 documents exit 2 with a diagnostic (S3-1), a path outside the repository is named instead of crashing (S3-4), and an unchecked box whose outcome says resolved or no action is DOC016 (S3-6). Review minors fixed here: a test for the state a real kill leaves (journal and stale lock), the DOC016 and DOC026 catalogue text, and `_snapshot`, so the baseline loop no longer makes the read-coverage test true by construction.
+
+Edited existing tests: `test_close_batch_proves_every_read_source_before_publishing` (also records `Path.read_bytes`, since documents are read as bytes) and `test_stated_catalogue_helper_rejects_a_mismatched_list` (the sentence gains DOC026). Closed F-DOCSYNC-19; filed F-B23-35 (P3, S3-5, S3-8, the `.gitattributes` guard). No new test module.
+
+Validation: `pytest -q` -- **2252 passed**.
+
 ### 2026-09-29 - Repo Assist removed; CI job holds no provider secrets
 
 Side task, no batch tag: removing the Repo Assist workflow and CI's provider secrets, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -162,15 +172,3 @@ One caplog test per provider, per helper, per Last.fm line, for `run_async_in_th
 Known, not fixed: `spotify.py` logs the provider response body on a batch failure (neither a name nor an exception message); the `logging.exception` sites that format only a Last.fm username still write tracebacks that carry `str(exc)` (owner question pending: extend the rule to tracebacks?).
 
 Validation: `pytest -q` -- **2242 passed**.
-
-### 2026-09-29 - Spotify attribution holds in exports and forced colours; each link names its own provider
-
-Side task, no batch tag: keeping the Spotify icon in the saved image and in forced colours, and naming each provider on its own link, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-S2-4 and S2-19: the "Save image" JPEG carried the Spotify icon at about 12px in Firefox (html2canvas paints a raster `<img>` in the clone at half size there; the raster itself was right). `results.js` now awaits `icon.decode()` on each shown icon, draws a raster at three times the box, and in `onclone` swaps the `<img>` for a `<canvas>` at the on-page box size; a failed decode aborts the export with an error toast, so there is no silent success without attribution. S2-11: `results.css` picks the icon file from `prefers-color-scheme` under `forced-colors: active`, not from the saved theme. S2-26: both icon `<img>` tags carry `width="236" height="225"` (the file's viewBox), so the line does not shift when the SVG arrives. S2-15: `results.js` builds one album-link tooltip per provider from the row's `data-provider` (Spotify keeps `album-link-tooltip`, others get `album-link-tooltip-<provider>`), and each link's `aria-describedby` names its own provider. S2-5: `unmatched.html` gives a coverless row with a non-Spotify provider the plain placeholder, with no artist-portrait slot, and the page attribution no longer counts such a row as Spotify content.
-
-Two new frontend-gate checks, `export keeps spotify icon size` (Chromium and Firefox; measures the icon in the exported image at >= 21px) and `spotify icon follows system under forced colors` (Chromium). The gate is now 45 checks (measured after Task 10's check landed). Live probes: with the old `results.js` the export check is red in Firefox (`JPEG export shows the Spotify icon at 12.0x12.3px, below the 21px minimum`) and green in Chromium; with the old `results.css` the forced-colours check is red for both the system-light and system-dark cases; restored, both are green. One new `results_behavior_tests.py` test (`test_tooltip_names_the_provider_each_link_opens`) fails on the old JS, and 3 new tests in `tests/test_routes.py` fail on the old templates. No existing test edited.
-
-Known limits: the Firefox canary now also runs the results-page export check (about 5s more). Forced colours is checked in Chromium only. Legacy unmatched rows with an empty provider still show a Spotify portrait, because they have no provider to exclude; only rows naming another provider get the placeholder.
-
-Validation: `pytest -q` -- **2233 passed**.

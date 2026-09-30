@@ -895,3 +895,24 @@ def test_page_path_is_contained_within_its_own_index_directory(tmp_path):
         relative = page_path.relative_to(nested_index.parent).as_posix()
         assert relative in rendered_index
     assert store.read(nested_index) == normalize(text)
+
+
+def test_a_crlf_checkout_of_a_paginated_archive_is_not_drift(tmp_path):
+    """A `core.autocrlf` checkout holds the same pages with CRLF endings; the
+    comparison is about content, so it must plan no change (S3-7)."""
+    store, index, text = _paginate(tmp_path)
+    for path in [index, *sorted((index.parent / "pages").glob("*.md"))]:
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+
+    assert store.plan(index, text) == {}
+
+
+def test_a_real_page_change_is_still_drift_on_a_crlf_checkout(tmp_path):
+    store, index, text = _paginate(tmp_path)
+    pages = sorted((index.parent / "pages").glob("*.md"))
+    for path in [index, *pages]:
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    changed = pages[0]
+    changed.write_bytes(changed.read_bytes().replace(b"body line 0", b"body line X"))
+
+    assert set(store.plan(index, text)) == {changed}

@@ -1436,7 +1436,17 @@ class TestCloseBatchMode:
             finally:
                 recording["on"] = False
 
+        real_read_bytes = Path.read_bytes
+
+        def recording_read_bytes(self: Path):
+            # Managed documents are read as bytes now, so the staleness proof
+            # holds the exact bytes the plan read (S3-3).
+            if recording["on"]:
+                actually_read.add(self.resolve())
+            return real_read_bytes(self)
+
         monkeypatch.setattr(Path, "read_text", recording_read_text)
+        monkeypatch.setattr(Path, "read_bytes", recording_read_bytes)
         monkeypatch.setattr(cli_mod._Corpus, "__init__", recording_init)
 
         seen: dict[str, set[Path]] = {}
@@ -2095,3 +2105,144 @@ def test_close_batch_admission_refusal_names_the_config_file_it_read(
     assert "Lower `admit_from_batch` in alt.toml only" in result.stderr
     assert f"in {DECLARATIONS_FILENAME} only" not in result.stderr
     assert _snapshot(tmp_path) == before
+
+
+# ---------------------------------------------------------------------------
+# Review 3 / S3: publication safety and malformed input
+# ---------------------------------------------------------------------------
+
+
+class TestPublicationSafety:
+    def test_a_document_edited_between_plan_and_publish_is_not_overwritten(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-3: the proof compares with the bytes the plan read, so an edit
+        landing after the plan sinks the run and survives."""
+        archive = sync_env / "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        archive.write_text("# stale prefix\n", encoding="utf-8")
+        playbook = sync_env / "PLAYBOOK.md"
+        real_drift = cli_mod._drift_updates
+        edited: list[bool] = []
+
+        def edit_after_the_plan(*args, **kwargs):
+            updates = real_drift(*args, **kwargs)
+            if not edited:
+                edited.append(True)
+                with playbook.open("a", encoding="utf-8") as handle:
+                    handle.write("\nCONCURRENT EDIT MUST SURVIVE\n")
+            return updates
+
+        monkeypatch.setattr(cli_mod, "_drift_updates", edit_after_the_plan)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        assert "Source changed before publication" in capsys.readouterr().err
+        assert "CONCURRENT EDIT MUST SURVIVE" in playbook.read_text(encoding="utf-8")
+        assert archive.read_text(encoding="utf-8") == "# stale prefix\n"
+
+    def _crash_between_two_writes(self, root: Path) -> tuple[Path, bytes]:
+        """Leave the state a kill between two writes leaves: history removed
+        from PLAYBOOK, not yet added to the archive, before-images only in the
+        journal."""
+        from docsync import transaction
+
+        playbook = root / "PLAYBOOK.md"
+        archive = root / "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        after_playbook = playbook.read_bytes()
+        before_playbook = after_playbook + b"\nHISTORY ONLY IN THE JOURNAL\n"
+        transaction._write_journal(
+            root.resolve(),
+            {
+                playbook.resolve(): before_playbook,
+                archive.resolve(): archive.read_bytes(),
+            },
+            {
+                playbook.resolve(): after_playbook,
+                archive.resolve(): b"# new\n",
+            },
+        )
+        return playbook, before_playbook
+
+    def test_check_reports_an_unfinished_journal(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-2 / F-DOCSYNC-19: a consistent-looking corpus plus a journal is
+        not a clean check."""
+        self._crash_between_two_writes(sync_env)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 1
+
+        err = capsys.readouterr().err
+        assert "DOC026" in err and ".docsync.journal" in err
+
+    def test_fix_replays_the_journal_instead_of_finding_no_changes(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        playbook, before = self._crash_between_two_writes(sync_env)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        cli_mod.main()
+
+        assert "HISTORY ONLY IN THE JOURNAL" in playbook.read_text(encoding="utf-8")
+        assert not (sync_env / ".docsync.journal").exists()
+        assert "replayed an interrupted publication" in capsys.readouterr().out
+
+    def test_fix_with_a_stale_lock_keeps_the_journal_and_names_the_lock(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """A real kill leaves the journal AND the lock; recovery needs both steps."""
+        playbook, _ = self._crash_between_two_writes(sync_env)
+        lock = sync_env / ".docsync.lock"
+        lock.write_text("", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        err = capsys.readouterr().err
+        assert ".docsync.lock" in err and "remove the lock" in err
+        assert (sync_env / ".docsync.journal").exists()
+        assert "HISTORY ONLY IN THE JOURNAL" not in playbook.read_text(encoding="utf-8")
+
+        lock.unlink()
+        assert cli_mod.main() == 0
+
+        assert "HISTORY ONLY IN THE JOURNAL" in playbook.read_text(encoding="utf-8")
+        assert not (sync_env / ".docsync.journal").exists()
+
+    def test_fix_refuses_when_a_journalled_file_was_edited_since(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        playbook, _ = self._crash_between_two_writes(sync_env)
+        playbook.write_text("# a later hand edit\n", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 2
+
+        assert playbook.read_text(encoding="utf-8") == "# a later hand edit\n"
+        assert (sync_env / ".docsync.journal").exists()
+
+    def test_non_utf8_document_exits_2_not_a_traceback(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """S3-1: malformed input is exit 2 for every document, not a crash."""
+        playbook = sync_env / "PLAYBOOK.md"
+        playbook.write_bytes(playbook.read_bytes() + b"\xff\xfe bad\n")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 2
+
+        assert "could not be read as UTF-8" in capsys.readouterr().err
+
+    def test_a_path_outside_the_repository_is_named_not_a_crash(
+        self, sync_env: Path, tmp_path_factory: pytest.TempPathFactory
+    ):
+        """S3-4: a junction that leaves the tree resolves outside it; the
+        diagnostic builder must still produce a name."""
+        outside = tmp_path_factory.mktemp("outside") / "BATCH10_LOG.md"
+        outside.write_text("x\n", encoding="utf-8")
+
+        name = cli_mod._repository_relative(outside)
+
+        assert name.endswith("BATCH10_LOG.md")

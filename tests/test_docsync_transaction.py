@@ -397,3 +397,44 @@ def test_a_reparse_point_is_refused_by_containment_alone(root, junction, monkeyp
     monkeypatch.setattr(Path, "is_junction", lambda self: False)
     with pytest.raises(SyncError, match="escapes the archive root"):
         resolve_within(root, "j/new.md")
+
+
+def test_publication_compares_against_the_plans_bytes_not_a_fresh_read(root):
+    """The proof is only as good as the `expected` bytes it is handed: a
+    concurrent edit sinks the run when they are the bytes the plan read."""
+    page = root / "pages" / "one.md"
+    planned_from = page.read_bytes()
+    page.write_bytes(b"# edited after the plan\n")
+
+    with pytest.raises(SyncError, match="Source changed before publication"):
+        publish(root, {page: b"# planned\n"}, {page: planned_from})
+
+    assert page.read_bytes() == b"# edited after the plan\n"
+
+
+def test_an_unfinished_journal_is_reported_as_doc026(root):
+    victim = root / "pages" / "one.md"
+    assert transaction.unfinished_journal_issue(root) is None
+    transaction._write_journal(root, {victim: b"# one\n"}, {victim: b"# half\n"})
+
+    issue = transaction.unfinished_journal_issue(root)
+
+    assert issue is not None
+    assert (issue.code, issue.severity, issue.path) == (
+        "DOC026",
+        "error",
+        JOURNAL_NAME,
+    )
+
+
+def test_recover_pending_replays_the_journal_without_any_new_work(root):
+    victim = root / "pages" / "one.md"
+    transaction._write_journal(root, {victim: b"# one\n"}, {victim: b"# half\n"})
+    victim.write_bytes(b"# half\n")
+
+    assert transaction.recover_pending(root) is True
+
+    assert victim.read_bytes() == b"# one\n"
+    assert not (root / JOURNAL_NAME).exists()
+    assert not (root / LOCK_NAME).exists()
+    assert transaction.recover_pending(root) is False

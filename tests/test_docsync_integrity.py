@@ -1907,8 +1907,8 @@ def test_stated_catalogue_helper_rejects_a_mismatched_list():
     # (a) a code raised but not listed: drop DOC024 from the stated list while
     # `scripts/docsync/archives.py` still raises it.
     dropped_doc024 = catalogue.replace(
-        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
-        "DOC001`-`DOC020`, `DOC023` and `DOC025",
+        "DOC001`-`DOC020`, `DOC023`, `DOC024`, `DOC025` and `DOC026",
+        "DOC001`-`DOC020`, `DOC023`, `DOC025` and `DOC026",
     )
     assert dropped_doc024 != catalogue, "fixture no longer matches the real sentence"
     assert _catalogue_matches_raised_codes(dropped_doc024, sources) is False
@@ -1916,8 +1916,8 @@ def test_stated_catalogue_helper_rejects_a_mismatched_list():
     # (b) a code listed but not raised: add DOC021 to the stated list. It is
     # reserved by the spec-guards plan above but no source raises it yet.
     added_doc021 = catalogue.replace(
-        "DOC001`-`DOC020`, `DOC023`, `DOC024` and `DOC025",
-        "DOC001`-`DOC021`, `DOC023`, `DOC024` and `DOC025",
+        "DOC001`-`DOC020`, `DOC023`, `DOC024`, `DOC025` and `DOC026",
+        "DOC001`-`DOC021`, `DOC023`, `DOC024`, `DOC025` and `DOC026",
     )
     assert added_doc021 != catalogue, "fixture no longer matches the real sentence"
     assert _catalogue_matches_raised_codes(added_doc021, sources) is False

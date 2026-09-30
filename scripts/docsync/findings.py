@@ -304,6 +304,21 @@ def _lifecycle_issues(
                 "`**Completed:**` line.",
             )
         )
+    elif outcome in _TERMINAL_SUFFIXES:
+        # An unchecked box that already says `resolved` or `no action` is a
+        # closure nobody finished: it never rotates, and no other check sees
+        # it (S3-6).
+        issues.append(
+            _issue(
+                "DOC016",
+                active_path,
+                line,
+                f"{finding.identifier} is unchecked while its outcome says "
+                f"`{outcome}`.",
+                "Check the box and add `**Completed:** YYYY-MM-DD`, or reword "
+                "the outcome while the work is still open.",
+            )
+        )
     return issues
 
 

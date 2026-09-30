@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2238 tests across 81 tracked test modules.
+2252 tests across 81 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -226,15 +226,6 @@ built here).
 
 - [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
   probe, 2026-09-24.
-
-### F-DOCSYNC-19: `--check` has no diagnostic for an interrupted publication
-
-Transactional publication recovers a crash mid-publish by replaying its
-journal against the on-disk state on the next writer, but a read-only
-`--check` run gives no signal that a journal is present and an earlier
-publish was interrupted -- recovery exists, a diagnostic does not.
-- [ ] **Status:** open (P2). Source: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
-  DoD row 29, GPT Sol Max review.
 
 ### F-DOCSYNC-20: the docsync close-out review's carried-over Minors, still true at HEAD
 
@@ -814,6 +805,17 @@ Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_re
 `templates/results.html` (line 13) loads html2canvas 1.4.1 with no `integrity` or `crossorigin` attribute, and the Typekit stylesheet in `base.html` (line 58) likewise, so a compromised CDN object runs with the results page's privileges, where `APP_DATA.job_id` is in scope.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-5.
+
+### F-B23-35: docsync archive integrity leaves two gaps the review found
+
+Two P3 gaps in the archive store were left when the docsync publication fixes landed:
+
+- Manifest entries (S3-5): a paginated archive's manifest records per-page `entries` and `lines`, but `ArchiveStore._load` never reads them, so a page with an entry deleted is ratified by `--fix`. Read both and report a mismatch as drift.
+- Back-dated rotation (S3-8): one back-dated entry rotated by a plain `--fix` repacks and un-colds every later page. Insert without repacking pages that did not change.
+
+Candidate for a second guard on CRLF checkouts (S3-7): a `.gitattributes` `eol=lf` rule for `docs/logarchive/**` and `docs/history/**`. It is optional, since `ArchiveStore._diff` now folds line endings.
+
+- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S3-5 and S3-8.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

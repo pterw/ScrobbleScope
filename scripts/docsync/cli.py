@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
 import shutil
 import sys
@@ -90,7 +91,11 @@ from docsync.renderer import (
     _trim_trailing_blank,
     rewrite_recorded_counts,
 )
-from docsync.transaction import publish
+from docsync.transaction import (
+    publish,
+    recover_pending,
+    unfinished_journal_issue,
+)
 
 REPO_ROOT = Path(".")
 # Set from --config for the length of one main() invocation, and restored to
@@ -159,16 +164,62 @@ def _declarations_path() -> Path:
     return CONFIG_PATH if CONFIG_PATH is not None else REPO_ROOT / DECLARATIONS_FILENAME
 
 
+#: The exact bytes each file held the first time this run read it, keyed by
+#: resolved path. A publication proves the corpus is unchanged against THESE
+#: bytes, not against a fresh read taken when it publishes: a plan is a
+#: decision about the content it read, and a file edited afterwards must sink
+#: the run rather than be overwritten by that decision (S3-3). Cleared at the
+#: start of every `main()` and after every publication, because a published
+#: file is a new baseline.
+_READ_RECORD: dict[Path, bytes | None] = {}
+
+
+def _record_key(path: Path) -> Path:
+    return Path(path).resolve()
+
+
+def _read_text(path: Path) -> str:
+    """Read one managed document as UTF-8 text, recording the bytes read.
+
+    Every managed document goes through here so that undecodable bytes or an
+    unreadable file are a `SyncError` (exit 2, "malformed input") instead of
+    a traceback that a hook wrapper cannot tell from drift (S3-1), and so the
+    staleness proof has the bytes the plan was computed from. Newlines are
+    universal, as `Path.read_text` was.
+    """
+    try:
+        data = path.read_bytes()
+        text = data.decode("utf-8")
+    except (UnicodeDecodeError, OSError) as error:
+        raise SyncError(f"{path} could not be read as UTF-8 text: {error}") from None
+    _READ_RECORD.setdefault(_record_key(path), data)
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _snapshot(path: Path) -> bytes | None:
+    """Return a file's bytes for the staleness baseline, or None if absent.
+
+    Deliberately not `Path.read_bytes`: the read-coverage test instruments
+    that method to learn which files the corpus really opened, and this
+    baseline loop reads every path `read_paths` names, so going through the
+    same method would make "every read path is proved" true by construction.
+    """
+    if not path.is_file():
+        return None
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
 def _read_lines(path: Path) -> list[str]:
     if not path.exists():
         raise SyncError(f"Required file is missing: {path}")
-    return path.read_text(encoding="utf-8").splitlines()
+    return _read_text(path).splitlines()
 
 
 def _read_lines_optional(path: Path) -> list[str] | None:
     if not path.exists():
         return None
-    return path.read_text(encoding="utf-8").splitlines()
+    return _read_text(path).splitlines()
 
 
 def _render(lines: Sequence[str]) -> bytes:
@@ -184,7 +235,14 @@ def _render(lines: Sequence[str]) -> bytes:
 
 def _repository_relative(path: Path) -> str:
     """Return a normalized repository-relative key for integrity diagnostics."""
-    return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+    root = REPO_ROOT.resolve()
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        # A symlink or junction that leaves the repository: the containment
+        # refusal is what gets reported, so name the path lexically instead
+        # of resolving through the link to its outside target (S3-4).
+        return Path(os.path.relpath(path.absolute(), root)).as_posix()
 
 
 def _repo_root() -> Path:
@@ -195,14 +253,14 @@ def _repo_root() -> Path:
 def _archive_store() -> ArchiveStore:
     """Build the archive reader/planner from this repository's own thresholds."""
     config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
-    return ArchiveStore(_repo_root(), max_lines=config.max_lines)
+    return ArchiveStore(_repo_root(), max_lines=config.max_lines, read_text=_read_text)
 
 
 def _is_index(path: Path) -> bool:
     """Whether this entry point has already become an index over pages."""
     if not path.is_file():
         return False
-    return INDEX_START_MARKER in path.read_text(encoding="utf-8")
+    return INDEX_START_MARKER in _read_text(path)
 
 
 def _archive_text(store: ArchiveStore, path: Path) -> tuple[str, IntegrityIssue | None]:
@@ -356,7 +414,7 @@ class _Corpus:
         self.batch_log_lines, batch_issues = _read_batch_log_lines(store)
         self.issues.extend(batch_issues)
         self.findings_text = (
-            findings_path.read_text(encoding="utf-8") if findings_path.is_file() else ""
+            _read_text(findings_path) if findings_path.is_file() else ""
         )
         self.findings_archive_text, findings_issue = _archive_text(
             store, FINDINGS_ARCHIVE_PATH
@@ -365,6 +423,11 @@ class _Corpus:
             self.issues.append(findings_issue)
         self.live_documents = _read_live_documents()
         self.tracked_paths = collect_tracked_paths(REPO_ROOT)
+        # Anything this corpus reads through another module (the declarations
+        # file) is baselined here, the latest point that is still before the
+        # plan is computed.
+        for path in self.read_paths():
+            _READ_RECORD.setdefault(_record_key(path), _snapshot(path))
 
     def rotation(self) -> findings_module.FindingRotation:
         """Plan the finding rotation this corpus permits, if any."""
@@ -402,11 +465,20 @@ class _Corpus:
 
 
 def _preimages(paths: Sequence[Path]) -> dict[Path, bytes | None]:
-    """Record the exact bytes each path holds right now."""
-    return {
-        path: path.read_bytes() if path.is_file() else None
-        for path in dict.fromkeys(paths)
-    }
+    """Return the bytes each path held when this run's plan first read it.
+
+    A path the plan never read (a file it is about to create) falls back to
+    its bytes now. Reading everything now would make the staleness proof
+    compare each file with itself (S3-3).
+    """
+    result: dict[Path, bytes | None] = {}
+    for path in dict.fromkeys(paths):
+        key = _record_key(path)
+        if key in _READ_RECORD:
+            result[path] = _READ_RECORD[key]
+        else:
+            result[path] = path.read_bytes() if path.is_file() else None
+    return result
 
 
 def _archive_members(path: Path) -> list[Path]:
@@ -637,7 +709,11 @@ def _publish(
     updates: Mapping[Path, bytes | None], expected: Mapping[Path, bytes | None]
 ) -> None:
     """Publish one transaction against the repository root."""
-    publish(_repo_root(), updates, expected)
+    try:
+        publish(_repo_root(), updates, expected)
+    finally:
+        # Whatever happened, the files are a new baseline now.
+        _READ_RECORD.clear()
 
 
 # ---------------------------------------------------------------------- #
@@ -709,7 +785,7 @@ def _drift_updates(
         updates.update(_plan_text(REPO_ROOT / documents.findings, new_findings_text))
 
         declarations_text = (
-            corpus.declarations_path.read_text(encoding="utf-8")
+            _read_text(corpus.declarations_path)
             if corpus.declarations_path.is_file()
             else ""
         )
@@ -1289,6 +1365,7 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
     previous_config_path = CONFIG_PATH
+    _READ_RECORD.clear()
     CONFIG_PATH = Path(args.config) if args.config is not None else None
     try:
         modes = [
@@ -1390,7 +1467,17 @@ def main() -> int:
         # ------------------------------------------------------------------ #
         # --check / --fix modes                                                #
         # ------------------------------------------------------------------ #
+        if args.check:
+            journal_issue = unfinished_journal_issue(_repo_root())
+            if journal_issue is not None:
+                _report([journal_issue])
+                return 1
         try:
+            if args.fix and recover_pending(_repo_root()):
+                print(
+                    "doc_state_sync --fix replayed an interrupted publication's "
+                    "journal; every file it touched is back to its pre-run bytes."
+                )
             store = _archive_store()
             corpus = _Corpus(store)
             # An archive whose pages and index disagree is reported, never acted
