@@ -284,12 +284,14 @@ cannot be answered -- a 429 or a Retry-After above the cap, a 5xx, a timeout,
 and for Spotify a 400 or 403 or a 401 that a fresh token does not cure; for
 Deezer an HTTP 429 or 403 -- raises `ProviderError`, never a "no match". A
 Spotify token is refreshed a minute before it expires, and a 401 drops the
-cached token once and retries once with a fresh one. Once a Spotify call meets
-a Retry-After above the cap, or refuses three requests in a row, or rejects a
-freshly fetched token, that job sends Spotify no further requests (a per-job
-breaker, checked again right before each request so a queued call is stopped
-too; another job is unaffected) and its remaining albums go to Deezer. For
-Spotify the search phase
+cached token once and retries once with a fresh one. Within one job (one
+event loop) the refresh is single-flight: concurrent expiries or 401s cost one
+token request, and if it fails the calls waiting on it get no token. Once a
+Spotify call meets a Retry-After above the cap, or refuses three requests in a
+row, or rejects a freshly fetched token, that job sends Spotify no further
+requests (a per-job breaker, checked again right before each request so a
+queued call is stopped too; another job is unaffected) and its remaining
+albums go to Deezer. For Spotify the search phase
 catches it per album: the album degrades to Deezer, and if Deezer has nothing
 either it is listed under the distinct `provider_unavailable` reason, not as a
 no-match. The same holds for an album Spotify's search matched but whose detail

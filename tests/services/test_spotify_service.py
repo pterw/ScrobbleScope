@@ -1,6 +1,10 @@
 import asyncio
+import gc
 import logging
+import sys
+import threading
 import time
+import weakref
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -8,6 +12,8 @@ import pytest
 
 from scrobblescope.errors import ProviderError
 from scrobblescope.spotify import (
+    _loop_token_state,
+    _token_states,
     album_metadata_from_details,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
@@ -1582,3 +1588,271 @@ async def test_the_one_by_one_fallback_uses_the_token_the_batch_refreshed():
     assert set(result) == {"a1"}
     sent = [call.kwargs["headers"]["Authorization"] for call in session.get.mock_calls]
     assert sent == ["Bearer old", "Bearer fresh", "Bearer fresh"]
+
+
+class _Suspending:
+    """An async context manager that yields to the loop before answering."""
+
+    def __init__(self, response):
+        self._response = response
+
+    async def __aenter__(self):
+        await asyncio.sleep(0.01)
+        return self._response
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def _token_endpoint(requests, token="fresh", status=200):
+    """A create_optimized_session stand-in whose token POST suspends and counts."""
+    resp = AsyncMock()
+    resp.status = status
+    resp.json = AsyncMock(return_value={"access_token": token, "expires_in": 3600})
+    session = MagicMock()
+
+    def post(*args, **kwargs):
+        requests.append(1)
+        return _Suspending(resp)
+
+    session.post.side_effect = post
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=session)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    return MagicMock(return_value=ctx)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_rejections_of_one_token_cost_one_token_request():
+    """
+    GIVEN six searches in flight on one loop, all sent with a token Spotify
+    rejects (401), and a token endpoint that suspends before it answers
+    WHEN they all ask for a replacement
+    THEN exactly one token request is made and every search retries with the
+    fresh token, where each used to request its own.
+    """
+    cache = {"token": "old", "expires_at": time.time() + 3000}
+    requests = []
+
+    def session_for_search():
+        session = MagicMock()
+
+        def get(*args, **kwargs):
+            bearer = kwargs["headers"]["Authorization"]
+            status = _status_only(401) if bearer == "Bearer old" else _ok_search("m")
+            return _Suspending(status)
+
+        session.get.side_effect = get
+        return session
+
+    sessions = [session_for_search() for _ in range(6)]
+
+    with (
+        patch(_LIMITER, return_value=NoopAsyncContext()),
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            _token_endpoint(requests),
+        ),
+    ):
+        results = await asyncio.gather(
+            *(search_for_spotify_album_id(s, "A", "B", "old") for s in sessions)
+        )
+
+    assert results == ["m"] * 6
+    assert len(requests) == 1
+    for session in sessions:
+        sent = [c.kwargs["headers"]["Authorization"] for c in session.get.mock_calls]
+        assert sent == ["Bearer old", "Bearer fresh"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_fetches_on_an_expired_cache_cost_one_token_request():
+    """
+    GIVEN an expired token cache and five concurrent fetches
+    WHEN a suspending token endpoint answers
+    THEN one token request is made and all five get the same fresh token.
+    """
+    cache = {"token": None, "expires_at": 0}
+    requests = []
+
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            _token_endpoint(requests),
+        ),
+    ):
+        tokens = await asyncio.gather(*(fetch_spotify_access_token() for _ in range(5)))
+
+    assert tokens == ["fresh"] * 5
+    assert len(requests) == 1
+
+
+def test_each_jobs_loop_gets_a_working_token_lock():
+    """
+    GIVEN two jobs, each running its own event loop in its own thread, each
+    with concurrent fetches contending for the token lock
+    WHEN the two jobs run one after the other (each loop still contends
+    within itself)
+    THEN neither fails with "bound to a different event loop", and each loop
+    made its own single token request.
+    """
+    outcomes = {}
+    requests = []
+
+    def job(name):
+        cache = {"token": None, "expires_at": 0}
+
+        async def run():
+            with (
+                patch("scrobblescope.spotify.spotify_token_cache", cache),
+                patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+                patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+                patch(
+                    "scrobblescope.spotify.create_optimized_session",
+                    _token_endpoint(requests, token=name),
+                ),
+            ):
+                return await asyncio.gather(
+                    *(fetch_spotify_access_token() for _ in range(3))
+                )
+
+        try:
+            outcomes[name] = asyncio.run(run())
+        except Exception as exc:  # noqa: BLE001 - the failure is the assertion
+            outcomes[name] = exc
+
+    for name in ("job-a", "job-b"):
+        thread = threading.Thread(target=job, args=(name,))
+        thread.start()
+        thread.join()
+
+    assert outcomes == {"job-a": ["job-a"] * 3, "job-b": ["job-b"] * 3}
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_failed_token_request_is_shared_by_the_calls_waiting_on_it():
+    """
+    GIVEN five concurrent fetches on an expired cache and a token endpoint
+    that suspends and then refuses (HTTP 503)
+    WHEN they all wait on the loop's lock
+    THEN one token request is made and all five get no token, where each
+    waiter used to issue its own request in turn.
+    AND a fetch started after that failure asks again.
+    """
+    cache = {"token": None, "expires_at": 0}
+    requests = []
+
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            _token_endpoint(requests, status=503),
+        ),
+    ):
+        tokens = await asyncio.gather(*(fetch_spotify_access_token() for _ in range(5)))
+        assert tokens == [None] * 5
+        assert len(requests) == 1
+
+        later = await fetch_spotify_access_token()
+
+    assert later is None
+    assert len(requests) == 2
+
+
+def test_a_finished_jobs_loop_is_released_by_the_next_token_fetch():
+    """
+    GIVEN a job whose loop had contended for the token lock and then closed
+    WHEN a later job's loop asks for its token lock
+    THEN the finished loop is no longer held (a contended asyncio.Lock holds
+    its loop strongly, so the weak key alone never let it go).
+    """
+    holder = {}
+
+    def first_job():
+        cache = {"token": None, "expires_at": 0}
+
+        async def run():
+            holder["loop"] = weakref.ref(asyncio.get_running_loop())
+            with (
+                patch("scrobblescope.spotify.spotify_token_cache", cache),
+                patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "id"),
+                patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "secret"),
+                patch(
+                    "scrobblescope.spotify.create_optimized_session",
+                    _token_endpoint([]),
+                ),
+            ):
+                await asyncio.gather(*(fetch_spotify_access_token() for _ in range(3)))
+
+        asyncio.run(run())
+
+    thread = threading.Thread(target=first_job)
+    thread.start()
+    thread.join()
+
+    async def second_job():
+        _loop_token_state()
+
+    asyncio.run(second_job())
+    gc.collect()
+
+    assert holder["loop"]() is None
+
+
+def test_job_threads_can_share_the_token_state_dict_without_error():
+    """
+    GIVEN many job threads, each opening and closing its own event loop
+    WHEN they all ask for their token state at once
+    THEN none raises (the prune iterates and deletes on a dict every job
+    thread shares) and the closed loops are gone afterwards.
+    """
+    errors = []
+    loops = []
+    start = threading.Barrier(8)
+
+    def job_thread():
+        start.wait()
+        try:
+            for _ in range(200):
+                loop = asyncio.new_event_loop()
+                try:
+                    loop.run_until_complete(_state_of(loop))
+                    loops.append(weakref.ref(loop))
+                finally:
+                    loop.close()
+        except Exception as exc:  # noqa: BLE001 - any error is the failure under test
+            errors.append(repr(exc))
+
+    async def _state_of(loop):
+        return _loop_token_state()
+
+    previous = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        threads = [threading.Thread(target=job_thread) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(previous)
+
+    assert errors == []
+
+    async def last_job():
+        _loop_token_state()
+        return len(_token_states)
+
+    remaining = asyncio.run(last_job())
+    gc.collect()
+    assert all(ref() is None for ref in loops)
+    assert remaining == 1

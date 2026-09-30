@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - A rejected Spotify token is refreshed once, not once per call
+
+Side task, no batch tag: single-flight Spotify token replacement, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Source: Codex comment 4146610714 on #245. N concurrent 401s (or concurrent fetches on an expired cache) each expired the cache and requested a token, up to one request per in-flight call. `fetch_spotify_access_token` now takes a lock held per running event loop (jobs run one loop per thread) and re-checks the cache inside it, so one expiry or rejection costs one token request per loop. The limit the Task 30 entry records as accepted (concurrent first 401s refetch) is now fixed; that dated entry is untouched.
+
+Review fixes in the same commit: the per-loop dict is a `WeakKeyDictionary`, but a contended `asyncio.Lock` holds its loop strongly, so weak keys alone kept every contended loop alive (confirmed on Python 3.13); the getter now drops entries of closed loops, under one module-level `threading.Lock` held only for the prune, lookup and insert (never across an await), because every job thread shares that dict and an unguarded prune could raise `RuntimeError` or `KeyError` into a token fetch. A failed token request is shared: calls already waiting when it failed return no token instead of each issuing a request in turn (a per-loop failure count, so another job's failure cannot poison this one); a call that starts later tries again.
+
+Files: `scrobblescope/spotify.py`, `tests/services/test_spotify_service.py`, `docs/architecture/top-albums-sequence.md`. No new module or import outside stdlib `weakref`; the dependency graph is unchanged.
+
+Validation: `pytest -q` -- **2493 passed**.
+
 ### 2026-09-30 - Findings, dashboards and README made true for the merge
 
 Side task, no batch tag: findings, dashboards and README made true for the merge, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -189,15 +201,3 @@ Bookkeeping: F-SWE-3 (a Spotify 5xx "ends the attempt loop after one try") is cl
 Edited existing tests: `test_page_fetch_reports_a_private_profile_without_retrying`, `test_succeed_clears_an_earlier_failure`, `test_fail_internal_error_replaces_results_and_is_not_retryable`, `test_fetch_spotify_album_details_batch_non_200_returns_empty_dict`, `test_fetch_spotify_access_token_refreshes_expired_token` and `test_fetch_deezer_album_keeps_the_album_when_the_track_list_is_unreadable` (a JSON-null case added). Removed with the function: the seven `test_detect_enrichment_total_failure_*` tests.
 
 Validation: `pytest -q` -- **2462 passed**.
-
-### 2026-09-30 - Diagrams and README checked against what the PR ships
-
-Side task, no batch tag: the pre-merge pass over the diagrams and README, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Diagrams: every module-level import in `scrobblescope/`, `scripts/docsync/`, the worktree guard and the frontend-gate slices was read by an `ast` walk and compared with the drawn edges; the call paths of both sequence diagrams were read against `orchestrator/`, `heatmap.py` and `routes/`. `runtime-system.md` gained two missing edges (`lastfm.py` to `errors.py`, `cache.py` to `utils.py`) and `delete` in the `jobs.py` interface list. `top-albums-sequence.md` no longer shows `enqueue_release_check` as a `jobs.py` call (it is `release_checks.py`) and records the below-threshold exclusions only after the Last.fm failure check, as `_fetch_job_albums` does. `heatmap-sequence.md`, `development-cycle.md` and `documentation-tooling.md` needed no change. "Last verified" in `docs/ARCHITECTURE.md` is now 2026-09-30.
-
-README: the section on the foundation work describes what the PR ships, in plain prose with no ids or pointers (provider throttling no longer read as "no match", names out of provider failure lines, the fourth Unmatched group, the keyboard heatmap, the spotlight pause, the job module, Repo Assist removed); it says in one sentence that job persistence and the Last.fm restructuring come next. The bare worktree-guard bullet has a body, "Three reasons have shipped" says a fourth comes with this work, and the work-package wording elsewhere in the page is plain.
-
-Dashboard: SESSION_CONTEXT Sections 3 and 4 were compared with source; the `utils.py` line names `log_failure` and `cancel_and_drain`, and "Last updated" is 2026-09-30. The `_search` and `_details` edges the task-18 review flagged were already correct. DEVELOPMENT.md: `--check`, the preflight, the worktree guard and `tailwind_build.py --check` were run and behave as written; the planted-defect demonstrations are scratch-copy runs and were not repeated.
-
-Validation: `pytest -q` -- **2424 passed**.

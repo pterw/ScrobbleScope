@@ -3,7 +3,9 @@ import base64
 import contextlib
 import contextvars
 import logging
+import threading
 import time
+import weakref
 
 import aiohttp
 
@@ -164,13 +166,52 @@ def _refused(operation, status):
 async def _replace_rejected_token(rejected):
     """Drop the cached token if it is the one Spotify rejected; return a fresh one.
 
-    A sibling call that already replaced it leaves the cache holding a newer
-    token, which is returned as it is: one rejection costs one token request,
-    not one per call.
+    Calls that share an event loop (one job) share one token request: the
+    first to find the cache holding *rejected* expires it and refreshes,
+    and the rest wait in ``fetch_spotify_access_token`` and reuse the fresh
+    token. A sibling that already replaced it leaves the cache holding a
+    newer token, which is returned as it is. Jobs on different loops each
+    refresh once, since the lock is per loop. A refresh that fails returns
+    None to every call that was waiting on it; the caller reports its call
+    unanswered. A rejection after that may try again.
     """
     if spotify_token_cache["token"] == rejected:
         spotify_token_cache["expires_at"] = 0
     return await fetch_spotify_access_token()
+
+
+# One lock per running event loop, not one for the module: every album or
+# heatmap job runs its own loop in its own thread, and an asyncio.Lock is
+# bound to the loop it is first used on. A lock that has contended holds its
+# loop strongly, and this dict holds the lock, so weak keys alone would keep
+# every such loop alive. _loop_token_state() therefore drops the entries of
+# closed loops each time it is called: a finished job's loop and lock are
+# released the next time any loop has to refresh the token (an expiry or a
+# 401). The dict is shared by every job thread, so _token_states_guard makes
+# the prune, lookup and insert one step; it is held for those dict operations
+# only, never across an await.
+_token_states = weakref.WeakKeyDictionary()
+_token_states_guard = threading.Lock()
+
+
+class _LoopTokenState:
+    """One loop's token lock, and how many token requests have failed on it."""
+
+    def __init__(self):
+        self.lock = asyncio.Lock()
+        self.failures = 0
+
+
+def _loop_token_state():
+    loop = asyncio.get_running_loop()
+    with _token_states_guard:
+        for known in list(_token_states.keys()):
+            if known.is_closed():
+                _token_states.pop(known, None)
+        state = _token_states.get(loop)
+        if state is None:
+            state = _token_states[loop] = _LoopTokenState()
+        return state
 
 
 class _Bearer:
@@ -229,9 +270,33 @@ async def fetch_spotify_access_token():
     which otherwise raised past the fallback and failed the job (F-B22-2).
     Production cannot start without them (``app._validate_api_keys``), so
     this branch is reached in dev mode only.
+
+    Single-flight per event loop: concurrent calls on an expired cache
+    queue on the loop's lock, and every one after the first finds the token
+    the first fetched, so one expiry costs one token request per loop. A
+    request that fails is shared too: calls that were already waiting when
+    it failed return None without a request of their own, so an outage
+    costs one timeout, not one per waiter. A call that starts after the
+    failure tries again.
     """
     if spotify_token_cache["expires_at"] > time.time():
         return spotify_token_cache["token"]
+    state = _loop_token_state()
+    failures_seen = state.failures
+    async with state.lock:
+        # A call ahead of this one in the queue may have refreshed it.
+        if spotify_token_cache["expires_at"] > time.time():
+            return spotify_token_cache["token"]
+        if state.failures != failures_seen:
+            return None
+        token = await _request_token()
+        if token is None:
+            state.failures += 1
+        return token
+
+
+async def _request_token():
+    """Request a token from Spotify and cache it; None when none can be had."""
     if not (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET):
         logging.error("Spotify credentials are not configured; no token requested")
         return None
