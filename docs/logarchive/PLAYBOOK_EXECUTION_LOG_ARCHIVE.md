@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Tests that fail on the defect they guard
+
+Side task, no batch tag: tests that fail on the defect they guard, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Closes F-B23-31, whose five tests survived the mutant they exist for, and four review minors. Each mutant was planted in a scratch copy and the test shown red; the decisive line of each is in the commit body. S1-7: the results-route spotlight test asserts every seed `image_url` is empty. S1-8: a new test starts the clock at 100, records the later-starting call first and expects a 6.0s span. S1-9: the fetch ledger counts `CancelledError` (four) under `asyncio.timeout(2)`. S1-10: the fixture's Spotify URL is no longer the code's fallback, and two orchestrator tests take `SPOTIFY_ALBUM_DETAILS_MOCK`. S2-24: whole layout objects for a beside and a stacked header, `rocketColor` between stops, and the headline and legend captions. Also: the `private_profile` 403 route case; the frontend gate's spotlight hold check now resizes the card with focus on the link and a linkless candidate (a `keepLink` guard); the unmatched check seeds the fourth reason, `provider_unavailable`, and asserts four panels, its hint and its row note (both run in Chromium only, where the gate runs them; the R6 live probe was red on the planted defect and green, in Chromium and in Firefox by direct run); the docsync close-batch test fails when `_snapshot` reads through `Path.read_bytes`; the `run_async_in_thread` DEBUG record is selected by its message; the two heatmap ordering tests share one helper.
+
+Edited existing tests: `test_results_page_samples_five_unique_artists_from_aggregate_top_ten`, `test_results_job_state_matches_http_status` (a fourth parameter), `test_fetch_all_cancels_sibling_fetches_when_one_page_raises` (through `_PageFetchLedger` and `_run_fetch_all_with_raising_page`), `test_run_async_in_thread_error_line_carries_the_class_never_the_message`, `test_process_albums_cache_miss_fetches_and_persists`, `test_process_albums_db_unavailable_falls_back`, `test_close_batch_proves_every_read_source_before_publishing`, `test_the_page_repositions_its_tooltip_before_every_screenshot`, `test_the_settle_wait_runs_before_every_screenshot`, `test_the_hold_check_focuses_then_hovers_and_counts_the_periods`, `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` and `test_a_crashed_page_during_the_hold_wait_propagates` (through `_run_hold`); the fixture `tests/fixtures/spotify_get_album.json` changed its URL, read by `test_spotify_fixture_has_every_field_the_app_reads`.
+
+Validation: `pytest -q` -- **2365 passed**.
+
 ### 2026-09-30 - Errors classified by type in both pipelines; an unrecognised error is ours
 
 Side task, no batch tag: typed error classification, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

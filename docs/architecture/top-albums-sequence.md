@@ -77,13 +77,13 @@ sequenceDiagram
                 Orch->>Jobs: Progress 5%-20%
             end
             Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
-            Orch->>Jobs: Persist one below_threshold exclusion per album, with its counts and failed thresholds
-            Note over Orch,Jobs: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
             Orch->>Jobs: Aggregation stats, and partial_data_warning when pages were dropped (failed, or malformed after every retry)
             alt Terminal Last.fm failure
                 Orch->>Jobs: fail(lastfm_unavailable)
                 Note over Orch,Jobs: jobs.fail also stores an empty result list
             else Pages available
+                Orch->>Jobs: Persist one below_threshold exclusion per album, with its counts and failed thresholds
+                Note over Orch,Jobs: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
                 alt No albums pass filters
                     Orch->>Jobs: succeed: empty results and progress 100%, in one write
                     Note over Orch,Jobs: Terminal -- no pre-slice, cache, or Spotify
@@ -167,7 +167,7 @@ sequenceDiagram
                             Orch->>Jobs: Progress 60%-90%
                             Orch->>Orch: Post-slice to limit_results
                             Orch->>Jobs: succeed: results and progress 100%, in one write
-                            Orch->>Jobs: enqueue_release_check(job_id)
+                            Orch->>ReleaseChecks: enqueue_release_check(job_id)
                             Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
                         end
                     end

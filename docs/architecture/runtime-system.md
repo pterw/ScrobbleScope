@@ -83,6 +83,7 @@ flowchart LR
     ReleaseChecks --> Utils
     ReleaseChecks --> Worker
     LastFMClient --> Utils
+    LastFMClient --> Errors
     SpotifyClient --> Utils
     SpotifyClient --> Domain
     SpotifyClient --> Enrichment
@@ -95,6 +96,7 @@ flowchart LR
     MusicBrainzClient --> Domain
     MusicBrainzClient --> Errors
     Spotlight --> Utils
+    Cache --> Utils
     Utils --> ApiLogging
 
     Worker -.->|runs injected callable| Album
@@ -157,7 +159,7 @@ rather than drawing every submodule. The complete import graph, submodules
 included, lives in SESSION_CONTEXT Section 4.
 
 `jobs.py` is the one owner of a job's life. Its interface is the lifecycle:
-`create`, `start`, `advance` and `report_phase` (a counted step inside a phase
+`create`, `delete` (a job whose thread never started), `start`, `advance` and `report_phase` (a counted step inside a phase
 band, so the percent arithmetic lives once), `record_stat`,
 `record_unmatched`, `succeed` (results and the 100% in one write), `fail` (a
 code from `errors.ERROR_CODES`, results forced to `[]`), `reset`,

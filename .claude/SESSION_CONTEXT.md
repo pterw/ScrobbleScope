@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 ---
 
@@ -58,7 +58,7 @@ scrobblescope/
   errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
-  utils.py                  # rate limiters, session pooling, request caching
+  utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)

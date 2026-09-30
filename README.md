@@ -60,7 +60,7 @@ before it lands.
 The app runs on a single small Fly.io machine with an optional PostgreSQL
 cache. What is happening now is in
 [Current Status & Roadmap](#current-status--roadmap): an extensive
-foundation batch, WP-0, is about to land, and the Spotify history import is
+round of foundation work is about to land, and the Spotify history import is
 next.
 
 ## Table of Contents
@@ -88,7 +88,7 @@ next.
 - [Project Structure](#project-structure)
 - [Deployment](#deployment)
 - [Current Status & Roadmap](#current-status--roadmap)
-  - [Incoming: the WP-0 foundation work](#incoming-the-wp-0-foundation-work)
+  - [Incoming: foundation work before the Spotify import](#incoming-foundation-work-before-the-spotify-import)
   - [Shipped in September](#shipped-in-september)
   - [Next: importing a Spotify listening history](#next-importing-a-spotify-listening-history)
   - [Known limitations](#known-limitations)
@@ -283,7 +283,10 @@ That has three consequences visible throughout the architecture:
    Both return the same provider-neutral record -- provider name, album id,
    album URL, release date, artwork, track durations -- so nothing downstream
    knows which one answered. Deezer needs no key. An album neither provider
-   can identify produces exactly one unmatched entry, not two.
+   can identify produces exactly one unmatched entry, not two. A provider
+   that cannot answer at all is not read as "no match": the album moves on to
+   the other provider, and if none answers it is listed as one that could not
+   be checked.
 7. **Results are built, filtered and stored.** Release-year filtering,
    sorting by play count or estimated listening time, and the artist
    spotlight sample all happen here. Any original-release correction already
@@ -686,53 +689,74 @@ are not automatically a release of the live site.
 
 ## Current Status & Roadmap
 
-### Incoming: the WP-0 foundation work
+### Incoming: foundation work before the Spotify import
 
-*Under review in PR #245 (late September 2026).*
+*Under review ahead of merge (late September 2026).*
 
-WP-0 is the first work package of Batch 23. It is about a hundred commits over
-eight days, and it adds almost no feature. It makes the base solid so that the
-Spotify import can be built on it. Written plans drove it. Two whole-branch
-review passes closed every P0 and P1 finding they raised; a third, deeper pass
-found more; its backend fixes landed in this PR and its frontend fixes follow.
+This is about a hundred commits over eight days, and it adds almost no
+feature. It makes the base solid so that the Spotify import can be built on
+it. Written plans drove it, and three whole-branch reviews found and closed
+every serious problem they raised, the third by reading the code more deeply
+than the first two.
 
 **What a listener notices**
 
 - **Every heatmap cell is reachable by keyboard.** The grid is one Tab stop,
   arrow keys move by layout, each cell is announced with its date and play
-  count, and the focus ring stays visible.
+  count, and the focus ring stays visible. On a phone, a swipe across the
+  heatmap scrolls the page instead of being caught by the grid.
 - **The Unmatched report was rebuilt.** Each row was rebuilt: artist portraits
   show whole instead of cropped, and every album names the provider that
-  answered for it. Album links keep their full focus ring.
+  answered for it. Album links keep their full focus ring. A fourth group
+  lists the albums that could not be checked because a provider was not
+  answering.
+- **A busy provider is no longer read as "no match".** When Spotify or Deezer
+  is throttled or down, the album moves on to the other provider, and if
+  neither answers it is listed as one that could not be checked. A run fails
+  only when every provider fails, and then it says so and offers a retry.
 - **Spotify content is attributed with the official Spotify icon** on the
-  Results and Unmatched pages and on the artist spotlight; rows from Deezer
-  carry a text badge.
+  Results and Unmatched pages, on the artist spotlight, and in the saved
+  image; rows from Deezer carry a text badge, and each provider link says
+  which provider it leads to.
 - **The artist spotlight stopped faking photos.** It shows a confirmed photo
-  or stays hidden, without cropping or overlays.
+  or stays hidden, without cropping or overlays, and it holds still while you
+  hover over it or tab into it.
 
 **What an engineer notices**
 
-- **Last.fm is harder to break.** The page cache stores only well-formed
-  pages, and orphaned fetches are cancelled when a run ends. Every provider
-  call is logged, with a per-session summary.
+- **Last.fm is harder to break.** The user is checked before anything else, and
+  only a public profile is remembered. The page cache stores only well-formed
+  pages, and orphaned fetches are cancelled and drained when a run ends. Every
+  provider call is logged, with a per-session summary.
+- **Failures are classified by type, and the unknown is ours.** An error no
+  code recognises is reported as an internal error with no exception text
+  shown, and a traceback is logged at debug level only.
+- **Logs no longer carry what you listened to.** A failed provider call logs
+  the provider and the status, never the album, artist or track name, and the
+  Last.fm API key is redacted from every line.
+- **A job has one owner.** One module holds the life of a search, from
+  creation to success or failure, behind a small storage interface, so callers
+  never assemble job state by hand.
 - **The frontend gate can fail on the defects it names.** Its checks are
-  selected from a manifest rather than hard-coded, and every check the batch
+  selected from a manifest rather than hard-coded, and every check the work
   changed was proved against a live probe of the defect it targets.
 - **The documentation control plane got safer.** docsync refuses a declared
   path that leaves the repository, even through a junction, and it verifies
   the test-count pin before rewriting it.
-- **The repository root was cleaned up.** The four agent documents now live
-  under `docs/agents/` and the configuration files under `config/`.
-- **The worktree guard checks that essential files exist.**
+- **The repository root was cleaned up,** and an automated repository-assistant
+  workflow was removed; the test job no longer receives real provider keys. The four agent documents now live under `docs/agents/`
+  and the configuration files under `config/`.
+- **The worktree guard warns about missing essentials.** It reports a file the
+  repository declares essential when that file is missing or untracked.
 - **The suite runs the album pipeline end to end** on a real thread and
-  checks provider response shapes against their documentation.
+  checks provider response shapes against their documentation. A malformed
+  page served as a 200 is retried and counted as dropped instead of cached,
+  and a `Retry-After` header is capped so a provider cannot park a run for as
+  long as it likes.
 
-**Fixes from the third review** closes what the third review found. The Last.fm
-API key is redacted from every log line. A malformed 200 page is retried and
-counted as dropped instead of cached. A `Retry-After` header is capped so a
-provider cannot park a run for as long as it likes.
-
-WP-1 onward is the Spotify import described below.
+Saving jobs to a database so they survive a restart, and restructuring how the
+app talks to Last.fm, come next, in a later change. The Spotify import
+described below follows them.
 
 ### Shipped in September
 
@@ -744,9 +768,10 @@ Bootstrap is gone, and one theme signal remains, `data-theme` on the root
 element.
 
 **The Unmatched report groups on reason codes, not prose.** Three reasons
-ship: albums under your minimum play or unique-track count, albums outside
-the release window, and albums neither provider could identify. Each gets its
-own panel; long lists start at ten rows and open 25 at a time.
+have shipped: albums under your minimum play or unique-track count, albums
+outside the release window, and albums neither provider could identify. A
+fourth, albums that could not be checked because a provider was not
+answering, comes with the work above. Each gets its own panel; long lists start at ten rows and open 25 at a time.
 
 **Album enrichment no longer depends on one company.** Spotify answers first
 and Deezer answers for whatever Spotify cannot match or detail, so one
@@ -778,9 +803,8 @@ text included.
 
 ### Next: importing a Spotify listening history
 
-ScrobbleScope only works for Last.fm users today, and the next body of work
-changes that. WP-1 onward is this export
-feature; WP-0, above, was the groundwork for it. Spotify's API cannot supply lifetime history -- it returns the
+ScrobbleScope only works for Last.fm users today, and the work after the
+foundation above changes that. Spotify's API cannot supply lifetime history -- it returns the
 last 50 plays and unranked "top items" with no counts or dates -- and full
 API access has been restricted to registered businesses since May 2025, with
 development-mode apps capped at five allowlisted users. A login would

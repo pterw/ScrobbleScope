@@ -5,9 +5,11 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-09-29 (every module-level import in
-`scrobblescope/`, `scripts/docsync/` and the frontend-gate slices compared with
-the drawn edges; the dashboard's Section 4 corrected in the same pass).
+Last verified against the tree on 2026-09-30 (every module-level import in
+`scrobblescope/`, `scripts/docsync/`, the worktree guard and the frontend-gate
+slices compared with the drawn edges, and the call paths in the two sequence
+diagrams read against `orchestrator/`, `heatmap.py` and `routes/`; two missing
+runtime edges added and one mislabelled call corrected in the same pass).
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are
