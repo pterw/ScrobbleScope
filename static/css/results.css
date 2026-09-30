@@ -646,7 +646,6 @@ a.provider-badge:hover {
 .results-partial-notice__link {
     color: var(--color-primary);
     text-decoration: underline;
-    white-space: nowrap;
 }
 
 .results-partial-notice__link:focus-visible {

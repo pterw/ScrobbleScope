@@ -693,11 +693,11 @@ are not automatically a release of the live site.
 
 *Under review ahead of merge (late September 2026).*
 
-This is about a hundred commits over eight days, and it adds almost no
-feature. It makes the base solid so that the Spotify import can be built on
-it. Written plans drove it, and three whole-branch reviews found and closed
-every serious problem they raised, the third by reading the code more deeply
-than the first two.
+This is about a hundred and thirty commits over a week (24 to 30 September), and
+it adds almost no feature. It makes the base solid so that the Spotify import
+can be built on it. Written plans drove it, and three whole-branch reviews found
+and closed every serious problem they raised, the third by reading the code more
+deeply than the first two.
 
 **What a listener notices**
 
@@ -744,8 +744,9 @@ than the first two.
   path that leaves the repository, even through a junction, and it verifies
   the test-count pin before rewriting it.
 - **The repository root was cleaned up,** and an automated repository-assistant
-  workflow was removed; the test job no longer receives real provider keys. The four agent documents now live under `docs/agents/`
-  and the configuration files under `config/`.
+  workflow was removed; the test job no longer receives real provider keys. The four agent
+  documents now live under `docs/agents/` and the configuration files under
+  `config/`.
 - **The worktree guard warns about missing essentials.** It reports a file the
   repository declares essential when that file is missing or untracked.
 - **The suite runs the album pipeline end to end** on a real thread and
@@ -771,7 +772,8 @@ element.
 have shipped: albums under your minimum play or unique-track count, albums
 outside the release window, and albums neither provider could identify. A
 fourth, albums that could not be checked because a provider was not
-answering, comes with the work above. Each gets its own panel; long lists start at ten rows and open 25 at a time.
+answering, comes with the work above. Each gets its own panel; long lists start at ten
+rows and open 25 at a time.
 
 **Album enrichment no longer depends on one company.** Spotify answers first
 and Deezer answers for whatever Spotify cannot match or detail, so one
@@ -814,10 +816,9 @@ Instead, Spotify listeners will upload the **Extended Streaming History**
 export they can request from their account's privacy page: a zip of JSON,
 one row per stream since the account opened. The design is already settled:
 
-- **No login; listening history stays transient.** Upload handling and the
-  permitted catalog metadata cache follow the
-  [Batch 23 data-handling contract](BATCH23_DEFINITION.md#data-handling).
-  The feature does not persist the listener's uploaded history.
+- **No login; listening history stays transient.** The uploaded
+  history is never stored; only catalog metadata (release dates, genres and
+  the like) is cached, and that cache holds nothing about the listener.
 - **One switch on the existing form**, with a separate page explaining how to
   request the export. Both album rankings and the heatmap work from either
   source.

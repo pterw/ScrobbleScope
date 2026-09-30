@@ -87,7 +87,7 @@ See FINDINGS F-DOCSYNC-3.
   executed (every task in each has landed). The three plans' carried items
   are closed out, and their final code review of the whole branch ran on
   2026-09-27; its one fix wave has landed and passed a scoped re-review
-  (see Section 4). Next action: the WP-0 close-out below. The
+  (see Section 4). The WP-0 close-out below is what remains of WP-0. The
   definition owns WP-0 scope and acceptance; `docs/agents/FINDINGS.md`
   owns open finding status.
 - **WP-0 close-out:** Re-review `e7e076b` independently, review the whole
@@ -98,17 +98,24 @@ See FINDINGS F-DOCSYNC-3.
   remain untagged by the owner's 2026-09-23 ruling in the definition.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
+- **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
+  every fix from the three reviews, including the job module with its storage
+  seam, typed provider failures and provider failure logs that carry no
+  listener data. Moved to the follow-up PR: job persistence, the Last.fm
+  scrobble seams, the album request module, one album-metadata encoding, the
+  statistics module and the tooling package.
 - **Architecture seams before the Spotify import (owner ruling 2026-09-29):**
   "If any seams from architechture deepening are worth doing now before
   further feeat implements, thats the time." The seams and the work package
   each one gates are in
   `docs/history/reports/architecture-review-20260930-0040.html`: a job
-  module with a storage seam, typed provider failures and job persistence
-  (before WP-3), an album request module (before WP-4), normalized Last.fm
-  scrobbles with one typed album aggregate (before WP-2), one album-metadata
-  encoding (before WP-3), a statistics module (before WP-6), and provider
-  failure logs that carry no listener data. WP-1 does not start until they
-  are scheduled.
+  module with a storage seam and typed provider failures, job persistence
+  (gates WP-3), an album request module (gates WP-4), normalized Last.fm
+  scrobbles with one typed album aggregate (gates WP-2), one album-metadata
+  encoding (gates WP-3), a statistics module (gates WP-6), and provider
+  failure logs that carry no listener data. Which of these #245 ships is
+  in the "What PR #245 ships" bullet above; the rest wait for the follow-up
+  PR.
 
 ---
 
@@ -130,6 +137,22 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-30 - Findings, dashboards and README made true for the merge
+
+Side task, no batch tag: findings, dashboards and README made true for the merge, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Findings: F-B22-3, F-B21-61, F-MAS-5 and F-B18-2 named the removed job store (`repositories.py`, `create_job`, `cleanup_expired_jobs`, the `JOBS` dict); they now name `scrobblescope/jobs.py` (`jobs.create`, `jobs.expire_stale`, `MemoryJobStore`) by function. F-SWE-3 was already archived by the Task 30 landing; its archived body now says the one-try loop was how it stood when filed, and that a 5xx is retried now. `BATCH23_DEFINITION.md` WP-3 maps `ExportError` to a classified code through `jobs.fail` (the `set_job_results` at line 220 is a done, dated item and stays). F-B23-41 now records that the Results partial-notice link's ring and 44px are asserted only by a CSS-text test and the gate measures no such link.
+
+Merge cut: PLAYBOOK Section 3 has a bullet stating what PR #245 ships and what moved to the follow-up PR (owner ruling 2026-09-29); the "next action" sentence that pointed at a finished review wave is reworded, and the seams bullet names only the work package each seam gates and points at that bullet for what ships. `**Next action:** WP-0 is next.` and the `**Branch:**` line are untouched. SESSION_CONTEXT Section 1 agrees.
+
+Dashboards: SESSION_CONTEXT Section 3 no longer lists `global.css` (10 css files), and lists `results-release-checks.js`, the empty-state and two partial templates, and four `scripts/dev` files, with their edges in Section 4. `docs/architecture/top-albums-sequence.md` says once that every partial-data warning (token, search, details, Deezer fallback) also records its source through `jobs.record_partial_source`, and draws it at the token and Last.fm sites, and `runtime-system.md` lists it in the `jobs.py` interface. README: the `BATCH23_DEFINITION.md` link is gone (the rule is said in a sentence), the commit figure is the measured one (about 130 commits, 24 to 30 September), and the paragraph is rewrapped to 80 columns.
+
+Code: the `heatmap_task` and `_report_album_failure` docstrings now say the album backstop always publishes `internal_error` while the heatmap classifies first. `.results-partial-notice__link` drops `white-space: nowrap` so the link wraps at 320px; confirmed at 320px by a Playwright measure of the notice with the shipped markup (page scrollWidth 320, no horizontal overflow), since the frontend gate renders no partial notice; the frontend gate and `results_behavior_tests.py` pass.
+
+Known limit: an album-details 404 between Spotify refusals does not reset the per-job "three consecutive refusals" count; only a 200 does.
+
+Validation: `pytest -q` -- **2487 passed**.
 
 ### 2026-09-30 - Partial runs disclosed on Results; forms gate waits for requests
 
@@ -176,19 +199,5 @@ Diagrams: every module-level import in `scrobblescope/`, `scripts/docsync/`, the
 README: the section on the foundation work describes what the PR ships, in plain prose with no ids or pointers (provider throttling no longer read as "no match", names out of provider failure lines, the fourth Unmatched group, the keyboard heatmap, the spotlight pause, the job module, Repo Assist removed); it says in one sentence that job persistence and the Last.fm restructuring come next. The bare worktree-guard bullet has a body, "Three reasons have shipped" says a fourth comes with this work, and the work-package wording elsewhere in the page is plain.
 
 Dashboard: SESSION_CONTEXT Sections 3 and 4 were compared with source; the `utils.py` line names `log_failure` and `cancel_and_drain`, and "Last updated" is 2026-09-30. The `_search` and `_details` edges the task-18 review flagged were already correct. DEVELOPMENT.md: `--check`, the preflight, the worktree guard and `tailwind_build.py --check` were run and behave as written; the planted-defect demonstrations are scratch-copy runs and were not repeated.
-
-Validation: `pytest -q` -- **2424 passed**.
-
-### 2026-09-30 - Doc and hygiene findings from the third review cleared
-
-Side task, no batch tag: the doc and hygiene findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Code: `cli._snapshot` (the staleness baseline of `--close-batch`) raises `SyncError` on an unreadable file, like `_read_text`, instead of a bare `OSError` traceback. The orphaned gh-aw lock file `.github/aw/actions-lock.json` and its `.gitattributes` line are deleted. Comments only: "for every miss" in the `orchestrator/__init__.py` docstring, and two over-long comment blocks in `tests/test_pipeline_integration.py` rewrapped.
-
-Docs: how an album gets its release date is explained once, in `docs/architecture/runtime-system.md` (it now also holds the old "displayed release year" bullet and names `process_albums` and `_persist_new_metadata`); `_build_results` links to it; the README keeps its own plain summary (owner rule: no pointers in the README). `docs/design/RECONCILIATION.md` still retells the release-date rationale; it is a dated design record, seen and left. The release-scope table is written once, in `domain.release_window`'s docstring, which names the wording sites and says its list is not exhaustive; `_get_user_friendly_reason` and `_get_filter_description` say "wording only" and link to it. The finished plan `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md` (about line 27) says a commit on another branch is refused by the worktree guard; it was seen and left as point-in-time. The ignored local `CLAUDE.md` of the batch worktree was corrected (the guard reports WT003 but the hook is advisory); it is not in the commit.
-
-Bookkeeping: the log archive's heading date is corrected to 2026-09-29 (no DOC025); F-B23-33's problem statement is one sentence; F-B23-29 is closed and its leftovers are F-B23-38; F-B23-39 records the gate's intermittent failures.
-
-New test: `test_snapshot_raises_sync_error_for_an_unreadable_file` (in `TestPublicationSafety`); no existing test was edited or moved.
 
 Validation: `pytest -q` -- **2424 passed**.

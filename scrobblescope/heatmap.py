@@ -252,8 +252,9 @@ def heatmap_task(job_id, username):
     ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed
     run is reported rather than raised, classified by
     ``errors.classify_exception_to_error_code`` first and falling back to
-    ``internal_error`` (see ``_report_heatmap_failure``), the same answer the
-    album entry point gives (F-SWE-5).
+    ``internal_error`` (see ``_report_heatmap_failure``). The album entry
+    point's backstop (``_report_album_failure``) does not classify: it always
+    publishes ``internal_error`` (F-SWE-5).
     """
     run_coroutine_in_new_loop(
         _fetch_and_process_heatmap(job_id, username),

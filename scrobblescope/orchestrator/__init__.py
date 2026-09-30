@@ -652,11 +652,13 @@ def _report_album_failure(job_id, username, year):
     """Log the crash and publish this pipeline's terminal state.
 
     Called from inside the helper's ``except`` block, so ``log_failure``
-    still sees the active exception. Publishes the same ``internal_error``
-    the heatmap entry point does, and ``_fetch_and_process`` answers an
-    unclassified exception the same way: one answer everywhere (F-SWE-5).
-    Before this, the album backstop only logged, and a page polling the job
-    waited on a job that would never finish.
+    still sees the active exception. This worker-level backstop always
+    publishes ``internal_error`` and does not classify; the pipelines
+    classify by exception type first (``_fetch_and_process`` for albums,
+    ``_report_heatmap_failure`` for the heatmap), so only an exception that
+    got past them lands here (F-SWE-5). Before this, the album backstop
+    only logged, and a page polling the job waited on a job that would never
+    finish.
     """
     log_failure(f"Unhandled error in background task for {username}/{year}")
     jobs.fail(job_id, "internal_error", username=username)

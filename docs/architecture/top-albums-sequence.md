@@ -77,7 +77,7 @@ sequenceDiagram
                 Orch->>Jobs: Progress 5%-20%
             end
             Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
-            Orch->>Jobs: Aggregation stats, and partial_data_warning when pages were dropped (failed, or malformed after every retry)
+            Orch->>Jobs: Aggregation stats, and partial_data_warning plus record_partial_source(lastfm) when pages were dropped (failed, or malformed after every retry)
             alt Terminal Last.fm failure
                 Orch->>Jobs: fail(lastfm_unavailable)
                 Note over Orch,Jobs: jobs.fail also stores an empty result list
@@ -111,9 +111,10 @@ sequenceDiagram
                     Orch->>Jobs: record_stat(cache_hits)
 
                     alt Cache misses exist
+                        Note over Orch,Jobs: Every partial_data_warning below (token, search, details, Deezer fallback) also calls record_partial_source(provider)
                         Orch->>Spotify: Fetch token
                         alt Token fetch fails (a non-200 answer, a timeout, or a refused connection)
-                            Orch->>Jobs: record_stat(partial_data_warning)
+                            Orch->>Jobs: record_stat(partial_data_warning) and record_partial_source(provider)
                             Note over Orch,Spotify: No search or detail call; every miss goes to Deezer
                         else Token acquired
                             Orch->>Spotify: Search albums

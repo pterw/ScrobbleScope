@@ -13,10 +13,11 @@ Newest rotation first.
 
 `search_for_spotify_album_id` (`spotify.py`, its inner `search_once`) returns
 `(None, None, True)` for every non-200, non-429
-response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
-or 503 therefore ends the attempt loop after one try, while
-`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
-only ever fire for 429. `fetch_spotify_album_details_batch` has the same
+response, and `is_done=lambda t: t[2]` treats that `True` as terminal. When
+filed, a 500 or 503 therefore ended the attempt loop after one try, while
+`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it then. The
+retries only ever fired for 429; a 5xx is retried now (see the resolution
+below). `fetch_spotify_album_details_batch` has the same
 shape in the `fetch_once` inside it.
 
 The consequence is narrow: an album that _is_ on Spotify can be recorded as

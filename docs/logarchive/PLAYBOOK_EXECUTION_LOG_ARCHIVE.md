@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Doc and hygiene findings from the third review cleared
+
+Side task, no batch tag: the doc and hygiene findings, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Code: `cli._snapshot` (the staleness baseline of `--close-batch`) raises `SyncError` on an unreadable file, like `_read_text`, instead of a bare `OSError` traceback. The orphaned gh-aw lock file `.github/aw/actions-lock.json` and its `.gitattributes` line are deleted. Comments only: "for every miss" in the `orchestrator/__init__.py` docstring, and two over-long comment blocks in `tests/test_pipeline_integration.py` rewrapped.
+
+Docs: how an album gets its release date is explained once, in `docs/architecture/runtime-system.md` (it now also holds the old "displayed release year" bullet and names `process_albums` and `_persist_new_metadata`); `_build_results` links to it; the README keeps its own plain summary (owner rule: no pointers in the README). `docs/design/RECONCILIATION.md` still retells the release-date rationale; it is a dated design record, seen and left. The release-scope table is written once, in `domain.release_window`'s docstring, which names the wording sites and says its list is not exhaustive; `_get_user_friendly_reason` and `_get_filter_description` say "wording only" and link to it. The finished plan `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md` (about line 27) says a commit on another branch is refused by the worktree guard; it was seen and left as point-in-time. The ignored local `CLAUDE.md` of the batch worktree was corrected (the guard reports WT003 but the hook is advisory); it is not in the commit.
+
+Bookkeeping: the log archive's heading date is corrected to 2026-09-29 (no DOC025); F-B23-33's problem statement is one sentence; F-B23-29 is closed and its leftovers are F-B23-38; F-B23-39 records the gate's intermittent failures.
+
+New test: `test_snapshot_raises_sync_error_for_an_unreadable_file` (in `TestPublicationSafety`); no existing test was edited or moved.
+
+Validation: `pytest -q` -- **2424 passed**.
+
 ### 2026-09-30 - Small frontend findings from the third review cleared
 
 Side task, no batch tag: small frontend findings F-B23-27, F-B23-28 and the frontend part of F-B23-29, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

@@ -481,9 +481,10 @@ Status: open (P2), Deezer only. Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
 `scrobblescope/routes/api.py` (`unmatched_data`, `progress`) and
 `scrobblescope/routes/heatmap_flow.py` (`heatmap_data`) accept `job_id` from
-a query parameter and look it up in the process-local `JOBS` dict with no
-check that the requesting session originated that job. `create_job`
-(`scrobblescope/repositories.py:41`) generates `job_id = uuid4().hex` -- a
+a query parameter and look it up in the process-local `MemoryJobStore` (through `jobs.progress`,
+`jobs.unmatched` and `jobs.context`) with no
+check that the requesting session originated that job. `jobs.create`
+(`scrobblescope/jobs.py`) generates `job_id = uuid4().hex` -- a
 128-bit unguessable value -- so the design already relies on the ID itself as
 a bearer/capability token rather than session-bound ownership. This is
 consistent across every job-polling endpoint, not a WP-0 regression: the
@@ -809,7 +810,7 @@ The last error is Windows running short of socket buffers (WSAENOBUFS): the mach
 
 ### F-B23-41: result-table and unmatched-row links are under the 44px touch minimum, and the gate measures no populated row
 
-On a populated Results or Unmatched page the rank pill, the album title and the provider badge are inline links shorter than 44px, and there is no `any-pointer: coarse` rule for them (`static/css/results.css` `.rank-link` and `.provider-badge`, `static/css/unmatched.css` near line 373). The frontend gate measures touch targets only on the empty and loading states (`scripts/dev/_frontend_gate_unmatched.py` near lines 826 and 970, `scripts/dev/_frontend_gate_shared.py` near line 27), so no check fails. Fix: a coarse-pointer block that gives those links a 44px target, plus a gate measurement on a populated page; or an owner ruling in `docs/agents/ui-accessibility.md` rule 2 that exempts inline links in a table. The new partial-run link on Results already carries the focus ring and the 44px size.
+On a populated Results or Unmatched page the rank pill, the album title and the provider badge are inline links shorter than 44px, and there is no `any-pointer: coarse` rule for them (`static/css/results.css` `.rank-link` and `.provider-badge`, `static/css/unmatched.css` near line 373). The frontend gate measures touch targets only on the empty and loading states (`scripts/dev/_frontend_gate_unmatched.py` near lines 826 and 970, `scripts/dev/_frontend_gate_shared.py` near line 27), so no check fails. Fix: a coarse-pointer block that gives those links a 44px target, plus a gate measurement on a populated page; or an owner ruling in `docs/agents/ui-accessibility.md` rule 2 that exempts inline links in a table. The new partial-run link on Results carries the focus ring and the 44px size in CSS (`.results-partial-notice__link`), but only a CSS-text test asserts that; the gate measures no such link, so the same gate measurement should cover it.
 
 - [ ] **Status:** open (P2). Source: review 4 of PR #245 (frontend), R4-frontend-1.
 
@@ -827,7 +828,7 @@ On a populated Results or Unmatched page the rank pill, the album title and the 
 `docs/architecture/documentation-tooling.md`,
 `docs/architecture/top-albums-sequence.md` and
 `docs/architecture/heatmap-sequence.md`. Their nodes name real modules and
-functions -- `orchestrator.py`, `create_job()`, `cleanup_expired_jobs()` -- so
+functions -- `orchestrator/__init__.py`, `jobs.create()`, `jobs.expire_stale()` -- so
 each diagram states facts about the code. Nothing verifies them: no pre-commit
 hook, no CI step, no test. Every symbol resolves today, verified 2026-09-13, so
 this is drift prevention rather than a repair.
@@ -1015,9 +1016,9 @@ line of a long TOML file is the cost. Renaming the inner target to
 Status: open (P2). No behaviour change; the current message is correct.
 Source: Task 7 fix round 1, 2026-09-11, from that task's implementer report.
 
-### F-MAS-5: in-memory JOBS dict limits horizontal scaling
+### F-MAS-5: in-memory job store limits horizontal scaling
 
-Process-local dict breaks polling under multiple workers/machines;
+The process-local `MemoryJobStore` (`scrobblescope/jobs.py`) breaks polling under multiple workers/machines;
 migration path is Redis or a Postgres-backed job table.
 Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
@@ -1176,7 +1177,7 @@ One-line cross-references; detailed bodies live in pre-Batch-20
 audits; 2026-03-04 load-test data is in the findings archive.
 
 - F-B18-1: orchestrator monolith -- promoted to F-B20-2, resolved 2026-09-21.
-- F-B18-2: JOBS dict lacks TypedDict/dataclass annotations.
+- F-B18-2: the job records `MemoryJobStore` holds (`scrobblescope/jobs.py`) are plain dicts, with no TypedDict/dataclass annotations.
 - F-B18-3: `loading.js` album messaging; extract shared polling utility
   if a third feature emerges.
 - F-B18-4: `_check_user_exists` creates a throwaway event loop per call.

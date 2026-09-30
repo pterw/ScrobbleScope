@@ -13,7 +13,7 @@ Last updated: 2026-09-30
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 23 status | **Active**. WP-0 is next. Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
+| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -84,18 +84,22 @@ scrobblescope/
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
     api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
-templates/                  # base, index, loading, results, unmatched, error
+templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
-  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
+  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
-  css/                      # global, index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (11 files)
-  js/                       # theme, page_motion, index, loading, loading-progress, results, results-spotlight, unmatched, heatmap
+  css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
+  js/                       # theme, page_motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     dev_start.py            # Postgres container check plus Flask launch
     tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
+    docsync_preflight.py    # docsync check run against the staged tree (or the checkout) before a commit
+    install_docsync_hook.py # inspects and, on request, installs the docsync preflight hook
+    graphify_refresh.py     # refreshes the local graphify graph when enough work has accumulated
+    results_behavior_tests.py # Chromium behaviour tests for the Results page
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
     _frontend_gate_assets.py # stylesheet isolation
     _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
@@ -198,6 +202,10 @@ dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_workt
 dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_essentials, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
+dev/docsync_preflight.py <- dev/_worktree_guard_venv
+dev/install_docsync_hook.py <- dev/_worktree_guard_venv
+dev/graphify_refresh.py <- (leaf; standard library only)
+dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- (leaf; standard library only)

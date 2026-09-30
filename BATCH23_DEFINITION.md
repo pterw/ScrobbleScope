@@ -424,7 +424,7 @@ and the orchestrator never knows about zips.
 
 - [ ] `export_album_task` parses in `asyncio.to_thread`, closes the buffer,
   then runs the existing threshold partition, stats, unmatched records and
-  `_process_filtered_albums`, mapping `ExportError` to `set_job_error`.
+  `_process_filtered_albums`, mapping `ExportError` to a classified code through `jobs.fail`.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
 - [ ] A `BoundedSemaphore(2)` limits concurrent parses. Whole-process memory

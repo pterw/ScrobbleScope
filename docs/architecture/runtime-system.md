@@ -161,6 +161,7 @@ included, lives in SESSION_CONTEXT Section 4.
 `jobs.py` is the one owner of a job's life. Its interface is the lifecycle:
 `create`, `delete` (a job whose thread never started), `start`, `advance` and `report_phase` (a counted step inside a phase
 band, so the percent arithmetic lives once), `record_stat`,
+`record_partial_source` (which kind of degradation made a run partial),
 `record_unmatched`, `succeed` (results and the 100% in one write), `fail` (a
 code from `errors.ERROR_CODES`, results forced to `[]`), `reset`,
 `update_result` (the correction worker), the reads `progress`, `context` and
