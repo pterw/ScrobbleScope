@@ -110,6 +110,9 @@ function showFailure(message, source) {
   progressBar?.classList.add('is-error');
   errorContainer?.classList.remove('hidden');
   if (errorText) errorText.textContent = message;
+  // The alert below announces the failure; leaving it in the polite phase line
+  // too would read it out twice.
+  if (stepText) stepText.textContent = '';
 
   if (errorSource) {
     // A fault that is ours ('internal') is not blamed on an upstream.

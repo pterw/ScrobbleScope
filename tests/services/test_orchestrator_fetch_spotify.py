@@ -737,6 +737,7 @@ async def test_deezer_throttling_degrades_and_records_the_album_as_unavailable()
     progress = jobs.progress(job_id)
     assert progress["error"] is False
     assert "Deezer" in progress["stats"]["partial_data_warning"]
+    assert progress["stats"]["partial_data_sources"] == ["provider"]
 
 
 def _plain_album(name):
@@ -834,6 +835,7 @@ async def test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_un
     assert [v["reason_code"] for v in unmatched.values()] == ["provider_unavailable"]
     assert next(iter(unmatched.values()))["artist"] == "Lost"
     assert "Spotify" in jobs.progress(job_id)["stats"]["partial_data_warning"]
+    assert jobs.progress(job_id)["stats"]["partial_data_sources"] == ["provider"]
 
 
 @pytest.mark.asyncio
@@ -1085,6 +1087,7 @@ async def test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no
     assert row["reason_code"] == "provider_unavailable"
     assert row["reason"].startswith("Spotify matched it but could not load")
     assert "Spotify" in jobs.progress(job_id)["stats"]["partial_data_warning"]
+    assert jobs.progress(job_id)["stats"]["partial_data_sources"] == ["provider"]
 
 
 async def _run_process_with_spotify_details(
@@ -1495,7 +1498,10 @@ async def test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searche
     misses = {(f"a{n}", "album"): _plain_album(f"a{n}") for n in range(20)}
     job_id = jobs.create(TEST_JOB_PARAMS)
 
+    deezer_asked = []
+
     async def deezer_search(session, artist, album):
+        deezer_asked.append(artist)
         return None
 
     with (
@@ -1529,6 +1535,9 @@ async def test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searche
     codes = {v["reason_code"] for v in jobs.unmatched(job_id).values()}
     assert codes == {"provider_unavailable"}
     assert len(jobs.unmatched(job_id)) == 20
+    # The tripped breaker skips Spotify only: every album still went to Deezer.
+    assert sorted(deezer_asked) == sorted(f"a{n}" for n in range(20))
+    assert jobs.progress(job_id)["stats"]["partial_data_sources"] == ["provider"]
 
 
 @pytest.mark.asyncio

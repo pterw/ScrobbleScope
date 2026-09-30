@@ -292,3 +292,51 @@ def test_arrow_key_target_mobile(js_page, key, index, expected):
 @pytest.mark.parametrize("key", ["Home", "End", "Enter", "a", "toString"])
 def test_arrow_key_target_ignores_other_keys(js_page, key):
     assert _arrow_target(js_page, key, 8, DESKTOP_COUNT, DESKTOP_GRID) is None
+
+
+# --- the album loading page announces a failed run once (review 4, frontend 2) ---
+
+LOADING_PROGRESS_JS = HEATMAP_JS.parent / "loading-progress.js"
+LOADING_JS = HEATMAP_JS.parent / "loading.js"
+
+
+def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
+    """
+    GIVEN the album loading page markup and a /progress answer that carries a
+          failure message (a retryable one, so no redirect is scheduled)
+    WHEN loading.js polls and renders it
+    THEN the message sits in the role="alert" block and the polite phase line
+         is empty, so a screen reader hears it once, not twice
+    """
+    page = js_browser.new_page()
+    try:
+        page.set_content(
+            """<!doctype html><html><body>
+            <div id="progress-track"><div id="progress-bar"></div></div>
+            <p id="step-text" role="status" aria-live="polite"></p>
+            <p id="step-details"></p>
+            <div id="error-container" role="alert" class="hidden">
+              <p id="error-text"></p></div>
+            <p id="error-source" class="hidden"></p>
+            <button id="retry-button" class="hidden"></button>
+            </body></html>"""
+        )
+        page.evaluate(
+            """() => {
+              window.SCROBBLE = {job_id: 'abc'};
+              window.fetch = () => Promise.resolve({json: () => Promise.resolve({
+                error: true, retryable: true, progress: 40,
+                message: 'Spotify is not answering.'})});
+            }"""
+        )
+        page.add_script_tag(path=str(LOADING_PROGRESS_JS))
+        page.add_script_tag(path=str(LOADING_JS))
+        page.wait_for_function(
+            "() => document.getElementById('error-text').textContent !== ''"
+        )
+        alert_text = page.locator("#error-text").text_content()
+        phase_text = page.locator("#step-text").text_content()
+    finally:
+        page.close()
+    assert alert_text == "Spotify is not answering."
+    assert phase_text == ""

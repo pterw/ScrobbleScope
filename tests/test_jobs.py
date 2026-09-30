@@ -712,3 +712,14 @@ def test_exists_is_true_for_a_live_job_and_false_for_a_gone_one():
     assert jobs.exists("nonexistent_job_id") is False
     jobs.delete(job_id)
     assert jobs.exists(job_id) is False
+
+
+def test_record_partial_source_keeps_each_kind_once_in_order():
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    jobs.record_partial_source(job_id, "lastfm")
+    jobs.record_partial_source(job_id, "provider")
+    jobs.record_partial_source(job_id, "lastfm")
+
+    stats = jobs.progress(job_id)["stats"]
+    assert stats["partial_data_sources"] == ["lastfm", "provider"]

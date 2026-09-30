@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return state.pointerInside || view.card.contains(document.activeElement);
     }
 
-    /** Track the pointer over the card, for `cardInUse` (S2-2). A card first
+    /** Track the pointer over the card, for `cardInUse`. A card first
      *  shown under a still pointer needs no seeding: Chromium (the only engine the
      *  behaviour tests drive) hit-tests the pointer after the layout change and
      *  fires `pointerenter` itself. */
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /** Hold the card at the height of its tallest candidate, so the sticky
-     *  rail below it never moves when the rotation swaps candidates (S2-10).
+     *  rail below it never moves when the rotation swaps candidates.
      *  Each candidate is rendered once and the card's own rendered height is
      *  read back -- no line-count arithmetic -- and all of it happens in one
      *  synchronous pass, so nothing but the current candidate is ever
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = view.card;
         // A focused link must never be hidden or retargeted, even for the
         // instant of a measurement: leave the link alone while focus is in
-        // the card (S2-2).
+        // the card.
         const keepLink = card.contains(document.activeElement);
         card.style.minHeight = '';
         let tallest = 0;

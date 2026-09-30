@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2462 tests across 83 tracked test modules.
+2487 tests across 83 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -795,6 +795,8 @@ Each failure below passed on an immediate re-run of the same tree, and none was 
 
 - `heatmap cells keyboard access [mobile]` again at dce6f148, after the inferred fix and with no other browser run on the machine, and on the re-run `unmatched report [desktop]` raised `Page.goto: net::ERR_NO_BUFFER_SPACE`.
 
+- `validator network failure` ("expected the first validation, held 0") has a named cause (R4-tests-gates-1, review 4 of PR #245): the forms gate counted validator requests after a fixed 400 ms sleep against the page's 300 ms debounce, so a loaded machine that ran the debounce late read a count of zero. The gate now polls for the requests (bounded), which Task 31 fixed; a probe with the debounce raised to 1200 ms failed the old module three times and passes the new one. The other flakes above have other causes. The gate also prints the app subresources that failed to load beside any FAIL, so the next flake names its cause.
+
 The last error is Windows running short of socket buffers (WSAENOBUFS): the machine was under heavy load (a busy desktop browser and about 1,600 loopback sockets in TIME_WAIT; no gate browser had leaked). A stylesheet that fails to load under that pressure would explain the transparent fill and the unpainted ring. Not proven; no fix in this PR. Next step: run the gate on an idle machine or in CI several times and compare.
 
 - [ ] **Status:** open (P3). Source: gate runs of the third-review fix session (2026-09-29 to 2026-09-30).
@@ -804,6 +806,18 @@ The last error is Windows running short of socket buffers (WSAENOBUFS): the mach
 `lastfm.py` ("Profile of %s is private", "User %s not found"), `orchestrator/__init__.py` (`_fetch_and_process` and `_report_album_failure`), `heatmap.py` ("Heatmap ready for %s: %s scrobbles" and `_report_heatmap_failure`), `routes/heatmap_flow.py` and `routes/album_flow.py` write the Last.fm username into ERROR, WARNING and INFO lines, and the heatmap line pairs it with the listener's scrobble total. `log_failure`'s docstring and BATCH23's Data handling section say listener-linked facts stay out of logs. Ask the owner whether a public Last.fm handle counts; if it does, log the job id instead. The scrobble-total line is the clearer one to drop first, before the export path shares this code.
 
 - [ ] **Status:** open (P3). Source: review 4 of PR #245 (backend), R4-backend-9.
+
+### F-B23-41: result-table and unmatched-row links are under the 44px touch minimum, and the gate measures no populated row
+
+On a populated Results or Unmatched page the rank pill, the album title and the provider badge are inline links shorter than 44px, and there is no `any-pointer: coarse` rule for them (`static/css/results.css` `.rank-link` and `.provider-badge`, `static/css/unmatched.css` near line 373). The frontend gate measures touch targets only on the empty and loading states (`scripts/dev/_frontend_gate_unmatched.py` near lines 826 and 970, `scripts/dev/_frontend_gate_shared.py` near line 27), so no check fails. Fix: a coarse-pointer block that gives those links a 44px target, plus a gate measurement on a populated page; or an owner ruling in `docs/agents/ui-accessibility.md` rule 2 that exempts inline links in a table. The new partial-run link on Results already carries the focus ring and the 44px size.
+
+- [ ] **Status:** open (P2). Source: review 4 of PR #245 (frontend), R4-frontend-1.
+
+### F-B23-42: the Results spotlight rotates on a timer with no pause control for touch or keyboard readers
+
+`static/js/results-spotlight.js` advances the featured artist every 7000 ms (`setInterval`). Hover and focus pause it, but a touch reader has no hover and a keyboard reader has to focus the panel to stop it; there is no visible pause button (WCAG 2.2.2, Pause, Stop, Hide). The owner has not ruled. Options: add a pause/play button, stop rotating after one cycle, or rotate only on an explicit control.
+
+- [ ] **Status:** open (P3). Source: review 4 of PR #245 (frontend), R4-frontend-5.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

@@ -280,6 +280,25 @@ def record_stat(job_id, key, value):
     return _write(job_id, apply)
 
 
+def record_partial_source(job_id, source):
+    """Note which kind of degradation made a run partial.
+
+    ``source`` is ``"lastfm"`` (pages dropped) or ``"provider"`` (Spotify or
+    Deezer could not answer). Kept beside the ``partial_data_warning`` text
+    so the Results page reads the kind, not the wording. Recording the same
+    source twice keeps one entry.
+    """
+
+    def apply(record):
+        stats = record["progress"].setdefault("stats", {})
+        sources = list(stats.get("partial_data_sources", []))
+        if source not in sources:
+            sources.append(source)
+        stats["partial_data_sources"] = sources
+
+    return _write(job_id, apply)
+
+
 def record_unmatched(job_id, unmatched_key, payload):
     """Record an unmatched album entry, keyed by normalized name."""
 

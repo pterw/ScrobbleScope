@@ -49,3 +49,52 @@ def test_collecting_handlers_do_not_share_a_sink() -> None:
     _frontend_gate_forms._collecting_handler(first)("a")
     _frontend_gate_forms._collecting_handler(second)("b")
     assert (first, second) == (["a"], ["b"])
+
+
+class _ClockPage:
+    """A page stand-in whose only clock is the sum of its waits (milliseconds)."""
+
+    def __init__(self, sink: list, arrives_at_ms: int | None) -> None:
+        self.sink = sink
+        self.arrives_at_ms = arrives_at_ms
+        self.now = 0
+
+    def wait_for_timeout(self, ms: int) -> None:
+        self.now += ms
+        if self.arrives_at_ms is not None and self.now >= self.arrives_at_ms:
+            self.sink.append("route")
+            self.arrives_at_ms = None
+
+
+def test_wait_for_held_outlasts_a_slow_debounce_the_old_400ms_sleep_missed() -> None:
+    # A request landing at 1.2 s (a loaded machine) used to be counted as
+    # "held 0" after a fixed 400 ms sleep.
+    sink: list = []
+    page = _ClockPage(sink, arrives_at_ms=1200)
+
+    _frontend_gate_forms._wait_for_held(page, sink, 1)
+
+    assert sink == ["route"]
+
+
+def test_wait_for_held_gives_up_at_its_bound_when_nothing_arrives() -> None:
+    sink: list = []
+    page = _ClockPage(sink, arrives_at_ms=None)
+
+    _frontend_gate_forms._wait_for_held(page, sink, 1)
+
+    assert sink == []
+    assert page.now == (
+        _frontend_gate_forms.REQUEST_WAIT_MS + _frontend_gate_forms.NOTHING_MORE_MS
+    )
+
+
+def test_wait_for_held_settles_so_a_surplus_request_is_counted() -> None:
+    # The check compares the exact count, so a second request arriving just
+    # after the first must still be in the sink when the wait returns.
+    sink: list = ["route"]
+    page = _ClockPage(sink, arrives_at_ms=100)
+
+    _frontend_gate_forms._wait_for_held(page, sink, 1)
+
+    assert sink == ["route", "route"]

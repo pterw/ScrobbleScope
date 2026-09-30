@@ -179,12 +179,15 @@ async def _run_deezer_fallback_phase(
         await cancel_and_drain(tasks)
 
     existing = jobs.progress(job_id) or {}
-    if unchecked and not existing.get("stats", {}).get("partial_data_warning"):
-        jobs.record_stat(
-            job_id,
-            "partial_data_warning",
-            "Deezer could not be reached for some albums, so they were not checked there.",
-        )
+    if unchecked:
+        if not existing.get("stats", {}).get("partial_data_warning"):
+            jobs.record_stat(
+                job_id,
+                "partial_data_warning",
+                "Deezer could not be reached for some albums, so they were not "
+                "checked there.",
+            )
+        jobs.record_partial_source(job_id, "provider")
 
     fallback_duration = time.time() - fallback_start_time
     logging.info(

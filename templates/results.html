@@ -63,6 +63,16 @@
         {% endfor %}
         {% set has_durations = ns.has %}
     {% endif %}
+    {# A degraded run says so where the ranking is read (partial_data_warning).
+       Rendered with the page, above the table, so nothing moves later. #}
+    {% if partial_notice %}
+    <p class="results-partial-notice" id="results-partial-notice" role="status">
+        {{ partial_notice }}
+        {% if partial_notice_links_unmatched %}
+        <a href="{{ url_for('main.unmatched_page') }}" class="results-partial-notice__link">See the albums that could not be checked</a>
+        {% endif %}
+    </p>
+    {% endif %}
     <!-- StatBlock Mini-Table (one row at every width; numerals sized below
         the page header so the hierarchy stays with the h1) -->
     <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">

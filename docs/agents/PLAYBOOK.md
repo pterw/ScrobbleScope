@@ -131,6 +131,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - Partial runs disclosed on Results; forms gate waits for requests
+
+Side task, no batch tag: partial runs disclosed on Results and a forms gate that waits for requests, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Results: a run degraded by dropped Last.fm pages or a Spotify/Deezer outage says so in one `role="status"` line above the stat block and table. The orchestrator now records the kind as data beside the sentence (`jobs.record_partial_source`, stat `partial_data_sources`, values `lastfm` and `provider`), and `_partial_run_notice` in `routes/album_flow.py` reads that, never the wording. Last.fm's own sentence is shown as written; the provider case is reworded for the results page. The link to Unmatched appears only when an album is filed as `provider_unavailable` ("could not be checked"), not for any unmatched album. The link has the focus ring and, under `any-pointer: coarse`, a 44px height. The loading page's `#partial-warning` is `role="status"`.
+
+Announcements: `.wait-panel__error` (shared by both loading pages) is `role="alert"`, chosen over keeping the text in a live region because the heatmap page clears its phase line on error. On the album loading page `showFailure` also empties the polite phase line, so a failure is read out once.
+
+Forms gate: the sleep-then-count waits are a bounded poll on the request count (`_wait_for_held`: 5 s bound, 150 ms settle so a surplus request is still caught), and the 503 check and the network-failure check wait, bounded, for the page's message instead of a fixed 100 ms. The remaining 100 ms wait is a negative proof (the verdict must not change). `record_load_faults` in `frontend_gate.py` prints app stylesheets, scripts and fonts that failed to load beside any FAIL (advisory; it never changes pass or fail). Live probes: with the debounce raised to 1200 ms the old module failed three checks and the new one none; with the message written 600 ms late the check passes, and with the wait removed it fails.
+
+Smaller: both privacy route tests assert the real message; the CI no-secrets guard reads the whole workflow; comments that cited review ids or described the spotlight wrongly say the reason in words. `routes/album_flow.py` now imports `unmatched` (SESSION_CONTEXT dependency graph updated). The Task 30 breaker test also asserts that every album still went to Deezer after the breaker tripped.
+
+Bookkeeping: F-B23-41 (row links under 44px, the gate measures no populated row) and F-B23-42 (spotlight rotation has no pause control for touch or keyboard readers) are filed; F-B23-39 names the forms gate's sleep against the 300 ms debounce as the cause of its "held 0" flake.
+
+Edited existing tests: `test_results_loading_private_profile_does_not_start_a_job`, `test_results_loading_existing_private_user_is_refused_after_the_exists_check`, `test_test_job_env_passes_no_secret`, `test_deezer_throttling_degrades_and_records_the_album_as_unavailable`, `test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable`, `test_a_spotify_detail_outage_for_a_matched_album_is_unavailable_not_no_match`, `test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searches` and `test_process_albums_partial_cache_token_failure_uses_cached_results` (each also asserts the recorded kind, the breaker test also that Deezer was asked for every album).
+
+Validation: `pytest -q` -- **2487 passed**.
+
 ### 2026-09-30 - Provider refusals read as outages; an all-miss run finishes
 
 Side task, no batch tag: provider refusals read as outages and an all-miss run finishing, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -174,17 +192,3 @@ Bookkeeping: the log archive's heading date is corrected to 2026-09-29 (no DOC02
 New test: `test_snapshot_raises_sync_error_for_an_unreadable_file` (in `TestPublicationSafety`); no existing test was edited or moved.
 
 Validation: `pytest -q` -- **2424 passed**.
-
-### 2026-09-30 - Small frontend findings from the third review cleared
-
-Side task, no batch tag: small frontend findings F-B23-27, F-B23-28 and the frontend part of F-B23-29, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Layout: long artist credits shrink inside their Results cell (`.album-info { min-width: 0 }`); the below-threshold figures wrap below 768px instead of clipping "1234 plays"; four unmatched panels stack in two columns, the release-scope panel spanning the right column and the first, third and fourth panels down the left (a new gate check, `four_panel_stack_failures`, holds the stacking; screenshots at 1280px and 1920px checked).
-
-Behaviour: Escape closes hover and tap heatmap tooltips, and the keyboard tooltip follows a scroll at once (no animation-frame lag); a reduced-motion or single-candidate spotlight card reserves no height, and a rotating one measures without a link it does not own; `pointerenter` needed no seed (Chromium fires it after a layout change; the test says Chromium only, as the behaviour runner drives no other engine). Markup and style: axis labels are `aria-hidden`; one 12px `.provider-badge` rule in the narrow face (gate judge `provider_badge_failures`); `default('', true)` on two data attributes; results.js block-level functions are `const` arrows; dead `content` lookup, `img` reset, per-call `reducedMotion` read and `formatDurationMobile` removed; unresolvable comments rewritten.
-
-Tests: three gate tests that launch Chromium (`test_the_layout_check_keeps_the_rotation_going_and_sees_every_width`, `test_the_hold_check_focuses_then_hovers_and_counts_the_periods`, `test_the_opacity_sampler_records_the_artist_and_runs_across_rotation_periods`) were unmarked and would have failed CI's `-m "not browser"` coverage step; they carry `@pytest.mark.browser` (with Playwright made to raise, `-m "not browser"` ran 3 failures before and none after). The stale "43 tests" comment in `test.yml` holds no number now.
-
-Edited existing tests: `test_unmatched_view_renders_artwork_in_every_reason_group` (fourth reason, order pinned); `test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration` and the `spotlight()` helper in `results_behavior_tests.py`; `test_the_layout_probe_reads_words_by_the_lines_their_characters_sit_on` (deleted, replaced by a Chromium test of the probe); the `keepRotating` text assertions in three spotlight-photo gate tests (now run the mock in Chromium); `test_a_badge_with_no_narrow_token_to_compare_fails` (pins the message). The gate's `check_unmatched_report` seed carries four digits of plays and its threshold expectation changed with it.
-
-Validation: `pytest -q` -- **2423 passed**.

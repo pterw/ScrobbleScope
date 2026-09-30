@@ -293,7 +293,7 @@
    a link when the row has a URL, plain text when it has none. A small label,
    so it takes the narrow mono face at the 12px floor recorded in
    docs/design/RECONCILIATION.md section 1; it shipped at 10px in the wide
-   face (S2-21). Muted by default, accent on hover, like the correction note
+   face. Muted by default, accent on hover, like the correction note
    below. One rule serves the results and unmatched tables. */
 .provider-badge {
     display: inline-flex;
@@ -462,7 +462,8 @@ a.provider-badge:hover {
     text-decoration: none;
 }
 
-/* Artist Spotlight card: a square, uncropped photo beside its details.
+/* Artist Spotlight card: a square, uncropped photo, beside its details when
+   the card is wide enough and above them when it is not (see the wrap below).
    No scrim, no overlay -- the photo is never drawn under anything else
    (F-B21-60). Padding matches the sibling rail cards' own utility classes
    (p-4 md:p-[calc(1.25rem*var(--results-scale))]), not a bespoke value. */
@@ -477,7 +478,7 @@ a.provider-badge:hover {
        the artist name a column of its own beside it (`.spotlight-details`'s
        flex-basis is that column). Wrapping is decided by the card's own
        width, so no viewport breakpoint has to guess the side rail's width
-       and every measurement scales with --results-scale (S2-1). */
+       and every measurement scales with --results-scale. */
     flex-wrap: wrap;
     align-items: flex-start;
     gap: calc(0.75rem * var(--results-scale));
@@ -485,7 +486,8 @@ a.provider-badge:hover {
 
 .spotlight-image-box {
     position: relative;
-    /* Beside the text at every width (never full rail width on mobile),
+    /* Beside the details when the card is wide enough, else above them
+       (`.spotlight-card-content` wraps); never full rail width on mobile,
        roughly 112px -- proportionate to the card, between the results-table
        thumbnail (3rem/3.5rem, from the row template) and this card's own size from 768px up
        (9rem, set in the 768px rule below). The corner is a separate step:
@@ -522,7 +524,7 @@ a.provider-badge:hover {
        narrower card wraps the details under the photo, at the card's full
        width. The card's height is not reserved here: results-spotlight.js
        measures the tallest candidate's rendered card and holds that as the
-       card's min-height, so no line-count guess can be wrong (S2-10). */
+       card's min-height, so no line-count guess can be wrong. */
     flex: 1 1 calc(11rem * var(--results-scale));
     min-width: 0;
 }
@@ -629,6 +631,35 @@ a.provider-badge:hover {
     padding: 12px 0;
     border-bottom: 0;
     margin-bottom: calc(0.5rem * var(--results-scale));
+}
+
+/* Partial-run notice: one plain line above the stat block when Last.fm dropped
+   pages or a provider could not answer for some albums. Quiet, not an alert. */
+.results-partial-notice {
+    margin: 0 0 calc(1rem * var(--results-scale));
+    padding: calc(0.5rem * var(--results-scale)) calc(0.75rem * var(--results-scale));
+    border-left: 3px solid var(--color-primary);
+    font-size: calc(0.875rem * var(--results-scale));
+    color: var(--ss-text-body);
+}
+
+.results-partial-notice__link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.results-partial-notice__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+@media (any-pointer: coarse) {
+    .results-partial-notice__link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
 }
 
 /* Micro-data filter bar: tucked left, text in mono-narrow, no bold, no pills */

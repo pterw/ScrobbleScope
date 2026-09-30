@@ -1,7 +1,9 @@
 # tests/test_routes.py
 import hashlib
+import html
 import json
 import re
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +12,7 @@ from scrobblescope import jobs
 from scrobblescope.domain import normalize_name
 from scrobblescope.orchestrator import background_task
 from scrobblescope.routes import (
+    _PRIVATE_PROFILE_MESSAGE,
     _filter_results_for_display,
     _get_filter_description,
     _group_unmatched_by_reason,
@@ -429,7 +432,7 @@ def test_results_loading_private_profile_does_not_start_a_job(client):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
 
     assert response.status_code == 200
-    assert b"private" in response.data.lower()
+    assert html.escape(_PRIVATE_PROFILE_MESSAGE) in response.data.decode("utf-8")
     mock_start.assert_not_called()
 
 
@@ -2721,7 +2724,9 @@ def test_results_loading_existing_private_user_is_refused_after_the_exists_check
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
 
-    assert b"private" in response.data.lower()
+    page = response.data.decode("utf-8")
+    assert html.escape(_PRIVATE_PROFILE_MESSAGE) in page
+    assert "was not found on Last.fm" not in page
     mock_privacy.assert_called_once_with("flounder14")
     mock_start.assert_not_called()
 
@@ -2838,3 +2843,215 @@ def test_results_loading_registration_check_failure_logs_no_message(client, capl
     assert "Registration year check failed for flounder14" in text
     assert "RuntimeError" in text
     assert "Zqxv" not in text
+
+
+# --- Partial runs are disclosed on Results (review 4, frontend 3) ---
+
+
+def _partial_run_page(client, warning, sources=(), unmatched_codes=()):
+    """Render Results for a finished job that recorded a degrade `warning`.
+
+    `sources` are the kinds the orchestrator records beside the sentence
+    ("lastfm", "provider"); `unmatched_codes` are the reason codes of the
+    unmatched albums the job holds.
+    """
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+    jobs.succeed(job_id, [_provider_row("spotify")], "Done!")
+    if warning:
+        jobs.record_stat(job_id, "partial_data_warning", warning)
+    for source in sources:
+        jobs.record_partial_source(job_id, source)
+    for n, code in enumerate(unmatched_codes):
+        jobs.record_unmatched(
+            job_id,
+            f"gone{n}|album",
+            {
+                "artist": "Gone",
+                "album": f"Album {n}",
+                "reason": "prose the page does not read",
+                "reason_code": code,
+                "play_count": 12,
+            },
+        )
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _partial_notice_tag(page):
+    match = re.search(
+        r'<p class="results-partial-notice"[^>]*id="results-partial-notice"[^>]*>'
+        r"(.*?)</p>",
+        page,
+        re.S,
+    )
+    return match
+
+
+def test_results_says_a_provider_outage_made_the_run_partial_and_links_the_albums(
+    client,
+):
+    """
+    GIVEN a finished job that recorded a provider degrade and holds an album
+          that could not be checked
+    WHEN Results renders
+    THEN one role="status" line above the table says the ranking may be
+         incomplete and links to the Unmatched page
+    """
+    page = _partial_run_page(
+        client,
+        "Spotify is temporarily unavailable for some albums; "
+        "checking Deezer for their details.",
+        sources=["provider"],
+        unmatched_codes=["provider_unavailable"],
+    )
+    match = _partial_notice_tag(page)
+    assert match, "no partial-run notice on the Results page"
+    assert 'role="status"' in match.group(0)
+    assert "could not answer for some albums" in match.group(1)
+    assert 'href="/unmatched"' in match.group(1)
+    assert page.index("results-partial-notice") < page.index("results-table-wrapper")
+
+
+def test_results_says_when_lastfm_dropped_pages_and_does_not_offer_the_unmatched_link(
+    client,
+):
+    """
+    GIVEN a finished job that lost Last.fm pages
+    WHEN Results renders
+    THEN the line carries the page-loss sentence itself and no link, since no
+         album was left unchecked by it
+    """
+    warning = (
+        "Note: 3 of 10 Last.fm pages failed to load (30% data loss). "
+        "Results may be incomplete."
+    )
+    match = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            warning,
+            sources=["lastfm"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert match
+    assert "3 of 10 Last.fm pages failed to load" in match.group(1)
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_follows_the_recorded_kind_not_the_sentence(client):
+    """
+    GIVEN warnings whose wording is not the orchestrator's today, one recorded
+          as Last.fm page loss and one as a provider outage
+    WHEN Results renders each
+    THEN the kind decides the copy and the link, so rewording the sentence in
+         the orchestrator cannot silently swap one for the other
+    """
+    lastfm = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            "Some scrobble pages did not come back.",
+            sources=["lastfm"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert lastfm
+    assert "Some scrobble pages did not come back." in lastfm.group(1)
+    assert "href=" not in lastfm.group(1)
+
+    provider = _partial_notice_tag(
+        _partial_run_page(
+            client,
+            "Deezer took a nap for Last.fm pages.",
+            sources=["provider"],
+            unmatched_codes=["provider_unavailable"],
+        )
+    )
+    assert provider
+    assert "could not answer for some albums" in provider.group(1)
+    assert 'href="/unmatched"' in provider.group(1)
+
+
+def test_results_of_a_complete_run_carries_no_partial_notice(client):
+    page = _partial_run_page(client, None)
+    assert 'id="results-partial-notice"' not in page
+
+
+def test_results_partial_notice_omits_the_link_when_nothing_is_unmatched(client):
+    page = _partial_run_page(
+        client, "Deezer could not be reached.", sources=["provider"]
+    )
+    match = _partial_notice_tag(page)
+    assert match
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_links_only_to_albums_that_could_not_be_checked(client):
+    """
+    GIVEN a provider degrade and an unmatched list holding only an album that
+          fell below the listening minimums (nothing was left unchecked)
+    WHEN Results renders
+    THEN the line says so but does not send the reader to an Unmatched page
+         that has no "Could not be checked" group
+    """
+    page = _partial_run_page(
+        client,
+        "Spotify is temporarily unavailable for some albums; "
+        "checking Deezer for their details.",
+        sources=["provider"],
+        unmatched_codes=["below_threshold", "no_spotify_match"],
+    )
+    match = _partial_notice_tag(page)
+    assert match
+    assert "could not answer for some albums" in match.group(1)
+    assert "href=" not in match.group(1)
+
+
+def test_results_partial_notice_and_link_have_a_focus_ring_and_touch_size():
+    """The Results link carries the page focus ring and a 44px coarse-pointer size."""
+    css = (Path(__file__).resolve().parents[1] / "static/css/results.css").read_text(
+        encoding="utf-8"
+    )
+    assert ".results-partial-notice__link:focus-visible" in css
+    coarse = re.search(
+        r"@media \(any-pointer: coarse\)\s*\{\s*\.results-partial-notice__link"
+        r"\s*\{([^}]*)\}",
+        css,
+    )
+    assert coarse, "no coarse-pointer rule for the partial-notice link"
+    assert "min-height: 44px" in coarse.group(1)
+
+
+def test_loading_partial_warning_is_announced_as_status(client):
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    page = client.get(f"/loading?job_id={job_id}").data.decode("utf-8")
+    assert re.search(r'<p[^>]*id="partial-warning"[^>]*role="status"', page)
+
+
+@pytest.mark.parametrize(
+    ("path", "container", "message"),
+    [
+        ("/", "heatmap-error", "heatmap-error-message"),
+        ("/loading?job_id={job_id}", "error-container", "error-text"),
+    ],
+)
+def test_wait_panel_error_is_an_alert_holding_the_message_element(
+    client, path, container, message
+):
+    """
+    GIVEN either page that includes the shared wait panel
+    WHEN it renders
+    THEN the error block is role="alert" and the element the scripts write the
+         failure text into sits inside it, so the text is announced when the
+         block is revealed
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    page = client.get(path.format(job_id=job_id)).data.decode("utf-8")
+    block = re.search(
+        rf'<div class="wait-panel__error[^"]*" id="{container}"([^>]*)>(.*?)</div>\s*</div>',
+        page,
+        re.S,
+    )
+    assert block, container
+    assert 'role="alert"' in block.group(1)
+    assert f'id="{message}"' in block.group(2)

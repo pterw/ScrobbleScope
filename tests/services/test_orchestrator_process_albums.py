@@ -544,6 +544,7 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
     assert results[0]["spotify_id"] == "abc123"
     assert "partial_data_warning" in progress["stats"]
     assert "Deezer" in progress["stats"]["partial_data_warning"]
+    assert progress["stats"]["partial_data_sources"] == ["provider"]
     assert progress["stats"]["db_cache_enabled"] is True
     mock_token.assert_awaited_once()
     mock_conn.close.assert_awaited_once()

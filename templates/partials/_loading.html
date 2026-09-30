@@ -48,7 +48,7 @@
 
   <p class="wait-panel__phase" id="{{ phase_id }}" role="status" aria-live="polite">Initializing...</p>
 
-  <div class="wait-panel__error hidden" id="{{ error_id }}">
+  <div class="wait-panel__error hidden" id="{{ error_id }}" role="alert">
     <p class="wait-panel__error-message" id="{{ error_message_id }}"></p>
     <div class="wait-panel__error-actions">
       <button type="button" class="ss-btn{% if retry_hidden %} hidden{% endif %}" id="{{ retry_id }}">Try again</button>

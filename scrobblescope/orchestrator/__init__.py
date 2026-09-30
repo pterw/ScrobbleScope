@@ -215,6 +215,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
             "partial_data_warning",
             "Spotify is temporarily unavailable; checking Deezer for album details.",
         )
+        jobs.record_partial_source(job_id, "provider")
     else:
         with spotify_job_breaker():
             async with create_optimized_session() as session:
@@ -234,6 +235,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                         "Spotify is temporarily unavailable for some albums; "
                         "checking Deezer for their details.",
                     )
+                    jobs.record_partial_source(job_id, "provider")
                 valid_spotify_ids = list(spotify_id_to_original_data.keys())
                 if valid_spotify_ids:
                     new_metadata_rows = await _run_spotify_batch_detail_phase(
@@ -253,6 +255,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                             "Spotify is temporarily unavailable for some albums; "
                             "checking Deezer for their details.",
                         )
+                        jobs.record_partial_source(job_id, "provider")
         still_missing = {
             key: data for key, data in cache_misses.items() if key not in cache_hits
         }
@@ -393,6 +396,7 @@ def _record_lastfm_stats(job_id, fetch_metadata):
     partial_warning = fetch_metadata.get("partial_data_warning")
     if partial_warning:
         jobs.record_stat(job_id, "partial_data_warning", partial_warning)
+        jobs.record_partial_source(job_id, "lastfm")
         jobs.record_stat(
             job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0)
         )

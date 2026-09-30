@@ -6,6 +6,7 @@ covered by running the gate itself, which is what the Quality Gate does.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -321,3 +322,108 @@ def test_main_preserves_route_policy_through_real_runner(live_fonts) -> None:
     if not live_fonts:
         assert page.route.call_args.args[0] == "http://localhost:8400/**"
     assert page.set_default_navigation_timeout.call_args.args == (10_000,)
+
+
+# --- Subresource load faults (advisory diagnostic) ---
+
+
+class _EventPage:
+    """A page stand-in that keeps the handlers registered with ``on``."""
+
+    def __init__(self) -> None:
+        self.handlers: dict[str, list] = {}
+
+    def on(self, event, handler) -> None:
+        self.handlers.setdefault(event, []).append(handler)
+
+    def emit(self, event, payload) -> None:
+        for handler in self.handlers.get(event, []):
+            handler(payload)
+
+
+def _request(url, resource_type="stylesheet", failure=None):
+    return SimpleNamespace(url=url, resource_type=resource_type, failure=failure)
+
+
+BASE = "http://127.0.0.1:5001"
+
+
+def test_recorder_names_a_failed_app_stylesheet_and_a_5xx_script() -> None:
+    page = _EventPage()
+    faults = frontend_gate.record_load_faults(page, BASE)
+
+    page.emit(
+        "requestfailed",
+        _request(f"{BASE}/static/css/tailwind.css", failure="net::ERR_NO_BUFFER_SPACE"),
+    )
+    script = _request(f"{BASE}/static/js/index.js", "script")
+    page.emit("response", SimpleNamespace(status=503, request=script))
+
+    assert faults == [
+        f"{BASE}/static/css/tailwind.css (net::ERR_NO_BUFFER_SPACE)",
+        f"{BASE}/static/js/index.js (HTTP 503)",
+    ]
+
+
+def test_recorder_ignores_foreign_origins_other_types_and_good_responses() -> None:
+    page = _EventPage()
+    faults = frontend_gate.record_load_faults(page, BASE)
+
+    page.emit("requestfailed", _request("https://cdn.example.com/x.css"))
+    page.emit("requestfailed", _request(f"{BASE}/validate_user", "fetch"))
+    page.emit(
+        "response", SimpleNamespace(status=200, request=_request(f"{BASE}/a.css"))
+    )
+    page.emit(
+        "response",
+        SimpleNamespace(status=404, request=_request(f"{BASE}/img.png", "image")),
+    )
+
+    assert faults == []
+
+
+def test_a_failing_check_carries_the_load_fault_but_a_passing_one_stays_clean() -> None:
+    page = _EventPage()
+    frontend_gate.record_load_faults(page, BASE)
+
+    def failing(page, base_url):
+        page.emit(
+            "requestfailed",
+            _request(f"{BASE}/static/css/loading.css", failure="net::ERR_FAILED"),
+        )
+        return ["progress fill is rgba(0, 0, 0, 0)"]
+
+    def passing(page, base_url):
+        page.emit(
+            "requestfailed",
+            _request(f"{BASE}/static/css/x.css", failure="net::ERR_FAILED"),
+        )
+        return []
+
+    def raising(page, base_url):
+        page.emit(
+            "requestfailed",
+            _request(f"{BASE}/static/js/x.js", "script", "net::ERR_FAILED"),
+        )
+        raise RuntimeError("boom")
+
+    red = frontend_gate._run_check(page, BASE, "fill", "desktop", failing)
+    green = frontend_gate._run_check(page, BASE, "ok", "desktop", passing)
+    crashed = frontend_gate._run_check(page, BASE, "bad", "desktop", raising)
+
+    assert len(red) == 1
+    assert red[0].startswith("fill [desktop]: progress fill is rgba(0, 0, 0, 0)")
+    assert "1 app resource(s) failed to load" in red[0]
+    assert f"{BASE}/static/css/loading.css (net::ERR_FAILED)" in red[0]
+    assert green == []
+    assert "raised RuntimeError: boom" in crashed[0]
+    assert f"{BASE}/static/js/x.js" in crashed[0]
+    assert "loading.css" not in crashed[0]
+
+
+def test_a_check_on_a_page_without_a_recorder_reports_no_note() -> None:
+    result = frontend_gate._run_check(
+        Mock(), BASE, "n", "desktop", lambda page, base_url: ["broken"]
+    )
+
+    assert result == ["n [desktop]: broken"]

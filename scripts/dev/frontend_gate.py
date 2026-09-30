@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import weakref
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -51,7 +52,7 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 # create_app also refuses to start without the three provider keys outside dev
-# mode (F-SWE-4), and CI's secrets arrive empty in exactly the same way. The
+# mode (F-SWE-4); a shell can leave them empty, and CI sets none. The
 # gate renders pages from seeded jobs and never calls a provider, so a
 # placeholder is enough to boot the application.
 #
@@ -631,13 +632,75 @@ def _run_profile_checks(
     return failures
 
 
+#: Resource types whose load failure makes a page look wrong rather than fail:
+#: a missing stylesheet reads as a style defect, a missing script as a dead
+#: control, a missing font as a metrics shift.
+_APP_RESOURCE_TYPES = frozenset({"stylesheet", "script", "font"})
+
+#: The load faults each page has seen since its check began. Kept beside the
+#: page rather than on it, so a stand-in page in a test needs no attribute.
+_LOAD_FAULTS: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
+def record_load_faults(page, base_url: str) -> list[str]:
+    """Record the app's own CSS, JS and fonts that failed to load on ``page``.
+
+    Advisory only: the list is read when a check fails, to say whether a
+    subresource of this app failed to arrive (a flake) or the page is really
+    wrong. It never changes whether a check passes. A same-origin request that
+    fails outright, or is answered 4xx/5xx, is recorded once per URL.
+    """
+    origin = base_url.rstrip("/") + "/"
+    faults: list[str] = []
+    _LOAD_FAULTS[page] = faults
+
+    def note(request, reason: str) -> None:
+        if not request.url.startswith(origin):
+            return
+        if request.resource_type not in _APP_RESOURCE_TYPES:
+            return
+        entry = f"{request.url} ({reason})"
+        if entry not in faults:
+            faults.append(entry)
+
+    def on_failed(request) -> None:
+        note(request, request.failure or "request failed")
+
+    def on_response(response) -> None:
+        if response.status >= 400:
+            note(response.request, f"HTTP {response.status}")
+
+    page.on("requestfailed", on_failed)
+    page.on("response", on_response)
+    return faults
+
+
+def _load_fault_note(page) -> str:
+    """Return a one-line note naming the failed app subresources, or ``""``."""
+    faults = _LOAD_FAULTS.get(page)
+    if not faults:
+        return ""
+    return f" [{len(faults)} app resource(s) failed to load: {', '.join(faults)}]"
+
+
 def _run_check(page, base_url, name, viewport, check) -> list[str]:
-    """Keep one failed diagnostic from hiding later checks on the same profile."""
+    """Keep one failed diagnostic from hiding later checks on the same profile.
+
+    A failure also names any of the app's own subresources that failed to load
+    during the check, so an intermittent red says whether it was a load fault.
+    """
+    faults = _LOAD_FAULTS.get(page)
+    if faults is not None:
+        faults.clear()
     try:
         results = check(page, base_url)
     except Exception as exc:  # noqa: BLE001 - any check fault is a failure
-        return [f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"]
-    return [f"{name} [{viewport}]: {failure}" for failure in results]
+        return [
+            f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+            f"{_load_fault_note(page)}"
+        ]
+    note = _load_fault_note(page) if results else ""
+    return [f"{name} [{viewport}]: {failure}{note}" for failure in results]
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -681,6 +744,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         page = context.new_page()
                         page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
                         install_cdn_routes(page, live_fonts=args.live_fonts)
+                        record_load_faults(page, base_url)
                         return page
 
                     results = run_checks(

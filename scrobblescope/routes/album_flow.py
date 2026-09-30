@@ -15,6 +15,7 @@ from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
 from scrobblescope.spotlight import select_spotlight_artists
+from scrobblescope.unmatched import REASON_PROVIDER_UNAVAILABLE
 from scrobblescope.utils import log_failure
 
 bp = _routes.bp
@@ -119,6 +120,37 @@ def reset_progress():
     return jsonify({"status": "success"})
 
 
+def _partial_run_notice(stats, unchecked_count):
+    """Return ``(text, link_to_unmatched)`` for a degraded run, or ``("", False)``.
+
+    The orchestrator records ``partial_data_warning`` (the loading page shows
+    it for three seconds) and, beside it, ``partial_data_sources``: which kind
+    of degradation it was, ``"lastfm"`` (pages dropped) or ``"provider"``
+    (Spotify or Deezer could not answer). This reads the kind, never the
+    wording. The Results page is where the ranking is read, so it says so
+    there too. Last.fm's own sentence already reads as plain copy; the
+    provider sentences are written for the loading page ("checking Deezer for
+    their details"), so Results words them afresh. Only a provider outage
+    leaves albums under "could not be checked", so only that notice links to
+    the Unmatched page, and only when ``unchecked_count`` albums are there.
+    """
+    stats = stats or {}
+    sources = stats.get("partial_data_sources") or []
+    if not sources:
+        return "", False
+    lastfm_text = ""
+    if "lastfm" in sources:
+        lastfm_text = "Some Last.fm pages failed to load, so results may be incomplete."
+        if "provider" not in sources:
+            return stats.get("partial_data_warning") or lastfm_text, False
+    return (
+        (lastfm_text + " " if lastfm_text else "")
+        + "Spotify or Deezer could not answer for some albums in this run, so "
+        "the ranking may be missing albums or details.",
+        bool(unchecked_count),
+    )
+
+
 def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -200,7 +232,15 @@ def _render_results_page():
     filtered_results = _filter_results_for_display(results_data, sort_mode)
 
     unmatched_count = len(job_context.get("unmatched", {}))
+    unchecked_count = sum(
+        1
+        for item in job_context.get("unmatched", {}).values()
+        if item.get("reason_code") == REASON_PROVIDER_UNAVAILABLE
+    )
     has_durations = any(a.get("play_time_seconds", 0) > 0 for a in (results_data or []))
+    partial_notice, partial_notice_links_unmatched = _partial_run_notice(
+        progress_payload.get("stats"), unchecked_count
+    )
 
     if not filtered_results:
         filter_description = _get_filter_description(
@@ -219,6 +259,8 @@ def _render_results_page():
             min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
+            partial_notice=partial_notice,
+            partial_notice_links_unmatched=partial_notice_links_unmatched,
             has_durations=has_durations,
             filter_description=filter_description,
             job_id=job_id,
@@ -250,6 +292,8 @@ def _render_results_page():
         min_tracks=min_tracks,
         no_matches=False,
         unmatched_count=unmatched_count,
+        partial_notice=partial_notice,
+        partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
         job_id=job_id,
         top_artist_name=top_artist_name,
