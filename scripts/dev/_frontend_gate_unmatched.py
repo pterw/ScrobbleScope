@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from urllib.parse import parse_qs, urlparse
 
+from scripts.dev._frontend_gate_colour import _contrast_ratio
 from scripts.dev._frontend_gate_results import artwork_radius_failures
 from scrobblescope import jobs
+from scrobblescope.domain import COVER_WASH_COUNT
 
 #: Narrowest window at which two unmatched panels share a row. Below it each
 #: panel takes the full width. Owner ruling, 2026-09-13: at 1024px two panels
@@ -249,6 +252,192 @@ _SETTLE_JS = """() => new Promise(resolve => {
     };
     tick();
 })"""
+
+
+#: Reads every coverless placeholder on show: the nodes wearing a wash that
+#: have a box and are not a portrait slot already filled by its photograph.
+#: A slot whose portrait loaded drops its wash on purpose, so it is not read.
+#: A cover <img> wears the wash too (it shows until the picture paints), and a
+#: loaded one still has a box and the gradient as its computed background, so
+#: it is read like the rest (`tag` tells the judge which is which). The
+#: initials' contrast is not read here, but from the tokens.
+_COVER_WASH_JS = r"""() => [...document.querySelectorAll('.cover-wash')]
+    .filter(node => node.getClientRects().length > 0
+        && !node.hasAttribute('data-portrait'))
+    .map(node => {
+        const style = getComputedStyle(node);
+        return {
+            image: style.backgroundImage,
+            border: Number.parseFloat(style.borderTopWidth) || 0,
+            borderColour: style.borderTopColor,
+            colour: style.color,
+            tag: node.tagName,
+            wash: (node.className.match(/cover-wash-(\d+)/) || [])[1] || '?',
+        };
+    })"""
+
+#: Matches each resolved colour stop in a computed gradient.
+_RGB_STOP = re.compile(r"rgba?\([^)]*\)")
+
+#: The initials are small text, so they must clear WCAG AAA (7:1) on both
+#: stops of every wash, not just the 4.5:1 floor (owner, 2026-09-30).
+_WASH_TEXT_CONTRAST = 7.0
+
+#: Reads the tokens, not the page: the initials' colour (computed on a placeholder
+#: node, or the base-content token when none is on show) and both stops of each
+#: of the `count` wash pairs, each resolved to a computed ``rgb()`` colour. The
+#: hash picks two or three pairs for a page, so judging only the nodes on show
+#: would let a pair that is off the page break the line unseen.
+_WASH_TOKENS_JS = r"""count => {
+    const root = document.documentElement;
+    const resolve = value => {
+        const probe = document.createElement('span');
+        probe.style.color = value;
+        root.appendChild(probe);
+        const colour = getComputedStyle(probe).color;
+        probe.remove();
+        return colour;
+    };
+    const token = name =>
+        getComputedStyle(root).getPropertyValue(name).trim();
+    const node = [...document.querySelectorAll('.cover-wash')]
+        .find(item => item.tagName !== 'IMG' && item.getClientRects().length > 0);
+    const stops = [];
+    for (let wash = 0; wash < count; wash++) {
+        for (const name of ['a', 'b']) {
+            const custom = `--ss-wash-${wash}-${name}`;
+            stops.push({wash, stop: name, value: resolve(token(custom))});
+        }
+    }
+    return {
+        colour: node ? getComputedStyle(node).color
+            : resolve(token('--color-base-content')),
+        stops,
+    };
+}"""
+
+_RGB_VALUE = re.compile(
+    r"^rgba?\(\s*([\d.]+)[ ,]+([\d.]+)[ ,]+([\d.]+)\s*(?:[,/][^)]*)?\)$"
+)
+
+
+def _channels(colour: str) -> tuple[float, float, float] | None:
+    """Return the red, green and blue of a computed ``rgb()``/``rgba()`` colour.
+
+    Anything else (``color(srgb ...)``, a hex string, an empty token) is None, so
+    the judge can fail loudly instead of reading its numbers as 0-255 channels.
+    """
+    found = _RGB_VALUE.match(colour.strip())
+    if found is None:
+        return None
+    red, green, blue = (float(part) for part in found.groups())
+    return red, green, blue
+
+
+def wash_token_failures(reading: dict, label: str) -> list[str]:
+    """Judge a `_WASH_TOKENS_JS` reading taken in *label*'s theme.
+
+    Every stop of every wash pair must give the initials 7:1, whether or not the
+    pair is on the page.
+    """
+    text = _channels(reading["colour"])
+    if text is None:
+        return [f"{label}: unparsed initials colour {reading['colour']!r}"]
+    failures = []
+    for item in reading["stops"]:
+        where = f"{label}: wash {item['wash']} stop {item['stop']}"
+        stop = _channels(item["value"])
+        if stop is None:
+            failures.append(f"{where}: unparsed colour value {item['value']!r}")
+            continue
+        ratio = _contrast_ratio(text, stop)
+        if ratio < _WASH_TEXT_CONTRAST:
+            failures.append(
+                f"{where} {item['value']} gives the initials {reading['colour']} "
+                f"only {ratio:.2f}:1, under {_WASH_TEXT_CONTRAST:g}:1"
+            )
+    return failures
+
+
+def cover_wash_failures(readings: list[dict], label: str, forced: bool) -> list[str]:
+    """Judge one reading of `_COVER_WASH_JS` taken under *label*'s conditions.
+
+    Normally every coverless placeholder paints a gradient of two different
+    colours. Under forced colours the gradient is dropped on purpose (the
+    system repaints text and borders, so a pale wash would sit behind light
+    text) and the box must stay visible through a painted border. The initials'
+    contrast is judged on the tokens, in `wash_token_failures`.
+    """
+    placeholders = [item for item in readings if item.get("tag") != "IMG"]
+    if len(placeholders) < 2:
+        return [
+            f"{label}: {len(placeholders)} coverless placeholders on show, expected "
+            "at least 2 (the below-threshold row and the Deezer row)"
+        ]
+    failures = []
+    seen = {"placeholder": 0, "cover image": 0}
+    for reading in readings:
+        kind = "cover image" if reading.get("tag") == "IMG" else "placeholder"
+        where = f"{label}: {kind} {seen[kind]}"
+        seen[kind] += 1
+        if reading["border"] < 1 or reading["borderColour"] in (
+            "transparent",
+            "rgba(0, 0, 0, 0)",
+        ):
+            failures.append(f"{where} has no visible border")
+        stops = _RGB_STOP.findall(reading["image"])
+        if forced:
+            if stops:
+                failures.append(f"{where} still paints a gradient: {reading['image']}")
+        elif "linear-gradient" not in reading["image"] or len(set(stops)) < 2:
+            failures.append(
+                f"{where} does not paint a two-tone gradient: {reading['image']!r}"
+            )
+    return failures
+
+
+def _cover_wash_page_failures(page) -> list[str]:
+    """Coverless placeholders paint a wash in both themes, a border when forced."""
+    failures = []
+    original = page.evaluate("document.documentElement.getAttribute('data-theme')")
+    washes = {}
+    try:
+        for theme in ("light", "dark"):
+            page.emulate_media(color_scheme=theme)
+            page.evaluate(
+                "theme => document.documentElement.setAttribute('data-theme', theme)",
+                theme,
+            )
+            readings = page.evaluate(_COVER_WASH_JS)
+            failures.extend(cover_wash_failures(readings, f"{theme} theme", False))
+            failures.extend(
+                wash_token_failures(
+                    page.evaluate(_WASH_TOKENS_JS, COVER_WASH_COUNT),
+                    f"{theme} theme",
+                )
+            )
+            washes[theme] = [reading["image"] for reading in readings]
+            page.emulate_media(forced_colors="active", color_scheme=theme)
+            failures.extend(
+                cover_wash_failures(
+                    page.evaluate(_COVER_WASH_JS), f"forced colours, {theme}", True
+                )
+            )
+            page.emulate_media(forced_colors="null", color_scheme="null")
+        if washes["light"] and washes["light"] == washes["dark"]:
+            failures.append(
+                "coverless washes are identical in the light and dark themes"
+            )
+    finally:
+        page.emulate_media(forced_colors="null", color_scheme="null")
+        if original is None:
+            page.evaluate("document.documentElement.removeAttribute('data-theme')")
+        else:
+            page.evaluate(
+                "theme => document.documentElement.setAttribute('data-theme', theme)",
+                original,
+            )
+    return failures
 
 
 def _portrait_failures(page, spotlight_requests: list[str]) -> list[str]:
@@ -720,9 +909,13 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         for index in range(1, 13):
             # One Deezer row, third by plays, so a provider badge renders in
             # the ten rows shown before the disclosure.
+            # The Deezer row has no cover, so a coverless row from another
+            # provider renders its wash for the cover-wash check.
+            album_image = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>"
             if index == _DEEZER_SCOPE_ROW:
                 provider, spotify_id = "deezer", None
                 album_url = f"https://www.deezer.com/album/{9000 + index}"
+                album_image = None
             else:
                 provider, spotify_id = "spotify", f"scope-album-{index}"
                 album_url = f"https://open.spotify.com/album/scope-album-{index}"
@@ -734,7 +927,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "artist": f"Scope Artist {index}",
                     "reason": "Outside selected release scope",
                     "reason_code": "release_scope",
-                    "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                    "album_image": album_image,
                     "spotify_id": spotify_id,
                     "provider": provider,
                     "album_url": album_url,
@@ -1033,6 +1226,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         # Before the first click below, and after the portraits have loaded,
         # so nothing else on the page changes between the two screenshots.
         failures.extend(_focus_ring_failures(page))
+        failures.extend(_cover_wash_page_failures(page))
 
         button = scope_group.locator(".unmatched-expander-btn")
         button.click()

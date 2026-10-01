@@ -358,6 +358,9 @@
 .unmatched-artwork[data-portrait] {
     border-color: transparent;
     background-color: transparent;
+    /* The photograph is on show, so the wash behind it goes. Until it loads,
+       and for good if it never does, the slot keeps its wash. */
+    background-image: none;
 }
 
 .unmatched-artwork[data-portrait="wide"] .unmatched-artist-image {
