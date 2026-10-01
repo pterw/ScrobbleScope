@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-01 - The ring check waits out animations before reading pixels
+
+Side task, no batch tag: the heatmap focus-ring check waits for running animations to finish before it reads the cell's geometry and takes its screenshot, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Problem: the previous step's reproduction showed 8 of 20 last-cell screenshots landing while `#heatmap-result` was still crossfading in (opacity changed between the read before and the read after the shot), and a reading taken mid-animation is invalid by construction. PR #252 applied the same reasoning to every other check that slept through a transition; the ring check still waited only for fonts and two frames.
+
+Change: `_ring_shot` in `scripts/dev/_frontend_gate_heatmap_access.py` calls `wait_for_settled` (`scripts/dev/_frontend_gate_shared.py`, bounded, raises when the page never settles) at the start of each attempt, after the tooltip nudge and before `_LAYOUT_SETTLED_JS` and the geometry read. This removes a confounder; it is not claimed as the fix for F-B23-39, whose status stays open.
+
+Evidence: a new test records the order of the wait and the geometry reads over a two-attempt run; with the call removed it fails (`assert 0 == 2` on the wait count). The existing ring-page helper answers the settle script with an empty result so the real `wait_for_settled` can run against it. The 20-run reproduction (the check alone, fresh desktop context each, `reduced_motion="no-preference"`) passed 20 of 20, with `container.opacity` 1 and nothing changed during the shot on all 80 shots read (4 per run). A ring forced to `visibility=hidden` still fails with `ring.visibility=hidden` in the evidence.
+
+Validation: `pytest -q` -- **2528 passed**.
+
 ### 2026-10-01 - The ring check also reads opacity and animations
 
 Side task, no batch tag: the heatmap focus-ring check also reads the result's opacity and running animations when it fails, a test of the crossfade hypothesis for F-B23-39, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -175,15 +187,3 @@ A test ties `COVER_WASH_COUNT` to the `.cover-wash-N` rules in `results.css` and
 Gate: `_cover_wash_page_failures` in `scripts/dev/_frontend_gate_unmatched.py` reads the coverless placeholders in both themes (two different gradient colours) and under forced colours (a painted border), and reads the tokens of all `COVER_WASH_COUNT` pairs in each theme, not the nodes on the page (the initials at 7:1 or better on both stops of every pair, whether or not the pair is on the fixture page, the failure naming the wash, the stop and the ratio; a colour it cannot parse fails loudly). Its fixture's Deezer row now has no cover so a coverless other-provider row is on the page. Live probe: a planted flat background, a planted `border: 0` and a planted pale light-theme stop on wash 0, a pair that is not on the fixture page, each failed the gate; restored, it passed.
 
 Validation: `pytest -q` -- **2513 passed**.
-
-### 2026-09-30 - Frontend-gate checks wait for transitions instead of sleeping
-
-Side task, no batch tag: frontend-gate checks wait for the browser to finish a transition instead of sleeping a fixed time, a fix for the gate flakes seen after PR #245 and PR #251 merged, on its own branch off `main`. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Cause: `index design tokens` added `is-valid`, slept a fixed 250 ms and read `borderColor`, while `static/css/index.css` gives the field a 200 ms border-color transition (PR #251 CI: `rgb(113, 207, 152)`, expected `rgb(111, 207, 151)`). That left 50 ms of slack, so a loaded runner read mid-transition. The heatmap-access checks had the same shape in 16 fixed sleeps.
-
-Fix: `scripts/dev/_frontend_gate_shared.py` gains `wait_for_settled` (two frames, then every running finite CSS transition and animation under the element or document finishes, then two frames; a bounded wait that raises, so the check fails with a message) and `wait_for_scroll_past`. Every sleep that waited for a transition, paint, scroll or focus to settle now calls one of them: 1 in `_frontend_gate_layout.py`, 1 in `_frontend_gate_results.py`, 3 in `_frontend_gate_theme.py` and 16 in `_frontend_gate_heatmap_access.py` (a debounce-bound resize wait passes `after_timer_ms=100`, which outlasts the page's 100 ms resize timer). Fixed waits that remain each carry a comment: the negative waits (nothing more may happen) and the poll intervals of bounded wait-for-state loops. Each converted check still fails on its planted defect, and three tests in `tests/scripts/dev/test_frontend_gate_shared.py` drive the helper in a real Chromium page: a 60 s animation fails at the 300 ms bound with its message, a 150 ms one returns, a missing element is named.
-
-One more flake the load runs exposed: `pipeline state machines` read `window.__scrobbleGateFastRedirect` on a loading page the gate's own timers redirect within about 100 ms of load, so a loaded machine could destroy the evaluate mid-call ("Execution context was destroyed"). The read now follows the redirect; the init script runs on every document, so the flag is set there too. The cause is by elimination (the only evaluate in that check on a page that navigates itself), not reproduced.
-
-Validation: `pytest -q` -- **2496 passed**.

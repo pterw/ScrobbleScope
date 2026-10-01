@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Frontend-gate checks wait for transitions instead of sleeping
+
+Side task, no batch tag: frontend-gate checks wait for the browser to finish a transition instead of sleeping a fixed time, a fix for the gate flakes seen after PR #245 and PR #251 merged, on its own branch off `main`. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Cause: `index design tokens` added `is-valid`, slept a fixed 250 ms and read `borderColor`, while `static/css/index.css` gives the field a 200 ms border-color transition (PR #251 CI: `rgb(113, 207, 152)`, expected `rgb(111, 207, 151)`). That left 50 ms of slack, so a loaded runner read mid-transition. The heatmap-access checks had the same shape in 16 fixed sleeps.
+
+Fix: `scripts/dev/_frontend_gate_shared.py` gains `wait_for_settled` (two frames, then every running finite CSS transition and animation under the element or document finishes, then two frames; a bounded wait that raises, so the check fails with a message) and `wait_for_scroll_past`. Every sleep that waited for a transition, paint, scroll or focus to settle now calls one of them: 1 in `_frontend_gate_layout.py`, 1 in `_frontend_gate_results.py`, 3 in `_frontend_gate_theme.py` and 16 in `_frontend_gate_heatmap_access.py` (a debounce-bound resize wait passes `after_timer_ms=100`, which outlasts the page's 100 ms resize timer). Fixed waits that remain each carry a comment: the negative waits (nothing more may happen) and the poll intervals of bounded wait-for-state loops. Each converted check still fails on its planted defect, and three tests in `tests/scripts/dev/test_frontend_gate_shared.py` drive the helper in a real Chromium page: a 60 s animation fails at the 300 ms bound with its message, a 150 ms one returns, a missing element is named.
+
+One more flake the load runs exposed: `pipeline state machines` read `window.__scrobbleGateFastRedirect` on a loading page the gate's own timers redirect within about 100 ms of load, so a loaded machine could destroy the evaluate mid-call ("Execution context was destroyed"). The read now follows the redirect; the init script runs on every document, so the flag is set there too. The cause is by elimination (the only evaluate in that check on a page that navigates itself), not reproduced.
+
+Validation: `pytest -q` -- **2496 passed**.
+
 ### 2026-09-30 - A flaky spotlight height test made deterministic
 
 Side task, no batch tag: a test-only fix after PR #245 merged, on its own branch off `main`. `scripts/dev/results_behavior_tests.py::test_a_remeasure_under_focus_ignores_a_link_the_candidate_lacks` failed on Linux CI in 3 of about 6 runs (including the push to `main` after the merge) with `'116px' != '134px'`, and never in local whole-file runs.

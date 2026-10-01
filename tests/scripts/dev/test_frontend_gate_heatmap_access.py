@@ -6,7 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts.dev import _frontend_gate_heatmap_access, frontend_gate
+from scripts.dev import (
+    _frontend_gate_heatmap_access,
+    _frontend_gate_shared,
+    frontend_gate,
+)
 from scripts.dev._frontend_gate_heatmap_access import _expected_cell_label
 from tests.scripts.dev.gate_parity import defined_names
 
@@ -82,6 +86,8 @@ def _ring_page(
             return reading
         if script is _frontend_gate_heatmap_access._RING_PAINT_JS:
             return coverage
+        if script is _frontend_gate_shared._SETTLE_JS:
+            return {}
         return None
 
     page.evaluate.side_effect = evaluate
@@ -190,6 +196,35 @@ def test_the_settle_wait_runs_before_every_screenshot() -> None:
     settled = _frontend_gate_heatmap_access._LAYOUT_SETTLED_JS
     for number, shot in enumerate(shots, start=1):
         assert order[:shot].count(settled) == number
+
+
+def test_running_animations_are_waited_out_before_every_read(monkeypatch) -> None:
+    """A reading taken while the result crossfade runs is invalid by
+    construction: the wait for running animations comes first in each attempt,
+    before the geometry is read and the screenshot is taken."""
+    events: list[str] = []
+    monkeypatch.setattr(
+        _frontend_gate_heatmap_access,
+        "wait_for_settled",
+        lambda page, *args, **kwargs: events.append("animations"),
+    )
+    early, late = _geometry(left=10.0), _geometry(left=50.0)
+    page = _ring_page([early, late, late, late], coverage={})
+
+    def record(script, *args):
+        if script is _frontend_gate_heatmap_access._CELL_GEOMETRY_JS:
+            events.append("geometry")
+        return _ring_page_evaluate(script, *args)
+
+    _ring_page_evaluate = page.evaluate.side_effect
+    page.evaluate.side_effect = record
+    _frontend_gate_heatmap_access._ring_coverage(page, "2026-05-15", "red")
+    assert events.count("animations") == 2
+    assert events[0] == "animations"
+    assert events.index("geometry") > events.index("animations")
+    second = events.index("animations", 1)
+    assert events[second - 1] == "geometry"
+    assert events[second + 1] == "geometry"
 
 
 def _evidence(**overrides) -> dict:

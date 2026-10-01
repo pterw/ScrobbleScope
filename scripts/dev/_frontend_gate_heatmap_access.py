@@ -431,7 +431,8 @@ def _ring_shot(
     reflows the text above the grid) would put the box where the pixels are
     not, and every side would read as bare. Each attempt first has the page
     reposition its tooltip (one left where the cell was can sit over the ring)
-    and waits for fonts and frames to settle; a moved page is shot again, and
+    and waits for running animations (the result crossfade) to finish, then for
+    fonts and frames to settle; a moved page is shot again, and
     one that never holds still raises rather than report a ring. The evidence
     comes with the geometry, so it is read on both sides of the shot; the
     judged one is the read after it, with how long the settle wait took and
@@ -443,6 +444,7 @@ def _ring_shot(
     )
     for _ in range(_RING_SHOT_ATTEMPTS):
         page.evaluate(_LAYOUT_MOVED_JS)
+        wait_for_settled(page)
         settle_started = time.monotonic()
         page.evaluate(_LAYOUT_SETTLED_JS)
         settle_seconds = time.monotonic() - settle_started
