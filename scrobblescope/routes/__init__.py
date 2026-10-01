@@ -27,7 +27,7 @@ from flask import Blueprint, render_template, request, session, url_for
 
 from scrobblescope import jobs
 from scrobblescope.config import MAX_ACTIVE_JOBS
-from scrobblescope.domain import format_album_key
+from scrobblescope.domain import cover_wash_index, format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.spotify import fetch_spotify_access_token
 from scrobblescope.unmatched import group_unmatched_albums
@@ -187,6 +187,20 @@ def album_key_filter(result):
     """
     normalized_key = (result or {}).get("_normalized_key")
     return format_album_key(normalized_key) if normalized_key else ""
+
+
+@bp.app_template_filter("cover_wash")
+def cover_wash_filter(item):
+    """Return the CSS classes for the wash behind *item*'s missing cover.
+
+    One place decides, for the Results and Unmatched pages alike:
+    ``cover_wash_index`` picks the pair from the album's artist and name, and
+    ``.cover-wash-N`` in results.css paints it. Pass the row (any mapping with
+    ``artist`` and ``album``); a row without them still gets a valid wash.
+    """
+    item = item or {}
+    index = cover_wash_index(item.get("artist"), item.get("album"))
+    return f"cover-wash cover-wash-{index}"
 
 
 def _current_year():

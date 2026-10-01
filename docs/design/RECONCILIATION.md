@@ -826,3 +826,53 @@ cover "the Results size". Results rows are 3rem and 3.5rem. The larger figures
 are `.album-cover-img` in `static/css/results.css`, a class no template uses.
 The ruling's numbers are explicit and the gate pins them, so they stand until
 the owner decides. F-B23-15 is the record.
+
+## 19. Missing album covers are deterministic two-tone washes, 2026-09-30
+
+The design system says album cover art is "represented by muted two-tone
+washes" (`docs/design/README.md`, `AlbumRow.prompt.md`). The Unmatched page
+drew a flat bordered box with two letters instead. Owner, 2026-09-30: the empty
+boxes "should have some sort of gradient pattern". Owner ruling: never use
+Last.fm album images, so a missing cover is the wash and nothing else. This
+supersedes the snapshot README's closing sentence of that paragraph (real cover
+art from the Last.fm API replacing the washes); the snapshot is frozen, so the
+sentence stays and this section overrides it.
+
+**Where it lives.** Eight pairs, `--ss-wash-N-a` and `--ss-wash-N-b`, in both
+theme blocks of `static/css/tailwind.src.css`. Each `.cover-wash-N` class in
+`static/css/results.css` paints one as a 135deg two-stop linear gradient. The
+Results fallback and all four Unmatched placeholders (below-threshold, cover
+`onerror`, coverless other-provider row, artist-portrait slot) share those
+rules. This is the one place the design system allows a gradient besides the
+rocket ramp. The 4px cover radius and 1px border are unchanged. The cover
+`<img>` wears the same classes as its fallback: a lazy image is an empty box
+until it paints, and the wash shows until then and behind transparent pixels.
+`COVER_WASH_COUNT` equals the number of `.cover-wash-N` rules and of token
+pairs in each theme block; `tests/test_template_shell.py` holds that.
+
+**Which pair.** `cover_wash_index(artist, album)` in `scrobblescope/domain.py`:
+`zlib.crc32` of the normalised `artist|album` key, modulo 8. Python's `hash()`
+is salted per process and would change the wash on every restart. The
+`cover_wash` template filter turns it into the class names.
+
+**Palette.** Warm and cool earth tones, none violet or near it (the accent is
+deliberately absent). Light: #ead3c6/#e0bfae, #ece0c4/#ddcca6, #d6e0cc/#c3d1b8,
+#cde3df/#b8d2ce, #d0dde8/#bccdde, #ecd9b8/#e2c39a, #dfe0c2/#cdd0a8,
+#ddd8cc/#cbc4b4. Dark: the same hues pulled down, #3a2a24/#2a1e1a through
+#302d28/#221f1b (see the file). The two letters stay, in the strongest
+text token `--color-base-content` (#1a1820 light, #f1ede4 dark): 10.12:1 to
+13.41:1 on every light stop and 10.72:1 to 14.04:1 on every dark stop. Owner,
+2026-09-30: "The 4.5 is a floor not a goal", so the line is 7:1 (WCAG AAA for
+small text), held by the gate. No stop moved. The dark washes stay subtle
+against the dark page by design: the system says muted.
+
+**Forced colours.** The gradient is dropped and the 1px border takes the
+system's CanvasText, so the box stays visible. A portrait slot whose photograph
+has loaded drops its wash (the photograph is the cover).
+
+**Gate.** `_cover_wash_page_failures` in `scripts/dev/_frontend_gate_unmatched.py`
+reads the placeholders on show in the light and dark themes (two different
+resolved gradient colours) and under forced colours (a painted border). It
+also reads the tokens, not the nodes on the page: both stops of every one of
+the `COVER_WASH_COUNT` pairs in each theme, against the initials' colour, at 7:1
+or better, so a pair the fixture page does not show is judged too.

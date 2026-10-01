@@ -156,7 +156,7 @@
                                        Spotify, so they never reached it. A sized placeholder keeps
                                        the row rhythm without adding a network call, which preserves
                                        the rule that partitioned albums cost nothing. #}
-                                    <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
+                                    <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center {{ item|cover_wash }} font-mono text-xs" aria-hidden="true">
                                         {{ item.album[:2]|upper }}
                                     </div>
                                     {% endif %}
@@ -164,10 +164,10 @@
                                         {% if item.album_image %}
                                         <img src="{{ item.album_image }}"
                                              alt="{{ item.album }} cover"
-                                             class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)]"
+                                             class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] {{ item|cover_wash }}"
                                              loading="lazy"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] items-center justify-center {{ item|cover_wash }} font-mono text-xs hidden" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% elif item.provider and item.provider != 'spotify' %}
@@ -176,7 +176,7 @@
                                            banner says such rows are not Spotify content, and the
                                            portrait is fetched from Spotify. Only rows with no
                                            provider, or a Spotify one, reach the slot below. #}
-                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] flex items-center justify-center {{ item|cover_wash }} font-mono text-xs" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% else %}
@@ -186,11 +186,11 @@
                                            never does. Its `load` event is what reveals it, so the
                                            portrait never appeared. unmatched.js already holds the
                                            request back until the row is near the viewport. #}
-                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] overflow-hidden"
+                                        <div class="unmatched-artwork provider-artwork border border-[var(--ss-border-default)] overflow-hidden {{ item|cover_wash }}"
                                              data-artist-image
                                              data-artist-name="{{ item.artist }}">
                                             <img alt="" class="unmatched-artist-image provider-artwork border border-[var(--ss-border-default)] hidden">
-                                            <span class="unmatched-artwork-fallback flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
+                                            <span class="unmatched-artwork-fallback flex items-center justify-center font-mono text-xs" aria-hidden="true">
                                                 {{ item.album[:2]|upper }}
                                             </span>
                                         </div>
