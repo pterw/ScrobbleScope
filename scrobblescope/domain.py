@@ -1,6 +1,7 @@
 import logging
 import string
 import unicodedata
+import zlib
 
 
 def normalize_name(artist, album):
@@ -65,6 +66,25 @@ def format_album_key(normalized_key):
     """
     artist_norm, album_norm = normalized_key
     return f"{artist_norm}|{album_norm}"
+
+
+#: How many two-tone washes the stylesheet defines (``--ss-wash-N-a`` and
+#: ``--ss-wash-N-b`` in tailwind.src.css, ``.cover-wash-N`` in results.css).
+COVER_WASH_COUNT = 8
+
+
+def cover_wash_index(artist, album):
+    """Return which of the ``COVER_WASH_COUNT`` washes an album's cover wears.
+
+    A missing cover is drawn as a muted two-tone wash, and the same album must
+    wear the same one on every request and in every process. Python's built-in
+    ``hash()`` is salted per process, so the pick is ``zlib.crc32`` of the
+    normalised ``artist|album`` key, which is stable everywhere. Normalising
+    first means "The Album (Deluxe Edition)" and "the album" share a wash.
+    Missing or empty names are valid input: they hash as the empty key.
+    """
+    key = format_album_key(normalize_name(str(artist or ""), str(album or "")))
+    return zlib.crc32(key.encode("utf-8")) % COVER_WASH_COUNT
 
 
 def normalize_track_name(name):

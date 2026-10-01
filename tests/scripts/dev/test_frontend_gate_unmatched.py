@@ -380,3 +380,142 @@ def test_a_layout_of_other_than_four_panels_is_a_failure() -> None:
     assert _frontend_gate_unmatched.four_panel_stack_failures([], 48) == [
         "unmatched four-panel layout was given 0 panels"
     ]
+
+
+_WASH = "linear-gradient(135deg, rgb(234, 211, 198), rgb(224, 191, 174))"
+
+
+def _wash_reading(
+    image: str = _WASH,
+    border: float = 1.0,
+    text: str = "rgb(26, 24, 32)",
+    tag: str = "DIV",
+):
+    return {
+        "image": image,
+        "border": border,
+        "borderColour": "rgb(1, 2, 3)",
+        "colour": text,
+        "tag": tag,
+        "wash": "0",
+    }
+
+
+def test_a_two_tone_wash_with_a_border_passes_in_a_theme() -> None:
+    readings = [_wash_reading(), _wash_reading()]
+    assert _frontend_gate_unmatched.cover_wash_failures(readings, "light", False) == []
+
+
+def test_a_flat_background_is_reported_as_no_wash() -> None:
+    readings = [_wash_reading("none"), _wash_reading()]
+    failures = _frontend_gate_unmatched.cover_wash_failures(readings, "dark", False)
+    assert len(failures) == 1
+    assert "placeholder 0 does not paint a two-tone gradient" in failures[0]
+
+
+def test_a_gradient_of_one_colour_is_not_a_two_tone_wash() -> None:
+    flat = "linear-gradient(135deg, rgb(9, 9, 9), rgb(9, 9, 9))"
+    readings = [_wash_reading(flat), _wash_reading()]
+    failures = _frontend_gate_unmatched.cover_wash_failures(readings, "dark", False)
+    assert len(failures) == 1
+
+
+def _token_reading(stops: dict[str, str], text: str = "rgb(26, 24, 32)") -> dict:
+    return {
+        "colour": text,
+        "stops": [
+            {"wash": wash, "stop": stop, "value": value}
+            for (wash, stop), value in (
+                (key.split("-"), value) for key, value in stops.items()
+            )
+        ],
+    }
+
+
+def test_every_stop_over_seven_to_one_passes_the_token_judge() -> None:
+    reading = _token_reading(
+        {"0-a": "rgb(58, 42, 36)", "7-b": "rgb(9, 9, 9)"}, text="rgb(241, 237, 228)"
+    )
+    assert _frontend_gate_unmatched.wash_token_failures(reading, "dark theme") == []
+
+
+def test_a_planted_under_seven_to_one_pair_off_the_page_fails_the_token_judge() -> None:
+    # wash 0 is a pair the fixture page need not show; the tokens are judged anyway.
+    reading = _token_reading(
+        {"0-a": "rgb(122, 116, 128)", "0-b": "rgb(234, 211, 198)"},
+    )
+    failures = _frontend_gate_unmatched.wash_token_failures(reading, "light theme")
+    assert len(failures) == 1
+    assert "light theme: wash 0 stop a rgb(122, 116, 128)" in failures[0]
+    assert "only 3.88:1, under 7:1" in failures[0]
+
+
+def test_a_colour_that_is_not_rgb_fails_loudly_instead_of_misreading() -> None:
+    reading = _token_reading({"3-b": "color(srgb 0.9 0.8 0.7)"})
+    failures = _frontend_gate_unmatched.wash_token_failures(reading, "dark theme")
+    assert failures == [
+        "dark theme: wash 3 stop b: unparsed colour value 'color(srgb 0.9 0.8 0.7)'"
+    ]
+    broken = _token_reading({"3-b": "rgb(1, 2, 3)"}, text="color(srgb 0 0 0)")
+    assert (
+        "unparsed initials colour"
+        in (_frontend_gate_unmatched.wash_token_failures(broken, "dark theme")[0])
+    )
+
+
+def test_cover_images_do_not_count_toward_the_placeholder_minimum() -> None:
+    images = [_wash_reading(tag="IMG") for _ in range(5)]
+    failures = _frontend_gate_unmatched.cover_wash_failures(
+        [*images, _wash_reading()], "light theme", False
+    )
+    assert failures and "1 coverless placeholders" in failures[0]
+
+
+def test_failure_lines_number_placeholders_and_images_apart() -> None:
+    readings = [
+        _wash_reading(tag="IMG"),
+        _wash_reading("none"),
+        _wash_reading(),
+        _wash_reading("none", tag="IMG"),
+    ]
+    failures = _frontend_gate_unmatched.cover_wash_failures(
+        readings, "dark theme", False
+    )
+    assert "dark theme: placeholder 0 does not paint" in failures[0]
+    assert "dark theme: cover image 1 does not paint" in failures[1]
+
+
+def test_forced_colours_want_a_visible_border_and_no_gradient() -> None:
+    readings = [_wash_reading("none"), _wash_reading("none")]
+    assert _frontend_gate_unmatched.cover_wash_failures(readings, "f", True) == []
+    bare = [_wash_reading("none", border=0.0), _wash_reading(_WASH)]
+    failures = _frontend_gate_unmatched.cover_wash_failures(bare, "f", True)
+    assert any("placeholder 0 has no visible border" in text for text in failures)
+    assert any("placeholder 1 still paints a gradient" in text for text in failures)
+
+
+def test_a_page_with_fewer_than_two_washes_on_show_is_a_failure_not_a_pass() -> None:
+    failures = _frontend_gate_unmatched.cover_wash_failures([], "light", False)
+    assert failures and "0 coverless placeholders" in failures[0]
+
+
+def test_the_wash_check_puts_back_the_theme_and_media_it_changed() -> None:
+    page = MagicMock()
+
+    def evaluate(script, *args):
+        if "getAttribute" in script:
+            return "light"
+        if "--ss-wash-" in script:
+            return {"colour": "rgb(26, 24, 32)", "stops": []}
+        if "querySelectorAll('.cover-wash')" in script:
+            return [_wash_reading(), _wash_reading()]
+        return None
+
+    page.evaluate.side_effect = evaluate
+    failures = _frontend_gate_unmatched._cover_wash_page_failures(page)
+    assert any("identical in the light and dark" in text for text in failures)
+    assert page.emulate_media.call_args.kwargs == {
+        "forced_colors": "null",
+        "color_scheme": "null",
+    }
+    assert page.evaluate.call_args.args[1] == "light"

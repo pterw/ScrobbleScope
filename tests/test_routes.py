@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from scrobblescope import jobs
-from scrobblescope.domain import normalize_name
+from scrobblescope.domain import cover_wash_index, normalize_name
 from scrobblescope.orchestrator import background_task
 from scrobblescope.routes import (
     _PRIVATE_PROFILE_MESSAGE,
@@ -3055,3 +3055,64 @@ def test_wait_panel_error_is_an_alert_holding_the_message_element(
     assert block, container
     assert 'role="alert"' in block.group(1)
     assert f'id="{message}"' in block.group(2)
+
+
+def _artwork_classes_in_row(html, album_title):
+    """Return the class attribute of every artwork box in *album_title*'s row."""
+    row = next(part for part in html.split("<tr") if f'title="{album_title}"' in part)
+    return re.findall(r'class="([^"]*unmatched-artwork[^"]*)"', row)
+
+
+def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
+    """
+    GIVEN coverless albums in every place a cover can be missing: a below-
+    threshold row, a row whose cover image may fail, a coverless Deezer row and
+    a no-provider row that asks for an artist portrait
+    WHEN POST /unmatched_view is submitted twice
+    THEN each placeholder carries the wash cover_wash_index picks for its own
+    album, two albums with different picks differ, and the second render
+    repeats the first.
+
+    Mutation: make the cover_wash filter return one fixed class and the
+    different-albums assertion fails; revert a template placeholder to its
+    plain class and that row's assertion fails.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    rows = {
+        "Wash Below": ("below_threshold", {}),
+        "Wash Failing": ("release_scope", {"album_image": "https://x/c.jpg"}),
+        "Wash Deezer": ("release_scope", {"provider": "deezer"}),
+        "Wash Portrait": ("no_spotify_match", {}),
+    }
+    for number, (title, (reason, extra)) in enumerate(rows.items()):
+        jobs.record_unmatched(
+            job_id,
+            f"wash-{number}",
+            {
+                "artist": f"Wash Artist {number}",
+                "album": title,
+                "reason": "x",
+                "reason_code": reason,
+                "play_count": 5,
+                "track_count": 1,
+                **extra,
+            },
+        )
+
+    first = client.post("/unmatched_view", data={"job_id": job_id})
+    second = client.post("/unmatched_view", data={"job_id": job_id})
+    assert first.status_code == 200
+    first_html = first.data.decode("utf-8")
+    assert first_html == second.data.decode("utf-8")
+
+    picks = {}
+    for number, title in enumerate(rows):
+        expected = cover_wash_index(f"Wash Artist {number}", title)
+        picks[title] = expected
+        boxes = _artwork_classes_in_row(first_html, title)
+        washed = [box for box in boxes if f"cover-wash-{expected}" in box.split()]
+        # A cover image wears the wash too, so the failing-cover row has the
+        # image and its fallback.
+        wanted = 2 if title == "Wash Failing" else 1
+        assert len(washed) == wanted, (title, expected, boxes)
+    assert len(set(picks.values())) > 1, picks

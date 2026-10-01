@@ -1,4 +1,6 @@
 from scrobblescope.domain import (
+    COVER_WASH_COUNT,
+    cover_wash_index,
     normalize_name,
     normalize_track_name,
 )
@@ -179,3 +181,50 @@ def test_normalize_name_and_track_name_agree_on_non_latin():
         "Non-Latin track names must survive normalization; "
         "empty string means NFKD+ascii-encode regression has been reintroduced."
     )
+
+
+def test_cover_wash_index_is_pinned_across_processes():
+    """
+    GIVEN albums whose wash was computed once with zlib.crc32
+    WHEN cover_wash_index is called now, in this process
+    THEN each gets that same index, which Python's salted hash() could not
+    promise: a wash that changed between requests would flicker on reload.
+
+    Mutation: swap zlib.crc32 for hash() and these literals stop matching
+    from the second interpreter on.
+    """
+    assert cover_wash_index("Radiohead", "OK Computer") == 7
+    assert cover_wash_index("Artist A", "Album One") == 4
+    assert cover_wash_index("Artist B", "Album Two") == 2
+
+
+def test_cover_wash_index_is_stable_and_ignores_spelling_noise():
+    """
+    GIVEN one album spelled with different case, punctuation and edition tags
+    WHEN cover_wash_index is called repeatedly
+    THEN it returns one index, so the Results and Unmatched pages agree.
+    """
+    plain = cover_wash_index("the beatles", "let it be")
+    assert plain == cover_wash_index("The Beatles.", "Let It Be (Deluxe Edition)")
+    assert {cover_wash_index("the beatles", "let it be") for _ in range(5)} == {plain}
+
+
+def test_cover_wash_index_spreads_albums_over_every_wash():
+    """
+    GIVEN two hundred distinct albums
+    WHEN cover_wash_index is called for each
+    THEN every wash in range is used and none outside it, so a page of
+    coverless rows is not one colour.
+    """
+    used = {cover_wash_index(f"Artist {n}", f"Album {n}") for n in range(200)}
+    assert used == set(range(COVER_WASH_COUNT))
+
+
+def test_cover_wash_index_accepts_missing_names():
+    """
+    GIVEN a row with no artist or album, or None for either
+    WHEN cover_wash_index is called
+    THEN it returns an in-range index rather than raising.
+    """
+    for artist, album in (("", ""), (None, None), ("Only Artist", None)):
+        assert 0 <= cover_wash_index(artist, album) < COVER_WASH_COUNT

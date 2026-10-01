@@ -373,6 +373,93 @@ a.provider-badge:hover {
     }
 }
 
+/* A missing cover is a muted two-tone wash, never the purple accent and never
+   an image from a provider we do not trust for artwork. `cover_wash_index`
+   (scrobblescope/domain.py) picks 0-7 from the album's name, the `cover_wash`
+   template filter writes `cover-wash cover-wash-N` onto the placeholder, and
+   each pair is two tokens per theme in tailwind.src.css. The initials sit on
+   top in the strongest text token, which clears 7:1 on every stop in both
+   themes. A cover <img> wears the wash too: it shows until the picture paints
+   and behind any transparent pixels. Both pages share these rules; neither
+   has a copy. */
+.cover-wash {
+    color: var(--color-base-content);
+}
+
+.cover-wash-0 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-0-a),
+        var(--ss-wash-0-b)
+    );
+}
+
+.cover-wash-1 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-1-a),
+        var(--ss-wash-1-b)
+    );
+}
+
+.cover-wash-2 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-2-a),
+        var(--ss-wash-2-b)
+    );
+}
+
+.cover-wash-3 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-3-a),
+        var(--ss-wash-3-b)
+    );
+}
+
+.cover-wash-4 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-4-a),
+        var(--ss-wash-4-b)
+    );
+}
+
+.cover-wash-5 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-5-a),
+        var(--ss-wash-5-b)
+    );
+}
+
+.cover-wash-6 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-6-a),
+        var(--ss-wash-6-b)
+    );
+}
+
+.cover-wash-7 {
+    background-image: linear-gradient(
+        135deg,
+        var(--ss-wash-7-a),
+        var(--ss-wash-7-b)
+    );
+}
+
+/* Forced colours repaint the text and borders in the system palette, so a pale
+   gradient would sit behind light text. Drop the gradient and keep the box
+   visible: the one-pixel border in the system's text colour. */
+@media (forced-colors: active) {
+    .cover-wash {
+        background-image: none;
+        border-color: CanvasText;
+    }
+}
+
 /* The rail remains available after the document header scrolls away. */
 @media (min-width: 1024px) {
     .results-side-rail {

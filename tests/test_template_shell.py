@@ -927,3 +927,28 @@ def test_the_release_check_poller_stops_on_every_terminal_state() -> None:
     assert "'pending'" in script and "'running'" in script
     assert "visibilitychange" in script
     assert "setInterval(" not in script, "F-B21-33: overlapping interval polls"
+
+
+def test_cover_wash_count_matches_the_stylesheets():
+    """The wash count the picker uses is the count the stylesheets define.
+
+    cover_wash_index returns 0 to COVER_WASH_COUNT - 1. If the constant grew
+    past the CSS, an album would get a class no rule styles and show a plain
+    box; if the CSS grew past it, a wash would never be used. Each wash needs
+    its two tokens in BOTH theme blocks of tailwind.src.css.
+
+    Mutation: set COVER_WASH_COUNT to 9 and the rule count fails.
+    """
+    from scrobblescope.domain import COVER_WASH_COUNT
+
+    results = (STATIC_CSS / "results.css").read_text(encoding="utf-8")
+    rules = re.findall(r"^\.cover-wash-(\d+)\s*\{", results, re.MULTILINE)
+    assert sorted(map(int, rules)) == list(range(COVER_WASH_COUNT))
+
+    source = (STATIC_CSS / "tailwind.src.css").read_text(encoding="utf-8")
+    light, dark = source.split('name: "dark";')
+    for theme, block in (("light", light), ("dark", dark)):
+        for number in range(COVER_WASH_COUNT):
+            for stop in "ab":
+                token = f"--ss-wash-{number}-{stop}:"
+                assert block.count(token) == 1, (theme, token)
