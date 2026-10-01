@@ -8,6 +8,7 @@ from scrobblescope.errors import ProviderError, SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _PLAYTIME_ALBUM_CAP,
     _fetch_and_process,
+    _process_filtered_albums,
     background_task,
 )
 from tests.helpers import TEST_JOB_PARAMS
@@ -836,3 +837,196 @@ async def test_fetch_and_process_message_that_reads_like_not_found_is_ours():
         await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
+
+
+# ---------------------------------------------------------------------------
+# "Include unmatched albums": the merge inside _process_filtered_albums
+# ---------------------------------------------------------------------------
+
+_INCLUDE_FILTERED = {
+    ("a", "one"): {"play_count": 50, "track_counts": {"t": 1}},
+    ("b", "two"): {"play_count": 40, "track_counts": {"t": 1}},
+    ("c", "three"): {"play_count": 10, "track_counts": {"t": 1}},
+}
+
+
+def _include_matched_rows():
+    return [
+        {"artist": "A", "album": "One", "play_count": 50, "play_time_seconds": 60},
+        {"artist": "B", "album": "Two", "play_count": 40, "play_time_seconds": 60},
+        {"artist": "C", "album": "Three", "play_count": 10, "play_time_seconds": 60},
+    ]
+
+
+def _record_include_unmatched(job_id):
+    for artist, album, reason, plays in (
+        ("D", "Four", "no_spotify_match", 30),
+        ("E", "Five", "provider_unavailable", 20),
+        ("F", "Six", "below_threshold", 100),
+    ):
+        jobs.record_unmatched(
+            job_id,
+            f"{artist.lower()}|{album.lower()}",
+            {
+                "artist": artist,
+                "album": album,
+                "reason": "x",
+                "reason_code": reason,
+                "play_count": plays,
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_process_filtered_albums_flag_off_keeps_process_albums_list():
+    """
+    GIVEN a job with unmatched entries and the include flag left off
+    WHEN _process_filtered_albums finishes
+    THEN it returns the very list process_albums produced (no merge, no
+    second sort) and the stored results hold only matched rows.
+
+    Mutation: merge regardless of the flag and the identity assertion fails.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _record_include_unmatched(job_id)
+    produced = _include_matched_rows()
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=produced,
+        ),
+        patch("scrobblescope.orchestrator.merge_unmatched_rows") as merge,
+    ):
+        results = await _process_filtered_albums(
+            job_id,
+            dict(_INCLUDE_FILTERED),
+            2025,
+            "playcount",
+            "same",
+            None,
+            None,
+            "all",
+            0.0,
+        )
+
+    assert results is produced
+    merge.assert_not_called()
+    assert [r["album"] for r in jobs.context(job_id)["results"]] == [
+        "One",
+        "Two",
+        "Three",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_process_filtered_albums_flag_on_merges_then_slices():
+    """
+    GIVEN three matched albums (50, 40, 10 plays) and unmatched albums with
+    30 and 20 plays plus a below-threshold album with 100
+    WHEN _process_filtered_albums runs with include_unmatched and
+    limit_results=3
+    THEN the stored list is the top three of the combined list by play count
+    -- One, Two, then the 30-play unmatched Four -- and the below-threshold
+    album is never listed.
+
+    Mutation: slice before merging and Four is missing; merge below_threshold
+    and Six leads the list.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _record_include_unmatched(job_id)
+
+    with patch(
+        "scrobblescope.orchestrator.process_albums",
+        new_callable=AsyncMock,
+        return_value=_include_matched_rows(),
+    ):
+        results = await _process_filtered_albums(
+            job_id,
+            dict(_INCLUDE_FILTERED),
+            2025,
+            "playcount",
+            "same",
+            None,
+            None,
+            "3",
+            0.0,
+            include_unmatched=True,
+        )
+
+    assert [r["album"] for r in results] == ["One", "Two", "Four"]
+    stored = jobs.context(job_id)["results"]
+    assert [r["album"] for r in stored] == ["One", "Two", "Four"]
+    assert stored[2]["unmatched_reason"] == "no_spotify_match"
+    assert "Found 3 albums" in jobs.progress(job_id)["message"]
+
+
+def test_background_task_stores_unmatched_rows_when_the_flag_is_on():
+    """
+    GIVEN a run whose Spotify phase leaves one album unmatched
+    WHEN background_task runs with include_unmatched on, and again off
+    THEN the job store holds the unmatched row (marked, play count only)
+    for the on run and only matched rows for the off run; the "Done" message
+    counts the rows listed.
+
+    Mutation: stop passing the flag through background_task and the on run
+    stores only the matched row.
+    """
+
+    async def fake_process_albums(job_id, *_args):
+        jobs.record_unmatched(
+            job_id,
+            "d|four",
+            {
+                "artist": "D",
+                "album": "Four",
+                "reason": "x",
+                "reason_code": "no_spotify_match",
+                "play_count": 30,
+            },
+        )
+        return _include_matched_rows()[:1]
+
+    stored = {}
+    for flag in (True, False):
+        job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": flag})
+        with (
+            patch(
+                "scrobblescope.orchestrator.fetch_top_albums_async",
+                new_callable=AsyncMock,
+                return_value=(dict(_INCLUDE_FILTERED), {}, {"status": "ok"}),
+            ),
+            patch(
+                "scrobblescope.orchestrator.process_albums",
+                side_effect=fake_process_albums,
+            ),
+            patch("scrobblescope.orchestrator.release_job_slot"),
+        ):
+            background_task(
+                job_id,
+                "flounder14",
+                2025,
+                "playcount",
+                "same",
+                None,
+                None,
+                10,
+                3,
+                "all",
+                flag,
+            )
+        stored[flag] = (
+            jobs.context(job_id)["results"],
+            jobs.progress(job_id)["message"],
+        )
+
+    on_rows, on_message = stored[True]
+    assert [(r["album"], r["unmatched_reason"]) for r in on_rows[1:]] == [
+        ("Four", "no_spotify_match")
+    ]
+    assert on_rows[1]["play_time_seconds"] == 0
+    assert "Found 2 albums" in on_message
+    off_rows, off_message = stored[False]
+    assert [r["album"] for r in off_rows] == ["One"]
+    assert "Found 1 albums" in off_message

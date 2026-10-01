@@ -28,7 +28,7 @@ sequenceDiagram
     participant ReleaseChecks as release_checks.py
     participant MusicBrainz as MusicBrainz API
 
-    User->>Browser: Submit username, year, filters, sort, and the include_unmatched switch
+    User->>Browser: Submit username, year, filters, sort, and the Albums choice (include_unmatched)
     Browser->>Routes: POST /results_loading + CSRF token
     alt Missing field, non-numeric input, or year outside 2002 to this year
         Routes-->>Browser: index.html + error
@@ -164,7 +164,13 @@ sequenceDiagram
                         Orch->>Jobs: Unmatched entries for albums failing the release filter
                         Note over Orch,Jobs: Ranked results, possibly emptied by the release filter or because every album was No match -- a finished run, never a failure
                         Orch->>Jobs: Progress 60%-90%
+                        opt include_unmatched is on
+                            Orch->>Jobs: Read this job's unmatched entries
+                            Orch->>Orch: Merge the no_spotify_match and provider_unavailable entries into the results, then sort by play count
+                            Note over Orch,Jobs: No extra provider call. A merged row has its play count only: no cover, link, provider, release date or play time. below_threshold and release_scope entries never merge
+                        end
                         Orch->>Orch: Post-slice to limit_results
+                        Note over Orch,Jobs: The slice and the Done count apply to the merged list, so limit_results keeps the top N overall
                         Orch->>Jobs: succeed: results and progress 100%, in one write
                         Orch->>ReleaseChecks: enqueue_release_check(job_id)
                         Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
@@ -241,6 +247,12 @@ sequenceDiagram
         end
     end
 ```
+
+An include run (`include_unmatched`) merges the job's `no_spotify_match` and
+`provider_unavailable` entries into the results after `process_albums`
+(`merge_unmatched_rows` in `orchestrator/_results.py`), before the post-slice;
+the release-check worker then selects those rows as ordinary result
+candidates; their release date stays "unknown" until a later change dates them.
 
 Grouping and threshold filtering happen inside `fetch_top_albums_async`, so
 they run before every downstream branch. The Last.fm failure terminal and the

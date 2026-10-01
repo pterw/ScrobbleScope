@@ -179,15 +179,19 @@
                 <input type="radio" id="sort_playtime" name="sort_by" value="playtime" class="seg__radio">
                 <label for="sort_playtime" class="seg__option">Play time</label>
               </div>
-              <label class="switch-row" for="include_unmatched">
-                <input type="checkbox" id="include_unmatched" name="include_unmatched" value="1"
-                       class="switch__input" aria-describedby="include-unmatched-help">
-                <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
-                <span class="switch-row__text">
-                  <span class="switch-row__label">Include unmatched albums</span>
-                  <span class="switch-row__help" id="include-unmatched-help">Albums Spotify and Deezer can't find stay in, ranked by play count only.</span>
-                </span>
-              </label>
+            </div>
+
+            <div class="field">
+              <div class="field__label-row">
+                <span class="field__label" id="albums-label">Albums</span>
+              </div>
+              <div class="seg" role="group" aria-labelledby="albums-label" aria-describedby="albums-help">
+                <input type="radio" id="albums_matched" name="include_unmatched" value="0" class="seg__radio" checked>
+                <label for="albums_matched" class="seg__option">Matched only</label>
+                <input type="radio" id="albums_all" name="include_unmatched" value="1" class="seg__radio">
+                <label for="albums_all" class="seg__option">All albums</label>
+              </div>
+              <p class="field__help" id="albums-help">All albums keeps the ones Spotify and Deezer can't find, ranked by play count only.</p>
             </div>
 
             <div class="field">

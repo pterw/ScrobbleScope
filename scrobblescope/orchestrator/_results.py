@@ -9,7 +9,11 @@ import logging
 
 from scrobblescope import jobs
 from scrobblescope.domain import _matches_release_criteria, normalize_name
-from scrobblescope.unmatched import REASON_RELEASE_SCOPE
+from scrobblescope.unmatched import (
+    REASON_NO_SPOTIFY_MATCH,
+    REASON_PROVIDER_UNAVAILABLE,
+    REASON_RELEASE_SCOPE,
+)
 from scrobblescope.utils import format_seconds, format_seconds_mobile
 
 
@@ -220,3 +224,57 @@ def _build_results(
             result["proportion_of_total"] = (result[sort_key] / total_val) * 100
 
     return results
+
+
+#: The unmatched reasons an include run lists on Results. Below-threshold and
+#: release-scope exclusions are filters, not misses, so they never appear.
+_INCLUDED_UNMATCHED_REASONS = (REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILABLE)
+
+
+def merge_unmatched_rows(results, unmatched):
+    """Return *results* with the job's unmatched Last.fm albums merged in.
+
+    Used only when the listener chose "All albums". Every
+    *unmatched* entry whose ``reason_code`` is ``no_spotify_match`` or
+    ``provider_unavailable`` becomes a result row carrying its play count and
+    ``unmatched_reason``; the rows share no provider data (no cover, link,
+    provider or release date) and no play time, because none was computed and
+    none is invented. Entries filtered by a listening minimum or the release
+    scope are never merged.
+
+    The new list holds *results* in their order, then the merged rows in
+    *unmatched*'s order, stably sorted by ``play_count`` descending, so a
+    matched row stays ahead of an unmatched row with equal plays. Neither input
+    is modified. ``proportion_of_max`` and ``proportion_of_total`` are left off
+    the merged rows: nothing outside ``_build_results`` reads them.
+
+    Pure synchronous logic -- no I/O.
+    """
+    merged = list(results)
+    for entry in (unmatched or {}).values():
+        reason = entry.get("reason_code")
+        if reason not in _INCLUDED_UNMATCHED_REASONS:
+            continue
+        artist = entry["artist"]
+        album = entry["album"]
+        merged.append(
+            {
+                "artist": artist,
+                "album": album,
+                "play_count": int(entry.get("play_count") or 0),
+                "play_time_seconds": 0,
+                "play_time": "",
+                "play_time_mobile": "",
+                "album_image": None,
+                "album_url": None,
+                "provider": None,
+                "spotify_id": None,
+                "release_date": None,
+                "unmatched_reason": reason,
+                # Same tuple _build_results sets, so jobs.update_result and the
+                # release-check worker can address the row.
+                "_normalized_key": normalize_name(artist, album),
+            }
+        )
+    merged.sort(key=lambda row: row["play_count"], reverse=True)
+    return merged

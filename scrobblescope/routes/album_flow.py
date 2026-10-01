@@ -15,7 +15,11 @@ from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
 from scrobblescope.spotlight import select_spotlight_artists
-from scrobblescope.unmatched import REASON_PROVIDER_UNAVAILABLE
+from scrobblescope.unmatched import (
+    CATEGORY_METADATA,
+    REASON_NO_SPOTIFY_MATCH,
+    REASON_PROVIDER_UNAVAILABLE,
+)
 from scrobblescope.utils import log_failure
 
 bp = _routes.bp
@@ -274,7 +278,19 @@ def _render_results_page():
     # forbids. A skipped pass reserves nothing, because nothing will report.
     release_check = progress_payload.get("stats", {}).get("release_check")
 
-    spotlight_artists = select_spotlight_artists(filtered_results, job_id)
+    include_unmatched = p["include_unmatched"]
+    unmatched_row_count = sum(1 for a in filtered_results if a.get("unmatched_reason"))
+    # The badge words come from the Unmatched page's table, one source.
+    unmatched_badges = {
+        code: CATEGORY_METADATA[code]["badge"]
+        for code in (REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILABLE)
+    }
+
+    # Matched rows only: an unmatched album has no provider data for the
+    # artist portrait, so it cannot be the spotlight.
+    spotlight_artists = select_spotlight_artists(
+        [a for a in filtered_results if not a.get("unmatched_reason")], job_id
+    )
     spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
     top_artist_name = spotlight_artist.get("name", "")
     top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
@@ -297,6 +313,9 @@ def _render_results_page():
         partial_notice=partial_notice,
         partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
+        include_unmatched=include_unmatched,
+        unmatched_row_count=unmatched_row_count,
+        unmatched_badges=unmatched_badges,
         job_id=job_id,
         top_artist_name=top_artist_name,
         top_artist_scrobbles=top_artist_scrobbles,
@@ -500,6 +519,7 @@ def results_loading():
                 min_plays,
                 min_tracks,
                 limit_results,
+                include_unmatched,
             ),
         )
     except Exception:  # noqa: BLE001 -- logged by log_failure

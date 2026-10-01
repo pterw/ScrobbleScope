@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-01 - The heatmap ring check says why a ring is unpainted
+
+Side task, no batch tag: the heatmap focus-ring check names its cause when it fails, an evidence-first step for F-B23-39. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Problem: `heatmap cells keyboard access` fails now and then with "paints no rgb(106, 75, 175) pixel ... (samples painted: top 0%, right 0%, bottom 0%, left 0%)" and passes on a re-run (ccc2c921 [mobile], dce6f148 [mobile], CI run 36726578353, and CI run 36803075335 on PR #253 [desktop], which had no failed app resources). The line said only that nothing was painted, so a ring that was never shown, a ring in the wrong place, another stroke and a tooltip over the ring all looked the same.
+
+Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now ends with one `[evidence: key=value ...]` suffix (`_RING_EVIDENCE_JS`), read in the page in the same evaluation as the geometry, before and after the screenshot; the suffix is built from the read after it, and `changed_during_shot=` names the evidence fields that differed between the two reads (reported, never judged): the ring's `visibility` and box, the cell's box, `document.activeElement` and whether it matches `:focus-visible`, `document.hasFocus()`, the ring's computed stroke, `data-theme`, the tooltip's box, whether it is shown and whether it covers the ring, the scroll offset, `devicePixelRatio`, how many cells paint after the ring, and how long the settle wait took (`settle_slow` past one second). `_ring_shot` returns the coverage and the evidence; `_ring_coverage` keeps its old return. Probe: with `showFocusRing` forced to `hidden` in a scratch copy of `static/js/heatmap.js`, the check failed on all three cells with `ring.visibility=hidden`; restored, it passed. Eleven tests in `tests/scripts/dev/test_frontend_gate_heatmap_access.py` cover the line, the slow-settle flag and the two-sided read; those that read the suffix fail without it.
+
+Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
+
+Validation: `pytest -q` -- **2524 passed**.
+
 ### 2026-09-30 - Coverless albums get a deterministic two-tone wash
 
 Side task, no batch tag: a missing album cover is drawn as a muted two-tone wash instead of a flat bordered box. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

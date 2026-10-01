@@ -138,6 +138,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - Results list unmatched albums when the listener asks
+
+Side task, no batch tag: unmatched albums on the Results page, an "Albums" control that hides them and one lifted look for every segmented control, on the include-unmatched branch (a small PR off main after the cover-washes PR). The commit landed on 2026-10-01; the entry keeps the day of the work.
+
+Owner intent: an include run shows the albums Spotify and Deezer could not match, marked, and the listener can hide them to rank by listening time.
+
+What changed: an include run merges the job's unmatched entries into the results (`merge_unmatched_rows`); each row has plain rank and title, the cover wash, a Not Found or Unavailable marker, an "unknown" release (the page script's `??` fallback was needed by that empty cell) and a play-count metric. Total Albums reads "listed" and Scrobbles sums every row. The Sort leaderboard card gains an "Albums" segmented control (All / Matched only, `name="results_albums"`) that hides the rows, renumbers, recounts and enables Listening Time. `.seg` and `.seg__option` moved to `static/css/shell.css`. The shared look is lifted per the owner rulings "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control": option text takes the body token (8.71 light, 10.61 dark on the track), the selected chip keeps its soft fill, gains a 1px primary border (6.06 / 8.14) and takes base-content text (14.81 / 13.04), and an unselected option deepens to base-content on hover (review fold-in, was primary at 6.06). Results' Sort leaderboard buttons take the same tokens through `aria-pressed`, which the template now renders. The frontend gate gains `seg_contrast_*` (text 7:1, boundary 3:1, both themes, four controls) and `seg_hover_failures` (hovered unselected option and the chip, 7:1, on the index Rank by control). `static/css/tailwind.css` was rebuilt by the drift hook. RECONCILIATION Section 21 and two ledger rows record the overrides; Section 20 notes that Section 21 moves the Results help to the same token; DESIGN.md and README follow.
+
+Deviations: the behaviour script loads no stylesheet, so Results colour ratios are held in the frontend gate and the script holds the JS state; the marker and "unknown" facts are pinned by the route tests against the real template. The dating of "unknown" releases is not shipped here.
+
+Known limits: the behaviour script's `include_run` fixture seeds a Top Artist the real page would not start with, and the toast text, the restored title after un-hide and the Top Artist update have assertions but no planted defect; the Results "Albums" control's contrast and the forced-colours `Highlight` border are not gated; no frontend-gate check renders a real include Results page yet.
+
+Edited existing tests: test_results_include_run_marks_unmatched_rows_and_locks_listening_time (assertions).
+
+Validation: `pytest -q` -- **2547 passed**.
+
 ### 2026-09-30 - The index card can include unmatched albums
 
 Side task, no batch tag: the index card's "Include unmatched albums" switch and the sort lock, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -175,15 +191,3 @@ Change: `_RING_EVIDENCE_JS` in `scripts/dev/_frontend_gate_heatmap_access.py` al
 Reproduction, no fix: the check alone, 20 times in one desktop Chromium, with `reduced_motion="no-preference"`: 20 of 20 passed, twice; 20 of 20 with no emulation. The page reports `prefers-reduced-motion: reduce` matches False in the ordinary local run, so the premise that a local run skips the fade is false on this machine. With the evidence read on every shot of one `no-preference` run, 8 of its 20 last-cell shots had a different container opacity before and after the screenshot (so a shot can land inside the fade, on the very cell that failed on CI), and the ring still painted each time; the no-emulation run showed none. No iteration failed, so by the rule for this task the crossfade hypothesis is not confirmed and `_ring_coverage` does not wait for animations. F-B23-39 records the lead. The next CI failure's line will show it.
 
 Validation: `pytest -q` -- **2527 passed**.
-
-### 2026-10-01 - The heatmap ring check says why a ring is unpainted
-
-Side task, no batch tag: the heatmap focus-ring check names its cause when it fails, an evidence-first step for F-B23-39. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: `heatmap cells keyboard access` fails now and then with "paints no rgb(106, 75, 175) pixel ... (samples painted: top 0%, right 0%, bottom 0%, left 0%)" and passes on a re-run (ccc2c921 [mobile], dce6f148 [mobile], CI run 36726578353, and CI run 36803075335 on PR #253 [desktop], which had no failed app resources). The line said only that nothing was painted, so a ring that was never shown, a ring in the wrong place, another stroke and a tooltip over the ring all looked the same.
-
-Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now ends with one `[evidence: key=value ...]` suffix (`_RING_EVIDENCE_JS`), read in the page in the same evaluation as the geometry, before and after the screenshot; the suffix is built from the read after it, and `changed_during_shot=` names the evidence fields that differed between the two reads (reported, never judged): the ring's `visibility` and box, the cell's box, `document.activeElement` and whether it matches `:focus-visible`, `document.hasFocus()`, the ring's computed stroke, `data-theme`, the tooltip's box, whether it is shown and whether it covers the ring, the scroll offset, `devicePixelRatio`, how many cells paint after the ring, and how long the settle wait took (`settle_slow` past one second). `_ring_shot` returns the coverage and the evidence; `_ring_coverage` keeps its old return. Probe: with `showFocusRing` forced to `hidden` in a scratch copy of `static/js/heatmap.js`, the check failed on all three cells with `ring.visibility=hidden`; restored, it passed. Eleven tests in `tests/scripts/dev/test_frontend_gate_heatmap_access.py` cover the line, the slow-settle flag and the two-sided read; those that read the suffix fail without it.
-
-Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
-
-Validation: `pytest -q` -- **2524 passed**.

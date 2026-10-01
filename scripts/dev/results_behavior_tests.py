@@ -571,6 +571,186 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.assertNotIn("is-visible", tip.get_attribute("class"))
         self.assertEqual(self.page.locator('[role="tooltip"]').count(), 1)
 
+    # An include run, shaped like the rendered Results page: five rows by play
+    # count, two of them unmatched (one per reason) and without a duration.
+    INCLUDE_ROWS = (
+        ("Alpha", "50", "3000", "50 mins", ""),
+        ("Lost One", "45", "0", "", "no_spotify_match"),
+        ("Beta", "40", "2000", "33 mins", ""),
+        ("Lost Two", "35", "0", "", "provider_unavailable"),
+        ("Gamma", "30", "1000", "16 mins", ""),
+    )
+    INCLUDE_MARKERS = {
+        "no_spotify_match": "Not Found",
+        "provider_unavailable": "Unavailable",
+    }
+
+    def include_run(self, has_durations=True):
+        """Load results.js into the rows an include run renders, with the
+        Albums control, both stats and the locked Listening Time button."""
+        self.page.emulate_media(reduced_motion="reduce")
+        rows = ""
+        for number, (name, plays, seconds, duration, unmatched) in enumerate(
+            self.INCLUDE_ROWS, 1
+        ):
+            marker = (
+                f'<span class="provider-badge provider-badge--unmatched">'
+                f"{self.INCLUDE_MARKERS[unmatched]}</span>"
+                if unmatched
+                else ""
+            )
+            release = (
+                '<td class="release-date-cell" data-export="">unknown</td>'
+                if unmatched
+                else '<td class="release-date-cell" data-export="2025-01-02">2025-01</td>'
+            )
+            rows += (
+                f'<tr data-rank="{number}" data-album="{name}" data-artist="{name} Band" '
+                f'data-play-count="{plays}" data-play-time-seconds="{seconds}" '
+                f'data-play-time="{duration}" data-provider="" data-unmatched="{unmatched}">'
+                f'<td><span class="rank-num">{number:02d}</span></td>'
+                f"<td><span>{name}</span>{marker}</td>"
+                f'<td class="metric-value-cell"><span class="metric-value">{plays}</span></td>'
+                f"{release}</tr>"
+            )
+        self.start(
+            "results.js",
+            '<div id="toastContainer"></div><button id="export-csv"></button>'
+            '<span id="stat-total-albums">5</span><span id="stat-scrobbles">200</span>'
+            '<span id="stat-top-artist" title="Lost One Band">Lost One Band</span>'
+            '<button id="toggle-sort-plays"></button>'
+            '<button id="toggle-sort-playtime" disabled '
+            'title="Unmatched albums have no listening time" '
+            f'data-has-durations="{"true" if has_durations else "false"}" '
+            'class="opacity-50 cursor-not-allowed"></button>'
+            '<span id="metric-header-label"></span>'
+            '<input type="radio" id="results_albums_all" name="results_albums" checked>'
+            '<label for="results_albums_all">All</label>'
+            '<input type="radio" id="results_albums_matched" name="results_albums">'
+            '<label for="results_albums_matched">Matched only</label>'
+            '<table id="results-table"><tbody>' + rows + "</tbody></table>",
+            {"year": 2025, "username": "u"},
+        )
+
+    def visible_albums(self):
+        return self.page.locator("tbody tr:not([hidden])").evaluate_all(
+            "rows => rows.map(r => r.dataset.album)"
+        )
+
+    def stats(self):
+        return [
+            self.page.locator("#stat-total-albums").inner_text(),
+            self.page.locator("#stat-scrobbles").inner_text(),
+            self.page.locator("#stat-top-artist").inner_text(),
+        ]
+
+    def test_matched_only_hides_rows_renumbers_and_offers_listening_time(self):
+        """Choosing Matched only takes both unmatched rows out, ranks the rest 01..03,
+        recomputes the stats and enables Listening Time; showing them again
+        restores the play-count ranking, the stats and the locked button."""
+        self.include_run()
+        button = self.page.locator("#toggle-sort-playtime")
+        self.assertTrue(button.is_disabled())
+        self.assertEqual(
+            self.visible_albums(), ["Alpha", "Lost One", "Beta", "Lost Two", "Gamma"]
+        )
+
+        self.page.locator("label[for=results_albums_matched]").click()
+        self.assertEqual(self.visible_albums(), ["Alpha", "Beta", "Gamma"])
+        self.assertEqual(
+            self.page.locator("tbody tr:not([hidden]) .rank-num").all_text_contents(),
+            ["01", "02", "03"],
+        )
+        self.assertEqual(
+            self.page.locator("tbody tr:not([hidden])").evaluate_all(
+                "rows => rows.map(r => r.dataset.rank)"
+            ),
+            ["1", "2", "3"],
+        )
+        self.assertEqual(self.stats(), ["3", "120", "Alpha Band"])
+        self.assertTrue(button.is_enabled())
+        self.assertIsNone(button.get_attribute("title"))
+        self.assertIn(
+            "Unmatched albums hidden; listening time is available.",
+            self.page.locator("#toastContainer").inner_text(),
+        )
+
+        # Listening time orders the visible rows by time.
+        self.page.evaluate(
+            "document.querySelector('tbody tr[data-album=\"Gamma\"]').dataset.playTimeSeconds = '9000'"
+        )
+        button.click()
+        self.assertEqual(self.visible_albums(), ["Gamma", "Alpha", "Beta"])
+        self.assertEqual(
+            self.page.locator("tbody tr:not([hidden]) .rank-num").all_text_contents(),
+            ["01", "02", "03"],
+        )
+
+        # Choosing All again (the arrow key moves the selection back) returns
+        # to play count first: the unmatched rows have no time.
+        self.page.locator("#results_albums_matched").focus()
+        self.page.keyboard.press("ArrowLeft")
+        self.assertEqual(
+            self.visible_albums(),
+            ["Alpha", "Lost One", "Beta", "Lost Two", "Gamma"],
+        )
+        self.assertEqual(
+            self.page.locator("#results-table").get_attribute("data-metric"), "plays"
+        )
+        self.assertEqual(
+            self.page.locator(".rank-num").all_text_contents(),
+            ["01", "02", "03", "04", "05"],
+        )
+        self.assertEqual(self.stats(), ["5", "200", "Alpha Band"])
+        self.assertTrue(button.is_disabled())
+        self.assertEqual(
+            button.get_attribute("title"), "Unmatched albums have no listening time"
+        )
+        self.assertIn(
+            "Unmatched albums shown; ranked by play count.",
+            self.page.locator("#toastContainer").inner_text(),
+        )
+
+    def test_matched_only_without_durations_leaves_listening_time_off(self):
+        """A run with no durations at all never offers Listening Time: hiding
+        the unmatched rows keeps the button disabled, with the durations
+        reason."""
+        self.include_run(has_durations=False)
+        self.page.locator("label[for=results_albums_matched]").click()
+        button = self.page.locator("#toggle-sort-playtime")
+        self.assertTrue(button.is_disabled())
+        self.assertEqual(
+            button.get_attribute("title"), "Spotify track durations not available"
+        )
+        self.assertEqual(self.stats()[:2], ["3", "120"])
+
+    def test_csv_skips_hidden_rows_and_names_the_unmatched_marker(self):
+        """The CSV lists the rows on the page: an unmatched row's Provider
+        column holds its marker word, and a hidden row is absent."""
+        self.include_run()
+        with self.page.expect_download() as shown:
+            self.page.locator("#export-csv").click()
+        lines = Path(shown.value.path()).read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(lines[2], '"2","Lost One","Lost One Band","45","","Not Found"')
+        self.assertEqual(
+            lines[4], '"4","Lost Two","Lost Two Band","35","","Unavailable"'
+        )
+        self.assertEqual(lines[1], '"1","Alpha","Alpha Band","50","2025-01-02",""')
+
+        self.page.locator("label[for=results_albums_matched]").click()
+        with self.page.expect_download() as hidden:
+            self.page.locator("#export-csv").click()
+        lines = Path(hidden.value.path()).read_text(encoding="utf-8").splitlines()
+        self.assertEqual(
+            [line.split(",")[1] for line in lines[1:]],
+            ['"Alpha"', '"Beta"', '"Gamma"'],
+        )
+        self.assertEqual(
+            [line.split(",")[0] for line in lines[1:]], ['"1"', '"2"', '"3"']
+        )
+        self.assertNotIn("Lost", "\n".join(lines))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

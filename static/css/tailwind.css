@@ -1588,9 +1588,6 @@
   .border-l-\[var\(--ss-good\,\#2f7a4a\)\] {
     border-left-color: var(--ss-good,#2f7a4a);
   }
-  .bg-\[var\(--color-base-100\)\] {
-    background-color: var(--color-base-100);
-  }
   .bg-\[var\(--results-surface\)\] {
     background-color: var(--results-surface);
   }
@@ -1621,9 +1618,6 @@
       --btn-inset: 0 0 0 0 oklch(0% 0 0/0);
       --btn-shadow: 0 0 0 0 oklch(0% 0 0/0);
     }
-  }
-  .p-1 {
-    padding: var(--spacing-1);
   }
   .p-3 {
     padding: var(--spacing-3);
@@ -1871,9 +1865,6 @@
     }
     .hover\:text-\[var\(--color-base-content\)\]:hover {
       color: var(--color-base-content);
-    }
-    .hover\:text-\[var\(--color-primary\)\]:hover {
-      color: var(--color-primary);
     }
     .hover\:underline:hover {
       text-decoration-line: underline;

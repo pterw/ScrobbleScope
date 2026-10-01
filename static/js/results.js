@@ -84,6 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(tr => {
+                    // A row hidden by "Matched only" is not in the list.
+                    if (tr.hidden) return;
                     const rank = tr.dataset.rank || tr.querySelector('.rank-num')?.textContent.trim() || '';
                     const album = tr.dataset.album || tr.querySelector('.album-link, .album-info span')?.textContent.trim() || '';
                     const artist = tr.dataset.artist || tr.querySelector('.artist-name')?.textContent.trim() || '';
@@ -93,8 +95,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         : (tr.dataset.playCount || '0');
 
                     const releaseCell = tr.querySelector('.release-date-cell');
-                    const release = releaseCell?.getAttribute('data-export') || releaseCell?.textContent.trim() || '';
-                    const provider = tr.dataset.provider || '';
+                    // An empty data-export is a real value (an unmatched row's release is
+                    // unknown), so only an absent attribute falls back to the cell text.
+                    const exported = releaseCell?.getAttribute('data-export');
+                    const release = exported ?? (releaseCell?.textContent.trim() || '');
+                    // An unmatched row has no provider; the Provider column carries its
+                    // marker word (Not Found / Unavailable) instead.
+                    const provider = tr.dataset.unmatched
+                        ? (tr.querySelector('.provider-badge--unmatched')?.textContent.trim() || '')
+                        : (tr.dataset.provider || '');
 
                     const clean = (val) => '"' + String(val).replace(/\s+/g, ' ').replace(/"/g, '""').trim() + '"';
                     csvContent.push([clean(rank), clean(album), clean(artist), clean(metric), clean(release), clean(provider)].join(','));
@@ -256,10 +265,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!button) continue;
             const active = mode === buttonMode;
             button.classList.toggle('bg-[var(--ss-accent-soft)]', active);
-            button.classList.toggle('text-[var(--color-primary)]', active);
-            button.classList.toggle('text-[var(--ss-text-muted)]', !active);
             button.setAttribute('aria-pressed', String(active));
         }
+    }
+
+    /** Write rank 1..n into the given rows, on the row and in its rank cell. */
+    function renumberRows(rows) {
+        rows.forEach((row, index) => {
+            row.dataset.rank = String(index + 1);
+            const rank = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
+            if (rank) rank.textContent = String(index + 1).padStart(2, '0');
+        });
     }
 
     /** Reorder existing rows and update their visible and exported ranks together. */
@@ -276,13 +292,12 @@ document.addEventListener('DOMContentLoaded', () => {
         table.dataset.metric = mode;
         const key = mode === 'playtime' ? 'playTimeSeconds' : 'playCount';
         rows.sort((a, b) => Number(b.dataset[key] || 0) - Number(a.dataset[key] || 0));
-        rows.forEach((row, index) => {
+        rows.forEach(row => {
             tbody.appendChild(row);
-            row.dataset.rank = String(index + 1);
-            const rank = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
-            if (rank) rank.textContent = String(index + 1).padStart(2, '0');
             renderMetric(row, mode);
         });
+        // Rows hidden by "Matched only" take no rank.
+        renumberRows(rows.filter(row => !row.hidden));
         const label = document.getElementById('metric-header-label');
         if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
         const subtitle = document.getElementById('results-ranking-subtitle');
@@ -380,6 +395,66 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape') hideAlbumTooltip();
         });
+    }
+
+    /** Hide or show the included unmatched rows, and recompute what depends on them. */
+    const matchedOnly = document.getElementById('results_albums_matched');
+    const allAlbums = document.getElementById('results_albums_all');
+    function setUnmatchedHidden(hidden, notify = true) {
+        const table = document.getElementById('results-table');
+        const tbody = table?.querySelector('tbody');
+        if (!tbody) return;
+        const playtimeBtn = document.getElementById('toggle-sort-playtime');
+        // Restored rows have no listening time, so go back to play count first.
+        if (!hidden && table.dataset.metric === 'playtime') setLeaderboardMetric('plays', false);
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.forEach(row => {
+            if (row.dataset.unmatched) row.hidden = hidden;
+        });
+        const visible = rows.filter(row => !row.hidden);
+        renumberRows(visible);
+
+        const totalAlbums = document.getElementById('stat-total-albums');
+        if (totalAlbums) totalAlbums.textContent = visible.length.toLocaleString('en-US');
+        const scrobbles = document.getElementById('stat-scrobbles');
+        if (scrobbles) {
+            const plays = visible.reduce((sum, row) => sum + Number(row.dataset.playCount || 0), 0);
+            scrobbles.textContent = plays.toLocaleString('en-US');
+        }
+        const topArtist = document.getElementById('stat-top-artist');
+        if (topArtist && visible.length) {
+            topArtist.textContent = visible[0].dataset.artist || '';
+            topArtist.title = visible[0].dataset.artist || '';
+        }
+
+        if (playtimeBtn) {
+            // Listening time is offered only when the rows left have it: never while
+            // unmatched rows are shown, and never when the run has no durations.
+            const available = hidden && playtimeBtn.dataset.hasDurations === 'true';
+            playtimeBtn.disabled = !available;
+            playtimeBtn.classList.toggle('opacity-50', !available);
+            playtimeBtn.classList.toggle('cursor-not-allowed', !available);
+            if (available) {
+                playtimeBtn.removeAttribute('title');
+            } else {
+                playtimeBtn.title = hidden
+                    ? 'Spotify track durations not available'
+                    : 'Unmatched albums have no listening time';
+            }
+        }
+        if (notify) {
+            showToast(hidden
+                ? 'Unmatched albums hidden; listening time is available.'
+                : 'Unmatched albums shown; ranked by play count.');
+        }
+    }
+
+    if (matchedOnly && allAlbums) {
+        [matchedOnly, allAlbums].forEach(radio => {
+            radio.addEventListener('change', () => setUnmatchedHidden(matchedOnly.checked));
+        });
+        // Back navigation restores "Matched only" over a freshly rendered table.
+        if (matchedOnly.checked) setUnmatchedHidden(true, false);
     }
 
     const togglePlaysBtn = document.getElementById('toggle-sort-plays');

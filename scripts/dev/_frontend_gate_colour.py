@@ -29,6 +29,9 @@ __all__ = [
     "_parse_rgb_string",
     "_relative_luminance",
     "_worst_divider_contrast",
+    "seg_contrast_cells",
+    "seg_contrast_failures",
+    "seg_hover_failures",
 ]
 
 #: The computed-colour serializations this module can read.
@@ -189,3 +192,146 @@ def _divider_contrast_failure(
         f"/ {label}: {token} composites to {ratio:.2f}:1 against its "
         "adjacent surface, expected at least 3:1"
     )
+
+
+#: The owner's ruling: 4.5 is a floor, not a goal. Option text aims for 7:1
+#: (AAA); the selected chip's boundary is a non-text boundary, held at 3:1.
+SEG_TEXT_FLOOR = 7.0
+SEG_BOUNDARY_FLOOR = 3.0
+
+#: The selected option's text takes the base-content ink on its soft chip, so
+#: it is held at 7:1 as well (primary on the chip was 5.47:1 light, 6.38:1 dark).
+SEG_SELECTED_TEXT_FLOOR = 7.0
+
+#: Takes {track, selected, unselected} selectors; returns the painted colours.
+SEG_PAINT_JS = """spec => {
+    const track = document.querySelector(spec.track);
+    const selected = document.querySelector(spec.selected);
+    const unselected = document.querySelector(spec.unselected);
+    if (!track || !selected || !unselected) return null;
+    const paint = node => getComputedStyle(node);
+    return {
+        track: paint(track).backgroundColor,
+        unselectedText: paint(unselected).color,
+        selectedText: paint(selected).color,
+        chip: paint(selected).backgroundColor,
+        chipBorder: paint(selected).borderTopColor,
+    };
+}"""
+
+
+def seg_contrast_cells(page, spec: dict) -> dict | None:
+    """Measure one segmented control in the current theme, or None if absent.
+
+    The cells are option text on its track, the selected text on its chip and
+    the chip's boundary against the track. A transparent colour is composited
+    over the track, so the chip fill is read as painted.
+    """
+    paint = page.evaluate(SEG_PAINT_JS, spec)
+    if paint is None:
+        return None
+    track = _parse_rgb_string(paint["track"])[:3]
+
+    def over_track(value: str) -> tuple[float, float, float]:
+        return _composite_over(_parse_rgb_string(value), track)
+
+    chip = over_track(paint["chip"])
+    return {
+        "option text on track": _contrast_ratio(
+            _parse_rgb_string(paint["unselectedText"])[:3], track
+        ),
+        "selected text on chip": _contrast_ratio(
+            _parse_rgb_string(paint["selectedText"])[:3], chip
+        ),
+        "chip boundary on track": _contrast_ratio(
+            over_track(paint["chipBorder"]), track
+        ),
+    }
+
+
+def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
+    """Hold a segmented control at 7:1 option text and a 3:1 chip boundary.
+
+    Runs in both themes and restores light. The options take a 0.2s colour
+    transition, so the read waits it out.
+    """
+    failures = []
+    try:
+        for theme in ("light", "dark"):
+            page.evaluate(
+                "(t) => document.documentElement.setAttribute('data-theme', t)",
+                theme,
+            )
+            page.wait_for_timeout(350)
+            cells = seg_contrast_cells(page, spec)
+            if cells is None:
+                failures.append(
+                    f"/ {label}: the control is missing, nothing to measure"
+                )
+                continue
+            floors = {
+                "option text on track": SEG_TEXT_FLOOR,
+                "selected text on chip": SEG_SELECTED_TEXT_FLOOR,
+                "chip boundary on track": SEG_BOUNDARY_FLOOR,
+            }
+            for cell, ratio in cells.items():
+                if ratio < floors[cell]:
+                    failures.append(
+                        f"/ {label}, {theme} theme: {cell} is {ratio:.2f}:1, "
+                        f"under {floors[cell]}:1"
+                    )
+    finally:
+        page.evaluate(
+            "() => document.documentElement.setAttribute('data-theme', 'light')"
+        )
+    return failures
+
+
+def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
+    """Hold hovered segment text at 7:1: the unselected option, then the chip.
+
+    Hovering an unselected option deepens its ink to the base-content token,
+    and the checked chip keeps its own ink on hover. Both are measured in both
+    themes against the surface each text sits on, after the colour
+    transition, and the pointer is moved away and light restored.
+    """
+    failures = []
+    try:
+        for theme in ("light", "dark"):
+            page.evaluate(
+                "(t) => document.documentElement.setAttribute('data-theme', t)",
+                theme,
+            )
+            for state, key, surface in (
+                ("unselected option", "unselected", "track"),
+                ("selected chip", "selected", "chip"),
+            ):
+                page.locator(spec[key]).hover()
+                page.wait_for_timeout(350)
+                paint = page.evaluate(SEG_PAINT_JS, spec)
+                if paint is None:
+                    failures.append(
+                        f"/ {label}: the control is missing, nothing to hover"
+                    )
+                    break
+                track = _parse_rgb_string(paint["track"])[:3]
+                ground = (
+                    track
+                    if surface == "track"
+                    else _composite_over(_parse_rgb_string(paint["chip"]), track)
+                )
+                text = paint[
+                    "unselectedText" if key == "unselected" else "selectedText"
+                ]
+                ratio = _contrast_ratio(_parse_rgb_string(text)[:3], ground)
+                if ratio < SEG_TEXT_FLOOR:
+                    failures.append(
+                        f"/ {label}, {theme} theme: hovered {state} text on "
+                        f"{surface} is {ratio:.2f}:1, under {SEG_TEXT_FLOOR}:1"
+                    )
+    finally:
+        page.mouse.move(0, 0)
+        page.evaluate(
+            "() => document.documentElement.setAttribute('data-theme', 'light')"
+        )
+    return failures

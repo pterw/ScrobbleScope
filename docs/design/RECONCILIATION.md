@@ -41,7 +41,9 @@ The owner-approved overrides currently recorded are:
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
-| Index card: unmatched switch | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)", and the Switch is the dark-mode toggle only | An "Include unmatched albums" Switch sits between the Rank by control and the Show select, and the Play time segment can be disabled | Owner ruling 2026-09-30, Section 20 |
+| Index card: Albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Albums" segmented control (Matched only / All albums) sits between the Rank by control and the Show select, and the Play time segment can be disabled | Owner ruling 2026-09-30, Section 20 |
+| Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both Albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
+| Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, an "unknown" release and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Albums" segmented control (All / Matched only); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -880,7 +882,7 @@ or better, so a pair the fixture page does not show is judged too.
 
 ---
 
-## 20. Frozen-snapshot override: the "Include unmatched albums" switch, 2026-09-30
+## 20. Frozen-snapshot override: the "Albums" segmented control, 2026-09-30
 
 Owner ruling, 2026-09-30: a quick toggle in the index card for the Last.fm
 albums that Spotify and Deezer could not match, "to see total playcount
@@ -894,38 +896,114 @@ overrides them.
 **The card.** `docs/design/README.md` lists the Right column card's contents in
 order, "... Rank by segmented control (Play count / Play time); Show select
 (All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure ...". The card
-also has, between the Rank by control and the Show select, the Switch
-"Include unmatched albums", off by default and not remembered between visits,
-with the help "Albums Spotify and Deezer can't find stay in, ranked by play
-count only." It is the first shipped instance of the kit's Switch
-(`components/forms/Switch.prompt.md`), whose prompt calls the dark-mode toggle
-"the only shipped instance". `static/css/shell.css` ships no knob switch: the
-theme control is the two-word pill, so the prompt was never true of this
-repository.
+also has, between the Rank by control and the Show select, a second field,
+"Albums": a two-option segmented control (Matched only, selected by default;
+All albums), not remembered between visits, with the help "All albums keeps the
+ones Spotify and Deezer can't find, ranked by play count only." It is the same
+`.seg` of two native radios as "Rank by" (`name="include_unmatched"`, values 0
+and 1; the server keeps its rule that only "1" includes). The help takes
+`--ss-text-body`, not the muted token, because it is new text: 9.32:1 (light)
+and 9.82:1 (dark) on the card, against 5.53:1 and 5.39:1 for the muted token. Section 21 moves the Results card's help
+to the same token, so both pages agree.
+
+**Why a segmented control and not a Switch.** The kit's Switch
+(`components/forms/Switch.prompt.md`) calls the dark-mode toggle "the only
+shipped instance", but the theme control is the header's two-word "Light |
+Dark" pill, so the kit's Switch has no shipped instance in this repository.
+The app has two idioms for a two-state choice, that pill and the form's
+segmented control, and a knob switch would have been a third. A first build of
+this field as a knob switch was replaced after the owner's ruling, 2026-10-01:
+"Precisely use what exists; segmented control. Cost is nothing relative to
+what it does." Nothing in `static/css/shell.css` or `index.css` ships a knob
+switch.
+
+**The shared look is lifted.** The segmented control's shipped look, which the
+kit's `SegmentedControl.prompt.md` also describes (muted option text, a soft
+accent chip with no outline), measured option text at 5.17:1 (light) and 5.82:1
+(dark) on the track and the selected chip's edge at 1.11:1 and 1.28:1 against
+it. The owner's rulings "The 4.5 is a floor not a goal" and "Precisely use what
+exists; segmented control" were met by lifting the one shared rule, not by
+styling the new controls apart. In `shell.css` the unselected option text now
+takes `--ss-text-body` (8.71:1 light, 10.61:1 dark on the track), and the
+selected chip keeps its soft accent fill, gains a 1px `--color-primary` border
+(6.06:1 light, 8.14:1 dark against the track; the border is transparent on
+every option so no option changes size; under forced colours it is
+`Highlight`) and takes `--color-base-content` text, the strongest ink token
+(14.81:1 light, 13.04:1 dark on the chip; primary text on the chip was 5.47:1
+and 6.38:1, under the 7:1 aim). Selection is carried by ink, fill and border
+together, and the checked chip keeps that ink on hover. An unselected option
+deepens to `--color-base-content` on hover (it was `--color-primary`, 6.06:1
+on the track in light) and the dimmed disabled state is unchanged. It applies to
+every instance: "Rank by", the index "Albums" control, the Results "Albums"
+control and the Results "Sort leaderboard" buttons (`.metric-toggle-btn`,
+button markup that takes the same tokens through `aria-pressed`, which
+`results.js` already set and the template now renders). The kit's prompt is
+frozen, so its muted-text description stays and this section overrides it.
 
 **The disabled segment.** `SegmentedControl.prompt.md` has no disabled state.
-While the switch is on, the Play time segment is disabled, not removed: it is
-dimmed to 40% opacity with `cursor: not-allowed`, and it never recolours on
+While All albums is chosen, the Play time segment is disabled, not removed: it
+is dimmed to 40% opacity with `cursor: not-allowed`, and it never recolours on
 hover. The rule is the decade pill's ("Kept visible, not removed. A dimmed
 decade tells the reader the decade exists and holds nothing, which a missing
 pill does not"). If Play time was selected, Play count becomes selected. When
-the switch goes off Play time is enabled again and the selection stays where
+Matched only is chosen again Play time is enabled and the selection stays where
 it is. The server holds the same rule for a form posted without scripts: an
 include run is stored as a play-count run. Under forced colours the disabled
 segment uses `GrayText`.
 
-**The Switch.** Native checkbox, visually hidden with the clip pattern the
-segmented control uses, styled through its label: 2.45rem by 1.25rem track,
-0.95rem knob (`Switch.d.ts`), knob white in both themes, a 1px
-`--ss-text-muted` border over the page fill when off and `--color-primary`
-fill and border when on, a 44px label row on coarse pointers and narrow
-viewports, a focus ring on the track, the knob transition removed under
-reduced motion, and under forced colours a `ButtonText` border, `Highlight`
-track and `HighlightText` knob. `DESIGN.md` records the same two components.
+---
 
-**Two additions to the kit's Switch.** The off track is outlined rather than
-border-toned, because the kit's border-toned fill measured 1.33:1 (light) and
-1.20:1 (dark) against the card, under the 3:1 a control boundary needs. The
-knob stays white but carries a 1px `rgba(20, 16, 24, 0.75)` edge in both
-themes, because the dark theme's accent is pale and a white knob on it
-measured 2.39:1.
+## 21. Frozen-snapshot override: unmatched albums on the Results page, 2026-09-30
+
+Owner rulings, 2026-09-30: the include option exists "to see total playcount
+regardless"; the lock on play time may be built as "'remove unmatched listens'
+as a toggle in that mode"; both kinds of miss are listed, "marked"; and "Don't
+trust album covers from last.fm".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them.
+
+**The row.** `docs/design/components/data/AlbumRow.prompt.md` says "Titles link
+to Spotify when `spotify_id` exists and are plain text otherwise" and "Placeholder
+covers are muted two-tone washes". An included unmatched album is a row with
+neither a provider nor a cover. Its rank and title are plain text, its cover
+slot is the same wash every missing cover wears (section 19, no Last.fm image),
+and under the artist, in the slot a non-Spotify provider's badge uses, a small
+mono marker names the miss with the Unmatched page's own badge word: "Not
+Found" or "Unavailable". Its release cell reads "unknown". Both words take `--ss-text-body`, not the muted token, because they
+are new text: 8.27:1 (light) and 10.19:1 (dark) on the table surface, against
+4.9:1 and 5.59:1 for the muted token. The metric is the play count: an
+unmatched album has no listening time and none is invented.
+
+**The stat block and the attribution line.** `docs/design/README.md` describes
+"a sticky sidebar of three stat blocks" and the Results screen's exact counts.
+In an include run Total Albums counts every listed row and its caption reads
+"listed" instead of "matched"; Scrobbles sums every listed row. The line above
+the table, "Album artwork and links from Spotify", also excepts the rows
+marked Not Found or Unavailable, which have neither.
+
+**The side rail control.** The snapshot's side column has no such control.
+The "Sort leaderboard" card gains a second segmented control under its sort
+control: the sub-label "Albums", the options "All" and "Matched only"
+(`name="results_albums"`, radios in the same `.seg__option` style as the
+index card, no form around them) and the help "Matched only removes the
+unmatched listens so the leaderboard can be ranked by listening time." While
+unmatched rows are shown (All) the Listening Time segment is disabled, dimmed
+to 50% like the card's no-durations case, with the title "Unmatched albums have
+no listening time". Matched only hides those rows, renumbers the rest,
+recomputes Total Albums and Scrobbles from the visible rows and enables
+Listening Time when the run has durations; All returns the rows and ranks by
+play count again. It is page state only, and the CSV and the saved image follow
+what is on the page (the CSV names the marker word in its Provider column).
+The owner's ruling of 2026-10-01 (see section 20) chose the segmented control
+over the knob switch for this control as well.
+
+**The option rules move to `shell.css`.** The `.seg__radio` and `.seg__option`
+rules (hidden radio, option, checked chip, hover, focus ring, the 44px floor
+on coarse pointers) moved there from `index.css` so the index card and the
+Results rail share one rule set (the scale follows `--index-scale`, else
+`--results-scale`). The track rule `.seg` moved with them (Results' two tracks were utility
+copies of it, with the `--results-scale` fallback now in the rule); the
+dimmed-disabled rule stays in `index.css`. Help text under the controls takes
+`--ss-text-body` (it was muted at 4.9:1 on the Results card; the owner's
+ruling is that 4.5 is a floor, not a goal).

@@ -558,9 +558,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* An unmatched album has no play time, so an include run ranks by play
-     count only: the switch disables Play time (dimmed, still visible). The
-     choice is never silently restored when the switch goes off. */
-  const includeUnmatched = document.getElementById('include_unmatched');
+     count only: "All albums" disables Play time (dimmed, still visible) and
+     selects Play count. The choice is never silently restored when "Matched
+     only" is chosen again. */
+  const includeUnmatched = document.getElementById('albums_all');
+  const matchedOnly = document.getElementById('albums_matched');
   const sortPlaytime = document.getElementById('sort_playtime');
   const sortPlaycount = document.getElementById('sort_playcount');
 
@@ -576,7 +578,9 @@ document.addEventListener('DOMContentLoaded', () => {
       sortPlaytime.disabled = false;
     }
   }
-  if (includeUnmatched) includeUnmatched.addEventListener('change', syncUnmatchedLock);
+  [includeUnmatched, matchedOnly].forEach((radio) => {
+    if (radio) radio.addEventListener('change', syncUnmatchedLock);
+  });
   document.querySelectorAll('.decade-radio').forEach((radio) => {
     radio.addEventListener('change', updateFilterTags);
   });
