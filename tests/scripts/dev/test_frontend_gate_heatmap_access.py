@@ -210,6 +210,13 @@ def _evidence(**overrides) -> dict:
         "scrollY": 12,
         "dpr": 1,
         "cellsAfterRing": 0,
+        "containerOpacity": "1",
+        "svgOpacity": "1",
+        "fade": False,
+        "fadingOut": False,
+        "handingOff": False,
+        "runningAnimations": 0,
+        "reducedMotion": False,
         "settleMs": 40,
         "settleSlow": False,
     }
@@ -357,3 +364,54 @@ def test_a_missing_ring_and_tooltip_read_as_none() -> None:
     assert "ring.box=none" in note
     assert "tooltip.box=none" in note
     assert "cells_after_ring=None" in note
+
+
+def test_the_evidence_reads_the_result_crossfade_state() -> None:
+    """F-B23-39: a ring shot under an opacity below 1 is blended toward the page,
+    so the line says what the result container was doing at the shot."""
+    page = _ring_page(
+        [_geometry(), _geometry()],
+        coverage=_BARE,
+        evidence=_evidence(
+            containerOpacity="0.42",
+            svgOpacity="1",
+            fade=True,
+            fadingOut=False,
+            handingOff=True,
+            runningAnimations=2,
+            reducedMotion=False,
+        ),
+    )
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert "container.opacity=0.42" in failure
+    assert "svg.opacity=1" in failure
+    assert "container.heatmap_fade=True" in failure
+    assert "container.fading_out=False" in failure
+    assert "container.is_handing_off=True" in failure
+    assert "animations.running=2" in failure
+    assert "prefers_reduced_motion=False" in failure
+    assert "\n" not in failure
+
+
+def test_a_crossfade_that_moved_during_the_shot_is_named() -> None:
+    before = _geometry() | {"evidence": _evidence(containerOpacity="0.3")}
+    after = _geometry() | {
+        "evidence": _evidence(containerOpacity="1", runningAnimations=0)
+    }
+    page = _ring_page([before, after], coverage=_BARE)
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert "container.opacity=1 " in failure
+    assert "changed_during_shot=container.opacity]" in failure
+
+
+def test_the_evidence_script_reads_opacity_flags_animations_and_motion() -> None:
+    script = _frontend_gate_heatmap_access._RING_EVIDENCE_JS
+    assert "getElementById('heatmap-result')" in script
+    assert "heatmap-fade" in script and "fading-out" in script
+    assert "is-handing-off" in script
+    assert "document.getAnimations()" in script
+    assert "prefers-reduced-motion: reduce" in script

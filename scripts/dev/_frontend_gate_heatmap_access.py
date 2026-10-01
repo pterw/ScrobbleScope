@@ -218,7 +218,11 @@ _LAYOUT_SETTLED_JS = """() => document.fonts.ready.then(() => new Promise(
 #: `visibility` attribute and box, the cell's box, what holds focus and whether it matches
 #: `:focus-visible`, the ring's computed stroke and the page's theme, the
 #: tooltip's box and whether it covers the ring, the scroll offset, the device
-#: pixel ratio, and how many cells paint after the ring.
+#: pixel ratio, and how many cells paint after the ring. Also the result's
+#: crossfade (the container's and the SVG's computed `opacity`, the container's
+#: `heatmap-fade`, `fading-out` and `is-handing-off` flags, how many animations
+#: are running, and whether the page matches `prefers-reduced-motion`): a ring
+#: screenshotted under an opacity below 1 is blended toward the page.
 _RING_EVIDENCE_JS = """(date) => {
     const cell = document.querySelector('.heatmap-cell[data-date="' + date + '"]');
     const ring = document.querySelector('.heatmap-focus-ring');
@@ -230,6 +234,10 @@ _RING_EVIDENCE_JS = """(date) => {
     };
     const ringBox = boxOf(ring);
     const tipBox = boxOf(tip);
+    const result = document.getElementById('heatmap-result');
+    const svg = cell ? cell.closest('svg') : null;
+    const opacityOf = (n) => (n ? getComputedStyle(n).opacity : null);
+    const flag = (c) => (result ? result.classList.contains(c) : null);
     const active = document.activeElement;
     let focusVisible = null;
     try {
@@ -264,6 +272,15 @@ _RING_EVIDENCE_JS = """(date) => {
         scrollY: window.scrollY,
         dpr: window.devicePixelRatio,
         cellsAfterRing: after,
+        containerOpacity: opacityOf(result),
+        svgOpacity: opacityOf(svg),
+        fade: flag('heatmap-fade'),
+        fadingOut: flag('fading-out'),
+        handingOff: flag('is-handing-off'),
+        runningAnimations: document.getAnimations().filter(
+            (a) => a.playState === 'running'
+        ).length,
+        reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     };
 }"""
 
@@ -324,6 +341,13 @@ _EVIDENCE_WATCHED = (
     ("scrollY", "scroll"),
     ("dpr", "dpr"),
     ("cellsAfterRing", "cells_after_ring"),
+    ("containerOpacity", "container.opacity"),
+    ("svgOpacity", "svg.opacity"),
+    ("fade", "container.heatmap_fade"),
+    ("fadingOut", "container.fading_out"),
+    ("handingOff", "container.is_handing_off"),
+    ("runningAnimations", "animations.running"),
+    ("reducedMotion", "prefers_reduced_motion"),
 )
 
 
@@ -376,6 +400,13 @@ def _ring_evidence_note(evidence: dict | None) -> str:
         ("scroll", f"{evidence.get('scrollX')},{evidence.get('scrollY')}"),
         ("dpr", evidence.get("dpr")),
         ("cells_after_ring", evidence.get("cellsAfterRing")),
+        ("container.opacity", evidence.get("containerOpacity")),
+        ("svg.opacity", evidence.get("svgOpacity")),
+        ("container.heatmap_fade", evidence.get("fade")),
+        ("container.fading_out", evidence.get("fadingOut")),
+        ("container.is_handing_off", evidence.get("handingOff")),
+        ("animations.running", evidence.get("runningAnimations")),
+        ("prefers_reduced_motion", evidence.get("reducedMotion")),
         ("settle_ms", evidence.get("settleMs")),
         ("settle_slow", evidence.get("settleSlow")),
     )
