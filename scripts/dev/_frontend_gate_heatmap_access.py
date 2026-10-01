@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+import time
 
 from scripts.dev._frontend_gate_shared import (
     MIGRATED_PAGES,
@@ -207,11 +208,90 @@ _RING_PAINT_JS = """async (a) => {
 }"""
 
 
-#: The cell's box, the focus ring's box and the viewport they sit in, in CSS
-#: pixels, or null when there is no such cell. Compared before and after a
-#: screenshot: equal means the page held still while it was taken, the ring
-#: included.
-_CELL_GEOMETRY_JS = """(date) => {
+#: Resolves once the web fonts loading now have loaded and two frames have
+#: drawn what they changed.
+_LAYOUT_SETTLED_JS = """() => document.fonts.ready.then(() => new Promise(
+    (r) => requestAnimationFrame(() => requestAnimationFrame(r))))"""
+
+#: Everything that tells an unpainted ring from a hidden one, read in the page
+#: with the geometry, before and after a screenshot (F-B23-39): the ring's
+#: `visibility` attribute and box, the cell's box, what holds focus and whether it matches
+#: `:focus-visible`, the ring's computed stroke and the page's theme, the
+#: tooltip's box and whether it covers the ring, the scroll offset, the device
+#: pixel ratio, and how many cells paint after the ring. Also the result's
+#: crossfade (the container's and the SVG's computed `opacity`, the container's
+#: `heatmap-fade`, `fading-out` and `is-handing-off` flags, how many animations
+#: are running, and whether the page matches `prefers-reduced-motion`): a ring
+#: screenshotted under an opacity below 1 is blended toward the page.
+_RING_EVIDENCE_JS = """(date) => {
+    const cell = document.querySelector('.heatmap-cell[data-date="' + date + '"]');
+    const ring = document.querySelector('.heatmap-focus-ring');
+    const tip = document.querySelector('.heatmap-tooltip');
+    const boxOf = (n) => {
+        if (!n) return null;
+        const r = n.getBoundingClientRect();
+        return {left: r.left, top: r.top, right: r.right, bottom: r.bottom};
+    };
+    const ringBox = boxOf(ring);
+    const tipBox = boxOf(tip);
+    const result = document.getElementById('heatmap-result');
+    const svg = cell ? cell.closest('svg') : null;
+    const opacityOf = (n) => (n ? getComputedStyle(n).opacity : null);
+    const flag = (c) => (result ? result.classList.contains(c) : null);
+    const active = document.activeElement;
+    let focusVisible = null;
+    try {
+        focusVisible = active ? active.matches(':focus-visible') : null;
+    } catch (e) {
+        focusVisible = null;
+    }
+    const hits = !!(ringBox && tipBox && tipBox.left < ringBox.right
+        && tipBox.right > ringBox.left && tipBox.top < ringBox.bottom
+        && tipBox.bottom > ringBox.top);
+    let after = null;
+    if (ring) {
+        after = Array.from(document.querySelectorAll(
+            '.heatmap-cell, .heatmap-cell-placeholder'
+        )).filter((n) => ring.compareDocumentPosition(n)
+            & Node.DOCUMENT_POSITION_FOLLOWING).length;
+    }
+    return {
+        ringVisibility: ring ? ring.getAttribute('visibility') : null,
+        ringBox: ringBox,
+        cellBox: boxOf(cell),
+        active: active
+            ? (active.getAttribute('data-date') || active.tagName) : null,
+        focusVisible: focusVisible,
+        docFocus: document.hasFocus(),
+        stroke: ring ? getComputedStyle(ring).stroke : null,
+        theme: document.documentElement.getAttribute('data-theme'),
+        tooltipBox: tipBox,
+        tooltipShown: !!(tip && tip.classList.contains('visible')),
+        tooltipHitsRing: hits,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+        dpr: window.devicePixelRatio,
+        cellsAfterRing: after,
+        containerOpacity: opacityOf(result),
+        svgOpacity: opacityOf(svg),
+        fade: flag('heatmap-fade'),
+        fadingOut: flag('fading-out'),
+        handingOff: flag('is-handing-off'),
+        runningAnimations: document.getAnimations().filter(
+            (a) => a.playState === 'running'
+        ).length,
+        reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    };
+}"""
+
+#: One read of the cell's box, the focus ring's box and the viewport they sit
+#: in, in CSS pixels (the geometry), together with `_RING_EVIDENCE_JS`'s read
+#: of the same page state (the evidence), or null when there is no such cell.
+#: Read before and after a screenshot: equal geometry means the page held
+#: still while it was taken, the ring included; the evidence of the read after
+#: it is what a failure reports, the state closest to the pixels.
+_CELL_GEOMETRY_JS = (
+    """(date) => {
     const el = document.querySelector('.heatmap-cell[data-date="' + date + '"]');
     if (!el) return null;
     const box = el.getBoundingClientRect();
@@ -224,13 +304,15 @@ _CELL_GEOMETRY_JS = """(date) => {
             visibility: ring.getAttribute('visibility')},
         width: window.innerWidth,
         height: window.innerHeight,
+        evidence: ("""
+    + _RING_EVIDENCE_JS
+    + """)(date),
     };
 }"""
+)
 
-#: Resolves once the web fonts loading now have loaded and two frames have
-#: drawn what they changed.
-_LAYOUT_SETTLED_JS = """() => document.fonts.ready.then(() => new Promise(
-    (r) => requestAnimationFrame(() => requestAnimationFrame(r))))"""
+#: A settle wait that took longer than this is named in a failure's evidence.
+_SLOW_SETTLE_SECONDS = 1.0
 
 #: What the page itself does when the layout may have moved under it: a
 #: `scroll` makes heatmap.js reposition the tooltip it is showing. A tooltip
@@ -244,9 +326,104 @@ _LAYOUT_MOVED_JS = "() => document.dispatchEvent(new Event('scroll'))"
 _RING_SHOT_ATTEMPTS = 5
 
 
-def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
-    """Per side of the cell for `date`, the share of its samples showing the
-    accent just outside its edge, read off a screenshot of the viewport.
+#: The evidence fields that are not geometry (a change in the geometry retakes
+#: the shot), with the key each has in the note.
+_EVIDENCE_WATCHED = (
+    ("active", "active"),
+    ("focusVisible", "active.focus_visible"),
+    ("docFocus", "document.has_focus"),
+    ("stroke", "ring.stroke"),
+    ("theme", "theme"),
+    ("tooltipBox", "tooltip.box"),
+    ("tooltipShown", "tooltip.shown"),
+    ("tooltipHitsRing", "tooltip.hits_ring"),
+    ("scrollX", "scroll"),
+    ("scrollY", "scroll"),
+    ("dpr", "dpr"),
+    ("cellsAfterRing", "cells_after_ring"),
+    ("containerOpacity", "container.opacity"),
+    ("svgOpacity", "svg.opacity"),
+    ("fade", "container.heatmap_fade"),
+    ("fadingOut", "container.fading_out"),
+    ("handingOff", "container.is_handing_off"),
+    ("runningAnimations", "animations.running"),
+    ("reducedMotion", "prefers_reduced_motion"),
+)
+
+
+def _changed_during_shot(before: dict | None, after: dict | None) -> list[str]:
+    """The note keys of the evidence fields that differ between two reads."""
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return []
+    changed: list[str] = []
+    for field, key in _EVIDENCE_WATCHED:
+        if before.get(field) != after.get(field) and key not in changed:
+            changed.append(key)
+    return changed
+
+
+def _geometry_of(read: dict | None) -> dict | None:
+    """A cell read without its evidence: the part compared for equality."""
+    if read is None:
+        return None
+    return {key: value for key, value in read.items() if key != "evidence"}
+
+
+def _box_text(box: dict | None) -> str:
+    """`left,top,right,bottom` to one decimal, or `none`."""
+    if not box:
+        return "none"
+    return ",".join(f"{box[k]:.1f}" for k in ("left", "top", "right", "bottom"))
+
+
+def _ring_evidence_note(evidence: dict | None) -> str:
+    """One line of key=value pairs saying why a ring may have painted nothing.
+
+    The FAIL line used to carry only the per-side shares, so an unpainted ring
+    could not be told from a hidden one, a ring that sat elsewhere, one with
+    another stroke, or a tooltip over it (F-B23-39). Empty when nothing was
+    read."""
+    if not evidence:
+        return ""
+    pairs = (
+        ("ring.visibility", evidence.get("ringVisibility")),
+        ("ring.box", _box_text(evidence.get("ringBox"))),
+        ("cell.box", _box_text(evidence.get("cellBox"))),
+        ("active", evidence.get("active")),
+        ("active.focus_visible", evidence.get("focusVisible")),
+        ("document.has_focus", evidence.get("docFocus")),
+        ("ring.stroke", evidence.get("stroke")),
+        ("theme", evidence.get("theme")),
+        ("tooltip.box", _box_text(evidence.get("tooltipBox"))),
+        ("tooltip.shown", evidence.get("tooltipShown")),
+        ("tooltip.hits_ring", evidence.get("tooltipHitsRing")),
+        ("scroll", f"{evidence.get('scrollX')},{evidence.get('scrollY')}"),
+        ("dpr", evidence.get("dpr")),
+        ("cells_after_ring", evidence.get("cellsAfterRing")),
+        ("container.opacity", evidence.get("containerOpacity")),
+        ("svg.opacity", evidence.get("svgOpacity")),
+        ("container.heatmap_fade", evidence.get("fade")),
+        ("container.fading_out", evidence.get("fadingOut")),
+        ("container.is_handing_off", evidence.get("handingOff")),
+        ("animations.running", evidence.get("runningAnimations")),
+        ("prefers_reduced_motion", evidence.get("reducedMotion")),
+        ("settle_ms", evidence.get("settleMs")),
+        ("settle_slow", evidence.get("settleSlow")),
+    )
+    if "changedDuringShot" in evidence:
+        changed = ",".join(evidence["changedDuringShot"]) or "none"
+        pairs += (("changed_during_shot", changed),)
+    text = " ".join(f"{key}={str(value).replace(' ', '')}" for key, value in pairs)
+    return f" [evidence: {text}]"
+
+
+def _ring_shot(
+    page, date: str, accent: str
+) -> tuple[dict[str, float] | None, dict | None]:
+    """The ring's per-side coverage for `date` and the evidence read with it.
+
+    Per side of the cell, the share of its samples showing the accent just
+    outside its edge, read off a screenshot of the viewport.
 
     The cell's box is read before the screenshot and again after it, and the
     screenshot is judged only when the two agree: a page that moved in
@@ -254,8 +431,12 @@ def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
     reflows the text above the grid) would put the box where the pixels are
     not, and every side would read as bare. Each attempt first has the page
     reposition its tooltip (one left where the cell was can sit over the ring)
-    and waits for fonts and frames to settle; a moved page is shot again, and
-    one that never holds still raises rather than report a ring."""
+    and waits for running animations (the result crossfade) to finish, then for
+    fonts and frames to settle; a moved page is shot again, and
+    one that never holds still raises rather than report a ring. The evidence
+    comes with the geometry, so it is read on both sides of the shot; the
+    judged one is the read after it, with how long the settle wait took and
+    which evidence fields differed from the read before it."""
     page.evaluate(
         "(date) => document.querySelector('.heatmap-cell[data-date=\"' + date"
         " + '\"]').scrollIntoView({block: 'center', inline: 'nearest'})",
@@ -263,13 +444,25 @@ def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
     )
     for _ in range(_RING_SHOT_ATTEMPTS):
         page.evaluate(_LAYOUT_MOVED_JS)
+        wait_for_settled(page)
+        settle_started = time.monotonic()
         page.evaluate(_LAYOUT_SETTLED_JS)
-        before = page.evaluate(_CELL_GEOMETRY_JS, date)
-        if before is None:
-            return None
+        settle_seconds = time.monotonic() - settle_started
+        first = page.evaluate(_CELL_GEOMETRY_JS, date)
+        if first is None:
+            return None, None
+        before = _geometry_of(first)
         png = base64.b64encode(page.screenshot()).decode("ascii")
-        if page.evaluate(_CELL_GEOMETRY_JS, date) == before:
-            return page.evaluate(
+        last = page.evaluate(_CELL_GEOMETRY_JS, date)
+        if _geometry_of(last) == before:
+            evidence = last.get("evidence")
+            if isinstance(evidence, dict):
+                evidence["settleMs"] = round(settle_seconds * 1000)
+                evidence["settleSlow"] = settle_seconds > _SLOW_SETTLE_SECONDS
+                evidence["changedDuringShot"] = _changed_during_shot(
+                    first.get("evidence"), evidence
+                )
+            coverage = page.evaluate(
                 _RING_PAINT_JS,
                 {
                     "png": png,
@@ -281,15 +474,22 @@ def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
                     "tolerance": _RING_COLOUR_TOLERANCE,
                 },
             )
+            return coverage, evidence
     raise RuntimeError(
         f"the cell for {date!r} kept moving while its screenshot was taken "
         f"({_RING_SHOT_ATTEMPTS} attempts), so its focus ring could not be read"
     )
 
 
+def _ring_coverage(page, date: str, accent: str) -> dict[str, float] | None:
+    """Per side of the cell for `date`, the share of its samples showing the
+    accent just outside its edge (see `_ring_shot`), or None without a cell."""
+    return _ring_shot(page, date, accent)[0]
+
+
 def _check_ring_painted(page, layout, accent: str, which: str, date: str) -> list[str]:
     """The keyboard-focused cell for `date` shows the ring on all four sides."""
-    coverage = _ring_coverage(page, date, accent)
+    coverage, evidence = _ring_shot(page, date, accent)
     if coverage is None:
         return [f"no heatmap cell for {date!r} to read the {which} cell's ring from"]
     missing = [side for side in _SIDES if coverage[side] < 1]
@@ -300,7 +500,7 @@ def _check_ring_painted(page, layout, accent: str, which: str, date: str) -> lis
         f"the keyboard focus ring round the {which} cell ({date!r}) [{layout}] "
         f"paints no {accent} pixel within {_RING_REACH_PX}px of its "
         f"{', '.join(missing)} edge(s) (samples painted: {shares}); a later "
-        "cell or the SVG's edge is hiding it"
+        "cell or the SVG's edge is hiding it" + _ring_evidence_note(evidence)
     ]
 
 
