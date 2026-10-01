@@ -115,6 +115,10 @@ next.
 - Switch the leaderboard between track plays and estimated listening time
   without submitting another search. Listening time depends on available
   Spotify track durations.
+- Include the albums Spotify and Deezer cannot match with one switch on the
+  search form, so your total plays are counted whether or not an album could
+  be identified. Those albums are ranked by play count only, so Play time is
+  dimmed while the switch is on.
 - Explore Artist Spotlight, which samples up to five artists from the ten
   highest-scrobbled artists across your filtered results.
 - Open an album on Spotify from its title; a delayed tooltip explains the link.
@@ -718,6 +722,10 @@ deeply than the first two.
   Results and Unmatched pages, on the artist spotlight, and in the saved
   image; rows from Deezer carry a text badge, and each provider link says
   which provider it leads to.
+- **The search form can keep unmatched albums in.** An "Include unmatched
+  albums" switch under "Rank by" lists the albums Spotify and Deezer could not
+  find alongside the rest, so every play you made is counted. They are ranked
+  by play count only, so Play time is dimmed while the switch is on.
 - **The artist spotlight stopped faking photos.** It shows a confirmed photo
   or stays hidden, without cropping or overlays, and it holds still while you
   hover over it or tab into it.

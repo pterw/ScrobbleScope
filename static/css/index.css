@@ -700,8 +700,16 @@ html {
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.seg__option:hover {
+.seg__radio:not(:disabled) + .seg__option:hover {
   color: var(--color-primary);
+}
+
+/* Kept visible, not removed -- the decade pill's rule: a dimmed option tells
+   the reader it exists and is unavailable, which a missing one does not. The
+   switch under the control states the reason. */
+.seg__radio:disabled + .seg__option {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .seg__radio:checked + .seg__option {
@@ -713,6 +721,127 @@ html {
 .seg__radio:focus-visible + .seg__option {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Switch                                                              */
+/* ------------------------------------------------------------------ */
+/* The design kit's Switch (components/forms/Switch.prompt.md): a native
+   checkbox, visually hidden, with the label as the hit target. The knob is
+   white in both themes; the track takes the accent when on. The off track
+   is outlined in the muted text colour over the page fill, like the .seg
+   track, because a border-toned fill measured 1.3:1 against the card. The
+   knob carries a 1px dark edge so it reads on the pale dark-theme accent. */
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(0.625rem * var(--index-scale, 1));
+  margin-top: calc(0.625rem * var(--index-scale, 1));
+  cursor: pointer;
+}
+
+.switch__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.switch__track {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(2.45rem * var(--index-scale, 1));
+  height: calc(1.25rem * var(--index-scale, 1));
+  margin-top: calc(0.0625rem * var(--index-scale, 1));
+  border: 1px solid var(--ss-text-muted);
+  border-radius: 999px;
+  background-color: var(--color-base-100);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.switch__knob {
+  position: absolute;
+  top: 50%;
+  left: calc(0.125rem * var(--index-scale, 1));
+  width: calc(0.95rem * var(--index-scale, 1));
+  height: calc(0.95rem * var(--index-scale, 1));
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 0 0 1px rgba(20, 16, 24, 0.75);
+  transform: translateY(-50%);
+  transition: transform 0.2s ease;
+}
+
+.switch__input:checked + .switch__track {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+.switch__input:checked + .switch__track .switch__knob {
+  transform: translate(calc(1.2rem * var(--index-scale, 1)), -50%);
+}
+
+.switch__input:focus-visible + .switch__track {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.switch-row__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.switch-row__label {
+  font-family: var(--font-sans);
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
+  font-weight: var(--font-weight-normal);
+  color: var(--color-base-content);
+}
+
+.switch-row__help {
+  margin-top: calc(0.125rem * var(--index-scale, 1));
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
+  line-height: 1.4;
+  color: var(--ss-text-muted);
+}
+
+@media (any-pointer: coarse), (max-width: 859.98px) {
+  .switch-row {
+    min-height: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__knob {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .seg__radio:disabled + .seg__option {
+    color: GrayText;
+  }
+
+  .switch__track {
+    border: 1px solid ButtonText;
+    background-color: transparent;
+  }
+
+  .switch__knob {
+    background-color: ButtonText;
+  }
+
+  .switch__input:checked + .switch__track {
+    border-color: ButtonText;
+    background-color: Highlight;
+  }
+
+  .switch__input:checked + .switch__track .switch__knob {
+    background-color: HighlightText;
+  }
 }
 
 /* ------------------------------------------------------------------ */

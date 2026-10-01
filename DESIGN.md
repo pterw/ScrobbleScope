@@ -224,6 +224,11 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 ### Segmented Controls & Mode Tabs
 - **Track:** Sunken well background (`#f0ebe0` / `#1a1622`), 999px full pill radius, 4px internal padding.
 - **Active Segment:** Card surface background, `--ss-shadow-chip` elevation, strong ink text.
+- **Disabled Segment:** Kept visible and dimmed to 40% opacity, never removed; the switch beside it states the reason.
+
+### Switch
+- **Track:** 2.45rem by 1.25rem pill, 1px border; when off, a muted-text border over the page fill; when on, the primary colour for fill and border.
+- **Knob:** 0.95rem white circle in both themes with a 1px dark edge (`rgba(20, 16, 24, 0.75)`) so it reads on the pale dark-theme accent. The native checkbox is visually hidden and its label is the hit target. The index card's "Include unmatched albums" switch is the shipped instance.
 
 ### Heatmap Grid
 - **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.

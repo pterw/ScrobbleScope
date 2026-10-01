@@ -41,6 +41,7 @@ The owner-approved overrides currently recorded are:
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
+| Index card: unmatched switch | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)", and the Switch is the dark-mode toggle only | An "Include unmatched albums" Switch sits between the Rank by control and the Show select, and the Play time segment can be disabled | Owner ruling 2026-09-30, Section 20 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -876,3 +877,55 @@ resolved gradient colours) and under forced colours (a painted border). It
 also reads the tokens, not the nodes on the page: both stops of every one of
 the `COVER_WASH_COUNT` pairs in each theme, against the initials' colour, at 7:1
 or better, so a pair the fixture page does not show is judged too.
+
+---
+
+## 20. Frozen-snapshot override: the "Include unmatched albums" switch, 2026-09-30
+
+Owner ruling, 2026-09-30: a quick toggle in the index card for the Last.fm
+albums that Spotify and Deezer could not match, "to see total playcount
+regardless", which "needs to block the ability to switch playtime/playcount".
+The owner offered two ways to block it, remove the card or build a "remove
+unmatched listens" toggle, and left the choice to the design system.
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them.
+
+**The card.** `docs/design/README.md` lists the Right column card's contents in
+order, "... Rank by segmented control (Play count / Play time); Show select
+(All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure ...". The card
+also has, between the Rank by control and the Show select, the Switch
+"Include unmatched albums", off by default and not remembered between visits,
+with the help "Albums Spotify and Deezer can't find stay in, ranked by play
+count only." It is the first shipped instance of the kit's Switch
+(`components/forms/Switch.prompt.md`), whose prompt calls the dark-mode toggle
+"the only shipped instance". `static/css/shell.css` ships no knob switch: the
+theme control is the two-word pill, so the prompt was never true of this
+repository.
+
+**The disabled segment.** `SegmentedControl.prompt.md` has no disabled state.
+While the switch is on, the Play time segment is disabled, not removed: it is
+dimmed to 40% opacity with `cursor: not-allowed`, and it never recolours on
+hover. The rule is the decade pill's ("Kept visible, not removed. A dimmed
+decade tells the reader the decade exists and holds nothing, which a missing
+pill does not"). If Play time was selected, Play count becomes selected. When
+the switch goes off Play time is enabled again and the selection stays where
+it is. The server holds the same rule for a form posted without scripts: an
+include run is stored as a play-count run. Under forced colours the disabled
+segment uses `GrayText`.
+
+**The Switch.** Native checkbox, visually hidden with the clip pattern the
+segmented control uses, styled through its label: 2.45rem by 1.25rem track,
+0.95rem knob (`Switch.d.ts`), knob white in both themes, a 1px
+`--ss-text-muted` border over the page fill when off and `--color-primary`
+fill and border when on, a 44px label row on coarse pointers and narrow
+viewports, a focus ring on the track, the knob transition removed under
+reduced motion, and under forced colours a `ButtonText` border, `Highlight`
+track and `HighlightText` knob. `DESIGN.md` records the same two components.
+
+**Two additions to the kit's Switch.** The off track is outlined rather than
+border-toned, because the kit's border-toned fill measured 1.33:1 (light) and
+1.20:1 (dark) against the card, under the 3:1 a control boundary needs. The
+knob stays white but carries a 1px `rgba(20, 16, 24, 0.75)` edge in both
+themes, because the dark theme's accent is pale and a white knob on it
+measured 2.39:1.

@@ -76,6 +76,7 @@
         {% else %}all releases{% endif %}
       </li>
       <li>{{ 'play time' if sort_by == 'playtime' else 'play count' }}</li>
+      {% if include_unmatched %}<li>unmatched albums included</li>{% endif %}
       <li>&ge;{{ min_plays|default('10') }} plays</li>
       <li>&ge;{{ min_tracks|default('3') }} tracks</li>
     </ul>

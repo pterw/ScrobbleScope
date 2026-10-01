@@ -1411,6 +1411,80 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
     assert b"Show next 25 (30 remaining)" in response.data
 
 
+def _post_and_read_job(client, fresh_job_store, **form):
+    """POST /results_loading with a stubbed worker; return the stored job's params."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post("/results_loading", data={**VALID_FORM_DATA, **form})
+    assert response.status_code == 303
+    (job_id,) = fresh_job_store.ids()
+    return job_id, jobs.context(job_id)["params"]
+
+
+def test_results_loading_include_unmatched_forces_playcount(client, fresh_job_store):
+    """
+    GIVEN a form posted with include_unmatched=1 and sort_by=playtime
+    WHEN POST /results_loading creates the job
+    THEN the job stores include_unmatched=True and sort_mode="playcount",
+         because an unmatched album has no play time (the rule holds without scripts).
+    """
+    _, params = _post_and_read_job(
+        client, fresh_job_store, include_unmatched="1", sort_by="playtime"
+    )
+
+    assert params["include_unmatched"] is True
+    assert params["sort_mode"] == "playcount"
+
+
+def test_results_loading_without_include_unmatched_keeps_playtime(
+    client, fresh_job_store
+):
+    """
+    GIVEN a form posted without the include_unmatched field and sort_by=playtime
+    WHEN POST /results_loading creates the job
+    THEN the job stores include_unmatched=False and keeps sort_mode="playtime".
+    """
+    _, params = _post_and_read_job(client, fresh_job_store, sort_by="playtime")
+
+    assert params["include_unmatched"] is False
+    assert params["sort_mode"] == "playtime"
+
+
+def test_extract_job_params_defaults_include_unmatched_to_false():
+    """
+    GIVEN a job context stored before the include_unmatched param existed
+    WHEN _extract_job_params reads it
+    THEN include_unmatched is False, and True when the job stored True.
+    """
+    from scrobblescope.routes.album_flow import _extract_job_params
+
+    legacy = {"params": dict(TEST_JOB_PARAMS)}
+    assert _extract_job_params(legacy)["include_unmatched"] is False
+    legacy["params"]["include_unmatched"] = True
+    assert _extract_job_params(legacy)["include_unmatched"] is True
+
+
+def test_loading_page_lists_unmatched_albums_only_for_an_include_run(client):
+    """
+    GIVEN one job stored with include_unmatched and one without
+    WHEN each loading page is rendered
+    THEN only the include run lists "unmatched albums included" among its choices.
+    """
+    include_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    plain_id = jobs.create(TEST_JOB_PARAMS)
+
+    include_page = client.get(f"/loading?job_id={include_id}").data
+    plain_page = client.get(f"/loading?job_id={plain_id}").data
+
+    assert b"<li>unmatched albums included</li>" in include_page
+    assert b"unmatched albums included" not in plain_page
+
+
 def test_loading_page_uses_job_context_at_canonical_url(client):
     """GET /loading should rebuild the loading view from the stored job."""
     job_id = jobs.create(TEST_JOB_PARAMS)

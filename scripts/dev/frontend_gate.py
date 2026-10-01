@@ -85,6 +85,7 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
 from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
     HIDDEN_ON_LOAD,
     check_current_validator_failure_replaces_old_verdict,
+    check_include_unmatched_switch,
     check_initial_visibility,
     check_private_profile_is_blocked,
     check_stale_validator_failure_is_discarded,
@@ -293,6 +294,12 @@ CHECKS = (
     ),
     ("index entrance motion", check_index_entrance_motion, (DESKTOP,), THEME_MOTION),
     ("validation feedback", check_validation_feedback, (DESKTOP,), FORMS_VALIDATION),
+    (
+        "include unmatched switch",
+        check_include_unmatched_switch,
+        (DESKTOP, MOBILE),
+        FORMS_VALIDATION,
+    ),
     (
         "private profiles",
         check_private_profile_is_blocked,

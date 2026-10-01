@@ -179,6 +179,15 @@
                 <input type="radio" id="sort_playtime" name="sort_by" value="playtime" class="seg__radio">
                 <label for="sort_playtime" class="seg__option">Play time</label>
               </div>
+              <label class="switch-row" for="include_unmatched">
+                <input type="checkbox" id="include_unmatched" name="include_unmatched" value="1"
+                       class="switch__input" aria-describedby="include-unmatched-help">
+                <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
+                <span class="switch-row__text">
+                  <span class="switch-row__label">Include unmatched albums</span>
+                  <span class="switch-row__help" id="include-unmatched-help">Albums Spotify and Deezer can't find stay in, ranked by play count only.</span>
+                </span>
+              </label>
             </div>
 
             <div class="field">

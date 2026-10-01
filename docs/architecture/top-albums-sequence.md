@@ -28,7 +28,7 @@ sequenceDiagram
     participant ReleaseChecks as release_checks.py
     participant MusicBrainz as MusicBrainz API
 
-    User->>Browser: Submit username, year, filters, and sort
+    User->>Browser: Submit username, year, filters, sort, and the include_unmatched switch
     Browser->>Routes: POST /results_loading + CSRF token
     alt Missing field, non-numeric input, or year outside 2002 to this year
         Routes-->>Browser: index.html + error
@@ -49,6 +49,7 @@ sequenceDiagram
                 Routes-->>Browser: Too many requests, no job created
             else Slot acquired
                 Worker-->>Routes: True
+                Note over Routes,Jobs: include_unmatched is stored in params, and an include run is always stored as a play-count run
                 Routes->>Jobs: create(params)
                 Jobs-->>Routes: UUID job_id
                 Routes->>Worker: start_job_thread(background_task, args)

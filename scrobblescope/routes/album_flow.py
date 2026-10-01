@@ -35,6 +35,7 @@ def _extract_job_params(job_context):
         "min_tracks": params.get("min_tracks", 3),
         "limit_results": params.get("limit_results", "all"),
         "mode": params.get("mode", "album"),
+        "include_unmatched": params.get("include_unmatched", False),
     }
 
 
@@ -92,6 +93,7 @@ def _render_loading_page():
         username=p["username"],
         year=p["year"],
         sort_by=p["sort_mode"],
+        include_unmatched=p["include_unmatched"],
         release_scope=p["release_scope"],
         decade=p["decade"],
         release_year=p["release_year"],
@@ -398,6 +400,12 @@ def results_loading():
     username = request.form.get("username")
     year = request.form.get("year")
     sort_mode = request.form.get("sort_by", "playcount")
+    include_unmatched = request.form.get("include_unmatched") == "1"
+    # An include run is always a play-count run: an unmatched album has no play
+    # time. The page disables the choice; this is the same rule for a form
+    # posted without scripts.
+    if include_unmatched and sort_mode == "playtime":
+        sort_mode = "playcount"
     release_scope = request.form.get("release_scope", "same")
     decade = request.form.get("decade") if release_scope == "decade" else None
     release_year = (
@@ -467,6 +475,7 @@ def results_loading():
         "username": username,
         "year": year,
         "sort_mode": sort_mode,
+        "include_unmatched": include_unmatched,
         "release_scope": release_scope,
         "decade": decade,
         "release_year": release_year,

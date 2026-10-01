@@ -8,6 +8,11 @@ can produce.
 
 from __future__ import annotations
 
+from scripts.dev._frontend_gate_colour import (
+    _composite_over,
+    _contrast_ratio,
+    _parse_rgb_string,
+)
 from scripts.dev._frontend_gate_shared import _reach_state
 
 #: What must be invisible when a migrated page first loads. The scripts reveal
@@ -82,6 +87,181 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
             failures.append(
                 f"{path} {selector}: typing left the message {left!r} on screen"
             )
+    return failures
+
+
+#: The index switch's help text, read from the page by its description.
+UNMATCHED_HELP = (
+    "Albums Spotify and Deezer can't find stay in, ranked by play count only."
+)
+
+
+def check_include_unmatched_switch(page, base_url: str) -> list[str]:
+    """The "Include unmatched albums" switch is a native checkbox that locks Play time.
+
+    An unmatched album has no play time, so an include run ranks by play count
+    only. The page enforces it by disabling the Play time segment while the
+    switch is on, and moving the selection to Play count if Play time was the
+    choice. Asserted through the keyboard (focus, then Space), because the
+    switch is a clipped native input styled through its label and a dispatched
+    event would prove nothing about what a keyboard reader can do.
+
+    Also asserts that the control is announced (the browser's own accessible
+    name and description) and that its track keeps a border under forced
+    colours, where a background colour alone would vanish.
+    """
+    failures = []
+    page.goto(f"{base_url}/", wait_until="load")
+    switch = page.locator("#include_unmatched")
+
+    info = page.evaluate(
+        """() => {
+            const box = document.querySelector('#include_unmatched');
+            if (!box) return null;
+            const help = document.getElementById(
+                box.getAttribute('aria-describedby') || '');
+            return {
+                type: box.type,
+                name: box.labels.length
+                    ? box.labels[0].querySelector('.switch-row__label')
+                        .textContent.trim() : '',
+                description: help ? help.textContent.trim() : '',
+                checked: box.checked,
+                playtimeDisabled: document.querySelector('#sort_playtime')
+                    .disabled,
+            };
+        }"""
+    )
+    if info is None:
+        return ["/ #include_unmatched: no such checkbox"]
+    if info["type"] != "checkbox":
+        failures.append(f"/ #include_unmatched: is a {info['type']!r}, not a checkbox")
+    if info["name"] != "Include unmatched albums":
+        failures.append(f"/ #include_unmatched: accessible name is {info['name']!r}")
+    if info["description"] != UNMATCHED_HELP:
+        failures.append(f"/ #include_unmatched: description is {info['description']!r}")
+    snapshot = switch.aria_snapshot()
+    if 'checkbox "Include unmatched albums' not in snapshot:
+        failures.append(f"/ #include_unmatched: browser tree reads {snapshot!r}")
+    if info["checked"] or info["playtimeDisabled"]:
+        failures.append("/ #include_unmatched: on, or Play time disabled, at load")
+
+    def state() -> dict:
+        return page.evaluate(
+            """() => ({
+                disabled: document.querySelector('#sort_playtime').disabled,
+                playcount: document.querySelector('#sort_playcount').checked,
+                playtime: document.querySelector('#sort_playtime').checked,
+            })"""
+        )
+
+    for first_choice in ("play count", "play time"):
+        if first_choice == "play time":
+            page.locator("label[for=sort_playtime]").click()
+        switch.focus()
+        page.keyboard.press("Space")
+        on = state()
+        if not on["disabled"] or not on["playcount"] or on["playtime"]:
+            failures.append(
+                f"/ include switch on (started on {first_choice}): Play time "
+                f"disabled={on['disabled']}, Play count checked={on['playcount']}"
+            )
+        page.keyboard.press("Space")
+        off = state()
+        if off["disabled"] or not off["playcount"]:
+            failures.append(
+                f"/ include switch off (started on {first_choice}): Play time "
+                f"disabled={off['disabled']}, Play count checked={off['playcount']}"
+            )
+
+    try:
+        page.emulate_media(forced_colors="active")
+        border = page.evaluate(
+            """() => parseFloat(getComputedStyle(
+                document.querySelector('.switch__track')).borderTopWidth)"""
+        )
+    finally:
+        page.emulate_media(forced_colors="null")
+    if not border > 0:
+        failures.append(
+            f"/ forced colors: the switch track border is {border}px, so the "
+            "control is invisible"
+        )
+    failures.extend(_unmatched_switch_contrast_failures(page, switch))
+    return failures
+
+
+#: A control's boundary needs 3:1 (WCAG 1.4.11); the switch is held to it.
+SWITCH_BOUNDARY_FLOOR = 3.0
+
+_SWITCH_PAINT_EXPRESSION = """() => {
+    const track = document.querySelector('.switch__track');
+    const knob = track.querySelector('.switch__knob');
+    const card = track.closest('.ss-card');
+    const track_style = getComputedStyle(track);
+    return {
+        card: getComputedStyle(card).backgroundColor,
+        border: track_style.borderTopColor,
+        fill: track_style.backgroundColor,
+        knob: getComputedStyle(knob).backgroundColor,
+        edge: getComputedStyle(knob).boxShadow,
+    };
+}"""
+
+
+def _unmatched_switch_contrast_failures(page, switch) -> list[str]:
+    """Hold the switch's boundaries at 3:1 in both themes, on and off.
+
+    The off track measured 1.3:1 against the card when it was border-toned, and
+    the white knob measured 2.4:1 on the pale dark-theme accent. The track is
+    outlined in the muted text colour, and the knob carries a dark edge. The
+    knob's boundary is the stronger of its edge and the knob itself against the
+    track: a white knob on a dark off track is boundary enough, and the edge
+    covers the pale tracks.
+
+    The transitions run 0.2s, so each reading waits them out.
+    """
+    failures = []
+    try:
+        for theme in ("light", "dark"):
+            page.evaluate(
+                "(t) => document.documentElement.setAttribute('data-theme', t)",
+                theme,
+            )
+            for state in ("off", "on"):
+                if state == "on":
+                    switch.focus()
+                    page.keyboard.press("Space")
+                page.wait_for_timeout(350)
+                paint = page.evaluate(_SWITCH_PAINT_EXPRESSION)
+                card = _parse_rgb_string(paint["card"])[:3]
+                border = _parse_rgb_string(paint["border"])[:3]
+                fill = _parse_rgb_string(paint["fill"])[:3]
+                knob = _parse_rgb_string(paint["knob"])[:3]
+                if paint["edge"] == "none":
+                    edge_ratio = 1.0
+                else:
+                    edge = _composite_over(_parse_rgb_string(paint["edge"]), fill)
+                    edge_ratio = _contrast_ratio(edge, fill)
+                knob_ratio = _contrast_ratio(knob, fill)
+                pairings = {
+                    "the track border against the card": _contrast_ratio(border, card),
+                    "the knob boundary against the track (edge or knob)": max(
+                        edge_ratio, knob_ratio
+                    ),
+                }
+                for pairing, ratio in pairings.items():
+                    if ratio < SWITCH_BOUNDARY_FLOOR:
+                        failures.append(
+                            f"/ switch {state}, {theme} theme: {pairing} is "
+                            f"{ratio:.2f}:1, under {SWITCH_BOUNDARY_FLOOR}:1"
+                        )
+            switch.focus()
+            page.keyboard.press("Space")
+    finally:
+        page.evaluate(
+            "() => document.documentElement.setAttribute('data-theme', 'light')"
+        )
     return failures
 
 
