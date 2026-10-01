@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-30 - Findings, dashboards and README made true for the merge
+
+Side task, no batch tag: findings, dashboards and README made true for the merge, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Findings: F-B22-3, F-B21-61, F-MAS-5 and F-B18-2 named the removed job store (`repositories.py`, `create_job`, `cleanup_expired_jobs`, the `JOBS` dict); they now name `scrobblescope/jobs.py` (`jobs.create`, `jobs.expire_stale`, `MemoryJobStore`) by function. F-SWE-3 was already archived by the Task 30 landing; its archived body now says the one-try loop was how it stood when filed, and that a 5xx is retried now. `BATCH23_DEFINITION.md` WP-3 maps `ExportError` to a classified code through `jobs.fail` (the `set_job_results` at line 220 is a done, dated item and stays). F-B23-41 now records that the Results partial-notice link's ring and 44px are asserted only by a CSS-text test and the gate measures no such link.
+
+Merge cut: PLAYBOOK Section 3 has a bullet stating what PR #245 ships and what moved to the follow-up PR (owner ruling 2026-09-29); the "next action" sentence that pointed at a finished review wave is reworded, and the seams bullet names only the work package each seam gates and points at that bullet for what ships. `**Next action:** WP-0 is next.` and the `**Branch:**` line are untouched. SESSION_CONTEXT Section 1 agrees.
+
+Dashboards: SESSION_CONTEXT Section 3 no longer lists `global.css` (10 css files), and lists `results-release-checks.js`, the empty-state and two partial templates, and four `scripts/dev` files, with their edges in Section 4. `docs/architecture/top-albums-sequence.md` says once that every partial-data warning (token, search, details, Deezer fallback) also records its source through `jobs.record_partial_source`, and draws it at the token and Last.fm sites, and `runtime-system.md` lists it in the `jobs.py` interface. README: the `BATCH23_DEFINITION.md` link is gone (the rule is said in a sentence), the commit figure is the measured one (about 130 commits, 24 to 30 September), and the paragraph is rewrapped to 80 columns.
+
+Code: the `heatmap_task` and `_report_album_failure` docstrings now say the album backstop always publishes `internal_error` while the heatmap classifies first. `.results-partial-notice__link` drops `white-space: nowrap` so the link wraps at 320px; confirmed at 320px by a Playwright measure of the notice with the shipped markup (page scrollWidth 320, no horizontal overflow), since the frontend gate renders no partial notice; the frontend gate and `results_behavior_tests.py` pass.
+
+Known limit: an album-details 404 between Spotify refusals does not reset the per-job "three consecutive refusals" count; only a 200 does.
+
+Validation: `pytest -q` -- **2487 passed**.
+
 ### 2026-09-30 - Partial runs disclosed on Results; forms gate waits for requests
 
 Side task, no batch tag: partial runs disclosed on Results and a forms gate that waits for requests, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

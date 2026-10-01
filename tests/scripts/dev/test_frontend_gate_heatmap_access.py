@@ -64,14 +64,22 @@ def _geometry(left: float = 10.0, ring_left: float = 8.0) -> dict:
     }
 
 
-def _ring_page(readings: list, coverage: dict | None = None) -> MagicMock:
-    """A page that answers each `_CELL_GEOMETRY_JS` read in turn."""
+def _ring_page(
+    readings: list, coverage: dict | None = None, evidence: dict | None = None
+) -> MagicMock:
+    """A page that answers each `_CELL_GEOMETRY_JS` read in turn.
+
+    `evidence` is added to every read that has none of its own (the real read
+    carries the evidence with the geometry)."""
     page = MagicMock()
     reads = iter(readings)
 
     def evaluate(script, *args):
         if script is _frontend_gate_heatmap_access._CELL_GEOMETRY_JS:
-            return next(reads)
+            reading = next(reads)
+            if reading is not None and evidence is not None:
+                return {"evidence": dict(evidence)} | reading
+            return reading
         if script is _frontend_gate_heatmap_access._RING_PAINT_JS:
             return coverage
         return None
@@ -182,3 +190,170 @@ def test_the_settle_wait_runs_before_every_screenshot() -> None:
     settled = _frontend_gate_heatmap_access._LAYOUT_SETTLED_JS
     for number, shot in enumerate(shots, start=1):
         assert order[:shot].count(settled) == number
+
+
+def _evidence(**overrides) -> dict:
+    """What `_RING_EVIDENCE_JS` reads for a ring that was shown and focused."""
+    evidence = {
+        "ringVisibility": "visible",
+        "ringBox": {"left": 8.0, "top": 18.0, "right": 17.0, "bottom": 27.0},
+        "cellBox": {"left": 10.0, "top": 20.0, "right": 15.0, "bottom": 25.0},
+        "active": "2026-05-15",
+        "focusVisible": True,
+        "docFocus": True,
+        "stroke": "rgb(106, 75, 175)",
+        "theme": "light",
+        "tooltipBox": {"left": 0.0, "top": 0.0, "right": 5.0, "bottom": 5.0},
+        "tooltipShown": True,
+        "tooltipHitsRing": False,
+        "scrollX": 0,
+        "scrollY": 12,
+        "dpr": 1,
+        "cellsAfterRing": 0,
+        "settleMs": 40,
+        "settleSlow": False,
+    }
+    evidence.update(overrides)
+    return evidence
+
+
+_BARE = {"top": 0.0, "right": 0.0, "bottom": 0.0, "left": 0.0}
+
+
+def test_an_unpainted_ring_failure_names_a_hidden_ring_on_one_line() -> None:
+    """F-B23-39: the line said only that no pixel was painted, so a ring that
+    was never shown could not be told from one that was covered."""
+    page = _ring_page(
+        [_geometry(), _geometry()],
+        coverage=_BARE,
+        evidence=_evidence(ringVisibility="hidden", focusVisible=False),
+    )
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "rgb(106, 75, 175)", "last", "2026-05-15"
+    )
+    assert "paints no rgb(106, 75, 175) pixel" in failure
+    assert "\n" not in failure
+    assert "ring.visibility=hidden" in failure
+    assert "active.focus_visible=False" in failure
+    assert "ring.box=8.0,18.0,17.0,27.0" in failure
+    assert "cell.box=10.0,20.0,15.0,25.0" in failure
+    assert "active=2026-05-15" in failure
+    assert "ring.stroke=rgb(106,75,175)" in failure
+    assert "theme=light" in failure
+    assert "tooltip.hits_ring=False" in failure
+    assert "scroll=0,12" in failure
+    assert "dpr=1" in failure
+    assert "cells_after_ring=0" in failure
+    assert " settle_ms=" in failure and "settle_slow=False" in failure
+
+
+def test_a_painted_ring_reports_nothing() -> None:
+    page = _ring_page(
+        [_geometry(), _geometry()],
+        coverage={"top": 1.0, "right": 1.0, "bottom": 1.0, "left": 1.0},
+        evidence=_evidence(),
+    )
+    assert (
+        _frontend_gate_heatmap_access._check_ring_painted(
+            page, "desktop", "red", "last", "2026-05-15"
+        )
+        == []
+    )
+
+
+def test_a_failure_with_no_evidence_read_keeps_the_old_line() -> None:
+    page = _ring_page([_geometry(), _geometry()], coverage=_BARE)
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert failure.endswith("a later cell or the SVG's edge is hiding it")
+
+
+def test_a_settle_wait_over_a_second_is_named_slow(monkeypatch) -> None:
+    clock = iter([100.0, 101.5])
+    monkeypatch.setattr(
+        _frontend_gate_heatmap_access.time, "monotonic", lambda: next(clock)
+    )
+    page = _ring_page([_geometry(), _geometry()], coverage=_BARE, evidence=_evidence())
+    _, evidence = _frontend_gate_heatmap_access._ring_shot(page, "2026-05-15", "red")
+    assert evidence["settleMs"] == 1500
+    assert evidence["settleSlow"] is True
+    note = _frontend_gate_heatmap_access._ring_evidence_note(evidence)
+    assert "settle_ms=1500 settle_slow=True" in note
+
+
+def test_a_settle_wait_under_a_second_is_not_slow(monkeypatch) -> None:
+    clock = iter([100.0, 100.25])
+    monkeypatch.setattr(
+        _frontend_gate_heatmap_access.time, "monotonic", lambda: next(clock)
+    )
+    page = _ring_page([_geometry(), _geometry()], coverage=_BARE, evidence=_evidence())
+    _, evidence = _frontend_gate_heatmap_access._ring_shot(page, "2026-05-15", "red")
+    assert evidence["settleMs"] == 250
+    assert evidence["settleSlow"] is False
+
+
+def test_one_evaluation_reads_the_geometry_and_the_evidence() -> None:
+    script = _frontend_gate_heatmap_access._CELL_GEOMETRY_JS
+    assert _frontend_gate_heatmap_access._RING_EVIDENCE_JS in script
+    assert "evidence:" in script
+
+
+def test_the_evidence_reported_is_the_read_after_the_shot() -> None:
+    before = _geometry() | {"evidence": _evidence(stroke="rgb(1, 2, 3)")}
+    after = _geometry() | {"evidence": _evidence(stroke="rgb(4, 5, 6)")}
+    page = _ring_page([before, after], coverage=_BARE)
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert "ring.stroke=rgb(4,5,6)" in failure
+    assert "rgb(1,2,3)" not in failure
+
+
+def test_a_field_that_changed_during_the_shot_is_named() -> None:
+    before = _geometry() | {"evidence": _evidence()}
+    after = _geometry() | {
+        "evidence": _evidence(focusVisible=False, tooltipShown=False, scrollY=40)
+    }
+    page = _ring_page([before, after], coverage=_BARE)
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert "changed_during_shot=active.focus_visible,tooltip.shown,scroll]" in failure
+    assert "\n" not in failure
+
+
+def test_a_page_that_held_still_reports_no_change_during_the_shot() -> None:
+    page = _ring_page([_geometry(), _geometry()], coverage=_BARE, evidence=_evidence())
+    (failure,) = _frontend_gate_heatmap_access._check_ring_painted(
+        page, "desktop", "red", "last", "2026-05-15"
+    )
+    assert failure.endswith("changed_during_shot=none]")
+
+
+def test_a_change_during_the_shot_does_not_change_the_judgement() -> None:
+    """The change is reported, never judged: a fully painted ring still passes."""
+    before = _geometry() | {"evidence": _evidence()}
+    after = _geometry() | {"evidence": _evidence(theme="dark")}
+    page = _ring_page(
+        [before, after],
+        coverage={"top": 1.0, "right": 1.0, "bottom": 1.0, "left": 1.0},
+    )
+    assert (
+        _frontend_gate_heatmap_access._check_ring_painted(
+            page, "desktop", "red", "last", "2026-05-15"
+        )
+        == []
+    )
+
+
+def test_a_missing_ring_and_tooltip_read_as_none() -> None:
+    note = _frontend_gate_heatmap_access._ring_evidence_note(
+        _evidence(
+            ringVisibility=None, ringBox=None, tooltipBox=None, cellsAfterRing=None
+        )
+    )
+    assert "ring.visibility=None" in note
+    assert "ring.box=none" in note
+    assert "tooltip.box=none" in note
+    assert "cells_after_ring=None" in note
