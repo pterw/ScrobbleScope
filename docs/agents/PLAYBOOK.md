@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-01 - The release command waits for a waking database
+
+Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Problem: release v143 failed with "Schema init failed -- connection was closed in the middle of operation" and exit 1. The Postgres app had stopped; the release command's connection woke it, its proxy restarted mid-boot, and the script died on its first statement. Postgres reported ready 4 s later and a plain redeploy passed.
+
+Change: `init_db.py` runs connect plus every statement as `_apply_schema` and retries it up to 6 attempts (sleeps 1, 2, 4, 8, 8 s, about 23 s) on `OSError`, `asyncio.TimeoutError` and asyncpg's `ConnectionDoesNotExistError`, `InterfaceError`, `CannotConnectNowError` and `ConnectionFailureError` only. A SQL error still fails at once. `asyncpg.connect` now has a 10 s timeout. Each retry prints one line naming the attempt and the exception type, never its text (global-rules Rule 6). The final failure keeps the single ERROR line and exit 1; that line also names only the exception type (plus the SQLSTATE code of a Postgres error), never its text. README's Deployment section says so.
+
+Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
+
+Validation: `pytest -q` -- **2534 passed**.
+
 ### 2026-10-01 - The ring check waits out animations before reading pixels
 
 Side task, no batch tag: the heatmap focus-ring check waits for running animations to finish before it reads the cell's geometry and takes its screenshot, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -173,17 +185,3 @@ Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now end
 Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
 
 Validation: `pytest -q` -- **2524 passed**.
-
-### 2026-09-30 - Coverless albums get a deterministic two-tone wash
-
-Side task, no batch tag: a missing album cover is drawn as a muted two-tone wash instead of a flat bordered box. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Why: owner, 2026-09-30, on the Unmatched page's empty cover boxes: "it should have some sort of gradient pattern". The design system already says covers are "muted two-tone washes" (`docs/design/README.md`, `AlbumRow.prompt.md`); the code never drew them. Owner ruling, same day: Last.fm images are not trusted, so there is no image fallback of any kind.
-
-What: eight pairs of `--ss-wash-N-a`/`-b` tokens in both themes of `static/css/tailwind.src.css` (compiled `tailwind.css` rebuilt), painted by `.cover-wash-N` in `static/css/results.css` (one shared rule set, forced colours drop the gradient and keep the border). `cover_wash_index` in `scrobblescope/domain.py` picks the pair from `zlib.crc32` of the normalised artist and album, so it is the same in every process (`hash()` is salted); the `cover_wash` template filter in `scrobblescope/routes/__init__.py` writes the classes. All four Unmatched placeholders and the Results image fallback use it; a portrait slot drops its wash once the photograph loads. No network call is added. A cover still loading wears its wash too: the cover `<img>` carries the same classes, so the wash shows until the picture paints and behind transparent pixels. The initials stay, in `--color-base-content`: 10.12:1 to 13.41:1 on every light stop and 10.72:1 to 14.04:1 on every dark stop (owner, 2026-09-30: "The 4.5 is a floor not a goal", so 7:1 is the line). RECONCILIATION section 19 records the palette and supersedes the snapshot README's sentence about Last.fm art replacing the washes (the snapshot is guarded and cannot be edited).
-
-A test ties `COVER_WASH_COUNT` to the `.cover-wash-N` rules in `results.css` and to both stops in both theme blocks of `tailwind.src.css`.
-
-Gate: `_cover_wash_page_failures` in `scripts/dev/_frontend_gate_unmatched.py` reads the coverless placeholders in both themes (two different gradient colours) and under forced colours (a painted border), and reads the tokens of all `COVER_WASH_COUNT` pairs in each theme, not the nodes on the page (the initials at 7:1 or better on both stops of every pair, whether or not the pair is on the fixture page, the failure naming the wash, the stop and the ratio; a colour it cannot parse fails loudly). Its fixture's Deezer row now has no cover so a coverless other-provider row is on the page. Live probe: a planted flat background, a planted `border: 0` and a planted pale light-theme stop on wash 0, a pair that is not on the fixture page, each failed the gate; restored, it passed.
-
-Validation: `pytest -q` -- **2513 passed**.

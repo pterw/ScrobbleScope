@@ -681,7 +681,9 @@ virtual environment.
 
 The repository includes a Fly.io configuration and Dockerfile. The configured
 release command runs `init_db.py` before deployment to initialize the cache
-schema. Credentials are supplied through deployment secrets.
+schema, and retries while the database wakes, waiting about 23 seconds in
+total between attempts.
+Credentials are supplied through deployment secrets.
 
 See [DEPLOY.md](DEPLOY.md) for the deployment commands, the MusicBrainz
 contact setting and where the configuration lives. Changes to the repository
