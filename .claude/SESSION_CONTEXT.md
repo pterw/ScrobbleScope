@@ -89,7 +89,7 @@ templates/                  # base, index, loading, results, unmatched, error, p
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
   css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
-  js/                       # theme, page_motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
+  js/                       # theme, page-motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync

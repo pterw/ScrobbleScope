@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-01 - The release command waits for a waking database
+
+Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Problem: release v143 failed with "Schema init failed -- connection was closed in the middle of operation" and exit 1. The Postgres app had stopped; the release command's connection woke it, its proxy restarted mid-boot, and the script died on its first statement. Postgres reported ready 4 s later and a plain redeploy passed.
+
+Change: `init_db.py` runs connect plus every statement as `_apply_schema` and retries it up to 6 attempts (sleeps 1, 2, 4, 8, 8 s, about 23 s) on `OSError`, `asyncio.TimeoutError` and asyncpg's `ConnectionDoesNotExistError`, `InterfaceError`, `CannotConnectNowError` and `ConnectionFailureError` only. A SQL error still fails at once. `asyncpg.connect` now has a 10 s timeout. Each retry prints one line naming the attempt and the exception type, never its text (global-rules Rule 6). The final failure keeps the single ERROR line and exit 1; that line also names only the exception type (plus the SQLSTATE code of a Postgres error), never its text. README's Deployment section says so.
+
+Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
+
+Validation: `pytest -q` -- **2534 passed**.
+
 ### 2026-10-01 - The ring check waits out animations before reading pixels
 
 Side task, no batch tag: the heatmap focus-ring check waits for running animations to finish before it reads the cell's geometry and takes its screenshot, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - page-motion.js is named like the other scripts
+
+Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: files served as URLs conventionally use hyphens, and nine of the ten scripts in `static/js/` already do (owner, 2026-10-20: "What is best practice here?" -> hyphens).
+
+What changed: `git mv` of the script; `templates/base.html` names `js/page-motion.js` in its one `url_for`; `.claude/SESSION_CONTEXT.md` Section 3 lists `page-motion` in the `js/` line. Run before the template was updated, the Task 1 guard failed all 8 parametrised cases naming `/static/js/page_motion.js`; after it, all 8 pass. The frontend gate reports 45 checks passed in 71 runs across chromium and firefox, with no load fault naming `page-motion.js`. `docs/design/designsystemaudit.md` and dated plans and logs keep the old name as point-in-time records.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
 ### 2026-10-20 - A page never loads a static file the repository lacks
 
 Side task, no batch tag: a guard test that every local script and stylesheet a rendered page loads exists, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -173,17 +185,5 @@ Owner intent: before the Spotify export import, make the documentation describe 
 What changed: `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` records the design the owner approved section by section on 2026-10-20: the eight PRs and their order, the rules every PR follows (a Section 4 entry per commit, Batch 23 definition amendments when a seam changes what a work package may assume, parity tests before a refactor, tests that assert intended behaviour), the review policy that keeps fix rounds from looping, the documentation PR's content, the UI loop, and the hosting cost ceiling that keeps job persistence out of this tranche. The implementation plans follow in later commits on this branch. PLAYBOOK Section 3 gains its pointer to this spec once the include-unmatched PR, which adds the Section 3 bullet for this tranche, has merged.
 
 Deviations: none. No code change, no test edited.
-
-Validation: `pytest -q` -- **2534 passed**.
-
-### 2026-10-01 - The release command waits for a waking database
-
-Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: release v143 failed with "Schema init failed -- connection was closed in the middle of operation" and exit 1. The Postgres app had stopped; the release command's connection woke it, its proxy restarted mid-boot, and the script died on its first statement. Postgres reported ready 4 s later and a plain redeploy passed.
-
-Change: `init_db.py` runs connect plus every statement as `_apply_schema` and retries it up to 6 attempts (sleeps 1, 2, 4, 8, 8 s, about 23 s) on `OSError`, `asyncio.TimeoutError` and asyncpg's `ConnectionDoesNotExistError`, `InterfaceError`, `CannotConnectNowError` and `ConnectionFailureError` only. A SQL error still fails at once. `asyncpg.connect` now has a 10 s timeout. Each retry prints one line naming the attempt and the exception type, never its text (global-rules Rule 6). The final failure keeps the single ERROR line and exit 1; that line also names only the exception type (plus the SQLSTATE code of a Postgres error), never its text. README's Deployment section says so.
-
-Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
 
 Validation: `pytest -q` -- **2534 passed**.
