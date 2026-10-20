@@ -153,6 +153,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The request flows are pinned before they are refactored
+
+Side task, no batch tag: add parity tests for the album, heatmap and validate_user request flows, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, and AGENTS.md "Refactor requires parity tests" puts them before PR #3 changes the code behind these routes.
+
+What changed: new `tests/test_request_flow_parity.py` (16 tests, tests only, no source change). It pins which form fields land in the job record per release scope, that the values reach the album and heatmap pipelines in the right slots, the inclusive 2002 and current-year bounds, that a full house leaves no job behind, and the bodies of the heatmap privacy-outage and validate_user outage answers. It deliberately does not pin the fail-open pre-check or the positional thread arguments, which later tasks replace. Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: decade kept whatever the scope (custom and previous rows fail), min_plays and min_tracks swapped in the orchestrator call, username no longer stripped in heatmap_loading, `year < 2002` made `<=`, the heatmap job created before the slot is acquired, the heatmap privacy-outage `retryable` set False, and the privacy check asked before existence in validate_user.
+
+Deviations: plan drift only. The plan names `background_task` and `_dispatch_heatmap_job`; the tree has the `_fetch_and_process` call inside `background_task` in `scrobblescope/orchestrator/__init__.py` (found as planned) but heatmap job creation sits inline in `heatmap_flow.py` after `acquire_job_slot`, so that mutation was planted there, and the privacy-outage answer lives in the heatmap validation helper. Behaviour and test code are as planned. No existing test was edited.
+
+Validation: `pytest -q` -- **2606 passed**.
+
 ### 2026-10-20 - The album request module plan opens its branch
 
 Side task, no batch tag: add the album request module plan as the branch's first commit, on `refactor/album-request-module`, a branch off `main`.
@@ -184,18 +196,6 @@ Side task, no batch tag: record two owner rulings in the tranche master plan, on
 Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
 
 What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
-
-Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: an agent that reads Section 3's "Before WP-1" bullet should find the design and the PR order without searching.
-
-What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. SESSION_CONTEXT's Batch 23 status row names the spec path after the existing "side-task PRs runs" sentence. Both documents come from this branch and are committed on it.
 
 Deviations: none. No test was edited.
 
