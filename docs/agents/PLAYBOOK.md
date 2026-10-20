@@ -153,6 +153,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Task 1's drift note and the module count are corrected
+
+Side task, no batch tag: correct a false drift note and the tracked test-module count, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the log and findings must be true for what the branch ships.
+
+What changed: the Deviations paragraph of the "The request flows are pinned before they are refactored" entry said `_dispatch_heatmap_job` was gone and heatmap job creation was inline. It is not: the function exists in `scrobblescope/routes/heatmap_flow.py` and calls `acquire_job_slot`, so there was no drift for the heatmap mutation; the paragraph now says so (the privacy-outage note was checked and stands: `_validate_heatmap_user`). The `docs/agents/FINDINGS.md` header line said 87 tracked test modules; `git ls-files tests | grep -c '/test_[^/]*\.py$'` measures 88, so it now says 88. The review of Task 1 found both.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2669 passed**.
+
 ### 2026-10-20 - The album form has one owner
 
 Side task, no batch tag: add the pure album request module (not yet wired into any route), on `refactor/album-request-module`, a branch off `main`.
@@ -175,7 +187,7 @@ Owner intent: tests assert intended behaviour, and AGENTS.md "Refactor requires 
 
 What changed: new `tests/test_request_flow_parity.py` (16 tests, tests only, no source change). It pins which form fields land in the job record per release scope, that the values reach the album and heatmap pipelines in the right slots, the inclusive 2002 and current-year bounds, that a full house leaves no job behind, and the bodies of the heatmap privacy-outage and validate_user outage answers. It deliberately does not pin the fail-open pre-check or the positional thread arguments, which later tasks replace. Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: decade kept whatever the scope (custom and previous rows fail), min_plays and min_tracks swapped in the orchestrator call, username no longer stripped in heatmap_loading, `year < 2002` made `<=`, the heatmap job created before the slot is acquired, the heatmap privacy-outage `retryable` set False, and the privacy check asked before existence in validate_user.
 
-Deviations: plan drift only. The plan names `background_task` and `_dispatch_heatmap_job`; the tree has the `_fetch_and_process` call inside `background_task` in `scrobblescope/orchestrator/__init__.py` (found as planned) but heatmap job creation sits inline in `heatmap_flow.py` after `acquire_job_slot`, so that mutation was planted there, and the privacy-outage answer lives in the heatmap validation helper. Behaviour and test code are as planned. No existing test was edited.
+Deviations: plan drift only. The plan names `background_task` and `_dispatch_heatmap_job`; the tree has the `_fetch_and_process` call inside `background_task` in `scrobblescope/orchestrator/__init__.py` (found as planned) and `_dispatch_heatmap_job` also exists in `scrobblescope/routes/heatmap_flow.py` (it calls `acquire_job_slot` and then creates the job), so the heatmap mutation was planted there as the plan says and there was no drift for it. The one placement difference found: the heatmap privacy-outage answer lives in `_validate_heatmap_user` in the same file. (This entry first said `_dispatch_heatmap_job` was gone; that was false and is corrected here.) Behaviour and test code are as planned. No existing test was edited.
 
 Validation: `pytest -q` -- **2606 passed**.
 
@@ -186,18 +198,6 @@ Side task, no batch tag: add the album request module plan as the branch's first
 Owner intent: "All plans should stay for archival purposes", so every PR plan is the first commit of its own branch.
 
 What changed: `docs/superpowers/plans/2026-10-20-album-request-module.md` is the owner-approved plan for PR #3, and PLAYBOOK Section 3's "Before WP-1" bullet names it. The plan passed a brief review (plan-review.md), a fix round, and a re-review (plan-rereview-1.md) that approved it. One fix was applied at commit time (re-review Minor N1): the three pointers to the Retry rule now all read "Task 5 Step 4, item 4" (the assumptions row and Task 2 Interfaces said "Task 5 Step 5"; Task 5 Touches said "Step 4, item 3").
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - The test-module count counts both sides of the merge
-
-Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
-
-What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
 
 Deviations: none. No test was edited.
 
