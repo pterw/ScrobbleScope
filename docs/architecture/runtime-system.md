@@ -67,6 +67,7 @@ flowchart LR
     Album --> Utils
     Album --> Errors
     Album --> Unmatched
+    Album --> AlbumRequest
     Heatmap --> Worker
     Heatmap --> LastFMClient
     Heatmap --> JobModule
@@ -166,7 +167,7 @@ band, so the percent arithmetic lives once), `record_stat`,
 `record_partial_source` (which kind of degradation made a run partial),
 `record_unmatched`, `succeed` (results and the 100% in one write), `fail` (a
 code from `errors.ERROR_CODES`, results forced to `[]`), `reset`,
-`update_result` (the correction worker), the reads `progress`, `context` and
+`update_result` (the correction worker), the reads `progress`, `context`, `params` and
 `unmatched`, `expire_stale`, and `mark_interrupted` for a store that outlives
 the process. A job ends with results or an error, never both, and only a write
 renews the two-hour lease. The storage sits behind the `JobStore` protocol

@@ -11,6 +11,7 @@ from flask import jsonify, render_template, request, session
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.heatmap import heatmap_task
+from scrobblescope.routes import admission
 from scrobblescope.utils import log_failure
 
 bp = _routes.bp
@@ -119,14 +120,16 @@ def _validate_heatmap_user(username):
 
 
 def _dispatch_heatmap_job(username):
-    """Reserve and launch a heatmap job, saving its ID only after startup.
+    """Admit a heatmap job, saving its ID only after startup.
 
-    Remove orphan job state if thread startup fails; the worker launcher
-    owns releasing the reserved slot on that failure path.
+    Admission removes the orphan job and the slot if thread startup fails.
     """
-    jobs.expire_stale()
-
-    if not _routes.acquire_job_slot():
+    admitted = admission.admit(
+        {"username": username, "mode": jobs.MODE_HEATMAP},
+        heatmap_task,
+        label="heatmap task",
+    )
+    if admitted is admission.Refused.CAPACITY:
         return (
             jsonify(
                 {
@@ -137,14 +140,7 @@ def _dispatch_heatmap_job(username):
             ),
             429,
         )
-
-    job_id = jobs.create({"username": username, "mode": "heatmap"})
-
-    try:
-        _routes.start_job_thread(heatmap_task, args=(job_id, username))
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure("Failed to start heatmap task thread")
-        jobs.delete(job_id)
+    if admitted is admission.Refused.START_FAILED:
         return (
             jsonify(
                 {
@@ -156,8 +152,8 @@ def _dispatch_heatmap_job(username):
             500,
         )
 
-    session[_routes._LATEST_HEATMAP_JOB] = job_id
-    return jsonify({"job_id": job_id}), 202
+    session[_routes._LATEST_HEATMAP_JOB] = admitted
+    return jsonify({"job_id": admitted}), 202
 
 
 @bp.route("/heatmap_data")

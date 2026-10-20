@@ -3765,11 +3765,10 @@ def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
     GIVEN the index form posted with the "Include" radio (value 1)
     WHEN /results_loading starts the job
     THEN the job params hold include_unmatched True and the thread receives
-    the flag as background_task's last argument; with the "Hide"
-    radio (value 0), or without the field, both are False.
+    only the job id and the record holds the flag; with the "Hide"
+    radio (value 0), or without the field, it is False.
 
-    Mutation: leave the flag out of the thread args and the args assertion
-    fails.
+    Mutation: leave the flag out of the job record and the first element fails.
     """
     flags = {}
     for key, field in (
@@ -3790,11 +3789,11 @@ def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
         job_id = response.location.split("job_id=", 1)[1]
         flags[key] = (
             jobs.context(job_id)["params"]["include_unmatched"],
-            mock_start.call_args.kwargs["args"][-1],
+            mock_start.call_args.kwargs["args"] == (job_id,),
         )
 
     assert flags == {
         "all": (True, True),
-        "matched": (False, False),
-        "absent": (False, False),
+        "matched": (False, True),
+        "absent": (False, True),
     }

@@ -500,6 +500,16 @@ def unmatched(job_id):
     return _store.read(job_id, lambda record: dict(record["unmatched"]))
 
 
+def params(job_id):
+    """Return a copy of the job's params, or None if the job is gone.
+
+    The thread entry points read their parameters here instead of receiving
+    them as arguments, so the job record is the one place a run's parameters
+    live. A read never renews the lease.
+    """
+    return _store.read(job_id, lambda record: dict(record.get("params", {})))
+
+
 def _context_view(record):
     results = record.get("results")
     if isinstance(results, list):

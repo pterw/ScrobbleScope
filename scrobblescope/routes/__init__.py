@@ -306,6 +306,7 @@ def internal_error(e):
 # this module rather than their own import -- see the module docstring.
 # They must be imported last, after every name above is defined.
 from scrobblescope.routes import (  # noqa: E402,F401
+    admission,
     album_flow,
     api,
     heatmap_flow,

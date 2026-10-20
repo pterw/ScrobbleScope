@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from scrobblescope import jobs
+from scrobblescope.album_request import AlbumRequest
 from scrobblescope.cache import (
     _batch_lookup_metadata,
     _batch_lookup_original_release,
@@ -681,20 +682,31 @@ def _report_album_failure(job_id, username, year):
     jobs.fail(job_id, "internal_error", username=username)
 
 
-def background_task(
-    job_id,
-    username,
-    year,
-    sort_mode,
-    release_scope,
-    decade=None,
-    release_year=None,
-    min_plays=10,
-    min_tracks=3,
-    limit_results="all",
-    include_unmatched=False,
-):
+def _album_request_for(job_id):
+    """Return the job's ``AlbumRequest`` read from its record, or None.
+
+    None means the run cannot start: the job expired between admission and the
+    thread's first line (nothing to publish to), or its record is not a usable
+    request (published as ``internal_error`` so a polling page stops waiting).
+    """
+    params = jobs.params(job_id)
+    if params is None:
+        logging.warning("Album job %s was gone before its thread started.", job_id)
+        return None
+    try:
+        return AlbumRequest.from_params(params)
+    except TypeError:
+        log_failure("Album job record is not a usable request")
+        jobs.fail(job_id, "internal_error")
+        return None
+
+
+def background_task(job_id):
     """Run the album pipeline on this thread, in a loop the worker owns.
+
+    The parameters come from the job record (``jobs.params``), not from
+    arguments: admission stored them there. A job that is gone or unreadable
+    runs nothing, and the slot the route acquired is still released.
 
     The build-run-close-release protocol lives in
     ``worker.run_coroutine_in_new_loop``. What stays here is the reaction to
@@ -705,26 +717,32 @@ def background_task(
     ``include_unmatched`` (default off) keeps the albums Spotify and Deezer
     could not match in the results, ranked by play count.
     """
+    album = _album_request_for(job_id)
+    if album is None:
+        release_job_slot()
+        return
     run_coroutine_in_new_loop(
         _fetch_and_process(
             job_id,
-            username,
-            year,
-            sort_mode,
-            release_scope,
-            decade,
-            release_year,
-            min_plays,
-            min_tracks,
-            limit_results,
-            include_unmatched=include_unmatched,
+            album.username,
+            album.year,
+            album.sort_mode,
+            album.release_scope,
+            album.decade,
+            album.release_year,
+            album.min_plays,
+            album.min_tracks,
+            album.limit_results,
+            include_unmatched=album.include_unmatched,
         ),
         # Passed explicitly rather than left to the helper's own defaults: the tests
         # patch ``scrobblescope.orchestrator.release_job_slot``, and a default taken
         # from the helper's module would move that patch target without failing.
         make_loop=new_thread_event_loop,
         release_slot=release_job_slot,
-        on_run_error=lambda _exc: _report_album_failure(job_id, username, year),
+        on_run_error=lambda _exc: _report_album_failure(
+            job_id, album.username, album.year
+        ),
     )
 
 

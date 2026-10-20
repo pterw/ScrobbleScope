@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The request flows are pinned before they are refactored
+
+Side task, no batch tag: add parity tests for the album, heatmap and validate_user request flows, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, and AGENTS.md "Refactor requires parity tests" puts them before PR #3 changes the code behind these routes.
+
+What changed: new `tests/test_request_flow_parity.py` (16 tests, tests only, no source change). It pins which form fields land in the job record per release scope, that the values reach the album and heatmap pipelines in the right slots, the inclusive 2002 and current-year bounds, that a full house leaves no job behind, and the bodies of the heatmap privacy-outage and validate_user outage answers. It deliberately does not pin the fail-open pre-check or the positional thread arguments, which later tasks replace. Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: decade kept whatever the scope (custom and previous rows fail), min_plays and min_tracks swapped in the orchestrator call, username no longer stripped in heatmap_loading, `year < 2002` made `<=`, the heatmap job created before the slot is acquired, the heatmap privacy-outage `retryable` set False, and the privacy check asked before existence in validate_user.
+
+Deviations: plan drift only. The plan names `background_task` and `_dispatch_heatmap_job`; the tree has the `_fetch_and_process` call inside `background_task` in `scrobblescope/orchestrator/__init__.py` (found as planned) and `_dispatch_heatmap_job` also exists in `scrobblescope/routes/heatmap_flow.py` (it calls `acquire_job_slot` and then creates the job), so the heatmap mutation was planted there as the plan says and there was no drift for it. The one placement difference found: the heatmap privacy-outage answer lives in `_validate_heatmap_user` in the same file. (This entry first said `_dispatch_heatmap_job` was gone; that was false and is corrected here.) Behaviour and test code are as planned. No existing test was edited.
+
+Validation: `pytest -q` -- **2606 passed**.
+
 ### 2026-10-20 - The album request module plan opens its branch
 
 Side task, no batch tag: add the album request module plan as the branch's first commit, on `refactor/album-request-module`, a branch off `main`.

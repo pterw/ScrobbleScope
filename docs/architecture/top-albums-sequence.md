@@ -52,7 +52,7 @@ sequenceDiagram
                 Note over Routes,Jobs: include_unmatched is stored in params, and an include run is always stored as a play-count run
                 Routes->>Jobs: create(params)
                 Jobs-->>Routes: UUID job_id
-                Routes->>Worker: start_job_thread(background_task, args)
+                Routes->>Worker: start_job_thread(background_task, job_id)
                 alt Thread start fails
                     Worker->>Worker: release_job_slot()
                     Worker-->>Routes: Re-raise startup exception
@@ -67,7 +67,8 @@ sequenceDiagram
 
     opt Job admitted and daemon thread started
         par Background task runs
-            Worker->>Orch: background_task(job_id, parameters)
+            Worker->>Orch: background_task(job_id)
+            Orch->>Jobs: params(job_id), the parameters admission stored
             Orch->>Orch: cleanup_expired_cache() from utils (REQUEST_CACHE)
             Orch->>Jobs: expire_stale()
             Orch->>Jobs: Initialize progress at 0%

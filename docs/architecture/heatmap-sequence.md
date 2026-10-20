@@ -43,7 +43,7 @@ sequenceDiagram
                 Worker-->>Routes: True
                 Routes->>Jobs: create(mode heatmap)
                 Jobs-->>Routes: UUID job_id
-                Routes->>Worker: start_job_thread(heatmap_task, args)
+                Routes->>Worker: start_job_thread(heatmap_task, job_id)
                 alt Thread start fails
                     Worker->>Worker: release_job_slot()
                     Worker-->>Routes: Re-raise startup exception
@@ -59,7 +59,8 @@ sequenceDiagram
     opt Job admitted and daemon thread started
         Note over UI,Routes: A saved job that is already cached keeps the loading panel hidden and fades its result in directly
         par Background task runs
-            Worker->>Heatmap: heatmap_task(job_id, username)
+            Worker->>Heatmap: heatmap_task(job_id)
+            Heatmap->>Jobs: params(job_id), the username admission stored
             Heatmap->>Heatmap: cleanup_expired_cache() from utils (REQUEST_CACHE)
             Heatmap->>Jobs: expire_stale()
             Heatmap->>Jobs: start: progress 0%, stats cleared

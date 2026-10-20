@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2688 passing** across 89 tracked test modules |
+| Tests | **2699 passing** across 90 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2688 passed**.
+- Latest validated test count: **2699 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -89,6 +89,7 @@ scrobblescope/
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
     api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
     precheck.py               # check_lastfm_user: one exists/private/outage answer, each lookup timed out; shared by the album, heatmap and validate routes
+    admission.py              # admit: expire, slot, create, start the thread with the job id only; Refused.CAPACITY / START_FAILED
 templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
@@ -170,7 +171,7 @@ deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, errors, utils
 release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, unmatched, utils, worker
-orchestrator/__init__.py  <- cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
+orchestrator/__init__.py  <- album_request, cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, errors, jobs, utils; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
 orchestrator/_cache.py    <- cache, jobs, utils; orchestrator (facade)
@@ -178,10 +179,11 @@ orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orch
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
 heatmap.py       <- errors, jobs, lastfm, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
+routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
+routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- jobs, orchestrator, spotlight, unmatched, utils; routes (facade)
-routes/heatmap_flow.py  <- heatmap, jobs, utils; routes (facade)
+routes/album_flow.py    <- admission, jobs, orchestrator, spotlight, unmatched; routes (facade)
+routes/heatmap_flow.py  <- admission, heatmap, jobs, utils; routes (facade)
 routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
 app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
@@ -243,17 +245,18 @@ in its focused owner files rather than growing a second copy here.
 ```
 User submits form (index.html)
   -> POST /results_loading (routes/album_flow.py)
-    -> jobs.expire_stale()
-    -> acquire_job_slot() [worker.py] -- BEFORE jobs.create; on failure the
+    -> admission.admit (routes/admission.py): jobs.expire_stale(), then
+       acquire_job_slot() [worker.py] -- BEFORE jobs.create; on failure the
        request is rejected and no job is created
     -> jobs.create(params) -> UUID in the job store
-    -> start_job_thread(background_task, args=(...)) [worker.py]
+    -> start_job_thread(background_task, args=(job_id,)) [worker.py]
        -- worker runs an injected callable; it does not import orchestrator
        -- on failure, start_job_thread releases the slot before re-raising,
          then the route deletes the newly created job
     -> Renders loading.html with job_id
 
 background_task (orchestrator/__init__.py, daemon Thread):
+  -> reads its AlbumRequest from the job record (jobs.params)
   -> asyncio event loop -> _fetch_and_process(...)
     -> Fetch Last.fm scrobbles (paginated, async)
     -> Group into albums, filter by thresholds
@@ -282,7 +285,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2688 tests)
+## 6. Test structure (2699 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

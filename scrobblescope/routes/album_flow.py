@@ -14,13 +14,13 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
+from scrobblescope.routes import admission
 from scrobblescope.spotlight import select_spotlight_artists
 from scrobblescope.unmatched import (
     CATEGORY_METADATA,
     REASON_NO_SPOTIFY_MATCH,
     REASON_PROVIDER_UNAVAILABLE,
 )
-from scrobblescope.utils import log_failure
 
 bp = _routes.bp
 
@@ -517,14 +517,6 @@ def results_loading():
             type(exc).__name__,
         )
 
-    jobs.expire_stale()
-
-    if not _routes.acquire_job_slot():
-        return render_template(
-            "index.html",
-            error=_routes._capacity_message(),
-        )
-
     params = {
         "username": username,
         "year": year,
@@ -538,33 +530,14 @@ def results_loading():
         "limit_results": limit_results,
     }
 
-    job_id = jobs.create(params)
-
-    try:
-        _routes.start_job_thread(
-            background_task,
-            args=(
-                job_id,
-                username,
-                year,
-                sort_mode,
-                release_scope,
-                decade,
-                release_year,
-                min_plays,
-                min_tracks,
-                limit_results,
-                include_unmatched,
-            ),
-        )
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure("Failed to start background task thread")
-        jobs.delete(job_id)
+    admitted = admission.admit(params, background_task, label="background task")
+    if admitted is admission.Refused.CAPACITY:
+        return render_template("index.html", error=_routes._capacity_message())
+    if admitted is admission.Refused.START_FAILED:
         return render_template(
-            "index.html",
-            error="Failed to start processing. Please try again.",
+            "index.html", error="Failed to start processing. Please try again."
         )
 
-    session[_routes._LATEST_ALBUM_JOB] = job_id
+    session[_routes._LATEST_ALBUM_JOB] = admitted
 
-    return redirect(url_for(".loading_page", job_id=job_id), code=303)
+    return redirect(url_for(".loading_page", job_id=admitted), code=303)
