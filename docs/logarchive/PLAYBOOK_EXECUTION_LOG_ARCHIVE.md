@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-01 - The ring check also reads opacity and animations
+
+Side task, no batch tag: the heatmap focus-ring check also reads the result's opacity and running animations when it fails, a test of the crossfade hypothesis for F-B23-39, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+Problem: CI run 36808671140 (Linux, desktop, 043368eb) failed the ring check with the ring visible, 1.6px outside the cell, stroke the accent, `:focus-visible` held, tooltip clear of the ring and nothing moved: the DOM said painted, the pixels said not. The one state the evidence line did not read is opacity. `static/js/heatmap.js` `revealHeatmapResult` crossfades `#heatmap-result` in (`heatmap-fade`, `fading-out`, `is-handing-off`, 180 ms handoff) unless `prefers-reduced-motion: reduce` matches, and `_LAYOUT_SETTLED_JS` waits for fonts and frames, not animations.
+
+Change: `_RING_EVIDENCE_JS` in `scripts/dev/_frontend_gate_heatmap_access.py` also reads the result container's and the SVG's computed `opacity`, the container's three crossfade flags, how many `document.getAnimations()` are `running`, and the page's `prefers-reduced-motion` match, in the same evaluation as the geometry (so on both sides of the shot, the suffix from the read after it). The suffix gains `container.opacity`, `svg.opacity`, `container.heatmap_fade`, `container.fading_out`, `container.is_handing_off`, `animations.running` and `prefers_reduced_motion`, and `changed_during_shot=` names them when they differ between the two reads. Three tests (38 in the file).
+
+Reproduction, no fix: the check alone, 20 times in one desktop Chromium, with `reduced_motion="no-preference"`: 20 of 20 passed, twice; 20 of 20 with no emulation. The page reports `prefers-reduced-motion: reduce` matches False in the ordinary local run, so the premise that a local run skips the fade is false on this machine. With the evidence read on every shot of one `no-preference` run, 8 of its 20 last-cell shots had a different container opacity before and after the screenshot (so a shot can land inside the fade, on the very cell that failed on CI), and the ring still painted each time; the no-emulation run showed none. No iteration failed, so by the rule for this task the crossfade hypothesis is not confirmed and `_ring_coverage` does not wait for animations. F-B23-39 records the lead. The next CI failure's line will show it.
+
+Validation: `pytest -q` -- **2527 passed**.
+
 ### 2026-10-01 - The heatmap ring check says why a ring is unpainted
 
 Side task, no batch tag: the heatmap focus-ring check names its cause when it fails, an evidence-first step for F-B23-39. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
