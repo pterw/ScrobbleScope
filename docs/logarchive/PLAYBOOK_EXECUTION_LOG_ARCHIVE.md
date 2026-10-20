@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
+
+Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
+
+What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
 
 Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
