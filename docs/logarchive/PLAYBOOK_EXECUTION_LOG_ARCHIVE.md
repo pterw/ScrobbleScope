@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The production database sleeps after an idle hour again
+
+Side task, no batch tag: the production database (`scrobblescope-db`) is set to stop after an idle hour again, and PLAYBOOK Section 3 names the work before WP-1, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the Fly bill inside the $5 a month Fly waives for a personal organisation.
+
+What changed: on 2026-10-01 `FLY_SCALE_TO_ZERO` was removed from the `scrobblescope-db` machine so the database stayed on. On 2026-10-20 the owner's Fly cost explorer showed $4.90 for 1-20 October ($0.24 a day), which projects past the waiver, so the controller restored `FLY_SCALE_TO_ZERO=1h` with `fly machine update` (machine healthy 3/3, app answered 200). The app holds no connection pool -- `cache.py` opens and closes a connection per use -- so the database can reach zero connections and stop. The release-command retry in `init_db.py` (PR #255) covers a deploy that finds it asleep, and the cache is optional at runtime, so a cold database costs the first job its cache, not its result. No repository file states the always-on setting, so none changes. Section 3 gains a bullet naming the side-task tranche before WP-1 and why job persistence waits: a database-backed job store would keep the database awake, which the hosting cost ceiling does not allow.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - Batch 23 planned scope accounts for the include-unmatched control
 
 Side task, no batch tag: Batch 23 planned scope accounts for the include-unmatched control, on the include-unmatched branch (a small PR off main after the cover-washes PR).

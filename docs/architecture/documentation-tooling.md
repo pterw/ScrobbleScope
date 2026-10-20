@@ -111,7 +111,7 @@ flowchart TD
     CI -. runs .-> PY[pytest, coverage,<br/>advisory pip-audit]
 
     FG[dev/frontend_gate.py<br/>stable facade] --> FGR[_frontend_gate_results]
-    FG --> FGC[_frontend_gate_colour<br/>pure maths, no page]
+    FG --> FGC[_frontend_gate_colour<br/>colour maths, segmented-control checks]
     FG --> FGS[_frontend_gate_shared<br/>page inventories, shared state]
     FG --> FGA[_frontend_gate_assets]
     FG --> FGU[_frontend_gate_unmatched]
@@ -127,6 +127,7 @@ flowchart TD
     FGSI --> FGSP
     FGR --> FGSI
     FGR --> FGC
+    FGC --> FGS
     FGT --> FGC
     FGLY --> FGC
     FGU --> FGR

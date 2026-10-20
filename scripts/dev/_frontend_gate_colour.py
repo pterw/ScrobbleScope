@@ -1,10 +1,11 @@
-"""Pure colour maths for the frontend gate.
+"""Colour maths and segmented-control colour checks for the frontend gate.
 
 F-B21-51 records that `frontend_gate.py` has grown to roughly ten times its
 largest sibling and prescribes a split along the check groups. This module is
 the first, safest slice of that split: the helpers here take numbers and
 strings, never a `page`, so they carry no browser or fixture dependency and can
-be pinned by plain pytest.
+be pinned by plain pytest. The segmented-control checks (`seg_*`) at the end
+are the exception: they drive a `page` and wait with `wait_for_settled`.
 
 That property is the point. A split of a 4,000-line module is verified by the
 browser gate, and the browser gate is the thing being moved, so the parts that
@@ -19,6 +20,8 @@ definitions, and CSS `clamp()` resolution semantics.
 from __future__ import annotations
 
 import re
+
+from scripts.dev._frontend_gate_shared import wait_for_settled
 
 __all__ = [
     "_clamp_px",
@@ -262,7 +265,7 @@ def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
                 "(t) => document.documentElement.setAttribute('data-theme', t)",
                 theme,
             )
-            page.wait_for_timeout(350)
+            wait_for_settled(page, spec["track"])
             cells = seg_contrast_cells(page, spec)
             if cells is None:
                 failures.append(
@@ -307,7 +310,7 @@ def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
                 ("selected chip", "selected", "chip"),
             ):
                 page.locator(spec[key]).hover()
-                page.wait_for_timeout(350)
+                wait_for_settled(page, spec[key])
                 paint = page.evaluate(SEG_PAINT_JS, spec)
                 if paint is None:
                     failures.append(

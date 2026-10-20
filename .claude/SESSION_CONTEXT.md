@@ -102,7 +102,7 @@ scripts/
     results_behavior_tests.py # Chromium behaviour tests for the Results page
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
     _frontend_gate_assets.py # stylesheet isolation
-    _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
+    _frontend_gate_colour.py # colour and contrast maths and segmented-control checks, re-exported by the gate
     _frontend_gate_forms.py # form validation, validator races, initial visibility
     _frontend_gate_heatmap_access.py # heatmap cell keyboard reachability, aria-label and focus ring
     _frontend_gate_include.py # real include-run Results page: contrast, matched only, forced colours, overflow
@@ -209,7 +209,7 @@ dev/graphify_refresh.py <- (leaf; standard library only)
 dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
-dev/_frontend_gate_colour.py <- (leaf; standard library only)
+dev/_frontend_gate_colour.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_include.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; domain; jobs
