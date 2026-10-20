@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Python 3.13 spellings for UTC and timeouts
+
+Side task, no batch tag: the UP017 and UP041 alias fixes, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile and CI run Python 3.13, so the code should use its spellings (tranche design, PR #2).
+
+What changed: `ruff check --target-version py313 --select UP017,UP041 --fix` rewrote 21 `timezone.utc` uses to `datetime.UTC` and one `asyncio.TimeoutError` to the builtin `TimeoutError` (the same class since 3.11), in `scrobblescope/heatmap.py`, `lastfm.py`, `orchestrator/__init__.py`, `routes/__init__.py`, `spotify.py`, `scripts/dev/graphify_refresh.py`, `tests/services/test_lastfm_logic.py` and `tests/test_heatmap.py`. No behaviour changes; the ruff target itself is the next commit.
+
+Deviations: the `timezone` imports the rewrite left unused were removed (F401, by the ruff hook and two by hand), and ruff-format re-wrapped lines the shorter spelling freed. The two test files changed only by the alias spelling and that wrapping; no assertion was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
 ### 2026-10-20 - page-motion.js is named like the other scripts
 
 Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -173,17 +185,5 @@ Owner intent: plans written before any code, sliced for parallel subagents, and 
 What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` orders the eight PRs in waves so no two edit the same lines at once, and defines how each remaining PR's plan is written and reviewed before its code. `docs/superpowers/plans/2026-10-20-pre-batch23-hygiene.md` is this branch's own plan: a test that every static file a page loads exists, `page_motion.js` renamed `page-motion.js`, ruff targeting Python 3.13, and `requests` with its own dependencies moved to the development requirements. Measured for the plans: `pytest -q` collects 2534 tests, 59 of them browser-marked, so the pinned count includes the browser tests that CI runs in its frontend-gate step; pre-commit takes about 9 seconds on this tree.
 
 Deviations: the spec's hygiene item "a check that the pinned test count includes browser-marked tests" is answered by the measurement above rather than a new mechanism; the documentation PR states it where tests are explained.
-
-Validation: `pytest -q` -- **2534 passed**.
-
-### 2026-10-20 - The pre-Batch-23 tranche design is recorded
-
-Side task, no batch tag: the design for the side-task PRs that run before Batch 23 WP-1, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: before the Spotify export import, make the documentation describe the system as it is, check every diagram against the source, make the interface consistent, clear backend hygiene items, and build four of the seams the 2026-09-30 architecture review proposed -- each as its own PR with atomic commits.
-
-What changed: `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` records the design the owner approved section by section on 2026-10-20: the eight PRs and their order, the rules every PR follows (a Section 4 entry per commit, Batch 23 definition amendments when a seam changes what a work package may assume, parity tests before a refactor, tests that assert intended behaviour), the review policy that keeps fix rounds from looping, the documentation PR's content, the UI loop, and the hosting cost ceiling that keeps job persistence out of this tranche. The implementation plans follow in later commits on this branch. PLAYBOOK Section 3 gains its pointer to this spec once the include-unmatched PR, which adds the Section 3 bullet for this tranche, has merged.
-
-Deviations: none. No code change, no test edited.
 
 Validation: `pytest -q` -- **2534 passed**.

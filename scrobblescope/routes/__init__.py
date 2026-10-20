@@ -21,7 +21,7 @@ boundaries may evolve safely.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import Blueprint, render_template, request, session, url_for
 
@@ -211,7 +211,7 @@ def _current_year():
     around New Year on any host not running UTC (F-B21-6). One helper, because
     three call sites asked the same question.
     """
-    return datetime.now(timezone.utc).year
+    return datetime.now(UTC).year
 
 
 def _capacity_message():

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The pre-Batch-23 tranche design is recorded
+
+Side task, no batch tag: the design for the side-task PRs that run before Batch 23 WP-1, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: before the Spotify export import, make the documentation describe the system as it is, check every diagram against the source, make the interface consistent, clear backend hygiene items, and build four of the seams the 2026-09-30 architecture review proposed -- each as its own PR with atomic commits.
+
+What changed: `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` records the design the owner approved section by section on 2026-10-20: the eight PRs and their order, the rules every PR follows (a Section 4 entry per commit, Batch 23 definition amendments when a seam changes what a work package may assume, parity tests before a refactor, tests that assert intended behaviour), the review policy that keeps fix rounds from looping, the documentation PR's content, the UI loop, and the hosting cost ceiling that keeps job persistence out of this tranche. The implementation plans follow in later commits on this branch. PLAYBOOK Section 3 gains its pointer to this spec once the include-unmatched PR, which adds the Section 3 bullet for this tranche, has merged.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2534 passed**.
+
 ### 2026-10-01 - The release command waits for a waking database
 
 Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.

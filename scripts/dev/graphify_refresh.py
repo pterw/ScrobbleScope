@@ -53,7 +53,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -133,7 +133,7 @@ def read_state(state_path: Path) -> dict[str, object] | None:
 
 def write_state(state_path: Path, commit: str, *, now: datetime | None = None) -> None:
     """Stamp the baseline commit that the next threshold window counts from."""
-    stamp = now or datetime.now(timezone.utc)
+    stamp = now or datetime.now(UTC)
     payload = {
         "last_refresh_commit": commit,
         "last_refresh_at": stamp.replace(microsecond=0).isoformat(),
