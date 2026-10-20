@@ -16,7 +16,7 @@ deals only with raw scrobble counts per day.
 import logging
 import time
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from datetime import time as dt_time
 
 from scrobblescope import jobs
@@ -104,7 +104,7 @@ def _aggregate_daily_counts(pages, from_date, to_date):
             # Last.fm UTS values are UTC-anchored; decoding as UTC keeps day
             # attribution consistent across server timezones (lastfm.py:31
             # already follows this pattern for year extraction).
-            day = datetime.fromtimestamp(ts, tz=timezone.utc).date()
+            day = datetime.fromtimestamp(ts, tz=UTC).date()
             if from_date <= day <= to_date:
                 counter[day.isoformat()] += 1
 
@@ -132,15 +132,13 @@ async def _fetch_and_process_heatmap(job_id, username):
     # Compute the 365-day window (today inclusive). All datetimes are UTC
     # so the fetch range and bucket boundaries agree regardless of the
     # server's local timezone (Fly.io is UTC but local Windows dev is not).
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     to_date = now.date()
     # Minus one because both ends are inclusive. Written as arithmetic rather
     # than as a literal 364, which read as a different number from every other
     # copy of the window and could not be checked against them.
     from_date = to_date - timedelta(days=HEATMAP_WINDOW_DAYS - 1)
-    from_ts = int(
-        datetime.combine(from_date, dt_time.min, tzinfo=timezone.utc).timestamp()
-    )
+    from_ts = int(datetime.combine(from_date, dt_time.min, tzinfo=UTC).timestamp())
     to_ts = int(now.timestamp())
 
     # Phase 5-80%: fetch Last.fm pages ----------------------------------------

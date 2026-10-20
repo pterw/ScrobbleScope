@@ -9,11 +9,11 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2581 passing** across 85 tracked test modules |
+| Tests | **2590 passing** across 86 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Before WP-1, a tranche of side-task PRs runs (PLAYBOOK Section 3). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. Definition amended 2026-10-20 for the include-unmatched control (WP-3, WP-5, WP-6). |
+| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Before WP-1, a tranche of side-task PRs runs (PLAYBOOK Section 3; design in `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md`). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. Definition amended 2026-10-20 for the include-unmatched control (WP-3, WP-5, WP-6). |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -43,7 +43,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2581 passed**.
+- Latest validated test count: **2590 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -89,7 +89,7 @@ templates/                  # base, index, loading, results, unmatched, error, p
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
   css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
-  js/                       # theme, page_motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
+  js/                       # theme, page-motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
@@ -275,7 +275,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2581 tests)
+## 6. Test structure (2590 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

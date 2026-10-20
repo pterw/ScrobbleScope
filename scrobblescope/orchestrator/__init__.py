@@ -21,7 +21,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from scrobblescope import jobs
@@ -112,8 +112,8 @@ async def fetch_top_albums_async(
             ``fetch_all_recent_tracks_async`` for per-page progress.
     """
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
-    from_ts = int(datetime(year, 1, 1, tzinfo=timezone.utc).timestamp())
-    to_ts = int(datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc).timestamp())
+    from_ts = int(datetime(year, 1, 1, tzinfo=UTC).timestamp())
+    to_ts = int(datetime(year, 12, 31, 23, 59, 59, tzinfo=UTC).timestamp())
     pages, fetch_metadata = await fetch_all_recent_tracks_async(
         username, from_ts, to_ts, progress_cb=progress_cb
     )

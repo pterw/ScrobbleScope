@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -32,7 +32,7 @@ async def check_user_exists(username):
     def _extract_year(data):
         try:
             ts = int(data["user"]["registered"]["unixtime"])
-            return datetime.fromtimestamp(ts, tz=timezone.utc).year
+            return datetime.fromtimestamp(ts, tz=UTC).year
         except (KeyError, TypeError, ValueError):
             return None
 

@@ -322,7 +322,7 @@ async def _request_token():
                         }
                     )
                     return spotify_token_cache["token"]
-    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+    except (TimeoutError, aiohttp.ClientError) as exc:
         # The token endpoint not answering is Spotify being unavailable, the
         # same as a non-200 answer: the caller degrades to Deezer.
         logging.error(f"Spotify token request failed: {type(exc).__name__}")

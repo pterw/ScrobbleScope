@@ -9,6 +9,144 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Ruff judges the code as Python 3.13
+
+Side task, no batch tag: ruff's `target-version` set to `py313`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile and CI run Python 3.13, so ruff should judge the code against it (tranche design, PR #2).
+
+What changed: `pyproject.toml` `[tool.ruff]` gains `target-version = "py313"`, so the UP rules see 3.13 idioms and the import sorter files `tomllib` as standard library. `ruff check --select I001 --fix` moved that import into the stdlib group in `scripts/dev/docsync_preflight.py`, `scripts/dev/frontend_gate.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py`. UP036 then flagged the `sys.version_info < (3, 12)` block in `docsync_preflight.py`; it is a deliberate refusal for an extracted copy of the control plane run on older Python, so it stays, marked `# noqa: UP036` with the reason in the comment above. The change is lint-only: import order and one comment, no behaviour.
+
+Control plane: the commit stages `scripts/dev/docsync_preflight.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py` (with `scripts/dev/frontend_gate.py`), and the docsync preflight refuses control-plane files outside `[test_count]` by design (exit 3). It was committed through the documented escape, `SKIP=doc-state-sync-check git commit`, and `doc_state_sync.py --check` was run straight after (exit 0). `--no-verify` was not used.
+
+Deviations: the brief's trailing `# noqa: UP036 -- reason` would have pushed the line past 88 characters and ruff-format would have split the tuple, so the reason sits in the comment above and the old `# pragma: no cover - CI pins 3.13` text moved there too, ahead of a shortened `# noqa: UP036  # pragma: no cover`. No existing test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
+### 2026-10-20 - The production image no longer installs requests
+
+Side task, no batch tag: `requests` and its three private dependencies moved from `requirements.txt` to `requirements-dev.txt`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile installs `requirements.txt` only, so the image should hold only what the app imports (owner, 2026-10-20: "Sure, if it's cheap and you think it would be wise.").
+
+What changed: `requests` is imported only by `scripts/testing/` (`_http_client.py`, `concurrent_users_test.py`, `smoke_cache_check.py`), and among production packages `urllib3`, `charset-normalizer` and `certifi` are required by `requests` alone (`importlib.metadata.requires`). All four pins moved, unchanged, to `requirements-dev.txt`. `idna` stays: `yarl`, which `aiohttp` needs, requires it. CI's pip-audit still reads both files, so the moved pins stay audited. New `tests/test_requirements_split.py` parses every runtime file (`app.py`, `run.py`, `init_db.py`, `scrobblescope/`) and asserts each third-party import resolves to a distribution `requirements.txt` pins.
+
+Mutation evidence: in a scratch copy, adding `import requests` to `scrobblescope/config.py` and removing the four pins failed the test with `scrobblescope\config.py imports requests`; on the real tree it passes.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
+### 2026-10-20 - Python 3.13 spellings for UTC and timeouts
+
+Side task, no batch tag: the UP017 and UP041 alias fixes, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile and CI run Python 3.13, so the code should use its spellings (tranche design, PR #2).
+
+What changed: `ruff check --target-version py313 --select UP017,UP041 --fix` rewrote 21 `timezone.utc` uses to `datetime.UTC` and one `asyncio.TimeoutError` to the builtin `TimeoutError` (the same class since 3.11), in `scrobblescope/heatmap.py`, `lastfm.py`, `orchestrator/__init__.py`, `routes/__init__.py`, `spotify.py`, `scripts/dev/graphify_refresh.py`, `tests/services/test_lastfm_logic.py` and `tests/test_heatmap.py`. No behaviour changes; the ruff target itself is the next commit.
+
+Deviations: the `timezone` imports the rewrite left unused were removed (F401, by the ruff hook and two by hand), and ruff-format re-wrapped lines the shorter spelling freed. The UP041 fix also reordered the `except` tuple in `scrobblescope/spotify.py` from `(aiohttp.ClientError, asyncio.TimeoutError)` to `(TimeoutError, aiohttp.ClientError)`; it catches the same two classes, so behaviour is unchanged. The two test files changed only by the alias spelling and that wrapping; no assertion was edited. Existing tests edited by name (spelling or wrapping only): in `tests/test_heatmap.py` `test_boundary_timestamps`, `test_out_of_range_excluded`, `test_midnight_boundary_attribution`, `test_utc_decode_invariant_against_local_tz_drift`, `test_happy_path_stores_correct_result_dict`, `test_success_is_readable_through_repository_at_100_percent`, `test_progress_callback_sends_correct_percentages` and `test_heatmap_lastfm_phase_and_cleared_at_completion`, plus the `_make_track` helper; in `tests/services/test_lastfm_logic.py` the `_track` helper.
+
+Validation: `pytest -q` -- **2542 passed**.
+
+### 2026-10-20 - Spell the empty top-artist dash as an escape
+
+Side task, no batch tag: the empty top-artist dash is spelled as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep hand-written files pure ASCII, as the middle-dot commit did.
+
+The previous commit left a literal em dash in `static/js/results.js` and `scripts/dev/results_behavior_tests.py`, which were pure ASCII before it; both now spell it `\u2014` (the scoped review's one Minor). The rendered value is unchanged.
+
+Deviations: none. Edited existing tests: none (the two assertion strings in `scripts/dev/results_behavior_tests.py` changed spelling only).
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - File the Listening Time toggle's durationless rows
+
+Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a real inconsistency Codex found is recorded, not smuggled into this PR.
+
+After Hide, or on any play-count run switched to Listening Time in the browser, matched albums with no Spotify duration rank last and show a dash, while a run that starts in playtime mode drops them server-side. `main` behaves the same for play-count runs, so it is not this PR's change; the finding (Codex comment 4330862249) leaves the one-rule decision to the UI-consistency PR.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - Clear the top artist when Hide leaves no rows
+
+Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the stats under Hide describe only the rows still on the page.
+
+On an include run whose rows are all unmatched (every lookup unavailable), Hide left Total Albums and Scrobbles at 0 while Top Artist still named the artist of a hidden row (Codex review on PR #256, comment 4330862255). `setUnmatchedHidden` in static/js/results.js now writes the template's empty-state dash into the Top Artist text and title when no row is visible; with rows left it is unchanged. The other Codex comment of that review (4330862249) is not material to this PR and is filed as F-B23-46.
+
+Deviations: `include_run` in scripts/dev/results_behavior_tests.py takes an optional row list. Edited existing tests: none. New: test_hiding_every_row_clears_the_top_artist_and_including_restores_it (results-behavior script).
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - Say when an unmatched release reads unknown
+
+Side task, no batch tag: three live docs say when an unmatched row's release reads "unknown", on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the docs follow the code, so a date MusicBrainz finds is not described as always unknown.
+
+README.md, DESIGN.md (Results Row: Unmatched Variant) and the RECONCILIATION ledger row "Results: unmatched albums" said the release cell simply reads "unknown"; it does so only until a found original release replaces it (YYYY-MM). New RECONCILIATION section 25 records the found-date rule, that the server and results-release-checks.js render the same text, the Codex finding on PR #256, and that the moved-out note is still script-only (F-B23-45). Section 21's wording is left as a dated record.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - page-motion.js is named like the other scripts
+
+Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: files served as URLs conventionally use hyphens, and `page_motion.js` was the only script name in `static/js/` with an underscore (owner, 2026-10-20: "What is best practice here?" -> hyphens).
+
+What changed: `git mv` of the script; `templates/base.html` names `js/page-motion.js` in its one `url_for`; `.claude/SESSION_CONTEXT.md` Section 3 lists `page-motion` in the `js/` line. Run before the template was updated, the Task 1 guard failed all 8 parametrised cases naming `/static/js/page_motion.js`; after it, all 8 pass. The frontend gate reports 45 checks passed in 71 runs across chromium and firefox, with no load fault naming `page-motion.js`. `docs/design/designsystemaudit.md` and dated plans and logs keep the old name as point-in-time records.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
+### 2026-10-20 - A page never loads a static file the repository lacks
+
+Side task, no batch tag: a guard test that every local script and stylesheet a rendered page loads exists, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: nothing fails today when a template names a static file that is not shipped, and the next commit renames `page_motion.js`, so the guard comes first.
+
+What changed: `test_every_local_script_and_stylesheet_a_page_loads_exists` in `tests/test_template_shell.py` renders each template in `TEMPLATE_CONTEXT`, collects every `/static/` script and stylesheet reference (query strings dropped), and asserts each file exists under `static/`. It also asserts a page loads at least one, so a wrong pattern cannot pass vacuously. A missing file otherwise 404s silently in the browser and the frontend gate prints it only as an advisory beside a FAIL.
+
+Mutation evidence: renaming `templates/base.html`'s `filename='js/page_motion.js'` to `page_motionX.js` failed all 8 parametrised cases, for example `index.html loads files the repository lacks: ['/static/js/page_motionX.js']`; restored, all 8 pass.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
+### 2026-10-20 - The pre-Batch-23 tranche plans are recorded
+
+Side task, no batch tag: the master plan and the hygiene plan for the side-task PRs before Batch 23 WP-1, on `chore/pre-batch23-hygiene`.
+
+Owner intent: plans written before any code, sliced for parallel subagents, and kept in the repository for the record (owner, 2026-10-20: "All plans should stay for archival purposes").
+
+What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` orders the eight PRs in waves so no two edit the same lines at once, and defines how each remaining PR's plan is written and reviewed before its code. `docs/superpowers/plans/2026-10-20-pre-batch23-hygiene.md` is this branch's own plan: a test that every static file a page loads exists, `page_motion.js` renamed `page-motion.js`, ruff targeting Python 3.13, and `requests` with its own dependencies moved to the development requirements. Measured for the plans: `pytest -q` collects 2534 tests, 59 of them browser-marked, so the pinned count includes the browser tests that CI runs in its frontend-gate step; pre-commit takes about 9 seconds on this tree.
+
+Deviations: the spec's hygiene item "a check that the pinned test count includes browser-marked tests" is answered by the measurement above rather than a new mechanism; the documentation PR states it where tests are explained.
+
+Validation: `pytest -q` -- **2534 passed**.
+
+### 2026-10-20 - The pre-Batch-23 tranche design is recorded
+
+Side task, no batch tag: the design for the side-task PRs that run before Batch 23 WP-1, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: before the Spotify export import, make the documentation describe the system as it is, check every diagram against the source, make the interface consistent, clear backend hygiene items, and build four of the seams the 2026-09-30 architecture review proposed -- each as its own PR with atomic commits.
+
+What changed: `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` records the design the owner approved section by section on 2026-10-20: the eight PRs and their order, the rules every PR follows (a Section 4 entry per commit, Batch 23 definition amendments when a seam changes what a work package may assume, parity tests before a refactor, tests that assert intended behaviour), the review policy that keeps fix rounds from looping, the documentation PR's content, the UI loop, and the hosting cost ceiling that keeps job persistence out of this tranche. The implementation plans follow in later commits on this branch. PLAYBOOK Section 3 gains its pointer to this spec once the include-unmatched PR, which adds the Section 3 bullet for this tranche, has merged.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2534 passed**.
+
 ### 2026-10-20 - File the release note that a reload drops
 
 Side task, no batch tag: finding F-B23-45 filed for the moved-out release note a reload drops, on the include-unmatched branch (a small PR off main after the cover-washes PR).

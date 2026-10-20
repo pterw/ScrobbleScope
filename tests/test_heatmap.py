@@ -11,7 +11,7 @@ Covers:
 - no_scrobbles_in_range error code existence.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -44,7 +44,7 @@ def _make_track(day, uts_override=None):
         return {"name": "Song", "artist": {"#text": "Artist"}}
     # Build UTS as UTC to match production decode (heatmap.py: tz=utc).
     uts = uts_override or int(
-        datetime.combine(day, dt_time(12, 0), tzinfo=timezone.utc).timestamp()
+        datetime.combine(day, dt_time(12, 0), tzinfo=UTC).timestamp()
     )
     return {
         "name": "Song",
@@ -126,13 +126,11 @@ class TestAggregateDailyCounts:
         to_date = date(2026, 6, 2)
         # Track at start of from_date (00:00:00 UTC).
         start_uts = int(
-            datetime.combine(from_date, dt_time.min, tzinfo=timezone.utc).timestamp()
+            datetime.combine(from_date, dt_time.min, tzinfo=UTC).timestamp()
         )
         # Track at end of to_date (23:59:59 UTC).
         end_uts = int(
-            datetime.combine(
-                to_date, dt_time(23, 59, 59), tzinfo=timezone.utc
-            ).timestamp()
+            datetime.combine(to_date, dt_time(23, 59, 59), tzinfo=UTC).timestamp()
         )
         pages = [
             _wrap_tracks(
@@ -152,12 +150,12 @@ class TestAggregateDailyCounts:
         to_date = date(2026, 5, 12)
         before_uts = int(
             datetime.combine(
-                date(2026, 5, 9), dt_time(23, 59, 59), tzinfo=timezone.utc
+                date(2026, 5, 9), dt_time(23, 59, 59), tzinfo=UTC
             ).timestamp()
         )
         after_uts = int(
             datetime.combine(
-                date(2026, 5, 13), dt_time(0, 0, 1), tzinfo=timezone.utc
+                date(2026, 5, 13), dt_time(0, 0, 1), tzinfo=UTC
             ).timestamp()
         )
         inside = _make_track(date(2026, 5, 11))
@@ -209,11 +207,9 @@ class TestAggregateDailyCounts:
         d1 = date(2026, 3, 1)
         d2 = date(2026, 3, 2)
         late_uts = int(
-            datetime.combine(d1, dt_time(23, 59, 59), tzinfo=timezone.utc).timestamp()
+            datetime.combine(d1, dt_time(23, 59, 59), tzinfo=UTC).timestamp()
         )
-        early_uts = int(
-            datetime.combine(d2, dt_time(0, 0, 1), tzinfo=timezone.utc).timestamp()
-        )
+        early_uts = int(datetime.combine(d2, dt_time(0, 0, 1), tzinfo=UTC).timestamp())
         pages = [
             _wrap_tracks(
                 [
@@ -239,9 +235,7 @@ class TestAggregateDailyCounts:
         d_utc = date(2026, 4, 10)
         # 23:30 UTC -- definitively day d_utc under UTC, definitively
         # d_utc+1 under any local tz with offset >= +01:00.
-        ts_utc = int(
-            datetime.combine(d_utc, dt_time(23, 30), tzinfo=timezone.utc).timestamp()
-        )
+        ts_utc = int(datetime.combine(d_utc, dt_time(23, 30), tzinfo=UTC).timestamp())
         # Sanity: a naive decode using the running host's local tz must
         # disagree with the UTC decode for the test to be meaningful on a
         # UTC host (where local == UTC, the assertion still holds but the
@@ -398,7 +392,7 @@ class TestFetchAndProcessHeatmap:
     async def test_happy_path_stores_correct_result_dict(self):
         """Successful fetch stores a result dict with expected keys and values."""
         # Build a page with scrobbles on a known day.
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         yesterday = today - timedelta(days=1)
         page = _wrap_tracks(
             [
@@ -451,7 +445,7 @@ class TestFetchAndProcessHeatmap:
     @pytest.mark.asyncio
     async def test_success_is_readable_through_repository_at_100_percent(self):
         """A real job exposes its payload whenever progress reports complete."""
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         page = _wrap_tracks([_make_track(today)])
         metadata = {"status": "ok", "pages_expected": 1, "pages_received": 1}
         job_id = jobs.create({"username": "wired-user", "mode": "heatmap"})
@@ -482,7 +476,7 @@ class TestFetchAndProcessHeatmap:
     @pytest.mark.asyncio
     async def test_progress_callback_sends_correct_percentages(self):
         """The progress callback maps fetch phases into 5-80% range."""
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         page = _wrap_tracks([_make_track(today)])
         meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
 
@@ -726,7 +720,7 @@ class TestHeatmapPhaseProgress:
         job_id = jobs.create({"username": "user", "mode": "heatmap"})
         observed_phase = None
 
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         page = _wrap_tracks([_make_track(today)])
         meta = {"status": "ok", "pages_expected": 102, "pages_received": 23}
 

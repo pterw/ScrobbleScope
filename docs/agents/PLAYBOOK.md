@@ -105,7 +105,9 @@ See FINDINGS F-DOCSYNC-3.
   module, one album-metadata encoding, the statistics module, and
   normalized Last.fm scrobbles with one album aggregate. Job persistence
   waits: a database-backed job store would keep the database awake, which
-  the hosting cost ceiling does not allow.
+  the hosting cost ceiling does not allow. The design is
+  `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
+  order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -148,50 +150,50 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-20 - Spell the empty top-artist dash as an escape
+### 2026-10-20 - The test-module count counts both sides of the merge
 
-Side task, no batch tag: the empty top-artist dash is spelled as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
 
-Owner intent: keep hand-written files pure ASCII, as the middle-dot commit did.
+Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
 
-The previous commit left a literal em dash in `static/js/results.js` and `scripts/dev/results_behavior_tests.py`, which were pure ASCII before it; both now spell it `\u2014` (the scoped review's one Minor). The rendered value is unchanged.
+What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
 
-Deviations: none. Edited existing tests: none (the two assertion strings in `scripts/dev/results_behavior_tests.py` changed spelling only).
+Deviations: none. No test was edited.
 
-Validation: `pytest -q` -- **2581 passed**.
+Validation: `pytest -q` -- **2590 passed**.
 
-### 2026-10-20 - File the Listening Time toggle's durationless rows
+### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
 
-Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
 
-Owner intent: a real inconsistency Codex found is recorded, not smuggled into this PR.
+Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
 
-After Hide, or on any play-count run switched to Listening Time in the browser, matched albums with no Spotify duration rank last and show a dash, while a run that starts in playtime mode drops them server-side. `main` behaves the same for play-count runs, so it is not this PR's change; the finding (Codex comment 4330862249) leaves the one-rule decision to the UI-consistency PR.
+What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
 
-Deviations: none. Edited existing tests: none. New: none.
+Deviations: none. No test was edited.
 
-Validation: `pytest -q` -- **2581 passed**.
+Validation: `pytest -q` -- **2590 passed**.
 
-### 2026-10-20 - Clear the top artist when Hide leaves no rows
+### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
 
-Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
 
-Owner intent: the stats under Hide describe only the rows still on the page.
+Owner intent: an agent that reads Section 3's "Before WP-1" bullet should find the design and the PR order without searching.
 
-On an include run whose rows are all unmatched (every lookup unavailable), Hide left Total Albums and Scrobbles at 0 while Top Artist still named the artist of a hidden row (Codex review on PR #256, comment 4330862255). `setUnmatchedHidden` in static/js/results.js now writes the template's empty-state dash into the Top Artist text and title when no row is visible; with rows left it is unchanged. The other Codex comment of that review (4330862249) is not material to this PR and is filed as F-B23-46.
+What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. SESSION_CONTEXT's Batch 23 status row names the spec path after the existing "side-task PRs runs" sentence. Both documents come from this branch and are committed on it.
 
-Deviations: `include_run` in scripts/dev/results_behavior_tests.py takes an optional row list. Edited existing tests: none. New: test_hiding_every_row_clears_the_top_artist_and_including_restores_it (results-behavior script).
+Deviations: none. No test was edited.
 
-Validation: `pytest -q` -- **2581 passed**.
+Validation: `pytest -q` -- **2590 passed**.
 
-### 2026-10-20 - Say when an unmatched release reads unknown
+### 2026-10-20 - Hygiene entries corrected after review
 
-Side task, no batch tag: three live docs say when an unmatched row's release reads "unknown", on the include-unmatched branch (a small PR off main after the cover-washes PR).
+Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
 
-Owner intent: the docs follow the code, so a date MusicBrainz finds is not described as always unknown.
+Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
 
-README.md, DESIGN.md (Results Row: Unmatched Variant) and the RECONCILIATION ledger row "Results: unmatched albums" said the release cell simply reads "unknown"; it does so only until a found original release replaces it (YYYY-MM). New RECONCILIATION section 25 records the found-date rule, that the server and results-release-checks.js render the same text, the Codex finding on PR #256, and that the moved-out note is still script-only (F-B23-45). Section 21's wording is left as a dated record.
+What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
 
-Deviations: none. Edited existing tests: none. New: none.
+Deviations: none. No test was edited.
 
-Validation: `pytest -q` -- **2581 passed**.
+Validation: `pytest -q` -- **2543 passed**.

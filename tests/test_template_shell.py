@@ -406,6 +406,33 @@ def test_a_migrated_page_loads_no_bootstrap_javascript(app, template):
     assert not bootstrap, f"{template} still loads Bootstrap JS: {bootstrap}"
 
 
+STATIC_ROOT = Path(__file__).resolve().parents[1] / "static"
+
+
+@pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
+def test_every_local_script_and_stylesheet_a_page_loads_exists(app, template):
+    """A page must never ask for a static file the repository does not ship.
+
+    A missing script or stylesheet fails silently in the browser: the page
+    renders, the request 404s, and the behaviour or styling it carried is
+    simply absent. Renaming a file without updating every template that loads
+    it is the usual way this happens.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    references = re.findall(r'<script[^>]+src="([^"]+)"', html) + re.findall(
+        r'<link[^>]+href="([^"]+)"', html
+    )
+    local = [ref.split("?", 1)[0] for ref in references if ref.startswith("/static/")]
+    missing = [
+        ref for ref in local if not (STATIC_ROOT / ref[len("/static/") :]).is_file()
+    ]
+
+    assert local, f"{template} loads no local static file; the pattern is wrong"
+    assert not missing, f"{template} loads files the repository lacks: {missing}"
+
+
 @pytest.mark.parametrize("template", sorted(MIGRATED))
 def test_a_migrated_page_carries_no_bootstrap_data_attribute(app, template):
     """data-bs-* is Bootstrap's JS API, and it fails silently without it.

@@ -5,7 +5,7 @@ enforcement, the now-playing sentinel, non-Latin track deduplication,
 and fetch-metadata stat reporting.  Network calls are fully mocked.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -20,7 +20,7 @@ from scrobblescope.orchestrator import _MAX_ALBUM_CAP, fetch_top_albums_async
 
 def _track(artist, album, name, year=2023, month=6, day=15):
     """Build a minimal Last.fm track dict with a UTC timestamp."""
-    ts = int(datetime(year, month, day, tzinfo=timezone.utc).timestamp())
+    ts = int(datetime(year, month, day, tzinfo=UTC).timestamp())
     return {
         "artist": {"#text": artist},
         "album": {"#text": album},
