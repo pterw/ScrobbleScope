@@ -70,8 +70,9 @@ See FINDINGS F-DOCSYNC-3.
 ## 3. Active batch + next action
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
-  Branch: `feat/batch23-wp0-hygiene`. The branch was cut from `test`; run the
-  worktree guard with `--base-ref origin/test`.
+  Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-24 and `origin/test` is
+  deleted, so side-task PRs branch from `main` and run the guard against its default
+  base. The owner names the branch WP-1 opens.
 - **Next action:** WP-0 is next.
   Part A and Part B are complete. Part C continues through the three
   follow-on plans in the order recorded under "After this plan" in
@@ -138,6 +139,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Batch 23 planned scope accounts for the include-unmatched control
+
+Side task, no batch tag: Batch 23 planned scope accounts for the include-unmatched control, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the Batch 23 planned scope current, so WP-3, WP-5 and WP-6 plan for the include-unmatched control that shipped before WP-1.
+
+What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header paragraph, a WP-3 checkbox (the export path honours `include_unmatched`), a WP-5 checkbox (the source control and the include-unmatched control share the album form), and a sentence in WP-6's statistics contract (whether unmatched albums count in each summary). PLAYBOOK Section 3 no longer says to run the guard with `--base-ref origin/test`: that branch merged into `main` as PR #245 on 2026-09-24 and `origin/test` is deleted, so side-task PRs branch from `main`. The `Branch:` line is unchanged. SESSION_CONTEXT Section 1's Batch 23 row notes the amendment.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-01 - The release command waits for a waking database
 
 Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -173,15 +186,3 @@ Change: `_RING_EVIDENCE_JS` in `scripts/dev/_frontend_gate_heatmap_access.py` al
 Reproduction, no fix: the check alone, 20 times in one desktop Chromium, with `reduced_motion="no-preference"`: 20 of 20 passed, twice; 20 of 20 with no emulation. The page reports `prefers-reduced-motion: reduce` matches False in the ordinary local run, so the premise that a local run skips the fade is false on this machine. With the evidence read on every shot of one `no-preference` run, 8 of its 20 last-cell shots had a different container opacity before and after the screenshot (so a shot can land inside the fade, on the very cell that failed on CI), and the ring still painted each time; the no-emulation run showed none. No iteration failed, so by the rule for this task the crossfade hypothesis is not confirmed and `_ring_coverage` does not wait for animations. F-B23-39 records the lead. The next CI failure's line will show it.
 
 Validation: `pytest -q` -- **2527 passed**.
-
-### 2026-10-01 - The heatmap ring check says why a ring is unpainted
-
-Side task, no batch tag: the heatmap focus-ring check names its cause when it fails, an evidence-first step for F-B23-39. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: `heatmap cells keyboard access` fails now and then with "paints no rgb(106, 75, 175) pixel ... (samples painted: top 0%, right 0%, bottom 0%, left 0%)" and passes on a re-run (ccc2c921 [mobile], dce6f148 [mobile], CI run 36726578353, and CI run 36803075335 on PR #253 [desktop], which had no failed app resources). The line said only that nothing was painted, so a ring that was never shown, a ring in the wrong place, another stroke and a tooltip over the ring all looked the same.
-
-Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now ends with one `[evidence: key=value ...]` suffix (`_RING_EVIDENCE_JS`), read in the page in the same evaluation as the geometry, before and after the screenshot; the suffix is built from the read after it, and `changed_during_shot=` names the evidence fields that differed between the two reads (reported, never judged): the ring's `visibility` and box, the cell's box, `document.activeElement` and whether it matches `:focus-visible`, `document.hasFocus()`, the ring's computed stroke, `data-theme`, the tooltip's box, whether it is shown and whether it covers the ring, the scroll offset, `devicePixelRatio`, how many cells paint after the ring, and how long the settle wait took (`settle_slow` past one second). `_ring_shot` returns the coverage and the evidence; `_ring_coverage` keeps its old return. Probe: with `showFocusRing` forced to `hidden` in a scratch copy of `static/js/heatmap.js`, the check failed on all three cells with `ring.visibility=hidden`; restored, it passed. Eleven tests in `tests/scripts/dev/test_frontend_gate_heatmap_access.py` cover the line, the slow-settle flag and the two-sided read; those that read the suffix fail without it.
-
-Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
-
-Validation: `pytest -q` -- **2524 passed**.
