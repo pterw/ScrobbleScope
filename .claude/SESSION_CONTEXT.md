@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2669 passing** across 88 tracked test modules |
+| Tests | **2688 passing** across 89 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -22,6 +22,9 @@ Last updated: 2026-10-20
   background jobs via `worker.py`.
 - `MAX_RETRY_AFTER_SECONDS` (`config.py`, default 30) caps the `Retry-After` sleep in
   `retry_with_semaphore`; a longer value is a failed attempt, not a wait.
+- `LASTFM_PRECHECK_TIMEOUT_SECONDS` (`config.py`, default 5) bounds each Last.fm pre-check
+  lookup (exists, public) through `run_async_in_thread(coro, timeout=)`; a timeout is an
+  outage, so the route refuses retryably.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_MAX_ALBUM_CAP = 500` in `orchestrator/__init__.py` limits Spotify fetch across all sort modes.
@@ -43,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2669 passed**.
+- Latest validated test count: **2688 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -85,6 +88,7 @@ scrobblescope/
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
     api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
+    precheck.py               # check_lastfm_user: one exists/private/outage answer, each lookup timed out; shared by the album, heatmap and validate routes
 templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
@@ -174,11 +178,12 @@ orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orch
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
 heatmap.py       <- errors, jobs, lastfm, utils, worker
 spotlight.py     <- utils
-routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- jobs, orchestrator, spotlight, unmatched, utils; routes (facade)
 routes/heatmap_flow.py  <- heatmap, jobs, utils; routes (facade)
 routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
+routes/precheck.py     <- utils; routes (facade)
 app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
@@ -277,7 +282,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2669 tests)
+## 6. Test structure (2688 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

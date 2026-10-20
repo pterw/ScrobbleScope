@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 from flask import Blueprint, render_template, request, session, url_for
 
 from scrobblescope import jobs
-from scrobblescope.config import MAX_ACTIVE_JOBS
+from scrobblescope.config import LASTFM_PRECHECK_TIMEOUT_SECONDS, MAX_ACTIVE_JOBS
 from scrobblescope.domain import cover_wash_index, format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.spotify import fetch_spotify_access_token
@@ -44,21 +44,29 @@ _PRIVATE_PROFILE_MESSAGE = (
 
 
 def _check_user_exists(username):
-    """Call check_user_exists in a dedicated async thread."""
+    """Call check_user_exists in a dedicated async thread.
+
+    Bounded by ``LASTFM_PRECHECK_TIMEOUT_SECONDS``; a stalled Last.fm raises
+    ``TimeoutError`` like any other failure.
+    """
 
     async def _check():
         return await check_user_exists(username)
 
-    return run_async_in_thread(_check)
+    return run_async_in_thread(_check, timeout=LASTFM_PRECHECK_TIMEOUT_SECONDS)
 
 
 def _check_profile_is_public(username):
-    """Call the Last.fm recent-listening privacy preflight in its own thread."""
+    """Call the Last.fm recent-listening privacy preflight in its own thread.
+
+    Bounded by ``LASTFM_PRECHECK_TIMEOUT_SECONDS``; a stalled Last.fm raises
+    ``TimeoutError`` like any other failure.
+    """
 
     async def _check():
         return await check_profile_is_public(username)
 
-    return run_async_in_thread(_check)
+    return run_async_in_thread(_check, timeout=LASTFM_PRECHECK_TIMEOUT_SECONDS)
 
 
 def _group_unmatched_by_reason(unmatched_data):
@@ -297,7 +305,13 @@ def internal_error(e):
 # ``scrobblescope.routes.<name>``, read it back through a live reference to
 # this module rather than their own import -- see the module docstring.
 # They must be imported last, after every name above is defined.
-from scrobblescope.routes import album_flow, api, heatmap_flow, pages  # noqa: E402,F401
+from scrobblescope.routes import (  # noqa: E402,F401
+    album_flow,
+    api,
+    heatmap_flow,
+    pages,
+    precheck,
+)
 from scrobblescope.routes.album_flow import (  # noqa: E402
     _filter_results_for_display,
     _get_filter_description,

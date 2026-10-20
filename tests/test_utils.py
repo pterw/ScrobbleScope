@@ -17,6 +17,7 @@ from scrobblescope.utils import (
     format_seconds_mobile,
     get_cached_response,
     get_lastfm_limiter,
+    run_async_in_thread,
     set_cached_response,
 )
 
@@ -335,3 +336,28 @@ def test_cancel_and_drain_leaves_finished_tasks_and_swallows_their_exceptions():
 def test_cancel_and_drain_accepts_an_empty_list():
     """GIVEN no tasks WHEN cancel_and_drain runs THEN it returns without error."""
     assert asyncio.run(cancel_and_drain([])) is None
+
+
+def test_run_async_in_thread_stops_waiting_when_the_timeout_passes():
+    """A stalled coroutine must not hold the calling request thread.
+
+    Mutation: ignore the timeout argument and the call waits the full three
+    seconds, then returns "late", so pytest.raises fails.
+    """
+
+    async def stalled():
+        await asyncio.sleep(3)
+        return "late"
+
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        run_async_in_thread(stalled, timeout=0.05)
+
+    assert time.monotonic() - started < 1.5
+
+
+def test_run_async_in_thread_without_a_timeout_returns_the_result():
+    async def quick():
+        return 7
+
+    assert run_async_in_thread(quick) == 7

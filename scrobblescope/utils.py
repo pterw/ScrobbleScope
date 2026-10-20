@@ -202,13 +202,18 @@ def log_failure(message, level=logging.ERROR):
     logging.debug("%s (traceback)", message, exc_info=True)
 
 
-def run_async_in_thread(coro):
+def run_async_in_thread(coro, timeout=None):
     """Run an async coroutine synchronously in a short-lived thread.
 
     For request handlers that need one async call and cannot await it: the
     Last.fm user and privacy checks behind ``/validate_user`` and both start
     routes, and ``/api/artist_spotlight``. Background jobs build their own
     loop through ``worker.new_thread_event_loop`` instead.
+
+    *timeout* (seconds) bounds the whole coroutine: when it passes, the
+    coroutine is cancelled and ``TimeoutError`` is raised in the calling
+    thread, like any other failure. ``None`` waits as long as the coroutine
+    takes.
 
     An exception is logged here at ERROR by class only (its message can
     carry a provider's URL or a listener's names); the full traceback goes
@@ -223,7 +228,7 @@ def run_async_in_thread(coro):
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result.append(loop.run_until_complete(coro()))
+            result.append(loop.run_until_complete(asyncio.wait_for(coro(), timeout)))
         except Exception as e:  # noqa: BLE001 - re-raised in the caller
             logging.error(f"Error in async thread: {type(e).__name__}")
             logging.debug("Async thread traceback", exc_info=True)
