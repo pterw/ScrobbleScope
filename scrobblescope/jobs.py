@@ -47,6 +47,12 @@ SPOTIFY_DETAILS = Phase(
 DEEZER_FALLBACK = Phase(Band(60, 15), "deezer_fallback", "Checking Deezer", "album")
 HEATMAP_LASTFM_FETCH = Phase(Band(5, 75), "lastfm_fetch", "Fetching scrobbles", "page")
 
+#: The job kinds. A job record's ``params["mode"]`` holds one of them, written
+#: when the job is created; the pages and APIs that serve one kind refuse the
+#: other. Callers compare against these, never against a string literal.
+MODE_ALBUM = "album"
+MODE_HEATMAP = "heatmap"
+
 _ERROR_FIELDS = ("error_code", "error_source", "retryable", "retry_after")
 
 

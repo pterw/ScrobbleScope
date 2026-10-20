@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2606 passing** across 87 tracked test modules |
+| Tests | **2669 passing** across 88 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -43,7 +43,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2606 passed**.
+- Latest validated test count: **2669 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -60,6 +60,7 @@ scrobblescope/
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
+  album_request.py          # AlbumRequest (the ten job parameters, defaults declared once), parse_album_request: form -> request or Refusal, registration_refusal
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
@@ -157,6 +158,7 @@ utils.py         <- api_logging, config
 cache.py         <- config, utils
 worker.py        <- config
 jobs.py          <- config, errors
+album_request.py <- jobs
 enrichment.py    <- (leaf)
 lastfm.py        <- config, errors, utils
 spotify.py       <- config, domain, enrichment, errors, utils
@@ -275,7 +277,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2606 tests)
+## 6. Test structure (2669 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

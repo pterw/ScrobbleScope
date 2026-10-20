@@ -42,6 +42,7 @@ flowchart LR
         Errors[errors.py]
         Spotlight[spotlight.py<br/>artist sampling]
         Unmatched[unmatched.py<br/>reason codes,<br/>threshold partition]
+        AlbumRequest[album_request.py<br/>form -> request or refusal]
     end
 
     App -.->|imported inside create_app| Routes
@@ -71,6 +72,7 @@ flowchart LR
     Heatmap --> JobModule
     Heatmap --> Utils
     Heatmap --> Errors
+    AlbumRequest --> JobModule
     JobModule --> Errors
     App --> ApiLogging
     Routes --> ReleaseChecks
@@ -126,7 +128,7 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors runtime
+    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors,AlbumRequest runtime
     class Pages,APIs runtime
     class JobStore,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external
