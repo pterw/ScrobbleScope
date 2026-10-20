@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The Unmatched page says which albums the results list
+
+Side task, no batch tag: the Unmatched page tells an include run which of its albums the results already list, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "Split the count (Recommended)" -- the count line names both groups, and the No match found and Could not be checked sections say their albums are in the results.
+
+An include run lists its No match found and Could not be checked albums as unmatched rows, yet the page said "N albums left out of your results". `_listed_unmatched_counts` in `scrobblescope/routes/album_flow.py` marks a report entry as listed only when a result row carrying `unmatched_reason` has the entry's report key (a Show limit can cut rows, so the reason code alone is never trusted). `templates/unmatched.html` then reads "L albums listed in your results without a match, K left out" (", K left out" dropped at zero; the old line when nothing is listed) and adds `unmatched-listed-note` under each group description holding listed albums. README names the new line, and `docs/design/RECONCILIATION.md` records it as Section 24 plus a ledger row (note text 14.78:1 light, 15.21:1 dark).
+
+Deviations: none. Edited existing tests: none. New: `test_unmatched_page_count_line_names_listed_and_left_out` and `test_unmatched_page_sections_say_which_albums_the_results_list`.
+
+Validation: `pytest -q` -- **2577 passed**.
+
 ### 2026-10-20 - Listening time is promised only when it is there
 
 Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -181,15 +193,3 @@ What changed: `_form_centring_failures` in `scripts/dev/_frontend_gate_layout.py
 Deviations: the brief said the two spaces should be "within one 2.5rem lift of each other"; the rule makes the correct difference 5rem (the lift applies once above and the centring halves the rest), so the tolerance is derived from that. No existing test edited.
 
 Validation: `pytest -q` -- **2568 passed**.
-
-### 2026-10-20 - The Results control is named as on the index card
-
-Side task, no batch tag: the Results page's unmatched control takes the index card's wording, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the two controls should read the same ("Yes that looks good to me", 2026-10-20, on renaming the Results control to match).
-
-What changed: in `templates/results.html` the Sort leaderboard card's control reads "Unmatched albums" with "Hide" then "Include" (Include selected on an include run) and the help "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; ids, name and values (`results_albums_all` = all, `results_albums_matched` = matched) are unchanged, so `results.js` is untouched apart from three comments. The include gate check, the results-behavior fixture, three comments in `results.js` and `results.css`, README, DESIGN.md, F-B23-43's prose and RECONCILIATION (section 22, ledger rows) follow.
-
-Deviations: none. Edited existing tests: `test_results_include_run_marks_unmatched_rows_and_locks_listening_time`, `test_results_include_run_offers_the_albums_control_for_one_album` and `test_results_plain_run_renders_none_of_the_include_elements` (new copy; the first also asserts the Hide-then-Include order).
-
-Validation: `pytest -q` -- **2564 passed**.

@@ -338,6 +338,35 @@ def results_complete():
     return _render_results_page()
 
 
+def _listed_unmatched_counts(job_context, include_unmatched, unmatched_data, reasons):
+    """Count the report's albums that an include run lists in its results.
+
+    A report entry is listed when the run is an include run and a result row
+    carrying ``unmatched_reason`` has the entry's report key as its
+    ``_normalized_key``. A Show limit can cut such rows, so the reason code
+    alone never says an album is listed. Returns ``(listed, by_reason)``:
+    the total, and the count per ``reasons`` group.
+    """
+    if not include_unmatched:
+        return 0, {}
+    results = job_context.get("results")
+    rows = results if isinstance(results, list) else []
+    listed_keys = {
+        "|".join(row["_normalized_key"])
+        for row in rows
+        if row.get("unmatched_reason") and row.get("_normalized_key")
+    }
+    # group_unmatched_albums groups the very dicts held in unmatched_data.
+    listed_ids = {
+        id(item) for key, item in unmatched_data.items() if key in listed_keys
+    }
+    by_reason = {
+        reason_key: sum(1 for album in albums if id(album) in listed_ids)
+        for reason_key, albums in reasons.items()
+    }
+    return sum(by_reason.values()), by_reason
+
+
 def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -382,6 +411,10 @@ def _render_unmatched_page():
         unmatched_data
     )
 
+    listed_count, listed_by_reason = _listed_unmatched_counts(
+        job_context, p["include_unmatched"], unmatched_data, reasons
+    )
+
     return render_template(
         "unmatched.html",
         username=username,
@@ -392,6 +425,8 @@ def _render_unmatched_page():
         reason_counts=reason_counts,
         reason_metadata=reason_metadata,
         total_count=len(unmatched_data),
+        listed_count=listed_count,
+        listed_by_reason=listed_by_reason,
         min_plays=min_plays,
         min_tracks=min_tracks,
         job_id=job_id,

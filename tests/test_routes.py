@@ -3395,6 +3395,162 @@ def test_results_include_run_help_promises_listening_time_only_with_durations(
     assert absent not in help_line
 
 
+def _record_report_entry(job_id, album, reason_code):
+    """A report entry as the pipeline records it, keyed like its result row."""
+    jobs.record_unmatched(
+        job_id,
+        "|".join(normalize_name(f"{album} Band", album)),
+        {
+            "artist": f"{album} Band",
+            "album": album,
+            "play_count": 20,
+            "reason": "x",
+            "reason_code": reason_code,
+        },
+    )
+
+
+def _render_unmatched(client, include_unmatched, entries, listed_rows):
+    """Render the Unmatched page for a job whose results hold `listed_rows`."""
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": include_unmatched})
+    for album, reason_code in entries:
+        _record_report_entry(job_id, album, reason_code)
+    rows = [_provider_row("spotify", 0)] + [
+        _unmatched_result_row(album, reason, 20) for album, reason in listed_rows
+    ]
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _unmatched_subtitle(html):
+    subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
+    return " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
+
+
+_INCLUDE_ENTRIES = [
+    ("Lost One", "no_spotify_match"),
+    ("Lost Two", "no_spotify_match"),
+    ("Lost Three", "provider_unavailable"),
+    ("Short One", "below_threshold"),
+]
+
+
+@pytest.mark.parametrize(
+    ("include", "entries", "listed_rows", "expected"),
+    [
+        pytest.param(
+            False,
+            _INCLUDE_ENTRIES,
+            [],
+            "2025 · 4 albums left out of your results",
+            id="not-an-include-run",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES,
+            [
+                ("Lost One", "no_spotify_match"),
+                ("Lost Two", "no_spotify_match"),
+                ("Lost Three", "provider_unavailable"),
+            ],
+            "2025 · 3 albums listed in your results without a match, 1 left out",
+            id="listed-and-left-out",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:3],
+            [
+                ("Lost One", "no_spotify_match"),
+                ("Lost Two", "no_spotify_match"),
+                ("Lost Three", "provider_unavailable"),
+            ],
+            "2025 · 3 albums listed in your results without a match",
+            id="all-listed",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:1],
+            [("Lost One", "no_spotify_match")],
+            "2025 · 1 album listed in your results without a match",
+            id="one-listed",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:2],
+            [("Lost One", "no_spotify_match")],
+            "2025 · 1 album listed in your results without a match, 1 left out",
+            id="show-limit-cut-a-listed-reason",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[3:],
+            [],
+            "2025 · 1 album left out of your results",
+            id="include-run-with-nothing-listed",
+        ),
+    ],
+)
+def test_unmatched_page_count_line_names_listed_and_left_out(
+    client, include, entries, listed_rows, expected
+):
+    """
+    GIVEN a job whose report holds entries and whose results list some of them
+    WHEN the Unmatched page renders
+    THEN the count line names the listed albums and the left-out ones, counting
+    an entry as listed only when a result row carries its key (a Show limit
+    can cut a row whose reason code says it would have been listed), and a
+    run listing nothing keeps the left-out line.
+
+    Mutation: count the listed albums from the reason codes and the
+    show-limit case reads "2 albums listed" and fails.
+    """
+    html = _render_unmatched(client, include, entries, listed_rows)
+
+    assert _unmatched_subtitle(html) == expected
+
+
+def test_unmatched_page_sections_say_which_albums_the_results_list(client):
+    """
+    GIVEN an include run listing one of two no-match albums and both
+    provider-unavailable ones, with a below-threshold album left out
+    WHEN the Unmatched page renders
+    THEN a section whose albums are all listed says so, a section with only
+    some listed says "1 of 2 listed", and a section with none listed has no
+    note; a non-include run has no note anywhere.
+
+    Mutation: render the note in every section and the below-threshold
+    section fails; compare against the Show limit wrongly and "1 of 2"
+    reads as all listed.
+    """
+    entries = [
+        ("Lost One", "no_spotify_match"),
+        ("Lost Two", "no_spotify_match"),
+        ("Lost Three", "provider_unavailable"),
+        ("Lost Four", "provider_unavailable"),
+        ("Short One", "below_threshold"),
+    ]
+    listed = [
+        ("Lost One", "no_spotify_match"),
+        ("Lost Three", "provider_unavailable"),
+        ("Lost Four", "provider_unavailable"),
+    ]
+    html = _render_unmatched(client, True, entries, listed)
+
+    assert "1 of 2 listed in your results, ranked by play count." in _unmatched_panel(
+        html, "no_spotify_match"
+    )
+    all_listed = _unmatched_panel(html, "provider_unavailable")
+    assert "Listed in your results, ranked by play count." in all_listed
+    assert " of 2 listed" not in all_listed
+    assert "listed in your results" not in _unmatched_panel(html, "below_threshold")
+
+    plain = _render_unmatched(client, False, entries, [])
+    assert "listed in your results" not in plain
+    assert "unmatched-listed-note" not in plain
+
+
 def test_results_include_run_offers_the_albums_control_for_one_album(client):
     """
     GIVEN an include run with a single unmatched row

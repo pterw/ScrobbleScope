@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The Results control is named as on the index card
+
+Side task, no batch tag: the Results page's unmatched control takes the index card's wording, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the two controls should read the same ("Yes that looks good to me", 2026-10-20, on renaming the Results control to match).
+
+What changed: in `templates/results.html` the Sort leaderboard card's control reads "Unmatched albums" with "Hide" then "Include" (Include selected on an include run) and the help "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; ids, name and values (`results_albums_all` = all, `results_albums_matched` = matched) are unchanged, so `results.js` is untouched apart from three comments. The include gate check, the results-behavior fixture, three comments in `results.js` and `results.css`, README, DESIGN.md, F-B23-43's prose and RECONCILIATION (section 22, ledger rows) follow.
+
+Deviations: none. Edited existing tests: `test_results_include_run_marks_unmatched_rows_and_locks_listening_time`, `test_results_include_run_offers_the_albums_control_for_one_album` and `test_results_plain_run_renders_none_of_the_include_elements` (new copy; the first also asserts the Hide-then-Include order).
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - The unmatched choice joins the Show row
 
 Side task, no batch tag: the index card's unmatched choice moves into the Show row and is renamed, on the include-unmatched branch (a small PR off main after the cover-washes PR).

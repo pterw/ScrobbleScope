@@ -137,7 +137,8 @@ next.
   up to four groups: not enough listening, a release outside your filter, no
   match on Spotify or Deezer, and albums that could not be checked because a
   provider was not answering. Each album says why it was left out, and each
-  group names the change that would include its albums.
+  group names the change that would include its albums. After an include run
+  the report also says which albums the results already list without a match.
 
 ### Scrobble Heatmap
 

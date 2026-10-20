@@ -45,6 +45,7 @@ The owner-approved overrides currently recorded are:
 | Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
 | Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, an "unknown" release and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
 | Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
+| Unmatched page: the count line and group notes | "N albums left out of your results" for every run | On an include run the line names both groups ("L albums listed in your results without a match, K left out") and the No match found and Could not be checked groups say their albums are in the results; every other run and group is unchanged | Owner ruling 2026-10-20 "Split the count (Recommended)", Section 24 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -1078,3 +1079,31 @@ Include toast, "Unmatched albums shown; ranked by play count.", is unchanged.
 
 Sections 21 and 22 quote the earlier wording as point-in-time records and
 stay; this section supersedes them for these two statements.
+
+## 24. The Unmatched page says which albums the results list, 2026-10-20
+
+On an include run the Unmatched page's line "N albums left out of your
+results" was false: the No match found and Could not be checked albums are
+listed in the results as unmatched rows (section 21). The owner chose "Split
+the count (Recommended)" on 2026-10-20.
+
+**The count line.** A report entry is listed when the run is an include run
+and a result row carrying an unmatched reason has the entry's report key
+(`"|".join(_normalized_key)`); a Show limit can cut rows, so the reason code
+alone never decides it. With L listed and K left out, the line after the year
+and its middle-dot separator reads: nothing listed (every non-include run)
+keeps "N albums left out of your results"; otherwise "L albums listed in your
+results without a match, K left out", and ", K left out" is dropped when none
+is left out. The first number keeps the `unmatched-total` span. The headline
+and the Not enough listening and release-scope sections are unchanged.
+
+**The section note.** Under the description of each group holding listed
+albums, `.unmatched-listed-note` reads "Listed in your results, ranked by play
+count." when every album of the group is listed, or "L of N listed in your
+results, ranked by play count." when a Show limit cut the rest. A group with
+none listed has no note. The note uses the body token on the card: 14.78:1
+light and 15.21:1 dark against the sunken surface (the worst case of the
+card's surface mix), above the 7:1 target.
+
+Section 21's "left out" wording is the point-in-time record and stays; this
+section supersedes it for an include run.
