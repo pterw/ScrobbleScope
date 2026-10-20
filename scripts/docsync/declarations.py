@@ -28,11 +28,10 @@ from __future__ import annotations
 import dataclasses
 import fnmatch
 import re
+import tomllib
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath, PureWindowsPath
-
-import tomllib
 
 from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError

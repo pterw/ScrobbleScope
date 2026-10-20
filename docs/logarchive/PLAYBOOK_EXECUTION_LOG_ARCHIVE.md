@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - A page never loads a static file the repository lacks
+
+Side task, no batch tag: a guard test that every local script and stylesheet a rendered page loads exists, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: nothing fails today when a template names a static file that is not shipped, and the next commit renames `page_motion.js`, so the guard comes first.
+
+What changed: `test_every_local_script_and_stylesheet_a_page_loads_exists` in `tests/test_template_shell.py` renders each template in `TEMPLATE_CONTEXT`, collects every `/static/` script and stylesheet reference (query strings dropped), and asserts each file exists under `static/`. It also asserts a page loads at least one, so a wrong pattern cannot pass vacuously. A missing file otherwise 404s silently in the browser and the frontend gate prints it only as an advisory beside a FAIL.
+
+Mutation evidence: renaming `templates/base.html`'s `filename='js/page_motion.js'` to `page_motionX.js` failed all 8 parametrised cases, for example `index.html loads files the repository lacks: ['/static/js/page_motionX.js']`; restored, all 8 pass.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
 ### 2026-10-20 - The pre-Batch-23 tranche plans are recorded
 
 Side task, no batch tag: the master plan and the hygiene plan for the side-task PRs before Batch 23 WP-1, on `chore/pre-batch23-hygiene`.

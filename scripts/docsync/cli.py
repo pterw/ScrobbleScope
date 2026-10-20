@@ -31,10 +31,9 @@ import re
 import shutil
 import sys
 import tempfile
+import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-
-import tomllib
 
 from docsync import findings as findings_module
 from docsync.archives import (

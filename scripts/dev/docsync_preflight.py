@@ -44,10 +44,9 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
-
-import tomllib
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
@@ -386,7 +385,9 @@ def candidate_corpus(root: Path, *, runner: Runner = subprocess.run) -> Iterator
             # paths, but passing the strict filter where it exists costs
             # nothing and rejects anything unexpected (symlinks escaping
             # ``dest``, device files) before it can land on disk.
-            if sys.version_info < (3, 12):  # pragma: no cover - CI pins 3.13
+            # noqa: UP036 below -- a refusal for an extracted copy run on older
+            # Python, not dead code. CI pins 3.13, so the branch never runs there.
+            if sys.version_info < (3, 12):  # noqa: UP036  # pragma: no cover
                 # Extracting unfiltered would accept members this code never
                 # inspects -- paths climbing out of `dest`, symlinks, device
                 # nodes. Refusing is correct rather than cautious: nothing

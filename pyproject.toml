@@ -3,6 +3,10 @@
 # records which predecessor rule it preserves so the mapping is auditable.
 [tool.ruff]
 line-length = 88
+# The Dockerfile and CI run Python 3.13. Without a target, ruff judges the
+# code against an older default, so its modernising rules (UP) miss 3.13
+# idioms and its import sorter files tomllib as third-party.
+target-version = "py313"
 # Mirrors the pre-commit top-level exclude: generated, vendored and
 # non-Python trees never contained lintable code, so ruff must not discover
 # any either.

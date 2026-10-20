@@ -22,11 +22,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import tomllib
 import weakref
 from collections.abc import Sequence
 from pathlib import Path
-
-import tomllib
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
