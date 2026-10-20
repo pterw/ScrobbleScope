@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Hover selectors use one :not() list
+
+Side task, no batch tag: the two chained `:not()` hover selectors in `static/css/shell.css` become one `:not()` list each, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: clear the Codacy findings on PR #256 at the cause.
+
+What changed: Codacy (Stylelint `selector-not-notation`, "Expected complex :not() pseudo-class notation", 2 minor) flagged `.seg__radio:not(:disabled):not(:checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover`, the only chained `:not()` selectors in the app's own stylesheets. They are now `.seg__radio:not(:disabled, :checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover`. In Selectors Level 4 `:not(A, B)` matches exactly what `:not(A):not(B)` matches, so behaviour is unchanged (Chromium 88+, Firefox 84+, Safari 9+). The frontend gate's segmented-control hover check (`seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py`) exercises both selectors. No test, gate module or document quoted the old text.
+
+Deviations: none. No test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - The Albums help no longer sits on a line break
 
 Side task, no batch tag: the index card's Albums help is reworded so it sits clear of a line break, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,17 +195,5 @@ Owner intent: keep the Fly bill inside the $5 a month Fly waives for a personal 
 What changed: on 2026-10-01 `FLY_SCALE_TO_ZERO` was removed from the `scrobblescope-db` machine so the database stayed on. On 2026-10-20 the owner's Fly cost explorer showed $4.90 for 1-20 October ($0.24 a day), which projects past the waiver, so the controller restored `FLY_SCALE_TO_ZERO=1h` with `fly machine update` (machine healthy 3/3, app answered 200). The app holds no connection pool -- `cache.py` opens and closes a connection per use -- so the database can reach zero connections and stop. The release-command retry in `init_db.py` (PR #255) covers a deploy that finds it asleep, and the cache is optional at runtime, so a cold database costs the first job its cache, not its result. No repository file states the always-on setting, so none changes. Section 3 gains a bullet naming the side-task tranche before WP-1 and why job persistence waits: a database-backed job store would keep the database awake, which the hosting cost ceiling does not allow.
 
 Deviations: none. No code change, no test edited.
-
-Validation: `pytest -q` -- **2561 passed**.
-
-### 2026-10-20 - Batch 23 planned scope accounts for the include-unmatched control
-
-Side task, no batch tag: Batch 23 planned scope accounts for the include-unmatched control, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: keep the Batch 23 planned scope current, so WP-3, WP-5 and WP-6 plan for the include-unmatched control that shipped before WP-1.
-
-What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header paragraph, a WP-3 checkbox (the export path honours `include_unmatched`), a WP-5 checkbox (the source control and the include-unmatched control share the album form), and a sentence in WP-6's statistics contract (whether unmatched albums count in each summary). PLAYBOOK Section 3 no longer says to run the guard with `--base-ref origin/test`: that branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is deleted, so side-task PRs branch from `main`. The `Branch:` line is unchanged. SESSION_CONTEXT Section 1's Batch 23 row notes the amendment.
-
-Deviations: none. No code change, no test edited. Review fix: PR #245's merge date reads 2026-09-30; the first version gave 2026-09-24, the date the PR was opened.
 
 Validation: `pytest -q` -- **2561 passed**.

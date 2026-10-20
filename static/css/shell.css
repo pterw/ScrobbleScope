@@ -778,7 +778,7 @@ body {
   transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.seg__radio:not(:disabled):not(:checked) + .seg__option:hover {
+.seg__radio:not(:disabled, :checked) + .seg__option:hover {
   color: var(--color-base-content);
 }
 
@@ -801,7 +801,7 @@ body {
   color: var(--ss-text-body);
 }
 
-.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover {
+.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover {
   color: var(--color-base-content);
 }
 
