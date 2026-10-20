@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - File the release note that a reload drops
+
+Side task, no batch tag: finding F-B23-45 filed for the moved-out release note a reload drops, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a verified Codex review finding that is real but outside this PR is filed, not fixed in passing.
+
+The "first released" note on a Results row is added only by the polling script, so a page rendered after the check ended shows none for a moved-out row. It predates this PR for matched rows; the previous commit made the date itself render server-side for unmatched rows. F-B23-45 records the close: render the note from the stored row, sharing its text with the script.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - A release date found for an unmatched row survives a reload
 
 Side task, no batch tag: the Results page renders the release date MusicBrainz found for an included unmatched album, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,15 +195,3 @@ An include run lists its No match found and Could not be checked albums as unmat
 Deviations: none. Edited existing tests: none. New: `test_unmatched_page_count_line_names_listed_and_left_out` and `test_unmatched_page_sections_say_which_albums_the_results_list`.
 
 Validation: `pytest -q` -- **2577 passed**.
-
-### 2026-10-20 - Listening time is promised only when it is there
-
-Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the Play count / Listening Time control must reflect an include run accurately.
-
-On a run with no Spotify durations, choosing Hide toasted "Unmatched albums hidden; listening time is available." while Listening Time stayed disabled, and the help line under the control promised the same. `setUnmatchedHidden` in `static/js/results.js` now uses the `available` value it already computes: the long toast only when Listening Time really became available, otherwise "Unmatched albums hidden."; `templates/results.html` renders "Hide removes the unmatched listens from the leaderboard." when `has_durations` is false and keeps the old line otherwise. `docs/design/RECONCILIATION.md` records it as Section 23 plus a ledger row.
-
-Deviations: none. Edited existing tests: `test_matched_only_without_durations_leaves_listening_time_off` (gains the toast assertion). New: `test_results_include_run_help_promises_listening_time_only_with_durations`.
-
-Validation: `pytest -q` -- **2570 passed**.

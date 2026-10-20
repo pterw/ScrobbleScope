@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Listening time is promised only when it is there
+
+Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the Play count / Listening Time control must reflect an include run accurately.
+
+On a run with no Spotify durations, choosing Hide toasted "Unmatched albums hidden; listening time is available." while Listening Time stayed disabled, and the help line under the control promised the same. `setUnmatchedHidden` in `static/js/results.js` now uses the `available` value it already computes: the long toast only when Listening Time really became available, otherwise "Unmatched albums hidden."; `templates/results.html` renders "Hide removes the unmatched listens from the leaderboard." when `has_durations` is false and keeps the old line otherwise. `docs/design/RECONCILIATION.md` records it as Section 23 plus a ledger row.
+
+Deviations: none. Edited existing tests: `test_matched_only_without_durations_leaves_listening_time_off` (gains the toast assertion). New: `test_results_include_run_help_promises_listening_time_only_with_durations`.
+
+Validation: `pytest -q` -- **2570 passed**.
+
 ### 2026-10-20 - The dashboard names the tranche and its date
 
 Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).

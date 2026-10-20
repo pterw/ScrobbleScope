@@ -840,6 +840,12 @@ The large-display scale-parity check in `scripts/dev/_frontend_gate_layout.py` a
 
 - [ ] **Status:** open (P3). Source: PR #256 CI run 39482227535, 2026-10-20.
 
+### F-B23-45: the release note a reload drops
+
+The moved-out correction note (`release-check-note`, `is-release-corrected`) on a Results row is added only by `static/js/results-release-checks.js` while the check bar polls, so a Results page rendered after the pass finished (a reload, a back-navigation, or a pass that finished before the first render) shows no note for a row the worker marked `moved_out`. This is pre-existing on `main` for matched rows (Batch 22); an included unmatched row now shows its date server-side, but not the note. What would close it: render the note server-side from the stored `release_check` and `original_release_date`, sharing the text with the script.
+
+- [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330657188), 2026-10-20, controller trace.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
