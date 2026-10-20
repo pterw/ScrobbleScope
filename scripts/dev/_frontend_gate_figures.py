@@ -6,10 +6,10 @@ heatmap's KPI values wear it. The Results table set its play count in the
 serif beside them, and nothing could say so. This check reads what the browser
 computed for a play count and for a KPI value, at every gate profile, and
 requires the same family and weight. It also reads the KPI value against the
-`--font-figure` token, so the pair cannot drift to the wrong face together,
-so the pair cannot drift together. At the mobile profile it also requires a
-four-digit count to stay inside its cell, the guard for the narrow-screen
-sizing in results.css (docs/design/RECONCILIATION.md section 22).
+`--font-figure` token, so the pair cannot drift to the wrong face together.
+At the mobile profile it also requires a four-digit count to stay inside its
+cell, the guard for the narrow-screen sizing in results.css
+(docs/design/RECONCILIATION.md section 26).
 
 Computed `font-family` is the declared stack, not the face drawn. A kit family
 that served no face is `check_fonts`' advisory, not this check's concern.
