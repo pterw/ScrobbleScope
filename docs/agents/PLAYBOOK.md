@@ -150,6 +150,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
+
+Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
+
+What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
 
 Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -185,19 +197,5 @@ What changed: `pyproject.toml` `[tool.ruff]` gains `target-version = "py313"`, s
 Control plane: the commit stages `scripts/dev/docsync_preflight.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py` (with `scripts/dev/frontend_gate.py`), and the docsync preflight refuses control-plane files outside `[test_count]` by design (exit 3). It was committed through the documented escape, `SKIP=doc-state-sync-check git commit`, and `doc_state_sync.py --check` was run straight after (exit 0). `--no-verify` was not used.
 
 Deviations: the brief's trailing `# noqa: UP036 -- reason` would have pushed the line past 88 characters and ruff-format would have split the tuple, so the reason sits in the comment above and the old `# pragma: no cover - CI pins 3.13` text moved there too, ahead of a shortened `# noqa: UP036  # pragma: no cover`. No existing test was edited.
-
-Validation: `pytest -q` -- **2543 passed**.
-
-### 2026-10-20 - The production image no longer installs requests
-
-Side task, no batch tag: `requests` and its three private dependencies moved from `requirements.txt` to `requirements-dev.txt`, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the Dockerfile installs `requirements.txt` only, so the image should hold only what the app imports (owner, 2026-10-20: "Sure, if it's cheap and you think it would be wise.").
-
-What changed: `requests` is imported only by `scripts/testing/` (`_http_client.py`, `concurrent_users_test.py`, `smoke_cache_check.py`), and among production packages `urllib3`, `charset-normalizer` and `certifi` are required by `requests` alone (`importlib.metadata.requires`). All four pins moved, unchanged, to `requirements-dev.txt`. `idna` stays: `yarl`, which `aiohttp` needs, requires it. CI's pip-audit still reads both files, so the moved pins stay audited. New `tests/test_requirements_split.py` parses every runtime file (`app.py`, `run.py`, `init_db.py`, `scrobblescope/`) and asserts each third-party import resolves to a distribution `requirements.txt` pins.
-
-Mutation evidence: in a scratch copy, adding `import requests` to `scrobblescope/config.py` and removing the four pins failed the test with `scrobblescope\config.py imports requests`; on the real tree it passes.
-
-Deviations: none. No existing test was edited.
 
 Validation: `pytest -q` -- **2543 passed**.

@@ -13,7 +13,7 @@
 - Owner rulings and the review policy are the spec's; this plan does not restate them. Read the spec first.
 - Every PR plan uses the writing-plans format: header, Global Constraints, tasks with Files, Interfaces, bite-sized steps with real code, and commands with expected output. No placeholders.
 - Every PR plan is committed as the first commit of its own branch, before any code commit (owner, 2026-10-20: "All plans should stay for archival purposes"). It lives in `docs/superpowers/plans/` and is cited from PLAYBOOK Section 3 once its PR is under way.
-- At most eight subagents at once; one browser gate at a time on the owner's machine.
+- At most ten subagents at once (owner, 2026-10-20: "Since I am not having issues you can extend the cap to 10 subagents."); one browser gate at a time on the owner's machine.
 - Every push is followed by a background CI watch for that head; the next landing, push or merge waits for its verdict.
 - Each PR's SDD workspace holds `constraints.md` with `Gates`, `CI` and `Shared files` sections and a `progress.md` ledger whose `## RESUME HERE` block is rewritten after every dispatch, landing, verdict or ruling.
 
@@ -40,7 +40,7 @@
 
 **Wave 2.** #4's 23b-d once #3 has merged (both change `orchestrator/__init__.py`). #7 further rounds as the owner sends screenshots, template edits held until #6 merges.
 
-**Wave 3.** #5 and #6 after #4 merges. Their code phases may overlap; they both edit `scrobblescope/orchestrator/_results.py`, so their landings are serial and the second rebuilds on the first.
+**Wave 3.** #5 and #6 after #4 merges. Their code phases may overlap, and they touch disjoint files: #6's approved plan does not edit `scrobblescope/orchestrator/_results.py` (verified by #5's plan review, 2026-10-20). If #6 later needs `_results.py`, #5 lands first and #6 rebuilds on it.
 
 **Wave 4.** #8 rebases on the final `main`, re-verifies every claim and diagram against it, and merges last.
 

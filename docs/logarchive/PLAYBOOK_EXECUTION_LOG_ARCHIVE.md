@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The production image no longer installs requests
+
+Side task, no batch tag: `requests` and its three private dependencies moved from `requirements.txt` to `requirements-dev.txt`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile installs `requirements.txt` only, so the image should hold only what the app imports (owner, 2026-10-20: "Sure, if it's cheap and you think it would be wise.").
+
+What changed: `requests` is imported only by `scripts/testing/` (`_http_client.py`, `concurrent_users_test.py`, `smoke_cache_check.py`), and among production packages `urllib3`, `charset-normalizer` and `certifi` are required by `requests` alone (`importlib.metadata.requires`). All four pins moved, unchanged, to `requirements-dev.txt`. `idna` stays: `yarl`, which `aiohttp` needs, requires it. CI's pip-audit still reads both files, so the moved pins stay audited. New `tests/test_requirements_split.py` parses every runtime file (`app.py`, `run.py`, `init_db.py`, `scrobblescope/`) and asserts each third-party import resolves to a distribution `requirements.txt` pins.
+
+Mutation evidence: in a scratch copy, adding `import requests` to `scrobblescope/config.py` and removing the four pins failed the test with `scrobblescope\config.py imports requests`; on the real tree it passes.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
 ### 2026-10-20 - Python 3.13 spellings for UTC and timeouts
 
 Side task, no batch tag: the UP017 and UP041 alias fixes, on `chore/pre-batch23-hygiene`, a branch off `main`.
