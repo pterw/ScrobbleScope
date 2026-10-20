@@ -326,7 +326,7 @@
                             <input type="radio" id="results_albums_all" name="results_albums" value="all" class="seg__radio" checked>
                             <label for="results_albums_all" class="seg__option">Include</label>
                         </div>
-                        <p class="results-seg-help" id="results-albums-help">Hide removes the unmatched listens so the leaderboard can be ranked by listening time.</p>
+                        <p class="results-seg-help" id="results-albums-help">{% if has_durations %}Hide removes the unmatched listens so the leaderboard can be ranked by listening time.{% else %}Hide removes the unmatched listens from the leaderboard.{% endif %}</p>
                     </div>
                     {% endif %}
 

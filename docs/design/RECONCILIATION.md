@@ -44,6 +44,7 @@ The owner-approved overrides currently recorded are:
 | Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
 | Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
 | Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, an "unknown" release and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
+| Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -1055,3 +1056,25 @@ then "Matched only". Its help reads "Hide removes the unmatched listens so the
 leaderboard can be ranked by listening time." Ids, name and values are
 unchanged. Section 21's quoted wording is the point-in-time record and stays;
 this section supersedes it.
+
+## 23. The unmatched control promises only what is true, 2026-10-20
+
+Section 21 and section 22 give the Results control a help line and a toast that
+promise listening time. On a run with no Spotify track durations that promise
+is false: Listening Time stays disabled ("Spotify track durations not
+available") after Hide. The owner asked that the control reflect an include run
+accurately, and the controller found the two statements on seeded jobs.
+
+**The help line** (`id="results-albums-help"`, still the group's
+`aria-describedby`) has two forms. With durations it is unchanged: "Hide
+removes the unmatched listens so the leaderboard can be ranked by listening
+time." Without durations it reads "Hide removes the unmatched listens from the
+leaderboard."
+
+**The toast.** Choosing Hide says "Unmatched albums hidden; listening time is
+available." only when Listening Time actually becomes available (hidden and
+the run has durations); otherwise it says "Unmatched albums hidden." The
+Include toast, "Unmatched albums shown; ranked by play count.", is unchanged.
+
+Sections 21 and 22 quote the earlier wording as point-in-time records and
+stay; this section supersedes them for these two statements.

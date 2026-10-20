@@ -3350,6 +3350,51 @@ def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(clien
     assert "switch-row" not in page
 
 
+@pytest.mark.parametrize(
+    ("seconds", "expected", "absent"),
+    [
+        pytest.param(
+            600,
+            "Hide removes the unmatched listens so the leaderboard can be "
+            "ranked by listening time.",
+            "from the leaderboard.",
+            id="with-durations",
+        ),
+        pytest.param(
+            0,
+            "Hide removes the unmatched listens from the leaderboard.",
+            "ranked by listening time",
+            id="without-durations",
+        ),
+    ],
+)
+def test_results_include_run_help_promises_listening_time_only_with_durations(
+    client, seconds, expected, absent
+):
+    """
+    GIVEN an include run with or without Spotify track durations
+    WHEN the results page renders
+    THEN the Hide help line promises listening-time ranking only when the
+    run has durations.
+
+    Mutation: render the ranked-by-listening-time help unconditionally and the
+    without-durations case fails.
+    """
+    rows = [
+        {**_provider_row("spotify", 0), "play_time_seconds": seconds},
+        _unmatched_result_row("Lost One", "no_spotify_match", 5),
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    page = client.post("/results_complete", data={"job_id": job_id}).data.decode(
+        "utf-8"
+    )
+
+    help_line = re.search(r'<p class="results-seg-help"[^>]*>(.*?)</p>', page).group(1)
+    assert help_line == expected
+    assert absent not in help_line
+
+
 def test_results_include_run_offers_the_albums_control_for_one_album(client):
     """
     GIVEN an include run with a single unmatched row

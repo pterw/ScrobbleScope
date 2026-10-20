@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Listening time is promised only when it is there
+
+Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the Play count / Listening Time control must reflect an include run accurately.
+
+On a run with no Spotify durations, choosing Hide toasted "Unmatched albums hidden; listening time is available." while Listening Time stayed disabled, and the help line under the control promised the same. `setUnmatchedHidden` in `static/js/results.js` now uses the `available` value it already computes: the long toast only when Listening Time really became available, otherwise "Unmatched albums hidden."; `templates/results.html` renders "Hide removes the unmatched listens from the leaderboard." when `has_durations` is false and keeps the old line otherwise. `docs/design/RECONCILIATION.md` records it as Section 23 plus a ledger row.
+
+Deviations: none. Edited existing tests: `test_matched_only_without_durations_leaves_listening_time_off` (gains the toast assertion). New: `test_results_include_run_help_promises_listening_time_only_with_durations`.
+
+Validation: `pytest -q` -- **2570 passed**.
+
 ### 2026-10-20 - The dashboard names the tranche and its date
 
 Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -179,17 +191,5 @@ Owner intent: the two controls should read the same ("Yes that looks good to me"
 What changed: in `templates/results.html` the Sort leaderboard card's control reads "Unmatched albums" with "Hide" then "Include" (Include selected on an include run) and the help "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; ids, name and values (`results_albums_all` = all, `results_albums_matched` = matched) are unchanged, so `results.js` is untouched apart from three comments. The include gate check, the results-behavior fixture, three comments in `results.js` and `results.css`, README, DESIGN.md, F-B23-43's prose and RECONCILIATION (section 22, ledger rows) follow.
 
 Deviations: none. Edited existing tests: `test_results_include_run_marks_unmatched_rows_and_locks_listening_time`, `test_results_include_run_offers_the_albums_control_for_one_album` and `test_results_plain_run_renders_none_of_the_include_elements` (new copy; the first also asserts the Hide-then-Include order).
-
-Validation: `pytest -q` -- **2564 passed**.
-
-### 2026-10-20 - The unmatched choice joins the Show row
-
-Side task, no batch tag: the index card's unmatched choice moves into the Show row and is renamed, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the separate Albums field made the index card tall and pinned it under the header, so tuck the choice under Show, split the row evenly and make the toggle clearer (rulings 2026-10-20, verbatim in `docs/design/RECONCILIATION.md` section 22).
-
-What changed: `templates/index.html` puts the Show select and the unmatched choice in one `.field-pair` (equal halves from 860px, stacked below, `static/css/index.css`). The label reads "Unmatched albums", the options "Hide" (value 0, default) and "Include" (value 1); ids, name and values are unchanged. The help "Albums Spotify and Deezer can't find, ranked by play count." is rendered `hidden` and `syncUnmatchedLock` in `static/js/index.js` shows it only while Include is chosen. At 1920x945 the default card measures 611px (it was 719px, pinned under the header). The forms gate asserts the help is hidden under Hide and on screen with its exact text under Include, and measures its 7:1 contrast with Include chosen. README, DESIGN.md, three docstrings, a test comment and RECONCILIATION (new section 22, ledger row) follow the code. The Results control keeps its wording until the next commit.
-
-Deviations: none. Edited existing tests: `test_index_albums_control_is_a_pair_of_native_radios` (new copy, hidden help, the shared row) and the docstring of `test_results_loading_passes_the_include_flag_to_the_job_thread`.
 
 Validation: `pytest -q` -- **2564 passed**.

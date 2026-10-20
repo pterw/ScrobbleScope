@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The unmatched choice joins the Show row
+
+Side task, no batch tag: the index card's unmatched choice moves into the Show row and is renamed, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the separate Albums field made the index card tall and pinned it under the header, so tuck the choice under Show, split the row evenly and make the toggle clearer (rulings 2026-10-20, verbatim in `docs/design/RECONCILIATION.md` section 22).
+
+What changed: `templates/index.html` puts the Show select and the unmatched choice in one `.field-pair` (equal halves from 860px, stacked below, `static/css/index.css`). The label reads "Unmatched albums", the options "Hide" (value 0, default) and "Include" (value 1); ids, name and values are unchanged. The help "Albums Spotify and Deezer can't find, ranked by play count." is rendered `hidden` and `syncUnmatchedLock` in `static/js/index.js` shows it only while Include is chosen. At 1920x945 the default card measures 611px (it was 719px, pinned under the header). The forms gate asserts the help is hidden under Hide and on screen with its exact text under Include, and measures its 7:1 contrast with Include chosen. README, DESIGN.md, three docstrings, a test comment and RECONCILIATION (new section 22, ledger row) follow the code. The Results control keeps its wording until the next commit.
+
+Deviations: none. Edited existing tests: `test_index_albums_control_is_a_pair_of_native_radios` (new copy, hidden help, the shared row) and the docstring of `test_results_loading_passes_the_include_flag_to_the_job_thread`.
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - The tooling diagram draws the include check's imports
 
 Side task, no batch tag: the tooling diagram draws the include check's imports and the hover note is made true, on the include-unmatched branch (a small PR off main after the cover-washes PR).

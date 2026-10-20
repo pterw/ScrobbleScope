@@ -723,6 +723,10 @@ class ResultsBehaviorTests(unittest.TestCase):
             button.get_attribute("title"), "Spotify track durations not available"
         )
         self.assertEqual(self.stats()[:2], ["3", "120"])
+        self.assertEqual(
+            self.page.locator("#toastContainer").inner_text().splitlines()[-1],
+            "Unmatched albums hidden.",
+        )
 
     def test_csv_skips_hidden_rows_and_names_the_unmatched_marker(self):
         """The CSV lists the rows on the page: an unmatched row's Provider

@@ -427,10 +427,11 @@ document.addEventListener('DOMContentLoaded', () => {
             topArtist.title = visible[0].dataset.artist || '';
         }
 
+        // Listening time is offered only when the rows left have it: never while
+        // unmatched rows are shown, and never when the run has no durations.
+        const available = Boolean(playtimeBtn)
+            && hidden && playtimeBtn.dataset.hasDurations === 'true';
         if (playtimeBtn) {
-            // Listening time is offered only when the rows left have it: never while
-            // unmatched rows are shown, and never when the run has no durations.
-            const available = hidden && playtimeBtn.dataset.hasDurations === 'true';
             playtimeBtn.disabled = !available;
             playtimeBtn.classList.toggle('opacity-50', !available);
             playtimeBtn.classList.toggle('cursor-not-allowed', !available);
@@ -443,8 +444,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (notify) {
-            showToast(hidden
+            // Promise listening time only when the button really became available.
+            const hiddenToast = available
                 ? 'Unmatched albums hidden; listening time is available.'
+                : 'Unmatched albums hidden.';
+            showToast(hidden
+                ? hiddenToast
                 : 'Unmatched albums shown; ranked by play count.');
         }
     }
