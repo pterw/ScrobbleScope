@@ -93,7 +93,7 @@ Commit: `test(templates): Check every static file a page loads exists`.
 - Consumes: Task 1's test.
 - Produces: nothing new.
 
-Why: files served as URLs conventionally use hyphens, and nine of the ten scripts in `static/js/` already do (owner ruling 2026-10-20: "What is best practice here?" -> hyphens). `docs/design/designsystemaudit.md` and dated plans and logs keep the old name: they are point-in-time records.
+Why: files served as URLs conventionally use hyphens, and `page_motion.js` was the only script name in `static/js/` with an underscore (owner ruling 2026-10-20: "What is best practice here?" -> hyphens). `docs/design/designsystemaudit.md` and dated plans and logs keep the old name: they are point-in-time records.
 
 - [ ] **Step 1: Rename without updating the template; the guard fails**
 

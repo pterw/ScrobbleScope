@@ -138,6 +138,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Hygiene entries corrected after review
+
+Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
+
+What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
 ### 2026-10-20 - Ruff judges the code as Python 3.13
 
 Side task, no batch tag: ruff's `target-version` set to `py313`, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -174,18 +186,6 @@ Owner intent: the Dockerfile and CI run Python 3.13, so the code should use its 
 
 What changed: `ruff check --target-version py313 --select UP017,UP041 --fix` rewrote 21 `timezone.utc` uses to `datetime.UTC` and one `asyncio.TimeoutError` to the builtin `TimeoutError` (the same class since 3.11), in `scrobblescope/heatmap.py`, `lastfm.py`, `orchestrator/__init__.py`, `routes/__init__.py`, `spotify.py`, `scripts/dev/graphify_refresh.py`, `tests/services/test_lastfm_logic.py` and `tests/test_heatmap.py`. No behaviour changes; the ruff target itself is the next commit.
 
-Deviations: the `timezone` imports the rewrite left unused were removed (F401, by the ruff hook and two by hand), and ruff-format re-wrapped lines the shorter spelling freed. The two test files changed only by the alias spelling and that wrapping; no assertion was edited.
-
-Validation: `pytest -q` -- **2542 passed**.
-
-### 2026-10-20 - page-motion.js is named like the other scripts
-
-Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: files served as URLs conventionally use hyphens, and nine of the ten scripts in `static/js/` already do (owner, 2026-10-20: "What is best practice here?" -> hyphens).
-
-What changed: `git mv` of the script; `templates/base.html` names `js/page-motion.js` in its one `url_for`; `.claude/SESSION_CONTEXT.md` Section 3 lists `page-motion` in the `js/` line. Run before the template was updated, the Task 1 guard failed all 8 parametrised cases naming `/static/js/page_motion.js`; after it, all 8 pass. The frontend gate reports 45 checks passed in 71 runs across chromium and firefox, with no load fault naming `page-motion.js`. `docs/design/designsystemaudit.md` and dated plans and logs keep the old name as point-in-time records.
-
-Deviations: none. No existing test was edited.
+Deviations: the `timezone` imports the rewrite left unused were removed (F401, by the ruff hook and two by hand), and ruff-format re-wrapped lines the shorter spelling freed. The UP041 fix also reordered the `except` tuple in `scrobblescope/spotify.py` from `(aiohttp.ClientError, asyncio.TimeoutError)` to `(TimeoutError, aiohttp.ClientError)`; it catches the same two classes, so behaviour is unchanged. The two test files changed only by the alias spelling and that wrapping; no assertion was edited. Existing tests edited by name (spelling or wrapping only): in `tests/test_heatmap.py` `test_boundary_timestamps`, `test_out_of_range_excluded`, `test_midnight_boundary_attribution`, `test_utc_decode_invariant_against_local_tz_drift`, `test_happy_path_stores_correct_result_dict`, `test_success_is_readable_through_repository_at_100_percent`, `test_progress_callback_sends_correct_percentages` and `test_heatmap_lastfm_phase_and_cleared_at_completion`, plus the `_make_track` helper; in `tests/services/test_lastfm_logic.py` the `_track` helper.
 
 Validation: `pytest -q` -- **2542 passed**.

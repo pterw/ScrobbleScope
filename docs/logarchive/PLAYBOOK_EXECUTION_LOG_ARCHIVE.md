@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - page-motion.js is named like the other scripts
+
+Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: files served as URLs conventionally use hyphens, and `page_motion.js` was the only script name in `static/js/` with an underscore (owner, 2026-10-20: "What is best practice here?" -> hyphens).
+
+What changed: `git mv` of the script; `templates/base.html` names `js/page-motion.js` in its one `url_for`; `.claude/SESSION_CONTEXT.md` Section 3 lists `page-motion` in the `js/` line. Run before the template was updated, the Task 1 guard failed all 8 parametrised cases naming `/static/js/page_motion.js`; after it, all 8 pass. The frontend gate reports 45 checks passed in 71 runs across chromium and firefox, with no load fault naming `page-motion.js`. `docs/design/designsystemaudit.md` and dated plans and logs keep the old name as point-in-time records.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
 ### 2026-10-20 - A page never loads a static file the repository lacks
 
 Side task, no batch tag: a guard test that every local script and stylesheet a rendered page loads exists, on `chore/pre-batch23-hygiene`, a branch off `main`.
