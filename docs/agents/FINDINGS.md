@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2534 tests across 84 tracked test modules.
+2581 tests across 85 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -806,6 +806,8 @@ The heatmap focus-ring flake again: CI run 36803075335 on PR #253, `heatmap cell
 
 The CI failure at 043368eb (run 36808671140, Linux, desktop) had a ring that was visible, 1.6px outside the cell, in the accent stroke, `:focus-visible`, with the tooltip clear of it and nothing moved: the DOM said painted, the pixels did not. The one state the line did not read was opacity, so the crossfade hypothesis was tested: `heatmap.js` `revealHeatmapResult` fades `#heatmap-result` in (`heatmap-fade`, `fading-out`, `is-handing-off`) unless `prefers-reduced-motion: reduce` matches, and `_LAYOUT_SETTLED_JS` waits for fonts and frames, not animations. The evidence line now also carries the container's and the SVG's computed opacity, the three flags, the number of running animations and the `prefers-reduced-motion` match (`container.opacity`, `svg.opacity`, `container.heatmap_fade`, `container.fading_out`, `container.is_handing_off`, `animations.running`, `prefers_reduced_motion`), read both sides of the shot. Reproduction (2026-10-01, the check alone in one desktop Chromium, a fresh context per iteration): 20 of 20 passed with `reduced_motion="no-preference"`, 20 of 20 again with the evidence read on every shot, 20 of 20 with no emulation; the page reports `prefers-reduced-motion: reduce` False in the ordinary local run here, so a local run does run the fade. Not confirmed, and no fix: no iteration failed. A lead for the next person: in the run that read the evidence, 8 of the 20 shots of the last cell ('2026-05-15') had a different container opacity before and after the screenshot (the container read 1 after; the shot lands inside the fade), and the ring still passed each time; the no-emulation run had none. So the screenshot can be taken mid-fade; whether a deeper point of the fade blends the stroke outside `_RING_COLOUR_TOLERANCE` is not shown. `_ring_shot` now calls `wait_for_settled` at the start of each attempt, so the check waits out running animations before it reads pixels and a `container.opacity` below 1 in a future evidence line can no longer come from that. This is not claimed as the fix: the 20-run reproduction passed before the change too, and it only removes a confounder. The next CI occurrences decide. The loading-fill and `ERR_NO_BUFFER_SPACE` items above stay open.
 
+Observed again on 2026-09-30: three frontend-gate runs overlapping on the owner's Windows machine produced `net::ERR_NO_BUFFER_SPACE` on an app script load in one of them (the theme-persistence check); a lone re-run passed.
+
 - [ ] **Status:** open (P3). Source: gate runs of the third-review fix session (2026-09-29 to 2026-09-30).
 
 ### F-B23-40: the Last.fm username appears in log lines, beside the listener's scrobble total
@@ -825,6 +827,30 @@ On a populated Results or Unmatched page the rank pill, the album title and the 
 `static/js/results-spotlight.js` advances the featured artist every 7000 ms (`setInterval`). Hover and focus pause it, but a touch reader has no hover and a keyboard reader has to focus the panel to stop it; there is no visible pause button (WCAG 2.2.2, Pause, Stop, Hide). The owner has not ruled. Options: add a pause/play button, stop rotating after one cycle, or rotate only on an explicit control.
 
 - [ ] **Status:** open (P3). Source: review 4 of PR #245 (frontend), R4-frontend-5.
+
+### F-B23-43: the `tr[hidden]` rule in `results.css` repeats a rule the compiled sheet already applies
+
+`static/css/results.css` carries `tr[hidden] { display: none; }`, added so the rows the Unmatched albums control's "Hide" choice hides (the include-unmatched rows) stay out of the layout whatever display a table rule gives them. The compiled `static/css/tailwind.css` already ships `[hidden]:where(:not([hidden='until-found'])) { display: none !important; }` in its base layer, and an `!important` declaration beats any normal `display` on the row, so the second rule changes nothing today. Deleting it needs a proof first: a frontend-gate check or a results-behavior assertion that a hidden include-unmatched row has a computed `display` of `none`, accepted on a live probe that plants the defect. Without that, the deletion would be assumed safe, not shown safe.
+
+- [ ] **Status:** open (P3). Source: review of the include-unmatched Task C patch (review-C Minor 6), 2026-10-01.
+
+### F-B23-44: text on a wrap boundary passes the scale-parity check locally and fails it on Linux
+
+The large-display scale-parity check in `scripts/dev/_frontend_gate_layout.py` assumes every line in the index form scales proportionally. A sentence within a few percent of a line break can wrap differently at 1080p and 1440p, and on different platforms, so the check can be green on the owner's Windows machine and red in CI for the same tree (PR #256's Albums help, fixed by rewording). What would close it: a gate check that every index-card help line keeps at least 10% slack from a wrap boundary at the 1080p and 1440p windows, so the hazard fails locally too.
+
+- [ ] **Status:** open (P3). Source: PR #256 CI run 39482227535, 2026-10-20.
+
+### F-B23-45: the release note a reload drops
+
+The moved-out correction note (`release-check-note`, `is-release-corrected`) on a Results row is added only by `static/js/results-release-checks.js` while the check bar polls, so a Results page rendered after the pass finished (a reload, a back-navigation, or a pass that finished before the first render) shows no note for a row the worker marked `moved_out`. This is pre-existing on `main` for matched rows (Batch 22); an included unmatched row now shows its date server-side, but not the note. What would close it: render the note server-side from the stored `release_check` and `original_release_date`, sharing the text with the script.
+
+- [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330657188), 2026-10-20, controller trace.
+
+### F-B23-46: the Listening Time toggle's durationless rows
+
+A Results page switched to Listening Time in the browser ranks matched albums with no Spotify duration last, shown as a dash, while a run that starts in playtime mode drops them server-side (`_filter_results_for_display`), so the same listener sees two different leaderboards for the "same" ranking. This is pre-existing on `main` for play-count runs (`setLeaderboardMetric` sorts every row), and is now also reached after Hide on an include run. What would close it: one rule for both paths (hide durationless rows while the client metric is playtime, with renumbering, or keep them server-side too), decided in the UI-consistency PR.
+
+- [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

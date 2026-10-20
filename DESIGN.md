@@ -222,8 +222,15 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Mobile Rule:** Minimum rendered `font-size: 1rem` (16px) on mobile viewports to prevent iOS auto-zoom behavior.
 
 ### Segmented Controls & Mode Tabs
-- **Track:** Sunken well background (`#f0ebe0` / `#1a1622`), 999px full pill radius, 4px internal padding.
-- **Active Segment:** Card surface background, `--ss-shadow-chip` elevation, strong ink text.
+- **Track:** Page canvas background (`--color-base-100`: `#faf7f0` / `#0e0c12`), 1px hairline border, 8px radius (`--radius-sm`), 3px internal padding at scale 1. The contrast figures below are measured on this fill.
+- **Option text and selected chip (lifted, `docs/design/RECONCILIATION.md` section 20):** unselected option text takes the body ink token (8.71:1 light, 10.61:1 dark on the track); the selected chip keeps its soft accent fill, has a 1px primary border (6.06:1 light, 8.14:1 dark against the track, `Highlight` under forced colours) and takes the base-content ink (14.81:1 light, 13.04:1 dark on the chip), which it keeps on hover; an unselected option deepens to the same base-content ink on hover (no new token). The selected chip carries no `--ss-shadow-chip` elevation. One rule in `static/css/shell.css` serves "Rank by", both unmatched-albums controls and the Results "Sort leaderboard" buttons.
+- **Disabled Segment:** Kept visible and dimmed to 40% opacity, never removed; the help under the Show row states the reason.
+- **Unmatched albums control:** the index card's "Unmatched albums" field (Hide / Include, `name="include_unmatched"`, values 0 / 1; it shares a row with "Show" in equal halves from 860px and stacks below it, and its help line is visible only while Include is chosen) and the Results side rail's "Unmatched albums" control (Hide / Include, `name="results_albums"`) are two-option segmented controls of native radios. The option rules live in `static/css/shell.css` so both pages share them. Help text under them takes the body ink token (7:1 or better), not the muted one. The kit's Switch has no shipped instance: the app's two-state idioms are the header's Light / Dark pill and this segmented control (`docs/design/RECONCILIATION.md` section 20).
+
+### Results Row: Unmatched Variant
+- **When:** an include run (the index card's "Unmatched albums" control set to Include) lists albums Spotify and Deezer could not match. They are ranked by play count only.
+- **Row:** plain rank and title, no link; the cover slot is the two-tone wash with initials; under the artist a small mono marker in the provider-badge slot says "Not Found" or "Unavailable" in the body ink token; the release cell reads "unknown" in the same token until MusicBrainz finds the original release, then shows it as YYYY-MM (filled in place while the check runs, rendered by the server after it ends).
+- **Unmatched albums control:** "Unmatched albums" (Hide / Include, Include selected on an include run) sits under the Sort leaderboard control. Hide hides those rows, ranks and totals recompute, and Listening Time is enabled; Include returns them and Listening Time is dimmed again with its reason.
 
 ### Heatmap Grid
 - **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.

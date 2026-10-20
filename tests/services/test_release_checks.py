@@ -392,7 +392,7 @@ async def test_run_release_checks_records_the_date_from_a_cached_finding():
     cached = {
         normalize_name("Fleetwood Mac", "Rumours"): {
             "mb_release_group": "mbid-rumours",
-            "original_release": "1977-02-04",
+            "original_release": "2025-01-15",
         }
     }
     lookup = AsyncMock()
@@ -401,7 +401,7 @@ async def test_run_release_checks_records_the_date_from_a_cached_finding():
 
     results = jobs.context(job_id)["results"]
     assert results[0]["release_check"] == "confirmed"
-    assert results[0]["original_release_date"] == "1977-02-04"
+    assert results[0]["original_release_date"] == "2025-01-15"
     lookup.assert_not_awaited()
 
 
@@ -967,3 +967,142 @@ async def test_a_throttled_musicbrainz_caches_no_finding_and_keeps_the_result():
     assert result["release_check"] == release_checks.CHECK_UNAVAILABLE
     assert result["original_release_date"] is None
     assert jobs.progress(job_id)["stats"]["release_check"]["status"] == "done"
+
+
+# --- An include run: unmatched rows are results with no release date --------
+
+
+def _unmatched_result(artist, album, play_count):
+    """Build an included unmatched result, as ``merge_unmatched_rows`` does."""
+    return {
+        "artist": artist,
+        "album": album,
+        "play_count": play_count,
+        "release_date": None,
+        "spotify_id": None,
+        "provider": None,
+        "album_url": None,
+        "unmatched_reason": "no_spotify_match",
+        "_normalized_key": normalize_name(artist, album),
+    }
+
+
+def _include_run():
+    """Create an include run: two matched results and an unmatched one between."""
+    return _job_with(
+        results=[
+            _result("Radiohead", "OK Computer", "2025-06-16"),
+            _unmatched_result("Lost Band", "Lost Album", 8),
+            _result("Blur", "13", "2025-03-01"),
+        ],
+        params={**TEST_JOB_PARAMS, "include_unmatched": True},
+    )
+
+
+def test_select_candidates_lists_an_included_unmatched_row_in_rank_order():
+    """
+    GIVEN an include run whose results hold an unmatched row (no release date)
+    WHEN candidates are selected
+    THEN that row is a "result" candidate in its rank position, so the worker
+    asks MusicBrainz for it like any matched album.
+    """
+    job_id = _include_run()
+
+    candidates = _select_candidates(jobs.context(job_id))
+
+    assert [(c["artist"], c["kind"]) for c in candidates] == [
+        ("Radiohead", "result"),
+        ("Lost Band", "result"),
+        ("Blur", "result"),
+    ]
+    assert candidates[1]["key"] == normalize_name("Lost Band", "Lost Album")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("found", "check", "date"),
+    [
+        (("mbid-lost", "2025-03-14"), "confirmed", "2025-03-14"),
+        (("mbid-lost", "1999-05-01"), "moved_out", "1999-05-01"),
+        ((None, None), "unavailable", None),
+    ],
+    ids=["confirmed", "moved_out", "nothing_found"],
+)
+async def test_a_finding_on_an_included_unmatched_row_is_stored_on_that_row(
+    found, check, date
+):
+    """
+    GIVEN an include run and a MusicBrainz finding for its unmatched row
+    WHEN the worker runs
+    THEN the stored unmatched result carries the outcome and the date (None
+    when nothing was found), the matched rows keep their own, and the row is
+    still second: the list is never reordered.
+    """
+    job_id = _include_run()
+    lookup = AsyncMock(
+        side_effect=[
+            ("mbid-okc", "2025-06-16"),
+            found,
+            ("mbid-13", "2025-03-01"),
+        ]
+    )
+    with _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    results = jobs.context(job_id)["results"]
+    assert [r["artist"] for r in results] == ["Radiohead", "Lost Band", "Blur"]
+    lost = results[1]
+    assert lost["release_check"] == check
+    assert lost["original_release_date"] == date
+    assert lost["release_date"] is None
+    assert results[0]["original_release_date"] == "2025-06-16"
+    assert results[2]["original_release_date"] == "2025-03-01"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("original_release", "check", "moved_out"),
+    [
+        ("2025-03-14", "confirmed", 0),
+        ("1999-05-01", "moved_out", 1),
+        (None, "unavailable", 0),
+    ],
+    ids=["in_window", "out_of_window", "nothing_found"],
+)
+async def test_a_cached_finding_gives_an_unmatched_row_the_outcome_a_lookup_would(
+    original_release, check, moved_out
+):
+    """
+    GIVEN an include run whose unmatched row has a cached finding, and the job
+    asks for 2025
+    WHEN the worker runs
+    THEN the row reaches the outcome a fresh lookup of the same finding gives
+    it -- a date outside 2025 is moved out, not confirmed -- with the date
+    stored (None when nothing was found), the moved-out count raised for a
+    moved-out row, and no request spent.
+    """
+    job_id = _include_run()
+    cached = {
+        normalize_name("Lost Band", "Lost Album"): {
+            "mb_release_group": "mbid-lost" if original_release else None,
+            "original_release": original_release,
+        },
+        normalize_name("Radiohead", "OK Computer"): {
+            "mb_release_group": "mbid-okc",
+            "original_release": "2025-06-16",
+        },
+        normalize_name("Blur", "13"): {
+            "mb_release_group": "mbid-13",
+            "original_release": "2025-03-01",
+        },
+    }
+    lookup = AsyncMock()
+    with _worker_patches(lookup, cached=cached):
+        await run_release_checks(job_id)
+
+    lost = jobs.context(job_id)["results"][1]
+    assert lost["release_check"] == check
+    assert lost["original_release_date"] == original_release
+    stats = jobs.progress(job_id)["stats"]["release_check"]
+    assert stats["moved_out"] == moved_out
+    lookup.assert_not_awaited()

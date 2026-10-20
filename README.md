@@ -115,6 +115,20 @@ next.
 - Switch the leaderboard between track plays and estimated listening time
   without submitting another search. Listening time depends on available
   Spotify track durations.
+- Keep the albums Spotify and Deezer cannot match with the "Unmatched albums"
+  choice beside "Show" on the search form (Hide or Include), so your total
+  plays are counted whether or not an album could be identified. Those albums
+  are ranked by play count only, so Play time is dimmed while Include is
+  chosen.
+- On Results, an included album shows a plain "Not Found" or "Unavailable"
+  marker under its artist, a coloured wash instead of a cover, no link, and a
+  release date that reads "unknown" until MusicBrainz finds the album's original
+  release, which then shows as year and month. An "Unmatched albums" choice under the sort control
+  (Hide or Include) hides those rows, renumbers the rest and recounts the
+  totals, so the leaderboard can be ranked by listening time; choosing Include
+  brings them
+  back, ranked by play count again. The CSV and the saved image follow what is
+  on the page.
 - Explore Artist Spotlight, which samples up to five artists from the ten
   highest-scrobbled artists across your filtered results.
 - Open an album on Spotify from its title; a delayed tooltip explains the link.
@@ -124,7 +138,8 @@ next.
   up to four groups: not enough listening, a release outside your filter, no
   match on Spotify or Deezer, and albums that could not be checked because a
   provider was not answering. Each album says why it was left out, and each
-  group names the change that would include its albums.
+  group names the change that would include its albums. After an include run
+  the report also says which albums the results already list without a match.
 
 ### Scrobble Heatmap
 
@@ -720,6 +735,13 @@ deeply than the first two.
   Results and Unmatched pages, on the artist spotlight, and in the saved
   image; rows from Deezer carry a text badge, and each provider link says
   which provider it leads to.
+- **The search form can keep unmatched albums in.** An "Unmatched albums"
+  choice beside "Show" (Hide or Include) lists the albums Spotify and Deezer
+  could not find alongside the rest, so every play you made is counted. They
+  are ranked by play count only, so Play time is dimmed while Include is
+  chosen. On Results they are marked "Not Found" or "Unavailable", and the
+  "Unmatched albums" choice there (Hide or Include) hides them again to rank by
+  listening time.
 - **The artist spotlight stopped faking photos.** It shows a confirmed photo
   or stays hidden, without cropping or overlays, and it holds still while you
   hover over it or tab into it.

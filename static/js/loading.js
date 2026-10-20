@@ -5,6 +5,7 @@ const {
   username,
   year,
   sort_by,
+  include_unmatched,
   release_scope,
   decade,
   release_year,
@@ -215,6 +216,7 @@ function retryCurrentSearch() {
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
   form.appendChild(createHiddenInput('sort_by', sort_by));
+  if (include_unmatched) form.appendChild(createHiddenInput('include_unmatched', '1'));
   form.appendChild(createHiddenInput('release_scope', release_scope));
   if (decade) form.appendChild(createHiddenInput('decade', decade));
   if (release_year) form.appendChild(createHiddenInput('release_year', release_year));

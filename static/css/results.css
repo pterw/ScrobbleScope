@@ -315,6 +315,48 @@ a.provider-badge:hover {
     color: var(--color-primary);
 }
 
+/* The marker on an included unmatched row ("Not Found" / "Unavailable"): the
+   same small label in the provider badge's slot, plain text with no link
+   affordance. It takes the body text token rather than the muted one, so the
+   word that says why a row has no cover stays well above the 4.5:1 floor on
+   the table surface (measured in the task report). The badge has no border,
+   so forced colours need no extra rule: the text repaints in CanvasText. */
+.provider-badge--unmatched {
+    color: var(--ss-text-body);
+    cursor: default;
+}
+
+/* An included unmatched row has no release date. The word says it, so it keeps the cell's mono face and takes the body text
+   token like the marker (measured in the task report). */
+.release-date-value--unknown {
+    color: var(--ss-text-body);
+}
+
+/* A row hidden by the Unmatched albums control's "Hide" stays out of the layout
+   whatever display a table rule gives it. */
+tr[hidden] {
+    display: none;
+}
+
+/* The Unmatched albums control under "Sort leaderboard": a sub-label and a help line in
+   the index card's field label and help sizes. The help is new text, so it
+   takes the body token (measured in the task report). */
+.results-seg-label {
+    display: block;
+    margin-bottom: calc(0.25rem * var(--results-scale, 1));
+    font-family: var(--font-sans);
+    font-size: max(0.75rem, calc(var(--text-label) * var(--results-scale, 1)));
+    font-weight: var(--font-weight-normal);
+    color: var(--color-base-content);
+}
+
+.results-seg-help {
+    margin: calc(0.25rem * var(--results-scale, 1)) 0 0;
+    font-size: max(0.75rem, calc(var(--text-label-sm) * var(--results-scale, 1)));
+    line-height: 1.4;
+    color: var(--ss-text-body);
+}
+
 .metric-toggle-btn {
     user-select: none;
     cursor: pointer;

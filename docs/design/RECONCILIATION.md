@@ -41,6 +41,11 @@ The owner-approved overrides currently recorded are:
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
+| Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
+| Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
+| Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, a release that reads "unknown" until MusicBrainz finds the original release and then shows it as YYYY-MM (section 25), and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
+| Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
+| Unmatched page: the count line and group notes | "N albums left out of your results" for every run | On an include run the line names both groups ("L albums listed in your results without a match, K left out") and the No match found and Could not be checked groups say their albums are in the results; every other run and group is unchanged | Owner ruling 2026-10-20 "Split the count (Recommended)", Section 24 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -876,3 +881,251 @@ resolved gradient colours) and under forced colours (a painted border). It
 also reads the tokens, not the nodes on the page: both stops of every one of
 the `COVER_WASH_COUNT` pairs in each theme, against the initials' colour, at 7:1
 or better, so a pair the fixture page does not show is judged too.
+
+---
+
+## 20. Frozen-snapshot override: the "Albums" segmented control, 2026-09-30
+
+Owner ruling, 2026-09-30: a quick toggle in the index card for the Last.fm
+albums that Spotify and Deezer could not match, "to see total playcount
+regardless", which "needs to block the ability to switch playtime/playcount".
+The owner offered two ways to block it, remove the card or build a "remove
+unmatched listens" toggle, and left the choice to the design system.
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them.
+
+**The card.** `docs/design/README.md` lists the Right column card's contents in
+order, "... Rank by segmented control (Play count / Play time); Show select
+(All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure ...". The card
+also has, between the Rank by control and the Show select, a second field,
+"Albums": a two-option segmented control (Matched only, selected by default;
+All albums), not remembered between visits, with the help "Adds the albums
+Spotify and Deezer can't find, ranked by play count." It is the same
+`.seg` of two native radios as "Rank by" (`name="include_unmatched"`, values 0
+and 1; the server keeps its rule that only "1" includes). The help takes
+`--ss-text-body`, not the muted token, because it is new text: 9.32:1 (light)
+and 9.82:1 (dark) on the card, against 5.53:1 and 5.39:1 for the muted token. Section 21 moves the Results card's help
+to the same token, so both pages agree.
+
+**Why a segmented control and not a Switch.** The kit's Switch
+(`components/forms/Switch.prompt.md`) calls the dark-mode toggle "the only
+shipped instance", but the theme control is the header's two-word "Light |
+Dark" pill, so the kit's Switch has no shipped instance in this repository.
+The app has two idioms for a two-state choice, that pill and the form's
+segmented control, and a knob switch would have been a third. A first build of
+this field as a knob switch was replaced after the owner's ruling, 2026-10-01:
+"Precisely use what exists; segmented control. Cost is nothing relative to
+what it does." Nothing in `static/css/shell.css` or `index.css` ships a knob
+switch.
+
+**The shared look is lifted.** The segmented control's shipped look, which the
+kit's `SegmentedControl.prompt.md` also describes (muted option text, a soft
+accent chip with no outline), measured option text at 5.17:1 (light) and 5.82:1
+(dark) on the track and the selected chip's edge at 1.11:1 and 1.28:1 against
+it. The owner's rulings "The 4.5 is a floor not a goal" and "Precisely use what
+exists; segmented control" were met by lifting the one shared rule, not by
+styling the new controls apart. In `shell.css` the unselected option text now
+takes `--ss-text-body` (8.71:1 light, 10.61:1 dark on the track), and the
+selected chip keeps its soft accent fill, gains a 1px `--color-primary` border
+(6.06:1 light, 8.14:1 dark against the track; the border is transparent on
+every option so no option changes size; under forced colours it is
+`Highlight`) and takes `--color-base-content` text, the strongest ink token
+(14.81:1 light, 13.04:1 dark on the chip; primary text on the chip was 5.47:1
+and 6.38:1, under the 7:1 aim). Selection is carried by ink, fill and border
+together, and the checked chip keeps that ink on hover. An unselected option
+deepens to `--color-base-content` on hover (it was `--color-primary`, 6.06:1
+on the track in light) and the dimmed disabled state is unchanged. It applies to
+every instance: "Rank by", the index "Albums" control, the Results "Albums"
+control and the Results "Sort leaderboard" buttons (`.metric-toggle-btn`,
+button markup that takes the same tokens through `aria-pressed`, which
+`results.js` already set and the template now renders). The kit's prompt is
+frozen, so its muted-text description stays and this section overrides it.
+
+**The disabled segment.** `SegmentedControl.prompt.md` has no disabled state.
+While All albums is chosen, the Play time segment is disabled, not removed: it
+is dimmed to 40% opacity with `cursor: not-allowed`, and it never recolours on
+hover. The rule is the decade pill's ("Kept visible, not removed. A dimmed
+decade tells the reader the decade exists and holds nothing, which a missing
+pill does not"). If Play time was selected, Play count becomes selected. When
+Matched only is chosen again Play time is enabled and the selection stays where
+it is. The server holds the same rule for a form posted without scripts: an
+include run is stored as a play-count run. Under forced colours the disabled
+segment uses `GrayText`.
+
+---
+
+## 21. Frozen-snapshot override: unmatched albums on the Results page, 2026-09-30
+
+Owner rulings, 2026-09-30: the include option exists "to see total playcount
+regardless"; the lock on play time may be built as "'remove unmatched listens'
+as a toggle in that mode"; both kinds of miss are listed, "marked"; and "Don't
+trust album covers from last.fm".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them.
+
+**The row.** `docs/design/components/data/AlbumRow.prompt.md` says "Titles link
+to Spotify when `spotify_id` exists and are plain text otherwise" and "Placeholder
+covers are muted two-tone washes". An included unmatched album is a row with
+neither a provider nor a cover. Its rank and title are plain text, its cover
+slot is the same wash every missing cover wears (section 19, no Last.fm image),
+and under the artist, in the slot a non-Spotify provider's badge uses, a small
+mono marker names the miss with the Unmatched page's own badge word: "Not
+Found" or "Unavailable". Its release cell reads "unknown". Both words take `--ss-text-body`, not the muted token, because they
+are new text: 8.27:1 (light) and 10.19:1 (dark) on the table surface, against
+4.9:1 and 5.59:1 for the muted token. The metric is the play count: an
+unmatched album has no listening time and none is invented.
+
+**The stat block and the attribution line.** `docs/design/README.md` describes
+"a sticky sidebar of three stat blocks" and the Results screen's exact counts.
+In an include run Total Albums counts every listed row and its caption reads
+"listed" instead of "matched"; Scrobbles sums every listed row. The line above
+the table, "Album artwork and links from Spotify", also excepts the rows
+marked Not Found or Unavailable, which have neither.
+
+**The side rail control.** The snapshot's side column has no such control.
+The "Sort leaderboard" card gains a second segmented control under its sort
+control: the sub-label "Albums", the options "All" and "Matched only"
+(`name="results_albums"`, radios in the same `.seg__option` style as the
+index card, no form around them) and the help "Matched only removes the
+unmatched listens so the leaderboard can be ranked by listening time." While
+unmatched rows are shown (All) the Listening Time segment is disabled, dimmed
+to 50% like the card's no-durations case, with the title "Unmatched albums have
+no listening time". Matched only hides those rows, renumbers the rest,
+recomputes Total Albums and Scrobbles from the visible rows and enables
+Listening Time when the run has durations; All returns the rows and ranks by
+play count again. It is page state only, and the CSV and the saved image follow
+what is on the page (the CSV names the marker word in its Provider column).
+The owner's ruling of 2026-10-01 (see section 20) chose the segmented control
+over the knob switch for this control as well.
+
+**The option rules move to `shell.css`.** The `.seg__radio` and `.seg__option`
+rules (hidden radio, option, checked chip, hover, focus ring, the 44px floor
+on coarse pointers) moved there from `index.css` so the index card and the
+Results rail share one rule set (the scale follows `--index-scale`, else
+`--results-scale`). The track rule `.seg` moved with them (Results' two tracks were utility
+copies of it, with the `--results-scale` fallback now in the rule); the
+dimmed-disabled rule stays in `index.css`. Help text under the controls takes
+`--ss-text-body` (it was muted at 4.9:1 on the Results card; the owner's
+ruling is that 4.5 is a floor, not a goal).
+
+---
+
+## 22. The unmatched choice joins the Show row, 2026-10-20
+
+Owner rulings, 2026-10-20: "I think the segemented control for the matched
+only/ should be is tucked under "Show" and also cccentering the index card
+better, and making this a feat that is tightened to be less "large" on the
+front-end ... the toggle should be more clear too." Then, on the prototype:
+"It's a bit tight - I'd suggest that the show all results and the segmented
+control share equal space and split evenly" and "Yes that looks good to me".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them, and it supersedes the position and wording section 20 gave the
+index card's field.
+
+**The placement.** The field no longer sits between the Rank by control and
+the Show select. It shares one row with the Show select: from 860px a two
+column grid of equal halves (the same 0.75rem scaled gap as the form's other
+rows), tops aligned so both labels sit on one line; below 860px the two stack,
+each full width. The row is one `.field-pair` in `static/css/index.css`.
+
+**The wording.** The label reads "Unmatched albums" (it read "Albums") and the
+options read "Hide" (value 0, the default, `id="albums_matched"`) and "Include"
+(value 1, `id="albums_all"`); they read "Matched only" and "All albums". The
+radios' name, values and ids are unchanged, so the route, Retry and the tests
+read the same fields.
+
+**The help.** "Albums Spotify and Deezer can't find, ranked by play count."
+sits under the row and is shown only while Include is chosen (it is rendered
+with the `hidden` attribute, and `syncUnmatchedLock` in `static/js/index.js`
+sets and clears it, so back navigation restores it). The group keeps
+`aria-describedby="albums-help"`. It keeps the body token from section 20
+(9.32:1 light, 9.82:1 dark on the card).
+
+**Why the move.** The separate field made the card 719px tall at 1920x945 and
+pinned it under the header (the centring term in `positionForm` fell below its
+0.25rem clamp). In the Show row the default card measures about 611px and is
+centred again.
+
+**The Results control.** The Sort leaderboard card's control (section 21) takes
+the same wording: the sub-label "Unmatched albums" (it read "Albums") and the
+options "Hide" (`results_albums_matched`, value `matched`) then "Include"
+(`results_albums_all`, value `all`, selected on an include run); they read "All"
+then "Matched only". Its help reads "Hide removes the unmatched listens so the
+leaderboard can be ranked by listening time." Ids, name and values are
+unchanged. Section 21's quoted wording is the point-in-time record and stays;
+this section supersedes it.
+
+## 23. The unmatched control promises only what is true, 2026-10-20
+
+Section 21 and section 22 give the Results control a help line and a toast that
+promise listening time. On a run with no Spotify track durations that promise
+is false: Listening Time stays disabled ("Spotify track durations not
+available") after Hide. The owner asked that the control reflect an include run
+accurately, and the controller found the two statements on seeded jobs.
+
+**The help line** (`id="results-albums-help"`, still the group's
+`aria-describedby`) has two forms. With durations it is unchanged: "Hide
+removes the unmatched listens so the leaderboard can be ranked by listening
+time." Without durations it reads "Hide removes the unmatched listens from the
+leaderboard."
+
+**The toast.** Choosing Hide says "Unmatched albums hidden; listening time is
+available." only when Listening Time actually becomes available (hidden and
+the run has durations); otherwise it says "Unmatched albums hidden." The
+Include toast, "Unmatched albums shown; ranked by play count.", is unchanged.
+
+Sections 21 and 22 quote the earlier wording as point-in-time records and
+stay; this section supersedes them for these two statements.
+
+## 24. The Unmatched page says which albums the results list, 2026-10-20
+
+On an include run the Unmatched page's line "N albums left out of your
+results" was false: the No match found and Could not be checked albums are
+listed in the results as unmatched rows (section 21). The owner chose "Split
+the count (Recommended)" on 2026-10-20.
+
+**The count line.** A report entry is listed when the run is an include run
+and a result row carrying an unmatched reason has the entry's report key
+(`"|".join(_normalized_key)`); a Show limit can cut rows, so the reason code
+alone never decides it. With L listed and K left out, the line after the year
+and its middle-dot separator reads: nothing listed (every non-include run)
+keeps "N albums left out of your results"; otherwise "L albums listed in your
+results without a match, K left out", and ", K left out" is dropped when none
+is left out. The first number keeps the `unmatched-total` span. The headline
+and the Not enough listening and release-scope sections are unchanged.
+
+**The section note.** Under the description of each group holding listed
+albums, `.unmatched-listed-note` reads "Listed in your results, ranked by play
+count." when every album of the group is listed, or "L of N listed in your
+results, ranked by play count." when a Show limit cut the rest. A group with
+none listed has no note. The note uses the body token on the card: 14.78:1
+light and 15.21:1 dark against the sunken surface (the worst case of the
+card's surface mix), above the 7:1 target.
+
+Section 21's "left out" wording is the point-in-time record and stays; this
+section supersedes it for an include run.
+
+## 25. An unmatched row's release reads unknown only until a date is found, 2026-10-20
+
+Section 21 says the release cell of an included unmatched row reads
+"unknown". That holds only until MusicBrainz finds the album's original
+release. A Codex review finding on PR #256 (comment 4330657188, 2026-10-20)
+showed the date was filled in by the polling script alone, so a page rendered
+after the check ended lost it.
+
+**The found-date rule.** The cell shows the original release as YYYY-MM when
+the album's `release_check` is `confirmed` or `moved_out` and carries an
+`original_release_date`; otherwise it reads "unknown". The server renders the
+cell and `results-release-checks.js` fills it in place while the check runs;
+both produce the same text, so a reload changes nothing. The unknown cell keeps
+the body token (section 21).
+
+**Still script-only.** The "first released" note a moved-out row gains is added
+by the polling script alone, so a page rendered after the check ended shows no
+note (F-B23-45). This section does not change that.
+
+Section 21's wording is the point-in-time record of the no-date case and
+stays; the ledger row "Results: unmatched albums" now states the current fact.

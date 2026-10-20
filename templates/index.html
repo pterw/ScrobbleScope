@@ -181,19 +181,38 @@
               </div>
             </div>
 
-            <div class="field">
-              <div class="field__label-row">
-                <label class="field__label" for="limit_results">Show</label>
+            {# Show and the unmatched choice share one row: equal halves from
+               860px, stacked below. The help spans the row and is visible only
+               while Include is chosen (index.js, syncUnmatchedLock). #}
+            <div class="field-pair">
+              <div class="field">
+                <div class="field__label-row">
+                  <label class="field__label" for="limit_results">Show</label>
+                </div>
+                <div class="field__control">
+                  <select id="limit_results" name="limit_results" class="ss-select">
+                    <option value="all" selected>All results</option>
+                    <option value="10">Top 10</option>
+                    <option value="25">Top 25</option>
+                    <option value="50">Top 50</option>
+                    <option value="100">Top 100</option>
+                  </select>
+                </div>
               </div>
-              <div class="field__control">
-                <select id="limit_results" name="limit_results" class="ss-select">
-                  <option value="all" selected>All results</option>
-                  <option value="10">Top 10</option>
-                  <option value="25">Top 25</option>
-                  <option value="50">Top 50</option>
-                  <option value="100">Top 100</option>
-                </select>
+
+              <div class="field">
+                <div class="field__label-row">
+                  <span class="field__label" id="albums-label">Unmatched albums</span>
+                </div>
+                <div class="seg" role="group" aria-labelledby="albums-label" aria-describedby="albums-help">
+                  <input type="radio" id="albums_matched" name="include_unmatched" value="0" class="seg__radio" checked>
+                  <label for="albums_matched" class="seg__option">Hide</label>
+                  <input type="radio" id="albums_all" name="include_unmatched" value="1" class="seg__radio">
+                  <label for="albums_all" class="seg__option">Include</label>
+                </div>
               </div>
+
+              <p class="field__help field-pair__help" id="albums-help" hidden>Albums Spotify and Deezer can't find, ranked by play count.</p>
             </div>
 
             {# --- Thresholds ---

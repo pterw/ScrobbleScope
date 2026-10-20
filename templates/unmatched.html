@@ -27,7 +27,13 @@
                bar directly below states again. #}
             <p class="unmatched-subtitle font-sans text-sm md:text-base font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
                 {% if total_count %}
+                {% set listed = listed_count|default(0) %}
+                {% set left_out = total_count - listed %}
+                {% if listed == 0 %}
                 {{ year }} · <span class="unmatched-total">{{ total_count }}</span> {{ 'album' if total_count == 1 else 'albums' }} left out of your results
+                {% else %}
+                {{ year }} · <span class="unmatched-total">{{ listed }}</span> {{ 'album' if listed == 1 else 'albums' }} listed in your results without a match{% if left_out > 0 %}, {{ left_out }} left out{% endif %}
+                {% endif %}
                 {% else %}
                 {{ (filter_desc|default('all releases'))|capitalize }} · Minimum {{ min_plays|default(0) }} plays and {{ min_tracks|default(0) }} unique tracks
                 {% endif %}
@@ -109,6 +115,14 @@
                             {{ meta.description|default('Albums excluded by filter criteria.') }}
                             {% endif %}
                         </p>
+                        {# An include run lists its No match found and Could not be
+                           checked albums in the results; say so where they are. #}
+                        {% set listed_here = (listed_by_reason or {}).get(reason_key, 0) %}
+                        {% if listed_here %}
+                        <p class="unmatched-listed-note font-sans text-xs text-[var(--color-base-content)] mt-1">
+                            {% if listed_here == albums|length %}Listed in your results, ranked by play count.{% else %}{{ listed_here }} of {{ albums|length }} listed in your results, ranked by play count.{% endif %}
+                        </p>
+                        {% endif %}
                     </div>
                     <div class="text-right flex-shrink-0">
                         <span class="unmatched-count font-normal text-xl md:text-2xl text-[var(--color-base-content)]">

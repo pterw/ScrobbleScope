@@ -70,8 +70,9 @@ See FINDINGS F-DOCSYNC-3.
 ## 3. Active batch + next action
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
-  Branch: `feat/batch23-wp0-hygiene`. The branch was cut from `test`; run the
-  worktree guard with `--base-ref origin/test`.
+  Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is
+  deleted, so side-task PRs branch from `main` and run the guard against its default
+  base. The owner names the branch WP-1 opens.
 - **Next action:** WP-0 is next.
   Part A and Part B are complete. Part C continues through the three
   follow-on plans in the order recorded under "After this plan" in
@@ -96,6 +97,15 @@ See FINDINGS F-DOCSYNC-3.
   Section 4 entry, carrying an explicit `**Status:** WP-0 complete` line
   (DOC007 requires it before the package reads done). Earlier WP-0 commits
   remain untagged by the owner's 2026-09-23 ruling in the definition.
+- **Before WP-1: a tranche of side-task PRs** (owner rulings 2026-10-20).
+  Each is its own branch off `main` and its own PR, with atomic commits:
+  the include-unmatched control, a documentation refresh (README,
+  architecture diagrams), backend hygiene, UI consistency, and four of the
+  architecture seams the 2026-09-30 review proposed -- the album request
+  module, one album-metadata encoding, the statistics module, and
+  normalized Last.fm scrobbles with one album aggregate. Job persistence
+  waits: a database-backed job store would keep the database awake, which
+  the hosting cost ceiling does not allow.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -138,50 +148,50 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-01 - The release command waits for a waking database
+### 2026-10-20 - Spell the empty top-artist dash as an escape
 
-Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Side task, no batch tag: the empty top-artist dash is spelled as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
 
-Problem: release v143 failed with "Schema init failed -- connection was closed in the middle of operation" and exit 1. The Postgres app had stopped; the release command's connection woke it, its proxy restarted mid-boot, and the script died on its first statement. Postgres reported ready 4 s later and a plain redeploy passed.
+Owner intent: keep hand-written files pure ASCII, as the middle-dot commit did.
 
-Change: `init_db.py` runs connect plus every statement as `_apply_schema` and retries it up to 6 attempts (sleeps 1, 2, 4, 8, 8 s, about 23 s) on `OSError`, `asyncio.TimeoutError` and asyncpg's `ConnectionDoesNotExistError`, `InterfaceError`, `CannotConnectNowError` and `ConnectionFailureError` only. A SQL error still fails at once. `asyncpg.connect` now has a 10 s timeout. Each retry prints one line naming the attempt and the exception type, never its text (global-rules Rule 6). The final failure keeps the single ERROR line and exit 1; that line also names only the exception type (plus the SQLSTATE code of a Postgres error), never its text. README's Deployment section says so.
+The previous commit left a literal em dash in `static/js/results.js` and `scripts/dev/results_behavior_tests.py`, which were pure ASCII before it; both now spell it `\u2014` (the scoped review's one Minor). The rendered value is unchanged.
 
-Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
+Deviations: none. Edited existing tests: none (the two assertion strings in `scripts/dev/results_behavior_tests.py` changed spelling only).
 
-Validation: `pytest -q` -- **2534 passed**.
+Validation: `pytest -q` -- **2581 passed**.
 
-### 2026-10-01 - The ring check waits out animations before reading pixels
+### 2026-10-20 - File the Listening Time toggle's durationless rows
 
-Side task, no batch tag: the heatmap focus-ring check waits for running animations to finish before it reads the cell's geometry and takes its screenshot, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
 
-Problem: the previous step's reproduction showed 8 of 20 last-cell screenshots landing while `#heatmap-result` was still crossfading in (opacity changed between the read before and the read after the shot), and a reading taken mid-animation is invalid by construction. PR #252 applied the same reasoning to every other check that slept through a transition; the ring check still waited only for fonts and two frames.
+Owner intent: a real inconsistency Codex found is recorded, not smuggled into this PR.
 
-Change: `_ring_shot` in `scripts/dev/_frontend_gate_heatmap_access.py` calls `wait_for_settled` (`scripts/dev/_frontend_gate_shared.py`, bounded, raises when the page never settles) at the start of each attempt, after the tooltip nudge and before `_LAYOUT_SETTLED_JS` and the geometry read. This removes a confounder; it is not claimed as the fix for F-B23-39, whose status stays open.
+After Hide, or on any play-count run switched to Listening Time in the browser, matched albums with no Spotify duration rank last and show a dash, while a run that starts in playtime mode drops them server-side. `main` behaves the same for play-count runs, so it is not this PR's change; the finding (Codex comment 4330862249) leaves the one-rule decision to the UI-consistency PR.
 
-Evidence: a new test records the order of the wait and the geometry reads over a two-attempt run; with the call removed it fails (`assert 0 == 2` on the wait count). The existing ring-page helper answers the settle script with an empty result so the real `wait_for_settled` can run against it. The 20-run reproduction (the check alone, fresh desktop context each, `reduced_motion="no-preference"`) passed 20 of 20, with `container.opacity` 1 and nothing changed during the shot on all 80 shots read (4 per run). A ring forced to `visibility=hidden` still fails with `ring.visibility=hidden` in the evidence.
+Deviations: none. Edited existing tests: none. New: none.
 
-Validation: `pytest -q` -- **2528 passed**.
+Validation: `pytest -q` -- **2581 passed**.
 
-### 2026-10-01 - The ring check also reads opacity and animations
+### 2026-10-20 - Clear the top artist when Hide leaves no rows
 
-Side task, no batch tag: the heatmap focus-ring check also reads the result's opacity and running animations when it fails, a test of the crossfade hypothesis for F-B23-39, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
 
-Problem: CI run 36808671140 (Linux, desktop, 043368eb) failed the ring check with the ring visible, 1.6px outside the cell, stroke the accent, `:focus-visible` held, tooltip clear of the ring and nothing moved: the DOM said painted, the pixels said not. The one state the evidence line did not read is opacity. `static/js/heatmap.js` `revealHeatmapResult` crossfades `#heatmap-result` in (`heatmap-fade`, `fading-out`, `is-handing-off`, 180 ms handoff) unless `prefers-reduced-motion: reduce` matches, and `_LAYOUT_SETTLED_JS` waits for fonts and frames, not animations.
+Owner intent: the stats under Hide describe only the rows still on the page.
 
-Change: `_RING_EVIDENCE_JS` in `scripts/dev/_frontend_gate_heatmap_access.py` also reads the result container's and the SVG's computed `opacity`, the container's three crossfade flags, how many `document.getAnimations()` are `running`, and the page's `prefers-reduced-motion` match, in the same evaluation as the geometry (so on both sides of the shot, the suffix from the read after it). The suffix gains `container.opacity`, `svg.opacity`, `container.heatmap_fade`, `container.fading_out`, `container.is_handing_off`, `animations.running` and `prefers_reduced_motion`, and `changed_during_shot=` names them when they differ between the two reads. Three tests (38 in the file).
+On an include run whose rows are all unmatched (every lookup unavailable), Hide left Total Albums and Scrobbles at 0 while Top Artist still named the artist of a hidden row (Codex review on PR #256, comment 4330862255). `setUnmatchedHidden` in static/js/results.js now writes the template's empty-state dash into the Top Artist text and title when no row is visible; with rows left it is unchanged. The other Codex comment of that review (4330862249) is not material to this PR and is filed as F-B23-46.
 
-Reproduction, no fix: the check alone, 20 times in one desktop Chromium, with `reduced_motion="no-preference"`: 20 of 20 passed, twice; 20 of 20 with no emulation. The page reports `prefers-reduced-motion: reduce` matches False in the ordinary local run, so the premise that a local run skips the fade is false on this machine. With the evidence read on every shot of one `no-preference` run, 8 of its 20 last-cell shots had a different container opacity before and after the screenshot (so a shot can land inside the fade, on the very cell that failed on CI), and the ring still painted each time; the no-emulation run showed none. No iteration failed, so by the rule for this task the crossfade hypothesis is not confirmed and `_ring_coverage` does not wait for animations. F-B23-39 records the lead. The next CI failure's line will show it.
+Deviations: `include_run` in scripts/dev/results_behavior_tests.py takes an optional row list. Edited existing tests: none. New: test_hiding_every_row_clears_the_top_artist_and_including_restores_it (results-behavior script).
 
-Validation: `pytest -q` -- **2527 passed**.
+Validation: `pytest -q` -- **2581 passed**.
 
-### 2026-10-01 - The heatmap ring check says why a ring is unpainted
+### 2026-10-20 - Say when an unmatched release reads unknown
 
-Side task, no batch tag: the heatmap focus-ring check names its cause when it fails, an evidence-first step for F-B23-39. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+Side task, no batch tag: three live docs say when an unmatched row's release reads "unknown", on the include-unmatched branch (a small PR off main after the cover-washes PR).
 
-Problem: `heatmap cells keyboard access` fails now and then with "paints no rgb(106, 75, 175) pixel ... (samples painted: top 0%, right 0%, bottom 0%, left 0%)" and passes on a re-run (ccc2c921 [mobile], dce6f148 [mobile], CI run 36726578353, and CI run 36803075335 on PR #253 [desktop], which had no failed app resources). The line said only that nothing was painted, so a ring that was never shown, a ring in the wrong place, another stroke and a tooltip over the ring all looked the same.
+Owner intent: the docs follow the code, so a date MusicBrainz finds is not described as always unknown.
 
-Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now ends with one `[evidence: key=value ...]` suffix (`_RING_EVIDENCE_JS`), read in the page in the same evaluation as the geometry, before and after the screenshot; the suffix is built from the read after it, and `changed_during_shot=` names the evidence fields that differed between the two reads (reported, never judged): the ring's `visibility` and box, the cell's box, `document.activeElement` and whether it matches `:focus-visible`, `document.hasFocus()`, the ring's computed stroke, `data-theme`, the tooltip's box, whether it is shown and whether it covers the ring, the scroll offset, `devicePixelRatio`, how many cells paint after the ring, and how long the settle wait took (`settle_slow` past one second). `_ring_shot` returns the coverage and the evidence; `_ring_coverage` keeps its old return. Probe: with `showFocusRing` forced to `hidden` in a scratch copy of `static/js/heatmap.js`, the check failed on all three cells with `ring.visibility=hidden`; restored, it passed. Eleven tests in `tests/scripts/dev/test_frontend_gate_heatmap_access.py` cover the line, the slow-settle flag and the two-sided read; those that read the suffix fail without it.
+README.md, DESIGN.md (Results Row: Unmatched Variant) and the RECONCILIATION ledger row "Results: unmatched albums" said the release cell simply reads "unknown"; it does so only until a found original release replaces it (YYYY-MM). New RECONCILIATION section 25 records the found-date rule, that the server and results-release-checks.js render the same text, the Codex finding on PR #256, and that the moved-out note is still script-only (F-B23-45). Section 21's wording is left as a dated record.
 
-Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
+Deviations: none. Edited existing tests: none. New: none.
 
-Validation: `pytest -q` -- **2524 passed**.
+Validation: `pytest -q` -- **2581 passed**.

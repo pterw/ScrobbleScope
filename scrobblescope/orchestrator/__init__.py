@@ -521,6 +521,7 @@ async def _process_filtered_albums(
     release_year,
     limit_results,
     overall_start_time,
+    include_unmatched=False,
 ):
     """Slice, enrich, and finalize a job's already-filtered albums.
 
@@ -536,6 +537,14 @@ async def _process_filtered_albums(
     ``overall_start_time`` is passed in from the caller so the "Total time
     elapsed" log still measures from the start of the job (the start of
     ``_fetch_and_process``), not from this function's own start.
+
+    ``include_unmatched`` is the listener's "Include" choice (the unmatched-albums control).
+    When on, the job's ``no_spotify_match`` and
+    ``provider_unavailable`` albums are merged into the results after
+    ``process_albums`` and before the post-slice, so ``limit_results`` applies
+    to the combined list (see ``_results.merge_unmatched_rows``). It adds no
+    provider call. When off the results list is used as ``process_albums``
+    returned it.
 
     Returns the results list on success (empty when no album could be
     enriched: the run still succeeds, with its unmatched list), or ``[]``
@@ -574,6 +583,9 @@ async def _process_filtered_albums(
     jobs.advance(job_id, 85, "Compiling your top album list...")
     jobs.advance(job_id, 90, "Finalizing list...")
 
+    if include_unmatched:
+        results = merge_unmatched_rows(results, jobs.unmatched(job_id))
+
     results = _apply_post_slice(results, limit_results)
 
     overall_elapsed = time.time() - overall_start_time
@@ -603,8 +615,12 @@ async def _fetch_and_process(
     min_plays=10,
     min_tracks=3,
     limit_results="all",
+    include_unmatched=False,
 ):
     """Fetch and process albums in the background for a single job.
+
+    ``include_unmatched`` is passed to ``_process_filtered_albums``, which
+    lists the albums no provider could match alongside the matched ones.
 
     An exception that escapes the pipeline is classified by type
     (``errors.classify_exception_to_error_code``): a typed provider failure
@@ -636,6 +652,7 @@ async def _fetch_and_process(
             release_year,
             limit_results,
             overall_start_time,
+            include_unmatched=include_unmatched,
         )
 
     except Exception as exc:  # noqa: BLE001 -- logged by log_failure
@@ -675,6 +692,7 @@ def background_task(
     min_plays=10,
     min_tracks=3,
     limit_results="all",
+    include_unmatched=False,
 ):
     """Run the album pipeline on this thread, in a loop the worker owns.
 
@@ -683,6 +701,9 @@ def background_task(
     a failed run: ``_report_album_failure`` logs it and publishes
     ``internal_error``. Upstream failures are classified deeper in, inside
     ``_fetch_and_process``, so this backstop only sees faults that are ours.
+
+    ``include_unmatched`` (default off) keeps the albums Spotify and Deezer
+    could not match in the results, ranked by play count.
     """
     run_coroutine_in_new_loop(
         _fetch_and_process(
@@ -696,6 +717,7 @@ def background_task(
             min_plays,
             min_tracks,
             limit_results,
+            include_unmatched=include_unmatched,
         ),
         # Passed explicitly rather than left to the helper's own defaults: the tests
         # patch ``scrobblescope.orchestrator.release_job_slot``, and a default taken
@@ -726,6 +748,7 @@ from scrobblescope.orchestrator._results import (  # noqa: E402
     _build_results,
     _get_user_friendly_reason,
     _matches_release_criteria,
+    merge_unmatched_rows,
 )
 from scrobblescope.orchestrator._search import _run_spotify_search_phase  # noqa: E402
 
@@ -761,6 +784,7 @@ __all__ = [
     "fetch_spotify_access_token",
     "fetch_spotify_album_details_batch",
     "fetch_top_albums_async",
+    "merge_unmatched_rows",
     "process_albums",
     "release_job_slot",
     "search_deezer_album",

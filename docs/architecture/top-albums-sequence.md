@@ -28,7 +28,7 @@ sequenceDiagram
     participant ReleaseChecks as release_checks.py
     participant MusicBrainz as MusicBrainz API
 
-    User->>Browser: Submit username, year, filters, and sort
+    User->>Browser: Submit username, year, filters, sort, and the Albums choice (include_unmatched)
     Browser->>Routes: POST /results_loading + CSRF token
     alt Missing field, non-numeric input, or year outside 2002 to this year
         Routes-->>Browser: index.html + error
@@ -49,6 +49,7 @@ sequenceDiagram
                 Routes-->>Browser: Too many requests, no job created
             else Slot acquired
                 Worker-->>Routes: True
+                Note over Routes,Jobs: include_unmatched is stored in params, and an include run is always stored as a play-count run
                 Routes->>Jobs: create(params)
                 Jobs-->>Routes: UUID job_id
                 Routes->>Worker: start_job_thread(background_task, args)
@@ -163,7 +164,13 @@ sequenceDiagram
                         Orch->>Jobs: Unmatched entries for albums failing the release filter
                         Note over Orch,Jobs: Ranked results, possibly emptied by the release filter or because every album was No match -- a finished run, never a failure
                         Orch->>Jobs: Progress 60%-90%
+                        opt include_unmatched is on
+                            Orch->>Jobs: Read this job's unmatched entries
+                            Orch->>Orch: Merge the no_spotify_match and provider_unavailable entries into the results, then sort by play count
+                            Note over Orch,Jobs: No extra provider call. A merged row has its play count only: no cover, link, provider, release date or play time. below_threshold and release_scope entries never merge
+                        end
                         Orch->>Orch: Post-slice to limit_results
+                        Note over Orch,Jobs: The slice and the Done count apply to the merged list, so limit_results keeps the top N overall
                         Orch->>Jobs: succeed: results and progress 100%, in one write
                         Orch->>ReleaseChecks: enqueue_release_check(job_id)
                         Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
@@ -177,7 +184,7 @@ sequenceDiagram
                     ReleaseChecks->>MusicBrainz: Look up the release group's first-release-date
                     MusicBrainz-->>ReleaseChecks: A trusted match, or nothing close enough
                     ReleaseChecks->>Cache: Persist the finding, hit and miss alike
-                    ReleaseChecks->>Jobs: Mark a moved-out row in place
+                    ReleaseChecks->>Jobs: Record the outcome and date on the row: a moved-out row is marked, and an unmatched row gains the date it lacked
                 end
                 ReleaseChecks->>Jobs: record_stat(release_check: running, then done)
             end
@@ -240,6 +247,12 @@ sequenceDiagram
         end
     end
 ```
+
+An include run (`include_unmatched`) merges the job's `no_spotify_match` and
+`provider_unavailable` entries into the results after `process_albums`
+(`merge_unmatched_rows` in `orchestrator/_results.py`), before the post-slice;
+the release-check worker then selects those rows as ordinary result
+candidates; their release date stays "unknown" until a later change dates them.
 
 Grouping and threshold filtering happen inside `fetch_top_albums_async`, so
 they run before every downstream branch. The Last.fm failure terminal and the
@@ -311,4 +324,7 @@ has nothing to correct. `release_checks.py` runs it on its own thread with a
 FIFO queue of job ids, which is why it appears as a separate lifeline rather
 than an `Orch` arrow. `GET /api/release_checks` is what the open results page
 polls for the findings; that poll is not drawn here, because this view ends at
-the results document.
+the results document. On an include run the unmatched rows are results too, so
+the pass looks them up in rank order like any other album: a finding gives an
+unmatched row the release date it had none of, which the open page fills into its
+"unknown" cell in place, and the row never moves.

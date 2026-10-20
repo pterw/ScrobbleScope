@@ -741,7 +741,8 @@ decomposition (F-B21-51) has landed. The facade stays under the decomposition
 plan's 700-line threshold
 (`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`). The
 checks are grouped by concern across `_frontend_gate_*` sibling modules. One
-holds pure colour maths (`_frontend_gate_colour`). One holds shared state, such
+holds colour maths and the segmented-control colour checks
+(`_frontend_gate_colour`). One holds shared state, such
 as the page inventories several slices read (`_frontend_gate_shared`). The
 manifest F-B21-51 proposed has also landed (foundation plan Task 8):
 `config/frontend_gate_checks.toml` selects which `CHECKS` run, by name.
