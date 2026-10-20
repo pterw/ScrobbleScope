@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Retry keeps the listener's Albums choice
+
+Side task, no batch tag: Retry on the loading page keeps the Albums choice, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a retried search must repeat the listener's search exactly (owner ruling 2026-09-30: fix a found defect now rather than later).
+
+What changed: an "All albums" run that failed retryably offered Retry, and `retryCurrentSearch()` in `static/js/loading.js` rebuilt the POST from `window.SCROBBLE`, which `templates/loading.html` fills from a hand-written `scrobble-config` block. Neither carried `include_unmatched`, so Retry silently re-ran the search as "Matched only". The block now has `"include_unmatched": include_unmatched|default(false)` (the route already passed it; the default keeps templates rendered without it working) and the script posts `include_unmatched=1` when it is true, nothing otherwise, as the index form does. New `tests/test_loading_retry_contract.py` derives the fields `results_loading` reads from `request.form` (an `ast` walk) and asserts each is a key of the config block and is posted by `retryCurrentSearch()`; it failed on the old tree naming `include_unmatched`, and deleting another field's `createHiddenInput` line makes it fail naming that field.
+
+Deviations: none. No existing test edited.
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - The hover checks wait for transitions, not a timer
 
 Side task, no batch tag: the segmented-control colour checks wait for the browser to finish their transitions instead of sleeping, on the include-unmatched branch (a small PR off main after the cover-washes PR).

@@ -44,6 +44,7 @@ HELPERS = (
     "_expected_scaled_dimension",
     "_scale_dimension_failures",
     "_wide_layout_failures",
+    "_form_centring_failures",
     "_header_geometry_failures",
     "_scale_mechanism_failures",
     "_touch_minimum_failures",
@@ -394,6 +395,42 @@ def test_wide_layout_reports_gutter_card_and_mark_regressions() -> None:
     assert all("window" in failure for failure in failures)
     assert any("well padding" in failure for failure in failures)
     assert any("wordmark" in failure for failure in failures)
+
+
+def _centred_layout() -> dict:
+    """A 1080p-like default state: 56px above the card, 136px below (80 = 5rem)."""
+    return {
+        "rootFontSize": 16,
+        "wellTop": 76,
+        "formInnerTop": 132,
+        "formInnerBottom": 809,
+        "viewportHeight": 945,
+    }
+
+
+def test_form_centring_passes_when_the_centring_term_places_the_card() -> None:
+    """Twice the 2.5rem lift between the gaps is the unclamped placement."""
+    assert (
+        _frontend_gate_layout._form_centring_failures("1080p", _centred_layout()) == []
+    )
+
+
+def test_form_centring_reports_a_card_pinned_under_the_header() -> None:
+    """A card too tall to centre sits on the 0.25rem clamp and is reported."""
+    pinned = dict(_centred_layout(), formInnerTop=80, formInnerBottom=799)
+    assert _frontend_gate_layout._form_centring_failures("1080p", pinned) == [
+        "/: form is pinned under the header at 1080p (4.0px above the card, "
+        "the 0.25rem clamp); the card is too tall to centre"
+    ]
+
+
+def test_form_centring_reports_a_card_off_the_centring_rule() -> None:
+    """Clear of the clamp but not where the centring term puts it is reported."""
+    shifted = dict(_centred_layout(), formInnerTop=152, formInnerBottom=829)
+    failures = _frontend_gate_layout._form_centring_failures("1080p", shifted)
+    assert len(failures) == 1
+    assert "off-centre at 1080p" in failures[0]
+    assert "76.0px above the card and 116.0px below" in failures[0]
 
 
 def test_header_geometry_retains_clamps_gaps_and_wrap_thresholds() -> None:

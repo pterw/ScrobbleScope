@@ -699,6 +699,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         )
     )
     failures.extend(_wide_layout_failures(layouts))
+    failures.extend(_form_centring_failures("1080p", layouts["1080p"]))
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
@@ -883,6 +884,38 @@ def _wide_layout_failures(layouts) -> list[str]:
             )
 
     return failures
+
+
+def _form_centring_failures(label: str, layout) -> list[str]:
+    """Fail when the form is pinned or off-centre in its default state.
+
+    `positionForm` in static/js/index.js places the composition at
+    `max(0.25rem, (available - height) / 2 - 2.5rem)` below the header. While
+    the centring term governs, the space left below the composition exceeds
+    the space above it by exactly twice that 2.5rem lift:
+    below - above = available - height - 2 * top = 2 * 2.5rem = 5rem. The
+    check holds that difference to 2px (the sub-pixel rounding of the two
+    rects). When the card grows past the point where the centring term drops
+    under the 0.25rem clamp, the card is pinned under the header, `above`
+    stops following the window and the difference grows past 5rem; that is the
+    defect `_wide_layout_failures` cannot see, because it mirrors the clamp.
+    """
+    rem = layout["rootFontSize"]
+    above = layout["formInnerTop"] - layout["wellTop"]
+    below = layout["viewportHeight"] - layout["formInnerBottom"]
+    if above <= 0.25 * rem + 1:
+        return [
+            f"/: form is pinned under the header at {label} ({above:.1f}px "
+            f"above the card, the 0.25rem clamp); the card is too tall to centre"
+        ]
+    expected = 2 * 2.5 * rem
+    if abs((below - above) - expected) > 2:
+        return [
+            f"/: form is off-centre at {label}: {above:.1f}px above the card "
+            f"and {below:.1f}px below, expected the gap below to exceed the "
+            f"gap above by {expected:.1f}px (twice the 2.5rem lift)"
+        ]
+    return []
 
 
 def _header_geometry_failures(measured_sizes, layouts) -> list[str]:

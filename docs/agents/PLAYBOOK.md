@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The gate keeps the index card centred at 1080p
+
+Side task, no batch tag: the frontend gate fails when the index card is pinned under the header at 1080p, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the owner saw the index card stop being centred once the separate Albums field made it taller ("the index card isn't properly centered"); the gate should catch that.
+
+What changed: `_form_centring_failures` in `scripts/dev/_frontend_gate_layout.py`, called from `check_large_display_scale_parity` for the 1080p window (1920x945, default state). `positionForm` places the card at `max(0.25rem, (available - height) / 2 - 2.5rem)`, so while the centring term governs the space below the card exceeds the space above by 2 x 2.5rem = 5rem; the check holds that to 2px (rect rounding) and names a card sitting on the 0.25rem clamp as pinned. `_wide_layout_failures` could not see it because it mirrors the clamp in its expected value. Three unit tests in `tests/scripts/dev/test_frontend_gate_layout.py` cover the healthy, pinned and off-centre cases.
+
+Deviations: the brief said the two spaces should be "within one 2.5rem lift of each other"; the rule makes the correct difference 5rem (the lift applies once above and the centring halves the rest), so the tolerance is derived from that. No existing test edited.
+
+Validation: `pytest -q` -- **2568 passed**.
+
 ### 2026-10-20 - The Results control is named as on the index card
 
 Side task, no batch tag: the Results page's unmatched control takes the index card's wording, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -181,17 +193,5 @@ Owner intent: the records must say what the code and the probes showed.
 What changed: in `docs/architecture/documentation-tooling.md` the node `FGINC[_frontend_gate_include]` had no import edges and was missing from the `tool` class list; it now has `FGINC --> FGC` and `FGINC --> FGS` and is in the list. SESSION_CONTEXT Section 4 already lists both imports for the module. The entry "Hover selectors use one :not() list" said the hover check "exercises both selectors"; its probe showed otherwise, so that sentence now says the check guards the hovered ink's contrast, not that the hover rule applies. The Mermaid validator was not run; the controller validates the diagram.
 
 Deviations: none. Documentation only; no test edited.
-
-Validation: `pytest -q` -- **2564 passed**.
-
-### 2026-10-20 - Retry keeps the listener's Albums choice
-
-Side task, no batch tag: Retry on the loading page keeps the Albums choice, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: a retried search must repeat the listener's search exactly (owner ruling 2026-09-30: fix a found defect now rather than later).
-
-What changed: an "All albums" run that failed retryably offered Retry, and `retryCurrentSearch()` in `static/js/loading.js` rebuilt the POST from `window.SCROBBLE`, which `templates/loading.html` fills from a hand-written `scrobble-config` block. Neither carried `include_unmatched`, so Retry silently re-ran the search as "Matched only". The block now has `"include_unmatched": include_unmatched|default(false)` (the route already passed it; the default keeps templates rendered without it working) and the script posts `include_unmatched=1` when it is true, nothing otherwise, as the index form does. New `tests/test_loading_retry_contract.py` derives the fields `results_loading` reads from `request.form` (an `ast` walk) and asserts each is a key of the config block and is posted by `retryCurrentSearch()`; it failed on the old tree naming `include_unmatched`, and deleting another field's `createHiddenInput` line makes it fail naming that field.
-
-Deviations: none. No existing test edited.
 
 Validation: `pytest -q` -- **2564 passed**.
