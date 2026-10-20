@@ -151,6 +151,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Last.fm-derived job results are pinned before the seam work
+
+Side task, no batch tag: parity tests for the Last.fm path ahead of the scrobbles-not-pages refactor (PR #4 of the pre-Batch-23 tranche, task 23a, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "Any new tests should always test intended behavior and not that the func/code works as written." AGENTS.md "Refactor requires parity tests".
+
+What changed: `tests/test_lastfm_job_results.py` runs the album and heatmap pipelines with only the Last.fm HTTP edge faked (`tests/helpers.py`: `FakeLastfm`, `lastfm_edge`, `lastfm_page`, `lastfm_track`, `lastfm_now_playing`) and asserts on the job each one publishes: aggregation across pages, the year and 365-day windows, the now-playing entry, empty names, casing, the partial-run notice, the below-threshold report, inclusive minimums, and the three failure endings (outage, user not found, unreadable entry). Five tests assert behaviour that Task 4 changes by owner ruling (2026-09-29) and are `xfail(strict=True)` until then (5 xfailed, not counted in N).
+
+Deviations: none. No production file changed; no existing test was edited (`tests/helpers.py` gained imports and helpers only).
+
+Mutation evidence: 19 planted defects, each run in a scratch copy and each failing its named test (the table is in the plan, Task 1 Step 4); every test passed again once restored.
+
+Validation: `pytest -q` -- **2608 passed**.
+
 ### 2026-10-20 - The Last.fm scrobbles plan opens its branch
 
 Side task, no batch tag: commit the approved plan for PR #4 (normalized Last.fm scrobbles with one album aggregate) as the branch's first commit, on `refactor/lastfm-scrobbles`, a branch off `main`.
@@ -182,18 +196,6 @@ Side task, no batch tag: record two owner rulings in the tranche master plan, on
 Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
 
 What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
-
-Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: an agent that reads Section 3's "Before WP-1" bullet should find the design and the PR order without searching.
-
-What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. SESSION_CONTEXT's Batch 23 status row names the spec path after the existing "side-task PRs runs" sentence. Both documents come from this branch and are committed on it.
 
 Deviations: none. No test was edited.
 
