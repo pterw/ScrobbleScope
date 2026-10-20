@@ -8,6 +8,12 @@ can produce.
 
 from __future__ import annotations
 
+from scripts.dev._frontend_gate_colour import (
+    _contrast_ratio,
+    _parse_rgb_string,
+    seg_contrast_failures,
+    seg_hover_failures,
+)
 from scripts.dev._frontend_gate_shared import _reach_state
 
 #: What must be invisible when a migrated page first loads. The scripts reveal
@@ -82,6 +88,280 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
             failures.append(
                 f"{path} {selector}: typing left the message {left!r} on screen"
             )
+    return failures
+
+
+#: The index card's unmatched-albums help text, read from the page by its
+#: description. It is on screen only while Include is chosen.
+UNMATCHED_HELP = "Albums Spotify and Deezer can't find, ranked by play count."
+
+
+def check_include_unmatched_control(page, base_url: str) -> list[str]:
+    """The "Unmatched albums" control is two native radios that lock Play time.
+
+    An unmatched album has no play time, so an include run ranks by play count
+    only. The page enforces it by disabling the Play time segment while
+    "Include" is chosen, and moving the selection to Play count if Play time
+    was the choice. The help line under the Show row is hidden while "Hide"
+    is chosen and on screen with its exact text while "Include" is chosen.
+    Asserted through the keyboard, in both ways a radio group is
+    driven (arrow keys move the selection; Space selects the focused option),
+    because the radios are clipped native inputs styled through their labels
+    and a dispatched event would prove nothing about what a keyboard reader
+    can do.
+
+    Also asserts that the group is announced (the browser's own accessible
+    names and description), that the dimmed Play time option reads differently
+    from an enabled one under forced colours (GrayText), and that the help
+    text keeps 7:1 on the card in both themes.
+    """
+    failures = []
+    page.goto(f"{base_url}/", wait_until="load")
+    all_albums = page.locator("#albums_all")
+    matched = page.locator("#albums_matched")
+    for label, track, selected, unselected in (
+        (
+            "Unmatched albums control",
+            ".seg:has(#albums_all)",
+            "label[for=albums_matched]",
+            "label[for=albums_all]",
+        ),
+        (
+            "Rank by control",
+            ".seg:has(#sort_playcount)",
+            "label[for=sort_playcount]",
+            "label[for=sort_playtime]",
+        ),
+    ):
+        failures.extend(
+            seg_contrast_failures(
+                page,
+                label,
+                {
+                    "track": track,
+                    "selected": selected,
+                    "unselected": unselected,
+                },
+            )
+        )
+        if label == "Rank by control":
+            failures.extend(
+                seg_hover_failures(
+                    page,
+                    label,
+                    {
+                        "track": track,
+                        "selected": selected,
+                        "unselected": unselected,
+                    },
+                )
+            )
+
+    info = page.evaluate(
+        """() => {
+            const all = document.querySelector('#albums_all');
+            const matched = document.querySelector('#albums_matched');
+            if (!all || !matched) return null;
+            const group = all.closest('[role=group]');
+            const named = (id) => {
+                const node = document.getElementById(id || '');
+                return node ? node.textContent.trim() : '';
+            };
+            return {
+                types: [matched.type, all.type],
+                names: [matched.name, all.name],
+                values: [matched.value, all.value],
+                options: [matched.labels[0].textContent.trim(),
+                          all.labels[0].textContent.trim()],
+                group: named(group.getAttribute('aria-labelledby')),
+                description: named(group.getAttribute('aria-describedby')),
+                matchedChecked: matched.checked,
+                allChecked: all.checked,
+                playtimeDisabled: document.querySelector('#sort_playtime')
+                    .disabled,
+                stale: document.querySelectorAll(
+                    '#include_unmatched, [class*="switch"]').length,
+            };
+        }"""
+    )
+    if info is None:
+        return ["/ #albums_all or #albums_matched: no such radio"]
+    if info["types"] != ["radio", "radio"]:
+        failures.append(
+            f"/ Unmatched albums control: inputs are {info['types']!r}, not radios"
+        )
+    if info["names"] != ["include_unmatched", "include_unmatched"]:
+        failures.append(f"/ Unmatched albums control: posts as {info['names']!r}")
+    if info["values"] != ["0", "1"]:
+        failures.append(f"/ Unmatched albums control: values are {info['values']!r}")
+    if info["options"] != ["Hide", "Include"]:
+        failures.append(f"/ Unmatched albums control: options read {info['options']!r}")
+    if info["group"] != "Unmatched albums":
+        failures.append(f"/ Unmatched albums control: group name is {info['group']!r}")
+    if info["description"] != UNMATCHED_HELP:
+        failures.append(
+            f"/ Unmatched albums control: description is {info['description']!r}"
+        )
+    snapshot = page.locator(
+        "[role=group][aria-labelledby=albums-label]"
+    ).aria_snapshot()
+    for expected in ('group "Unmatched albums', 'radio "Hide', 'radio "Include'):
+        if expected not in snapshot:
+            failures.append(
+                f"/ Unmatched albums control: browser tree reads {snapshot!r}"
+            )
+            break
+    if not info["matchedChecked"] or info["allChecked"] or info["playtimeDisabled"]:
+        failures.append(
+            "/ Unmatched albums control: not on Hide, or Play time disabled, at load"
+        )
+    if info["stale"]:
+        failures.append(
+            "/ Unmatched albums control: a switch input or class is still on the page"
+        )
+
+    help_box = page.locator("#albums-help")
+
+    def help_failures(when: str, want_visible: bool) -> list[str]:
+        """The help is hidden under Hide and exact and on screen under Include."""
+        if want_visible:
+            text = help_box.text_content().strip() if help_box.count() else ""
+            if not help_box.is_visible() or text != UNMATCHED_HELP:
+                return [
+                    f"/ Unmatched albums help {when}: visible="
+                    f"{help_box.is_visible()}, text {text!r}, expected the "
+                    "help on screen with its exact text"
+                ]
+        elif help_box.count() and help_box.is_visible():
+            return [f"/ Unmatched albums help {when}: on screen, expected hidden"]
+        return []
+
+    failures.extend(help_failures("at load (Hide chosen)", False))
+
+    def state() -> dict:
+        return page.evaluate(
+            """() => ({
+                disabled: document.querySelector('#sort_playtime').disabled,
+                playcount: document.querySelector('#sort_playcount').checked,
+                playtime: document.querySelector('#sort_playtime').checked,
+                all: document.querySelector('#albums_all').checked,
+                matched: document.querySelector('#albums_matched').checked,
+            })"""
+        )
+
+    for first_choice in ("play count", "play time"):
+        for method in ("arrow keys", "space"):
+            if first_choice == "play time":
+                if state()["disabled"]:
+                    failures.append(
+                        f"/ Play time stayed disabled before {method} (started "
+                        "on play time), so it cannot be chosen"
+                    )
+                    continue
+                page.locator("label[for=sort_playtime]").click()
+            if method == "arrow keys":
+                matched.focus()
+                page.keyboard.press("ArrowRight")
+            else:
+                all_albums.focus()
+                page.keyboard.press("Space")
+            on = state()
+            if (
+                not on["all"]
+                or not on["disabled"]
+                or not on["playcount"]
+                or on["playtime"]
+            ):
+                failures.append(
+                    f"/ Include via {method} (started on {first_choice}): "
+                    f"selected={on['all']}, Play time disabled={on['disabled']}, "
+                    f"Play count checked={on['playcount']}"
+                )
+            failures.extend(help_failures(f"after Include via {method}", True))
+            if method == "arrow keys":
+                page.keyboard.press("ArrowLeft")
+            else:
+                matched.focus()
+                page.keyboard.press("Space")
+            off = state()
+            if not off["matched"] or off["disabled"] or not off["playcount"]:
+                failures.append(
+                    f"/ Hide via {method} (started on {first_choice}): "
+                    f"selected={off['matched']}, Play time disabled="
+                    f"{off['disabled']}, Play count checked={off['playcount']}"
+                )
+            failures.extend(help_failures(f"after Hide via {method}", False))
+
+    all_albums.focus()
+    page.keyboard.press("Space")
+    try:
+        page.emulate_media(forced_colors="active")
+        page.wait_for_timeout(350)  # the option's colour transition is 0.2s
+        colours = page.evaluate(
+            """() => ({
+                dimmed: getComputedStyle(
+                    document.querySelector('label[for=sort_playtime]')).color,
+                enabled: getComputedStyle(
+                    document.querySelector('label[for=albums_matched]')).color,
+            })"""
+        )
+    finally:
+        page.emulate_media(forced_colors="null")
+        matched.focus()
+        page.keyboard.press("Space")
+    if colours["dimmed"] == colours["enabled"]:
+        failures.append(
+            "/ forced colors: the dimmed Play time option paints "
+            f"{colours['dimmed']}, the same as an enabled option, so the "
+            "disabled state is invisible"
+        )
+    failures.extend(_unmatched_help_contrast_failures(page))
+    return failures
+
+
+#: New text aims for 7:1 (the owner's ruling: 4.5 is a floor, not a goal).
+HELP_TEXT_FLOOR = 7.0
+
+
+def _unmatched_help_contrast_failures(page) -> list[str]:
+    """Hold the unmatched-albums help text at 7:1 on the card in both themes.
+
+    The help is on screen only while Include is chosen, so Include is chosen
+    for the measurement and Hide is restored after it.
+    """
+    failures = []
+    page.locator("label[for=albums_all]").click()
+    try:
+        for theme in ("light", "dark"):
+            page.evaluate(
+                "(t) => document.documentElement.setAttribute('data-theme', t)",
+                theme,
+            )
+            page.wait_for_timeout(350)
+            paint = page.evaluate(
+                """() => {
+                    const help = document.getElementById('albums-help');
+                    return {
+                        text: getComputedStyle(help).color,
+                        card: getComputedStyle(
+                            help.closest('.ss-card')).backgroundColor,
+                    };
+                }"""
+            )
+            ratio = _contrast_ratio(
+                _parse_rgb_string(paint["text"])[:3],
+                _parse_rgb_string(paint["card"])[:3],
+            )
+            if ratio < HELP_TEXT_FLOOR:
+                failures.append(
+                    f"/ Unmatched albums help, {theme} theme: {ratio:.2f}:1 on the card, "
+                    f"under {HELP_TEXT_FLOOR}:1"
+                )
+    finally:
+        page.evaluate(
+            "() => document.documentElement.setAttribute('data-theme', 'light')"
+        )
+        page.locator("label[for=albums_matched]").click()
     return failures
 
 

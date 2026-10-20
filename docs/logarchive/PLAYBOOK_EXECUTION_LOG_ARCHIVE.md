@@ -9,6 +9,54 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Spell the empty top-artist dash as an escape
+
+Side task, no batch tag: the empty top-artist dash is spelled as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep hand-written files pure ASCII, as the middle-dot commit did.
+
+The previous commit left a literal em dash in `static/js/results.js` and `scripts/dev/results_behavior_tests.py`, which were pure ASCII before it; both now spell it `\u2014` (the scoped review's one Minor). The rendered value is unchanged.
+
+Deviations: none. Edited existing tests: none (the two assertion strings in `scripts/dev/results_behavior_tests.py` changed spelling only).
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - File the Listening Time toggle's durationless rows
+
+Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a real inconsistency Codex found is recorded, not smuggled into this PR.
+
+After Hide, or on any play-count run switched to Listening Time in the browser, matched albums with no Spotify duration rank last and show a dash, while a run that starts in playtime mode drops them server-side. `main` behaves the same for play-count runs, so it is not this PR's change; the finding (Codex comment 4330862249) leaves the one-rule decision to the UI-consistency PR.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - Clear the top artist when Hide leaves no rows
+
+Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the stats under Hide describe only the rows still on the page.
+
+On an include run whose rows are all unmatched (every lookup unavailable), Hide left Total Albums and Scrobbles at 0 while Top Artist still named the artist of a hidden row (Codex review on PR #256, comment 4330862255). `setUnmatchedHidden` in static/js/results.js now writes the template's empty-state dash into the Top Artist text and title when no row is visible; with rows left it is unchanged. The other Codex comment of that review (4330862249) is not material to this PR and is filed as F-B23-46.
+
+Deviations: `include_run` in scripts/dev/results_behavior_tests.py takes an optional row list. Edited existing tests: none. New: test_hiding_every_row_clears_the_top_artist_and_including_restores_it (results-behavior script).
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - Say when an unmatched release reads unknown
+
+Side task, no batch tag: three live docs say when an unmatched row's release reads "unknown", on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the docs follow the code, so a date MusicBrainz finds is not described as always unknown.
+
+README.md, DESIGN.md (Results Row: Unmatched Variant) and the RECONCILIATION ledger row "Results: unmatched albums" said the release cell simply reads "unknown"; it does so only until a found original release replaces it (YYYY-MM). New RECONCILIATION section 25 records the found-date rule, that the server and results-release-checks.js render the same text, the Codex finding on PR #256, and that the moved-out note is still script-only (F-B23-45). Section 21's wording is left as a dated record.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - page-motion.js is named like the other scripts
 
 Side task, no batch tag: `static/js/page_motion.js` renamed `page-motion.js`, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -59,6 +107,210 @@ Deviations: none. No code change, no test edited.
 
 Validation: `pytest -q` -- **2534 passed**.
 
+### 2026-10-20 - File the release note that a reload drops
+
+Side task, no batch tag: finding F-B23-45 filed for the moved-out release note a reload drops, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a verified Codex review finding that is real but outside this PR is filed, not fixed in passing.
+
+The "first released" note on a Results row is added only by the polling script, so a page rendered after the check ended shows none for a moved-out row. It predates this PR for matched rows; the previous commit made the date itself render server-side for unmatched rows. F-B23-45 records the close: render the note from the stored row, sharing its text with the script.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - A release date found for an unmatched row survives a reload
+
+Side task, no batch tag: the Results page renders the release date MusicBrainz found for an included unmatched album, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: judge the Codex review finding on PR #256 and fix it if material; it was ruled material.
+
+The release cell of an unmatched row was always "unknown" with an empty export value, and only results-release-checks.js filled the date in, while its bar renders only until the check ends. A page rendered after the pass finished (reload, back-navigation, or a cached pass that ended first) therefore hid a date already stored on the row. templates/results.html now renders the first seven characters of original_release_date, with the full date as its export value, when release_check is confirmed or moved_out, the rule the script applies; any other state keeps "unknown". The script sets the same text on a row already filled, so nothing doubles. The "first released" note for a moved-out row is not rendered server-side; that is filed as the next finding.
+
+Deviations: none. Edited existing tests: none. New: test_results_page_renders_a_found_date_on_an_unmatched_row (four cases; mutation: the old unconditional unknown cell fails the confirmed and moved_out cases, a rule ignoring release_check fails the unavailable case that carries a stale date).
+
+Validation: `pytest -q` -- **2581 passed**.
+
+### 2026-10-20 - The new count-line tests spell the middle dot as an escape
+
+Side task, no batch tag: the count-line tests in tests/test_routes.py spell the middle dot as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "One small commit would be worthwhile."
+
+The scoped review (Minor 3) found the six count-line assertions added with the Unmatched page split used a literal middle dot, against the ASCII-only rule for hand-written files. They now write `·` inside the same plain strings, so each compared value is unchanged; the older hits in the frontend gate files predate this PR and stay.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2577 passed**.
+
+### 2026-10-20 - The Unmatched page says which albums the results list
+
+Side task, no batch tag: the Unmatched page tells an include run which of its albums the results already list, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "Split the count (Recommended)" -- the count line names both groups, and the No match found and Could not be checked sections say their albums are in the results.
+
+An include run lists its No match found and Could not be checked albums as unmatched rows, yet the page said "N albums left out of your results". `_listed_unmatched_counts` in `scrobblescope/routes/album_flow.py` marks a report entry as listed only when a result row carrying `unmatched_reason` has the entry's report key (a Show limit can cut rows, so the reason code alone is never trusted). `templates/unmatched.html` then reads "L albums listed in your results without a match, K left out" (", K left out" dropped at zero; the old line when nothing is listed) and adds `unmatched-listed-note` under each group description holding listed albums. README names the new line, and `docs/design/RECONCILIATION.md` records it as Section 24 plus a ledger row (note text 14.78:1 light, 15.21:1 dark).
+
+Deviations: none. Edited existing tests: none. New: `test_unmatched_page_count_line_names_listed_and_left_out` and `test_unmatched_page_sections_say_which_albums_the_results_list`.
+
+Validation: `pytest -q` -- **2577 passed**.
+
+### 2026-10-20 - Listening time is promised only when it is there
+
+Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the Play count / Listening Time control must reflect an include run accurately.
+
+On a run with no Spotify durations, choosing Hide toasted "Unmatched albums hidden; listening time is available." while Listening Time stayed disabled, and the help line under the control promised the same. `setUnmatchedHidden` in `static/js/results.js` now uses the `available` value it already computes: the long toast only when Listening Time really became available, otherwise "Unmatched albums hidden."; `templates/results.html` renders "Hide removes the unmatched listens from the leaderboard." when `has_durations` is false and keeps the old line otherwise. `docs/design/RECONCILIATION.md` records it as Section 23 plus a ledger row.
+
+Deviations: none. Edited existing tests: `test_matched_only_without_durations_leaves_listening_time_off` (gains the toast assertion). New: `test_results_include_run_help_promises_listening_time_only_with_durations`.
+
+Validation: `pytest -q` -- **2570 passed**.
+
+### 2026-10-20 - The dashboard names the tranche and its date
+
+Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the dashboard must say what PLAYBOOK Section 3 says, so a new session is not misled about what comes before WP-1.
+
+A freshness audit found `.claude/SESSION_CONTEXT.md` still reading `Last updated: 2026-09-30` although this branch changed it on 2026-10-20, and its `Batch 23 status` row silent on the tranche of side-task PRs that PLAYBOOK Section 3 describes. The date is now 2026-10-20 and the row gains one sentence naming the tranche. Nothing else in the row changed; the Tests row and DOCSYNC STATUS block are untouched. No deviations; no existing test edited.
+
+Validation: `pytest -q` -- **2568 passed**.
+
+### 2026-10-20 - The gate keeps the index card centred at 1080p
+
+Side task, no batch tag: the frontend gate fails when the index card is pinned under the header at 1080p, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the owner saw the index card stop being centred once the separate Albums field made it taller ("the index card isn't properly centered"); the gate should catch that.
+
+What changed: `_form_centring_failures` in `scripts/dev/_frontend_gate_layout.py`, called from `check_large_display_scale_parity` for the 1080p window (1920x945, default state). `positionForm` places the card at `max(0.25rem, (available - height) / 2 - 2.5rem)`, so while the centring term governs the space below the card exceeds the space above by 2 x 2.5rem = 5rem; the check holds that to 2px (rect rounding) and names a card sitting on the 0.25rem clamp as pinned. `_wide_layout_failures` could not see it because it mirrors the clamp in its expected value. Three unit tests in `tests/scripts/dev/test_frontend_gate_layout.py` cover the healthy, pinned and off-centre cases.
+
+Deviations: the brief said the two spaces should be "within one 2.5rem lift of each other"; the rule makes the correct difference 5rem (the lift applies once above and the centring halves the rest), so the tolerance is derived from that. No existing test edited.
+
+Validation: `pytest -q` -- **2568 passed**.
+
+### 2026-10-20 - The Results control is named as on the index card
+
+Side task, no batch tag: the Results page's unmatched control takes the index card's wording, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the two controls should read the same ("Yes that looks good to me", 2026-10-20, on renaming the Results control to match).
+
+What changed: in `templates/results.html` the Sort leaderboard card's control reads "Unmatched albums" with "Hide" then "Include" (Include selected on an include run) and the help "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; ids, name and values (`results_albums_all` = all, `results_albums_matched` = matched) are unchanged, so `results.js` is untouched apart from three comments. The include gate check, the results-behavior fixture, three comments in `results.js` and `results.css`, README, DESIGN.md, F-B23-43's prose and RECONCILIATION (section 22, ledger rows) follow.
+
+Deviations: none. Edited existing tests: `test_results_include_run_marks_unmatched_rows_and_locks_listening_time`, `test_results_include_run_offers_the_albums_control_for_one_album` and `test_results_plain_run_renders_none_of_the_include_elements` (new copy; the first also asserts the Hide-then-Include order).
+
+Validation: `pytest -q` -- **2564 passed**.
+
+### 2026-10-20 - The unmatched choice joins the Show row
+
+Side task, no batch tag: the index card's unmatched choice moves into the Show row and is renamed, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the separate Albums field made the index card tall and pinned it under the header, so tuck the choice under Show, split the row evenly and make the toggle clearer (rulings 2026-10-20, verbatim in `docs/design/RECONCILIATION.md` section 22).
+
+What changed: `templates/index.html` puts the Show select and the unmatched choice in one `.field-pair` (equal halves from 860px, stacked below, `static/css/index.css`). The label reads "Unmatched albums", the options "Hide" (value 0, default) and "Include" (value 1); ids, name and values are unchanged. The help "Albums Spotify and Deezer can't find, ranked by play count." is rendered `hidden` and `syncUnmatchedLock` in `static/js/index.js` shows it only while Include is chosen. At 1920x945 the default card measures 611px (it was 719px, pinned under the header). The forms gate asserts the help is hidden under Hide and on screen with its exact text under Include, and measures its 7:1 contrast with Include chosen. README, DESIGN.md, three docstrings, a test comment and RECONCILIATION (new section 22, ledger row) follow the code. The Results control keeps its wording until the next commit.
+
+Deviations: none. Edited existing tests: `test_index_albums_control_is_a_pair_of_native_radios` (new copy, hidden help, the shared row) and the docstring of `test_results_loading_passes_the_include_flag_to_the_job_thread`.
+
+Validation: `pytest -q` -- **2564 passed**.
+
+### 2026-10-20 - The tooling diagram draws the include check's imports
+
+Side task, no batch tag: the tooling diagram draws the include check's imports and the hover note is made true, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the records must say what the code and the probes showed.
+
+What changed: in `docs/architecture/documentation-tooling.md` the node `FGINC[_frontend_gate_include]` had no import edges and was missing from the `tool` class list; it now has `FGINC --> FGC` and `FGINC --> FGS` and is in the list. SESSION_CONTEXT Section 4 already lists both imports for the module. The entry "Hover selectors use one :not() list" said the hover check "exercises both selectors"; its probe showed otherwise, so that sentence now says the check guards the hovered ink's contrast, not that the hover rule applies. The Mermaid validator was not run; the controller validates the diagram.
+
+Deviations: none. Documentation only; no test edited.
+
+Validation: `pytest -q` -- **2564 passed**.
+
+### 2026-10-20 - Retry keeps the listener's Albums choice
+
+Side task, no batch tag: Retry on the loading page keeps the Albums choice, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a retried search must repeat the listener's search exactly (owner ruling 2026-09-30: fix a found defect now rather than later).
+
+What changed: an "All albums" run that failed retryably offered Retry, and `retryCurrentSearch()` in `static/js/loading.js` rebuilt the POST from `window.SCROBBLE`, which `templates/loading.html` fills from a hand-written `scrobble-config` block. Neither carried `include_unmatched`, so Retry silently re-ran the search as "Matched only". The block now has `"include_unmatched": include_unmatched|default(false)` (the route already passed it; the default keeps templates rendered without it working) and the script posts `include_unmatched=1` when it is true, nothing otherwise, as the index form does. New `tests/test_loading_retry_contract.py` derives the fields `results_loading` reads from `request.form` (an `ast` walk) and asserts each is a key of the config block and is posted by `retryCurrentSearch()`; it failed on the old tree naming `include_unmatched`, and deleting another field's `createHiddenInput` line makes it fail naming that field.
+
+Deviations: none. No existing test edited.
+
+Validation: `pytest -q` -- **2564 passed**.
+
+### 2026-10-20 - The hover checks wait for transitions, not a timer
+
+Side task, no batch tag: the segmented-control colour checks wait for the browser to finish their transitions instead of sleeping, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: no fixed-timer guesses in the frontend gate (PR #252 removed the others).
+
+What changed: `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` each did `page.wait_for_timeout(350)` before reading a colour that takes a 0.2s transition. Both now call `wait_for_settled` from `scripts/dev/_frontend_gate_shared.py`: the theme switch waits on the control's track, the hover waits on the hovered option. That adds an import of `_frontend_gate_shared` into `_frontend_gate_colour`, so the diagram in `docs/architecture/documentation-tooling.md` gains `FGC --> FGS` and its node label no longer says "pure maths, no page"; SESSION_CONTEXT Section 4's dependency graph gains the same edge and its file note; the module docstring and the DEVELOPMENT.md sentence that called the module pure colour maths now say it also holds the segmented-control checks. The Mermaid validator was not run; the controller validates the diagram.
+
+Deviations: none. No test edited. Probe: a hover rule planted at `#999` fails the gate ("hovered unselected option text on track is 2.66:1, under 7.0:1"); breaking the selector alone (`.seg__optionX`) does not, because the unhovered ink already clears 7:1, so the check guards the hover ink, not the selector.
+
+Validation: `pytest -q` -- **2561 passed**.
+
+### 2026-10-20 - Hover selectors use one :not() list
+
+Side task, no batch tag: the two chained `:not()` hover selectors in `static/css/shell.css` become one `:not()` list each, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: clear the Codacy findings on PR #256 at the cause.
+
+What changed: Codacy (Stylelint `selector-not-notation`, "Expected complex :not() pseudo-class notation", 2 minor) flagged `.seg__radio:not(:disabled):not(:checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover`, the only chained `:not()` selectors in the app's own stylesheets. They are now `.seg__radio:not(:disabled, :checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover`. In Selectors Level 4 `:not(A, B)` matches exactly what `:not(A):not(B)` matches, so behaviour is unchanged (Chromium 88+, Firefox 84+, Safari 9+). The frontend gate's segmented-control hover check (`seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py`) guards the hovered ink's contrast, not that the hover rule applies: with the selector broken the gate still passed, because the unhovered ink already clears 7:1, while a planted low-contrast hover colour fails it ("hovered unselected option text on track is 2.66:1, under 7.0:1"). No test, gate module or document quoted the old text.
+
+Deviations: none. No test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
+### 2026-10-20 - The Albums help no longer sits on a line break
+
+Side task, no batch tag: the index card's Albums help is reworded so it sits clear of a line break, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: PR #256 must pass CI at the root cause, not by loosening the gate.
+
+What changed: CI run 39482227535 (Linux Chromium) failed the large display scale parity check on the index page: "form composition height is 961.6px at 1440p, expected proportional 984.1px" and "form height is 873.3px at 1440p, expected proportional 895.8px". The old help, "All albums keeps the ones Spotify and Deezer can't find, ranked by play count only.", overflowed one line by about 6%: measured locally it wraps to 2 lines at 1080p (last-line slack 407.3px of 432.3px) and 2 lines at 1440p (496px of 526.4px). Font size and column both scale with `--index-scale`, but rasterization differs by pixel size and platform, so in CI the sentence fit one line at 1440p and stayed at two at 1080p; the 1440p form was one help line (21.97px) shorter, and the check correctly reported it. The help now reads "Adds the albums Spotify and Deezer can't find, ranked by play count.": one line with 69.7px slack of 432.3px at 1080p and 85.4px of 526.4px at 1440p (about 16% both). `templates/index.html`, the pinned sentence in `scripts/dev/_frontend_gate_forms.py` and the quoted copy in `docs/design/RECONCILIATION.md` follow. The hazard class is filed as F-B23-44 (a gate check for wrap-boundary slack).
+
+Deviations: the frontend gate and results-behavior script were not run here (another browser gate may be running; the controller runs them and CI verifies).
+
+Edited existing check: the `UNMATCHED_HELP` constant read by the Albums help check in `scripts/dev/_frontend_gate_forms.py`.
+
+Validation: `pytest -q` -- **2561 passed**.
+
+### 2026-10-20 - The redundant tr[hidden] rule is filed
+
+Side task, no batch tag: the `tr[hidden]` rule in `static/css/results.css` is filed as F-B23-43, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the findings list true to what the earlier entry promised.
+
+What changed: the 2026-09-30 entry "MusicBrainz dates the unmatched rows on Results" said the rule "is filed as a finding by the controller", and it was not. F-B23-43 now names both rules (the one in `results.css` and the `[hidden]` rule with `!important` in the compiled `tailwind.css`) and says deleting the first needs a gate or behaviour assertion first.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
+### 2026-10-20 - The production database sleeps after an idle hour again
+
+Side task, no batch tag: the production database (`scrobblescope-db`) is set to stop after an idle hour again, and PLAYBOOK Section 3 names the work before WP-1, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the Fly bill inside the $5 a month Fly waives for a personal organisation.
+
+What changed: on 2026-10-01 `FLY_SCALE_TO_ZERO` was removed from the `scrobblescope-db` machine so the database stayed on. On 2026-10-20 the owner's Fly cost explorer showed $4.90 for 1-20 October ($0.24 a day), which projects past the waiver, so the controller restored `FLY_SCALE_TO_ZERO=1h` with `fly machine update` (machine healthy 3/3, app answered 200). The app holds no connection pool -- `cache.py` opens and closes a connection per use -- so the database can reach zero connections and stop. The release-command retry in `init_db.py` (PR #255) covers a deploy that finds it asleep, and the cache is optional at runtime, so a cold database costs the first job its cache, not its result. No repository file states the always-on setting, so none changes. Section 3 gains a bullet naming the side-task tranche before WP-1 and why job persistence waits: a database-backed job store would keep the database awake, which the hosting cost ceiling does not allow.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
+### 2026-10-20 - Batch 23 planned scope accounts for the include-unmatched control
+
+Side task, no batch tag: Batch 23 planned scope accounts for the include-unmatched control, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the Batch 23 planned scope current, so WP-3, WP-5 and WP-6 plan for the include-unmatched control that shipped before WP-1.
+
+What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header paragraph, a WP-3 checkbox (the export path honours `include_unmatched`), a WP-5 checkbox (the source control and the include-unmatched control share the album form), and a sentence in WP-6's statistics contract (whether unmatched albums count in each summary). PLAYBOOK Section 3 no longer says to run the guard with `--base-ref origin/test`: that branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is deleted, so side-task PRs branch from `main`. The `Branch:` line is unchanged. SESSION_CONTEXT Section 1's Batch 23 row notes the amendment.
+
+Deviations: none. No code change, no test edited. Review fix: PR #245's merge date reads 2026-09-30; the first version gave 2026-09-24, the date the PR was opened.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-01 - The release command waits for a waking database
 
 Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
@@ -106,6 +358,54 @@ Change: a ring failure in `scripts/dev/_frontend_gate_heatmap_access.py` now end
 Root cause not found, so no fix to the check: every check in a group and profile shares one context (`frontend_gate.py` `open_page` makes one per group and profile), but nothing earlier in the `layout & pipeline` group writes `darkMode`, emulates a colour scheme or forced colours on that page (the pipeline check's init script runs on a probe page; the spotlight rotation check's stays on the desktop page but only shortens a 7000 ms interval and passes other fetches through, and the mobile failures have no such script), and 20 runs of the check in one desktop Chromium under a concurrent `pytest -q` all passed. F-B23-39 records what was ruled out; the next failure's evidence line names the cause.
 
 Validation: `pytest -q` -- **2524 passed**.
+
+### 2026-09-30 - MusicBrainz dates the unmatched rows on Results
+
+Side task, no batch tag: MusicBrainz dates the unmatched rows on Results, on the include-unmatched branch (a small PR off main after the cover-washes PR). The commit landed on 2026-10-01; the entry keeps the day of the work.
+
+Owner intent: an included unmatched album gets its release year once MusicBrainz finds it, without the list moving.
+
+What changed: the page script (`static/js/results-release-checks.js`) fills the "unknown" cell of an unmatched row with YYYY-MM and puts the full date in the cell's `data-export` for a confirmed or moved-out finding; a moved-out row also gets the note. The worker and `/api/release_checks` already stored and served the outcome and the date for an unmatched row; new tests pin that, and the rank order. A new frontend-gate check, "include results page" (`scripts/dev/_frontend_gate_include.py`, desktop and mobile), seeds a real include job and asserts the marker and "unknown" text at 7:1 in both themes, the Albums control's option and selected text at 7:1 and its selected boundary at 3:1 against the track and against the card, Matched only (unmatched rows hidden, ranks 01..03, Listening Time enabled), the Sort leaderboard's unselected hover at 7:1, the selected option's forced-colours border equal to `Highlight`, and no horizontal overflow at 390 and 1280. A new behaviour-script test pins the fill. DESIGN.md's segmented-control track line now states the code: the page canvas fill, a 1px hairline border, the 8px radius and 3px padding at scale 1 (the old line also said a 999px pill and 4px padding, which the code never had). The architecture pages name the new gate module and the fill.
+
+Fix (review fold-in, Minor 1): a cached finding and a fresh lookup now reach the same outcome for a result row. `_resolve_cached` stored confirmed for any cached date on the premise that a result is in the list because of that date, which does not hold for an included unmatched row; it would have shown a 1999 date as confirmed in a 2025 run. One function, `_result_outcome(original_release, params)` (unavailable, confirmed or moved out through `_matches_window`), now serves `_check_candidate` and `_resolve_cached`; a cached moved-out row raises the moved-out count as a fresh one does. Mutation: making `_resolve_cached` store confirmed unconditionally again fails `test_a_cached_finding_gives_an_unmatched_row_the_outcome_a_lookup_would[out_of_window]` (`assert 'confirmed' == 'moved_out'`); restored, 55 passed. No exception text reaches a log line. The architecture page's `_frontend_gate_layout` line was reflowed (Minor 4).
+
+Deviations: DESIGN.md also corrected the track's radius and padding, as above. The `tr[hidden]` rule in `static/css/results.css` looks redundant (the rows are hidden by the `[hidden]` rule in the compiled sheet); it is not touched here and is filed as a finding by the controller.
+
+Known limits: this entry replaces the wording Task B's entry carries. The Albums control's option and selected text and the Sort leaderboard's unselected hover at 7:1 in both themes, and the selected option's forced-colours `Highlight` border, are now asserted on the rendered include page by the gate. The remaining limit: the gate seeds the page and does not render a live MusicBrainz pass (the behaviour script and pytest cover the fill and the worker).
+
+Edited existing tests: test_run_release_checks_records_the_date_from_a_cached_finding (its cached date moved from 1977-02-04 to 2025-01-15, inside the job's 2025 window, so the cached finding is still confirmed under the one outcome rule).
+
+Validation: `pytest -q` -- **2555 passed**.
+
+### 2026-09-30 - Results list unmatched albums when the listener asks
+
+Side task, no batch tag: unmatched albums on the Results page, an "Albums" control that hides them and one lifted look for every segmented control, on the include-unmatched branch (a small PR off main after the cover-washes PR). The commit landed on 2026-10-01; the entry keeps the day of the work.
+
+Owner intent: an include run shows the albums Spotify and Deezer could not match, marked, and the listener can hide them to rank by listening time.
+
+What changed: an include run merges the job's unmatched entries into the results (`merge_unmatched_rows`); each row has plain rank and title, the cover wash, a Not Found or Unavailable marker, an "unknown" release (the page script's `??` fallback was needed by that empty cell) and a play-count metric. Total Albums reads "listed" and Scrobbles sums every row. The Sort leaderboard card gains an "Albums" segmented control (All / Matched only, `name="results_albums"`) that hides the rows, renumbers, recounts and enables Listening Time. `.seg` and `.seg__option` moved to `static/css/shell.css`. The shared look is lifted per the owner rulings "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control": option text takes the body token (8.71 light, 10.61 dark on the track), the selected chip keeps its soft fill, gains a 1px primary border (6.06 / 8.14) and takes base-content text (14.81 / 13.04), and an unselected option deepens to base-content on hover (review fold-in, was primary at 6.06). Results' Sort leaderboard buttons take the same tokens through `aria-pressed`, which the template now renders. The frontend gate gains `seg_contrast_*` (text 7:1, boundary 3:1, both themes, four controls) and `seg_hover_failures` (hovered unselected option and the chip, 7:1, on the index Rank by control). `static/css/tailwind.css` was rebuilt by the drift hook. RECONCILIATION Section 21 and two ledger rows record the overrides; Section 20 notes that Section 21 moves the Results help to the same token; DESIGN.md and README follow.
+
+Deviations: the behaviour script loads no stylesheet, so Results colour ratios are held in the frontend gate and the script holds the JS state; the marker and "unknown" facts are pinned by the route tests against the real template. The dating of "unknown" releases is not shipped here.
+
+Known limits: the behaviour script's `include_run` fixture seeds a Top Artist the real page would not start with, and the toast text, the restored title after un-hide and the Top Artist update have assertions but no planted defect; the Results "Albums" control's contrast and the forced-colours `Highlight` border are not gated; no frontend-gate check renders a real include Results page yet.
+
+Edited existing tests: test_results_include_run_marks_unmatched_rows_and_locks_listening_time (assertions).
+
+Validation: `pytest -q` -- **2547 passed**.
+
+### 2026-09-30 - The index card can include unmatched albums
+
+Side task, no batch tag: the index card's "Include unmatched albums" switch and the sort lock, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a quick toggle on the index card for the Last.fm albums Spotify and Deezer could not match, which blocks switching between play time and play count.
+
+What changed: a native checkbox Switch between "Rank by" and "Show"; while it is on, Play time is disabled (dimmed, visible) and Play count is selected. The form field `include_unmatched=1` is stored as a job param (default False); an include run posted with `sort_by=playtime` is stored as play count, the same rule without scripts. The loading page lists "unmatched albums included". The off track is outlined in the muted text colour and the knob has a dark edge (`rgba(20, 16, 24, 0.75)`), because the kit's border-toned track measured 1.3:1 against the card. A frontend-gate check drives the switch by keyboard, reads its name and description, checks the track border under forced colours, and holds the track border and knob boundary at 3:1 in both themes, on and off (measured: track border 5.39:1 to 7.54:1 against the card; knob boundary, the stronger of edge and knob against the track, 4.98:1 at the lowest, dark on).
+
+Deviations: the brief edited `docs/design/README.md` and two component prompts; the design-snapshot test forbids that, so the overrides are `docs/design/RECONCILIATION.md` Section 20 (after the cover-washes Section 19) and a ledger row, and DESIGN.md. Help text keeps the card's `.field__help` colour (5.5:1), pending the owner's design-system ruling. F-B23-39 gains one evidence sentence (three overlapping gate runs on this machine hit `ERR_NO_BUFFER_SPACE`).
+
+Edited existing tests: none (four new tests in tests/test_routes.py).
+
+Validation: `pytest -q` -- **2532 passed**.
 
 ### 2026-09-30 - Coverless albums get a deterministic two-tone wash
 

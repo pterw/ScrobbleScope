@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-30
+Last updated: 2026-10-20
 
 ---
 
@@ -9,11 +9,11 @@ Last updated: 2026-09-30
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2543 passing** across 85 tracked test modules |
+| Tests | **2590 passing** across 85 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
+| Batch 23 status | **Active**. WP-0 is next. PR #245 ships the WP-0 foundation and every fix from the three reviews; job persistence, the Last.fm scrobble seams, the album request module, metadata encoding, statistics and the tooling package moved to the follow-up PR (owner ruling 2026-09-29). Before WP-1, a tranche of side-task PRs runs (PLAYBOOK Section 3). Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. Definition amended 2026-10-20 for the include-unmatched control (WP-3, WP-5, WP-6). |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -43,7 +43,7 @@ Last updated: 2026-09-30
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2543 passed**.
+- Latest validated test count: **2590 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -102,9 +102,10 @@ scripts/
     results_behavior_tests.py # Chromium behaviour tests for the Results page
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
     _frontend_gate_assets.py # stylesheet isolation
-    _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
+    _frontend_gate_colour.py # colour and contrast maths and segmented-control checks, re-exported by the gate
     _frontend_gate_forms.py # form validation, validator races, initial visibility
     _frontend_gate_heatmap_access.py # heatmap cell keyboard reachability, aria-label and focus ring
+    _frontend_gate_include.py # real include-run Results page: contrast, matched only, forced colours, overflow
     _frontend_gate_layout.py # fonts, text scaling, touch targets, scale parity
     _frontend_gate_pipeline.py # loading composition, progress state machines, spotlight
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
@@ -208,9 +209,10 @@ dev/graphify_refresh.py <- (leaf; standard library only)
 dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
-dev/_frontend_gate_colour.py <- (leaf; standard library only)
+dev/_frontend_gate_colour.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_include.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; domain; jobs
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
 dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; jobs
@@ -220,7 +222,7 @@ dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; domain; jobs
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---
@@ -273,7 +275,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2543 tests)
+## 6. Test structure (2590 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

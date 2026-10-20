@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from scrobblescope import jobs
-from scrobblescope.domain import release_window
+from scrobblescope.domain import normalize_name, release_window
 from scrobblescope.errors import (
     PrivateProfileError,
     ProviderError,
@@ -21,6 +21,7 @@ from scrobblescope.orchestrator import (
     _get_user_friendly_reason,
     _lookup_cached_original_release,
     _matches_release_criteria,
+    merge_unmatched_rows,
 )
 from tests.helpers import TEST_JOB_PARAMS
 
@@ -680,3 +681,151 @@ def test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence():
     stats = jobs.progress(job_id)["stats"]
     assert stats["partial_data_sources"] == ["lastfm"]
     assert stats["pages_dropped"] == 1
+
+
+# ---------------------------------------------------------------------------
+# merge_unmatched_rows: the "Include" choice
+# ---------------------------------------------------------------------------
+
+
+def _unmatched_entry(artist, album, reason_code, play_count):
+    return {
+        "artist": artist,
+        "album": album,
+        "reason": "x",
+        "reason_code": reason_code,
+        "album_image": None,
+        "spotify_id": None,
+        "play_count": play_count,
+    }
+
+
+def _matched_row(artist, album, play_count):
+    return {
+        "artist": artist,
+        "album": album,
+        "play_count": play_count,
+        "play_time_seconds": 600,
+        "play_time": "10 mins",
+    }
+
+
+def test_merge_unmatched_rows_lists_both_misses_and_never_the_filters():
+    """
+    GIVEN unmatched entries of all four reasons
+    WHEN merge_unmatched_rows runs
+    THEN only no_spotify_match and provider_unavailable become rows, each
+    marked with its reason; below-threshold and release-scope entries are
+    filters, not misses, and never appear.
+
+    Mutation: let any reason through and the exact-title assertion fails.
+    """
+    unmatched = {
+        "a|nf": _unmatched_entry("A", "Not Found", "no_spotify_match", 30),
+        "b|un": _unmatched_entry("B", "Unavailable", "provider_unavailable", 20),
+        "c|th": _unmatched_entry("C", "Threshold", "below_threshold", 99),
+        "d|rs": _unmatched_entry("D", "Scope", "release_scope", 98),
+    }
+
+    merged = merge_unmatched_rows([], unmatched)
+
+    assert {row["album"]: row["unmatched_reason"] for row in merged} == {
+        "Not Found": "no_spotify_match",
+        "Unavailable": "provider_unavailable",
+    }
+
+
+def test_merge_unmatched_rows_play_count_none_is_zero():
+    """
+    GIVEN an unmatched entry whose play_count is None (older entries)
+    WHEN it is merged
+    THEN the row's play_count is the integer 0, not None.
+    """
+    unmatched = {"a|x": _unmatched_entry("A", "X", "no_spotify_match", None)}
+
+    (row,) = merge_unmatched_rows([], unmatched)
+
+    assert row["play_count"] == 0
+    assert isinstance(row["play_count"], int)
+
+
+def test_merge_unmatched_rows_orders_by_plays_and_keeps_matched_first_on_ties():
+    """
+    GIVEN matched rows (already by plays) and unmatched entries, one tying a
+    matched row
+    WHEN merged
+    THEN the list is by play count descending and the matched row stays ahead
+    of the unmatched row with equal plays.
+
+    Mutation: sort ascending, or put the merged rows before the matched ones
+    ahead of the sort, and the order assertion fails.
+    """
+    results = [
+        _matched_row("M", "Top", 50),
+        _matched_row("M", "Tied", 30),
+        _matched_row("M", "Low", 10),
+    ]
+    unmatched = {
+        "u|tie": _unmatched_entry("U", "Tie", "no_spotify_match", 30),
+        "u|mid": _unmatched_entry("U", "Mid", "provider_unavailable", 40),
+    }
+
+    merged = merge_unmatched_rows(results, unmatched)
+
+    assert [row["album"] for row in merged] == ["Top", "Mid", "Tied", "Tie", "Low"]
+
+
+def test_merge_unmatched_rows_returns_a_new_list_and_never_mutates_inputs():
+    """
+    GIVEN a results list and an unmatched mapping
+    WHEN merged
+    THEN the result is a new list, the inputs are equal to their copies, and
+    the matched row dicts are the same objects (no copies, no edits).
+    """
+    results = [_matched_row("M", "Top", 50)]
+    unmatched = {"u|x": _unmatched_entry("U", "X", "no_spotify_match", 60)}
+    results_before = [dict(row) for row in results]
+    unmatched_before = {key: dict(entry) for key, entry in unmatched.items()}
+
+    merged = merge_unmatched_rows(results, unmatched)
+
+    assert merged is not results
+    assert results == results_before
+    assert unmatched == unmatched_before
+    assert merged[1] is results[0]
+
+
+def test_merge_unmatched_rows_row_carries_the_designed_keys():
+    """
+    GIVEN a no-match entry
+    WHEN merged
+    THEN the row has every key design.md names, no play time, no provider
+    data, and the same _normalized_key _build_results sets for matched rows.
+
+    Mutation: build the key from the raw names instead of normalize_name and
+    the key assertion fails (normalising lowercases and strips the suffix).
+    """
+    unmatched = {
+        "x|y": _unmatched_entry(
+            "Sigur R\u00f3s", "Takk... (Deluxe)", "no_spotify_match", 7
+        )
+    }
+
+    (row,) = merge_unmatched_rows([], unmatched)
+
+    assert row == {
+        "artist": "Sigur R\u00f3s",
+        "album": "Takk... (Deluxe)",
+        "play_count": 7,
+        "play_time_seconds": 0,
+        "play_time": "",
+        "play_time_mobile": "",
+        "album_image": None,
+        "album_url": None,
+        "provider": None,
+        "spotify_id": None,
+        "release_date": None,
+        "unmatched_reason": "no_spotify_match",
+        "_normalized_key": normalize_name("Sigur R\u00f3s", "Takk... (Deluxe)"),
+    }
+    assert row["_normalized_key"] != ("Sigur R\u00f3s", "Takk... (Deluxe)")

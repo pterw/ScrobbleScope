@@ -15,7 +15,11 @@ from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.orchestrator import background_task
 from scrobblescope.spotlight import select_spotlight_artists
-from scrobblescope.unmatched import REASON_PROVIDER_UNAVAILABLE
+from scrobblescope.unmatched import (
+    CATEGORY_METADATA,
+    REASON_NO_SPOTIFY_MATCH,
+    REASON_PROVIDER_UNAVAILABLE,
+)
 from scrobblescope.utils import log_failure
 
 bp = _routes.bp
@@ -35,6 +39,7 @@ def _extract_job_params(job_context):
         "min_tracks": params.get("min_tracks", 3),
         "limit_results": params.get("limit_results", "all"),
         "mode": params.get("mode", "album"),
+        "include_unmatched": params.get("include_unmatched", False),
     }
 
 
@@ -92,6 +97,7 @@ def _render_loading_page():
         username=p["username"],
         year=p["year"],
         sort_by=p["sort_mode"],
+        include_unmatched=p["include_unmatched"],
         release_scope=p["release_scope"],
         decade=p["decade"],
         release_year=p["release_year"],
@@ -272,7 +278,19 @@ def _render_results_page():
     # forbids. A skipped pass reserves nothing, because nothing will report.
     release_check = progress_payload.get("stats", {}).get("release_check")
 
-    spotlight_artists = select_spotlight_artists(filtered_results, job_id)
+    include_unmatched = p["include_unmatched"]
+    unmatched_row_count = sum(1 for a in filtered_results if a.get("unmatched_reason"))
+    # The badge words come from the Unmatched page's table, one source.
+    unmatched_badges = {
+        code: CATEGORY_METADATA[code]["badge"]
+        for code in (REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILABLE)
+    }
+
+    # Matched rows only: an unmatched album has no provider data for the
+    # artist portrait, so it cannot be the spotlight.
+    spotlight_artists = select_spotlight_artists(
+        [a for a in filtered_results if not a.get("unmatched_reason")], job_id
+    )
     spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
     top_artist_name = spotlight_artist.get("name", "")
     top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
@@ -295,6 +313,9 @@ def _render_results_page():
         partial_notice=partial_notice,
         partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
+        include_unmatched=include_unmatched,
+        unmatched_row_count=unmatched_row_count,
+        unmatched_badges=unmatched_badges,
         job_id=job_id,
         top_artist_name=top_artist_name,
         top_artist_scrobbles=top_artist_scrobbles,
@@ -315,6 +336,35 @@ def results():
 def results_complete():
     """Keep the legacy completion POST working while callers move to GET."""
     return _render_results_page()
+
+
+def _listed_unmatched_counts(job_context, include_unmatched, unmatched_data, reasons):
+    """Count the report's albums that an include run lists in its results.
+
+    A report entry is listed when the run is an include run and a result row
+    carrying ``unmatched_reason`` has the entry's report key as its
+    ``_normalized_key``. A Show limit can cut such rows, so the reason code
+    alone never says an album is listed. Returns ``(listed, by_reason)``:
+    the total, and the count per ``reasons`` group.
+    """
+    if not include_unmatched:
+        return 0, {}
+    results = job_context.get("results")
+    rows = results if isinstance(results, list) else []
+    listed_keys = {
+        "|".join(row["_normalized_key"])
+        for row in rows
+        if row.get("unmatched_reason") and row.get("_normalized_key")
+    }
+    # group_unmatched_albums groups the very dicts held in unmatched_data.
+    listed_ids = {
+        id(item) for key, item in unmatched_data.items() if key in listed_keys
+    }
+    by_reason = {
+        reason_key: sum(1 for album in albums if id(album) in listed_ids)
+        for reason_key, albums in reasons.items()
+    }
+    return sum(by_reason.values()), by_reason
 
 
 def _render_unmatched_page():
@@ -361,6 +411,10 @@ def _render_unmatched_page():
         unmatched_data
     )
 
+    listed_count, listed_by_reason = _listed_unmatched_counts(
+        job_context, p["include_unmatched"], unmatched_data, reasons
+    )
+
     return render_template(
         "unmatched.html",
         username=username,
@@ -371,6 +425,8 @@ def _render_unmatched_page():
         reason_counts=reason_counts,
         reason_metadata=reason_metadata,
         total_count=len(unmatched_data),
+        listed_count=listed_count,
+        listed_by_reason=listed_by_reason,
         min_plays=min_plays,
         min_tracks=min_tracks,
         job_id=job_id,
@@ -398,6 +454,12 @@ def results_loading():
     username = request.form.get("username")
     year = request.form.get("year")
     sort_mode = request.form.get("sort_by", "playcount")
+    include_unmatched = request.form.get("include_unmatched") == "1"
+    # An include run is always a play-count run: an unmatched album has no play
+    # time. The page disables the choice; this is the same rule for a form
+    # posted without scripts.
+    if include_unmatched and sort_mode == "playtime":
+        sort_mode = "playcount"
     release_scope = request.form.get("release_scope", "same")
     decade = request.form.get("decade") if release_scope == "decade" else None
     release_year = (
@@ -467,6 +529,7 @@ def results_loading():
         "username": username,
         "year": year,
         "sort_mode": sort_mode,
+        "include_unmatched": include_unmatched,
         "release_scope": release_scope,
         "decade": decade,
         "release_year": release_year,
@@ -491,6 +554,7 @@ def results_loading():
                 min_plays,
                 min_tracks,
                 limit_results,
+                include_unmatched,
             ),
         )
     except Exception:  # noqa: BLE001 -- logged by log_failure

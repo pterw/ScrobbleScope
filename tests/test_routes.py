@@ -847,6 +847,94 @@ def test_release_checks_api_key_matches_the_normalized_pair(client):
     assert response.get_json()["albums"][0]["key"] == f"{artist_norm}|{album_norm}"
 
 
+def test_release_checks_api_serves_the_date_found_for_an_unmatched_row(client):
+    """
+    GIVEN an include run's unmatched result (release_date None) that the
+         worker confirmed with a date
+    WHEN GET /api/release_checks is requested
+    THEN the album is listed under the key its page row carries, with the
+         state and the date, so the page can fill its "unknown" cell.
+    """
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(
+        job_id,
+        [
+            {
+                **_provider_row("spotify", 0),
+                "release_date": None,
+                "unmatched_reason": "no_spotify_match",
+                "_normalized_key": normalize_name("Lost Band", "Lost Album"),
+                "artist": "Lost Band",
+                "album": "Lost Album",
+                "release_check": "confirmed",
+                "original_release_date": "2025-03-14",
+            }
+        ],
+        "Done",
+    )
+
+    albums = client.get(f"/api/release_checks?job_id={job_id}").get_json()["albums"]
+
+    artist_norm, album_norm = normalize_name("Lost Band", "Lost Album")
+    assert albums == [
+        {
+            "key": f"{artist_norm}|{album_norm}",
+            "original_release_date": "2025-03-14",
+            "state": "confirmed",
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "check, date, shown, export",
+    [
+        ("confirmed", "1977-02-04", "1977-02", "1977-02-04"),
+        ("moved_out", "1977-02-04", "1977-02", "1977-02-04"),
+        ("unavailable", "1977-02-04", None, ""),
+        ("unchecked", None, None, ""),
+    ],
+)
+def test_results_page_renders_a_found_date_on_an_unmatched_row(
+    client, check, date, shown, export
+):
+    """
+    GIVEN an include run whose unmatched row the check already ended on
+    WHEN the results page renders after the check finished
+    THEN a confirmed or moved-out row shows the date (YYYY-MM) with the full
+         date as its export value; any other state stays "unknown" and empty,
+         even when a stale date is stored.
+
+    Mutation: render the old unconditional unknown cell and the confirmed case
+    fails; ignore release_check and the unavailable case fails.
+    """
+    row = {
+        **_unmatched_result_row("Lost One", "no_spotify_match", 45),
+        "release_check": check,
+        "original_release_date": date,
+    }
+    page = _render_results_include(client, [row])
+
+    cell = _row_html(page, "Lost One").split("release-date-cell", 1)[1]
+    cell = cell.split("</td>")[0]
+    if shown:
+        assert f'data-export="{export}"' in cell
+        assert f'<span class="release-date-value">{shown}</span>' in cell
+        assert "release-date-value--unknown" not in cell
+    else:
+        assert 'data-export=""' in cell
+        assert "release-date-value--unknown" in cell
+        assert "1977" not in cell
+
+
+def _render_results_include(client, rows):
+    """Render /results_complete for a finished include run holding `rows`."""
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
 def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
     """
     GIVEN a result dict carrying no _normalized_key
@@ -1409,6 +1497,80 @@ def test_unmatched_view_expander_offers_the_ruled_step(client):
     # 40 albums, 10 shown, so 30 remain: more than one step, so the copy names
     # the step rather than offering the remainder in one go.
     assert b"Show next 25 (30 remaining)" in response.data
+
+
+def _post_and_read_job(client, fresh_job_store, **form):
+    """POST /results_loading with a stubbed worker; return the stored job's params."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post("/results_loading", data={**VALID_FORM_DATA, **form})
+    assert response.status_code == 303
+    (job_id,) = fresh_job_store.ids()
+    return job_id, jobs.context(job_id)["params"]
+
+
+def test_results_loading_include_unmatched_forces_playcount(client, fresh_job_store):
+    """
+    GIVEN a form posted with include_unmatched=1 and sort_by=playtime
+    WHEN POST /results_loading creates the job
+    THEN the job stores include_unmatched=True and sort_mode="playcount",
+         because an unmatched album has no play time (the rule holds without scripts).
+    """
+    _, params = _post_and_read_job(
+        client, fresh_job_store, include_unmatched="1", sort_by="playtime"
+    )
+
+    assert params["include_unmatched"] is True
+    assert params["sort_mode"] == "playcount"
+
+
+def test_results_loading_without_include_unmatched_keeps_playtime(
+    client, fresh_job_store
+):
+    """
+    GIVEN a form posted without the include_unmatched field and sort_by=playtime
+    WHEN POST /results_loading creates the job
+    THEN the job stores include_unmatched=False and keeps sort_mode="playtime".
+    """
+    _, params = _post_and_read_job(client, fresh_job_store, sort_by="playtime")
+
+    assert params["include_unmatched"] is False
+    assert params["sort_mode"] == "playtime"
+
+
+def test_extract_job_params_defaults_include_unmatched_to_false():
+    """
+    GIVEN a job context stored before the include_unmatched param existed
+    WHEN _extract_job_params reads it
+    THEN include_unmatched is False, and True when the job stored True.
+    """
+    from scrobblescope.routes.album_flow import _extract_job_params
+
+    legacy = {"params": dict(TEST_JOB_PARAMS)}
+    assert _extract_job_params(legacy)["include_unmatched"] is False
+    legacy["params"]["include_unmatched"] = True
+    assert _extract_job_params(legacy)["include_unmatched"] is True
+
+
+def test_loading_page_lists_unmatched_albums_only_for_an_include_run(client):
+    """
+    GIVEN one job stored with include_unmatched and one without
+    WHEN each loading page is rendered
+    THEN only the include run lists "unmatched albums included" among its choices.
+    """
+    include_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    plain_id = jobs.create(TEST_JOB_PARAMS)
+
+    include_page = client.get(f"/loading?job_id={include_id}").data
+    plain_page = client.get(f"/loading?job_id={plain_id}").data
+
+    assert b"<li>unmatched albums included</li>" in include_page
+    assert b"unmatched albums included" not in plain_page
 
 
 def test_loading_page_uses_job_context_at_canonical_url(client):
@@ -3116,3 +3278,523 @@ def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
         wanted = 2 if title == "Wash Failing" else 1
         assert len(washed) == wanted, (title, expected, boxes)
     assert len(set(picks.values())) > 1, picks
+
+
+# ---------------------------------------------------------------------------
+# Results page for an "Include unmatched albums" run
+# ---------------------------------------------------------------------------
+
+
+def _unmatched_result_row(album, reason, plays):
+    """A row as merge_unmatched_rows builds it."""
+    return {
+        "artist": f"{album} Band",
+        "album": album,
+        "play_count": plays,
+        "play_time_seconds": 0,
+        "play_time": "",
+        "play_time_mobile": "",
+        "album_image": None,
+        "album_url": None,
+        "provider": None,
+        "spotify_id": None,
+        "release_date": None,
+        "unmatched_reason": reason,
+        "_normalized_key": normalize_name(f"{album} Band", album),
+    }
+
+
+def _render_include_results(client, include_unmatched=True):
+    """Render results for a run with three matched and two unmatched rows."""
+    rows = [
+        {**_provider_row("spotify", 0), "play_count": 50},
+        _unmatched_result_row("Lost One", "no_spotify_match", 45),
+        {**_provider_row("spotify", 1), "play_count": 40},
+        _unmatched_result_row("Lost Two", "provider_unavailable", 35),
+        {**_provider_row("spotify", 2), "play_count": 30},
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": include_unmatched})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _row_html(page, album):
+    return next(part for part in page.split("<tr") if f'data-album="{album}"' in part)
+
+
+def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(client):
+    """
+    GIVEN an include run with a no-match and an unavailable row among matched
+    rows
+    WHEN the results page renders
+    THEN each unmatched row carries data-unmatched, the Unmatched page's badge
+    word, an "unknown" release with an empty export value, a plain (linkless)
+    rank and name and a wash instead of a cover; the stats say "listed" and
+    count every row; Listening Time is disabled with its reason; and the
+    Unmatched albums segmented control (Hide / Include, radios of one group,
+    no form around them) states what Hide does.
+
+    Mutation: drop the unmatched branch of the row and the badge, unknown and
+    no-link assertions fail; drop the disabled attribute and the lock fails.
+    """
+    page = _render_include_results(client)
+
+    not_found = _row_html(page, "Lost One")
+    unavailable = _row_html(page, "Lost Two")
+    assert 'data-unmatched="no_spotify_match"' in not_found
+    assert 'data-unmatched="provider_unavailable"' in unavailable
+    assert re.search(
+        r'<span class="provider-badge provider-badge--unmatched">Not Found</span>',
+        not_found,
+    )
+    assert re.search(
+        r'<span class="provider-badge provider-badge--unmatched">Unavailable</span>',
+        unavailable,
+    )
+    for row in (not_found, unavailable):
+        assert "<a " not in row.split("</tr>")[0]
+        assert 'data-export=""' in row
+        assert (
+            '<span class="release-date-value release-date-value--unknown">'
+            "unknown</span>"
+        ) in row
+        assert "cover-wash-" in row
+        assert "<img" not in row
+    assert 'data-unmatched=""' in _row_html(page, "Spotify Album 0")
+
+    total = re.search(r'id="stat-total-albums"[^>]*>(\d+)<', page)
+    scrobbles = re.search(r'id="stat-scrobbles"[^>]*>([\d,]+)<', page)
+    assert total.group(1) == "5"
+    assert scrobbles.group(1) == "200"
+    assert re.search(r">listed</span>", page)
+    assert ">matched<" not in page
+
+    button = re.search(r'<button id="toggle-sort-playtime"[^>]*>', page).group(0)
+    assert "disabled" in button
+    assert 'title="Unmatched albums have no listening time"' in button
+    assert 'data-has-durations="true"' in button
+    assert 'aria-pressed="false"' in button
+    assert re.search(r'<button id="toggle-sort-plays"[^>]*aria-pressed="true"', page)
+    every_all = re.search(r'<input type="radio" id="results_albums_all"[^>]*>', page)
+    matched_only = re.search(
+        r'<input type="radio" id="results_albums_matched"[^>]*>', page
+    )
+    assert every_all and matched_only
+    for radio in (every_all, matched_only):
+        assert 'name="results_albums"' in radio.group(0)
+    assert "checked" in every_all.group(0)
+    assert "checked" not in matched_only.group(0)
+    assert 'for="results_albums_matched" class="seg__option">Hide<' in page
+    assert 'for="results_albums_all" class="seg__option">Include<' in page
+    assert ">Unmatched albums</span>" in page
+    assert page.index('id="results_albums_matched"') < page.index(
+        'id="results_albums_all"'
+    )
+    assert (
+        "Hide removes the unmatched listens so the leaderboard can be "
+        "ranked by listening time."
+    ) in page
+    assert "remove-unmatched" not in page
+    assert "switch-row" not in page
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected", "absent"),
+    [
+        pytest.param(
+            600,
+            "Hide removes the unmatched listens so the leaderboard can be "
+            "ranked by listening time.",
+            "from the leaderboard.",
+            id="with-durations",
+        ),
+        pytest.param(
+            0,
+            "Hide removes the unmatched listens from the leaderboard.",
+            "ranked by listening time",
+            id="without-durations",
+        ),
+    ],
+)
+def test_results_include_run_help_promises_listening_time_only_with_durations(
+    client, seconds, expected, absent
+):
+    """
+    GIVEN an include run with or without Spotify track durations
+    WHEN the results page renders
+    THEN the Hide help line promises listening-time ranking only when the
+    run has durations.
+
+    Mutation: render the ranked-by-listening-time help unconditionally and the
+    without-durations case fails.
+    """
+    rows = [
+        {**_provider_row("spotify", 0), "play_time_seconds": seconds},
+        _unmatched_result_row("Lost One", "no_spotify_match", 5),
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    page = client.post("/results_complete", data={"job_id": job_id}).data.decode(
+        "utf-8"
+    )
+
+    help_line = re.search(r'<p class="results-seg-help"[^>]*>(.*?)</p>', page).group(1)
+    assert help_line == expected
+    assert absent not in help_line
+
+
+def _record_report_entry(job_id, album, reason_code):
+    """A report entry as the pipeline records it, keyed like its result row."""
+    jobs.record_unmatched(
+        job_id,
+        "|".join(normalize_name(f"{album} Band", album)),
+        {
+            "artist": f"{album} Band",
+            "album": album,
+            "play_count": 20,
+            "reason": "x",
+            "reason_code": reason_code,
+        },
+    )
+
+
+def _render_unmatched(client, include_unmatched, entries, listed_rows):
+    """Render the Unmatched page for a job whose results hold `listed_rows`."""
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": include_unmatched})
+    for album, reason_code in entries:
+        _record_report_entry(job_id, album, reason_code)
+    rows = [_provider_row("spotify", 0)] + [
+        _unmatched_result_row(album, reason, 20) for album, reason in listed_rows
+    ]
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _unmatched_subtitle(html):
+    subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
+    return " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
+
+
+_INCLUDE_ENTRIES = [
+    ("Lost One", "no_spotify_match"),
+    ("Lost Two", "no_spotify_match"),
+    ("Lost Three", "provider_unavailable"),
+    ("Short One", "below_threshold"),
+]
+
+
+@pytest.mark.parametrize(
+    ("include", "entries", "listed_rows", "expected"),
+    [
+        pytest.param(
+            False,
+            _INCLUDE_ENTRIES,
+            [],
+            "2025 \u00b7 4 albums left out of your results",
+            id="not-an-include-run",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES,
+            [
+                ("Lost One", "no_spotify_match"),
+                ("Lost Two", "no_spotify_match"),
+                ("Lost Three", "provider_unavailable"),
+            ],
+            "2025 \u00b7 3 albums listed in your results without a match, 1 left out",
+            id="listed-and-left-out",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:3],
+            [
+                ("Lost One", "no_spotify_match"),
+                ("Lost Two", "no_spotify_match"),
+                ("Lost Three", "provider_unavailable"),
+            ],
+            "2025 \u00b7 3 albums listed in your results without a match",
+            id="all-listed",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:1],
+            [("Lost One", "no_spotify_match")],
+            "2025 \u00b7 1 album listed in your results without a match",
+            id="one-listed",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[:2],
+            [("Lost One", "no_spotify_match")],
+            "2025 \u00b7 1 album listed in your results without a match, 1 left out",
+            id="show-limit-cut-a-listed-reason",
+        ),
+        pytest.param(
+            True,
+            _INCLUDE_ENTRIES[3:],
+            [],
+            "2025 \u00b7 1 album left out of your results",
+            id="include-run-with-nothing-listed",
+        ),
+    ],
+)
+def test_unmatched_page_count_line_names_listed_and_left_out(
+    client, include, entries, listed_rows, expected
+):
+    """
+    GIVEN a job whose report holds entries and whose results list some of them
+    WHEN the Unmatched page renders
+    THEN the count line names the listed albums and the left-out ones, counting
+    an entry as listed only when a result row carries its key (a Show limit
+    can cut a row whose reason code says it would have been listed), and a
+    run listing nothing keeps the left-out line.
+
+    Mutation: count the listed albums from the reason codes and the
+    show-limit case reads "2 albums listed" and fails.
+    """
+    html = _render_unmatched(client, include, entries, listed_rows)
+
+    assert _unmatched_subtitle(html) == expected
+
+
+def test_unmatched_page_sections_say_which_albums_the_results_list(client):
+    """
+    GIVEN an include run listing one of two no-match albums and both
+    provider-unavailable ones, with a below-threshold album left out
+    WHEN the Unmatched page renders
+    THEN a section whose albums are all listed says so, a section with only
+    some listed says "1 of 2 listed", and a section with none listed has no
+    note; a non-include run has no note anywhere.
+
+    Mutation: render the note in every section and the below-threshold
+    section fails; compare against the Show limit wrongly and "1 of 2"
+    reads as all listed.
+    """
+    entries = [
+        ("Lost One", "no_spotify_match"),
+        ("Lost Two", "no_spotify_match"),
+        ("Lost Three", "provider_unavailable"),
+        ("Lost Four", "provider_unavailable"),
+        ("Short One", "below_threshold"),
+    ]
+    listed = [
+        ("Lost One", "no_spotify_match"),
+        ("Lost Three", "provider_unavailable"),
+        ("Lost Four", "provider_unavailable"),
+    ]
+    html = _render_unmatched(client, True, entries, listed)
+
+    assert "1 of 2 listed in your results, ranked by play count." in _unmatched_panel(
+        html, "no_spotify_match"
+    )
+    all_listed = _unmatched_panel(html, "provider_unavailable")
+    assert "Listed in your results, ranked by play count." in all_listed
+    assert " of 2 listed" not in all_listed
+    assert "listed in your results" not in _unmatched_panel(html, "below_threshold")
+
+    plain = _render_unmatched(client, False, entries, [])
+    assert "listed in your results" not in plain
+    assert "unmatched-listed-note" not in plain
+
+
+def test_results_include_run_offers_the_albums_control_for_one_album(client):
+    """
+    GIVEN an include run with a single unmatched row
+    WHEN the results page renders
+    THEN the Unmatched albums control is still offered, with its help text.
+    """
+    rows = [
+        _provider_row("spotify", 0),
+        _unmatched_result_row("Lost One", "no_spotify_match", 5),
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    page = client.post("/results_complete", data={"job_id": job_id}).data.decode(
+        "utf-8"
+    )
+
+    assert 'id="results_albums_matched"' in page
+    assert "Hide removes the unmatched listens so" in page
+
+
+def test_results_plain_run_renders_none_of_the_include_elements(client):
+    """
+    GIVEN a normal run (the include option off, no unmatched rows)
+    WHEN the results page renders
+    THEN no marker, unknown value, Unmatched albums control or locked button appears and
+    the stat caption still says "matched".
+
+    Mutation: render the control or the caption unconditionally and this fails.
+    """
+    page = _render_results(client, [_provider_row("spotify", 0)])
+
+    for absent in (
+        "provider-badge--unmatched",
+        "release-date-value--unknown",
+        'id="results_albums_matched"',
+        "Hide removes the unmatched listens",
+        "Unmatched albums have no listening time",
+        ">listed<",
+    ):
+        assert absent not in page, absent
+    assert ">matched</span>" in page
+    assert 'data-unmatched=""' in page
+    button = re.search(r'<button id="toggle-sort-playtime"[^>]*>', page).group(0)
+    assert "disabled" not in button
+
+
+def test_results_attribution_excepts_the_unmatched_markers(client):
+    """
+    GIVEN an include run, and a plain run with a Deezer row
+    WHEN each renders
+    THEN the include run's attribution line also excepts rows marked Not Found
+    or Unavailable, the Deezer run's line is unchanged, and a run with both
+    names both exceptions.
+    """
+    include_page = _render_include_results(client)
+    line = re.search(r'provider-attribution__text">([^<]*)<', include_page).group(1)
+    assert line == (
+        "Album artwork and links from Spotify, except rows marked "
+        "Not Found or Unavailable"
+    )
+
+    deezer_page = _render_results(
+        client, [_provider_row("spotify", 0), _provider_row("deezer", 1)]
+    )
+    line = re.search(r'provider-attribution__text">([^<]*)<', deezer_page).group(1)
+    assert line == (
+        "Album artwork and links from Spotify, except rows that name another provider"
+    )
+
+    both = [
+        _provider_row("spotify", 0),
+        _provider_row("deezer", 1),
+        _unmatched_result_row("Lost One", "no_spotify_match", 5),
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, both, "Done!")
+    both_page = client.post("/results_complete", data={"job_id": job_id}).data.decode(
+        "utf-8"
+    )
+    line = re.search(r'provider-attribution__text">([^<]*)<', both_page).group(1)
+    assert line == (
+        "Album artwork and links from Spotify, except rows that name another "
+        "provider or are marked Not Found or Unavailable"
+    )
+
+
+def test_results_spotlight_ignores_unmatched_rows(client):
+    """
+    GIVEN an include run whose most-played artist is an unmatched album
+    WHEN the results page renders
+    THEN the artist spotlight candidates (the page's APP_DATA) are matched
+    artists only.
+
+    Mutation: pass every row to select_spotlight_artists and the unmatched
+    artist leads the candidates.
+    """
+    rows = [
+        _unmatched_result_row("Lost One", "no_spotify_match", 500),
+        {**_provider_row("spotify", 0), "play_count": 50},
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    page = client.post("/results_complete", data={"job_id": job_id}).data.decode(
+        "utf-8"
+    )
+
+    config = re.search(
+        r'<script id="app-data-config" type="application/json">(.*?)</script>',
+        page,
+        re.DOTALL,
+    )
+    names = [a["name"] for a in json.loads(config.group(1))["spotlight_artists"]]
+    assert names == ["Spotify Band 0"]
+
+
+def test_index_albums_control_is_a_pair_of_native_radios(client):
+    """
+    GIVEN the index page
+    WHEN it renders
+    THEN "Unmatched albums" is a segmented control of two radios posting
+    include_unmatched (Hide = 0, checked; Include = 1), described by its help
+    text, which is rendered hidden (index.js shows it under Include) beside
+    the Show select in one row, and no switch markup remains.
+
+    Mutation: bring the checkbox switch back and the radio patterns fail.
+    """
+    page = client.get("/").data.decode("utf-8")
+
+    matched = re.search(r'<input type="radio" id="albums_matched"[^>]*>', page)
+    every = re.search(r'<input type="radio" id="albums_all"[^>]*>', page)
+    assert matched and every
+    for radio, value in ((matched, "0"), (every, "1")):
+        assert 'name="include_unmatched"' in radio.group(0)
+        assert f'value="{value}"' in radio.group(0)
+        assert 'class="seg__radio"' in radio.group(0)
+    assert "checked" in matched.group(0)
+    assert "checked" not in every.group(0)
+    assert 'aria-describedby="albums-help"' in page
+    assert re.search(
+        r'<label for="albums_matched" class="seg__option">Hide</label>', page
+    )
+    assert re.search(
+        r'<label for="albums_all" class="seg__option">Include</label>', page
+    )
+    assert ">Unmatched albums</span>" in page
+    help_line = re.search(r'<p[^>]*id="albums-help"[^>]*>(.*?)</p>', page)
+    assert help_line
+    assert " hidden" in help_line.group(0).split(">")[0]
+    assert help_line.group(1) == (
+        "Albums Spotify and Deezer can't find, ranked by play count."
+    )
+    pair = re.search(r'<div class="field-pair">(.*?)</p>\s*</div>', page, re.DOTALL)
+    assert pair
+    assert 'id="limit_results"' in pair.group(1)
+    assert 'id="albums_all"' in pair.group(1)
+    assert "switch-row" not in page
+    assert 'type="checkbox" id="include_unmatched"' not in page
+
+
+def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
+    """
+    GIVEN the index form posted with the "Include" radio (value 1)
+    WHEN /results_loading starts the job
+    THEN the job params hold include_unmatched True and the thread receives
+    the flag as background_task's last argument; with the "Hide"
+    radio (value 0), or without the field, both are False.
+
+    Mutation: leave the flag out of the thread args and the args assertion
+    fails.
+    """
+    flags = {}
+    for key, field in (
+        ("all", {"include_unmatched": "1"}),
+        ("matched", {"include_unmatched": "0"}),
+        ("absent", {}),
+    ):
+        with (
+            patch(
+                "scrobblescope.routes.run_async_in_thread",
+                return_value={"exists": True, "registered_year": None},
+            ),
+            patch("scrobblescope.routes.start_job_thread") as mock_start,
+        ):
+            response = client.post(
+                "/results_loading", data={**VALID_FORM_DATA, **field}
+            )
+        job_id = response.location.split("job_id=", 1)[1]
+        flags[key] = (
+            jobs.context(job_id)["params"]["include_unmatched"],
+            mock_start.call_args.kwargs["args"][-1],
+        )
+
+    assert flags == {
+        "all": (True, True),
+        "matched": (False, False),
+        "absent": (False, False),
+    }

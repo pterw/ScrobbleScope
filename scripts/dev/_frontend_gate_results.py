@@ -7,6 +7,7 @@ from scripts.dev._frontend_gate_colour import (
     _composite_over,
     _contrast_ratio,
     _parse_rgb_string,
+    seg_contrast_failures,
 )
 from scripts.dev._frontend_gate_shared import wait_for_settled
 from scripts.dev._frontend_gate_spotify_icon import spotify_icon_failures
@@ -240,6 +241,17 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
         failures.extend(_check_results_scale(probe))
         failures.extend(_long_artist_failures(probe))
+        failures.extend(
+            seg_contrast_failures(
+                probe,
+                "Sort leaderboard control",
+                {
+                    "track": ".seg:has(#toggle-sort-plays)",
+                    "selected": "#toggle-sort-plays",
+                    "unselected": "#toggle-sort-playtime",
+                },
+            )
+        )
         probe.locator("#toggle-sort-playtime").click()
         rows = probe.locator("#results-table tbody tr")
         if rows.first.get_attribute("data-album") != "Time winner":

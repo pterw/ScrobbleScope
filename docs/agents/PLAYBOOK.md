@@ -70,8 +70,9 @@ See FINDINGS F-DOCSYNC-3.
 ## 3. Active batch + next action
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
-  Branch: `feat/batch23-wp0-hygiene`. The branch was cut from `test`; run the
-  worktree guard with `--base-ref origin/test`.
+  Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is
+  deleted, so side-task PRs branch from `main` and run the guard against its default
+  base. The owner names the branch WP-1 opens.
 - **Next action:** WP-0 is next.
   Part A and Part B are complete. Part C continues through the three
   follow-on plans in the order recorded under "After this plan" in
@@ -96,6 +97,15 @@ See FINDINGS F-DOCSYNC-3.
   Section 4 entry, carrying an explicit `**Status:** WP-0 complete` line
   (DOC007 requires it before the package reads done). Earlier WP-0 commits
   remain untagged by the owner's 2026-09-23 ruling in the definition.
+- **Before WP-1: a tranche of side-task PRs** (owner rulings 2026-10-20).
+  Each is its own branch off `main` and its own PR, with atomic commits:
+  the include-unmatched control, a documentation refresh (README,
+  architecture diagrams), backend hygiene, UI consistency, and four of the
+  architecture seams the 2026-09-30 review proposed -- the album request
+  module, one album-metadata encoding, the statistics module, and
+  normalized Last.fm scrobbles with one album aggregate. Job persistence
+  waits: a database-backed job store would keep the database awake, which
+  the hosting cost ceiling does not allow.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and

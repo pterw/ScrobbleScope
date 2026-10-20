@@ -84,6 +84,7 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
 from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
     HIDDEN_ON_LOAD,
     check_current_validator_failure_replaces_old_verdict,
+    check_include_unmatched_control,
     check_initial_visibility,
     check_private_profile_is_blocked,
     check_stale_validator_failure_is_discarded,
@@ -97,6 +98,9 @@ from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
     check_heatmap_focus_survives_breakpoint,
     check_heatmap_tooltip_has_one_owner,
     check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
+)
+from scripts.dev._frontend_gate_include import (  # noqa: E402, F401
+    check_include_results_page,
 )
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
@@ -293,6 +297,12 @@ CHECKS = (
     ("index entrance motion", check_index_entrance_motion, (DESKTOP,), THEME_MOTION),
     ("validation feedback", check_validation_feedback, (DESKTOP,), FORMS_VALIDATION),
     (
+        "include unmatched control",
+        check_include_unmatched_control,
+        (DESKTOP, MOBILE),
+        FORMS_VALIDATION,
+    ),
+    (
         "private profiles",
         check_private_profile_is_blocked,
         (DESKTOP,),
@@ -363,6 +373,12 @@ CHECKS = (
         "unmatched report",
         check_unmatched_report,
         (DESKTOP, MOBILE, TOUCH_WIDE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "include results page",
+        check_include_results_page,
+        (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),
     (

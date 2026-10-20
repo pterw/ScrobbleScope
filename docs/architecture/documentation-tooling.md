@@ -111,10 +111,11 @@ flowchart TD
     CI -. runs .-> PY[pytest, coverage,<br/>advisory pip-audit]
 
     FG[dev/frontend_gate.py<br/>stable facade] --> FGR[_frontend_gate_results]
-    FG --> FGC[_frontend_gate_colour<br/>pure maths, no page]
+    FG --> FGC[_frontend_gate_colour<br/>colour maths, segmented-control checks]
     FG --> FGS[_frontend_gate_shared<br/>page inventories, shared state]
     FG --> FGA[_frontend_gate_assets]
     FG --> FGU[_frontend_gate_unmatched]
+    FG --> FGINC[_frontend_gate_include]
     FG --> FGFM[_frontend_gate_forms]
     FG --> FGT[_frontend_gate_theme]
     FG --> FGLY[_frontend_gate_layout]
@@ -126,6 +127,9 @@ flowchart TD
     FGSI --> FGSP
     FGR --> FGSI
     FGR --> FGC
+    FGC --> FGS
+    FGINC --> FGC
+    FGINC --> FGS
     FGT --> FGC
     FGLY --> FGC
     FGU --> FGR
@@ -145,7 +149,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGINC,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
@@ -517,10 +521,11 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: the checks are grouped by concern across thirteen
+`dev/worktree_guard.py`: the checks are grouped by concern across fourteen
 `_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
-`_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_layout`,
-`_frontend_gate_pipeline`, `_frontend_gate_results`, `_frontend_gate_runtime`,
+`_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_include`,
+`_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
+`_frontend_gate_runtime`,
 `_frontend_gate_shared`, `_frontend_gate_spotify_icon`,
 `_frontend_gate_spotlight_photo`, `_frontend_gate_theme`, and
 `_frontend_gate_unmatched` -- with `_frontend_gate_shared`

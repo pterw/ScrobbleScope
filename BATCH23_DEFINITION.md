@@ -29,6 +29,9 @@ claim; the latest of each lives in the newest Section 4 entry.
 **Scope amended 2026-09-23:** the owner widened WP-0 into three parts
 (below). Later owner-approved clarifications are recorded in the affected
 work packages and the editorial revision above; no work package is added.
+**Scope amended 2026-10-20** (owner directive to keep planned scope current): the
+include-unmatched control shipped on the album form before WP-1, so WP-3, WP-5 and WP-6
+now account for it. No work package is added.
 **Planning authority:** this definition owns batch scope, shared contracts
 and acceptance. Each WP gets a specialized plan before implementation,
 executed through subagent-driven development (SDD). Its approved plan owns
@@ -434,6 +437,10 @@ and the orchestrator never knows about zips.
   owns it from a successful thread start on, and closes it on every path.
   The export plan's "Upload ownership and the waiting bound" section holds
   the rule.
+- [ ] **The include-unmatched choice reaches the export path** (amended
+  2026-10-20). The album form posts `include_unmatched`; the export route
+  and `export_album_task` accept it and honour it with the meaning it has
+  on the Last.fm path. Acceptance adds one export run with it on.
 - **Acceptance:** `process_albums` receives the aggregate;
   `fetch_all_recent_tracks_async` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,
@@ -498,6 +505,9 @@ and the orchestrator never knows about zips.
 - [ ] Wording by source across results, unmatched, loading and the heatmap
   partials: "plays" rather than "scrobbles", the results heading naming the
   Spotify history, and export filenames carrying the source.
+- [ ] The source control and the existing include-unmatched control share
+  the album form (amended 2026-10-20); WP-5's plan places them, both as
+  `.seg` controls, and the include-unmatched choice survives a source switch.
 - **Acceptance:** the frontend gate covers arrow-key switching in the radio
   group, the right field per source, the file carrying across mode tabs,
   `/?source=spotify` preselection, an upload with a synthetic zip, the
@@ -525,7 +535,9 @@ It also defines current-streak behaviour relative to each source's window.
 Labels and CSV values must agree with those choices. Preserve timestamps,
 original track names and any bounded intermediate counts needed for the
 statistics before aggregation discards them; do not retain raw history or
-silently change existing ranking and percentage semantics.
+silently change existing ranking and percentage semantics. It also says whether
+albums listed through the include-unmatched control, which carry no provider
+metadata or durations, count in each summary (amended 2026-10-20).
 
 - [ ] Per album: completion ("9 of 12 tracks"), the most-played track shown
   with its original name, and the first listen that year. Both aggregators

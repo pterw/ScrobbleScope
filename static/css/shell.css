@@ -733,3 +733,97 @@ body {
         opacity: 1;
     }
 }
+
+/* ------------------------------------------------------------------ */
+/* Segmented control options (index card and Results side rail)         */
+/* ------------------------------------------------------------------ */
+/* The form's two-state idiom, as the kit's SegmentedControl: native radios,
+   visually hidden, each with its label as the option, on one track. The
+   track (.seg) and the options are shared here, moved from index.css when the
+   Results page gained radio segments (RECONCILIATION Section 21): every page
+   loads this sheet, and the Results rail's two tracks were utility copies of
+   the index one. The scale falls back from the index card's to the Results
+   page's. */
+.seg {
+  display: flex;
+  gap: calc(0.25rem * var(--index-scale, var(--results-scale, 1)));
+  padding: calc(0.1875rem * var(--index-scale, var(--results-scale, 1)));
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-base-100);
+}
+
+.seg__radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.seg__option {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(2.375rem * var(--index-scale, var(--results-scale, 1)));
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  color: var(--ss-text-body);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, var(--results-scale, 1))));
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.seg__radio:not(:disabled, :checked) + .seg__option:hover {
+  color: var(--color-base-content);
+}
+
+.seg__radio:checked + .seg__option {
+  background-color: var(--ss-accent-soft);
+  border-color: var(--color-primary);
+  color: var(--color-base-content);
+  box-shadow: none;
+}
+
+/* The Results "Sort leaderboard" buttons are the same two states on button
+   markup (results.js sets aria-pressed), so they take the same tokens here
+   rather than a second copy of the look. The option text takes the body
+   token (>= 7:1 on the track); the selected chip takes the strongest ink,
+   the base-content token (>= 7:1 on the soft fill, and it keeps it on
+   hover; an unselected option deepens to it on hover), and a 1px primary border (>= 3:1 against the track), a lift of
+   the shipped muted text and the 1.1:1 chip (RECONCILIATION Section 20). */
+.metric-toggle-btn {
+  border: 1px solid transparent;
+  color: var(--ss-text-body);
+}
+
+.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover {
+  color: var(--color-base-content);
+}
+
+.metric-toggle-btn[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  color: var(--color-base-content);
+}
+
+.seg__radio:focus-visible + .seg__option {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .seg__radio:checked + .seg__option,
+  .metric-toggle-btn[aria-pressed="true"] {
+    border-color: Highlight;
+  }
+}
+
+@media (any-pointer: coarse), (max-width: 859.98px) {
+  .seg__option {
+    min-height: max(2.75rem, calc(2.375rem * var(--index-scale, var(--results-scale, 1))));
+  }
+}
