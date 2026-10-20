@@ -805,9 +805,17 @@ tr[hidden] {
     color: var(--ss-text-muted);
 }
 
-/* Table metric values: plays (serif) vs playtime (mono-narrow) */
+/* Table metric values: plays use the figure face (Gotham, Book weight --
+   the same rule as .heatmap-kpi-value in heatmap.css, "never at bold,
+   geometric numerals blob at 700"), playtime keeps mono-narrow. Size, line
+   height, colour and spacing are unchanged. Tabular figures keep a
+   right-aligned column of counts stacked (DESIGN.md, Figure Numerals).
+   docs/design/RECONCILIATION.md
+   section 26 records the override of the snapshot's "mono value". */
 .metric-val-plays {
-    font-family: var(--font-serif);
+    font-family: var(--font-figure);
+    font-weight: var(--font-weight-normal);
+    font-variant-numeric: tabular-nums;
     font-size: calc(1.40625rem * var(--results-scale));
     line-height: 1.25;
     color: var(--color-base-content);
@@ -828,6 +836,25 @@ tr[hidden] {
     }
     .metric-val-playtime {
         font-size: calc(0.875rem * var(--results-scale));
+    }
+}
+
+/* Longer play counts take a smaller figure on narrow screens only, sized from
+   the measured width of Gotham's tabular digits so the count keeps at least
+   2px inside the 3.75rem metric column. Rows of one to three digits and every
+   row at 768px and up keep the full size (RECONCILIATION section 26). */
+@media (max-width: 767.98px) {
+    .metric-val-plays[data-digits="4"] {
+        font-size: calc(1.093rem * var(--results-scale));
+    }
+
+    .metric-val-plays[data-digits="5"] {
+        font-size: calc(0.874rem * var(--results-scale));
+    }
+
+    .metric-val-plays[data-digits="6"],
+    .metric-val-plays[data-digits="7"] {
+        font-size: calc(0.75rem * var(--results-scale));
     }
 }
 

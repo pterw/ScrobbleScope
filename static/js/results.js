@@ -253,7 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 textNode('span', 'mobile-val inline md:hidden', row.dataset.playTimeMobile || duration),
             );
         } else {
-            value.textContent = row.dataset.playCount || '0';
+            const plays = row.dataset.playCount || '0';
+            value.textContent = plays;
+            value.dataset.digits = String(plays.length);
         }
         cell.replaceChildren(value);
     }
