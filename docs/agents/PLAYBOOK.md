@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The new count-line tests spell the middle dot as an escape
+
+Side task, no batch tag: the count-line tests in tests/test_routes.py spell the middle dot as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "One small commit would be worthwhile."
+
+The scoped review (Minor 3) found the six count-line assertions added with the Unmatched page split used a literal middle dot, against the ASCII-only rule for hand-written files. They now write `·` inside the same plain strings, so each compared value is unchanged; the older hits in the frontend gate files predate this PR and stay.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2577 passed**.
+
 ### 2026-10-20 - The Unmatched page says which albums the results list
 
 Side task, no batch tag: the Unmatched page tells an include run which of its albums the results already list, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -179,17 +191,5 @@ Side task, no batch tag: the session dashboard names the side-task tranche and c
 Owner intent: the dashboard must say what PLAYBOOK Section 3 says, so a new session is not misled about what comes before WP-1.
 
 A freshness audit found `.claude/SESSION_CONTEXT.md` still reading `Last updated: 2026-09-30` although this branch changed it on 2026-10-20, and its `Batch 23 status` row silent on the tranche of side-task PRs that PLAYBOOK Section 3 describes. The date is now 2026-10-20 and the row gains one sentence naming the tranche. Nothing else in the row changed; the Tests row and DOCSYNC STATUS block are untouched. No deviations; no existing test edited.
-
-Validation: `pytest -q` -- **2568 passed**.
-
-### 2026-10-20 - The gate keeps the index card centred at 1080p
-
-Side task, no batch tag: the frontend gate fails when the index card is pinned under the header at 1080p, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the owner saw the index card stop being centred once the separate Albums field made it taller ("the index card isn't properly centered"); the gate should catch that.
-
-What changed: `_form_centring_failures` in `scripts/dev/_frontend_gate_layout.py`, called from `check_large_display_scale_parity` for the 1080p window (1920x945, default state). `positionForm` places the card at `max(0.25rem, (available - height) / 2 - 2.5rem)`, so while the centring term governs the space below the card exceeds the space above by 2 x 2.5rem = 5rem; the check holds that to 2px (rect rounding) and names a card sitting on the 0.25rem clamp as pinned. `_wide_layout_failures` could not see it because it mirrors the clamp in its expected value. Three unit tests in `tests/scripts/dev/test_frontend_gate_layout.py` cover the healthy, pinned and off-centre cases.
-
-Deviations: the brief said the two spaces should be "within one 2.5rem lift of each other"; the rule makes the correct difference 5rem (the lift applies once above and the centring halves the rest), so the tolerance is derived from that. No existing test edited.
 
 Validation: `pytest -q` -- **2568 passed**.
