@@ -150,6 +150,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The test-module count counts both sides of the merge
+
+Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
+
+What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
 
 Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -183,19 +195,5 @@ Owner intent: the per-task reviews found documentation on this unpushed branch t
 What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
 
 Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2543 passed**.
-
-### 2026-10-20 - Ruff judges the code as Python 3.13
-
-Side task, no batch tag: ruff's `target-version` set to `py313`, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the Dockerfile and CI run Python 3.13, so ruff should judge the code against it (tranche design, PR #2).
-
-What changed: `pyproject.toml` `[tool.ruff]` gains `target-version = "py313"`, so the UP rules see 3.13 idioms and the import sorter files `tomllib` as standard library. `ruff check --select I001 --fix` moved that import into the stdlib group in `scripts/dev/docsync_preflight.py`, `scripts/dev/frontend_gate.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py`. UP036 then flagged the `sys.version_info < (3, 12)` block in `docsync_preflight.py`; it is a deliberate refusal for an extracted copy of the control plane run on older Python, so it stays, marked `# noqa: UP036` with the reason in the comment above. The change is lint-only: import order and one comment, no behaviour.
-
-Control plane: the commit stages `scripts/dev/docsync_preflight.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py` (with `scripts/dev/frontend_gate.py`), and the docsync preflight refuses control-plane files outside `[test_count]` by design (exit 3). It was committed through the documented escape, `SKIP=doc-state-sync-check git commit`, and `doc_state_sync.py --check` was run straight after (exit 0). `--no-verify` was not used.
-
-Deviations: the brief's trailing `# noqa: UP036 -- reason` would have pushed the line past 88 characters and ruff-format would have split the tuple, so the reason sits in the comment above and the old `# pragma: no cover - CI pins 3.13` text moved there too, ahead of a shortened `# noqa: UP036  # pragma: no cover`. No existing test was edited.
 
 Validation: `pytest -q` -- **2543 passed**.

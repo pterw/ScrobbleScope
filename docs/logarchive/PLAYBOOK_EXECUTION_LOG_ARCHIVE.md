@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Ruff judges the code as Python 3.13
+
+Side task, no batch tag: ruff's `target-version` set to `py313`, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the Dockerfile and CI run Python 3.13, so ruff should judge the code against it (tranche design, PR #2).
+
+What changed: `pyproject.toml` `[tool.ruff]` gains `target-version = "py313"`, so the UP rules see 3.13 idioms and the import sorter files `tomllib` as standard library. `ruff check --select I001 --fix` moved that import into the stdlib group in `scripts/dev/docsync_preflight.py`, `scripts/dev/frontend_gate.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py`. UP036 then flagged the `sys.version_info < (3, 12)` block in `docsync_preflight.py`; it is a deliberate refusal for an extracted copy of the control plane run on older Python, so it stays, marked `# noqa: UP036` with the reason in the comment above. The change is lint-only: import order and one comment, no behaviour.
+
+Control plane: the commit stages `scripts/dev/docsync_preflight.py`, `scripts/docsync/cli.py` and `scripts/docsync/declarations.py` (with `scripts/dev/frontend_gate.py`), and the docsync preflight refuses control-plane files outside `[test_count]` by design (exit 3). It was committed through the documented escape, `SKIP=doc-state-sync-check git commit`, and `doc_state_sync.py --check` was run straight after (exit 0). `--no-verify` was not used.
+
+Deviations: the brief's trailing `# noqa: UP036 -- reason` would have pushed the line past 88 characters and ruff-format would have split the tuple, so the reason sits in the comment above and the old `# pragma: no cover - CI pins 3.13` text moved there too, ahead of a shortened `# noqa: UP036  # pragma: no cover`. No existing test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
 ### 2026-10-20 - The production image no longer installs requests
 
 Side task, no batch tag: `requests` and its three private dependencies moved from `requirements.txt` to `requirements-dev.txt`, on `chore/pre-batch23-hygiene`, a branch off `main`.
