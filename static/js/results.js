@@ -422,9 +422,11 @@ document.addEventListener('DOMContentLoaded', () => {
             scrobbles.textContent = plays.toLocaleString('en-US');
         }
         const topArtist = document.getElementById('stat-top-artist');
-        if (topArtist && visible.length) {
-            topArtist.textContent = visible[0].dataset.artist || '';
-            topArtist.title = visible[0].dataset.artist || '';
+        if (topArtist) {
+            // No row left: show the template's empty-state dash, not a hidden row's artist.
+            const artist = visible.length ? (visible[0].dataset.artist || '') : '—';
+            topArtist.textContent = artist;
+            topArtist.title = artist;
         }
 
         // Listening time is offered only when the rows left have it: never while

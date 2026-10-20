@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The new count-line tests spell the middle dot as an escape
+
+Side task, no batch tag: the count-line tests in tests/test_routes.py spell the middle dot as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "One small commit would be worthwhile."
+
+The scoped review (Minor 3) found the six count-line assertions added with the Unmatched page split used a literal middle dot, against the ASCII-only rule for hand-written files. They now write `·` inside the same plain strings, so each compared value is unchanged; the older hits in the frontend gate files predate this PR and stay.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2577 passed**.
+
 ### 2026-10-20 - The Unmatched page says which albums the results list
 
 Side task, no batch tag: the Unmatched page tells an include run which of its albums the results already list, on the include-unmatched branch (a small PR off main after the cover-washes PR).

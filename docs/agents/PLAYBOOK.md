@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Clear the top artist when Hide leaves no rows
+
+Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the stats under Hide describe only the rows still on the page.
+
+On an include run whose rows are all unmatched (every lookup unavailable), Hide left Total Albums and Scrobbles at 0 while Top Artist still named the artist of a hidden row (Codex review on PR #256, comment 4330862255). `setUnmatchedHidden` in static/js/results.js now writes the template's empty-state dash into the Top Artist text and title when no row is visible; with rows left it is unchanged. The other Codex comment of that review (4330862249) is not material to this PR and is filed as F-B23-46.
+
+Deviations: `include_run` in scripts/dev/results_behavior_tests.py takes an optional row list. Edited existing tests: none. New: test_hiding_every_row_clears_the_top_artist_and_including_restores_it (results-behavior script).
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - Say when an unmatched release reads unknown
 
 Side task, no batch tag: three live docs say when an unmatched row's release reads "unknown", on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,15 +195,3 @@ The release cell of an unmatched row was always "unknown" with an empty export v
 Deviations: none. Edited existing tests: none. New: test_results_page_renders_a_found_date_on_an_unmatched_row (four cases; mutation: the old unconditional unknown cell fails the confirmed and moved_out cases, a rule ignoring release_check fails the unavailable case that carries a stale date).
 
 Validation: `pytest -q` -- **2581 passed**.
-
-### 2026-10-20 - The new count-line tests spell the middle dot as an escape
-
-Side task, no batch tag: the count-line tests in tests/test_routes.py spell the middle dot as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: "One small commit would be worthwhile."
-
-The scoped review (Minor 3) found the six count-line assertions added with the Unmatched page split used a literal middle dot, against the ASCII-only rule for hand-written files. They now write `·` inside the same plain strings, so each compared value is unchanged; the older hits in the frontend gate files predate this PR and stay.
-
-Deviations: none. Edited existing tests: none. New: none.
-
-Validation: `pytest -q` -- **2577 passed**.

@@ -585,13 +585,13 @@ class ResultsBehaviorTests(unittest.TestCase):
         "provider_unavailable": "Unavailable",
     }
 
-    def include_run(self, has_durations=True):
+    def include_run(self, has_durations=True, include_rows=None):
         """Load results.js into the rows an include run renders, with the
         Unmatched albums control, both stats and the locked Listening Time button."""
         self.page.emulate_media(reduced_motion="reduce")
         rows = ""
         for number, (name, plays, seconds, duration, unmatched) in enumerate(
-            self.INCLUDE_ROWS, 1
+            include_rows or self.INCLUDE_ROWS, 1
         ):
             marker = (
                 f'<span class="provider-badge provider-badge--unmatched">'
@@ -710,6 +710,26 @@ class ResultsBehaviorTests(unittest.TestCase):
             "Unmatched albums shown; ranked by play count.",
             self.page.locator("#toastContainer").inner_text(),
         )
+
+    def test_hiding_every_row_clears_the_top_artist_and_including_restores_it(self):
+        """A run whose rows are all unmatched has nothing left under Hide:
+        the stats read 0 and Top Artist shows the empty-state dash (text and
+        title), not the artist of a hidden row; Include names it again."""
+        self.include_run(
+            include_rows=(
+                ("Lost One", "45", "0", "", "no_spotify_match"),
+                ("Lost Two", "35", "0", "", "provider_unavailable"),
+            )
+        )
+        top = self.page.locator("#stat-top-artist")
+        self.page.locator("label[for=results_albums_matched]").click()
+        self.assertEqual(self.visible_albums(), [])
+        self.assertEqual(self.stats(), ["0", "0", "—"])
+        self.assertEqual(top.get_attribute("title"), "—")
+
+        self.page.locator("label[for=results_albums_all]").click()
+        self.assertEqual(self.stats(), ["2", "80", "Lost One Band"])
+        self.assertEqual(top.get_attribute("title"), "Lost One Band")
 
     def test_matched_only_without_durations_leaves_listening_time_off(self):
         """A run with no durations at all never offers Listening Time: hiding
