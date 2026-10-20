@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(tr => {
-                    // A row hidden by "Matched only" is not in the list.
+                    // A row hidden by "Hide" is not in the list.
                     if (tr.hidden) return;
                     const rank = tr.dataset.rank || tr.querySelector('.rank-num')?.textContent.trim() || '';
                     const album = tr.dataset.album || tr.querySelector('.album-link, .album-info span')?.textContent.trim() || '';
@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(row);
             renderMetric(row, mode);
         });
-        // Rows hidden by "Matched only" take no rank.
+        // Rows hidden by "Hide" take no rank.
         renumberRows(rows.filter(row => !row.hidden));
         const label = document.getElementById('metric-header-label');
         if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [matchedOnly, allAlbums].forEach(radio => {
             radio.addEventListener('change', () => setUnmatchedHidden(matchedOnly.checked));
         });
-        // Back navigation restores "Matched only" over a freshly rendered table.
+        // Back navigation restores "Hide" over a freshly rendered table.
         if (matchedOnly.checked) setUnmatchedHidden(true, false);
     }
 

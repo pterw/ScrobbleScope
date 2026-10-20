@@ -122,9 +122,10 @@ next.
   chosen.
 - On Results, an included album shows a plain "Not Found" or "Unavailable"
   marker under its artist, a coloured wash instead of a cover, no link, and an
-  "unknown" release date. An "Albums" choice under the sort control (All or
-  Matched only) hides those rows, renumbers the rest and recounts the totals,
-  so the leaderboard can be ranked by listening time; choosing All brings them
+  "unknown" release date. An "Unmatched albums" choice under the sort control
+  (Hide or Include) hides those rows, renumbers the rest and recounts the
+  totals, so the leaderboard can be ranked by listening time; choosing Include
+  brings them
   back, ranked by play count again. The CSV and the saved image follow what is
   on the page.
 - Explore Artist Spotlight, which samples up to five artists from the ten
@@ -737,7 +738,7 @@ deeply than the first two.
   could not find alongside the rest, so every play you made is counted. They
   are ranked by play count only, so Play time is dimmed while Include is
   chosen. On Results they are marked "Not Found" or "Unavailable", and the
-  "Albums" choice there (All or Matched only) hides them again to rank by
+  "Unmatched albums" choice there (Hide or Include) hides them again to rank by
   listening time.
 - **The artist spotlight stopped faking photos.** It shows a confirmed photo
   or stays hidden, without cropping or overlays, and it holds still while you

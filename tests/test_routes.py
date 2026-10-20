@@ -3283,8 +3283,8 @@ def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(clien
     word, an "unknown" release with an empty export value, a plain (linkless)
     rank and name and a wash instead of a cover; the stats say "listed" and
     count every row; Listening Time is disabled with its reason; and the
-    Albums segmented control (All / Matched only, radios of one group, no
-    form around them) states what Matched only does.
+    Unmatched albums segmented control (Hide / Include, radios of one group,
+    no form around them) states what Hide does.
 
     Mutation: drop the unmatched branch of the row and the badge, unknown and
     no-link assertions fail; drop the disabled attribute and the lock fails.
@@ -3336,9 +3336,14 @@ def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(clien
         assert 'name="results_albums"' in radio.group(0)
     assert "checked" in every_all.group(0)
     assert "checked" not in matched_only.group(0)
-    assert 'for="results_albums_matched" class="seg__option">Matched only<' in page
+    assert 'for="results_albums_matched" class="seg__option">Hide<' in page
+    assert 'for="results_albums_all" class="seg__option">Include<' in page
+    assert ">Unmatched albums</span>" in page
+    assert page.index('id="results_albums_matched"') < page.index(
+        'id="results_albums_all"'
+    )
     assert (
-        "Matched only removes the unmatched listens so the leaderboard can be "
+        "Hide removes the unmatched listens so the leaderboard can be "
         "ranked by listening time."
     ) in page
     assert "remove-unmatched" not in page
@@ -3349,7 +3354,7 @@ def test_results_include_run_offers_the_albums_control_for_one_album(client):
     """
     GIVEN an include run with a single unmatched row
     WHEN the results page renders
-    THEN the Albums control is still offered, with its help text.
+    THEN the Unmatched albums control is still offered, with its help text.
     """
     rows = [
         _provider_row("spotify", 0),
@@ -3362,14 +3367,14 @@ def test_results_include_run_offers_the_albums_control_for_one_album(client):
     )
 
     assert 'id="results_albums_matched"' in page
-    assert "Matched only removes the unmatched listens so" in page
+    assert "Hide removes the unmatched listens so" in page
 
 
 def test_results_plain_run_renders_none_of_the_include_elements(client):
     """
     GIVEN a normal run (the include option off, no unmatched rows)
     WHEN the results page renders
-    THEN no marker, unknown value, Albums control or locked button appears and
+    THEN no marker, unknown value, Unmatched albums control or locked button appears and
     the stat caption still says "matched".
 
     Mutation: render the control or the caption unconditionally and this fails.
@@ -3380,7 +3385,7 @@ def test_results_plain_run_renders_none_of_the_include_elements(client):
         "provider-badge--unmatched",
         "release-date-value--unknown",
         'id="results_albums_matched"',
-        "Matched only removes the unmatched listens",
+        "Hide removes the unmatched listens",
         "Unmatched albums have no listening time",
         ">listed<",
     ):

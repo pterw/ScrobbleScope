@@ -5,7 +5,7 @@ scripts against hand-built markup, and the pytest route tests read the HTML,
 but neither one paints the page. This check seeds an include job (three
 matched rows with durations, two unmatched rows, one per reason) and reads the
 rendered page: the two markers and the "unknown" release text at 7:1, the
-Albums control's text and selected-state boundary, hiding the unmatched rows,
+Unmatched albums control's text and selected-state boundary, hiding the unmatched rows,
 the Sort leaderboard hover ink, forced colours and horizontal overflow.
 """
 
@@ -40,7 +40,7 @@ _ALBUMS_SEG = {
 }
 
 #: The Sort leaderboard buttons. Listening Time is the unselected one once
-#: "Matched only" has enabled it.
+#: "Hide" has enabled it.
 _SORT_SEG = {
     "track": ".seg:has(#toggle-sort-plays)",
     "selected": "#toggle-sort-plays",
@@ -56,7 +56,7 @@ _PAINT_JS = """node => {
     return {text: getComputedStyle(node).color, chain};
 }"""
 
-#: The checked Albums option's border, and the backgrounds above the track
+#: The checked Unmatched albums option's border, and the backgrounds above the track
 #: (the card the control sits on).
 _CARD_JS = """() => {
     const seg = document.querySelector('.seg:has(#results_albums_all)');
@@ -146,7 +146,7 @@ def text_contrast_failures(page, label: str, selector: str, count: int) -> list[
 
 
 def card_boundary_failures(page) -> list[str]:
-    """Hold the Albums control's selected border at 3:1 against the card."""
+    """Hold the Unmatched albums control's selected border at 3:1 against the card."""
     failures = []
     try:
         for theme in ("light", "dark"):
@@ -154,7 +154,7 @@ def card_boundary_failures(page) -> list[str]:
             paint = page.evaluate(_CARD_JS)
             if paint is None:
                 failures.append(
-                    "/results Albums control: no selected option to measure"
+                    "/results Unmatched albums control: no selected option to measure"
                 )
                 continue
             card = _surface(paint["chain"])
@@ -162,7 +162,7 @@ def card_boundary_failures(page) -> list[str]:
             ratio = _contrast_ratio(border, card)
             if ratio < INCLUDE_BOUNDARY_FLOOR:
                 failures.append(
-                    f"/results Albums control, {theme} theme: selected border "
+                    f"/results Unmatched albums control, {theme} theme: selected border "
                     f"is {ratio:.2f}:1 against the card, under "
                     f"{INCLUDE_BOUNDARY_FLOOR}:1"
                 )
@@ -191,7 +191,7 @@ def overflow_failures(page, state: str) -> list[str]:
 
 
 def matched_only_failures(page) -> list[str]:
-    """Choose "Matched only" and read what the listener sees."""
+    """Choose "Hide" and read what the listener sees."""
     failures = []
     page.locator("label[for=results_albums_matched]").click()
     heights = page.locator("tbody tr[data-unmatched]:not([data-unmatched=''])")
@@ -200,20 +200,20 @@ def matched_only_failures(page) -> list[str]:
     )
     if len(heights) != 2 or any(height != 0 for height in heights):
         failures.append(
-            f"/results Matched only: unmatched row heights are {heights}, "
+            f"/results Hide: unmatched row heights are {heights}, "
             "expected two rows of 0"
         )
     ranks = page.locator("tbody tr:not([hidden]) .rank-num").all_text_contents()
     ranks = [rank.strip() for rank in ranks]
     if ranks != ["01", "02", "03"]:
-        failures.append(f"/results Matched only: visible ranks read {ranks}")
+        failures.append(f"/results Hide: visible ranks read {ranks}")
     if page.locator("#toggle-sort-playtime").is_disabled():
-        failures.append("/results Matched only: Listening Time is still disabled")
+        failures.append("/results Hide: Listening Time is still disabled")
     return failures
 
 
 def forced_colours_failures(page) -> list[str]:
-    """Under forced colours the selected Albums option's border is Highlight."""
+    """Under forced colours the selected Unmatched albums option's border is Highlight."""
     failures = []
     page.emulate_media(forced_colors="active")
     try:
@@ -236,7 +236,7 @@ def forced_colours_failures(page) -> list[str]:
         )
         if reading["border"] != reading["highlight"]:
             failures.append(
-                "/results Albums control, forced colours: selected option "
+                "/results Unmatched albums control, forced colours: selected option "
                 f"border is {reading['border']}, not Highlight "
                 f"({reading['highlight']})"
             )
@@ -250,9 +250,9 @@ def check_include_results_page(page, base_url: str) -> list[str]:
 
     Seeds an include job and reads the rendered page. Every colour pairing is
     measured in both themes against the surface that paints behind the text:
-    the two markers and the "unknown" release words, the Albums control's
+    the two markers and the "unknown" release words, the Unmatched albums control's
     option text, selected text and selected-state boundary, and the Sort
-    leaderboard's hovered option. "Matched only" must take both unmatched rows
+    leaderboard's hovered option. "Hide" must take both unmatched rows
     out of the layout (zero height), rank the rest 01..03 and enable Listening
     Time. Forced colours draw the selected option's border in Highlight, and
     the page never scrolls sideways at 390px or 1280px.
@@ -294,15 +294,17 @@ def check_include_results_page(page, base_url: str) -> list[str]:
                 page, "unknown release", ".release-date-value--unknown", 2
             )
         )
-        failures.extend(seg_contrast_failures(page, "Albums control", _ALBUMS_SEG))
+        failures.extend(
+            seg_contrast_failures(page, "Unmatched albums control", _ALBUMS_SEG)
+        )
         failures.extend(card_boundary_failures(page))
-        failures.extend(overflow_failures(page, "all albums"))
+        failures.extend(overflow_failures(page, "include"))
 
         failures.extend(matched_only_failures(page))
         failures.extend(
             seg_contrast_failures(
                 page,
-                "Albums control (Matched only)",
+                "Unmatched albums control (Hide)",
                 {
                     **_ALBUMS_SEG,
                     "selected": _ALBUMS_SEG["unselected"],
@@ -313,7 +315,7 @@ def check_include_results_page(page, base_url: str) -> list[str]:
         failures.extend(card_boundary_failures(page))
         failures.extend(seg_hover_failures(page, "Sort leaderboard", _SORT_SEG))
         failures.extend(forced_colours_failures(page))
-        failures.extend(overflow_failures(page, "matched only"))
+        failures.extend(overflow_failures(page, "hide"))
     finally:
         try:
             page.unroute("**/api/artist_spotlight?*", empty_spotlight)

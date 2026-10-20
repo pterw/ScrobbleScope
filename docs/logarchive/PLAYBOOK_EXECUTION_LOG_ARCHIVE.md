@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The hover checks wait for transitions, not a timer
+
+Side task, no batch tag: the segmented-control colour checks wait for the browser to finish their transitions instead of sleeping, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: no fixed-timer guesses in the frontend gate (PR #252 removed the others).
+
+What changed: `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` each did `page.wait_for_timeout(350)` before reading a colour that takes a 0.2s transition. Both now call `wait_for_settled` from `scripts/dev/_frontend_gate_shared.py`: the theme switch waits on the control's track, the hover waits on the hovered option. That adds an import of `_frontend_gate_shared` into `_frontend_gate_colour`, so the diagram in `docs/architecture/documentation-tooling.md` gains `FGC --> FGS` and its node label no longer says "pure maths, no page"; SESSION_CONTEXT Section 4's dependency graph gains the same edge and its file note; the module docstring and the DEVELOPMENT.md sentence that called the module pure colour maths now say it also holds the segmented-control checks. The Mermaid validator was not run; the controller validates the diagram.
+
+Deviations: none. No test edited. Probe: a hover rule planted at `#999` fails the gate ("hovered unselected option text on track is 2.66:1, under 7.0:1"); breaking the selector alone (`.seg__optionX`) does not, because the unhovered ink already clears 7:1, so the check guards the hover ink, not the selector.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - Hover selectors use one :not() list
 
 Side task, no batch tag: the two chained `:not()` hover selectors in `static/css/shell.css` become one `:not()` list each, on the include-unmatched branch (a small PR off main after the cover-washes PR).

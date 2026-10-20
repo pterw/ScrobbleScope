@@ -332,13 +332,13 @@ a.provider-badge:hover {
     color: var(--ss-text-body);
 }
 
-/* A row hidden by the Albums control's "Matched only" stays out of the layout
+/* A row hidden by the Unmatched albums control's "Hide" stays out of the layout
    whatever display a table rule gives it. */
 tr[hidden] {
     display: none;
 }
 
-/* The Albums control under "Sort leaderboard": a sub-label and a help line in
+/* The Unmatched albums control under "Sort leaderboard": a sub-label and a help line in
    the index card's field label and help sizes. The help is new text, so it
    takes the body token (measured in the task report). */
 .results-seg-label {

@@ -319,14 +319,14 @@
                     </div>
                     {% if playtime_locked %}
                     <div>
-                        <span class="results-seg-label" id="results-albums-label">Albums</span>
+                        <span class="results-seg-label" id="results-albums-label">Unmatched albums</span>
                         <div class="seg" role="group" aria-labelledby="results-albums-label" aria-describedby="results-albums-help">
-                            <input type="radio" id="results_albums_all" name="results_albums" value="all" class="seg__radio" checked>
-                            <label for="results_albums_all" class="seg__option">All</label>
                             <input type="radio" id="results_albums_matched" name="results_albums" value="matched" class="seg__radio">
-                            <label for="results_albums_matched" class="seg__option">Matched only</label>
+                            <label for="results_albums_matched" class="seg__option">Hide</label>
+                            <input type="radio" id="results_albums_all" name="results_albums" value="all" class="seg__radio" checked>
+                            <label for="results_albums_all" class="seg__option">Include</label>
                         </div>
-                        <p class="results-seg-help" id="results-albums-help">Matched only removes the unmatched listens so the leaderboard can be ranked by listening time.</p>
+                        <p class="results-seg-help" id="results-albums-help">Hide removes the unmatched listens so the leaderboard can be ranked by listening time.</p>
                     </div>
                     {% endif %}
 

@@ -587,7 +587,7 @@ class ResultsBehaviorTests(unittest.TestCase):
 
     def include_run(self, has_durations=True):
         """Load results.js into the rows an include run renders, with the
-        Albums control, both stats and the locked Listening Time button."""
+        Unmatched albums control, both stats and the locked Listening Time button."""
         self.page.emulate_media(reduced_motion="reduce")
         rows = ""
         for number, (name, plays, seconds, duration, unmatched) in enumerate(
@@ -624,10 +624,10 @@ class ResultsBehaviorTests(unittest.TestCase):
             f'data-has-durations="{"true" if has_durations else "false"}" '
             'class="opacity-50 cursor-not-allowed"></button>'
             '<span id="metric-header-label"></span>'
-            '<input type="radio" id="results_albums_all" name="results_albums" checked>'
-            '<label for="results_albums_all">All</label>'
             '<input type="radio" id="results_albums_matched" name="results_albums">'
-            '<label for="results_albums_matched">Matched only</label>'
+            '<label for="results_albums_matched">Hide</label>'
+            '<input type="radio" id="results_albums_all" name="results_albums" checked>'
+            '<label for="results_albums_all">Include</label>'
             '<table id="results-table"><tbody>' + rows + "</tbody></table>",
             {"year": 2025, "username": "u"},
         )
@@ -645,7 +645,7 @@ class ResultsBehaviorTests(unittest.TestCase):
         ]
 
     def test_matched_only_hides_rows_renumbers_and_offers_listening_time(self):
-        """Choosing Matched only takes both unmatched rows out, ranks the rest 01..03,
+        """Choosing Hide takes both unmatched rows out, ranks the rest 01..03,
         recomputes the stats and enables Listening Time; showing them again
         restores the play-count ranking, the stats and the locked button."""
         self.include_run()
