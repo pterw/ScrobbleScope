@@ -128,6 +128,8 @@ flowchart TD
     FGR --> FGSI
     FGR --> FGC
     FGC --> FGS
+    FGINC --> FGC
+    FGINC --> FGS
     FGT --> FGC
     FGLY --> FGC
     FGU --> FGR
@@ -147,7 +149,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGINC,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 

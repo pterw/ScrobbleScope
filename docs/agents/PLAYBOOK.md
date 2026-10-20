@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The tooling diagram draws the include check's imports
+
+Side task, no batch tag: the tooling diagram draws the include check's imports and the hover note is made true, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the records must say what the code and the probes showed.
+
+What changed: in `docs/architecture/documentation-tooling.md` the node `FGINC[_frontend_gate_include]` had no import edges and was missing from the `tool` class list; it now has `FGINC --> FGC` and `FGINC --> FGS` and is in the list. SESSION_CONTEXT Section 4 already lists both imports for the module. The entry "Hover selectors use one :not() list" said the hover check "exercises both selectors"; its probe showed otherwise, so that sentence now says the check guards the hovered ink's contrast, not that the hover rule applies. The Mermaid validator was not run; the controller validates the diagram.
+
+Deviations: none. Documentation only; no test edited.
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - Retry keeps the listener's Albums choice
 
 Side task, no batch tag: Retry on the loading page keeps the Albums choice, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -178,22 +190,8 @@ Side task, no batch tag: the two chained `:not()` hover selectors in `static/css
 
 Owner intent: clear the Codacy findings on PR #256 at the cause.
 
-What changed: Codacy (Stylelint `selector-not-notation`, "Expected complex :not() pseudo-class notation", 2 minor) flagged `.seg__radio:not(:disabled):not(:checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover`, the only chained `:not()` selectors in the app's own stylesheets. They are now `.seg__radio:not(:disabled, :checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover`. In Selectors Level 4 `:not(A, B)` matches exactly what `:not(A):not(B)` matches, so behaviour is unchanged (Chromium 88+, Firefox 84+, Safari 9+). The frontend gate's segmented-control hover check (`seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py`) exercises both selectors. No test, gate module or document quoted the old text.
+What changed: Codacy (Stylelint `selector-not-notation`, "Expected complex :not() pseudo-class notation", 2 minor) flagged `.seg__radio:not(:disabled):not(:checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover`, the only chained `:not()` selectors in the app's own stylesheets. They are now `.seg__radio:not(:disabled, :checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover`. In Selectors Level 4 `:not(A, B)` matches exactly what `:not(A):not(B)` matches, so behaviour is unchanged (Chromium 88+, Firefox 84+, Safari 9+). The frontend gate's segmented-control hover check (`seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py`) guards the hovered ink's contrast, not that the hover rule applies: with the selector broken the gate still passed, because the unhovered ink already clears 7:1, while a planted low-contrast hover colour fails it ("hovered unselected option text on track is 2.66:1, under 7.0:1"). No test, gate module or document quoted the old text.
 
 Deviations: none. No test edited.
-
-Validation: `pytest -q` -- **2561 passed**.
-
-### 2026-10-20 - The Albums help no longer sits on a line break
-
-Side task, no batch tag: the index card's Albums help is reworded so it sits clear of a line break, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: PR #256 must pass CI at the root cause, not by loosening the gate.
-
-What changed: CI run 39482227535 (Linux Chromium) failed the large display scale parity check on the index page: "form composition height is 961.6px at 1440p, expected proportional 984.1px" and "form height is 873.3px at 1440p, expected proportional 895.8px". The old help, "All albums keeps the ones Spotify and Deezer can't find, ranked by play count only.", overflowed one line by about 6%: measured locally it wraps to 2 lines at 1080p (last-line slack 407.3px of 432.3px) and 2 lines at 1440p (496px of 526.4px). Font size and column both scale with `--index-scale`, but rasterization differs by pixel size and platform, so in CI the sentence fit one line at 1440p and stayed at two at 1080p; the 1440p form was one help line (21.97px) shorter, and the check correctly reported it. The help now reads "Adds the albums Spotify and Deezer can't find, ranked by play count.": one line with 69.7px slack of 432.3px at 1080p and 85.4px of 526.4px at 1440p (about 16% both). `templates/index.html`, the pinned sentence in `scripts/dev/_frontend_gate_forms.py` and the quoted copy in `docs/design/RECONCILIATION.md` follow. The hazard class is filed as F-B23-44 (a gate check for wrap-boundary slack).
-
-Deviations: the frontend gate and results-behavior script were not run here (another browser gate may be running; the controller runs them and CI verifies).
-
-Edited existing check: the `UNMATCHED_HELP` constant read by the Albums help check in `scripts/dev/_frontend_gate_forms.py`.
 
 Validation: `pytest -q` -- **2561 passed**.

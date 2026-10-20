@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The Albums help no longer sits on a line break
+
+Side task, no batch tag: the index card's Albums help is reworded so it sits clear of a line break, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: PR #256 must pass CI at the root cause, not by loosening the gate.
+
+What changed: CI run 39482227535 (Linux Chromium) failed the large display scale parity check on the index page: "form composition height is 961.6px at 1440p, expected proportional 984.1px" and "form height is 873.3px at 1440p, expected proportional 895.8px". The old help, "All albums keeps the ones Spotify and Deezer can't find, ranked by play count only.", overflowed one line by about 6%: measured locally it wraps to 2 lines at 1080p (last-line slack 407.3px of 432.3px) and 2 lines at 1440p (496px of 526.4px). Font size and column both scale with `--index-scale`, but rasterization differs by pixel size and platform, so in CI the sentence fit one line at 1440p and stayed at two at 1080p; the 1440p form was one help line (21.97px) shorter, and the check correctly reported it. The help now reads "Adds the albums Spotify and Deezer can't find, ranked by play count.": one line with 69.7px slack of 432.3px at 1080p and 85.4px of 526.4px at 1440p (about 16% both). `templates/index.html`, the pinned sentence in `scripts/dev/_frontend_gate_forms.py` and the quoted copy in `docs/design/RECONCILIATION.md` follow. The hazard class is filed as F-B23-44 (a gate check for wrap-boundary slack).
+
+Deviations: the frontend gate and results-behavior script were not run here (another browser gate may be running; the controller runs them and CI verifies).
+
+Edited existing check: the `UNMATCHED_HELP` constant read by the Albums help check in `scripts/dev/_frontend_gate_forms.py`.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - The redundant tr[hidden] rule is filed
 
 Side task, no batch tag: the `tr[hidden]` rule in `static/css/results.css` is filed as F-B23-43, on the include-unmatched branch (a small PR off main after the cover-washes PR).
