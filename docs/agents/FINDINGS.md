@@ -828,6 +828,12 @@ On a populated Results or Unmatched page the rank pill, the album title and the 
 
 - [ ] **Status:** open (P3). Source: review 4 of PR #245 (frontend), R4-frontend-5.
 
+### F-B23-43: the `tr[hidden]` rule in `results.css` repeats a rule the compiled sheet already applies
+
+`static/css/results.css` carries `tr[hidden] { display: none; }`, added so the rows the Albums control's "Matched only" choice hides (the include-unmatched rows) stay out of the layout whatever display a table rule gives them. The compiled `static/css/tailwind.css` already ships `[hidden]:where(:not([hidden='until-found'])) { display: none !important; }` in its base layer, and an `!important` declaration beats any normal `display` on the row, so the second rule changes nothing today. Deleting it needs a proof first: a frontend-gate check or a results-behavior assertion that a hidden include-unmatched row has a computed `display` of `none`, accepted on a live probe that plants the defect. Without that, the deletion would be assumed safe, not shown safe.
+
+- [ ] **Status:** open (P3). Source: review of the include-unmatched Task C patch (review-C Minor 6), 2026-10-01.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
