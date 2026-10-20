@@ -847,6 +847,44 @@ def test_release_checks_api_key_matches_the_normalized_pair(client):
     assert response.get_json()["albums"][0]["key"] == f"{artist_norm}|{album_norm}"
 
 
+def test_release_checks_api_serves_the_date_found_for_an_unmatched_row(client):
+    """
+    GIVEN an include run's unmatched result (release_date None) that the
+         worker confirmed with a date
+    WHEN GET /api/release_checks is requested
+    THEN the album is listed under the key its page row carries, with the
+         state and the date, so the page can fill its "unknown" cell.
+    """
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(
+        job_id,
+        [
+            {
+                **_provider_row("spotify", 0),
+                "release_date": None,
+                "unmatched_reason": "no_spotify_match",
+                "_normalized_key": normalize_name("Lost Band", "Lost Album"),
+                "artist": "Lost Band",
+                "album": "Lost Album",
+                "release_check": "confirmed",
+                "original_release_date": "2025-03-14",
+            }
+        ],
+        "Done",
+    )
+
+    albums = client.get(f"/api/release_checks?job_id={job_id}").get_json()["albums"]
+
+    artist_norm, album_norm = normalize_name("Lost Band", "Lost Album")
+    assert albums == [
+        {
+            "key": f"{artist_norm}|{album_norm}",
+            "original_release_date": "2025-03-14",
+            "state": "confirmed",
+        }
+    ]
+
+
 def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
     """
     GIVEN a result dict carrying no _normalized_key

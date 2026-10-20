@@ -100,6 +100,9 @@ from scripts.dev._frontend_gate_heatmap_access import (  # noqa: E402, F401
     check_heatmap_tooltip_has_one_owner,
     check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip,
 )
+from scripts.dev._frontend_gate_include import (  # noqa: E402, F401
+    check_include_results_page,
+)
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
     DEFAULT_STATES,
     FONTS_READY_EXPRESSION,
@@ -371,6 +374,12 @@ CHECKS = (
         "unmatched report",
         check_unmatched_report,
         (DESKTOP, MOBILE, TOUCH_WIDE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "include results page",
+        check_include_results_page,
+        (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),
     (

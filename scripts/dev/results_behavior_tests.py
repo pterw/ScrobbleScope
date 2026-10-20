@@ -751,6 +751,122 @@ class ResultsBehaviorTests(unittest.TestCase):
         )
         self.assertNotIn("Lost", "\n".join(lines))
 
+    def release_check_run(self, albums):
+        """Load results-release-checks.js into an include run's rows and answer
+        its one poll with `albums`: a matched row, then three unmatched rows
+        whose release cell reads "unknown"."""
+
+        def row(name, unmatched, export, cell):
+            return (
+                f'<tr data-album-key="{name.lower()}|x" data-album="{name}" '
+                f'data-unmatched="{unmatched}"><td class="release-date-cell" '
+                f'data-export="{export}">{cell}</td></tr>'
+            )
+
+        unknown = (
+            '<span class="release-date-value release-date-value--unknown">'
+            "unknown</span>"
+        )
+        rows = row(
+            "Matched",
+            "",
+            "2025-01-02",
+            '<span class="release-date-value">2025-01</span>',
+        )
+        for name in ("Confirmed", "Moved", "Nothing"):
+            rows += row(name, "no_spotify_match", "", unknown)
+        self.page.evaluate(
+            """albums => {
+                window.fetch = () => Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        status: 'done', checked: 3, total: 3, moved_in: 0, albums,
+                    }),
+                });
+            }""",
+            albums,
+        )
+        self.start(
+            "results-release-checks.js",
+            '<div id="release-check-bar" data-job-id="j"><span id="release-check-status">'
+            '</span></div><table id="results-table"><tbody>'
+            + rows
+            + "</tbody></table>",
+            {},
+        )
+        self.page.evaluate(
+            "async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); }"
+        )
+
+    def cell(self, name):
+        """The release cell of one row: its text, export value and unknown flag."""
+        return self.page.locator(
+            f'tr[data-album="{name}"] .release-date-cell'
+        ).evaluate(
+            """cell => ({
+                text: cell.querySelector('.release-date-value').textContent,
+                export: cell.dataset.export,
+                unknown: cell.querySelector('.release-date-value--unknown') !== null,
+                note: cell.querySelector('.release-check-note') !== null,
+            })"""
+        )
+
+    def test_a_finding_fills_an_unmatched_rows_unknown_release_in_place(self):
+        """A confirmed or moved-out finding gives an unmatched row the date it had
+        none of: YYYY-MM in the cell, the full date in data-export, and the
+        unknown class gone; a moved-out one also gets the note. Nothing found
+        leaves "unknown", and a confirmed matched row is untouched."""
+        self.release_check_run(
+            [
+                {
+                    "key": "matched|x",
+                    "state": "confirmed",
+                    "original_release_date": "2024-05-06",
+                },
+                {
+                    "key": "confirmed|x",
+                    "state": "confirmed",
+                    "original_release_date": "2025-03-14",
+                },
+                {
+                    "key": "moved|x",
+                    "state": "moved_out",
+                    "original_release_date": "1999-05-01",
+                },
+                {
+                    "key": "nothing|x",
+                    "state": "unavailable",
+                    "original_release_date": None,
+                },
+            ]
+        )
+        self.assertEqual(
+            self.cell("Confirmed"),
+            {
+                "text": "2025-03",
+                "export": "2025-03-14",
+                "unknown": False,
+                "note": False,
+            },
+        )
+        self.assertEqual(
+            self.cell("Moved"),
+            {"text": "1999-05", "export": "1999-05-01", "unknown": False, "note": True},
+        )
+        self.assertEqual(
+            self.cell("Nothing"),
+            {"text": "unknown", "export": "", "unknown": True, "note": False},
+        )
+        self.assertEqual(
+            self.cell("Matched"),
+            {
+                "text": "2025-01",
+                "export": "2025-01-02",
+                "unknown": False,
+                "note": False,
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

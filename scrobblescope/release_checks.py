@@ -16,7 +16,10 @@ DB connections and the ways a job's state can be raced.
 Candidates per job, in this order and capped at ``MUSICBRAINZ_CHECKS_PER_JOB``:
 
 1. the results, in rank order -- a correction can move one *out* of the
-   target window;
+   target window. On an "Include unmatched albums" run the results also hold
+   the unmatched rows the listener asked for, which have no release date at
+   all: a finding gives such a row the date it had none of, and the page
+   fills it into the row's "unknown" cell;
 2. the albums the release filter excluded whose provider year is **later**
    than that window -- a correction can move one *in*.
 
@@ -189,15 +192,32 @@ def _matches_window(original_release, params):
     )
 
 
-def _resolve_cached(job_id, candidates, cached):
+def _result_outcome(original_release, params):
+    """Return the ``release_check`` outcome one finding gives a result row.
+
+    One rule for a cached finding and a fresh lookup, so the same finding
+    never reads differently depending on where it came from: no date is
+    unavailable, a date still inside the job's window is confirmed, and a
+    date outside it is moved out.
+    """
+    if not original_release:
+        return CHECK_UNAVAILABLE
+    if _matches_window(original_release, params):
+        return CHECK_CONFIRMED
+    return CHECK_MOVED_OUT
+
+
+def _resolve_cached(job_id, candidates, cached, params, state):
     """Split *candidates* into those already cached and those still to check.
 
     A cached row is a finding somebody already paid for, so it costs no
-    request: a row carrying an original release date is why the result is in
-    the list at all (Task 8 filtered on it), and a null row is a recorded
-    "checked, nothing found". Both settle the result's ``release_check``
-    immediately. A cached exclusion needs nothing -- Task 8 already applied
-    the same finding when it built the results.
+    request. A result row takes the same outcome a fresh lookup would give
+    it (``_result_outcome``): the row is not necessarily in the list because
+    of its original release date -- an included unmatched album is there
+    with no date at all -- so the cached date is judged against the job's
+    window, a moved-out one counts in ``state``, and a null row is a
+    recorded "checked, nothing found". A cached exclusion needs nothing --
+    Task 8 already applied the same finding when it built the results.
     """
     pending = []
     for candidate in candidates:
@@ -207,15 +227,13 @@ def _resolve_cached(job_id, candidates, cached):
             continue
         if candidate["kind"] == "result":
             original_release = hit.get("original_release")
+            outcome = _result_outcome(original_release, params)
+            if outcome == CHECK_MOVED_OUT:
+                state["moved_out"] += 1
             jobs.update_result(
                 job_id,
                 candidate["key"],
-                {
-                    "release_check": (
-                        CHECK_CONFIRMED if original_release else CHECK_UNAVAILABLE
-                    ),
-                    "original_release_date": original_release,
-                },
+                {"release_check": outcome, "original_release_date": original_release},
             )
     return pending
 
@@ -320,12 +338,8 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
     in_window = bool(original_release) and _matches_window(original_release, params)
 
     if candidate["kind"] == "result":
-        if not original_release:
-            outcome = CHECK_UNAVAILABLE
-        elif in_window:
-            outcome = CHECK_CONFIRMED
-        else:
-            outcome = CHECK_MOVED_OUT
+        outcome = _result_outcome(original_release, params)
+        if outcome == CHECK_MOVED_OUT:
             state["moved_out"] += 1
         # The date travels with the outcome because the outcome alone cannot
         # be rendered: a moved-out row has to say which year it was first
@@ -383,7 +397,7 @@ async def run_release_checks(job_id):
     state = _state(STATUS_RUNNING)
     try:
         cached = await _lookup_cached(conn, candidates) if conn else {}
-        pending = _resolve_cached(job_id, candidates, cached)[
+        pending = _resolve_cached(job_id, candidates, cached, params, state)[
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
         state["total"] = len(pending)

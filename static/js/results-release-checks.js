@@ -5,7 +5,8 @@
 // table is on screen. This script polls GET /api/release_checks and discloses
 // what it finds. The owner's ruling governs every choice here: results render
 // at once, corrections land live, a corrected row stays where it is, and the
-// list re-sorts only on reload.
+// list re-sorts only on reload. An included unmatched row has no release date
+// ("unknown"); a finding that carries one is filled into that cell in place.
 document.addEventListener('DOMContentLoaded', () => {
     const bar = document.getElementById('release-check-bar');
     if (!bar) return;
@@ -55,9 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * The note goes inside the release cell, under the date, because that cell
      * is shorter than the row's artwork: a second line there changes nothing
-     * about where any row sits. Only a moved-out album is marked -- a
-     * confirmed one tells the reader nothing they cannot already see, and an
-     * album MusicBrainz could not date has no correction to disclose.
+     * about where any row sits. A matched row is marked only when it moved out
+     * -- a confirmed one tells the reader nothing they cannot already see, and
+     * an album MusicBrainz could not date has no correction to disclose. An
+     * unmatched row is the one case a confirmed finding changes the page: it
+     * has no release date at all ("unknown"), so any date MusicBrainz finds
+     * for it is filled into the cell in place. The row never moves; the
+     * ranking is by play count and stays so until a reload.
      */
     function markRow(album) {
         const row = document.querySelector(
@@ -65,6 +70,21 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         if (!row || row.dataset.releaseCheck === album.state) return;
         row.dataset.releaseCheck = album.state;
+
+        if (
+            row.dataset.unmatched &&
+            album.original_release_date &&
+            (album.state === 'confirmed' || album.state === 'moved_out')
+        ) {
+            const dated = row.querySelector('.release-date-cell');
+            const datedValue = dated && dated.querySelector('.release-date-value');
+            if (datedValue) {
+                const full = String(album.original_release_date);
+                datedValue.textContent = full.slice(0, 7);
+                datedValue.classList.remove('release-date-value--unknown');
+                dated.dataset.export = full;
+            }
+        }
         if (album.state !== 'moved_out' || !album.original_release_date) return;
 
         const cell = row.querySelector('.release-date-cell');

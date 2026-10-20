@@ -184,7 +184,7 @@ sequenceDiagram
                     ReleaseChecks->>MusicBrainz: Look up the release group's first-release-date
                     MusicBrainz-->>ReleaseChecks: A trusted match, or nothing close enough
                     ReleaseChecks->>Cache: Persist the finding, hit and miss alike
-                    ReleaseChecks->>Jobs: Mark a moved-out row in place
+                    ReleaseChecks->>Jobs: Record the outcome and date on the row: a moved-out row is marked, and an unmatched row gains the date it lacked
                 end
                 ReleaseChecks->>Jobs: record_stat(release_check: running, then done)
             end
@@ -324,4 +324,7 @@ has nothing to correct. `release_checks.py` runs it on its own thread with a
 FIFO queue of job ids, which is why it appears as a separate lifeline rather
 than an `Orch` arrow. `GET /api/release_checks` is what the open results page
 polls for the findings; that poll is not drawn here, because this view ends at
-the results document.
+the results document. On an include run the unmatched rows are results too, so
+the pass looks them up in rank order like any other album: a finding gives an
+unmatched row the release date it had none of, which the open page fills into its
+"unknown" cell in place, and the row never moves.

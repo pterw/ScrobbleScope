@@ -138,6 +138,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-30 - MusicBrainz dates the unmatched rows on Results
+
+Side task, no batch tag: MusicBrainz dates the unmatched rows on Results, on the include-unmatched branch (a small PR off main after the cover-washes PR). The commit landed on 2026-10-01; the entry keeps the day of the work.
+
+Owner intent: an included unmatched album gets its release year once MusicBrainz finds it, without the list moving.
+
+What changed: the page script (`static/js/results-release-checks.js`) fills the "unknown" cell of an unmatched row with YYYY-MM and puts the full date in the cell's `data-export` for a confirmed or moved-out finding; a moved-out row also gets the note. The worker and `/api/release_checks` already stored and served the outcome and the date for an unmatched row; new tests pin that, and the rank order. A new frontend-gate check, "include results page" (`scripts/dev/_frontend_gate_include.py`, desktop and mobile), seeds a real include job and asserts the marker and "unknown" text at 7:1 in both themes, the Albums control's option and selected text at 7:1 and its selected boundary at 3:1 against the track and against the card, Matched only (unmatched rows hidden, ranks 01..03, Listening Time enabled), the Sort leaderboard's unselected hover at 7:1, the selected option's forced-colours border equal to `Highlight`, and no horizontal overflow at 390 and 1280. A new behaviour-script test pins the fill. DESIGN.md's segmented-control track line now states the code: the page canvas fill, a 1px hairline border, the 8px radius and 3px padding at scale 1 (the old line also said a 999px pill and 4px padding, which the code never had). The architecture pages name the new gate module and the fill.
+
+Fix (review fold-in, Minor 1): a cached finding and a fresh lookup now reach the same outcome for a result row. `_resolve_cached` stored confirmed for any cached date on the premise that a result is in the list because of that date, which does not hold for an included unmatched row; it would have shown a 1999 date as confirmed in a 2025 run. One function, `_result_outcome(original_release, params)` (unavailable, confirmed or moved out through `_matches_window`), now serves `_check_candidate` and `_resolve_cached`; a cached moved-out row raises the moved-out count as a fresh one does. Mutation: making `_resolve_cached` store confirmed unconditionally again fails `test_a_cached_finding_gives_an_unmatched_row_the_outcome_a_lookup_would[out_of_window]` (`assert 'confirmed' == 'moved_out'`); restored, 55 passed. No exception text reaches a log line. The architecture page's `_frontend_gate_layout` line was reflowed (Minor 4).
+
+Deviations: DESIGN.md also corrected the track's radius and padding, as above. The `tr[hidden]` rule in `static/css/results.css` looks redundant (the rows are hidden by the `[hidden]` rule in the compiled sheet); it is not touched here and is filed as a finding by the controller.
+
+Known limits: this entry replaces the wording Task B's entry carries. The Albums control's option and selected text and the Sort leaderboard's unselected hover at 7:1 in both themes, and the selected option's forced-colours `Highlight` border, are now asserted on the rendered include page by the gate. The remaining limit: the gate seeds the page and does not render a live MusicBrainz pass (the behaviour script and pytest cover the fill and the worker).
+
+Edited existing tests: test_run_release_checks_records_the_date_from_a_cached_finding (its cached date moved from 1977-02-04 to 2025-01-15, inside the job's 2025 window, so the cached finding is still confirmed under the one outcome rule).
+
+Validation: `pytest -q` -- **2555 passed**.
+
 ### 2026-09-30 - Results list unmatched albums when the listener asks
 
 Side task, no batch tag: unmatched albums on the Results page, an "Albums" control that hides them and one lifted look for every segmented control, on the include-unmatched branch (a small PR off main after the cover-washes PR). The commit landed on 2026-10-01; the entry keeps the day of the work.
@@ -179,15 +197,3 @@ Change: `_ring_shot` in `scripts/dev/_frontend_gate_heatmap_access.py` calls `wa
 Evidence: a new test records the order of the wait and the geometry reads over a two-attempt run; with the call removed it fails (`assert 0 == 2` on the wait count). The existing ring-page helper answers the settle script with an empty result so the real `wait_for_settled` can run against it. The 20-run reproduction (the check alone, fresh desktop context each, `reduced_motion="no-preference"`) passed 20 of 20, with `container.opacity` 1 and nothing changed during the shot on all 80 shots read (4 per run). A ring forced to `visibility=hidden` still fails with `ring.visibility=hidden` in the evidence.
 
 Validation: `pytest -q` -- **2528 passed**.
-
-### 2026-10-01 - The ring check also reads opacity and animations
-
-Side task, no batch tag: the heatmap focus-ring check also reads the result's opacity and running animations when it fails, a test of the crossfade hypothesis for F-B23-39, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: CI run 36808671140 (Linux, desktop, 043368eb) failed the ring check with the ring visible, 1.6px outside the cell, stroke the accent, `:focus-visible` held, tooltip clear of the ring and nothing moved: the DOM said painted, the pixels said not. The one state the evidence line did not read is opacity. `static/js/heatmap.js` `revealHeatmapResult` crossfades `#heatmap-result` in (`heatmap-fade`, `fading-out`, `is-handing-off`, 180 ms handoff) unless `prefers-reduced-motion: reduce` matches, and `_LAYOUT_SETTLED_JS` waits for fonts and frames, not animations.
-
-Change: `_RING_EVIDENCE_JS` in `scripts/dev/_frontend_gate_heatmap_access.py` also reads the result container's and the SVG's computed `opacity`, the container's three crossfade flags, how many `document.getAnimations()` are `running`, and the page's `prefers-reduced-motion` match, in the same evaluation as the geometry (so on both sides of the shot, the suffix from the read after it). The suffix gains `container.opacity`, `svg.opacity`, `container.heatmap_fade`, `container.fading_out`, `container.is_handing_off`, `animations.running` and `prefers_reduced_motion`, and `changed_during_shot=` names them when they differ between the two reads. Three tests (38 in the file).
-
-Reproduction, no fix: the check alone, 20 times in one desktop Chromium, with `reduced_motion="no-preference"`: 20 of 20 passed, twice; 20 of 20 with no emulation. The page reports `prefers-reduced-motion: reduce` matches False in the ordinary local run, so the premise that a local run skips the fade is false on this machine. With the evidence read on every shot of one `no-preference` run, 8 of its 20 last-cell shots had a different container opacity before and after the screenshot (so a shot can land inside the fade, on the very cell that failed on CI), and the ring still painted each time; the no-emulation run showed none. No iteration failed, so by the rule for this task the crossfade hypothesis is not confirmed and `_ring_coverage` does not wait for animations. F-B23-39 records the lead. The next CI failure's line will show it.
-
-Validation: `pytest -q` -- **2527 passed**.
