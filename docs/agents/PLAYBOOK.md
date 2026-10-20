@@ -108,6 +108,9 @@ See FINDINGS F-DOCSYNC-3.
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
+  PR #3, the album request module, is under way on
+  `refactor/album-request-module`; its plan is
+  `docs/superpowers/plans/2026-10-20-album-request-module.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -150,6 +153,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The album request module plan opens its branch
+
+Side task, no batch tag: add the album request module plan as the branch's first commit, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes", so every PR plan is the first commit of its own branch.
+
+What changed: `docs/superpowers/plans/2026-10-20-album-request-module.md` is the owner-approved plan for PR #3, and PLAYBOOK Section 3's "Before WP-1" bullet names it. The plan passed a brief review (plan-review.md), a fix round, and a re-review (plan-rereview-1.md) that approved it. One fix was applied at commit time (re-review Minor N1): the three pointers to the Retry rule now all read "Task 5 Step 4, item 4" (the assumptions row and Task 2 Interfaces said "Task 5 Step 5"; Task 5 Touches said "Step 4, item 3").
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - The test-module count counts both sides of the merge
 
 Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -185,15 +200,3 @@ What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence namin
 Deviations: none. No test was edited.
 
 Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Hygiene entries corrected after review
-
-Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
-
-What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2543 passed**.
