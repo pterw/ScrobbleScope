@@ -148,6 +148,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The dashboard names the tranche and its date
+
+Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the dashboard must say what PLAYBOOK Section 3 says, so a new session is not misled about what comes before WP-1.
+
+A freshness audit found `.claude/SESSION_CONTEXT.md` still reading `Last updated: 2026-09-30` although this branch changed it on 2026-10-20, and its `Batch 23 status` row silent on the tranche of side-task PRs that PLAYBOOK Section 3 describes. The date is now 2026-10-20 and the row gains one sentence naming the tranche. Nothing else in the row changed; the Tests row and DOCSYNC STATUS block are untouched. No deviations; no existing test edited.
+
+Validation: `pytest -q` -- **2568 passed**.
+
 ### 2026-10-20 - The gate keeps the index card centred at 1080p
 
 Side task, no batch tag: the frontend gate fails when the index card is pinned under the header at 1080p, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -181,17 +191,5 @@ Owner intent: the separate Albums field made the index card tall and pinned it u
 What changed: `templates/index.html` puts the Show select and the unmatched choice in one `.field-pair` (equal halves from 860px, stacked below, `static/css/index.css`). The label reads "Unmatched albums", the options "Hide" (value 0, default) and "Include" (value 1); ids, name and values are unchanged. The help "Albums Spotify and Deezer can't find, ranked by play count." is rendered `hidden` and `syncUnmatchedLock` in `static/js/index.js` shows it only while Include is chosen. At 1920x945 the default card measures 611px (it was 719px, pinned under the header). The forms gate asserts the help is hidden under Hide and on screen with its exact text under Include, and measures its 7:1 contrast with Include chosen. README, DESIGN.md, three docstrings, a test comment and RECONCILIATION (new section 22, ledger row) follow the code. The Results control keeps its wording until the next commit.
 
 Deviations: none. Edited existing tests: `test_index_albums_control_is_a_pair_of_native_radios` (new copy, hidden help, the shared row) and the docstring of `test_results_loading_passes_the_include_flag_to_the_job_thread`.
-
-Validation: `pytest -q` -- **2564 passed**.
-
-### 2026-10-20 - The tooling diagram draws the include check's imports
-
-Side task, no batch tag: the tooling diagram draws the include check's imports and the hover note is made true, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the records must say what the code and the probes showed.
-
-What changed: in `docs/architecture/documentation-tooling.md` the node `FGINC[_frontend_gate_include]` had no import edges and was missing from the `tool` class list; it now has `FGINC --> FGC` and `FGINC --> FGS` and is in the list. SESSION_CONTEXT Section 4 already lists both imports for the module. The entry "Hover selectors use one :not() list" said the hover check "exercises both selectors"; its probe showed otherwise, so that sentence now says the check guards the hovered ink's contrast, not that the hover rule applies. The Mermaid validator was not run; the controller validates the diagram.
-
-Deviations: none. Documentation only; no test edited.
 
 Validation: `pytest -q` -- **2564 passed**.
