@@ -70,7 +70,7 @@ See FINDINGS F-DOCSYNC-3.
 ## 3. Active batch + next action
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
-  Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-24 and `origin/test` is
+  Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is
   deleted, so side-task PRs branch from `main` and run the guard against its default
   base. The owner names the branch WP-1 opens.
 - **Next action:** WP-0 is next.
@@ -166,9 +166,9 @@ Side task, no batch tag: Batch 23 planned scope accounts for the include-unmatch
 
 Owner intent: keep the Batch 23 planned scope current, so WP-3, WP-5 and WP-6 plan for the include-unmatched control that shipped before WP-1.
 
-What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header paragraph, a WP-3 checkbox (the export path honours `include_unmatched`), a WP-5 checkbox (the source control and the include-unmatched control share the album form), and a sentence in WP-6's statistics contract (whether unmatched albums count in each summary). PLAYBOOK Section 3 no longer says to run the guard with `--base-ref origin/test`: that branch merged into `main` as PR #245 on 2026-09-24 and `origin/test` is deleted, so side-task PRs branch from `main`. The `Branch:` line is unchanged. SESSION_CONTEXT Section 1's Batch 23 row notes the amendment.
+What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header paragraph, a WP-3 checkbox (the export path honours `include_unmatched`), a WP-5 checkbox (the source control and the include-unmatched control share the album form), and a sentence in WP-6's statistics contract (whether unmatched albums count in each summary). PLAYBOOK Section 3 no longer says to run the guard with `--base-ref origin/test`: that branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is deleted, so side-task PRs branch from `main`. The `Branch:` line is unchanged. SESSION_CONTEXT Section 1's Batch 23 row notes the amendment.
 
-Deviations: none. No code change, no test edited.
+Deviations: none. No code change, no test edited. Review fix: PR #245's merge date reads 2026-09-30; the first version gave 2026-09-24, the date the PR was opened.
 
 Validation: `pytest -q` -- **2561 passed**.
 
