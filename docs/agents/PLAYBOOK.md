@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - File the Listening Time toggle's durationless rows
+
+Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a real inconsistency Codex found is recorded, not smuggled into this PR.
+
+After Hide, or on any play-count run switched to Listening Time in the browser, matched albums with no Spotify duration rank last and show a dash, while a run that starts in playtime mode drops them server-side. `main` behaves the same for play-count runs, so it is not this PR's change; the finding (Codex comment 4330862249) leaves the one-rule decision to the UI-consistency PR.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - Clear the top artist when Hide leaves no rows
 
 Side task, no batch tag: the Top Artist stat clears when Hide leaves no rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -181,17 +193,5 @@ Owner intent: a verified Codex review finding that is real but outside this PR i
 The "first released" note on a Results row is added only by the polling script, so a page rendered after the check ended shows none for a moved-out row. It predates this PR for matched rows; the previous commit made the date itself render server-side for unmatched rows. F-B23-45 records the close: render the note from the stored row, sharing its text with the script.
 
 Deviations: none. Edited existing tests: none. New: none.
-
-Validation: `pytest -q` -- **2581 passed**.
-
-### 2026-10-20 - A release date found for an unmatched row survives a reload
-
-Side task, no batch tag: the Results page renders the release date MusicBrainz found for an included unmatched album, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: judge the Codex review finding on PR #256 and fix it if material; it was ruled material.
-
-The release cell of an unmatched row was always "unknown" with an empty export value, and only results-release-checks.js filled the date in, while its bar renders only until the check ends. A page rendered after the pass finished (reload, back-navigation, or a cached pass that ended first) therefore hid a date already stored on the row. templates/results.html now renders the first seven characters of original_release_date, with the full date as its export value, when release_check is confirmed or moved_out, the rule the script applies; any other state keeps "unknown". The script sets the same text on a row already filled, so nothing doubles. The "first released" note for a moved-out row is not rendered server-side; that is filed as the next finding.
-
-Deviations: none. Edited existing tests: none. New: test_results_page_renders_a_found_date_on_an_unmatched_row (four cases; mutation: the old unconditional unknown cell fails the confirmed and moved_out cases, a rule ignoring release_check fails the unavailable case that carries a stale date).
 
 Validation: `pytest -q` -- **2581 passed**.

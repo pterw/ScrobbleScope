@@ -846,6 +846,12 @@ The moved-out correction note (`release-check-note`, `is-release-corrected`) on 
 
 - [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330657188), 2026-10-20, controller trace.
 
+### F-B23-46: the Listening Time toggle's durationless rows
+
+A Results page switched to Listening Time in the browser ranks matched albums with no Spotify duration last, shown as a dash, while a run that starts in playtime mode drops them server-side (`_filter_results_for_display`), so the same listener sees two different leaderboards for the "same" ranking. This is pre-existing on `main` for play-count runs (`setLeaderboardMetric` sorts every row), and is now also reached after Hide on an include run. What would close it: one rule for both paths (hide durationless rows while the client metric is playtime, with renumbering, or keep them server-side too), decided in the UI-consistency PR.
+
+- [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
