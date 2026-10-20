@@ -138,6 +138,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - A page never loads a static file the repository lacks
+
+Side task, no batch tag: a guard test that every local script and stylesheet a rendered page loads exists, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: nothing fails today when a template names a static file that is not shipped, and the next commit renames `page_motion.js`, so the guard comes first.
+
+What changed: `test_every_local_script_and_stylesheet_a_page_loads_exists` in `tests/test_template_shell.py` renders each template in `TEMPLATE_CONTEXT`, collects every `/static/` script and stylesheet reference (query strings dropped), and asserts each file exists under `static/`. It also asserts a page loads at least one, so a wrong pattern cannot pass vacuously. A missing file otherwise 404s silently in the browser and the frontend gate prints it only as an advisory beside a FAIL.
+
+Mutation evidence: renaming `templates/base.html`'s `filename='js/page_motion.js'` to `page_motionX.js` failed all 8 parametrised cases, for example `index.html loads files the repository lacks: ['/static/js/page_motionX.js']`; restored, all 8 pass.
+
+Deviations: none. No existing test was edited.
+
+Validation: `pytest -q` -- **2542 passed**.
+
 ### 2026-10-20 - The pre-Batch-23 tranche plans are recorded
 
 Side task, no batch tag: the master plan and the hygiene plan for the side-task PRs before Batch 23 WP-1, on `chore/pre-batch23-hygiene`.
@@ -173,15 +187,3 @@ Change: `init_db.py` runs connect plus every statement as `_apply_schema` and re
 Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
 
 Validation: `pytest -q` -- **2534 passed**.
-
-### 2026-10-01 - The ring check waits out animations before reading pixels
-
-Side task, no batch tag: the heatmap focus-ring check waits for running animations to finish before it reads the cell's geometry and takes its screenshot, a fix from the third review of PR #245, on the review-fix branch that fast-forwards into PR #245's branch. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: the previous step's reproduction showed 8 of 20 last-cell screenshots landing while `#heatmap-result` was still crossfading in (opacity changed between the read before and the read after the shot), and a reading taken mid-animation is invalid by construction. PR #252 applied the same reasoning to every other check that slept through a transition; the ring check still waited only for fonts and two frames.
-
-Change: `_ring_shot` in `scripts/dev/_frontend_gate_heatmap_access.py` calls `wait_for_settled` (`scripts/dev/_frontend_gate_shared.py`, bounded, raises when the page never settles) at the start of each attempt, after the tooltip nudge and before `_LAYOUT_SETTLED_JS` and the geometry read. This removes a confounder; it is not claimed as the fix for F-B23-39, whose status stays open.
-
-Evidence: a new test records the order of the wait and the geometry reads over a two-attempt run; with the call removed it fails (`assert 0 == 2` on the wait count). The existing ring-page helper answers the settle script with an empty result so the real `wait_for_settled` can run against it. The 20-run reproduction (the check alone, fresh desktop context each, `reduced_motion="no-preference"`) passed 20 of 20, with `container.opacity` 1 and nothing changed during the shot on all 80 shots read (4 per run). A ring forced to `visibility=hidden` still fails with `ring.visibility=hidden` in the evidence.
-
-Validation: `pytest -q` -- **2528 passed**.
