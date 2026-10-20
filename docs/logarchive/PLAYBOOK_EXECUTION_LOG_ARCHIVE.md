@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The redundant tr[hidden] rule is filed
+
+Side task, no batch tag: the `tr[hidden]` rule in `static/css/results.css` is filed as F-B23-43, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep the findings list true to what the earlier entry promised.
+
+What changed: the 2026-09-30 entry "MusicBrainz dates the unmatched rows on Results" said the rule "is filed as a finding by the controller", and it was not. F-B23-43 now names both rules (the one in `results.css` and the `[hidden]` rule with `!important` in the compiled `tailwind.css`) and says deleting the first needs a gate or behaviour assertion first.
+
+Deviations: none. No code change, no test edited.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - The production database sleeps after an idle hour again
 
 Side task, no batch tag: the production database (`scrobblescope-db`) is set to stop after an idle hour again, and PLAYBOOK Section 3 names the work before WP-1, on the include-unmatched branch (a small PR off main after the cover-washes PR).

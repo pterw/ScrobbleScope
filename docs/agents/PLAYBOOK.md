@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Retry keeps the listener's Albums choice
+
+Side task, no batch tag: Retry on the loading page keeps the Albums choice, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a retried search must repeat the listener's search exactly (owner ruling 2026-09-30: fix a found defect now rather than later).
+
+What changed: an "All albums" run that failed retryably offered Retry, and `retryCurrentSearch()` in `static/js/loading.js` rebuilt the POST from `window.SCROBBLE`, which `templates/loading.html` fills from a hand-written `scrobble-config` block. Neither carried `include_unmatched`, so Retry silently re-ran the search as "Matched only". The block now has `"include_unmatched": include_unmatched|default(false)` (the route already passed it; the default keeps templates rendered without it working) and the script posts `include_unmatched=1` when it is true, nothing otherwise, as the index form does. New `tests/test_loading_retry_contract.py` derives the fields `results_loading` reads from `request.form` (an `ast` walk) and asserts each is a key of the config block and is posted by `retryCurrentSearch()`; it failed on the old tree naming `include_unmatched`, and deleting another field's `createHiddenInput` line makes it fail naming that field.
+
+Deviations: none. No existing test edited.
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - The hover checks wait for transitions, not a timer
 
 Side task, no batch tag: the segmented-control colour checks wait for the browser to finish their transitions instead of sleeping, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,17 +195,5 @@ What changed: CI run 39482227535 (Linux Chromium) failed the large display scale
 Deviations: the frontend gate and results-behavior script were not run here (another browser gate may be running; the controller runs them and CI verifies).
 
 Edited existing check: the `UNMATCHED_HELP` constant read by the Albums help check in `scripts/dev/_frontend_gate_forms.py`.
-
-Validation: `pytest -q` -- **2561 passed**.
-
-### 2026-10-20 - The redundant tr[hidden] rule is filed
-
-Side task, no batch tag: the `tr[hidden]` rule in `static/css/results.css` is filed as F-B23-43, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: keep the findings list true to what the earlier entry promised.
-
-What changed: the 2026-09-30 entry "MusicBrainz dates the unmatched rows on Results" said the rule "is filed as a finding by the controller", and it was not. F-B23-43 now names both rules (the one in `results.css` and the `[hidden]` rule with `!important` in the compiled `tailwind.css`) and says deleting the first needs a gate or behaviour assertion first.
-
-Deviations: none. No code change, no test edited.
 
 Validation: `pytest -q` -- **2561 passed**.
