@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The dashboard names the tranche and its date
+
+Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the dashboard must say what PLAYBOOK Section 3 says, so a new session is not misled about what comes before WP-1.
+
+A freshness audit found `.claude/SESSION_CONTEXT.md` still reading `Last updated: 2026-09-30` although this branch changed it on 2026-10-20, and its `Batch 23 status` row silent on the tranche of side-task PRs that PLAYBOOK Section 3 describes. The date is now 2026-10-20 and the row gains one sentence naming the tranche. Nothing else in the row changed; the Tests row and DOCSYNC STATUS block are untouched. No deviations; no existing test edited.
+
+Validation: `pytest -q` -- **2568 passed**.
+
 ### 2026-10-20 - The gate keeps the index card centred at 1080p
 
 Side task, no batch tag: the frontend gate fails when the index card is pinned under the header at 1080p, on the include-unmatched branch (a small PR off main after the cover-washes PR).

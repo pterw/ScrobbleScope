@@ -885,6 +885,56 @@ def test_release_checks_api_serves_the_date_found_for_an_unmatched_row(client):
     ]
 
 
+@pytest.mark.parametrize(
+    "check, date, shown, export",
+    [
+        ("confirmed", "1977-02-04", "1977-02", "1977-02-04"),
+        ("moved_out", "1977-02-04", "1977-02", "1977-02-04"),
+        ("unavailable", "1977-02-04", None, ""),
+        ("unchecked", None, None, ""),
+    ],
+)
+def test_results_page_renders_a_found_date_on_an_unmatched_row(
+    client, check, date, shown, export
+):
+    """
+    GIVEN an include run whose unmatched row the check already ended on
+    WHEN the results page renders after the check finished
+    THEN a confirmed or moved-out row shows the date (YYYY-MM) with the full
+         date as its export value; any other state stays "unknown" and empty,
+         even when a stale date is stored.
+
+    Mutation: render the old unconditional unknown cell and the confirmed case
+    fails; ignore release_check and the unavailable case fails.
+    """
+    row = {
+        **_unmatched_result_row("Lost One", "no_spotify_match", 45),
+        "release_check": check,
+        "original_release_date": date,
+    }
+    page = _render_results_include(client, [row])
+
+    cell = _row_html(page, "Lost One").split("release-date-cell", 1)[1]
+    cell = cell.split("</td>")[0]
+    if shown:
+        assert f'data-export="{export}"' in cell
+        assert f'<span class="release-date-value">{shown}</span>' in cell
+        assert "release-date-value--unknown" not in cell
+    else:
+        assert 'data-export=""' in cell
+        assert "release-date-value--unknown" in cell
+        assert "1977" not in cell
+
+
+def _render_results_include(client, rows):
+    """Render /results_complete for a finished include run holding `rows`."""
+    job_id = jobs.create({**TEST_JOB_PARAMS, "include_unmatched": True})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
 def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
     """
     GIVEN a result dict carrying no _normalized_key

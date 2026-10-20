@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - A release date found for an unmatched row survives a reload
+
+Side task, no batch tag: the Results page renders the release date MusicBrainz found for an included unmatched album, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: judge the Codex review finding on PR #256 and fix it if material; it was ruled material.
+
+The release cell of an unmatched row was always "unknown" with an empty export value, and only results-release-checks.js filled the date in, while its bar renders only until the check ends. A page rendered after the pass finished (reload, back-navigation, or a cached pass that ended first) therefore hid a date already stored on the row. templates/results.html now renders the first seven characters of original_release_date, with the full date as its export value, when release_check is confirmed or moved_out, the rule the script applies; any other state keeps "unknown". The script sets the same text on a row already filled, so nothing doubles. The "first released" note for a moved-out row is not rendered server-side; that is filed as the next finding.
+
+Deviations: none. Edited existing tests: none. New: test_results_page_renders_a_found_date_on_an_unmatched_row (four cases; mutation: the old unconditional unknown cell fails the confirmed and moved_out cases, a rule ignoring release_check fails the unavailable case that carries a stale date).
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - The new count-line tests spell the middle dot as an escape
 
 Side task, no batch tag: the count-line tests in tests/test_routes.py spell the middle dot as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,13 +195,3 @@ On a run with no Spotify durations, choosing Hide toasted "Unmatched albums hidd
 Deviations: none. Edited existing tests: `test_matched_only_without_durations_leaves_listening_time_off` (gains the toast assertion). New: `test_results_include_run_help_promises_listening_time_only_with_durations`.
 
 Validation: `pytest -q` -- **2570 passed**.
-
-### 2026-10-20 - The dashboard names the tranche and its date
-
-Side task, no batch tag: the session dashboard names the side-task tranche and carries today's date, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: the dashboard must say what PLAYBOOK Section 3 says, so a new session is not misled about what comes before WP-1.
-
-A freshness audit found `.claude/SESSION_CONTEXT.md` still reading `Last updated: 2026-09-30` although this branch changed it on 2026-10-20, and its `Batch 23 status` row silent on the tranche of side-task PRs that PLAYBOOK Section 3 describes. The date is now 2026-10-20 and the row gains one sentence naming the tranche. Nothing else in the row changed; the Tests row and DOCSYNC STATUS block are untouched. No deviations; no existing test edited.
-
-Validation: `pytest -q` -- **2568 passed**.

@@ -280,9 +280,18 @@
                             </td>
                             <!-- Release Date Context (YYYY-MM only, no DD) -->
                             {% if album.unmatched_reason %}
+                            {# A date MusicBrainz found is shown from the stored row, so a page
+                               rendered after the check ended agrees with the script, which fills
+                               the same cell in place while the check runs. #}
+                            {% if album.original_release_date and album.release_check in ('confirmed', 'moved_out') %}
+                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.original_release_date }}">
+                                <span class="release-date-value">{{ album.original_release_date[:7] }}</span>
+                            </td>
+                            {% else %}
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="">
                                 <span class="release-date-value release-date-value--unknown">unknown</span>
                             </td>
+                            {% endif %}
                             {% else %}
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date or year }}">
                                 <span class="release-date-value">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
