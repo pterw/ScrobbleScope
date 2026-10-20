@@ -724,8 +724,8 @@ class ResultsBehaviorTests(unittest.TestCase):
         top = self.page.locator("#stat-top-artist")
         self.page.locator("label[for=results_albums_matched]").click()
         self.assertEqual(self.visible_albums(), [])
-        self.assertEqual(self.stats(), ["0", "0", "—"])
-        self.assertEqual(top.get_attribute("title"), "—")
+        self.assertEqual(self.stats(), ["0", "0", "\u2014"])
+        self.assertEqual(top.get_attribute("title"), "\u2014")
 
         self.page.locator("label[for=results_albums_all]").click()
         self.assertEqual(self.stats(), ["2", "80", "Lost One Band"])

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - File the release note that a reload drops
+
+Side task, no batch tag: finding F-B23-45 filed for the moved-out release note a reload drops, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: a verified Codex review finding that is real but outside this PR is filed, not fixed in passing.
+
+The "first released" note on a Results row is added only by the polling script, so a page rendered after the check ended shows none for a moved-out row. It predates this PR for matched rows; the previous commit made the date itself render server-side for unmatched rows. F-B23-45 records the close: render the note from the stored row, sharing its text with the script.
+
+Deviations: none. Edited existing tests: none. New: none.
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - A release date found for an unmatched row survives a reload
 
 Side task, no batch tag: the Results page renders the release date MusicBrainz found for an included unmatched album, on the include-unmatched branch (a small PR off main after the cover-washes PR).

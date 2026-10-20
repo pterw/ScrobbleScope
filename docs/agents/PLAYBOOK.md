@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Spell the empty top-artist dash as an escape
+
+Side task, no batch tag: the empty top-artist dash is spelled as an escape, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: keep hand-written files pure ASCII, as the middle-dot commit did.
+
+The previous commit left a literal em dash in `static/js/results.js` and `scripts/dev/results_behavior_tests.py`, which were pure ASCII before it; both now spell it `\u2014` (the scoped review's one Minor). The rendered value is unchanged.
+
+Deviations: none. Edited existing tests: none (the two assertion strings in `scripts/dev/results_behavior_tests.py` changed spelling only).
+
+Validation: `pytest -q` -- **2581 passed**.
+
 ### 2026-10-20 - File the Listening Time toggle's durationless rows
 
 Side task, no batch tag: F-B23-46 is filed for the Listening Time toggle's durationless rows, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -179,18 +191,6 @@ Side task, no batch tag: three live docs say when an unmatched row's release rea
 Owner intent: the docs follow the code, so a date MusicBrainz finds is not described as always unknown.
 
 README.md, DESIGN.md (Results Row: Unmatched Variant) and the RECONCILIATION ledger row "Results: unmatched albums" said the release cell simply reads "unknown"; it does so only until a found original release replaces it (YYYY-MM). New RECONCILIATION section 25 records the found-date rule, that the server and results-release-checks.js render the same text, the Codex finding on PR #256, and that the moved-out note is still script-only (F-B23-45). Section 21's wording is left as a dated record.
-
-Deviations: none. Edited existing tests: none. New: none.
-
-Validation: `pytest -q` -- **2581 passed**.
-
-### 2026-10-20 - File the release note that a reload drops
-
-Side task, no batch tag: finding F-B23-45 filed for the moved-out release note a reload drops, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: a verified Codex review finding that is real but outside this PR is filed, not fixed in passing.
-
-The "first released" note on a Results row is added only by the polling script, so a page rendered after the check ended shows none for a moved-out row. It predates this PR for matched rows; the previous commit made the date itself render server-side for unmatched rows. F-B23-45 records the close: render the note from the stored row, sharing its text with the script.
 
 Deviations: none. Edited existing tests: none. New: none.
 

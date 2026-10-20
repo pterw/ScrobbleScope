@@ -424,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const topArtist = document.getElementById('stat-top-artist');
         if (topArtist) {
             // No row left: show the template's empty-state dash, not a hidden row's artist.
-            const artist = visible.length ? (visible[0].dataset.artist || '') : '—';
+            const artist = visible.length ? (visible[0].dataset.artist || '') : '\u2014';
             topArtist.textContent = artist;
             topArtist.title = artist;
         }
