@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The Unmatched page says which albums the results list
+
+Side task, no batch tag: the Unmatched page tells an include run which of its albums the results already list, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: "Split the count (Recommended)" -- the count line names both groups, and the No match found and Could not be checked sections say their albums are in the results.
+
+An include run lists its No match found and Could not be checked albums as unmatched rows, yet the page said "N albums left out of your results". `_listed_unmatched_counts` in `scrobblescope/routes/album_flow.py` marks a report entry as listed only when a result row carrying `unmatched_reason` has the entry's report key (a Show limit can cut rows, so the reason code alone is never trusted). `templates/unmatched.html` then reads "L albums listed in your results without a match, K left out" (", K left out" dropped at zero; the old line when nothing is listed) and adds `unmatched-listed-note` under each group description holding listed albums. README names the new line, and `docs/design/RECONCILIATION.md` records it as Section 24 plus a ledger row (note text 14.78:1 light, 15.21:1 dark).
+
+Deviations: none. Edited existing tests: none. New: `test_unmatched_page_count_line_names_listed_and_left_out` and `test_unmatched_page_sections_say_which_albums_the_results_list`.
+
+Validation: `pytest -q` -- **2577 passed**.
+
 ### 2026-10-20 - Listening time is promised only when it is there
 
 Side task, no batch tag: the Results Unmatched albums control promises listening time only when the run has durations, on the include-unmatched branch (a small PR off main after the cover-washes PR).

@@ -43,7 +43,7 @@ The owner-approved overrides currently recorded are:
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
 | Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
 | Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
-| Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, an "unknown" release and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
+| Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, a release that reads "unknown" until MusicBrainz finds the original release and then shows it as YYYY-MM (section 25), and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
 | Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
 | Unmatched page: the count line and group notes | "N albums left out of your results" for every run | On an include run the line names both groups ("L albums listed in your results without a match, K left out") and the No match found and Could not be checked groups say their albums are in the results; every other run and group is unchanged | Owner ruling 2026-10-20 "Split the count (Recommended)", Section 24 |
 
@@ -1107,3 +1107,25 @@ card's surface mix), above the 7:1 target.
 
 Section 21's "left out" wording is the point-in-time record and stays; this
 section supersedes it for an include run.
+
+## 25. An unmatched row's release reads unknown only until a date is found, 2026-10-20
+
+Section 21 says the release cell of an included unmatched row reads
+"unknown". That holds only until MusicBrainz finds the album's original
+release. A Codex review finding on PR #256 (comment 4330657188, 2026-10-20)
+showed the date was filled in by the polling script alone, so a page rendered
+after the check ended lost it.
+
+**The found-date rule.** The cell shows the original release as YYYY-MM when
+the album's `release_check` is `confirmed` or `moved_out` and carries an
+`original_release_date`; otherwise it reads "unknown". The server renders the
+cell and `results-release-checks.js` fills it in place while the check runs;
+both produce the same text, so a reload changes nothing. The unknown cell keeps
+the body token (section 21).
+
+**Still script-only.** The "first released" note a moved-out row gains is added
+by the polling script alone, so a page rendered after the check ended shows no
+note (F-B23-45). This section does not change that.
+
+Section 21's wording is the point-in-time record of the no-date case and
+stays; the ledger row "Results: unmatched albums" now states the current fact.

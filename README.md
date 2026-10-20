@@ -121,8 +121,9 @@ next.
   are ranked by play count only, so Play time is dimmed while Include is
   chosen.
 - On Results, an included album shows a plain "Not Found" or "Unavailable"
-  marker under its artist, a coloured wash instead of a cover, no link, and an
-  "unknown" release date. An "Unmatched albums" choice under the sort control
+  marker under its artist, a coloured wash instead of a cover, no link, and a
+  release date that reads "unknown" until MusicBrainz finds the album's original
+  release, which then shows as year and month. An "Unmatched albums" choice under the sort control
   (Hide or Include) hides those rows, renumbers the rest and recounts the
   totals, so the leaderboard can be ranked by listening time; choosing Include
   brings them

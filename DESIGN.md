@@ -229,7 +229,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 
 ### Results Row: Unmatched Variant
 - **When:** an include run (the index card's "Unmatched albums" control set to Include) lists albums Spotify and Deezer could not match. They are ranked by play count only.
-- **Row:** plain rank and title, no link; the cover slot is the two-tone wash with initials; under the artist a small mono marker in the provider-badge slot says "Not Found" or "Unavailable" in the body ink token; the release cell reads "unknown" in the same token.
+- **Row:** plain rank and title, no link; the cover slot is the two-tone wash with initials; under the artist a small mono marker in the provider-badge slot says "Not Found" or "Unavailable" in the body ink token; the release cell reads "unknown" in the same token until MusicBrainz finds the original release, then shows it as YYYY-MM (filled in place while the check runs, rendered by the server after it ends).
 - **Unmatched albums control:** "Unmatched albums" (Hide / Include, Include selected on an include run) sits under the Sort leaderboard control. Hide hides those rows, ranks and totals recompute, and Listening Time is enabled; Include returns them and Listening Time is dimmed again with its reason.
 
 ### Heatmap Grid
