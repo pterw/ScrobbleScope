@@ -148,6 +148,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The Albums help no longer sits on a line break
+
+Side task, no batch tag: the index card's Albums help is reworded so it sits clear of a line break, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: PR #256 must pass CI at the root cause, not by loosening the gate.
+
+What changed: CI run 39482227535 (Linux Chromium) failed the large display scale parity check on the index page: "form composition height is 961.6px at 1440p, expected proportional 984.1px" and "form height is 873.3px at 1440p, expected proportional 895.8px". The old help, "All albums keeps the ones Spotify and Deezer can't find, ranked by play count only.", overflowed one line by about 6%: measured locally it wraps to 2 lines at 1080p (last-line slack 407.3px of 432.3px) and 2 lines at 1440p (496px of 526.4px). Font size and column both scale with `--index-scale`, but rasterization differs by pixel size and platform, so in CI the sentence fit one line at 1440p and stayed at two at 1080p; the 1440p form was one help line (21.97px) shorter, and the check correctly reported it. The help now reads "Adds the albums Spotify and Deezer can't find, ranked by play count.": one line with 69.7px slack of 432.3px at 1080p and 85.4px of 526.4px at 1440p (about 16% both). `templates/index.html`, the pinned sentence in `scripts/dev/_frontend_gate_forms.py` and the quoted copy in `docs/design/RECONCILIATION.md` follow. The hazard class is filed as F-B23-44 (a gate check for wrap-boundary slack).
+
+Deviations: the frontend gate and results-behavior script were not run here (another browser gate may be running; the controller runs them and CI verifies).
+
+Edited existing check: the `UNMATCHED_HELP` constant read by the Albums help check in `scripts/dev/_frontend_gate_forms.py`.
+
+Validation: `pytest -q` -- **2561 passed**.
+
 ### 2026-10-20 - The redundant tr[hidden] rule is filed
 
 Side task, no batch tag: the `tr[hidden]` rule in `static/css/results.css` is filed as F-B23-43, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -183,15 +197,3 @@ What changed: `BATCH23_DEFINITION.md` gains a "Scope amended 2026-10-20" header 
 Deviations: none. No code change, no test edited. Review fix: PR #245's merge date reads 2026-09-30; the first version gave 2026-09-24, the date the PR was opened.
 
 Validation: `pytest -q` -- **2561 passed**.
-
-### 2026-10-01 - The release command waits for a waking database
-
-Side task, no batch tag: `init_db.py`, the Fly release command, retries its schema step while the database wakes, instead of aborting the deploy on the first dropped connection. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-Problem: release v143 failed with "Schema init failed -- connection was closed in the middle of operation" and exit 1. The Postgres app had stopped; the release command's connection woke it, its proxy restarted mid-boot, and the script died on its first statement. Postgres reported ready 4 s later and a plain redeploy passed.
-
-Change: `init_db.py` runs connect plus every statement as `_apply_schema` and retries it up to 6 attempts (sleeps 1, 2, 4, 8, 8 s, about 23 s) on `OSError`, `asyncio.TimeoutError` and asyncpg's `ConnectionDoesNotExistError`, `InterfaceError`, `CannotConnectNowError` and `ConnectionFailureError` only. A SQL error still fails at once. `asyncpg.connect` now has a 10 s timeout. Each retry prints one line naming the attempt and the exception type, never its text (global-rules Rule 6). The final failure keeps the single ERROR line and exit 1; that line also names only the exception type (plus the SQLSTATE code of a Postgres error), never its text. README's Deployment section says so.
-
-Evidence: new `tests/test_init_db.py` (6 tests, no network, sleeps patched): two transient failures then success, a connection that opens then drops on its first statement (the v143 shape), a non-transient error after one attempt, a SQLSTATE suffix for a Postgres error, exhaustion with one ERROR line, and a DSN planted in the exception text absent from the retry and ERROR lines. Each fails under its own mutation in a scratch copy (no retry: 3 failed; OSError not transient; asyncpg error not transient; everything transient; message in the line; no connect timeout; no raise on the last attempt; no SQLSTATE in the ERROR line; retry wrapping only the connect, which fails only the first-statement test).
-
-Validation: `pytest -q` -- **2534 passed**.

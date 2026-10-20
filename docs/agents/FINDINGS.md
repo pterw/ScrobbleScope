@@ -834,6 +834,12 @@ On a populated Results or Unmatched page the rank pill, the album title and the 
 
 - [ ] **Status:** open (P3). Source: review of the include-unmatched Task C patch (review-C Minor 6), 2026-10-01.
 
+### F-B23-44: text on a wrap boundary passes the scale-parity check locally and fails it on Linux
+
+The large-display scale-parity check in `scripts/dev/_frontend_gate_layout.py` assumes every line in the index form scales proportionally. A sentence within a few percent of a line break can wrap differently at 1080p and 1440p, and on different platforms, so the check can be green on the owner's Windows machine and red in CI for the same tree (PR #256's Albums help, fixed by rewording). What would close it: a gate check that every index-card help line keeps at least 10% slack from a wrap boundary at the 1080p and 1440p windows, so the hazard fails locally too.
+
+- [ ] **Status:** open (P3). Source: PR #256 CI run 39482227535, 2026-10-20.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in

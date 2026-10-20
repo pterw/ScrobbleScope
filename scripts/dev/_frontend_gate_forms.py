@@ -92,10 +92,7 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
 
 
 #: The index card's Albums help text, read from the page by its description.
-UNMATCHED_HELP = (
-    "All albums keeps the ones Spotify and Deezer can't find, ranked by play "
-    "count only."
-)
+UNMATCHED_HELP = "Adds the albums Spotify and Deezer can't find, ranked by play count."
 
 
 def check_include_unmatched_control(page, base_url: str) -> list[str]:

@@ -898,8 +898,8 @@ order, "... Rank by segmented control (Play count / Play time); Show select
 (All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure ...". The card
 also has, between the Rank by control and the Show select, a second field,
 "Albums": a two-option segmented control (Matched only, selected by default;
-All albums), not remembered between visits, with the help "All albums keeps the
-ones Spotify and Deezer can't find, ranked by play count only." It is the same
+All albums), not remembered between visits, with the help "Adds the albums
+Spotify and Deezer can't find, ranked by play count." It is the same
 `.seg` of two native radios as "Rank by" (`name="include_unmatched"`, values 0
 and 1; the server keeps its rule that only "1" includes). The help takes
 `--ss-text-body`, not the muted token, because it is new text: 9.32:1 (light)
