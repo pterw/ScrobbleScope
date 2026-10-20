@@ -3464,9 +3464,10 @@ def test_index_albums_control_is_a_pair_of_native_radios(client):
     """
     GIVEN the index page
     WHEN it renders
-    THEN "Albums" is a segmented control of two radios posting
-    include_unmatched (Matched only = 0, checked; All albums = 1), described
-    by its help text, and no switch markup remains.
+    THEN "Unmatched albums" is a segmented control of two radios posting
+    include_unmatched (Hide = 0, checked; Include = 1), described by its help
+    text, which is rendered hidden (index.js shows it under Include) beside
+    the Show select in one row, and no switch markup remains.
 
     Mutation: bring the checkbox switch back and the radio patterns fail.
     """
@@ -3482,17 +3483,33 @@ def test_index_albums_control_is_a_pair_of_native_radios(client):
     assert "checked" in matched.group(0)
     assert "checked" not in every.group(0)
     assert 'aria-describedby="albums-help"' in page
-    assert 'id="albums-help"' in page
+    assert re.search(
+        r'<label for="albums_matched" class="seg__option">Hide</label>', page
+    )
+    assert re.search(
+        r'<label for="albums_all" class="seg__option">Include</label>', page
+    )
+    assert ">Unmatched albums</span>" in page
+    help_line = re.search(r'<p[^>]*id="albums-help"[^>]*>(.*?)</p>', page)
+    assert help_line
+    assert " hidden" in help_line.group(0).split(">")[0]
+    assert help_line.group(1) == (
+        "Albums Spotify and Deezer can't find, ranked by play count."
+    )
+    pair = re.search(r'<div class="field-pair">(.*?)</p>\s*</div>', page, re.DOTALL)
+    assert pair
+    assert 'id="limit_results"' in pair.group(1)
+    assert 'id="albums_all"' in pair.group(1)
     assert "switch-row" not in page
     assert 'type="checkbox" id="include_unmatched"' not in page
 
 
 def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
     """
-    GIVEN the index form posted with the "All albums" radio (value 1)
+    GIVEN the index form posted with the "Include" radio (value 1)
     WHEN /results_loading starts the job
     THEN the job params hold include_unmatched True and the thread receives
-    the flag as background_task's last argument; with the "Matched only"
+    the flag as background_task's last argument; with the "Hide"
     radio (value 0), or without the field, both are False.
 
     Mutation: leave the flag out of the thread args and the args assertion

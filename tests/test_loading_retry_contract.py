@@ -1,7 +1,7 @@
 """Retry on the loading page posts every field the search form posts.
 
 A retry that drops a field re-runs a different search without telling the
-listener (Retry once re-ran an "All albums" search as "Matched only").
+listener (Retry once re-ran an "Include" search as "Hide").
 `retryCurrentSearch()` rebuilds the POST to /results_loading from the
 `scrobble-config` block in loading.html, both written by hand, so this test
 derives the route's field set from its source and checks both copies.

@@ -427,6 +427,35 @@ html {
   color: var(--ss-text-muted);
 }
 
+/* Show and the unmatched choice share one row. Stacked below 860px; equal
+   halves from 860px, tops aligned so both labels sit on one line. The help
+   spans the row. */
+.field-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: calc(0.75rem * var(--index-scale, 1));
+  margin-bottom: calc(0.75rem * var(--index-scale, 1));
+}
+
+.field-pair > .field {
+  margin-bottom: 0;
+}
+
+.field-pair__help {
+  margin: 0;
+}
+
+@media (min-width: 860px) {
+  .field-pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .field-pair__help {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Written into the page by static/js/index.js and static/js/heatmap.js. It
    replaces Bootstrap's .invalid-feedback, which left with Bootstrap. */
 .field__error {
@@ -672,16 +701,16 @@ html {
 
 /* Kept visible, not removed -- the decade pill's rule: a dimmed option tells
    the reader it exists and is unavailable, which a missing one does not. The
-   Albums control under it states the reason. */
+   help under the Show row states the reason. */
 .seg__radio:disabled + .seg__option {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* The help under a segmented control is new text, so it takes the body token
+/* The help under the Show row is new text, so it takes the body token
    (9.32:1 light, 9.82:1 dark on the card) rather than the muted token of the
    other help lines (5.53:1 and 5.39:1). */
-.seg + .field__help {
+.field-pair__help {
   color: var(--ss-text-body);
 }
 

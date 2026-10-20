@@ -115,10 +115,11 @@ next.
 - Switch the leaderboard between track plays and estimated listening time
   without submitting another search. Listening time depends on available
   Spotify track durations.
-- Keep the albums Spotify and Deezer cannot match with the "Albums" choice on
-  the search form (Matched only or All albums), so your total plays are
-  counted whether or not an album could be identified. Those albums are ranked
-  by play count only, so Play time is dimmed while All albums is chosen.
+- Keep the albums Spotify and Deezer cannot match with the "Unmatched albums"
+  choice beside "Show" on the search form (Hide or Include), so your total
+  plays are counted whether or not an album could be identified. Those albums
+  are ranked by play count only, so Play time is dimmed while Include is
+  chosen.
 - On Results, an included album shows a plain "Not Found" or "Unavailable"
   marker under its artist, a coloured wash instead of a cover, no link, and an
   "unknown" release date. An "Albums" choice under the sort control (All or
@@ -731,10 +732,10 @@ deeply than the first two.
   Results and Unmatched pages, on the artist spotlight, and in the saved
   image; rows from Deezer carry a text badge, and each provider link says
   which provider it leads to.
-- **The search form can keep unmatched albums in.** An "Albums" choice under
-  "Rank by" (Matched only or All albums) lists the albums Spotify and Deezer
+- **The search form can keep unmatched albums in.** An "Unmatched albums"
+  choice beside "Show" (Hide or Include) lists the albums Spotify and Deezer
   could not find alongside the rest, so every play you made is counted. They
-  are ranked by play count only, so Play time is dimmed while All albums is
+  are ranked by play count only, so Play time is dimmed while Include is
   chosen. On Results they are marked "Not Found" or "Unavailable", and the
   "Albums" choice there (All or Matched only) hides them again to rank by
   listening time.

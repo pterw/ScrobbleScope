@@ -148,6 +148,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The unmatched choice joins the Show row
+
+Side task, no batch tag: the index card's unmatched choice moves into the Show row and is renamed, on the include-unmatched branch (a small PR off main after the cover-washes PR).
+
+Owner intent: the separate Albums field made the index card tall and pinned it under the header, so tuck the choice under Show, split the row evenly and make the toggle clearer (rulings 2026-10-20, verbatim in `docs/design/RECONCILIATION.md` section 22).
+
+What changed: `templates/index.html` puts the Show select and the unmatched choice in one `.field-pair` (equal halves from 860px, stacked below, `static/css/index.css`). The label reads "Unmatched albums", the options "Hide" (value 0, default) and "Include" (value 1); ids, name and values are unchanged. The help "Albums Spotify and Deezer can't find, ranked by play count." is rendered `hidden` and `syncUnmatchedLock` in `static/js/index.js` shows it only while Include is chosen. At 1920x945 the default card measures 611px (it was 719px, pinned under the header). The forms gate asserts the help is hidden under Hide and on screen with its exact text under Include, and measures its 7:1 contrast with Include chosen. README, DESIGN.md, three docstrings, a test comment and RECONCILIATION (new section 22, ledger row) follow the code. The Results control keeps its wording until the next commit.
+
+Deviations: none. Edited existing tests: `test_index_albums_control_is_a_pair_of_native_radios` (new copy, hidden help, the shared row) and the docstring of `test_results_loading_passes_the_include_flag_to_the_job_thread`.
+
+Validation: `pytest -q` -- **2564 passed**.
+
 ### 2026-10-20 - The tooling diagram draws the include check's imports
 
 Side task, no batch tag: the tooling diagram draws the include check's imports and the hover note is made true, on the include-unmatched branch (a small PR off main after the cover-washes PR).
@@ -181,17 +193,5 @@ Owner intent: no fixed-timer guesses in the frontend gate (PR #252 removed the o
 What changed: `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` each did `page.wait_for_timeout(350)` before reading a colour that takes a 0.2s transition. Both now call `wait_for_settled` from `scripts/dev/_frontend_gate_shared.py`: the theme switch waits on the control's track, the hover waits on the hovered option. That adds an import of `_frontend_gate_shared` into `_frontend_gate_colour`, so the diagram in `docs/architecture/documentation-tooling.md` gains `FGC --> FGS` and its node label no longer says "pure maths, no page"; SESSION_CONTEXT Section 4's dependency graph gains the same edge and its file note; the module docstring and the DEVELOPMENT.md sentence that called the module pure colour maths now say it also holds the segmented-control checks. The Mermaid validator was not run; the controller validates the diagram.
 
 Deviations: none. No test edited. Probe: a hover rule planted at `#999` fails the gate ("hovered unselected option text on track is 2.66:1, under 7.0:1"); breaking the selector alone (`.seg__optionX`) does not, because the unhovered ink already clears 7:1, so the check guards the hover ink, not the selector.
-
-Validation: `pytest -q` -- **2561 passed**.
-
-### 2026-10-20 - Hover selectors use one :not() list
-
-Side task, no batch tag: the two chained `:not()` hover selectors in `static/css/shell.css` become one `:not()` list each, on the include-unmatched branch (a small PR off main after the cover-washes PR).
-
-Owner intent: clear the Codacy findings on PR #256 at the cause.
-
-What changed: Codacy (Stylelint `selector-not-notation`, "Expected complex :not() pseudo-class notation", 2 minor) flagged `.seg__radio:not(:disabled):not(:checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled):not([aria-pressed="true"]):hover`, the only chained `:not()` selectors in the app's own stylesheets. They are now `.seg__radio:not(:disabled, :checked) + .seg__option:hover` and `.metric-toggle-btn:not(:disabled, [aria-pressed="true"]):hover`. In Selectors Level 4 `:not(A, B)` matches exactly what `:not(A):not(B)` matches, so behaviour is unchanged (Chromium 88+, Firefox 84+, Safari 9+). The frontend gate's segmented-control hover check (`seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py`) guards the hovered ink's contrast, not that the hover rule applies: with the selector broken the gate still passed, because the unhovered ink already clears 7:1, while a planted low-contrast hover colour fails it ("hovered unselected option text on track is 2.66:1, under 7.0:1"). No test, gate module or document quoted the old text.
-
-Deviations: none. No test edited.
 
 Validation: `pytest -q` -- **2561 passed**.

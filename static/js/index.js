@@ -558,16 +558,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* An unmatched album has no play time, so an include run ranks by play
-     count only: "All albums" disables Play time (dimmed, still visible) and
-     selects Play count. The choice is never silently restored when "Matched
-     only" is chosen again. */
+     count only: "Include" (the unmatched-albums control) disables Play time
+     (dimmed, still visible) and selects Play count. The choice is never
+     silently restored when "Hide" is chosen again. The help line under the
+     Show row is visible only while Include is chosen. */
   const includeUnmatched = document.getElementById('albums_all');
   const matchedOnly = document.getElementById('albums_matched');
   const sortPlaytime = document.getElementById('sort_playtime');
   const sortPlaycount = document.getElementById('sort_playcount');
+  const unmatchedHelp = document.getElementById('albums-help');
 
   function syncUnmatchedLock() {
     if (!includeUnmatched || !sortPlaytime) return;
+    if (unmatchedHelp) unmatchedHelp.hidden = !includeUnmatched.checked;
     if (includeUnmatched.checked) {
       sortPlaytime.disabled = true;
       if (sortPlaytime.checked && sortPlaycount) {

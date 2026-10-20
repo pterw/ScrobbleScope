@@ -41,7 +41,7 @@ The owner-approved overrides currently recorded are:
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
-| Index card: Albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Albums" segmented control (Matched only / All albums) sits between the Rank by control and the Show select, and the Play time segment can be disabled | Owner ruling 2026-09-30, Section 20 |
+| Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
 | Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both Albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
 | Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, an "unknown" release and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Albums" segmented control (All / Matched only); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
 
@@ -1007,3 +1007,42 @@ copies of it, with the `--results-scale` fallback now in the rule); the
 dimmed-disabled rule stays in `index.css`. Help text under the controls takes
 `--ss-text-body` (it was muted at 4.9:1 on the Results card; the owner's
 ruling is that 4.5 is a floor, not a goal).
+
+---
+
+## 22. The unmatched choice joins the Show row, 2026-10-20
+
+Owner rulings, 2026-10-20: "I think the segemented control for the matched
+only/ should be is tucked under "Show" and also cccentering the index card
+better, and making this a feat that is tightened to be less "large" on the
+front-end ... the toggle should be more clear too." Then, on the prototype:
+"It's a bit tight - I'd suggest that the show all results and the segmented
+control share equal space and split evenly" and "Yes that looks good to me".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them, and it supersedes the position and wording section 20 gave the
+index card's field.
+
+**The placement.** The field no longer sits between the Rank by control and
+the Show select. It shares one row with the Show select: from 860px a two
+column grid of equal halves (the same 0.75rem scaled gap as the form's other
+rows), tops aligned so both labels sit on one line; below 860px the two stack,
+each full width. The row is one `.field-pair` in `static/css/index.css`.
+
+**The wording.** The label reads "Unmatched albums" (it read "Albums") and the
+options read "Hide" (value 0, the default, `id="albums_matched"`) and "Include"
+(value 1, `id="albums_all"`); they read "Matched only" and "All albums". The
+radios' name, values and ids are unchanged, so the route, Retry and the tests
+read the same fields.
+
+**The help.** "Albums Spotify and Deezer can't find, ranked by play count."
+sits under the row and is shown only while Include is chosen (it is rendered
+with the `hidden` attribute, and `syncUnmatchedLock` in `static/js/index.js`
+sets and clears it, so back navigation restores it). The group keeps
+`aria-describedby="albums-help"`. It keeps the body token from section 20
+(9.32:1 light, 9.82:1 dark on the card).
+
+**Why the move.** The separate field made the card 719px tall at 1920x945 and
+pinned it under the header (the centring term in `positionForm` fell below its
+0.25rem clamp). In the Show row the default card measures about 611px and is
+centred again.

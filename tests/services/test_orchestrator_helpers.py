@@ -684,7 +684,7 @@ def test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence():
 
 
 # ---------------------------------------------------------------------------
-# merge_unmatched_rows: the "All albums" choice
+# merge_unmatched_rows: the "Include" choice
 # ---------------------------------------------------------------------------
 
 

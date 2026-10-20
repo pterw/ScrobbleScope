@@ -538,7 +538,7 @@ async def _process_filtered_albums(
     elapsed" log still measures from the start of the job (the start of
     ``_fetch_and_process``), not from this function's own start.
 
-    ``include_unmatched`` is the listener's "Albums" choice (All albums).
+    ``include_unmatched`` is the listener's "Include" choice (the unmatched-albums control).
     When on, the job's ``no_spotify_match`` and
     ``provider_unavailable`` albums are merged into the results after
     ``process_albums`` and before the post-slice, so ``limit_results`` applies

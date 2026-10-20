@@ -91,17 +91,20 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
     return failures
 
 
-#: The index card's Albums help text, read from the page by its description.
-UNMATCHED_HELP = "Adds the albums Spotify and Deezer can't find, ranked by play count."
+#: The index card's unmatched-albums help text, read from the page by its
+#: description. It is on screen only while Include is chosen.
+UNMATCHED_HELP = "Albums Spotify and Deezer can't find, ranked by play count."
 
 
 def check_include_unmatched_control(page, base_url: str) -> list[str]:
-    """The "Albums" segmented control is two native radios that lock Play time.
+    """The "Unmatched albums" control is two native radios that lock Play time.
 
     An unmatched album has no play time, so an include run ranks by play count
-    only. The page enforces it by disabling the Play time segment while "All
-    albums" is chosen, and moving the selection to Play count if Play time was
-    the choice. Asserted through the keyboard, in both ways a radio group is
+    only. The page enforces it by disabling the Play time segment while
+    "Include" is chosen, and moving the selection to Play count if Play time
+    was the choice. The help line under the Show row is hidden while "Hide"
+    is chosen and on screen with its exact text while "Include" is chosen.
+    Asserted through the keyboard, in both ways a radio group is
     driven (arrow keys move the selection; Space selects the focused option),
     because the radios are clipped native inputs styled through their labels
     and a dispatched event would prove nothing about what a keyboard reader
@@ -118,7 +121,7 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
     matched = page.locator("#albums_matched")
     for label, track, selected, unselected in (
         (
-            "Albums control",
+            "Unmatched albums control",
             ".seg:has(#albums_all)",
             "label[for=albums_matched]",
             "label[for=albums_all]",
@@ -184,32 +187,56 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
     if info is None:
         return ["/ #albums_all or #albums_matched: no such radio"]
     if info["types"] != ["radio", "radio"]:
-        failures.append(f"/ Albums control: inputs are {info['types']!r}, not radios")
+        failures.append(
+            f"/ Unmatched albums control: inputs are {info['types']!r}, not radios"
+        )
     if info["names"] != ["include_unmatched", "include_unmatched"]:
-        failures.append(f"/ Albums control: posts as {info['names']!r}")
+        failures.append(f"/ Unmatched albums control: posts as {info['names']!r}")
     if info["values"] != ["0", "1"]:
-        failures.append(f"/ Albums control: values are {info['values']!r}")
-    if info["options"] != ["Matched only", "All albums"]:
-        failures.append(f"/ Albums control: options read {info['options']!r}")
-    if info["group"] != "Albums":
-        failures.append(f"/ Albums control: group name is {info['group']!r}")
+        failures.append(f"/ Unmatched albums control: values are {info['values']!r}")
+    if info["options"] != ["Hide", "Include"]:
+        failures.append(f"/ Unmatched albums control: options read {info['options']!r}")
+    if info["group"] != "Unmatched albums":
+        failures.append(f"/ Unmatched albums control: group name is {info['group']!r}")
     if info["description"] != UNMATCHED_HELP:
-        failures.append(f"/ Albums control: description is {info['description']!r}")
+        failures.append(
+            f"/ Unmatched albums control: description is {info['description']!r}"
+        )
     snapshot = page.locator(
         "[role=group][aria-labelledby=albums-label]"
     ).aria_snapshot()
-    for expected in ('group "Albums', 'radio "Matched only', 'radio "All albums'):
+    for expected in ('group "Unmatched albums', 'radio "Hide', 'radio "Include'):
         if expected not in snapshot:
-            failures.append(f"/ Albums control: browser tree reads {snapshot!r}")
+            failures.append(
+                f"/ Unmatched albums control: browser tree reads {snapshot!r}"
+            )
             break
     if not info["matchedChecked"] or info["allChecked"] or info["playtimeDisabled"]:
         failures.append(
-            "/ Albums control: not on Matched only, or Play time disabled, at load"
+            "/ Unmatched albums control: not on Hide, or Play time disabled, at load"
         )
     if info["stale"]:
         failures.append(
-            "/ Albums control: a switch input or class is still on the page"
+            "/ Unmatched albums control: a switch input or class is still on the page"
         )
+
+    help_box = page.locator("#albums-help")
+
+    def help_failures(when: str, want_visible: bool) -> list[str]:
+        """The help is hidden under Hide and exact and on screen under Include."""
+        if want_visible:
+            text = help_box.text_content().strip() if help_box.count() else ""
+            if not help_box.is_visible() or text != UNMATCHED_HELP:
+                return [
+                    f"/ Unmatched albums help {when}: visible="
+                    f"{help_box.is_visible()}, text {text!r}, expected the "
+                    "help on screen with its exact text"
+                ]
+        elif help_box.count() and help_box.is_visible():
+            return [f"/ Unmatched albums help {when}: on screen, expected hidden"]
+        return []
+
+    failures.extend(help_failures("at load (Hide chosen)", False))
 
     def state() -> dict:
         return page.evaluate(
@@ -246,10 +273,11 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
                 or on["playtime"]
             ):
                 failures.append(
-                    f"/ All albums via {method} (started on {first_choice}): "
+                    f"/ Include via {method} (started on {first_choice}): "
                     f"selected={on['all']}, Play time disabled={on['disabled']}, "
                     f"Play count checked={on['playcount']}"
                 )
+            failures.extend(help_failures(f"after Include via {method}", True))
             if method == "arrow keys":
                 page.keyboard.press("ArrowLeft")
             else:
@@ -258,10 +286,11 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
             off = state()
             if not off["matched"] or off["disabled"] or not off["playcount"]:
                 failures.append(
-                    f"/ Matched only via {method} (started on {first_choice}): "
+                    f"/ Hide via {method} (started on {first_choice}): "
                     f"selected={off['matched']}, Play time disabled="
                     f"{off['disabled']}, Play count checked={off['playcount']}"
                 )
+            failures.extend(help_failures(f"after Hide via {method}", False))
 
     all_albums.focus()
     page.keyboard.press("Space")
@@ -295,8 +324,13 @@ HELP_TEXT_FLOOR = 7.0
 
 
 def _unmatched_help_contrast_failures(page) -> list[str]:
-    """Hold the Albums help text at 7:1 on the card in both themes."""
+    """Hold the unmatched-albums help text at 7:1 on the card in both themes.
+
+    The help is on screen only while Include is chosen, so Include is chosen
+    for the measurement and Hide is restored after it.
+    """
     failures = []
+    page.locator("label[for=albums_all]").click()
     try:
         for theme in ("light", "dark"):
             page.evaluate(
@@ -320,13 +354,14 @@ def _unmatched_help_contrast_failures(page) -> list[str]:
             )
             if ratio < HELP_TEXT_FLOOR:
                 failures.append(
-                    f"/ Albums help, {theme} theme: {ratio:.2f}:1 on the card, "
+                    f"/ Unmatched albums help, {theme} theme: {ratio:.2f}:1 on the card, "
                     f"under {HELP_TEXT_FLOOR}:1"
                 )
     finally:
         page.evaluate(
             "() => document.documentElement.setAttribute('data-theme', 'light')"
         )
+        page.locator("label[for=albums_matched]").click()
     return failures
 
 

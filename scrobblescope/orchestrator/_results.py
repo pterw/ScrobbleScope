@@ -234,7 +234,7 @@ _INCLUDED_UNMATCHED_REASONS = (REASON_NO_SPOTIFY_MATCH, REASON_PROVIDER_UNAVAILA
 def merge_unmatched_rows(results, unmatched):
     """Return *results* with the job's unmatched Last.fm albums merged in.
 
-    Used only when the listener chose "All albums". Every
+    Used only when the listener chose "Include" (unmatched albums). Every
     *unmatched* entry whose ``reason_code`` is ``no_spotify_match`` or
     ``provider_unavailable`` becomes a result row carrying its play count and
     ``unmatched_reason``; the rows share no provider data (no cover, link,
