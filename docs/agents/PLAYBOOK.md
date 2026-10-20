@@ -108,6 +108,8 @@ See FINDINGS F-DOCSYNC-3.
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
+  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
+  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -150,6 +152,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The UI consistency round 1 plan opens its branch
+
+Side task, no batch tag: add the approved UI consistency round 1 plan, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (2026-10-20): "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #7 and the plan. The plan passed a brief review (plan-review.md), three fix rounds, and two re-reviews (plan-rereview-1.md, plan-rereview-2.md); the last approved it.
+
+Deviations: the plan is committed as approved. The one commit-time fix (plan-rereview-2 Minor 1, Step 5b item 4 must say to replace the single line and keep the `else` braces) was already present in the approved draft, so no further wording change was made. No DOC-driven wording change was needed. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - The test-module count counts both sides of the merge
 
 Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
@@ -185,15 +199,3 @@ What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence namin
 Deviations: none. No test was edited.
 
 Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Hygiene entries corrected after review
-
-Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
-
-What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2543 passed**.
