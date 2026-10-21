@@ -81,6 +81,9 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _relative_luminance,
     _worst_divider_contrast,
 )
+from scripts.dev._frontend_gate_figures import (  # noqa: E402, F401
+    check_results_play_count_uses_the_figure_face,
+)
 from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
     HIDDEN_ON_LOAD,
     check_current_validator_failure_replaces_old_verdict,
@@ -355,6 +358,12 @@ CHECKS = (
         "results provider attribution",
         check_results_provider_attribution,
         (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "results play count figure face",
+        check_results_play_count_uses_the_figure_face,
+        (DESKTOP, MOBILE, TOUCH_WIDE),
         LAYOUT_PIPELINE,
     ),
     (

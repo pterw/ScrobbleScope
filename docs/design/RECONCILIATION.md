@@ -44,6 +44,7 @@ The owner-approved overrides currently recorded are:
 | Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
 | Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
 | Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, a release that reads "unknown" until MusicBrainz finds the original release and then shows it as YYYY-MM (section 25), and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
+| Results: play count face | `AlbumRow.d.ts`: "Mono value -- play count" | The Results table's play count is set in `--font-figure` (Gotham) at weight 400, like a heatmap KPI value; listening time stays mono-narrow | Owner ruling 2026-10-20 (tranche design, "UI PR (#7)"), Section 26 |
 | Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
 | Unmatched page: the count line and group notes | "N albums left out of your results" for every run | On an include run the line names both groups ("L albums listed in your results without a match, K left out") and the No match found and Could not be checked groups say their albums are in the results; every other run and group is unchanged | Owner ruling 2026-10-20 "Split the count (Recommended)", Section 24 |
 
@@ -1129,3 +1130,46 @@ note (F-B23-45). This section does not change that.
 
 Section 21's wording is the point-in-time record of the no-date case and
 stays; the ledger row "Results: unmatched albums" now states the current fact.
+
+---
+
+## 26. Frozen-snapshot override: the Results play count is a figure, 2026-10-20
+
+Owner ruling, 2026-10-20 (the pre-Batch-23 tranche design, "UI PR (#7)"): the
+Results table's play count uses the figure face, "--font-figure, Gotham,
+weight 400 -- never bold, as the heatmap KPI rule records".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them. `docs/design/components/data/AlbumRow.d.ts` calls the row's
+metric a "Mono value -- play count (\"247\") or play time (\"18h 42m\")".
+Before this ruling the repository set the play count in the serif.
+`docs/design/designsystemaudit.md` first asked for an owner ruling on that
+(D-17), then withdrew the question after an owner clarification that the
+Results serif was an intentional aesthetic choice. The 2026-10-20 ruling
+reverses that clarification: `DESIGN.md` names play counts among the Figure
+Numerals, and "Gotham gets the numbers". So `.metric-val-plays` takes
+`--font-figure` at `--font-weight-normal`, as `.heatmap-kpi-value` does, and
+sets `font-variant-numeric: tabular-nums` because `DESIGN.md` calls the Figure
+Numerals tabular and the column is right-aligned. A frontend
+gate check (`check_results_play_count_uses_the_figure_face`) holds the two
+equal at every gate profile.
+
+What does not change. Listening time stays `--font-mono-narrow`: it is a
+duration, not a magnitude. The line height, colour and letter-spacing of the play count are
+untouched, and so is its size on every row at 768px and up and on rows of one
+to three digits below it, so its contrast is what it was. The side rail's
+stat values are still serif utility classes in `results.html`; moving them is
+a template change and belongs to a later round.
+
+**Narrow screens and long counts.** Gotham's digits are wider than the serif's
+and the mobile metric column is 3.75rem. Owner direction, 2026-10-20: a
+four-digit count is a rare edge case, so the column does not widen and every
+row does not shrink. On screens under 768px a play count of four digits is set
+at 1.093 rem, one of five at 0.874 rem and one of six or more at 0.75rem (the
+small-text floor; fit is not promised for them), each derived from the
+measured width of Gotham's tabular digits so the count keeps at least 2px
+inside its cell. The element carries `data-digits`, rendered by the template
+and rebuilt by `results.js` on a sort switch, and the rules are in a
+`max-width: 767.98px` media query only. Every other row, and every row at
+768px and up, keeps the full size. The gate check holds a four-digit count
+inside its cell at the mobile profile.

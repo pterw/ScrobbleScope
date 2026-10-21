@@ -541,6 +541,48 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+def test_each_play_count_states_how_many_digits_it_has(client):
+    """The narrow-screen sizing keys on the digit count, so a count must
+    carry its own length, whatever it is."""
+    job_id = jobs.create(
+        {
+            "username": "flounder14",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": "album",
+        }
+    )
+    jobs.succeed(
+        job_id,
+        [
+            {
+                "artist": "A",
+                "album": "Four",
+                "play_count": 8080,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2025-02-07",
+            },
+            {
+                "artist": "B",
+                "album": "Three",
+                "play_count": 407,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2025-02-07",
+            },
+        ],
+        "Done!",
+    )
+
+    html = client.post("/results_complete", data={"job_id": job_id}).get_data(
+        as_text=True
+    )
+
+    assert re.search(r'data-digits="4">\s*8080\s*</span>', html)
+    assert re.search(r'data-digits="3">\s*407\s*</span>', html)
+
+
 def test_results_complete_links_each_row_to_its_own_provider(client):
     """
     GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album

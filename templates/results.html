@@ -273,7 +273,7 @@
                                     <span class="mobile-val inline md:hidden">{{ album.play_time_mobile if album.play_time_mobile else (album.play_time if album.play_time else '—') }}</span>
                                 </span>
                                 {% else %}
-                                <span class="metric-value metric-val-plays">
+                                <span class="metric-value metric-val-plays" data-digits="{{ album.play_count|string|length }}">
                                     {{ album.play_count }}
                                 </span>
                                 {% endif %}

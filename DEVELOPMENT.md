@@ -662,6 +662,8 @@ each theme shows, at least 21px, half its height of clear space, and the
 spotlight link's target. The results attribution check reuses it and also
 requires the icon in the "Save image" JPEG.
 
+`_frontend_gate_figures.py` adds the figure-face check: a Results play count must compute to the same font family and weight as a heatmap KPI value at the desktop, mobile and wide-touch profiles, that value must itself be the `--font-figure` token at weight 400, and at the mobile profile a four-digit count must stay inside its table cell.
+
 ### In action: a passing run
 
 ```text

@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2752 passing** across 92 tracked test modules |
+| Tests | **2769 passing** across 93 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2752 passed**.
+- Latest validated test count: **2769 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -109,6 +109,7 @@ scripts/
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
     _frontend_gate_assets.py # stylesheet isolation
     _frontend_gate_colour.py # colour and contrast maths and segmented-control checks, re-exported by the gate
+    _frontend_gate_figures.py # Results play count wears the heatmap KPI's figure face; a 4-digit count fits its cell on mobile
     _frontend_gate_forms.py # form validation, validator races, initial visibility
     _frontend_gate_heatmap_access.py # heatmap cell keyboard reachability, aria-label and focus ring
     _frontend_gate_include.py # real include-run Results page: contrast, matched only, forced colours, overflow
@@ -219,6 +220,7 @@ dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- dev/_frontend_gate_shared
+dev/_frontend_gate_figures.py <- jobs
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_include.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; domain; jobs
@@ -231,7 +233,7 @@ dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; domain; jobs
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_figures, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---
@@ -290,7 +292,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2752 tests)
+## 6. Test structure (2769 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

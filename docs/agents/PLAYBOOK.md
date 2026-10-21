@@ -113,6 +113,8 @@ See FINDINGS F-DOCSYNC-3.
   PR #3, the album request module, is under way on
   `refactor/album-request-module`; its plan is
   `docs/superpowers/plans/2026-10-20-album-request-module.md`.
+  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
+  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
