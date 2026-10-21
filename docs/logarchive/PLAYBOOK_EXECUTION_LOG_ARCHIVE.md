@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The statistics module plan opens its branch
+
+Side task, no batch tag: the approved statistics module plan, committed as the branch's first commit, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-statistics-module.md` is added (six tasks: pin the heatmap KPIs and the Scrobbles figure, the pure `listening_stats` module, retire two docsync sites, publish the heatmap statistics, compute the Scrobbles figure in Python, amend WP-6). PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #6, its branch and the plan. The plan passed the brief review (`plan-review.md`), two fix rounds and two re-reviews (`plan-rereview-1.md`, `plan-rereview-2.md`; approved); owner Q1 is approved ("Yes, that sounds good."): the Scrobbles figure is computed at render time in the Results route. It was then drift-reviewed against `eb0db9e` (`main` after PRs #256-#260) and the fixes were folded in as its Revision 3. Structural: S1, the publication test in Task 4 Step 1 now patches `fetch_scrobbles` and uses `_fetch`, `_play` and `UTC` (the page-layer patch target and helpers are gone); S2, Task 5 Step 3 builds the `include_run` span from the rows rendered, so `test_hiding_every_row_clears_the_top_artist_and_including_restores_it` keeps passing; S3, `scripts/dev/_frontend_gate_figures.py` (`_HEATMAP_RESULT`) joins Task 4's Touches, Step 5 and the Section 4 line, making eight gate payloads, not seven. Renames (7): `plays.aggregate_daily_counts`, `_play`/`_fetch`, `fetch_scrobbles`, `UTC` for `timezone.utc` in Task 2, the `heatmap` docstring dependency line, the SESSION_CONTEXT current-text quotes, and the `listening_stats` docstring wording. Cosmetic (9, C1-C9; C3 and C7 needed no change): helper imports, the `HEATMAP_WINDOW_DAYS` comment, the `class` line, the sequence-diagram anchor, Hide/Include wording, entry headings take the commit date, Task 6's moot conflict note, and one `_context_view` sentence for Task 4's commit body. The "unverified until #4 merges" rows of the PR #4 table are rewritten as checked.
+
+Deviations: the drift review said `test_utc_midnight_decides...` has three `timezone.utc` uses; the plan has two (`NEW_YORK` is a fixed offset), so two were changed. No DOC citation error needed a wording change in the plan. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-20 - Make the #4 docs say what the branch now does
 
 Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.

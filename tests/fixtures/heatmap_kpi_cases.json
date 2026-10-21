@@ -20,8 +20,8 @@
   {
     "name": "two_quiet_days_make_the_streak_zero",
     "end": "2026-03-10",
-    "plays": {"5": 4},
-    "expected": {"scrobbles": "4", "daily_average": "0.0", "best_count": "4", "best_label": "MAR 5", "streak": "0"}
+    "plays": {"5": 4, "2": 1},
+    "expected": {"scrobbles": "5", "daily_average": "0.0", "best_count": "4", "best_label": "MAR 5", "streak": "0"}
   },
   {
     "name": "a_tie_for_best_day_goes_to_the_earlier_day",

@@ -1873,7 +1873,8 @@
   // Module top level, not inside DOMContentLoaded: a harness that loads this
   // file via page.add_script_tag() after the document has already reached
   // "complete" never sees a later DOMContentLoaded fire. These
-  // functions are side-effect free, so the seam is safe to expose
+  // functions touch only the row they are handed (renderKpisInto sets
+  // kpiRow), so the seam is safe to expose
   // immediately -- but only when a test flag is set before this script
   // runs (F-B21-18's "guarded seam"); on every other page load
   // window.__scrobbleHeatmapTestHooks stays undefined.

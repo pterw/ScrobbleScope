@@ -161,6 +161,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
+
+Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a test must fail when the rule it names is broken, so the streak case cannot pass for a port that forgives two quiet days.
+
+What changed: in `tests/fixtures/heatmap_kpi_cases.json` the case `two_quiet_days_make_the_streak_zero` gains a play at day offset 2 (days 0 and 1 stay empty). Before, the only play sat at offset 5, so a streak that ended two days back still found nothing and returned 0; now it finds the offset-2 play and returns 1, and the case fails. The expected values were measured with the JS harness on unchanged `heatmap.js` (scrobbles 5, best day MAR 5 with 4, streak 0). Planting "forgive two quiet days" in `heatmap.js` failed the JS case; the same plant in `scrobblescope/listening_stats.py` failed the Python case. The test-seam comment in `static/js/heatmap.js` called the hooked functions side-effect free, but `renderKpisInto` sets `kpiRow`; it now says they touch only the row they are handed. No empty-window case is added: the JS and Python empty-window outputs differ and that choice belongs to Task 4.
+
+Deviations: none. Edited existing tests: `test_kpi_blocks_show_what_the_window_holds[two_quiet_days_make_the_streak_zero]` and `test_the_published_figures_are_the_ones_the_pinned_kpis_show[two_quiet_days_make_the_streak_zero]` (data only).
+
+Validation: `pytest -q` -- **2888 passed**.
+
 ### 2026-10-21 - The window declaration drops two heatmap.js sites
 
 Side task, no batch tag: retire two docsync value sites that name `static/js/heatmap.js`'s window code, on `refactor/statistics-module`, a branch off `main`.
@@ -200,15 +212,3 @@ Mutation evidence, each planted in the working file and restored: `while (dailyC
 Deviations: none. Edited existing tests: none (the module docstring of `tests/frontend/test_heatmap_pure_functions.py` changed, no test).
 
 Validation: `pytest -q` -- **2857 passed**.
-
-### 2026-10-21 - The statistics module plan opens its branch
-
-Side task, no batch tag: the approved statistics module plan, committed as the branch's first commit, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is its branch's first commit.
-
-What changed: `docs/superpowers/plans/2026-10-20-statistics-module.md` is added (six tasks: pin the heatmap KPIs and the Scrobbles figure, the pure `listening_stats` module, retire two docsync sites, publish the heatmap statistics, compute the Scrobbles figure in Python, amend WP-6). PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #6, its branch and the plan. The plan passed the brief review (`plan-review.md`), two fix rounds and two re-reviews (`plan-rereview-1.md`, `plan-rereview-2.md`; approved); owner Q1 is approved ("Yes, that sounds good."): the Scrobbles figure is computed at render time in the Results route. It was then drift-reviewed against `eb0db9e` (`main` after PRs #256-#260) and the fixes were folded in as its Revision 3. Structural: S1, the publication test in Task 4 Step 1 now patches `fetch_scrobbles` and uses `_fetch`, `_play` and `UTC` (the page-layer patch target and helpers are gone); S2, Task 5 Step 3 builds the `include_run` span from the rows rendered, so `test_hiding_every_row_clears_the_top_artist_and_including_restores_it` keeps passing; S3, `scripts/dev/_frontend_gate_figures.py` (`_HEATMAP_RESULT`) joins Task 4's Touches, Step 5 and the Section 4 line, making eight gate payloads, not seven. Renames (7): `plays.aggregate_daily_counts`, `_play`/`_fetch`, `fetch_scrobbles`, `UTC` for `timezone.utc` in Task 2, the `heatmap` docstring dependency line, the SESSION_CONTEXT current-text quotes, and the `listening_stats` docstring wording. Cosmetic (9, C1-C9; C3 and C7 needed no change): helper imports, the `HEATMAP_WINDOW_DAYS` comment, the `class` line, the sequence-diagram anchor, Hide/Include wording, entry headings take the commit date, Task 6's moot conflict note, and one `_context_view` sentence for Task 4's commit body. The "unverified until #4 merges" rows of the PR #4 table are rewritten as checked.
-
-Deviations: the drift review said `test_utc_midnight_decides...` has three `timezone.utc` uses; the plan has two (`NEW_YORK` is a fixed offset), so two were changed. No DOC citation error needed a wording change in the plan. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2847 passed**.
