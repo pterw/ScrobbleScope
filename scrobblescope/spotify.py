@@ -642,9 +642,8 @@ def album_metadata_from_details(spotify_id, details):
     return AlbumMetadata(
         provider="spotify",
         album_id=spotify_id,
-        url=details.get("external_urls", {}).get(
-            "spotify", SPOTIFY_ALBUM_URL.format(album_id=spotify_id)
-        ),
+        url=(details.get("external_urls") or {}).get("spotify")
+        or SPOTIFY_ALBUM_URL.format(album_id=spotify_id),
         release_date=details.get("release_date", ""),
         image_url=images[0].get("url"),
         track_durations={
