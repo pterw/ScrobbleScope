@@ -46,5 +46,11 @@
     "end": "2026-03-10",
     "every_day": 1,
     "expected": {"scrobbles": "365", "daily_average": "1.0", "best_count": "1", "best_label": "MAR 11", "streak": "365"}
+  },
+  {
+    "name": "a_window_with_no_plays_has_no_best_day",
+    "end": "2026-03-10",
+    "plays": {},
+    "expected": {"scrobbles": "0", "daily_average": "0.0", "best_count": "0", "best_label": "", "streak": "0"}
   }
 ]

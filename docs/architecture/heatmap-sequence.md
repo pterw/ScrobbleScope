@@ -80,11 +80,13 @@ sequenceDiagram
                 end
                 Heatmap->>Jobs: Progress 80%
                 Heatmap->>Heatmap: plays.aggregate_daily_counts: the UTC day of each play, boundaries filtered, empty days filled
-                Heatmap->>Heatmap: Total and peak-day statistics
+                Heatmap->>Heatmap: heatmap_statistics(daily_counts, UTC window end)
+                Note over Heatmap: Streak, best day and average are computed here, not in the browser
+                Heatmap->>Heatmap: heatmap_statistics: streak, best day, average, total, each with its population
                 alt No scrobbles in range
                     Heatmap->>Jobs: fail(no_scrobbles_in_range)
                 else Results available
-                    Heatmap->>Jobs: succeed: daily_counts and progress 100%, in one write
+                    Heatmap->>Jobs: succeed: daily_counts, statistics and progress 100%, in one write
                 end
             end
             opt Unhandled exception anywhere above
@@ -118,7 +120,7 @@ sequenceDiagram
                 Routes-->>UI: JSON 200 with error, error_code, and retryable
             else Results stored
                 Routes-->>UI: JSON 200, ready true + results
-                UI->>UI: Render responsive SVG and KPIs
+                UI->>UI: Render responsive SVG and the published KPIs
             else Results not stored yet
                 Routes-->>UI: JSON 202, ready false
                 UI->>UI: Restart polling

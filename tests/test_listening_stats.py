@@ -146,12 +146,17 @@ def test_the_published_figures_are_the_ones_the_pinned_kpis_show(case):
     stats = heatmap_statistics(counts, date.fromisoformat(to_iso))
     expected = case["expected"]
     best = stats["best_day"]["value"]
-    best_date = date.fromisoformat(best["date"])
+    # A window with no plays publishes a null best-day date: it has no best
+    # day, and the page shows no date for it (the case's empty best_label).
+    best_label = ""
+    if best["date"] is not None:
+        best_date = date.fromisoformat(best["date"])
+        best_label = f"{best_date:%b}".upper() + f" {best_date.day}"
 
     assert f"{stats['total_plays']['value']:,}" == expected["scrobbles"]
     assert f"{stats['daily_average']['value']:.1f}" == expected["daily_average"]
     assert str(best["count"]) == expected["best_count"]
-    assert f"{best_date:%b}".upper() + f" {best_date.day}" == expected["best_label"]
+    assert best_label == expected["best_label"]
     assert str(stats["current_streak"]["value"]) == expected["streak"]
 
 

@@ -9,6 +9,7 @@ Covers:
 - no_scrobbles_in_range error code existence.
 """
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -211,6 +212,16 @@ class TestFetchAndProcessHeatmap:
         assert "to_date" in stored_result
         assert stored_result["total_scrobbles"] == 3
         assert stored_result["max_count"] == 2  # yesterday had 2
+        # Python publishes the KPI figures; the browser renders them.
+        assert stored_result["statistics"]["total_plays"]["value"] == 3
+        assert stored_result["statistics"]["best_day"]["value"] == {
+            "date": yesterday.isoformat(),
+            "count": 2,
+        }
+        assert stored_result["statistics"]["current_streak"]["value"] == 2
+        assert stored_result["statistics"]["daily_average"]["value"] == pytest.approx(
+            3 / 365
+        )
         assert stored_result["daily_counts"][yesterday.isoformat()] == 2
         assert stored_result["daily_counts"][today.isoformat()] == 1
         # The payload and the 100% travel in one call: no window between them.
@@ -244,6 +255,53 @@ class TestFetchAndProcessHeatmap:
             assert context["progress"]["stats"]["active_days"] == 1
         finally:
             jobs.delete(job_id)
+
+    def test_statistics_reach_the_browser_through_heatmap_data(self, client):
+        """
+        GIVEN a heatmap job run through the real pipeline: 2 plays yesterday
+        and 1 today, stored by ``_fetch_and_process_heatmap``
+        WHEN the browser asks /heatmap_data
+        THEN the response carries the published statistics with their
+        populations, so the whole path (task, store, route) is covered.
+
+        Worked by hand: total 3, best day yesterday with 2, streak 2
+        (today and yesterday both have plays).
+
+        Mutation: delete ``"statistics": statistics,`` from the ``jobs.succeed``
+        payload in heatmap.py and ``body["statistics"]`` raises KeyError; build
+        the /heatmap_data response from named keys that omit ``statistics`` and
+        the same line fails.
+
+        Synchronous on purpose: ``client`` keeps its request context open for
+        the test's life, and an async test runs in a task whose context copy
+        cannot release it at teardown (LookupError). ``asyncio.run`` drives
+        the coroutine instead.
+        """
+        today = datetime.now(UTC).date()
+        yesterday = today - timedelta(days=1)
+        job_id = jobs.create({"username": "stats-user", "mode": "heatmap"})
+        try:
+            with (
+                patch("scrobblescope.heatmap.cleanup_expired_cache"),
+                patch("scrobblescope.jobs.expire_stale"),
+                patch(
+                    "scrobblescope.heatmap.fetch_scrobbles",
+                    new_callable=AsyncMock,
+                    return_value=_fetch(
+                        [_play(yesterday), _play(yesterday), _play(today)]
+                    ),
+                ),
+            ):
+                asyncio.run(_fetch_and_process_heatmap(job_id, "stats-user"))
+            body = client.get(f"/heatmap_data?job_id={job_id}").get_json()
+        finally:
+            jobs.delete(job_id)
+
+        assert body["ready"] is True
+        assert body["statistics"]["total_plays"]["value"] == 3
+        assert body["statistics"]["current_streak"]["value"] == 2
+        assert body["statistics"]["best_day"]["value"]["count"] == 2
+        assert all(fact["population"] for fact in body["statistics"].values())
 
     @pytest.mark.asyncio
     async def test_progress_callback_sends_correct_percentages(self):

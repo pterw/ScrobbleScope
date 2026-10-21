@@ -17,7 +17,10 @@ that served no face is `check_fonts`' advisory, not this check's concern.
 
 from __future__ import annotations
 
+from datetime import date
+
 from scrobblescope import jobs
+from scrobblescope.listening_stats import heatmap_statistics
 
 #: The token the heatmap KPI value and the play count both resolve through.
 FIGURE_FONT_PROPERTY = "--font-figure"
@@ -58,6 +61,10 @@ FACE_JS = """([selector, token]) => {
 #: sizing exists for), then shorter ones.
 PLAY_COUNTS = (8080, 407, 12)
 
+#: The daily counts of `_HEATMAP_RESULT`, bound once so its statistics are
+#: published from the same numbers the page draws.
+_HEATMAP_COUNTS = {"2025-01-01": 4, "2025-01-02": 0}
+
 #: The smallest result the heatmap page renders KPI values from.
 _HEATMAP_RESULT = {
     "username": "frontend-gate",
@@ -65,7 +72,8 @@ _HEATMAP_RESULT = {
     "to_date": "2025-01-05",
     "total_scrobbles": 4,
     "max_count": 4,
-    "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
+    "daily_counts": _HEATMAP_COUNTS,
+    "statistics": heatmap_statistics(_HEATMAP_COUNTS, date.fromisoformat("2025-01-05")),
 }
 
 

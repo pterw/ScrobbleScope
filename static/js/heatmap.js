@@ -10,8 +10,6 @@
   const POLL_INTERVAL_MS = 1000;
   const HEATMAP_HANDOFF_MS = 180;
 
-  //: The heatmap window. Named because the daily average divides by it.
-  const WINDOW_DAYS = 365;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   // rocket_r palette stops (sampled from matplotlib/seaborn rocket_r).
@@ -169,23 +167,6 @@
     return MONTH_NAMES[d.getMonth()].toUpperCase() + ' ' + d.getDate();
   }
 
-  function computeStreak(dailyCounts, toDate) {
-    var d = new Date(toDate);
-    // If today has no scrobble yet, allow a streak ending yesterday.  Common
-    // case: user opens the page in the morning before scrobbling anything.
-    // Strict "must include today" semantics killed yesterday-active streaks
-    // and was the most-reported confusion in PR #152 review.
-    if (!dailyCounts[isoDate(d)]) {
-      d.setDate(d.getDate() - 1);
-    }
-    var streak = 0;
-    while (dailyCounts[isoDate(d)]) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    }
-    return streak;
-  }
-
   /**
    * Write the result headline.
    *
@@ -272,36 +253,51 @@
     kpiRow.appendChild(item);
   }
 
-  function renderKpis(data, dailyCounts, toDate) {
-    clearChildren(kpiRow);
-
-    var total = Number(data.total_scrobbles || 0);
-    var dayKeys = Object.keys(dailyCounts);
-    var bestDate = dayKeys.length > 0
-      ? dayKeys.reduce(function (a, b) {
-          return dailyCounts[a] >= dailyCounts[b] ? a : b;
-        })
-      : isoDate(toDate);
-    var bestCount = dailyCounts[bestDate] || 0;
-    var bestLabel = formatMonthDayUpper(parseLocalDate(bestDate));
-    var streak = computeStreak(dailyCounts, toDate);
-
-    // The four the design names. Daily average replaced active days on
-    // 2026-08-24; it is scrobbles over the whole 365-day window, not over
-    // the days with a scrobble in them, so a quiet month pulls it down.
+  /**
+   * Turn the published statistics into the four KPI blocks, in order.
+   *
+   * Pure formatting. The server decided every figure and which population it
+   * covers (scrobblescope/listening_stats.py); nothing here recomputes a streak,
+   * a best day or an average. Formatting stays in the browser because it
+   * follows the reader's locale.
+   */
+  function kpiModel(statistics) {
+    var best = statistics.best_day.value;
     // One decimal, always. Math.round showed 0 for anyone under 183
     // scrobbles in the window -- a positive total reported as no listening
     // at all, which is the one number this KPI must never say. It also read
     // 49.9 as 50. A fixed decimal keeps the column aligned.
-    var dailyAverage = (total / WINDOW_DAYS).toLocaleString(undefined, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    });
+    var dailyAverage = Number(statistics.daily_average.value || 0)
+      .toLocaleString(undefined, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
+    return [
+      { label: 'SCROBBLES',
+        value: Number(statistics.total_plays.value || 0).toLocaleString(),
+        sub: '' },
+      { label: 'DAILY AVERAGE', value: dailyAverage, sub: '' },
+      { label: 'BEST DAY',
+        value: String(best.count),
+        sub: best.date ? formatMonthDayUpper(parseLocalDate(best.date)) : '' },
+      { label: 'CURRENT STREAK',
+        value: String(statistics.current_streak.value),
+        sub: 'DAYS' },
+    ];
+  }
 
-    appendKpi('SCROBBLES', total.toLocaleString(), '');
-    appendKpi('DAILY AVERAGE', dailyAverage, '');
-    appendKpi('BEST DAY', String(bestCount), bestLabel);
-    appendKpi('CURRENT STREAK', String(streak), 'DAYS');
+  function renderKpis(data) {
+    clearChildren(kpiRow);
+    // Every result the server stores carries statistics. A payload without
+    // them is a server bug: say so in the console and leave the row empty,
+    // rather than computing a figure here.
+    if (!data.statistics) {
+      console.error('heatmap result carries no statistics');
+      return;
+    }
+    kpiModel(data.statistics).forEach(function (kpi) {
+      appendKpi(kpi.label, kpi.value, kpi.sub);
+    });
   }
 
 
@@ -1229,7 +1225,7 @@
     // Clear previous content
     clearChildren(gridContainer);
     renderHeadline(data.username);
-    renderKpis(data, dailyCounts, toDate);
+    renderKpis(data);
 
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
@@ -1376,7 +1372,7 @@
 
     clearChildren(gridContainer);
     renderHeadline(data.username);
-    renderKpis(data, dailyCounts, toDate);
+    renderKpis(data);
 
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
@@ -1885,10 +1881,7 @@
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,
-      renderKpisInto: function (row, data) {
-        kpiRow = row;
-        renderKpis(data, data.daily_counts, parseLocalDate(data.to_date));
-      },
+      renderKpisInto: function (row, data) { kpiRow = row; renderKpis(data); },
     };
   }
 

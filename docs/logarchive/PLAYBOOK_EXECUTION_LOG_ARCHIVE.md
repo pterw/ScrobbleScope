@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - Listening statistics have one module
+
+Side task, no batch tag: the pure listening statistics module and its tests, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the streak, best-day, average and plays figures get one home with ordinary pytest coverage and a stated population each (seam B-4), before the heatmap and the Results page are wired to it.
+
+What changed: `scrobblescope/listening_stats.py` (new, standard library only, no clock, no I/O) holds `utc_date` (refuses a naive datetime), `current_streak`, `best_day`, `daily_average`, `heatmap_statistics` and `album_play_statistics`; the two aggregates return `{name: {"value", "population"}}`. UTC is by construction: day keys are the ISO dates the pipeline already attributed in UTC and `today` is passed in. `tests/test_listening_stats.py` (new, 31 tests) covers each rule and runs the eight pinned KPI cases from `tests/fixtures/heatmap_kpi_cases.json` through `heatmap_statistics`, so the Python rules match what readers saw. Nothing imports the module yet; the heatmap and the Results page move onto it in the next commits. `.claude/SESSION_CONTEXT.md` Sections 3 and 4 list the module.
+
+Mutation evidence, each planted in a scratch copy of the module and restored: 24 planted defects (local-day `utc_date`, naive datetime accepted, no yesterday step, two quiet days forgiven, `streak + 1`, a missing day read as a play, indexing instead of `.get`, last-day and `>=` best day, a zero best day, unguarded empty mapping, average over play days, rounded average, no empty guard, streak anchored on the first day, a blank and a shared population, a `"None"` date, `plays_matched` ignoring unmatched rows or minus a fixed 1, `rows[0]`, indexed `play_count`, identical populations) each failed the test the plan names for it. One planted defect was too weak: removing only the parenthesised `(unmatched)` from the matched population still passed, because the sentence also says `include-unmatched`; removing the whole unmatched clause fails `test_each_figure_says_what_it_leaves_out`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2888 passed**.
+
 ### 2026-10-21 - The heatmap KPIs and the Scrobbles figure are pinned before they move
 
 Side task, no batch tag: parity tests for the heatmap KPI blocks and the Results Scrobbles figure, on `refactor/statistics-module`, a branch off `main`.
