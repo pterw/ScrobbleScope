@@ -108,17 +108,16 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-10-20-album-request-module.md`); normalized
   Last.fm scrobbles with one album aggregate is done (PR #4, branch
   refactor/lastfm-scrobbles, plan
-  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); the other two
-  seams remain, one album-metadata encoding and the statistics module. Job persistence
+  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); the statistics
+  module is done (PR #6, branch refactor/statistics-module, plan
+  `docs/superpowers/plans/2026-10-20-statistics-module.md`); one seam
+  remains, one album-metadata encoding. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
   PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
   plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
-  PR #6, the statistics module, is under way on
-  `refactor/statistics-module`; its plan is
-  `docs/superpowers/plans/2026-10-20-statistics-module.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -161,6 +160,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - WP-6 builds on the statistics module
+
+Side task, no batch tag: amend WP-6 in `BATCH23_DEFINITION.md` for the statistics module and mark that seam done in Section 3, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: WP-6 must start from the module that exists, not plan to create it.
+
+What changed: WP-6 gains a paragraph after "Statistics contract before implementation" saying `scrobblescope/listening_stats.py` is the pure helper WP-6 extends, what it already computes and publishes with a population, that the JS and template render published values and compute none, and that include-unmatched albums count in plays listed and in no duration figure. Section 3's "Before WP-1" bullet now says the statistics module is done (PR #6, branch and plan named) and one seam, album-metadata encoding, remains; the "under way" sentence is deleted. Nothing else in Section 3 changed. The Batch 23 row of `.claude/SESSION_CONTEXT.md` names no tranche PR, so it is unchanged.
+
+Reconciled: PR #4's WP-2 amendment (the parser yields `plays.Play`; `plays.aggregate_albums` and `plays.aggregate_daily_counts` feed both sources) makes no sentence of the new paragraph untrue, so it needed no correction.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
 ### 2026-10-21 - Make the #6 docs true for the merge
 
 Side task, no batch tag: close out PR #6 by making its diagram and plan text true, on `refactor/statistics-module`, a branch off `main`.
@@ -196,19 +207,3 @@ What changed: `test_kpi_blocks_render_the_published_figures_and_compute_nothing`
 Proof: a recompute planted in `renderKpis` (scratch copy of `heatmap.js`, restored) for each of total, average, best day and streak failed the test on that block (3 vs 14, 0.3 vs 12.3, 2 / MAR 9 vs 9 / MAR 5, 2 vs 7).
 
 Deviations: none. Edited existing tests: `test_kpi_blocks_render_the_published_figures_and_compute_nothing`. Validation: `pytest -q` -- **2897 passed**.
-
-### 2026-10-21 - The Scrobbles figure comes from Python
-
-Side task, no batch tag: compute the Results Scrobbles figure in `listening_stats` and make the page and `results.js` read it, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: the Scrobbles number is a domain figure whose population (every listed row, or matched rows only) should be named in Python, not re-added in Jinja and again in the browser.
-
-What changed: `_render_results_page` calls `album_play_statistics(filtered_results)` after the display filters and passes `play_stats` to both `render_template("results.html", ...)` blocks (the no-matches block and the filled block, per L6; the blocks are not merged). The template reads it in both states, so both blocks carry it. `results.html` drops the Jinja `sum` (`total_scrobbles`) and the `stat-scrobbles` span now carries `data-plays-listed` and `data-plays-matched`; `setUnmatchedHidden` in `results.js` drops its reduce over `data-play-count` and shows the matched or listed figure for Hide or Include. The figure is computed from the rows the page lists, not at job completion, because the playtime ranking drops rows after the job ends. Two copies of the sum are gone (Jinja and `results.js`). The displayed number is unchanged: Task 1's `test_scrobbles_figure_*` tests pass unmodified.
-
-Docs: `runtime-system.md` gains the edge `Routes --> Stats` (node and class entry came from Task 4); `top-albums-sequence.md` states nothing about how the stat block is computed, so it is unchanged; `SESSION_CONTEXT.md` Section 4 lists `listening_stats` among the imports of `routes/album_flow.py`.
-
-Deviations: none. Edited existing tests and fixtures: `TEMPLATE_CONTEXT["results.html"]` and `_results_html` in `tests/test_template_shell.py` gain `play_stats` (Jinja raises on the missing name); `include_run` in `scripts/dev/results_behavior_tests.py` builds the fixture span from the rows it renders (protecting `test_hiding_every_row_clears_the_top_artist_and_including_restores_it`, whose all-unmatched rows must read 0 under Hide and 80 under Include).
-
-New tests: `test_scrobbles_stat_publishes_both_populations_for_the_albums_control`, `test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures` (`tests/test_routes.py`) and `test_scrobbles_stat_shows_the_published_figures_not_a_sum_of_rows` (`results_behavior_tests.py`). Mutations shown failing: template shows `plays_matched` (the new publish test and Task 1's include test fail), stats from `results_data` (`test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` reads 90), reduce restored in `results.js` (behaviour test reads 120, not 999), matched forced to 0 without unmatched rows (the equal-figures test fails).
-
-Validation: `pytest -q` -- **2897 passed**.

@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The Scrobbles figure comes from Python
+
+Side task, no batch tag: compute the Results Scrobbles figure in `listening_stats` and make the page and `results.js` read it, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the Scrobbles number is a domain figure whose population (every listed row, or matched rows only) should be named in Python, not re-added in Jinja and again in the browser.
+
+What changed: `_render_results_page` calls `album_play_statistics(filtered_results)` after the display filters and passes `play_stats` to both `render_template("results.html", ...)` blocks (the no-matches block and the filled block, per L6; the blocks are not merged). The template reads it in both states, so both blocks carry it. `results.html` drops the Jinja `sum` (`total_scrobbles`) and the `stat-scrobbles` span now carries `data-plays-listed` and `data-plays-matched`; `setUnmatchedHidden` in `results.js` drops its reduce over `data-play-count` and shows the matched or listed figure for Hide or Include. The figure is computed from the rows the page lists, not at job completion, because the playtime ranking drops rows after the job ends. Two copies of the sum are gone (Jinja and `results.js`). The displayed number is unchanged: Task 1's `test_scrobbles_figure_*` tests pass unmodified.
+
+Docs: `runtime-system.md` gains the edge `Routes --> Stats` (node and class entry came from Task 4); `top-albums-sequence.md` states nothing about how the stat block is computed, so it is unchanged; `SESSION_CONTEXT.md` Section 4 lists `listening_stats` among the imports of `routes/album_flow.py`.
+
+Deviations: none. Edited existing tests and fixtures: `TEMPLATE_CONTEXT["results.html"]` and `_results_html` in `tests/test_template_shell.py` gain `play_stats` (Jinja raises on the missing name); `include_run` in `scripts/dev/results_behavior_tests.py` builds the fixture span from the rows it renders (protecting `test_hiding_every_row_clears_the_top_artist_and_including_restores_it`, whose all-unmatched rows must read 0 under Hide and 80 under Include).
+
+New tests: `test_scrobbles_stat_publishes_both_populations_for_the_albums_control`, `test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures` (`tests/test_routes.py`) and `test_scrobbles_stat_shows_the_published_figures_not_a_sum_of_rows` (`results_behavior_tests.py`). Mutations shown failing: template shows `plays_matched` (the new publish test and Task 1's include test fail), stats from `results_data` (`test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` reads 90), reduce restored in `results.js` (behaviour test reads 120, not 999), matched forced to 0 without unmatched rows (the equal-figures test fails).
+
+Validation: `pytest -q` -- **2897 passed**.
+
 ### 2026-10-21 - The heatmap KPIs come from Python
 
 Side task, no batch tag: publish the heatmap KPI statistics from `listening_stats` and make the browser render them, on `refactor/statistics-module`, a branch off `main`.
