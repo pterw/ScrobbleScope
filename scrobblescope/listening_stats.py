@@ -18,7 +18,8 @@ Each ``*_statistics`` function returns ``{name: {"value": ..., "population":
 "<sentence>"}}``. The population is the answer to "what is this figure a
 figure of?" and travels with the value, so a page, a CSV column or a test can
 quote it and the two cannot drift apart. Dependency chain: this module is a
-leaf (standard library only); ``heatmap`` and ``routes.album_flow`` import it.
+leaf (standard library only); ``heatmap`` and ``routes.album_flow`` import it,
+and so do four ``scripts/dev/_frontend_gate_*`` modules.
 """
 
 from __future__ import annotations

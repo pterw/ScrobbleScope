@@ -3535,8 +3535,11 @@ def test_scrobbles_stat_prints_the_figures_it_is_handed(client):
     WHEN the Results page renders
     THEN the stat and both data attributes carry the handed figures.
 
-    Mutation: have the template sum the rows for either attribute or the
-    visible text and that figure reads 50 instead.
+    Mutation: have the template sum the rows for data-plays-listed, or for
+    data-plays-matched, and that attribute reads 50 instead of the handed
+    figure (each planted and shown failing). The visible Scrobbles text is
+    asserted too but was not planted; it prints the same value the first
+    attribute does.
     """
     handed = {
         "plays_listed": {"value": 777, "population": "test"},

@@ -160,6 +160,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - Say what the #6 tests and diagram prove
+
+Side task, no batch tag: make a test docstring, a sequence diagram and two module docstrings say only what is true, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: nothing the close-out wrote should claim more than was proven or draw a step out of order.
+
+What changed: `test_scrobbles_stat_prints_the_figures_it_is_handed` now says its mutation was planted in `data-plays-listed` and in `data-plays-matched` and that the visible Scrobbles text is asserted but was not planted; the dated entry "A test pins that the page prints the Scrobbles figure it is handed" is point-in-time and unedited, but its Proof names the same two attributes only, so the visible text was never mutation-tested. `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` before the local `total`, `max_count` and `active_days` step, while `heatmap.py` runs the local step first; the two messages swap places (lines 83 and 85 trade). `listening_stats.py`'s module docstring now also names the four `scripts/dev/_frontend_gate_*` importers, and `heatmap.py`'s module docstring says the job result carries the statistics and not only the daily counts.
+
+Recorded, no change: the test pins the filled render block only, the no-matches block also passes `play_stats` and is not pinned (brief asked for one test); the `HEATMAP_WINDOW_DAYS` comment in `heatmap.py` keeps one over-long line, outside this brief.
+
+Deviations: none. Edited existing tests: `test_scrobbles_stat_prints_the_figures_it_is_handed` (docstring only). Validation: `pytest -q` -- **2898 passed**.
+
 ### 2026-10-21 - WP-6 builds on the statistics module
 
 Side task, no batch tag: amend WP-6 in `BATCH23_DEFINITION.md` for the statistics module and mark that seam done in Section 3, on `refactor/statistics-module`, a branch off `main`.
@@ -195,15 +207,3 @@ What changed: `data` and `play_stats` both come from `filtered_results`, so a te
 Proof: a Jinja sum over `data` planted (scratch copy of `results.html`, restored) in `data-plays-listed` failed on 50 vs 777, and in `data-plays-matched` on 50 vs 555.
 
 Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
-
-### 2026-10-21 - The KPI test catches a recomputed average
-
-Side task, no batch tag: make the KPI "published figures" test fail if the browser recomputes any figure, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: the page must show the figure the server decided, and the test that says so must be able to fail when it does not.
-
-What changed: `test_kpi_blocks_render_the_published_figures_and_compute_nothing` published a daily average of 0.04, which a browser recompute from the same counts also formats as "0.0", so a recomputed average passed. It now publishes 12.3 over counts that give 0.3, and the counts (`2026-03-09: 2`, `2026-03-10: 1`) give a total of 3, a best day of 2 on Mar 9 and a streak of 2, each different from the published 14, 9 on Mar 5 and 7. Only the test's data, assertions and docstring changed; no production code.
-
-Proof: a recompute planted in `renderKpis` (scratch copy of `heatmap.js`, restored) for each of total, average, best day and streak failed the test on that block (3 vs 14, 0.3 vs 12.3, 2 / MAR 9 vs 9 / MAR 5, 2 vs 7).
-
-Deviations: none. Edited existing tests: `test_kpi_blocks_render_the_published_figures_and_compute_nothing`. Validation: `pytest -q` -- **2897 passed**.

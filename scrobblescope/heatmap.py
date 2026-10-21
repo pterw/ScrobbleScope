@@ -1,16 +1,17 @@
 """Heatmap background task -- fetches Last.fm scrobbles and aggregates daily counts.
 
 This module owns the heatmap processing pipeline: fetch recent tracks for the
-last 365 days, bucket each scrobble into a calendar date, and store a
-``{date_str: count}`` dict as the job result.  It reuses the existing Last.fm
-fetch infrastructure (``lastfm.fetch_scrobbles``), the job state
-machine (``jobs.*``), and the concurrency slot system (``worker.*``).
+last 365 days, bucket each scrobble into a calendar date, and store the
+``{date_str: count}`` dict as the job result together with the figures
+``listening_stats.heatmap_statistics`` computes from it.  It reuses the
+existing Last.fm fetch infrastructure (``lastfm.fetch_scrobbles``), the job
+state machine (``jobs.*``), and the concurrency slot system (``worker.*``).
 
 Dependency chain (leaf-ward):
     heatmap <- errors, jobs, lastfm, listening_stats, plays, utils, worker
 
-No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
-deals only with raw scrobble counts per day.
+No Spotify enrichment, no DB cache, no domain normalization -- the only
+figures are scrobble counts per day and the statistics derived from them.
 """
 
 import logging

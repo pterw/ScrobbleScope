@@ -80,9 +80,9 @@ sequenceDiagram
                 end
                 Heatmap->>Jobs: Progress 80%
                 Heatmap->>Heatmap: plays.aggregate_daily_counts: the UTC day of each play, boundaries filtered, empty days filled
+                Heatmap->>Heatmap: total, max_count and active_days from the daily counts, total_scrobbles and active_days recorded as stats
                 Heatmap->>Heatmap: heatmap_statistics(daily_counts, UTC window end): streak, best day, average, total, each with its population
                 Note over Heatmap: Streak, best day and average are computed here, not in the browser
-                Heatmap->>Heatmap: total, max_count and active_days from the daily counts, total_scrobbles and active_days recorded as stats
                 alt No scrobbles in range
                     Heatmap->>Jobs: fail(no_scrobbles_in_range)
                 else Results available
