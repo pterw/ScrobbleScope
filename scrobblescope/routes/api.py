@@ -178,7 +178,7 @@ def release_checks():
     job_context = jobs.context(job_id)
     if job_context is None:
         return _release_check_error("Job not found or expired.", 404)
-    if job_context.get("params", {}).get("mode", "album") != "album":
+    if job_context.get("params", {}).get("mode") != jobs.MODE_ALBUM:
         # A heatmap job has no albums to correct, so this is a wrong-mode
         # request rather than an empty one -- the same 404 the album pages
         # give, for the same reason.

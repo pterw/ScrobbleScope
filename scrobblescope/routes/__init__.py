@@ -120,7 +120,7 @@ def _get_validated_job_context(
     job_context = jobs.context(job_id)
     actual_mode = None
     if job_context:
-        actual_mode = job_context.get("params", {}).get("mode", "album")
+        actual_mode = job_context.get("params", {}).get("mode")
     if not job_context or (expected_mode and actual_mode != expected_mode):
         logging.warning(f"Job context not found for {job_id}")
         if session_key and session.get(session_key) == job_id:
@@ -153,7 +153,10 @@ def _latest_heatmap_job():
         return None
 
     job_context = jobs.context(job_id)
-    if not job_context or job_context.get("params", {}).get("mode") != "heatmap":
+    if (
+        not job_context
+        or job_context.get("params", {}).get("mode") != jobs.MODE_HEATMAP
+    ):
         if session.get(_LATEST_HEATMAP_JOB) == job_id:
             session.pop(_LATEST_HEATMAP_JOB, None)
         return None

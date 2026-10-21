@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Last.fm pre-check lookups have a time limit and one answer
+
+Side task, no batch tag: give the Last.fm pre-check one shared answer and a short timeout, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a slow Last.fm must not hold a request thread for a minute, and the three routes must agree on what a failed check means.
+
+What changed: new `scrobblescope/routes/precheck.py` (`Verdict`, `UserCheck`, `check_lastfm_user`, `UNAVAILABLE_MESSAGE`, `not_found_message`); `utils.run_async_in_thread(coro, timeout=None)` cancels the coroutine and raises `TimeoutError` in the calling thread; `config.LASTFM_PRECHECK_TIMEOUT_SECONDS` (default 5, env of the same name); the `routes` facade's `_check_user_exists` and `_check_profile_is_public` pass it. Why: each of the three routes called the same two checks and handled failure its own way, and none had a limit but the HTTP session's 30 seconds per call (two calls: up to 60 seconds of one of four request threads). User-visible change now: the heatmap start and the blur check refuse after at most 5 seconds per lookup; the album route still swallows an outage until the next commit switches it over. The username leaves the pre-check's failure lines (class name only), and a malformed Last.fm existence answer (not a mapping, no boolean `exists`, a non-integer `registered_year`) is an outage (`UNAVAILABLE`), not a 500. SESSION_CONTEXT Sections 3-4 and the key runtime facts name the module and the setting.
+
+Mutation evidence (each planted defect, then the named test failed, then restored): timeout ignored in `run_async_in_thread` -> `test_run_async_in_thread_stops_waiting_when_the_timeout_passes`; `timeout=` dropped in `_check_profile_is_public` -> `test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget[_check_profile_is_public-...]`; privacy `except` returns PUBLIC -> `test_an_outage_on_the_privacy_check_is_unavailable_never_public`; existence read outside the `try` -> `test_a_malformed_existence_answer_is_unavailable_never_an_error[none]`; `.get("exists")` truthiness -> the same test, `empty` row; privacy asked before existence -> `test_a_missing_user_is_missing_and_privacy_is_never_asked`; username in the failure line -> `test_a_failed_check_logs_the_class_and_never_the_listeners_name`.
+
+Deviations: none. No existing test was edited; two tests were added to `tests/test_utils.py` and the new module `tests/test_precheck.py` has 17 cases.
+
+Validation: `pytest -q` -- **2688 passed**.
+
 ### 2026-10-20 - Task 1's drift note and the module count are corrected
 
 Side task, no batch tag: correct a false drift note and the tracked test-module count, on `refactor/album-request-module`, a branch off `main`.

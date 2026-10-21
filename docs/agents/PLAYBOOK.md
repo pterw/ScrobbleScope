@@ -103,7 +103,9 @@ See FINDINGS F-DOCSYNC-3.
   architecture diagrams), backend hygiene, UI consistency, and four of the
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
-  normalized Last.fm scrobbles with one album aggregate. Job persistence
+  normalized Last.fm scrobbles with one album aggregate. The album request
+  module is done (PR #3, branch refactor/album-request-module); the other
+  three seams remain. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
@@ -153,6 +155,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - A job says what kind it is
+
+Side task, no batch tag: make the job kind a record field that is never defaulted when read, and amend WP-4 to match, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a record that forgot its kind must not be served as an album run. This is B-12's server half; every writer now sets `mode`, so the default is a trap rather than a convenience.
+
+What changed: the `"album"` default is gone from three sites -- `routes._get_validated_job_context`, `api.release_checks` and `album_flow._extract_job_params` (its unread `mode` entry is deleted) -- and the literals `"album"` and `"heatmap"` become `jobs.MODE_ALBUM` and `jobs.MODE_HEATMAP` (`expected_mode` in `album_flow`, `release_checks`, `_latest_heatmap_job`). New: `test_a_job_that_never_said_its_kind_is_not_served_as_an_album_job` (four rows: `/results`, `/loading`, `/unmatched`, `/api/release_checks`; before this commit all four failed). Seeds that now say `"mode"`: `TEST_JOB_PARAMS` in `tests/helpers.py`; three literals in `tests/test_routes.py`; and the frontend-gate seeds, three in `_frontend_gate_results.py`, one in `_frontend_gate_include.py`, two in `_frontend_gate_spotify_icon.py`. `BATCH23_DEFINITION.md` WP-4 is amended: a "Scope amended 2026-10-20 (pre-Batch-23 tranche, PR #3)" paragraph says WP-4 reuses the album request module, the pre-check and the admission module; the export route's form fields go through `album_request.parse_album_request(form, current_year=..., require_username=False)`; the admission bullet records that `admit(params, target, *, label)` exists, that the thread entry point takes only the job id, that the kind is `params["mode"]` and an export album job keeps `mode` "album" with its origin in `source`; and Acceptance says PR #3 tests the path the album and heatmap routes share while WP-4 adds the export route's. PLAYBOOK Section 3 ("Before WP-1") now says the album request module is done and the other three seams remain; no "Last verified" date and no `Branch:` line moved.
+
+Deviations: none from the brief. Edited existing fixtures, by name: `TEST_JOB_PARAMS` (`tests/helpers.py`) and, in `tests/test_routes.py`, the album literals in `test_results_complete_renders_no_matches_for_empty_results`, `test_results_complete_with_results_renders_data` and `test_results_complete_links_each_row_to_its_own_provider`; no other test needed a `mode`. `ruff format` wrapped the `_latest_heatmap_job` condition over four lines.
+
+Mutation evidence (planted in a scratch copy, named tests failed, restored): `.get("mode", "album")` back in `_get_validated_job_context` -> the `/results`, `/loading` and `/unmatched` rows; the same default back in `release_checks` -> the `/api/release_checks` row. Gates: `frontend_gate.py` 47 checks passed in 75 runs; `results_behavior_tests.py` OK.
+
+Validation: `pytest -q` -- **2743 passed**.
+
 ### 2026-10-20 - The heatmap and the blur check use the shared pre-check
 
 Side task, no batch tag: answer the heatmap start and the blur check from the shared Last.fm pre-check, on `refactor/album-request-module`, a branch off `main`.
@@ -196,17 +212,3 @@ Mutation evidence (each planted defect, then the named test failed, then restore
 Deviations: the plan's `heatmap_flow` and `album_flow` code was applied as written; `ruff` reordered the new `admission` import after the other `scrobblescope` imports in both route modules. Edited existing tests, by name: in `tests/services/test_orchestrator_fetch_and_process.py` the six `background_task` call sites (`test_background_task_runs_single_event_loop`, its call and its name assertion now `testuser`; `test_background_task_releases_slot_on_exception`; `test_background_task_releases_slot_when_event_loop_setup_raises`; `test_background_task_releases_slot_when_loop_close_raises`; `test_background_task_crash_publishes_internal_error`; `test_background_task_stores_unmatched_rows_when_the_flag_is_on`); the seven `heatmap_task(` calls in `tests/test_heatmap.py` `TestHeatmapTask` (`test_release_job_slot_called_on_success`, `..._on_exception`, `..._when_event_loop_setup_raises`, `..._when_loop_close_raises`, `test_unhandled_crash_publishes_internal_error`, `test_user_not_found_crash_publishes_user_not_found`, `test_untyped_not_found_text_is_ours_not_user_not_found`); and `tests/test_routes.py::test_results_loading_passes_the_include_flag_to_the_job_thread` (docstring and the args assertion). The failed-thread-start path is tested for real, not patched, in `tests/test_admission.py`.
 
 Validation: `pytest -q` -- **2699 passed**.
-
-### 2026-10-20 - Last.fm pre-check lookups have a time limit and one answer
-
-Side task, no batch tag: give the Last.fm pre-check one shared answer and a short timeout, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: a slow Last.fm must not hold a request thread for a minute, and the three routes must agree on what a failed check means.
-
-What changed: new `scrobblescope/routes/precheck.py` (`Verdict`, `UserCheck`, `check_lastfm_user`, `UNAVAILABLE_MESSAGE`, `not_found_message`); `utils.run_async_in_thread(coro, timeout=None)` cancels the coroutine and raises `TimeoutError` in the calling thread; `config.LASTFM_PRECHECK_TIMEOUT_SECONDS` (default 5, env of the same name); the `routes` facade's `_check_user_exists` and `_check_profile_is_public` pass it. Why: each of the three routes called the same two checks and handled failure its own way, and none had a limit but the HTTP session's 30 seconds per call (two calls: up to 60 seconds of one of four request threads). User-visible change now: the heatmap start and the blur check refuse after at most 5 seconds per lookup; the album route still swallows an outage until the next commit switches it over. The username leaves the pre-check's failure lines (class name only), and a malformed Last.fm existence answer (not a mapping, no boolean `exists`, a non-integer `registered_year`) is an outage (`UNAVAILABLE`), not a 500. SESSION_CONTEXT Sections 3-4 and the key runtime facts name the module and the setting.
-
-Mutation evidence (each planted defect, then the named test failed, then restored): timeout ignored in `run_async_in_thread` -> `test_run_async_in_thread_stops_waiting_when_the_timeout_passes`; `timeout=` dropped in `_check_profile_is_public` -> `test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget[_check_profile_is_public-...]`; privacy `except` returns PUBLIC -> `test_an_outage_on_the_privacy_check_is_unavailable_never_public`; existence read outside the `try` -> `test_a_malformed_existence_answer_is_unavailable_never_an_error[none]`; `.get("exists")` truthiness -> the same test, `empty` row; privacy asked before existence -> `test_a_missing_user_is_missing_and_privacy_is_never_asked`; username in the failure line -> `test_a_failed_check_logs_the_class_and_never_the_listeners_name`.
-
-Deviations: none. No existing test was edited; two tests were added to `tests/test_utils.py` and the new module `tests/test_precheck.py` has 17 cases.
-
-Validation: `pytest -q` -- **2688 passed**.

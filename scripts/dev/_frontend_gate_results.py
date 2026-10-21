@@ -198,7 +198,14 @@ def check_results_interactions(page, base_url: str) -> list[str]:
     Reuse the configured page so CDN policy and navigation deadlines survive.
     Remove only this check's route and job afterward. CSV follows visible ranks.
     """
-    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create(
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
+    )
     probe = page
     failures = []
 
@@ -305,7 +312,14 @@ def check_results_provider_attribution(page, base_url: str) -> list[str]:
     provider-labelled text link, standing in for Deezer's logo until an
     official file is supplied (F-B22-4).
     """
-    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create(
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
+    )
     probe = page
     failures = []
 
@@ -495,7 +509,14 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
     replies here are scripted rather than waiting on a MusicBrainz pass that
     runs at one request per second.
     """
-    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create(
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
+    )
     probe = page
     failures = []
     requests = []

@@ -208,6 +208,7 @@ def test_results_complete_renders_no_matches_for_empty_results(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "10",
+            "mode": "album",
         }
     )
     jobs.succeed(job_id, [], "No albums found for the specified criteria.")
@@ -513,6 +514,7 @@ def test_results_complete_with_results_renders_data(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "all",
+            "mode": "album",
         }
     )
     jobs.succeed(
@@ -559,6 +561,7 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "all",
+            "mode": "album",
         }
     )
     jobs.succeed(
@@ -3802,3 +3805,24 @@ def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
         "matched": (False, True),
         "absent": (False, True),
     }
+
+
+@pytest.mark.parametrize(
+    "path", ["/results", "/loading", "/unmatched", "/api/release_checks"]
+)
+def test_a_job_that_never_said_its_kind_is_not_served_as_an_album_job(client, path):
+    """
+    GIVEN a job record with no `mode`
+    WHEN an album page or the release-check API is asked for it
+    THEN the answer is 404 (it is not assumed to be an album run).
+
+    Mutation: restore `.get("mode", "album")` in routes._get_validated_job_context
+    or api.release_checks and the matching rows return 200.
+    """
+    job_id = jobs.create(
+        {"username": "someone", "year": 2025, "sort_mode": "playcount"}
+    )
+
+    response = client.get(f"{path}?job_id={job_id}")
+
+    assert response.status_code == 404

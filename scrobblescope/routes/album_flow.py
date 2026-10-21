@@ -43,7 +43,6 @@ def _extract_job_params(job_context):
         "min_plays": params.get("min_plays", 10),
         "min_tracks": params.get("min_tracks", 3),
         "limit_results": params.get("limit_results", "all"),
-        "mode": params.get("mode", "album"),
         "include_unmatched": params.get("include_unmatched", False),
     }
 
@@ -90,7 +89,7 @@ def _render_loading_page():
         expired_message="Your loading session has expired.",
         expired_details="Please start a new search.",
         session_key=_routes._LATEST_ALBUM_JOB,
-        expected_mode="album",
+        expected_mode=jobs.MODE_ALBUM,
     )
     if err:
         return err
@@ -176,7 +175,7 @@ def _render_results_page():
         expired_message="We couldn't find your results.",
         expired_details="The processing may have expired. Please try again.",
         session_key=_routes._LATEST_ALBUM_JOB,
-        expected_mode="album",
+        expected_mode=jobs.MODE_ALBUM,
     )
     if err:
         if used_saved_job:
@@ -386,7 +385,7 @@ def _render_unmatched_page():
         expired_message="Your unmatched album data has expired.",
         expired_details="Please run a new search.",
         session_key=_routes._LATEST_ALBUM_JOB,
-        expected_mode="album",
+        expected_mode=jobs.MODE_ALBUM,
     )
     if err:
         if used_saved_job:
