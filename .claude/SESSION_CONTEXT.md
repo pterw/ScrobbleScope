@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2857 passing** across 98 tracked test modules |
+| Tests | **2888 passing** across 99 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2857 passed**.
+- Latest validated test count: **2888 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -83,6 +83,7 @@ scrobblescope/
     _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap
   spotlight.py              # pure artist aggregation and stable sample selection
+  listening_stats.py        # pure listening statistics (streak, best day, daily average, plays listed vs matched), each with its population stated
   unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
   routes/
     __init__.py              # facade: Blueprint bp, shared job-context helpers, error handlers
@@ -184,6 +185,7 @@ orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orch
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
 heatmap.py       <- errors, jobs, lastfm, plays, utils, worker
 spotlight.py     <- utils
+listening_stats.py <- (leaf; standard library only)
 routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
@@ -296,7 +298,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2857 tests)
+## 6. Test structure (2888 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
