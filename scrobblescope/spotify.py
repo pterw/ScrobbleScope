@@ -18,7 +18,7 @@ from scrobblescope.config import (
     spotify_token_cache,
 )
 from scrobblescope.domain import normalize_track_name
-from scrobblescope.enrichment import AlbumMetadata
+from scrobblescope.enrichment import SPOTIFY_ALBUM_URL, AlbumMetadata
 from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
     cancel_and_drain,
@@ -643,7 +643,7 @@ def album_metadata_from_details(spotify_id, details):
         provider="spotify",
         album_id=spotify_id,
         url=details.get("external_urls", {}).get(
-            "spotify", f"https://open.spotify.com/album/{spotify_id}"
+            "spotify", SPOTIFY_ALBUM_URL.format(album_id=spotify_id)
         ),
         release_date=details.get("release_date", ""),
         image_url=images[0].get("url"),

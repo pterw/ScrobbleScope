@@ -162,6 +162,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - An album reads itself from a cache row
+
+Side task, no batch tag: one classmethod, one property and one constant on `AlbumMetadata` that read a `spotify_cache` row as an album, plus one line in `spotify.py`, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: one album-metadata encoding, so the rules for reading a cache row are written once and tested before anything calls them.
+
+What changed and why: the legacy-row rules lived in two places that disagree about where they live: `cache.batch_lookup_metadata` builds a dict and `_results._album_provider` / `_album_url` finish the job later. `enrichment.py` gains `SPOTIFY_ALBUM_URL`, `AlbumMetadata.spotify_id` (the Spotify album id, `None` for any other provider) and `AlbumMetadata.from_row(row)` (a row with no provider is a Spotify row, a Spotify row with no link gets the classic album page, a NULL release date reads as `""`, `track_durations` reads as a dict whether the driver returned text or a dict). `spotify.album_metadata_from_details` uses the constant for its default link; the link is unchanged. SESSION_CONTEXT Section 3 names the new role. Additive: no caller changes. Task 3 deletes `_album_provider` and `_album_url` and calls `from_row`.
+
+Deviations: a row naming no provider album now reads as `None` (no write path produces one). Edited existing tests: none; the import block of `tests/services/test_enrichment.py` gained `dataclasses`, `pytest` and `SPOTIFY_ALBUM_URL`, and 14 tests (8 functions, parametrized) were appended.
+
+Mutation evidence (each planted in a copy of `enrichment.py` kept aside, restored after, test re-run green): (1) `spotify_id` returns `album_id` for every provider -> `test_only_a_spotify_album_has_a_spotify_id` fails (`'6237061' is None`); (2) release_date/image_url swapped -> `test_a_stored_row_maps_every_field_to_the_album` fails; (3) `album_id = spotify_id` -> `test_a_deezer_row_keeps_the_deezer_id_and_link` fails; (4) provider fallback dropped -> `test_an_older_spotify_row_...[written_before_the_provider_columns]` fails; (5) link fallback deleted -> the same test fails for both rows; (6) `json.loads` and `or {}` dropped -> `test_track_durations_read_as_a_dict_...` fails for json_text, empty_object, empty_text and null; (7) `release_date=row.get("release_date")` -> `test_a_row_with_no_release_date_has_an_empty_one` fails; (8) the `return None` guard deleted -> `test_a_row_that_names_no_provider_album_reads_as_nothing` fails; (9) field `play_count: int = 0` added -> `test_album_metadata_holds_album_facts_only` fails. Every first failing assertion is the one the row names.
+
+Validation: `pytest -q` -- **2878 passed**.
+
 ### 2026-10-21 - Cache storage and failure behaviour are pinned end to end
 
 Side task, no batch tag: parity tests with an in-memory fake Postgres that pin album metadata storage, read-back and cache-failure behaviour, on `refactor/metadata-encoding`, a branch off `main`.
@@ -197,17 +211,5 @@ Owner intent: the branch's docs describe the branch as it is when it merges, not
 What changed: Section 3's "Before WP-1" bullet now says PR #4 is done (PR #3's form) and that the two seams remaining are one album-metadata encoding and the statistics module, and drops the "Tasks 2-5 after PR #3 merges" sentence. The `tests/test_lastfm_job_results.py` module docstring no longer says five tests are xfail-marked; they pass since Task 4. `fetch_top_albums_async`'s docstring already describes behaviour only, with no plan label (nothing to change). The "Callers get scrobbles, not Last.fm pages" entry's "so the controller renders them" now records what was done: the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid. README's "What each module owns" table gains `plays.py` and `release_status.py`. `orchestrator/__init__.py`'s `__all__` is back in sorted order (no name added or removed).
 
 Deviations: none. Edited existing tests: none (docstring only in `tests/test_lastfm_job_results.py`).
-
-Validation: `pytest -q` -- **2847 passed**.
-
-### 2026-10-20 - Close two guard gaps the reviews found
-
-Side task, no batch tag: two test guards the PR #4 task reviews found too weak, on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: a guard test must fail for every way of breaking what it guards, not only the one way its author planted.
-
-What changed: `test_the_routes_never_import_the_correction_worker` now catches all three import forms of `scrobblescope.release_checks` (`from scrobblescope.release_checks import x`, `from scrobblescope import release_checks`, `import scrobblescope.release_checks`); the task 3 review had planted the middle form in `routes/api.py` and the test passed. New `test_each_request_field_reaches_the_enrichment_tail` (six parametrised cases in `tests/services/test_finish_album_job.py`) asserts that `finish_album_job` passes `year`, `sort_mode`, `release_scope`, `decade`, `release_year` and `limit_results` to `_process_filtered_albums` each in its own place, with `overall_start_time` and `include_unmatched`, and that the job's progress was 20 at that call (the task 5 review's Minor 2). `min_plays` and `min_tracks` are not asserted: `finish_album_job` does not read them, `select_albums` applied them before. Proof by planted defect in a scratch copy: all three import forms fail the first test; swapping `decade` and `release_year` fails two cases, `year + 1` fails one, dropping the `jobs.advance(job_id, 20, ...)` call fails all six.
-
-Deviations: none. Edited existing test: `test_the_routes_never_import_the_correction_worker`.
 
 Validation: `pytest -q` -- **2847 passed**.

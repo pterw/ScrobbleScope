@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Close two guard gaps the reviews found
+
+Side task, no batch tag: two test guards the PR #4 task reviews found too weak, on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: a guard test must fail for every way of breaking what it guards, not only the one way its author planted.
+
+What changed: `test_the_routes_never_import_the_correction_worker` now catches all three import forms of `scrobblescope.release_checks` (`from scrobblescope.release_checks import x`, `from scrobblescope import release_checks`, `import scrobblescope.release_checks`); the task 3 review had planted the middle form in `routes/api.py` and the test passed. New `test_each_request_field_reaches_the_enrichment_tail` (six parametrised cases in `tests/services/test_finish_album_job.py`) asserts that `finish_album_job` passes `year`, `sort_mode`, `release_scope`, `decade`, `release_year` and `limit_results` to `_process_filtered_albums` each in its own place, with `overall_start_time` and `include_unmatched`, and that the job's progress was 20 at that call (the task 5 review's Minor 2). `min_plays` and `min_tracks` are not asserted: `finish_album_job` does not read them, `select_albums` applied them before. Proof by planted defect in a scratch copy: all three import forms fail the first test; swapping `decade` and `release_year` fails two cases, `year + 1` fails one, dropping the `jobs.advance(job_id, 20, ...)` call fails all six.
+
+Deviations: none. Edited existing test: `test_the_routes_never_import_the_correction_worker`.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-20 - One album selection and one publish step
 
 Side task, no batch tag: `plays.select_albums` returns one typed `AlbumSelection` and `orchestrator.finish_album_job` is the one publish step after it (PR #4 of the pre-Batch-23 tranche, task 23d, F-B23-1's threshold half, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
