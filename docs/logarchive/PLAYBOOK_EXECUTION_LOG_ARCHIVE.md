@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The heatmap KPIs come from Python
+
+Side task, no batch tag: publish the heatmap KPI statistics from `listening_stats` and make the browser render them, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a domain rule (streak, best day, average) belongs in Python with its population stated, and the browser only formats what the server decided.
+
+What changed: `_fetch_and_process_heatmap` now takes the window end from `utc_date(now)`, calls `heatmap_statistics(daily_counts, to_date)` and stores the result under the new key `statistics` (`total_plays`, `daily_average`, `best_day`, `current_streak`, each `{"value", "population"}`) in the same `jobs.succeed` write; `total_scrobbles`, `max_count` and `daily_counts` stay, since the grid, its colour scale and the SVG label read them. In `static/js/heatmap.js` the browser's `computeStreak`, `WINDOW_DAYS` and the best-day reduce are deleted; `kpiModel(statistics)` formats the published figures and `renderKpis(data)` renders them, logging to the console and leaving the row empty if a payload carries no statistics (a server bug, not something to recompute around). The eight hand-seeded gate payloads (`_frontend_gate_heatmap_access.py` x4 payloads, `_frontend_gate_theme.py` x2, `_frontend_gate_pipeline.py`, `_frontend_gate_figures.py`) now seed `statistics` through `heatmap_statistics`; the access module's comment names `HEATMAP_WINDOW_DAYS` in heatmap.py. The HEATMAP_WINDOW_DAYS comment, the runtime and sequence diagrams and SESSION_CONTEXT's dependency lines follow the code. `jobs._context_view` deep-copies only `daily_counts`, so `statistics` is returned by reference (nothing in this PR mutates it).
+
+Visible change (empty-window ruling, controller, 2026-10-21): a window with no plays has no best day. Before, the BEST DAY block showed 0 with the window's last day as its label; now it shows 0 with no date line, the same way a zero total or streak shows `0` and a block with no sub-label omits that line. A new case `a_window_with_no_plays_has_no_best_day` in `tests/fixtures/heatmap_kpi_cases.json` pins it (expected text measured from the rendering: `0`, `0.0`, `0`, no date, `0`). The job itself still fails a zero-scrobble range with `no_scrobbles_in_range` before storing, so only a payload built by hand reaches this rendering today.
+
+Deviations: `test_statistics_reach_the_browser_through_heatmap_data` is synchronous and drives the task with `asyncio.run`, because the `client` fixture keeps its request context open and an async test errors at teardown with `LookupError` on `flask.app_ctx`; the gate modules that import `datetime` as a module use `datetime.date.fromisoformat` rather than a second `date` import that their `date: str` parameters would shadow; the test-seam comment above `__scrobbleHeatmapTestHooks` already said the functions touch only the row they are handed, which stays true, so it is unchanged.
+
+Edited existing tests: `test_happy_path_stores_correct_result_dict` (asserts the published statistics), `test_kpi_blocks_show_what_the_window_holds` (feeds the published statistics through the new `_published` helper and no longer names `computeStreak` in its docstring) and `test_the_published_figures_are_the_ones_the_pinned_kpis_show` (a null best-day date reads as the empty label the new case expects).
+
+Mutations (copy aside, file restored): a streak that starts at yesterday fails `test_happy_path_stores_correct_result_dict`, `test_statistics_reach_the_browser_through_heatmap_data`, the `streak_ends_today`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window` cases in both tables; a browser-side streak assignment in `kpiModel` fails `test_kpi_blocks_render_the_published_figures_and_compute_nothing`; deleting `"statistics": statistics,` fails the happy-path test and the heatmap_data test with `KeyError: 'statistics'`; a `/heatmap_data` response built from named keys fails only the heatmap_data test; removing the `best.date ?` guard fails `test_a_window_with_no_best_day_shows_no_date` and the new table case; `>=` in `best_day` fails the new case in both tables. Gates: `frontend_gate.py` 48 checks passed (the gate was not run under the mutations: it seeds its own payloads, so the code-side mutations are not expected to reach it), `results_behavior_tests.py` 18 tests OK.
+
+Validation: `pytest -q` -- **2895 passed**.
+
 ### 2026-10-21 - The statistics tests pin the sentences and the UTC day
 
 Side task, no batch tag: make the listening statistics tests fail on a false population sentence, a system-zone date and an unsorted best day, on `refactor/statistics-module`, a branch off `main`.
