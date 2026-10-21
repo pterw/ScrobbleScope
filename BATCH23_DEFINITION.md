@@ -161,6 +161,12 @@ outline, specialized WP plans and user-facing copy must follow it.
 - WP-3/WP-4 verification must exercise the full export-to-enrichment path
   and inspect disk writes, persistence arguments and captured logs. Prove
   both the prohibited-data exclusions and the permitted catalog-cache use.
+  The shared metadata table has one write path (amended 2026-10-21, PR #5):
+  `AlbumCache.persist` takes `AlbumMetadata` records, which hold only
+  provider-returned album facts (provider, album id, link, release date,
+  cover, track durations), so no listening fact has an argument to travel
+  in. `tests/fake_postgres.py` stores what the SQL would store; inspect
+  that, not a positional tuple.
 
 ## Runtime model
 
@@ -456,6 +462,14 @@ and the orchestrator never knows about zips.
   2026-10-20). The album form posts `include_unmatched`; the export route
   and `export_album_task` accept it and honour it with the meaning it has
   on the Last.fm path. Acceptance adds one export run with it on.
+- [ ] **The export job reaches the cache only through `process_albums`**
+  (amended 2026-10-21, PR #5). `process_albums` opens and closes the cache
+  itself (`open_album_cache`); `export_album_task` passes no connection and
+  imports nothing from `scrobblescope.cache`. Enrichment reaches the job as
+  `AlbumMetadata` records, so an export row carries the same `provider`,
+  `spotify_id`, `album_url` and `album_image` fields as a Last.fm row.
+  Acceptance adds: with the cache database missing, an export job completes
+  from provider calls and records `db_cache_warning`.
 - **Acceptance:** `process_albums` receives the selection's eligible albums;
   `lastfm.fetch_scrobbles` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,

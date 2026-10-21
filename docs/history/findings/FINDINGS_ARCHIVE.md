@@ -9,6 +9,34 @@ Newest rotation first.
 
 ---
 
+### F-B23-3: the album pipeline runs the cache connection protocol itself -- RESOLVED
+
+`orchestrator.process_albums` opens the cache connection, holds it across
+provider work, and closes it in a `finally`. Meanwhile
+`orchestrator/_cache.py` owns the cache-failure policy, including writing job
+warnings through the facade. So understanding what "the cache is optional"
+means takes both modules. It also makes the connection-closure test in
+`tests/services/test_orchestrator_process_albums.py` configure the provider
+machinery.
+
+The fix is for the existing cache module to own the operation's lifetime and
+its failure classification, while job messages and enrichment decisions stay
+with the caller. There is one concrete adapter, so no generic cache-backend
+layer. Metadata and release-check cache policy stay separate.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-21
+By refactor(cache): Let the cache own its
+connection and failures -- `cache.AlbumCache` and `open_album_cache` own the
+connection lifetime and what a database error means (including a failing
+`close()`, which no longer fails a job); `process_albums` manages no
+connection and `orchestrator/_cache.py` only reports to the job; the
+correction worker keeps its own policy, as the finding asked. No performance
+gain is claimed.
+Source: card 03 of
+`docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
+(2026-09-23).
+
 ### F-B23-2: Last.fm's payload shape travels into both calculations -- RESOLVED
 
 `lastfm.py` returns raw JSON pages. `orchestrator.fetch_top_albums_async`

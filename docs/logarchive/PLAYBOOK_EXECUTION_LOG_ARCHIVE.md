@@ -9,6 +9,76 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - Make the #6 docs true for the merge
+
+Side task, no batch tag: close out PR #6 by making its diagram and plan text true, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: nothing the statistics module touches should describe a step or a name that is no longer so.
+
+What changed: `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` twice (lines 83 and 85); it is now one `Heatmap->>Heatmap` message carrying its figures, and the local step Task 4 removed (`total`, `max_count` and `active_days` computed in `heatmap.py`, `total_scrobbles` and `active_days` recorded as stats) is drawn again as one message after the Note. In the statistics-module plan, "Albums control" is now "Unmatched albums control" (line 22) and the worktree `C:/ssw/stm` is `C:/ssw/st` (line 50), as constraints L2 asks. `top-albums-sequence.md` is left to the documentation PR.
+
+Recorded, no change: the UTC-day test's remaining gap (a host-zone read that skips `astimezone`) has no code path, because the only timestamp-to-date reads are `listening_stats.utc_date` (`astimezone(UTC)`) and `plays.py`'s `play.played_at.date()`, and `Play` requires a UTC `played_at`. Task 5's Minor 2 (a missing `data-plays-*` attribute would render NaN) needs no guard, because the server always renders both. The `config/docsync.toml` window comment stays: the daily average still divides by `len(daily_counts)`, the zero-filled `HEATMAP_WINDOW_DAYS` window, so it is true.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
+### 2026-10-21 - Place the cache close where the code closes it
+
+Side task, no batch tag: two doc truths from the close-out review (SESSION_CONTEXT Section 5, PLAYBOOK Section 3), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: docs follow the code.
+
+What changed and why: SESSION_CONTEXT Section 5 put the `async with open_album_cache()` close under phase 4, but in `process_albums` the block ends after phase 4b (the original-release lookup) and before phase 5, so item 4 now says the persist is followed by the original-release lookup and the connection closes after that (review Minor 4). In PLAYBOOK Section 3 the "Before WP-1" bullet had one 83-column line; it is re-wrapped near 80 columns, words unchanged (review Minor 2). Review Minor 1 is recorded here and not repaired: the body of `c006554` said "a test docstring" without naming the file, which is `tests/services/test_orchestrator_process_albums.py`; history is not rewritten.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - Pin the classic link when external_urls is null
+
+Side task, no batch tag: pin the null `external_urls` guard of `album_metadata_from_details` with a test, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a claim in a document is backed by a test that fails without it.
+
+What changed and why: `dfd22dc`'s fallback also guards a payload whose `external_urls` is `null` (`(details.get("external_urls") or {})`) and its entry says "missing or null", but no case passed `{"external_urls": None}`; the old `None` parameter became `details = {}`, the missing key. The parametrized test now takes the whole details payload and gains a `null-object` case (expected: `https://open.spotify.com/album/sp3`). With the guard replaced by `details.get("external_urls", {})` the new case fails with `AttributeError: 'NoneType' object has no attribute 'get'` and the other five pass; restored, all six pass. Review of close-out, Minor 3. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_album_metadata_from_details_keeps_the_classic_link` in `tests/services/test_spotify_service.py` (parameters now carry the details payload; 5 cases became 6).
+
+Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - Make the #5 docs true for the merge
+
+Side task, no batch tag: close-out of PR #5, making the docs true for the merge (PLAYBOOK Section 3, the plan's citations, a test docstring, two architecture files, F-B23-47), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: docs follow the code, and nothing a reader needs lives only in an untracked workspace.
+
+What changed and why: PLAYBOOK Section 3's "Before WP-1" bullet now says one album-metadata encoding is done (PR #5) and only the statistics module remains. The committed plan cited the untracked `constraints.md` R9 in three places (the global constraint, Step 6, the mutation step); the citation is dropped and the rule stays inline, with no other plan text changed. The docstring of `test_process_albums_conn_always_closed` said the connection closes "in the finally block"; Task 4 moved the close into `open_album_cache`'s context manager, so it now says so. `top-albums-sequence.md` drew the stale-row cleanup as a separate `Orch->>Cache` call, but `AlbumCache.lookup` runs `cleanup_stale_metadata` itself, so that one message is now `Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)` (line 111, for the controller to render). One prose line in `runtime-system.md` was re-wrapped. F-B23-47 is filed: `test_job_threads_can_share_the_token_state_dict_without_error` failed once beside other test files in Task 2's run, a switch-interval thread race that is flaky by design and unrelated to the diff (open, P3, no fix in this PR).
+
+Plan-mandated defects, recorded here and not edited in the plan: the brief's mutation row 7 named `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning` and cannot catch the plant, so Task 4 added `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows`; and Step 7's parity-proof command diffed against 2847cd5, before Task 1's fix round c6769b7, so it reported differences in `tests/fake_postgres.py` that came from c6769b7, not from Task 3 or 4.
+
+Deviations: `top-albums-sequence.md` line 101's Note ("No lookup, cleanup, or persistence") is left as drawn, since the brief limits the redraw to the one message.
+
+Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (one docstring line, no code).
+
+Validation: `pytest -q` -- **2896 passed**.
+
+### 2026-10-21 - A live Spotify album keeps its link when Spotify sends none
+
+Side task, no batch tag: restore the classic album link for a Spotify album whose details carry no link (`album_metadata_from_details`), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a refactor PR must not change behaviour nobody asked it to change.
+
+What changed and why: before this PR a Spotify album whose details payload had `external_urls.spotify` null or `""` still got `https://open.spotify.com/album/<id>`, rebuilt by `_results._album_url`. Task 3 deleted that rebuild, so such an album got `album_url` null (task 3 review, Minor 1). `album_metadata_from_details` now falls back to the canonical URL when `external_urls` is missing or null, or when `spotify` is missing, null or empty; a link Spotify sends is kept as sent.
+
+Deviations: none.
+
+Edited existing tests: none. Added `test_album_metadata_from_details_keeps_the_classic_link` (5 cases) in `tests/services/test_spotify_service.py`; with the fallback removed, 4 of the 5 fail, and with it restored all pass.
+
+Validation: `pytest -q` -- **2896 passed**.
+
 ### 2026-10-21 - A test pins that the page prints the Scrobbles figure it is handed
 
 Side task, no batch tag: pin that `results.html` prints the Scrobbles figures the route hands it, on `refactor/statistics-module`, a branch off `main`.
@@ -140,6 +210,114 @@ Owner intent: "All plans should stay for archival purposes" (2026-10-20), so eve
 What changed: `docs/superpowers/plans/2026-10-20-statistics-module.md` is added (six tasks: pin the heatmap KPIs and the Scrobbles figure, the pure `listening_stats` module, retire two docsync sites, publish the heatmap statistics, compute the Scrobbles figure in Python, amend WP-6). PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #6, its branch and the plan. The plan passed the brief review (`plan-review.md`), two fix rounds and two re-reviews (`plan-rereview-1.md`, `plan-rereview-2.md`; approved); owner Q1 is approved ("Yes, that sounds good."): the Scrobbles figure is computed at render time in the Results route. It was then drift-reviewed against `eb0db9e` (`main` after PRs #256-#260) and the fixes were folded in as its Revision 3. Structural: S1, the publication test in Task 4 Step 1 now patches `fetch_scrobbles` and uses `_fetch`, `_play` and `UTC` (the page-layer patch target and helpers are gone); S2, Task 5 Step 3 builds the `include_run` span from the rows rendered, so `test_hiding_every_row_clears_the_top_artist_and_including_restores_it` keeps passing; S3, `scripts/dev/_frontend_gate_figures.py` (`_HEATMAP_RESULT`) joins Task 4's Touches, Step 5 and the Section 4 line, making eight gate payloads, not seven. Renames (7): `plays.aggregate_daily_counts`, `_play`/`_fetch`, `fetch_scrobbles`, `UTC` for `timezone.utc` in Task 2, the `heatmap` docstring dependency line, the SESSION_CONTEXT current-text quotes, and the `listening_stats` docstring wording. Cosmetic (9, C1-C9; C3 and C7 needed no change): helper imports, the `HEATMAP_WINDOW_DAYS` comment, the `class` line, the sequence-diagram anchor, Hide/Include wording, entry headings take the commit date, Task 6's moot conflict note, and one `_context_view` sentence for Task 4's commit body. The "unverified until #4 merges" rows of the PR #4 table are rewritten as checked.
 
 Deviations: the drift review said `test_utc_midnight_decides...` has three `timezone.utc` uses; the plan has two (`NEW_YORK` is a fixed offset), so two were changed. No DOC citation error needed a wording change in the plan. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
+### 2026-10-21 - The cache owns its connection and its failures
+
+Side task, no batch tag: Task 4 of PR #5, the cache owns its connection and its failures (`AlbumCache`, `open_album_cache`, `process_albums`, `orchestrator/_cache.py`, the facade's imports), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent (the spec's hosting ceiling): a missing or sleeping database degrades to provider calls and never fails a job.
+
+Why (F-B23-3): `process_albums` opened the connection, held it across provider work and closed it in a `finally` that did not guard `close()`, while `orchestrator/_cache.py` owned the failure policy, so understanding "the cache is optional" took two modules and a failing `close()` failed a job whose results were built. The connection-closure test also had to configure the provider machinery.
+
+What changed: `cache.AlbumCache(conn)` has `enabled`, `lookup_failed`, `persist_failed`, `lookup`, `persist`, `lookup_original_releases` and `close`; `open_album_cache()` connects through `get_db_connection` and closes when its block ends however it ends. `process_albums` wraps Phases 1 to 4b in `async with open_album_cache()`, and `_lookup_cached_metadata` and `_persist_new_metadata` take the cache and turn its flags into the same job stats and log lines as before (every log line is kept word for word). The facade no longer imports `get_db_connection` or the four batch functions, so tests patch them at `scrobblescope.cache.<name>`. `_lookup_cached_original_release` is gone (its body is `AlbumCache.lookup_original_releases`). A new boundary test pins that only `cache.py` names the metadata read, write and cleanup functions and holds the one INSERT into `spotify_cache`. Docs: SESSION_CONTEXT Sections 3 to 5, `runtime-system.md` (one node and the release-date bullet), `top-albums-sequence.md` (four messages and one note, commas only), `BATCH23_DEFINITION.md` (the PR #5 amendment of WP-3's metadata shape: Data handling and a WP-3 bullet), and F-B23-3 marked resolved.
+
+Deviations: a failing `close()` is now logged by exception class and swallowed, the one behaviour change. `_lookup_cached_original_release` is deleted and its two tests moved to `tests/services/test_cache.py`. Mutation row 7 of the brief (record `db_cache_persisted` after a failed persist) is not caught by `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning`, so a test was added, `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` in `test_orchestrator_process_albums.py`; Task 1's parity file stays untouched. The re-point script printed 46, 2, 2 and 3 replacements, and `ruff format` then reflowed the lines the longer patch strings overran. The Mermaid validator was not available to the implementer, so the controller renders the two diagram files (`runtime-system.md` flowchart node, `top-albums-sequence.md` sequence).
+
+Hosting evidence: `tests/test_album_cache_parity.py` and `tests/fake_postgres.py` are unchanged by this task and pass (one connection, one close, the same statement sequence, under every injected failure), and the diff of `scrobblescope/` adds no `.execute(`, `.fetch(` or `asyncpg.connect(` line.
+
+Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (patch strings, and two direct `_lookup_cached_metadata` calls now wrap `AlbumCache`), `tests/services/test_orchestrator_fetch_spotify.py` and `tests/test_pipeline_integration.py` (patch strings only), `tests/services/test_orchestrator_helpers.py` (two tests moved to `test_cache.py`), `tests/services/test_failure_logging.py` (four sites re-pointed at `AlbumCache`).
+
+Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `AlbumCache.close` without its `try`/`except` -> `test_a_failing_close_is_logged_by_class_and_never_raised` (RuntimeError) and `test_process_albums_survives_a_connection_that_fails_to_close` fail; (2) `open_album_cache` without `try`/`finally` -> `test_the_connection_closes_once_however_the_block_ends[True]` (`(1, 0) == (1, 1)`) and `test_the_connection_is_closed_once_when_no_provider_can_answer` fail; (3) `persist` guard without `self._conn is None` -> `test_a_cache_with_no_database_does_nothing_and_fails_nothing` fails; (4) `lookup` without `try`/`except` -> `test_a_failing_cache_statement_never_fails_the_search[read]` fails; (5) a reconnect in `lookup`'s `except` -> the same test fails on `(2, 1) == (1, 1)`; (6) `release_checks.py` importing `batch_persist_metadata` -> `test_only_the_cache_module_reads_or_writes_the_metadata_table` fails; (7) `db_cache_persisted` recorded after a failed persist -> `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` fails; (8) a bare write in `persist` -> `test_a_failed_read_is_a_miss_and_a_failed_write_is_not_an_error` and `test_a_failing_cache_statement_never_fails_the_search[write]` fail; (9) `lookup` returning `{}` -> `test_what_persist_writes_lookup_reads_back` fails; (10) Task 3's row 3 re-planted (`if metadata is not None:` removed) -> `test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album` fails.
+
+Validation: `pytest -q` -- **2891 passed**.
+
+### 2026-10-21 - Album metadata is one record from provider to results
+
+Side task, no batch tag: Task 3 of PR #5, album metadata stored and read as one record from provider to results (cache, the three orchestrator phases, the results builder and seven test files), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: card B-5 and the Task 27 brief say it in one line: one `AlbumMetadata.from_row` replaces the repair code, and `_album_provider` and `_album_url` are deleted.
+
+Why (B-5): after the providers an album was re-encoded as a nine-tuple for the database, as a 4-key or 7-key dict for the results and as a 7-key dict from cache reads; two functions in `_results.py` existed only to repair what the shortest of them lacked, and `batch_persist_metadata` kept a six-tuple branch that only a test reached. There is now one record, and one place a stored row is read (`AlbumMetadata.from_row`) and one statement that writes `spotify_cache` (`batch_persist_metadata`).
+
+What changed: `batch_lookup_metadata` returns `{key: AlbumMetadata}` (a row naming no provider album is left out, so it is a miss) and `batch_persist_metadata` takes `{key: AlbumMetadata}`, with the same SQL and the same single statement. `_run_spotify_batch_detail_phase`, `_run_deezer_fallback_phase` and `_fetch_spotify_misses` return `{key: AlbumMetadata}`; `cache_hits[key]["cached"]` holds an `AlbumMetadata` for hits and live fetches alike; `_persist_new_metadata` takes that dict. Deleted: `AlbumMetadata.as_cache_row`, `_album_provider`, `_album_url`, the `len(r) > 6` branches and both inline `cached` dicts. New: `tests/album_metadata.py` (builders `spotify_metadata`, `deezer_metadata`). Docs: `cache.py` now imports `enrichment` (SESSION_CONTEXT module graph and the `Cache --> Enrichment` edge in `runtime-system.md`; the Mermaid validator tool was not available to this implementer, so the edge was checked by hand against the neighbouring edges, and the "eleven nodes import config" count was re-checked with an `ast` walk: this change adds no `config` import, so it stands); F-B23-32 now names `AlbumMetadata.from_row` as the one place a cached link enters.
+
+Deviations: a live Spotify result now shows the link Spotify returned in `external_urls.spotify` rather than a rebuilt classic link (the same string in practice). A stored row naming no provider album is a miss. `cache_hits[key]["cached"]` keeps its key name though it now also holds live fetches. The first view of a search now renders the provider-supplied URL (`external_urls.spotify`) where it used to render a constructed one, so F-B23-32's exposure to unchecked provider URLs widens slightly (the finding is edited in this commit; its status stays open). Beyond the brief's edit list: `test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call` asserted `result == []` and now asserts `result == {}` (the return type changed), and the docstring of `test_an_older_spotify_row_is_a_spotify_album_with_the_classic_link` no longer names the two deleted functions (the sweep greps for them). The sweep regex also matches the brief-named test `test_a_cached_album_with_no_link_has_a_null_album_url` (substring `_album_url`); that is the only hit.
+
+Task 1's `tests/test_album_cache_parity.py` and `tests/fake_postgres.py` are unchanged and pass: this is the parity proof, and the statement sequence and connection count are as before.
+
+Edited existing tests: `tests/services/test_enrichment.py` (two `as_cache_row` tests deleted, replaced by Task 1's stored-column tests and the persist tests below), `tests/services/test_cache.py` (four tests replaced by five; the six-tuple test is deleted because no caller builds a six-tuple, its legacy-row rule now lives in `from_row`), `tests/test_repositories.py`, `tests/services/test_orchestrator_process_albums.py` (four fixtures, three persist assertions), `tests/services/test_orchestrator_helpers.py` (three fixtures, one new test), `tests/services/test_orchestrator_fetch_spotify.py` (return type of the phases), `tests/services/test_failure_logging.py` (one argument).
+
+Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `spotify_ids` from `album_id` -> `test_batch_persist_metadata_writes_a_deezer_album_without_a_spotify_id` and `test_a_deezer_album_is_stored_without_a_spotify_id_and_a_repeat_search_matches_it` fail; (2) `provider_album_ids` and `provider_urls` swapped -> `test_batch_persist_metadata_writes_a_spotify_id_to_both_columns` and `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` fail; (3) `if metadata is not None:` removed -> `test_a_row_naming_no_provider_album_is_a_cache_miss` fails; (4) result `album_url` from `image_url` -> `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` fails; (5) `or None` dropped -> `test_a_cached_album_with_no_link_has_a_null_album_url` fails; (6) `new_metadata[key] = metadata` deleted -> the Spotify parity test fails (the repeat search finds nothing stored); (7) `new_metadata.update(deezer_metadata)` deleted -> the Deezer parity test and `test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable` fail; (8) provider columns dropped from the `from_row` input -> `test_batch_lookup_metadata_returns_albums_with_their_provider_columns` fails; (9) `provider_url` dropped from the SELECT -> the same test fails on its SQL assertion; (10) `{**r, "provider": r["provider"]}` -> `test_batch_lookup_metadata_reads_a_pre_provider_row_as_a_spotify_album` fails (`KeyError: 'provider'`).
+
+Validation: `pytest -q` -- **2879 passed**.
+
+### 2026-10-21 - A Deezer album with no stored link is pinned
+
+Side task, no batch tag: fix round 1 of Task 2, the album reading itself from a cache row, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a test must fail when the code does the wrong thing, so the rule that a Deezer row with no stored link has no link needs a test of its own.
+
+What changed and why: review found that a mutant giving every provider the Spotify classic link (`open.spotify.com/album/<id>`) passed all 14 tests, though it would send a Deezer id to a Spotify page. `test_a_deezer_row_with_no_stored_link_has_no_link` builds a Deezer row with `provider_url` NULL and asserts the link is `""` (the plan and `from_row` agree). Two existing tests also gained `assert album is not None`, so a wrong `from_row` fails on an assertion instead of an AttributeError on None.
+
+Deviations: none. Edited existing tests: `test_a_deezer_row_keeps_the_deezer_id_and_link` and `test_an_older_spotify_row_is_a_spotify_album_with_the_classic_link` (one added assertion each).
+
+Mutation evidence (planted in a file kept aside, restored after): the link fallback made unconditional (`if True` for `provider == "spotify"`) -> `test_a_deezer_row_with_no_stored_link_has_no_link` fails; restored, 18 pass in the file.
+
+Validation: `pytest -q` -- **2879 passed**.
+
+### 2026-10-21 - The fake Postgres refuses what Postgres refuses
+
+Side task, no batch tag: fix round 1 of the cache parity tests' fake database (`tests/fake_postgres.py`), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: the hosting-cost pin and the connection-ownership checks that Tasks 3 and 4 re-run must fail when the code misbehaves, not stay green because the fake is lenient.
+
+What changed and why: review of the first commit planted two defects that left all 17 tests green. (1) A statement naming neither cache table (`SELECT 1` in `cleanup_stale_metadata`) was refused before it was recorded, and every cache caller swallows exceptions, so nothing showed. The fake now records every statement first (`table` is `None` when it names no cache table), then refuses it, lists it in the new `refused` list, and `fake_postgres` asserts `refused` is empty when its block ends; the sequence pin sees the extra entry as well. (2) The fake accepted `fetch`/`execute` after `close()`; asyncpg raises `InterfaceError`. `close()` now sets `closed`, each connect clears it, and a statement on a closed connection is recorded, listed in `refused` and raises `asyncpg.exceptions.InterfaceError`. The module docstring says what is not modelled (TTLs, column types, unique-key rules).
+
+Deviations: none. Edited existing tests: none; `tests/fake_postgres.py` is the only file changed (no new test).
+
+Mutation evidence (planted in a file kept aside, restored after): (16) the `[deezer]` leak case, `provider_url` suffixed with the listener on the Deezer fallback path -> `test_a_stored_row_carries_no_listening_fact[deezer]` fails; (17) `SELECT 1` after the DELETE in `cleanup_stale_metadata` -> `test_a_search_costs_one_connection_and_a_fixed_statement_sequence` and 15 more fail (the refused-statement assertion at the end of `fake_postgres`, and the extra sequence entry); (18) `conn.close()` before `_persist_new_metadata` in `process_albums` -> 16 tests fail (stored row absent, refused assertion). The 15 earlier rows were re-run against the stricter fake and each still fails its named test(s); restored, all 17 pass.
+
+Validation: `pytest -q` -- **2878 passed**.
+
+### 2026-10-21 - An album reads itself from a cache row
+
+Side task, no batch tag: one classmethod, one property and one constant on `AlbumMetadata` that read a `spotify_cache` row as an album, plus one line in `spotify.py`, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: one album-metadata encoding, so the rules for reading a cache row are written once and tested before anything calls them.
+
+What changed and why: the legacy-row rules lived in two places that disagree about where they live: `cache.batch_lookup_metadata` builds a dict and `_results._album_provider` / `_album_url` finish the job later. `enrichment.py` gains `SPOTIFY_ALBUM_URL`, `AlbumMetadata.spotify_id` (the Spotify album id, `None` for any other provider) and `AlbumMetadata.from_row(row)` (a row with no provider is a Spotify row, a Spotify row with no link gets the classic album page, a NULL release date reads as `""`, `track_durations` reads as a dict whether the driver returned text or a dict). `spotify.album_metadata_from_details` uses the constant for its default link; the link is unchanged. SESSION_CONTEXT Section 3 names the new role. Additive: no caller changes. Task 3 deletes `_album_provider` and `_album_url` and calls `from_row`.
+
+Deviations: a row naming no provider album now reads as `None` (no write path produces one). Edited existing tests: none; the import block of `tests/services/test_enrichment.py` gained `dataclasses`, `pytest` and `SPOTIFY_ALBUM_URL`, and 14 tests (8 functions, parametrized) were appended.
+
+Mutation evidence (each planted in a copy of `enrichment.py` kept aside, restored after, test re-run green): (1) `spotify_id` returns `album_id` for every provider -> `test_only_a_spotify_album_has_a_spotify_id` fails (`'6237061' is None`); (2) release_date/image_url swapped -> `test_a_stored_row_maps_every_field_to_the_album` fails; (3) `album_id = spotify_id` -> `test_a_deezer_row_keeps_the_deezer_id_and_link` fails; (4) provider fallback dropped -> `test_an_older_spotify_row_...[written_before_the_provider_columns]` fails; (5) link fallback deleted -> the same test fails for both rows; (6) `json.loads` and `or {}` dropped -> `test_track_durations_read_as_a_dict_...` fails for json_text, empty_object, empty_text and null; (7) `release_date=row.get("release_date")` -> `test_a_row_with_no_release_date_has_an_empty_one` fails; (8) the `return None` guard deleted -> `test_a_row_that_names_no_provider_album_reads_as_nothing` fails; (9) field `play_count: int = 0` added -> `test_album_metadata_holds_album_facts_only` fails. Every first failing assertion is the one the row names.
+
+Validation: `pytest -q` -- **2878 passed**.
+
+### 2026-10-21 - Cache storage and failure behaviour are pinned end to end
+
+Side task, no batch tag: parity tests with an in-memory fake Postgres that pin album metadata storage, read-back and cache-failure behaviour, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, and the encoding change of PR #5 starts from parity tests that name no function of `cache.py` (AGENTS.md "Refactor requires parity tests").
+
+What changed: `tests/fake_postgres.py` is a fake database (two dicts; it refuses any statement the cache module does not send, records `(verb, table)` per statement, counts connects and closes). `tests/test_album_cache_parity.py` holds 17 tests through the real cache module and the correction worker. Every existing test patches `cache.py`'s own functions, so none could prove the stored row, the read-back or the Results JSON survives the encoding change. The tests pin: stored columns per provider; live search equals cached search; legacy rows read as Spotify albums with the classic link; a stored row carries no listening fact (no play count, no listener name); no database, a sleeping database (bounded attempts), a failing read, a failing write and a failing correction read all degrade to provider calls; one connection and a fixed statement sequence per search (the hosting-cost evidence Tasks 3 and 4 re-run); a MusicBrainz finding is stored and corrects the next search; the exclusion record carries the provider facts.
+
+Deviations: no source file changed. Mutation row 15 (listener's name) and row 5 (play count) were planted as a suffix on the stored `provider_url` (`row[8] + "?u=" + original_data["listener"]`, and `"?plays=" + play_count`), not inside the durations dict as the plan wrote them, because a leak inside the durations dict trips the `json.loads(...) == DURATIONS` assertion first and never proves the `LISTENER not in stored` / `str(PLAY_COUNT) not in stored` assertions. Row 10 doubles the upsert by wrapping `conn.execute` in `batch_persist_metadata`. Edited existing tests: none.
+
+Mutation evidence (15 rows, each planted in the named file, the FAIL line seen, the file restored from a byte copy, the PASS seen): 1 `album_image_url` read from `spotify_id` fails the Spotify round trip; 2 `spotify_id` written for Deezer fails `assert '9' is None`; 3 `_album_provider` without the Spotify fallback fails the older-row test; 4 `_album_url` without the classic link fails both older-row cases; 5 play count in the stored row fails `assert '4242' not in ...`; 6 `raise` after the last connect attempt fails the asleep test with `TimeoutError`; 7 no `DATABASE_URL` branch fails `assert 1 == 0` (a connect was attempted); 8 bare persist fails `[write]` with `OSError`; 9 no `conn.close()` fails both close tests with `(1, 0) == (1, 1)`; 10 upsert issued twice fails the statement sequence; 11 swapped original-release arrays fail the MusicBrainz test; 12 `"provider": None` on the exclusion entry fails both rows; 13 bare metadata read fails `[read]`; 14 bare correction read fails `[correction_read]`; 15 listener's name in the stored `provider_url` fails `assert 'listener_zq' not in ...`.
+
+Validation: `pytest -q` -- **2864 passed**.
+
+### 2026-10-21 - The metadata encoding plan opens its branch
+
+Side task, no batch tag: the approved album metadata encoding plan added as the branch's first commit, with its review and drift fixes folded in and PLAYBOOK Section 3 made true, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is the first commit of its branch; plan fixes are applied in a brief'd docs task when the branch is cut.
+
+What changed: `docs/superpowers/plans/2026-10-20-metadata-encoding.md` is new. It passed a brief review (plan-review: no Critical, two Important, eight Minor) and a drift review against `main` at eb0db9e (no structural drift). Fixes applied, each in the plan: I1 no mutation step restores with `git checkout -- <file>` any more (Task 1 Step 5, Task 2 Step 5, Task 3 Step 9, Task 4 Step 9 and the Global Constraint now plant in a scratch copy or copy the file aside); I2 Task 2 mutation row 3 plants `album_id = spotify_id`, which the Deezer-row test can fail; M1 the six-tuple assumptions row names `test_batch_persist_metadata_upsert_call_shape` as the second six-element caller; M2 every new test that named no planted defect has one (Task 1 rows 13 and 14, Task 3 rows 8-10, Task 4 rows 8 and 9; one test is covered by Task 3 row 3); M3 `test_a_stored_row_carries_no_listening_fact` now puts the listener's name on the album entry and Task 1 row 15 plants a leak of it; M4 Task 1 Step 1 greps the names `fake_postgres` patches; M5 Task 4 no longer adds the schema remediation text or the `correction_lookup_schema` site (scope stays the P5 list; its deviation note and mutation row are gone); M6 Task 1 row 10 plants a second `conn.execute` with the same arguments; M7 Task 5 Step 2 says the seam is under way; M8 Task 3's entry notes that the first view of a search renders the provider-supplied URL where it used to render a constructed one, so F-B23-32's exposure widens slightly. Drift fixes: 5 renames to the public cache names (the Assumptions table rows and the Task 2 rationale) and the two "unverified until #4 merges" markers resolved as held; cosmetic: heading dated eb0db9e, the worktree path `C:/ssw/meta` is `C:/ssw/me` (2 places), Task 1 carries the test-module-count bookkeeping for its new `test_*.py` module, the Validation line is the exact form, the Task 4 `sed -i` re-point is a byte-safe script, and the Task 4 sweep excludes this file so it does not match its own entry. Section 3's "Before WP-1" bullet was stale: it did not say the include-unmatched control (PR #1) and backend hygiene (PR #2) are done, still listed the metadata encoding as not started, and still called PR #7 round 1 under way after it finished; it now says all three (plan numbers, not GitHub numbers).
+
+Deviations: none from the brief; every proposed fix held at source. Edited existing tests: none (a plan and PLAYBOOK only).
 
 Validation: `pytest -q` -- **2847 passed**.
 

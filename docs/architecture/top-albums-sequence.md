@@ -94,13 +94,13 @@ sequenceDiagram
                     Orch->>Jobs: Progress 20%
                     Orch->>Orch: Pre-slice eligible albums to _MAX_ALBUM_CAP 500 for every sort mode
                     Orch->>Jobs: Progress 20% + prepared album count
-                    Orch->>Cache: Open connection (None when DB disabled)
+                    Orch->>Cache: open_album_cache (a disabled cache when the DB is missing or does not answer)
                     Orch->>Jobs: record_stat(db_cache_enabled)
                     alt DB unavailable
                         Orch->>Jobs: record_stat(db_cache_warning)
                         Note over Orch,Cache: No lookup, cleanup, or persistence -- every album is a miss
                     else DB connected
-                        Orch->>Cache: Batch lookup all album keys
+                        Orch->>Cache: lookup (AlbumMetadata by album key)
                         alt Lookup fails
                             Orch->>Jobs: record_stat(db_cache_warning), cached metadata stays empty
                             Note over Orch,Cache: Fail-open -- every album becomes a miss, persistence still allowed
@@ -108,7 +108,7 @@ sequenceDiagram
                             Cache-->>Orch: Matching in-TTL rows only
                             Orch->>Jobs: record_stat(db_cache_lookup_hits)
                         end
-                        Orch->>Cache: Clean stale rows (both lookup outcomes)
+                        Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)
                     end
                     Orch->>Orch: Partition cache hits and misses (runs with or without a connection)
                     Orch->>Jobs: record_stat(cache_hits)
@@ -145,7 +145,7 @@ sequenceDiagram
                             Orch->>Jobs: Unmatched reason No match on Spotify or Deezer, or Could not be checked when a provider did not answer
                         end
                         opt DB connected and new metadata rows exist
-                            Orch->>Cache: Persist fresh metadata
+                            Orch->>Cache: persist (AlbumMetadata by album key, one upsert)
                             Orch->>Jobs: record_stat(db_cache_persisted)
                             Note over Orch,Cache: A persist failure is non-fatal and sets db_cache_warning
                         end
@@ -153,8 +153,8 @@ sequenceDiagram
                         Note over Orch,Spotify: No Spotify or Deezer call, while job stats still update
                     end
                     opt DB connected
-                        Orch->>Cache: Close connection
-                        Note over Orch,Cache: Closed in a finally, so it also closes while SpotifyUnavailableError unwinds
+                        Orch->>Cache: Leave the async with (close)
+                        Note over Orch,Cache: Closed when the block ends, so it also closes while SpotifyUnavailableError unwinds, a failed close is logged and never raised
                     end
 
                     alt SpotifyUnavailableError reached background_task

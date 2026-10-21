@@ -576,6 +576,38 @@ def test_album_metadata_from_details_degrades_field_by_field(images):
     assert meta.track_durations == {}
 
 
+@pytest.mark.parametrize(
+    ("details", "expected"),
+    [
+        ({}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": None}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {"spotify": None}}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {"spotify": ""}}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {}}, "https://open.spotify.com/album/sp3"),
+        (
+            {
+                "external_urls": {
+                    "spotify": "https://open.spotify.com/album/sent-by-spotify"
+                }
+            },
+            "https://open.spotify.com/album/sent-by-spotify",
+        ),
+    ],
+    ids=[
+        "no-key",
+        "null-object",
+        "null-link",
+        "empty-link",
+        "empty-object",
+        "link-sent",
+    ],
+)
+def test_album_metadata_from_details_keeps_the_classic_link(details, expected):
+    """A missing, null or empty Spotify link falls back to the album's
+    classic URL, and a link Spotify sends is kept as sent."""
+    assert album_metadata_from_details("sp3", details).url == expected
+
+
 _LEAK_ALBUM = "Zqxv Distinctive Album"
 _LEAK_ARTIST = "Wjkl Distinctive Artist"
 

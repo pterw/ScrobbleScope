@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2898 passing** across 99 tracked test modules |
+| Tests | **2948 passing** across 100 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2898 passed**.
+- Latest validated test count: **2948 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -66,9 +66,9 @@ scrobblescope/
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
   album_request.py          # AlbumRequest (the ten job parameters, defaults declared once), parse_album_request: form -> request or Refusal, registration_refusal
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
-  cache.py                  # asyncpg DB helpers (get_db_connection, retry/backoff, batch lookup/persist, cleanup_stale_metadata)
+  cache.py                  # the shared album cache: AlbumCache / open_album_cache own the connection, the SQL and the failure policy; get_db_connection and the original-release batch functions stay public for release_checks
   lastfm.py                 # check_user_exists, check_profile_is_public, fetch_scrobbles (pages in, plays out; pagination, retries and the page cache stay inside)
-  enrichment.py             # AlbumMetadata, the one contract every enrichment provider returns
+  enrichment.py             # AlbumMetadata, the one contract every enrichment provider returns, and the reader for a cache row (from_row)
   spotify.py                # fetch_spotify_access_token, search, batch details
   deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
@@ -78,7 +78,7 @@ scrobblescope/
     __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async, finish_album_job (the one publish step)
     _search.py               # Spotify parallel-search phase
     _details.py              # Spotify batch-detail phase
-    _cache.py                # DB metadata cache lookup/persist phase
+    _cache.py                # job stats and log lines for the cache lookup and persist steps (scrobblescope/cache.py does the work)
     _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics
@@ -165,7 +165,7 @@ plays.py         <- domain, unmatched
 config.py        <- (leaf)
 api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
-cache.py         <- config, utils
+cache.py         <- config, enrichment, utils
 worker.py        <- config
 jobs.py          <- config, errors
 album_request.py <- jobs
@@ -180,7 +180,7 @@ release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_s
 orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, errors, jobs, utils; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
-orchestrator/_cache.py    <- cache, jobs, utils; orchestrator (facade)
+orchestrator/_cache.py    <- jobs
 orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orchestrator (facade)
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
 heatmap.py       <- errors, jobs, lastfm, listening_stats, plays, utils, worker
@@ -273,13 +273,13 @@ background_task (orchestrator/__init__.py, daemon Thread):
   -> asyncio event loop -> _fetch_and_process(...)
     -> lastfm.fetch_scrobbles (paginated, async; pages become plays)
     -> plays.aggregate_albums, then filter by thresholds
-    -> process_albums (5-phase cache flow; phases 1/4 in orchestrator/_cache.py,
+    -> process_albums (5-phase cache flow; phases 1/4 report to the job in orchestrator/_cache.py; scrobblescope/cache.py (AlbumCache) does the work,
        phase 3's search+detail steps in orchestrator/_search.py and
        orchestrator/_details.py, phase 5 in orchestrator/_results.py):
-      1: DB connect + batch lookup (30-day TTL)
+      1: open_album_cache (connect) + batch lookup (30-day TTL)
       2: Partition cache_hits / cache_misses
       3: Spotify fetch for misses only, then Deezer for Spotify's misses
-      4: DB batch persist + conn.close() in finally
+      4: DB batch persist, then the original-release lookup; the async with ends after that and closes the connection (a failed close is logged, never raised)
       5: Build results (cached original-release dates applied here)
          -> jobs.succeed() -> enqueue_release_check(job_id)
 
@@ -298,7 +298,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2898 tests)
+## 6. Test structure (2948 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

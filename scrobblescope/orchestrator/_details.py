@@ -31,14 +31,15 @@ async def _run_spotify_batch_detail_phase(
     """Batch-fetch Spotify album details for all found IDs.
 
     Reports progress in the 40-60% range. Promotes enriched albums into
-    cache_hits (mutated in place). Returns new_metadata_rows.
+    cache_hits (mutated in place). Returns the newly fetched metadata as
+    ``{(artist_norm, album_norm): AlbumMetadata}``, for persistence.
 
     Spotify matched these albums, so one whose details it could not answer
     for (a 5xx, a timeout, a capped 429) is not a "no match": its key is
     added to *detail_unavailable_keys* (mutated in place, when given) so the
     Deezer fallback can record it as unavailable if Deezer misses it too.
     """
-    new_metadata_rows = []
+    new_metadata = {}
     batch_size = 20
     num_batches = ceil(len(valid_spotify_ids) / batch_size)
     logging.info(
@@ -126,15 +127,7 @@ async def _run_spotify_batch_detail_phase(
         key = spotify_id_to_key[spotify_id]
         metadata = _orchestrator.album_metadata_from_details(spotify_id, album_details)
 
-        cache_hits[key] = {
-            "cached": {
-                "spotify_id": spotify_id,
-                "release_date": metadata.release_date,
-                "album_image_url": metadata.image_url,
-                "track_durations": metadata.track_durations,
-            },
-            "original": original_data,
-        }
-        new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
+        cache_hits[key] = {"cached": metadata, "original": original_data}
+        new_metadata[key] = metadata
 
-    return new_metadata_rows
+    return new_metadata

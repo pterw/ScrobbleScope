@@ -103,21 +103,24 @@ See FINDINGS F-DOCSYNC-3.
   architecture diagrams), backend hygiene, UI consistency, and four of the
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
-  normalized Last.fm scrobbles with one album aggregate. The album request
-  module is done (PR #3, branch refactor/album-request-module, plan
+  normalized Last.fm scrobbles with one album aggregate. The include-unmatched
+  control (PR #1) and backend hygiene (PR #2) are done. The album request module
+  is done (PR #3, branch refactor/album-request-module, plan
   `docs/superpowers/plans/2026-10-20-album-request-module.md`); normalized
   Last.fm scrobbles with one album aggregate is done (PR #4, branch
   refactor/lastfm-scrobbles, plan
-  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); the statistics
+  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); one album-metadata
+  encoding is done (PR #5, branch refactor/metadata-encoding, plan
+  `docs/superpowers/plans/2026-10-20-metadata-encoding.md`); the statistics
   module is done (PR #6, branch refactor/statistics-module, plan
-  `docs/superpowers/plans/2026-10-20-statistics-module.md`); one seam
-  remains, one album-metadata encoding. Job persistence
+  `docs/superpowers/plans/2026-10-20-statistics-module.md`). Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
-  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
-  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
+  PR #7, UI consistency, finished round 1 (plan
+  `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
+  wait for the owner's screenshots, each with its own plan.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -160,6 +163,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The statistics module branch takes main after PR #5
+
+Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
+
+What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - Keep the WP-6 streak bullet true
 
 Side task, no batch tag: reword WP-6's heatmap checklist bullet in `BATCH23_DEFINITION.md` so it agrees with the "The module exists" paragraph, on `refactor/statistics-module`, a branch off `main`.
@@ -191,17 +206,5 @@ Owner intent: WP-6 must start from the module that exists, not plan to create it
 What changed: WP-6 gains a paragraph after "Statistics contract before implementation" saying `scrobblescope/listening_stats.py` is the pure helper WP-6 extends, what it already computes and publishes with a population, that the JS and template render published values and compute none, and that include-unmatched albums count in plays listed and in no duration figure. Section 3's "Before WP-1" bullet now says the statistics module is done (PR #6, branch and plan named) and one seam, album-metadata encoding, remains; the "under way" sentence is deleted. Nothing else in Section 3 changed. The Batch 23 row of `.claude/SESSION_CONTEXT.md` names no tranche PR, so it is unchanged.
 
 Reconciled: PR #4's WP-2 amendment (the parser yields `plays.Play`; `plays.aggregate_albums` and `plays.aggregate_daily_counts` feed both sources) makes no sentence of the new paragraph untrue, so it needed no correction.
-
-Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
-
-### 2026-10-21 - Make the #6 docs true for the merge
-
-Side task, no batch tag: close out PR #6 by making its diagram and plan text true, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: nothing the statistics module touches should describe a step or a name that is no longer so.
-
-What changed: `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` twice (lines 83 and 85); it is now one `Heatmap->>Heatmap` message carrying its figures, and the local step Task 4 removed (`total`, `max_count` and `active_days` computed in `heatmap.py`, `total_scrobbles` and `active_days` recorded as stats) is drawn again as one message after the Note. In the statistics-module plan, "Albums control" is now "Unmatched albums control" (line 22) and the worktree `C:/ssw/stm` is `C:/ssw/st` (line 50), as constraints L2 asks. `top-albums-sequence.md` is left to the documentation PR.
-
-Recorded, no change: the UTC-day test's remaining gap (a host-zone read that skips `astimezone`) has no code path, because the only timestamp-to-date reads are `listening_stats.utc_date` (`astimezone(UTC)`) and `plays.py`'s `play.played_at.date()`, and `Play` requires a UTC `played_at`. Task 5's Minor 2 (a missing `data-plays-*` attribute would render NaN) needs no guard, because the server always renders both. The `config/docsync.toml` window comment stays: the daily average still divides by `len(daily_counts)`, the zero-filled `HEATMAP_WINDOW_DAYS` window, so it is true.
 
 Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
