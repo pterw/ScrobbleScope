@@ -112,10 +112,12 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); one album-metadata
   encoding is done (PR #5, branch refactor/metadata-encoding, plan
   `docs/superpowers/plans/2026-10-20-metadata-encoding.md`); the statistics
-  module remains. Job persistence waits: a database-backed job store would keep
-  the database awake, which the hosting cost ceiling does not allow. The
-  design is `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md`
-  and the order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
+  module is done (PR #6, branch refactor/statistics-module, plan
+  `docs/superpowers/plans/2026-10-20-statistics-module.md`). Job persistence
+  waits: a database-backed job store would keep the database awake, which
+  the hosting cost ceiling does not allow. The design is
+  `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
+  order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
   PR #7, UI consistency, finished round 1 (plan
   `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
   wait for the owner's screenshots, each with its own plan.
@@ -161,60 +163,48 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-21 - Place the cache close where the code closes it
+### 2026-10-21 - The statistics module branch takes main after PR #5
 
-Side task, no batch tag: two doc truths from the close-out review (SESSION_CONTEXT Section 5, PLAYBOOK Section 3), on `refactor/metadata-encoding`, a branch off `main`.
+Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
 
-Owner intent: docs follow the code.
+Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
 
-What changed and why: SESSION_CONTEXT Section 5 put the `async with open_album_cache()` close under phase 4, but in `process_albums` the block ends after phase 4b (the original-release lookup) and before phase 5, so item 4 now says the persist is followed by the original-release lookup and the connection closes after that (review Minor 4). In PLAYBOOK Section 3 the "Before WP-1" bullet had one 83-column line; it is re-wrapped near 80 columns, words unchanged (review Minor 2). Review Minor 1 is recorded here and not repaired: the body of `c006554` said "a test docstring" without naming the file, which is `tests/services/test_orchestrator_process_albums.py`; history is not rewritten.
+What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
 
-Deviations: none.
+Deviations: none. Edited existing tests: none.
 
-Edited existing tests: none.
+Validation: `pytest -q` -- **2948 passed**.
 
-Validation: `pytest -q` -- **2897 passed**.
+### 2026-10-21 - Keep the WP-6 streak bullet true
 
-### 2026-10-21 - Pin the classic link when external_urls is null
+Side task, no batch tag: reword WP-6's heatmap checklist bullet in `BATCH23_DEFINITION.md` so it agrees with the "The module exists" paragraph, on `refactor/statistics-module`, a branch off `main`.
 
-Side task, no batch tag: pin the null `external_urls` guard of `album_metadata_from_details` with a test, on `refactor/metadata-encoding`, a branch off `main`.
+Owner intent: the definition must not list as future work what the statistics module already does.
 
-Owner intent: a claim in a document is backed by a test that fails without it.
+What changed: the bullet "Heatmap: longest and current streak ..." named the current streak and "one pure helper" as work to do, while the paragraph added in the WP-6 amendment says both exist. It now lists the longest streak, busiest weekday and busiest hour as WP-6's, added to `listening_stats.py`, and says the current streak and the helper already exist. Nothing else in the definition changed.
 
-What changed and why: `dfd22dc`'s fallback also guards a payload whose `external_urls` is `null` (`(details.get("external_urls") or {})`) and its entry says "missing or null", but no case passed `{"external_urls": None}`; the old `None` parameter became `details = {}`, the missing key. The parametrized test now takes the whole details payload and gains a `null-object` case (expected: `https://open.spotify.com/album/sp3`). With the guard replaced by `details.get("external_urls", {})` the new case fails with `AttributeError: 'NoneType' object has no attribute 'get'` and the other five pass; restored, all six pass. Review of close-out, Minor 3. No production code changed.
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
 
-Deviations: none.
+### 2026-10-21 - Say what the #6 tests and diagram prove
 
-Edited existing tests: `test_album_metadata_from_details_keeps_the_classic_link` in `tests/services/test_spotify_service.py` (parameters now carry the details payload; 5 cases became 6).
+Side task, no batch tag: make a test docstring, a sequence diagram and two module docstrings say only what is true, on `refactor/statistics-module`, a branch off `main`.
 
-Validation: `pytest -q` -- **2897 passed**.
+Owner intent: nothing the close-out wrote should claim more than was proven or draw a step out of order.
 
-### 2026-10-21 - Make the #5 docs true for the merge
+What changed: `test_scrobbles_stat_prints_the_figures_it_is_handed` now says its mutation was planted in `data-plays-listed` and in `data-plays-matched` and that the visible Scrobbles text is asserted but was not planted; the dated entry "A test pins that the page prints the Scrobbles figure it is handed" is point-in-time and unedited, but its Proof names the same two attributes only, so the visible text was never mutation-tested. `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` before the local `total`, `max_count` and `active_days` step, while `heatmap.py` runs the local step first; the two messages swap places (lines 83 and 85 trade). `listening_stats.py`'s module docstring now also names the four `scripts/dev/_frontend_gate_*` importers, and `heatmap.py`'s module docstring says the job result carries the statistics and not only the daily counts.
 
-Side task, no batch tag: close-out of PR #5, making the docs true for the merge (PLAYBOOK Section 3, the plan's citations, a test docstring, two architecture files, F-B23-47), on `refactor/metadata-encoding`, a branch off `main`.
+Recorded, no change: the test pins the filled render block only, the no-matches block also passes `play_stats` and is not pinned (brief asked for one test); the `HEATMAP_WINDOW_DAYS` comment in `heatmap.py` keeps one over-long line, outside this brief.
 
-Owner intent: docs follow the code, and nothing a reader needs lives only in an untracked workspace.
+Deviations: none. Edited existing tests: `test_scrobbles_stat_prints_the_figures_it_is_handed` (docstring only). Validation: `pytest -q` -- **2898 passed**.
 
-What changed and why: PLAYBOOK Section 3's "Before WP-1" bullet now says one album-metadata encoding is done (PR #5) and only the statistics module remains. The committed plan cited the untracked `constraints.md` R9 in three places (the global constraint, Step 6, the mutation step); the citation is dropped and the rule stays inline, with no other plan text changed. The docstring of `test_process_albums_conn_always_closed` said the connection closes "in the finally block"; Task 4 moved the close into `open_album_cache`'s context manager, so it now says so. `top-albums-sequence.md` drew the stale-row cleanup as a separate `Orch->>Cache` call, but `AlbumCache.lookup` runs `cleanup_stale_metadata` itself, so that one message is now `Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)` (line 111, for the controller to render). One prose line in `runtime-system.md` was re-wrapped. F-B23-47 is filed: `test_job_threads_can_share_the_token_state_dict_without_error` failed once beside other test files in Task 2's run, a switch-interval thread race that is flaky by design and unrelated to the diff (open, P3, no fix in this PR).
+### 2026-10-21 - WP-6 builds on the statistics module
 
-Plan-mandated defects, recorded here and not edited in the plan: the brief's mutation row 7 named `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning` and cannot catch the plant, so Task 4 added `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows`; and Step 7's parity-proof command diffed against 2847cd5, before Task 1's fix round c6769b7, so it reported differences in `tests/fake_postgres.py` that came from c6769b7, not from Task 3 or 4.
+Side task, no batch tag: amend WP-6 in `BATCH23_DEFINITION.md` for the statistics module and mark that seam done in Section 3, on `refactor/statistics-module`, a branch off `main`.
 
-Deviations: `top-albums-sequence.md` line 101's Note ("No lookup, cleanup, or persistence") is left as drawn, since the brief limits the redraw to the one message.
+Owner intent: WP-6 must start from the module that exists, not plan to create it.
 
-Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (one docstring line, no code).
+What changed: WP-6 gains a paragraph after "Statistics contract before implementation" saying `scrobblescope/listening_stats.py` is the pure helper WP-6 extends, what it already computes and publishes with a population, that the JS and template render published values and compute none, and that include-unmatched albums count in plays listed and in no duration figure. Section 3's "Before WP-1" bullet now says the statistics module is done (PR #6, branch and plan named) and one seam, album-metadata encoding, remains; the "under way" sentence is deleted. Nothing else in Section 3 changed. The Batch 23 row of `.claude/SESSION_CONTEXT.md` names no tranche PR, so it is unchanged.
 
-Validation: `pytest -q` -- **2896 passed**.
+Reconciled: PR #4's WP-2 amendment (the parser yields `plays.Play`; `plays.aggregate_albums` and `plays.aggregate_daily_counts` feed both sources) makes no sentence of the new paragraph untrue, so it needed no correction.
 
-### 2026-10-21 - A live Spotify album keeps its link when Spotify sends none
-
-Side task, no batch tag: restore the classic album link for a Spotify album whose details carry no link (`album_metadata_from_details`), on `refactor/metadata-encoding`, a branch off `main`.
-
-Owner intent: a refactor PR must not change behaviour nobody asked it to change.
-
-What changed and why: before this PR a Spotify album whose details payload had `external_urls.spotify` null or `""` still got `https://open.spotify.com/album/<id>`, rebuilt by `_results._album_url`. Task 3 deleted that rebuild, so such an album got `album_url` null (task 3 review, Minor 1). `album_metadata_from_details` now falls back to the canonical URL when `external_urls` is missing or null, or when `spotify` is missing, null or empty; a link Spotify sends is kept as sent.
-
-Deviations: none.
-
-Edited existing tests: none. Added `test_album_metadata_from_details_keeps_the_classic_link` (5 cases) in `tests/services/test_spotify_service.py`; with the fallback removed, 4 of the 5 fail, and with it restored all pass.
-
-Validation: `pytest -q` -- **2896 passed**.
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.

@@ -1,16 +1,17 @@
 """Heatmap background task -- fetches Last.fm scrobbles and aggregates daily counts.
 
 This module owns the heatmap processing pipeline: fetch recent tracks for the
-last 365 days, bucket each scrobble into a calendar date, and store a
-``{date_str: count}`` dict as the job result.  It reuses the existing Last.fm
-fetch infrastructure (``lastfm.fetch_scrobbles``), the job state
-machine (``jobs.*``), and the concurrency slot system (``worker.*``).
+last 365 days, bucket each scrobble into a calendar date, and store the
+``{date_str: count}`` dict as the job result together with the figures
+``listening_stats.heatmap_statistics`` computes from it.  It reuses the
+existing Last.fm fetch infrastructure (``lastfm.fetch_scrobbles``), the job
+state machine (``jobs.*``), and the concurrency slot system (``worker.*``).
 
 Dependency chain (leaf-ward):
-    heatmap <- errors, jobs, lastfm, plays, utils, worker
+    heatmap <- errors, jobs, lastfm, listening_stats, plays, utils, worker
 
-No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
-deals only with raw scrobble counts per day.
+No Spotify enrichment, no DB cache, no domain normalization -- the only
+figures are scrobble counts per day and the statistics derived from them.
 """
 
 import logging
@@ -21,6 +22,7 @@ from datetime import time as dt_time
 from scrobblescope import jobs
 from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.lastfm import fetch_scrobbles
+from scrobblescope.listening_stats import heatmap_statistics, utc_date
 from scrobblescope.plays import Window, aggregate_daily_counts
 from scrobblescope.utils import cleanup_expired_cache, log_failure
 from scrobblescope.worker import (
@@ -31,10 +33,10 @@ from scrobblescope.worker import (
 
 #: How many calendar days the heatmap covers, today included.
 #:
-#: This is the source the rest of the window follows. The renderer divides the
-#: total by it for the daily average, and six lines of copy say the number out
-#: loud, so a change here that does not reach them fetches one range while
-#: displaying and averaging another. `config/docsync.toml` declares every copy
+#: This is the source the rest of the window follows. The statistics module
+#: averages over every day of the zero-filled window this constant sizes, and
+#: six lines of copy say the number out loud, so a change here that does not
+#: reach them fetches one range while displaying another. `config/docsync.toml` declares every copy
 #: against this one, and DOC009 fails if they stop agreeing.
 HEATMAP_WINDOW_DAYS = 365
 
@@ -62,7 +64,7 @@ async def _fetch_and_process_heatmap(job_id, username):
     # so the fetch range and bucket boundaries agree regardless of the
     # server's local timezone (Fly.io is UTC but local Windows dev is not).
     now = datetime.now(UTC)
-    to_date = now.date()
+    to_date = utc_date(now)
     # Minus one because both ends are inclusive. Written as arithmetic rather
     # than as a literal 364, which read as a different number from every other
     # copy of the window and could not be checked against them.
@@ -112,6 +114,7 @@ async def _fetch_and_process_heatmap(job_id, username):
     total = sum(daily_counts.values())
     max_count = max(daily_counts.values()) if daily_counts else 0
     active_days = sum(1 for count in daily_counts.values() if count)
+    statistics = heatmap_statistics(daily_counts, to_date)
     jobs.record_stat(job_id, "total_scrobbles", total)
     jobs.record_stat(job_id, "active_days", active_days)
 
@@ -133,6 +136,7 @@ async def _fetch_and_process_heatmap(job_id, username):
             "total_scrobbles": total,
             "max_count": max_count,
             "daily_counts": daily_counts,
+            "statistics": statistics,
         },
         "Heatmap ready!",
     )

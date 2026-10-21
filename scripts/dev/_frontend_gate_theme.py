@@ -8,6 +8,8 @@ stylesheet the browser never applied.
 
 from __future__ import annotations
 
+from datetime import date
+
 from scripts.dev._frontend_gate_colour import (
     _divider_contrast_failure,
     _is_forbidden_surface,
@@ -19,6 +21,7 @@ from scripts.dev._frontend_gate_shared import (
     wait_for_settled,
 )
 from scrobblescope import jobs
+from scrobblescope.listening_stats import heatmap_statistics
 
 THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
 SET_THEME_EXPRESSION = (
@@ -700,6 +703,13 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     """
     failures = []
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    counts = {
+        "2025-01-01": 3,
+        "2025-01-02": 0,
+        "2025-01-03": 0,
+        "2025-01-04": 1,
+        "2025-01-05": 0,
+    }
     jobs.succeed(
         job_id,
         {
@@ -708,13 +718,8 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
             "to_date": "2025-01-05",
             "total_scrobbles": 3,
             "max_count": 3,
-            "daily_counts": {
-                "2025-01-01": 3,
-                "2025-01-02": 0,
-                "2025-01-03": 0,
-                "2025-01-04": 1,
-                "2025-01-05": 0,
-            },
+            "daily_counts": counts,
+            "statistics": heatmap_statistics(counts, date.fromisoformat("2025-01-05")),
         },
         "Done",
     )
@@ -764,6 +769,7 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
     """
     failures = []
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
+    counts = {"2025-01-01": 4, "2025-01-02": 0}
     jobs.succeed(
         job_id,
         {
@@ -772,7 +778,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             "to_date": "2025-01-05",
             "total_scrobbles": 4,
             "max_count": 4,
-            "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
+            "daily_counts": counts,
+            "statistics": heatmap_statistics(counts, date.fromisoformat("2025-01-05")),
         },
         "Done",
     )

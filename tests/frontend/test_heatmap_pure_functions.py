@@ -3,8 +3,9 @@
 Scope is exactly Q14 answer a
 (docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md, "Owner
 answers, 2026-09-23"): ``rocketColor``, ``countToNorm`` and the export header
-(``exportHeaderModel`` + ``exportHeaderLayout``). ``computeStreak`` is out of
-scope here; Q14 defers it to WP-6.
+(``exportHeaderModel`` + ``exportHeaderLayout``). The KPI blocks (streak, best
+day, daily average) joined with PR #6; their cases live in
+``tests/fixtures/heatmap_kpi_cases.json``, shared with the Python tests.
 
 ``arrowKeyTarget`` joined the seam with the 2026-09-28 review fix (finding 2):
 the grid's arrow keys move by each layout's own steps, so the step
@@ -13,9 +14,13 @@ computation is tested here, one layout, one arrow and one edge at a time.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
+from scrobblescope.listening_stats import heatmap_statistics
 from tests.frontend.conftest import HEATMAP_JS
+from tests.helpers import expected_kpi_blocks, kpi_payload, load_kpi_cases
 
 pytestmark = pytest.mark.browser
 
@@ -340,3 +345,91 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
         page.close()
     assert alert_text == "Spotify is not answering."
     assert phase_text == ""
+
+
+KPI_CASES = load_kpi_cases()
+
+RENDER_KPIS_JS = """(data) => {
+    const row = document.createElement('div');
+    window.__scrobbleHeatmapTestHooks.renderKpisInto(row, data);
+    return Array.from(row.querySelectorAll('.heatmap-kpi')).map((item) => ({
+        label: item.querySelector('.heatmap-kpi-label').textContent,
+        value: item.querySelector('.heatmap-kpi-value').textContent,
+        sub: (item.querySelector('.heatmap-kpi-sub') || { textContent: '' }).textContent,
+    }));
+}"""
+
+
+def _published(case):
+    """Return *case*'s stored result with the statistics the job publishes."""
+    payload = kpi_payload(case)
+    payload["statistics"] = heatmap_statistics(
+        payload["daily_counts"], date.fromisoformat(payload["to_date"])
+    )
+    return payload
+
+
+@pytest.mark.parametrize("case", KPI_CASES, ids=lambda c: c["name"])
+def test_kpi_blocks_show_what_the_window_holds(js_page, case):
+    """The four KPI blocks state the window's total, daily average, best day
+    and current streak, as the case name says they must. The rules now live
+    in ``listening_stats``; the blocks read the same as when the browser
+    computed them.
+
+    Mutation: format the published streak or total wrongly in ``kpiModel``
+    (for instance drop ``toLocaleString`` from the total) and the matching
+    cases fail.
+    """
+    assert js_page.evaluate(RENDER_KPIS_JS, _published(case)) == expected_kpi_blocks(
+        case
+    )
+
+
+def test_kpi_blocks_render_the_published_figures_and_compute_nothing(js_page):
+    """
+    GIVEN a payload whose statistics disagree with its own daily counts
+    WHEN the KPI row renders
+    THEN it shows the published figures, not figures worked out from the
+    counts: the page states what the server decided. Every published figure
+    differs from what its counts give (total 3, average 0.3, best day 2 on
+    Mar 9, streak 2), so a recompute of any one of them fails.
+
+    Mutation: bring back a browser-side total, average, streak or best-day
+    computation and that block shows the counts' figure instead of 14,
+    12.3, 9 / MAR 5 or 7.
+    """
+    published = {
+        "total_plays": {"value": 14, "population": "p"},
+        "daily_average": {"value": 12.3, "population": "p"},
+        "best_day": {"value": {"date": "2026-03-05", "count": 9}, "population": "p"},
+        "current_streak": {"value": 7, "population": "p"},
+    }
+    data = {
+        "from_date": "2026-03-01",
+        "to_date": "2026-03-10",
+        "daily_counts": {"2026-03-09": 2, "2026-03-10": 1},
+        "statistics": published,
+    }
+    assert js_page.evaluate(RENDER_KPIS_JS, data) == [
+        {"label": "SCROBBLES", "value": "14", "sub": ""},
+        {"label": "DAILY AVERAGE", "value": "12.3", "sub": ""},
+        {"label": "BEST DAY", "value": "9", "sub": "MAR 5"},
+        {"label": "CURRENT STREAK", "value": "7", "sub": "DAYS"},
+    ]
+
+
+def test_a_window_with_no_best_day_shows_no_date(js_page):
+    """A window with no plays has no best day: the block shows 0 and no date.
+
+    Mutation: format ``best.date`` without the null guard and the block shows
+    'NaN' or the render throws instead of an empty label.
+    """
+    published = {
+        "total_plays": {"value": 0, "population": "p"},
+        "daily_average": {"value": 0, "population": "p"},
+        "best_day": {"value": {"date": None, "count": 0}, "population": "p"},
+        "current_streak": {"value": 0, "population": "p"},
+    }
+    data = {"from_date": "2026-03-01", "to_date": "2026-03-10", "statistics": published}
+    blocks = js_page.evaluate(RENDER_KPIS_JS, data)
+    assert blocks[2] == {"label": "BEST DAY", "value": "0", "sub": ""}

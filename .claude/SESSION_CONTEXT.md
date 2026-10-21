@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2897 passing** across 99 tracked test modules |
+| Tests | **2948 passing** across 100 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2897 passed**.
+- Latest validated test count: **2948 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -81,8 +81,9 @@ scrobblescope/
     _cache.py                # job stats and log lines for the cache lookup and persist steps (scrobblescope/cache.py does the work)
     _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
-  heatmap.py                # heatmap_task, _fetch_and_process_heatmap
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics
   spotlight.py              # pure artist aggregation and stable sample selection
+  listening_stats.py        # pure listening statistics (streak, best day, daily average, plays listed vs matched), each with its population stated
   unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
   routes/
     __init__.py              # facade: Blueprint bp, shared job-context helpers, error handlers
@@ -182,12 +183,13 @@ orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
 orchestrator/_cache.py    <- jobs
 orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orchestrator (facade)
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
-heatmap.py       <- errors, jobs, lastfm, plays, utils, worker
+heatmap.py       <- errors, jobs, lastfm, listening_stats, plays, utils, worker
 spotlight.py     <- utils
+listening_stats.py <- (leaf; standard library only)
 routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- admission, album_request, jobs, orchestrator, precheck, spotlight, unmatched; routes (facade)
+routes/album_flow.py    <- admission, album_request, jobs, listening_stats, orchestrator, precheck, spotlight, unmatched; routes (facade)
 routes/heatmap_flow.py  <- admission, heatmap, jobs, precheck; routes (facade)
 routes/api.py           <- domain, jobs, precheck, release_status, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
@@ -224,18 +226,18 @@ dev/results_behavior_tests.py <- playwright (leaf otherwise)
 dev/tailwind_build.py <- (leaf; standard library only)
 dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- dev/_frontend_gate_shared
-dev/_frontend_gate_figures.py <- jobs
+dev/_frontend_gate_figures.py <- jobs, listening_stats
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
-dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_heatmap_access.py <- dev/_frontend_gate_shared; jobs, listening_stats
 dev/_frontend_gate_include.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; domain; jobs
 dev/_frontend_gate_layout.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared
-dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_pipeline.py <- dev/_frontend_gate_shared; jobs, listening_stats
 dev/_frontend_gate_results.py <- dev/_frontend_gate_colour, dev/_frontend_gate_spotify_icon; domain; jobs
 dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app); jobs; werkzeug.serving; playwright (imported late)
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
 dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
-dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs, listening_stats
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; domain; jobs
 dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_figures, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
@@ -296,7 +298,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2897 tests)
+## 6. Test structure (2948 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
@@ -319,7 +321,9 @@ registered in `pyproject.toml`; CI's coverage step deselects it with
 `tests/fixtures/` holds provider response bodies transcribed from Last.fm's
 and Spotify's own docs (`lastfm_recenttracks_page.json`,
 `spotify_get_album.json`), read by `tests/test_provider_fixtures.py`'s shape
-tests. `tests/test_pipeline_integration.py` runs the album pipeline on a
+tests. It also holds `heatmap_kpi_cases.json`, the table of heatmap windows
+and the KPI text each must show, read by `tests/test_listening_stats.py` and the
+browser harness. `tests/test_pipeline_integration.py` runs the album pipeline on a
 real background thread instead.
 
 ---

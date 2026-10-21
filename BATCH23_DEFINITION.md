@@ -583,14 +583,29 @@ silently change existing ranking and percentage semantics. It also says whether
 albums listed through the include-unmatched control, which carry no provider
 metadata or durations, count in each summary (amended 2026-10-20).
 
+**The module exists (amended 2026-10-20, pre-Batch-23 PR #6).**
+`scrobblescope/listening_stats.py` is the pure helper this work package
+extends; it is not created here. It already computes the heatmap's current
+streak, best day, daily average and total from the zero-filled UTC
+`{date: plays}` window, and the Results page's plays listed and plays matched,
+each published with a one-sentence population
+(`{"value": ..., "population": ...}`). `heatmap.js`, `results.js` and
+`results.html` render published values and compute none, and WP-6 keeps it so.
+WP-6 adds its further statistics to that module as pure functions; its
+specialized plan decides what data the aggregators keep for them, since the
+daily window carries only plays per UTC day. An album listed through
+include-unmatched counts in "plays listed" and in no duration-based figure,
+because it has no durations.
+
 - [ ] Per album: completion ("9 of 12 tracks"), the most-played track shown
   with its original name, and the first listen that year. Both aggregators
   keep one original track name per normalized key.
 - [ ] Per year: the age of the music as a decade breakdown, and hours
   listened.
-- [ ] Heatmap: longest and current streak, busiest weekday and busiest hour,
-  stated as UTC, with both aggregators feeding one pure helper so the two
-  sources cannot disagree.
+- [ ] Heatmap: the longest streak, busiest weekday and busiest hour, stated as
+  UTC, added to `listening_stats.py` (the current streak and the pure helper
+  already exist, see the paragraph above), with both aggregators feeding it so
+  the two sources cannot disagree.
 - [ ] The results rows, a year-summary block, the heatmap result partial, and
   three new CSV columns.
 - **Acceptance:** pure-function tests per statistic with tz-aware timestamps

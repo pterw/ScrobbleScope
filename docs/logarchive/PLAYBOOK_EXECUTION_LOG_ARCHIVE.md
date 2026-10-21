@@ -9,6 +9,210 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - Make the #6 docs true for the merge
+
+Side task, no batch tag: close out PR #6 by making its diagram and plan text true, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: nothing the statistics module touches should describe a step or a name that is no longer so.
+
+What changed: `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` twice (lines 83 and 85); it is now one `Heatmap->>Heatmap` message carrying its figures, and the local step Task 4 removed (`total`, `max_count` and `active_days` computed in `heatmap.py`, `total_scrobbles` and `active_days` recorded as stats) is drawn again as one message after the Note. In the statistics-module plan, "Albums control" is now "Unmatched albums control" (line 22) and the worktree `C:/ssw/stm` is `C:/ssw/st` (line 50), as constraints L2 asks. `top-albums-sequence.md` is left to the documentation PR.
+
+Recorded, no change: the UTC-day test's remaining gap (a host-zone read that skips `astimezone`) has no code path, because the only timestamp-to-date reads are `listening_stats.utc_date` (`astimezone(UTC)`) and `plays.py`'s `play.played_at.date()`, and `Play` requires a UTC `played_at`. Task 5's Minor 2 (a missing `data-plays-*` attribute would render NaN) needs no guard, because the server always renders both. The `config/docsync.toml` window comment stays: the daily average still divides by `len(daily_counts)`, the zero-filled `HEATMAP_WINDOW_DAYS` window, so it is true.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
+### 2026-10-21 - Place the cache close where the code closes it
+
+Side task, no batch tag: two doc truths from the close-out review (SESSION_CONTEXT Section 5, PLAYBOOK Section 3), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: docs follow the code.
+
+What changed and why: SESSION_CONTEXT Section 5 put the `async with open_album_cache()` close under phase 4, but in `process_albums` the block ends after phase 4b (the original-release lookup) and before phase 5, so item 4 now says the persist is followed by the original-release lookup and the connection closes after that (review Minor 4). In PLAYBOOK Section 3 the "Before WP-1" bullet had one 83-column line; it is re-wrapped near 80 columns, words unchanged (review Minor 2). Review Minor 1 is recorded here and not repaired: the body of `c006554` said "a test docstring" without naming the file, which is `tests/services/test_orchestrator_process_albums.py`; history is not rewritten.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - Pin the classic link when external_urls is null
+
+Side task, no batch tag: pin the null `external_urls` guard of `album_metadata_from_details` with a test, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a claim in a document is backed by a test that fails without it.
+
+What changed and why: `dfd22dc`'s fallback also guards a payload whose `external_urls` is `null` (`(details.get("external_urls") or {})`) and its entry says "missing or null", but no case passed `{"external_urls": None}`; the old `None` parameter became `details = {}`, the missing key. The parametrized test now takes the whole details payload and gains a `null-object` case (expected: `https://open.spotify.com/album/sp3`). With the guard replaced by `details.get("external_urls", {})` the new case fails with `AttributeError: 'NoneType' object has no attribute 'get'` and the other five pass; restored, all six pass. Review of close-out, Minor 3. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_album_metadata_from_details_keeps_the_classic_link` in `tests/services/test_spotify_service.py` (parameters now carry the details payload; 5 cases became 6).
+
+Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - Make the #5 docs true for the merge
+
+Side task, no batch tag: close-out of PR #5, making the docs true for the merge (PLAYBOOK Section 3, the plan's citations, a test docstring, two architecture files, F-B23-47), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: docs follow the code, and nothing a reader needs lives only in an untracked workspace.
+
+What changed and why: PLAYBOOK Section 3's "Before WP-1" bullet now says one album-metadata encoding is done (PR #5) and only the statistics module remains. The committed plan cited the untracked `constraints.md` R9 in three places (the global constraint, Step 6, the mutation step); the citation is dropped and the rule stays inline, with no other plan text changed. The docstring of `test_process_albums_conn_always_closed` said the connection closes "in the finally block"; Task 4 moved the close into `open_album_cache`'s context manager, so it now says so. `top-albums-sequence.md` drew the stale-row cleanup as a separate `Orch->>Cache` call, but `AlbumCache.lookup` runs `cleanup_stale_metadata` itself, so that one message is now `Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)` (line 111, for the controller to render). One prose line in `runtime-system.md` was re-wrapped. F-B23-47 is filed: `test_job_threads_can_share_the_token_state_dict_without_error` failed once beside other test files in Task 2's run, a switch-interval thread race that is flaky by design and unrelated to the diff (open, P3, no fix in this PR).
+
+Plan-mandated defects, recorded here and not edited in the plan: the brief's mutation row 7 named `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning` and cannot catch the plant, so Task 4 added `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows`; and Step 7's parity-proof command diffed against 2847cd5, before Task 1's fix round c6769b7, so it reported differences in `tests/fake_postgres.py` that came from c6769b7, not from Task 3 or 4.
+
+Deviations: `top-albums-sequence.md` line 101's Note ("No lookup, cleanup, or persistence") is left as drawn, since the brief limits the redraw to the one message.
+
+Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (one docstring line, no code).
+
+Validation: `pytest -q` -- **2896 passed**.
+
+### 2026-10-21 - A live Spotify album keeps its link when Spotify sends none
+
+Side task, no batch tag: restore the classic album link for a Spotify album whose details carry no link (`album_metadata_from_details`), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a refactor PR must not change behaviour nobody asked it to change.
+
+What changed and why: before this PR a Spotify album whose details payload had `external_urls.spotify` null or `""` still got `https://open.spotify.com/album/<id>`, rebuilt by `_results._album_url`. Task 3 deleted that rebuild, so such an album got `album_url` null (task 3 review, Minor 1). `album_metadata_from_details` now falls back to the canonical URL when `external_urls` is missing or null, or when `spotify` is missing, null or empty; a link Spotify sends is kept as sent.
+
+Deviations: none.
+
+Edited existing tests: none. Added `test_album_metadata_from_details_keeps_the_classic_link` (5 cases) in `tests/services/test_spotify_service.py`; with the fallback removed, 4 of the 5 fail, and with it restored all pass.
+
+Validation: `pytest -q` -- **2896 passed**.
+
+### 2026-10-21 - A test pins that the page prints the Scrobbles figure it is handed
+
+Side task, no batch tag: pin that `results.html` prints the Scrobbles figures the route hands it, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the page must show the figure Python decided, and a template that quietly re-adds the rows must fail a test.
+
+What changed: `data` and `play_stats` both come from `filtered_results`, so a template summing `data` for the two `data-plays-*` attributes passed every earlier route test. `test_scrobbles_stat_prints_the_figures_it_is_handed` patches `album_play_statistics` to return 777 listed and 555 matched over one 50-play row and asserts both attributes and the visible figure carry the handed values. Test only; no production code.
+
+Proof: a Jinja sum over `data` planted (scratch copy of `results.html`, restored) in `data-plays-listed` failed on 50 vs 777, and in `data-plays-matched` on 50 vs 555.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
+### 2026-10-21 - The KPI test catches a recomputed average
+
+Side task, no batch tag: make the KPI "published figures" test fail if the browser recomputes any figure, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the page must show the figure the server decided, and the test that says so must be able to fail when it does not.
+
+What changed: `test_kpi_blocks_render_the_published_figures_and_compute_nothing` published a daily average of 0.04, which a browser recompute from the same counts also formats as "0.0", so a recomputed average passed. It now publishes 12.3 over counts that give 0.3, and the counts (`2026-03-09: 2`, `2026-03-10: 1`) give a total of 3, a best day of 2 on Mar 9 and a streak of 2, each different from the published 14, 9 on Mar 5 and 7. Only the test's data, assertions and docstring changed; no production code.
+
+Proof: a recompute planted in `renderKpis` (scratch copy of `heatmap.js`, restored) for each of total, average, best day and streak failed the test on that block (3 vs 14, 0.3 vs 12.3, 2 / MAR 9 vs 9 / MAR 5, 2 vs 7).
+
+Deviations: none. Edited existing tests: `test_kpi_blocks_render_the_published_figures_and_compute_nothing`. Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - The Scrobbles figure comes from Python
+
+Side task, no batch tag: compute the Results Scrobbles figure in `listening_stats` and make the page and `results.js` read it, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the Scrobbles number is a domain figure whose population (every listed row, or matched rows only) should be named in Python, not re-added in Jinja and again in the browser.
+
+What changed: `_render_results_page` calls `album_play_statistics(filtered_results)` after the display filters and passes `play_stats` to both `render_template("results.html", ...)` blocks (the no-matches block and the filled block, per L6; the blocks are not merged). The template reads it in both states, so both blocks carry it. `results.html` drops the Jinja `sum` (`total_scrobbles`) and the `stat-scrobbles` span now carries `data-plays-listed` and `data-plays-matched`; `setUnmatchedHidden` in `results.js` drops its reduce over `data-play-count` and shows the matched or listed figure for Hide or Include. The figure is computed from the rows the page lists, not at job completion, because the playtime ranking drops rows after the job ends. Two copies of the sum are gone (Jinja and `results.js`). The displayed number is unchanged: Task 1's `test_scrobbles_figure_*` tests pass unmodified.
+
+Docs: `runtime-system.md` gains the edge `Routes --> Stats` (node and class entry came from Task 4); `top-albums-sequence.md` states nothing about how the stat block is computed, so it is unchanged; `SESSION_CONTEXT.md` Section 4 lists `listening_stats` among the imports of `routes/album_flow.py`.
+
+Deviations: none. Edited existing tests and fixtures: `TEMPLATE_CONTEXT["results.html"]` and `_results_html` in `tests/test_template_shell.py` gain `play_stats` (Jinja raises on the missing name); `include_run` in `scripts/dev/results_behavior_tests.py` builds the fixture span from the rows it renders (protecting `test_hiding_every_row_clears_the_top_artist_and_including_restores_it`, whose all-unmatched rows must read 0 under Hide and 80 under Include).
+
+New tests: `test_scrobbles_stat_publishes_both_populations_for_the_albums_control`, `test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures` (`tests/test_routes.py`) and `test_scrobbles_stat_shows_the_published_figures_not_a_sum_of_rows` (`results_behavior_tests.py`). Mutations shown failing: template shows `plays_matched` (the new publish test and Task 1's include test fail), stats from `results_data` (`test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` reads 90), reduce restored in `results.js` (behaviour test reads 120, not 999), matched forced to 0 without unmatched rows (the equal-figures test fails).
+
+Validation: `pytest -q` -- **2897 passed**.
+
+### 2026-10-21 - The heatmap KPIs come from Python
+
+Side task, no batch tag: publish the heatmap KPI statistics from `listening_stats` and make the browser render them, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a domain rule (streak, best day, average) belongs in Python with its population stated, and the browser only formats what the server decided.
+
+What changed: `_fetch_and_process_heatmap` now takes the window end from `utc_date(now)`, calls `heatmap_statistics(daily_counts, to_date)` and stores the result under the new key `statistics` (`total_plays`, `daily_average`, `best_day`, `current_streak`, each `{"value", "population"}`) in the same `jobs.succeed` write; `total_scrobbles`, `max_count` and `daily_counts` stay, since the grid, its colour scale and the SVG label read them. In `static/js/heatmap.js` the browser's `computeStreak`, `WINDOW_DAYS` and the best-day reduce are deleted; `kpiModel(statistics)` formats the published figures and `renderKpis(data)` renders them, logging to the console and leaving the row empty if a payload carries no statistics (a server bug, not something to recompute around). The eight hand-seeded gate payloads (`_frontend_gate_heatmap_access.py` x4 payloads, `_frontend_gate_theme.py` x2, `_frontend_gate_pipeline.py`, `_frontend_gate_figures.py`) now seed `statistics` through `heatmap_statistics`; the access module's comment names `HEATMAP_WINDOW_DAYS` in heatmap.py. The HEATMAP_WINDOW_DAYS comment, the runtime and sequence diagrams and SESSION_CONTEXT's dependency lines follow the code. `jobs._context_view` deep-copies only `daily_counts`, so `statistics` is returned by reference (nothing in this PR mutates it).
+
+Visible change (empty-window ruling, controller, 2026-10-21): a window with no plays has no best day. Before, the BEST DAY block showed 0 with the window's last day as its label; now it shows 0 with no date line, the same way a zero total or streak shows `0` and a block with no sub-label omits that line. A new case `a_window_with_no_plays_has_no_best_day` in `tests/fixtures/heatmap_kpi_cases.json` pins it (expected text measured from the rendering: `0`, `0.0`, `0`, no date, `0`). The job itself still fails a zero-scrobble range with `no_scrobbles_in_range` before storing, so only a payload built by hand reaches this rendering today.
+
+Deviations: `test_statistics_reach_the_browser_through_heatmap_data` is synchronous and drives the task with `asyncio.run`, because the `client` fixture keeps its request context open and an async test errors at teardown with `LookupError` on `flask.app_ctx`; the gate modules that import `datetime` as a module use `datetime.date.fromisoformat` rather than a second `date` import that their `date: str` parameters would shadow; the test-seam comment above `__scrobbleHeatmapTestHooks` already said the functions touch only the row they are handed, which stays true, so it is unchanged.
+
+Edited existing tests: `test_happy_path_stores_correct_result_dict` (asserts the published statistics), `test_kpi_blocks_show_what_the_window_holds` (feeds the published statistics through the new `_published` helper and no longer names `computeStreak` in its docstring) and `test_the_published_figures_are_the_ones_the_pinned_kpis_show` (a null best-day date reads as the empty label the new case expects).
+
+Mutations (copy aside, file restored): a streak that starts at yesterday fails `test_happy_path_stores_correct_result_dict`, `test_statistics_reach_the_browser_through_heatmap_data`, the `streak_ends_today`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window` cases in both tables; a browser-side streak assignment in `kpiModel` fails `test_kpi_blocks_render_the_published_figures_and_compute_nothing`; deleting `"statistics": statistics,` fails the happy-path test and the heatmap_data test with `KeyError: 'statistics'`; a `/heatmap_data` response built from named keys fails only the heatmap_data test; removing the `best.date ?` guard fails `test_a_window_with_no_best_day_shows_no_date` and the new table case; `>=` in `best_day` fails the new case in both tables. Gates: `frontend_gate.py` 48 checks passed (the gate was not run under the mutations: it seeds its own payloads, so the code-side mutations are not expected to reach it), `results_behavior_tests.py` 18 tests OK.
+
+Validation: `pytest -q` -- **2895 passed**.
+
+### 2026-10-21 - The statistics tests pin the sentences and the UTC day
+
+Side task, no batch tag: make the listening statistics tests fail on a false population sentence, a system-zone date and an unsorted best day, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, not the code as written, so a wrong module must not pass them.
+
+What changed: in `tests/test_listening_stats.py` the album population test now asserts both published sentences whole (before, rewording the matched sentence to "include-unmatched are counted", or dropping only "(unmatched)", still passed because the word also sits in "include-unmatched"; swapping the two sentences failed only the distinctness check), and the heatmap population test asserts all four sentences whole instead of "not blank and distinct". A new `TestUtcDate` test gives `utc_date` a datetime subclass whose `astimezone()` with no argument answers in Tokyo, so a conversion that uses the host zone returns 2 March instead of 1 March on any host; a UTC host (CI) hid that defect before, since the system zone there is UTC. It does not use `time.tzset`. A new `TestBestDay` test lists the later tied day first, so dropping `sorted()` returns the later day. Mutations (copy-aside, module restored): rewording, dropping "(unmatched)", swapping the album sentences, swapping two heatmap sentences, `astimezone()` with no argument (also with `TZ=UTC0`) and dropping `sorted()` each fail one or more tests; restored, 33 pass. The 24-row mutation table of Task 2 was not re-run: no test it relies on was weakened, the two edited tests only got stricter.
+
+Deviations: none. Edited existing tests: `TestHeatmapStatistics::test_every_figure_states_its_population` and `TestAlbumPlayStatistics::test_each_figure_says_what_it_leaves_out`.
+
+Validation: `pytest -q` -- **2890 passed**.
+
+### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
+
+Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a test must fail when the rule it names is broken, so the streak case cannot pass for a port that forgives two quiet days.
+
+What changed: in `tests/fixtures/heatmap_kpi_cases.json` the case `two_quiet_days_make_the_streak_zero` gains a play at day offset 2 (days 0 and 1 stay empty). Before, the only play sat at offset 5, so a streak that ended two days back still found nothing and returned 0; now it finds the offset-2 play and returns 1, and the case fails. The expected values were measured with the JS harness on unchanged `heatmap.js` (scrobbles 5, best day MAR 5 with 4, streak 0). Planting "forgive two quiet days" in `heatmap.js` failed the JS case; the same plant in `scrobblescope/listening_stats.py` failed the Python case. The test-seam comment in `static/js/heatmap.js` called the hooked functions side-effect free, but `renderKpisInto` sets `kpiRow`; it now says they touch only the row they are handed. No empty-window case is added: the JS and Python empty-window outputs differ and that choice belongs to Task 4.
+
+Deviations: none. Edited existing tests: `test_kpi_blocks_show_what_the_window_holds[two_quiet_days_make_the_streak_zero]` and `test_the_published_figures_are_the_ones_the_pinned_kpis_show[two_quiet_days_make_the_streak_zero]` (data only).
+
+Validation: `pytest -q` -- **2888 passed**.
+
+### 2026-10-21 - The window declaration drops two heatmap.js sites
+
+Side task, no batch tag: retire two docsync value sites that name `static/js/heatmap.js`'s window code, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the 365-day window declaration must stop guarding text that the next commit deletes, so the statistics move is not blocked by a stale pattern (seam B-4).
+
+What changed: `config/docsync.toml` loses the `WINDOW_DAYS = (\d+)` site and the `whole (\d+)-day window` site, both in `static/js/heatmap.js`. Task 4 removes that text because the browser stops dividing by a window length; the average now divides by the zero-filled window in Python. A declaration whose pattern no longer matches fails DOC009, so the sites go first, in their own commit. The Python constant (`HEATMAP_WINDOW_DAYS`), the exported caption (`LAST (\d+) DAYS`) and all copy sites stay guarded. A staged `config/docsync.toml` change outside `[test_count]` is control-plane, so the commit used the documented escape: `--check` exit 0, `SKIP=doc-state-sync-check git commit`, `--check` again. Never `--no-verify`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2888 passed**.
+
+### 2026-10-21 - Listening statistics have one module
+
+Side task, no batch tag: the pure listening statistics module and its tests, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the streak, best-day, average and plays figures get one home with ordinary pytest coverage and a stated population each (seam B-4), before the heatmap and the Results page are wired to it.
+
+What changed: `scrobblescope/listening_stats.py` (new, standard library only, no clock, no I/O) holds `utc_date` (refuses a naive datetime), `current_streak`, `best_day`, `daily_average`, `heatmap_statistics` and `album_play_statistics`; the two aggregates return `{name: {"value", "population"}}`. UTC is by construction: day keys are the ISO dates the pipeline already attributed in UTC and `today` is passed in. `tests/test_listening_stats.py` (new, 31 tests) covers each rule and runs the eight pinned KPI cases from `tests/fixtures/heatmap_kpi_cases.json` through `heatmap_statistics`, so the Python rules match what readers saw. Nothing imports the module yet; the heatmap and the Results page move onto it in the next commits. `.claude/SESSION_CONTEXT.md` Sections 3 and 4 list the module.
+
+Mutation evidence, each planted in a scratch copy of the module and restored: 24 planted defects (local-day `utc_date`, naive datetime accepted, no yesterday step, two quiet days forgiven, `streak + 1`, a missing day read as a play, indexing instead of `.get`, last-day and `>=` best day, a zero best day, unguarded empty mapping, average over play days, rounded average, no empty guard, streak anchored on the first day, a blank and a shared population, a `"None"` date, `plays_matched` ignoring unmatched rows or minus a fixed 1, `rows[0]`, indexed `play_count`, identical populations) each failed the test the plan names for it. One planted defect was too weak: removing only the parenthesised `(unmatched)` from the matched population still passed, because the sentence also says `include-unmatched`; removing the whole unmatched clause fails `test_each_figure_says_what_it_leaves_out`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2888 passed**.
+
+### 2026-10-21 - The heatmap KPIs and the Scrobbles figure are pinned before they move
+
+Side task, no batch tag: parity tests for the heatmap KPI blocks and the Results Scrobbles figure, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a refactor starts from parity tests, so the next two commits can move the streak, best-day, average and Scrobbles rules out of the browser and Jinja provably unchanged (seam B-4).
+
+What changed: `tests/fixtures/heatmap_kpi_cases.json` holds eight 365-day windows ending 2026-03-10 (streak ends today, streak may end yesterday, a gap ends it, two quiet days make it zero, a tie for best day goes to the earlier day, the average is over every day, one decimal with a thousands separator, a streak stops at the window's first day), each with the KPI text worked out by hand. `tests/helpers.py` gains `load_kpi_cases`, `kpi_window`, `kpi_payload` and `expected_kpi_blocks`. `static/js/heatmap.js` gains the test-seam hook `renderKpisInto(row, data)`, present only when `window.__scrobbleHeatmapTestMode` is set, so a real page is unchanged. `tests/frontend/test_heatmap_pure_functions.py` runs each case through it (8 tests). `tests/test_routes.py` gains two tests: Scrobbles is the plays of every album the page lists (120 matched, 200 with unmatched rows), and a playtime ranking leaves out an album with no listening time (50). SESSION_CONTEXT Section 6 names the new fixture.
+
+Mutation evidence, each planted in the working file and restored: `while (dailyCounts[isoDate(d)])` to `while (false)` failed `streak_ends_today`, `streak_may_end_yesterday`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window`; `>=` to `>` in the best-day reduce failed `a_tie_for_best_day_goes_to_the_earlier_day`, `average_is_over_every_day_of_the_window` and `a_streak_stops_at_the_first_day_of_the_window`; `sum(attribute='play_count')` to `sum(attribute='play_time_seconds')` in `results.html` failed both route tests.
+
+Deviations: none. Edited existing tests: none (the module docstring of `tests/frontend/test_heatmap_pure_functions.py` changed, no test).
+
+Validation: `pytest -q` -- **2857 passed**.
+
+### 2026-10-21 - The statistics module plan opens its branch
+
+Side task, no batch tag: the approved statistics module plan, committed as the branch's first commit, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-statistics-module.md` is added (six tasks: pin the heatmap KPIs and the Scrobbles figure, the pure `listening_stats` module, retire two docsync sites, publish the heatmap statistics, compute the Scrobbles figure in Python, amend WP-6). PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #6, its branch and the plan. The plan passed the brief review (`plan-review.md`), two fix rounds and two re-reviews (`plan-rereview-1.md`, `plan-rereview-2.md`; approved); owner Q1 is approved ("Yes, that sounds good."): the Scrobbles figure is computed at render time in the Results route. It was then drift-reviewed against `eb0db9e` (`main` after PRs #256-#260) and the fixes were folded in as its Revision 3. Structural: S1, the publication test in Task 4 Step 1 now patches `fetch_scrobbles` and uses `_fetch`, `_play` and `UTC` (the page-layer patch target and helpers are gone); S2, Task 5 Step 3 builds the `include_run` span from the rows rendered, so `test_hiding_every_row_clears_the_top_artist_and_including_restores_it` keeps passing; S3, `scripts/dev/_frontend_gate_figures.py` (`_HEATMAP_RESULT`) joins Task 4's Touches, Step 5 and the Section 4 line, making eight gate payloads, not seven. Renames (7): `plays.aggregate_daily_counts`, `_play`/`_fetch`, `fetch_scrobbles`, `UTC` for `timezone.utc` in Task 2, the `heatmap` docstring dependency line, the SESSION_CONTEXT current-text quotes, and the `listening_stats` docstring wording. Cosmetic (9, C1-C9; C3 and C7 needed no change): helper imports, the `HEATMAP_WINDOW_DAYS` comment, the `class` line, the sequence-diagram anchor, Hide/Include wording, entry headings take the commit date, Task 6's moot conflict note, and one `_context_view` sentence for Task 4's commit body. The "unverified until #4 merges" rows of the PR #4 table are rewritten as checked.
+
+Deviations: the drift review said `test_utc_midnight_decides...` has three `timezone.utc` uses; the plan has two (`NEW_YORK` is a fixed offset), so two were changed. No DOC citation error needed a wording change in the plan. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-21 - The cache owns its connection and its failures
 
 Side task, no batch tag: Task 4 of PR #5, the cache owns its connection and its failures (`AlbumCache`, `open_album_cache`, `process_albums`, `orchestrator/_cache.py`, the facade's imports), on `refactor/metadata-encoding`, a branch off `main`.
