@@ -3528,6 +3528,31 @@ def test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures(client
     assert 'data-plays-matched="50"' in stat
 
 
+def test_scrobbles_stat_prints_the_figures_it_is_handed(client):
+    """
+    GIVEN a run whose stats say 777 listed and 555 matched plays, figures no
+    sum over the page's rows (50 plays) could give
+    WHEN the Results page renders
+    THEN the stat and both data attributes carry the handed figures.
+
+    Mutation: have the template sum the rows for either attribute or the
+    visible text and that figure reads 50 instead.
+    """
+    handed = {
+        "plays_listed": {"value": 777, "population": "test"},
+        "plays_matched": {"value": 555, "population": "test"},
+    }
+    with patch("scrobblescope.routes.album_flow.album_play_statistics") as stats:
+        stats.return_value = handed
+        page = _render_results(
+            client, [{**_provider_row("spotify", 0), "play_count": 50}]
+        )
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="777"' in stat
+    assert 'data-plays-matched="555"' in stat
+    assert _scrobbles_figure(page) == "777"
+
+
 @pytest.mark.parametrize(
     ("seconds", "expected", "absent"),
     [

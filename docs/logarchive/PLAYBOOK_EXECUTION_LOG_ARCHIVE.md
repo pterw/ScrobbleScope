@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The statistics tests pin the sentences and the UTC day
+
+Side task, no batch tag: make the listening statistics tests fail on a false population sentence, a system-zone date and an unsorted best day, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, not the code as written, so a wrong module must not pass them.
+
+What changed: in `tests/test_listening_stats.py` the album population test now asserts both published sentences whole (before, rewording the matched sentence to "include-unmatched are counted", or dropping only "(unmatched)", still passed because the word also sits in "include-unmatched"; swapping the two sentences failed only the distinctness check), and the heatmap population test asserts all four sentences whole instead of "not blank and distinct". A new `TestUtcDate` test gives `utc_date` a datetime subclass whose `astimezone()` with no argument answers in Tokyo, so a conversion that uses the host zone returns 2 March instead of 1 March on any host; a UTC host (CI) hid that defect before, since the system zone there is UTC. It does not use `time.tzset`. A new `TestBestDay` test lists the later tied day first, so dropping `sorted()` returns the later day. Mutations (copy-aside, module restored): rewording, dropping "(unmatched)", swapping the album sentences, swapping two heatmap sentences, `astimezone()` with no argument (also with `TZ=UTC0`) and dropping `sorted()` each fail one or more tests; restored, 33 pass. The 24-row mutation table of Task 2 was not re-run: no test it relies on was weakened, the two edited tests only got stricter.
+
+Deviations: none. Edited existing tests: `TestHeatmapStatistics::test_every_figure_states_its_population` and `TestAlbumPlayStatistics::test_each_figure_says_what_it_leaves_out`.
+
+Validation: `pytest -q` -- **2890 passed**.
+
 ### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
 
 Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.

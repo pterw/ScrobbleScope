@@ -161,6 +161,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - A test pins that the page prints the Scrobbles figure it is handed
+
+Side task, no batch tag: pin that `results.html` prints the Scrobbles figures the route hands it, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the page must show the figure Python decided, and a template that quietly re-adds the rows must fail a test.
+
+What changed: `data` and `play_stats` both come from `filtered_results`, so a template summing `data` for the two `data-plays-*` attributes passed every earlier route test. `test_scrobbles_stat_prints_the_figures_it_is_handed` patches `album_play_statistics` to return 777 listed and 555 matched over one 50-play row and asserts both attributes and the visible figure carry the handed values. Test only; no production code.
+
+Proof: a Jinja sum over `data` planted (scratch copy of `results.html`, restored) in `data-plays-listed` failed on 50 vs 777, and in `data-plays-matched` on 50 vs 555.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
 ### 2026-10-21 - The KPI test catches a recomputed average
 
 Side task, no batch tag: make the KPI "published figures" test fail if the browser recomputes any figure, on `refactor/statistics-module`, a branch off `main`.
@@ -206,15 +218,3 @@ Edited existing tests: `test_happy_path_stores_correct_result_dict` (asserts the
 Mutations (copy aside, file restored): a streak that starts at yesterday fails `test_happy_path_stores_correct_result_dict`, `test_statistics_reach_the_browser_through_heatmap_data`, the `streak_ends_today`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window` cases in both tables; a browser-side streak assignment in `kpiModel` fails `test_kpi_blocks_render_the_published_figures_and_compute_nothing`; deleting `"statistics": statistics,` fails the happy-path test and the heatmap_data test with `KeyError: 'statistics'`; a `/heatmap_data` response built from named keys fails only the heatmap_data test; removing the `best.date ?` guard fails `test_a_window_with_no_best_day_shows_no_date` and the new table case; `>=` in `best_day` fails the new case in both tables. Gates: `frontend_gate.py` 48 checks passed (the gate was not run under the mutations: it seeds its own payloads, so the code-side mutations are not expected to reach it), `results_behavior_tests.py` 18 tests OK.
 
 Validation: `pytest -q` -- **2895 passed**.
-
-### 2026-10-21 - The statistics tests pin the sentences and the UTC day
-
-Side task, no batch tag: make the listening statistics tests fail on a false population sentence, a system-zone date and an unsorted best day, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: tests assert intended behaviour, not the code as written, so a wrong module must not pass them.
-
-What changed: in `tests/test_listening_stats.py` the album population test now asserts both published sentences whole (before, rewording the matched sentence to "include-unmatched are counted", or dropping only "(unmatched)", still passed because the word also sits in "include-unmatched"; swapping the two sentences failed only the distinctness check), and the heatmap population test asserts all four sentences whole instead of "not blank and distinct". A new `TestUtcDate` test gives `utc_date` a datetime subclass whose `astimezone()` with no argument answers in Tokyo, so a conversion that uses the host zone returns 2 March instead of 1 March on any host; a UTC host (CI) hid that defect before, since the system zone there is UTC. It does not use `time.tzset`. A new `TestBestDay` test lists the later tied day first, so dropping `sorted()` returns the later day. Mutations (copy-aside, module restored): rewording, dropping "(unmatched)", swapping the album sentences, swapping two heatmap sentences, `astimezone()` with no argument (also with `TZ=UTC0`) and dropping `sorted()` each fail one or more tests; restored, 33 pass. The 24-row mutation table of Task 2 was not re-run: no test it relies on was weakened, the two edited tests only got stricter.
-
-Deviations: none. Edited existing tests: `TestHeatmapStatistics::test_every_figure_states_its_population` and `TestAlbumPlayStatistics::test_each_figure_says_what_it_leaves_out`.
-
-Validation: `pytest -q` -- **2890 passed**.
