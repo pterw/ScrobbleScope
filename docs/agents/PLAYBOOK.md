@@ -103,7 +103,10 @@ See FINDINGS F-DOCSYNC-3.
   architecture diagrams), backend hygiene, UI consistency, and four of the
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
-  normalized Last.fm scrobbles with one album aggregate. Job persistence
+  normalized Last.fm scrobbles with one album aggregate. The album request
+  module is done (PR #3, branch refactor/album-request-module, plan
+  `docs/superpowers/plans/2026-10-20-album-request-module.md`); the other
+  three seams remain. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
@@ -152,68 +155,56 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-20 - The figure font constant stops looking like a password
+### 2026-10-20 - Section 3 says PR #3 is done, not under way
 
-Side task, no batch tag: rename the figure-face gate's `FIGURE_TOKEN` constant, on `feat/ui-consistency`, a branch off `main`.
+Side task, no batch tag: remove the Section 3 sentence that called PR #3 under way, on `refactor/album-request-module`, a branch off `main`.
 
-Owner intent: PR #260 must pass Codacy without suppressing a scanner.
+Owner intent: Section 3 must not say the album request module is both done and under way.
 
-What changed: Codacy's Bandit check (B105, hardcoded password) read `FIGURE_TOKEN = "--font-figure"` in `scripts/dev/_frontend_gate_figures.py` as a credential because the name contains TOKEN. The value is a CSS custom-property name, so the constant is now `FIGURE_FONT_PROPERTY`; its four uses follow. Behaviour and messages are unchanged. The plan under `docs/superpowers/plans/` keeps the old name as an archival record.
+What changed: the "Before WP-1" bullet carried "PR #3, the album request module, is under way" (added with the plan) and "The album request module is done" (added by Task 7). The PR is complete, so the first sentence is deleted; its plan path moves into the "is done" sentence so the path is still named. PR #4's and PR #7's sentences are untouched.
 
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2607 passed**.
-
-Side task, no batch tag: correct the figure-face gate module's ledger citation and the FINDINGS test-module count, on `feat/ui-consistency`, a branch off `main`.
-
-Owner intent: the gate's own prose and the project's counts must be true for what the branch ships.
-
-What changed: the docstring of `scripts/dev/_frontend_gate_figures.py` now cites `docs/design/RECONCILIATION.md` section 26 (the play-count override; Task 1 renumbered it because sections 22 to 25 exist) instead of 22, and states the "cannot drift to the wrong face together" clause once instead of twice. The `docs/agents/FINDINGS.md` header now says 87 tracked test modules, the measured `git ls-files tests | grep -c '/test_[^/]*\.py$'`; the earlier commit added a module and left 86 there.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2607 passed**.
-
-### 2026-10-20 - The gate holds the Results play count to the figure face
-
-Side task, no batch tag: add a frontend-gate check that the Results play count wears the heatmap's figure face, on `feat/ui-consistency`, a branch off `main`.
-
-Owner intent (tranche design, "UI PR (#7)"): a frontend-gate check asserts that the computed font of a results play count equals that of a heatmap KPI value, at every viewport the gate runs.
-
-What changed: new `scripts/dev/_frontend_gate_figures.py` (`check_results_play_count_uses_the_figure_face`, registered in `scripts/dev/frontend_gate.py` as "results play count figure face" for the desktop, mobile and wide-touch profiles, Chromium only) and `tests/scripts/dev/test_frontend_gate_figures.py` (16 tests). Why: the serif count shipped beside a Gotham KPI and nothing could see it. The check reads the computed family and weight of every play count, on load and after the sort is switched (results.js rebuilds the cell), and requires them to equal the heatmap KPI value's; it also requires that KPI value to be the `--font-figure` token at weight 400, so the pair cannot drift to the wrong face together; an empty selection fails instead of passing. At the mobile profile only it also requires the seeded four-digit count to keep its right edge inside its cell (the guard for Task 1's narrow-screen sizing). The module is documented in SESSION_CONTEXT (tree and import lines), `docs/architecture/documentation-tooling.md` (count fifteen, list, Mermaid) and DEVELOPMENT.md.
-
-Mutation (unit, scratch copy, each planted defect failed its named tests): weight branch deleted -> `test_a_bold_play_count_fails_even_in_the_right_face`; family branch -> serif, one-wrong-among-many and rebuilt-cell tests; reference early return -> the two reference tests; both empty-selection returns -> `test_no_kpi_and_no_play_count_each_fail_rather_than_pass_vacuously`; second face call -> `test_a_cell_rebuilt_by_a_sort_switch_is_judged_again`; `>` to `<` -> three fit tests; `if narrow:` guards -> `test_at_a_desktop_width_the_fit_is_not_judged`; second fit call and `jobs.delete(heatmap_job)` -> their named tests.
-
-Live probe (scratch tree, real Chromium; the worktree CSS untouched): old face planted -> at every profile `play count on load is set in 'instrument-serif,corporate-a,Georgia,serif', the heatmap KPI value in 'gotham,ff-din-paneuropean,ui-sans-serif,sans-serif'` and the same `after switching sort`; bold planted -> `play count on load has font weight 700, the heatmap KPI value 400` (and after switching sort) at every profile; the `data-digits="4"` rule removed -> `[mobile] play count 8080 on load ends 10.0px past the cell it sits in` and the same after switching sort, desktop and wide touch PASS. The worktree passes at all three profiles.
-
-Deviations: none in the code. The check adds 3 planned runs (Firefox runs only the assets canary). The Mermaid block was edited by one node line and one class-list entry in the file's existing pattern; no external validator was run.
+Deviations: none.
 
 Edited existing tests: none.
 
-Validation: `pytest -q` -- **2607 passed**. Gate: `[frontend_gate] 48 checks passed in 78 runs across chromium, firefox (static assets & tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+Validation: `pytest -q` -- **2769 passed**.
 
-### 2026-10-20 - The Results play count is set in the figure face
+### 2026-10-20 - The entry the import-position fix corrected is named
 
-Side task, no batch tag: set the Results table's play count in the figure face, on `feat/ui-consistency`, a branch off `main`.
+Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
 
-Owner intent (tranche design, "UI PR (#7)"): "the results table's play count uses the figure face (`--font-figure`, Gotham, weight 400 -- never bold, as the heatmap KPI rule records)"; `DESIGN.md` gives play counts to the Figure Numerals.
+Owner intent: a reader following the entry "Two sentences made true after the admission module" must be sent to the entry that really changed.
 
-What changed: `.metric-val-plays` in `static/css/results.css` takes `--font-figure` at `--font-weight-normal` with `font-variant-numeric: tabular-nums` (set because `DESIGN.md` decides tabular Figure Numerals); size, line height, colour and letter-spacing are untouched. `docs/design/RECONCILIATION.md` gains a Section 1 row and section 26 recording the override of the snapshot's "mono value". Measured with a scratch script at all three gate profiles, both themes: Gotham served (one face fetched; 357.9px against 321.6px for the fallback); before, every play count computed `instrument-serif`, after, `gotham` at weight 400, colour equal row by row, size equal, every row height unchanged (81.2px desktop and wide touch, 73px mobile). Gotham has `tnum` (default 1111 vs 0000 = 34.4 vs 68.6px, with tabular-nums both 57.6px). Four digits did not fit at full size on mobile: 8080 measured 54px against a 44px room (407: 40.5px, fits), so Step 5b applied by the controller's ruling (one-attribute template edit): the plays span carries `data-digits` (`templates/results.html`, rebuilt by `renderMetric` in `static/js/results.js` on a sort switch), and under 768px only, a 4-digit count is set at 1.093rem and a 5-digit one at 0.874rem (widest digit d = 0.6003em, room R = 44px, S(n) = floor((R - 2) / (n * d) / 16)), 6 or more at the 0.75rem floor. After: 8080 and 88888 measure 41.95px in 44px; 888888 measures 43.2px in 44px at the floor (fits, but with under the 2px spare, so fit is not promised for six digits). Desktop and wide touch widths and sizes, and mobile rows of one to three digits, are identical to the full-size measurement.
+What changed: that entry says the `admission` import-position phrase was corrected in "The album form is refused with a reason"; it was corrected in "Jobs start through one admission path" (Task 4's entry), which `--fix` has since rotated into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Both headings were checked there with grep. The earlier entry is a dated record and is left as written; this entry is the correction. In `tests/test_routes.py` the comment in the failed-thread-start test said the route calls `jobs.delete`; since Task 4 `admission.admit` does, so the comment now says that. Comment only, no code.
 
-Deviations: the master plan named `.metric-value`; the rule is `.metric-val-plays`. The plan numbered the RECONCILIATION section 22, but sections 22 to 25 already exist, so the override is section 26 (row, CSS comment and prose follow). Section 26 includes the plan's conditional narrow-screens paragraph, because Step 5b applied.
+Deviations: none.
 
-Edited existing tests: none. New test: `test_each_play_count_states_how_many_digits_it_has` in `tests/test_routes.py`; with the template's `data-digits` planted as a constant `"4"` in a scratch copy it failed on the 407 assertion, and it passes on the real template.
+Edited existing tests: `test_results_loading_thread_start_failure_renders_error`, comment only.
 
-Validation: `pytest -q` -- **2591 passed**.
+Validation: `pytest -q` -- **2752 passed**.
 
-### 2026-10-20 - The UI consistency round 1 plan opens its branch
+### 2026-10-20 - No username reaches a pre-check failure log, pinned
 
-Side task, no batch tag: add the approved UI consistency round 1 plan, on `feat/ui-consistency`, a branch off `main`.
+Side task, no batch tag: pin by test that no Last.fm username reaches a pre-check failure log, and correct one sentence of the entry "The heatmap and the blur check use the shared pre-check", on `refactor/album-request-module`, a branch off `main`.
 
-Owner intent (2026-10-20): "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+Owner intent: Rule 6 (a failure is logged by exception type, never with listener data) must fail a test when broken, not only hold by reading the code.
 
-What changed: `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #7 and the plan. The plan passed a brief review (plan-review.md), three fix rounds, and two re-reviews (plan-rereview-1.md, plan-rereview-2.md); the last approved it.
+What changed: new `test_precheck_failure_never_logs_the_listener_name` in `tests/services/test_failure_logging.py` (nine rows: the validate, heatmap and album routes, each with a raising existence lookup, a malformed existence answer and a raising privacy lookup; username `zz-listener-7`; every DEBUG-and-up record is checked for it in message and args). Review found that planting a username log line on the UNAVAILABLE branch of `heatmap_flow.py` or `api.py` left the suite green. The earlier entry said the username "leaves two more log lines" and then named the blur check's line, which never carried it; only the heatmap route's two lines changed, and that sentence now says so.
 
-Deviations: the plan is committed as approved. The one commit-time fix (plan-rereview-2 Minor 1, Step 5b item 4 must say to replace the single line and keep the `else` braces) was already present in the approved draft, so no further wording change was made. No DOC-driven wording change was needed. No test was edited.
+Deviations: none. No existing test edited; no production code changed.
 
-Validation: `pytest -q` -- **2590 passed**.
+Mutation evidence (planted in a scratch copy, restored): an error line carrying the username on the UNAVAILABLE branch of `routes/heatmap_flow.py`, of `routes/api.py` and of `routes/album_flow.py` in turn -> three rows of the new test fail each time (the `existence-answer-malformed` and `privacy-lookup-raises` rows among them), then 9 passed once restored.
+
+Validation: `pytest -q` -- **2752 passed**.
+
+### 2026-10-20 - Two sentences made true after the admission module
+
+Side task, no batch tag: correct two sentences that Task 4 of the album request module left untrue, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the shared documents must describe the code that ships, so a reader of SESSION_CONTEXT Section 5 and of the admission entry is not misled about who cleans up and where the import sits.
+
+What changed: SESSION_CONTEXT Section 5 said that on a failed thread start "the route deletes the newly created job"; since the admission module, `admission.admit` deletes it (it calls `jobs.delete` after `start_job_thread` raises), so the sentence now says so. The 2026-10-20 entry "The album form is refused with a reason" said ruff put the `admission` import "after the other `scrobblescope` imports"; in both `album_flow.py` and `heatmap_flow.py` it sits in alphabetical position, and the entry now says that. Both checked against the code before editing.
+
+Deviations: none. No code or test changed.
+
+Validation: `pytest -q` -- **2743 passed**.

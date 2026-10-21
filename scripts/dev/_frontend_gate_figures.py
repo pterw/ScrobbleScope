@@ -159,7 +159,12 @@ def check_results_play_count_uses_the_figure_face(page, base_url: str) -> list[s
     """
     spotlight = "**/api/artist_spotlight?*"
     results_job = jobs.create(
-        {"username": "gate", "year": 2025, "sort_mode": "playcount"}
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
     )
     heatmap_job = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     try:

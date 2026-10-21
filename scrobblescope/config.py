@@ -32,6 +32,14 @@ SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 # to wait out.
 MAX_RETRY_AFTER_SECONDS = int(os.getenv("MAX_RETRY_AFTER_SECONDS", "30"))
 
+# The longest one Last.fm pre-check lookup (does the user exist, is the
+# profile public) may take before the form or button is answered "try again".
+# Each lookup has its own budget, so a request thread is held at most twice
+# this, not the HTTP session's 30 seconds per call: gunicorn runs four threads.
+LASTFM_PRECHECK_TIMEOUT_SECONDS = float(
+    os.getenv("LASTFM_PRECHECK_TIMEOUT_SECONDS", "5")
+)
+
 # Deezer: 50 requests per 5 seconds per IP (10/s), no API key required.
 DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
 DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))

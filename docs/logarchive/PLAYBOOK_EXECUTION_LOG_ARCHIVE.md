@@ -9,6 +9,194 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - A job says what kind it is
+
+Side task, no batch tag: make the job kind a record field that is never defaulted when read, and amend WP-4 to match, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a record that forgot its kind must not be served as an album run. This is B-12's server half; every writer now sets `mode`, so the default is a trap rather than a convenience.
+
+What changed: the `"album"` default is gone from three sites -- `routes._get_validated_job_context`, `api.release_checks` and `album_flow._extract_job_params` (its unread `mode` entry is deleted) -- and the literals `"album"` and `"heatmap"` become `jobs.MODE_ALBUM` and `jobs.MODE_HEATMAP` (`expected_mode` in `album_flow`, `release_checks`, `_latest_heatmap_job`). New: `test_a_job_that_never_said_its_kind_is_not_served_as_an_album_job` (four rows: `/results`, `/loading`, `/unmatched`, `/api/release_checks`; before this commit all four failed). Seeds that now say `"mode"`: `TEST_JOB_PARAMS` in `tests/helpers.py`; three literals in `tests/test_routes.py`; and the frontend-gate seeds, three in `_frontend_gate_results.py`, one in `_frontend_gate_include.py`, two in `_frontend_gate_spotify_icon.py`. `BATCH23_DEFINITION.md` WP-4 is amended: a "Scope amended 2026-10-20 (pre-Batch-23 tranche, PR #3)" paragraph says WP-4 reuses the album request module, the pre-check and the admission module; the export route's form fields go through `album_request.parse_album_request(form, current_year=..., require_username=False)`; the admission bullet records that `admit(params, target, *, label)` exists, that the thread entry point takes only the job id, that the kind is `params["mode"]` and an export album job keeps `mode` "album" with its origin in `source`; and Acceptance says PR #3 tests the path the album and heatmap routes share while WP-4 adds the export route's. PLAYBOOK Section 3 ("Before WP-1") now says the album request module is done and the other three seams remain; no "Last verified" date and no `Branch:` line moved.
+
+Deviations: none from the brief. Edited existing fixtures, by name: `TEST_JOB_PARAMS` (`tests/helpers.py`) and, in `tests/test_routes.py`, the album literals in `test_results_complete_renders_no_matches_for_empty_results`, `test_results_complete_with_results_renders_data` and `test_results_complete_links_each_row_to_its_own_provider`; no other test needed a `mode`. `ruff format` wrapped the `_latest_heatmap_job` condition over four lines.
+
+Mutation evidence (planted in a scratch copy, named tests failed, restored): `.get("mode", "album")` back in `_get_validated_job_context` -> the `/results`, `/loading` and `/unmatched` rows; the same default back in `release_checks` -> the `/api/release_checks` row. Gates: `frontend_gate.py` 47 checks passed in 75 runs; `results_behavior_tests.py` OK.
+
+Validation: `pytest -q` -- **2743 passed**.
+
+### 2026-10-20 - The figure font constant stops looking like a password
+
+Side task, no batch tag: rename the figure-face gate's `FIGURE_TOKEN` constant, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent: PR #260 must pass Codacy without suppressing a scanner.
+
+What changed: Codacy's Bandit check (B105, hardcoded password) read `FIGURE_TOKEN = "--font-figure"` in `scripts/dev/_frontend_gate_figures.py` as a credential because the name contains TOKEN. The value is a CSS custom-property name, so the constant is now `FIGURE_FONT_PROPERTY`; its four uses follow. Behaviour and messages are unchanged. The plan under `docs/superpowers/plans/` keeps the old name as an archival record.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**.
+
+Side task, no batch tag: correct the figure-face gate module's ledger citation and the FINDINGS test-module count, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent: the gate's own prose and the project's counts must be true for what the branch ships.
+
+What changed: the docstring of `scripts/dev/_frontend_gate_figures.py` now cites `docs/design/RECONCILIATION.md` section 26 (the play-count override; Task 1 renumbered it because sections 22 to 25 exist) instead of 22, and states the "cannot drift to the wrong face together" clause once instead of twice. The `docs/agents/FINDINGS.md` header now says 87 tracked test modules, the measured `git ls-files tests | grep -c '/test_[^/]*\.py$'`; the earlier commit added a module and left 86 there.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**.
+
+### 2026-10-20 - The gate holds the Results play count to the figure face
+
+Side task, no batch tag: add a frontend-gate check that the Results play count wears the heatmap's figure face, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (tranche design, "UI PR (#7)"): a frontend-gate check asserts that the computed font of a results play count equals that of a heatmap KPI value, at every viewport the gate runs.
+
+What changed: new `scripts/dev/_frontend_gate_figures.py` (`check_results_play_count_uses_the_figure_face`, registered in `scripts/dev/frontend_gate.py` as "results play count figure face" for the desktop, mobile and wide-touch profiles, Chromium only) and `tests/scripts/dev/test_frontend_gate_figures.py` (16 tests). Why: the serif count shipped beside a Gotham KPI and nothing could see it. The check reads the computed family and weight of every play count, on load and after the sort is switched (results.js rebuilds the cell), and requires them to equal the heatmap KPI value's; it also requires that KPI value to be the `--font-figure` token at weight 400, so the pair cannot drift to the wrong face together; an empty selection fails instead of passing. At the mobile profile only it also requires the seeded four-digit count to keep its right edge inside its cell (the guard for Task 1's narrow-screen sizing). The module is documented in SESSION_CONTEXT (tree and import lines), `docs/architecture/documentation-tooling.md` (count fifteen, list, Mermaid) and DEVELOPMENT.md.
+
+Mutation (unit, scratch copy, each planted defect failed its named tests): weight branch deleted -> `test_a_bold_play_count_fails_even_in_the_right_face`; family branch -> serif, one-wrong-among-many and rebuilt-cell tests; reference early return -> the two reference tests; both empty-selection returns -> `test_no_kpi_and_no_play_count_each_fail_rather_than_pass_vacuously`; second face call -> `test_a_cell_rebuilt_by_a_sort_switch_is_judged_again`; `>` to `<` -> three fit tests; `if narrow:` guards -> `test_at_a_desktop_width_the_fit_is_not_judged`; second fit call and `jobs.delete(heatmap_job)` -> their named tests.
+
+Live probe (scratch tree, real Chromium; the worktree CSS untouched): old face planted -> at every profile `play count on load is set in 'instrument-serif,corporate-a,Georgia,serif', the heatmap KPI value in 'gotham,ff-din-paneuropean,ui-sans-serif,sans-serif'` and the same `after switching sort`; bold planted -> `play count on load has font weight 700, the heatmap KPI value 400` (and after switching sort) at every profile; the `data-digits="4"` rule removed -> `[mobile] play count 8080 on load ends 10.0px past the cell it sits in` and the same after switching sort, desktop and wide touch PASS. The worktree passes at all three profiles.
+
+Deviations: none in the code. The check adds 3 planned runs (Firefox runs only the assets canary). The Mermaid block was edited by one node line and one class-list entry in the file's existing pattern; no external validator was run.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**. Gate: `[frontend_gate] 48 checks passed in 78 runs across chromium, firefox (static assets & tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+
+### 2026-10-20 - The Results play count is set in the figure face
+
+Side task, no batch tag: set the Results table's play count in the figure face, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (tranche design, "UI PR (#7)"): "the results table's play count uses the figure face (`--font-figure`, Gotham, weight 400 -- never bold, as the heatmap KPI rule records)"; `DESIGN.md` gives play counts to the Figure Numerals.
+
+What changed: `.metric-val-plays` in `static/css/results.css` takes `--font-figure` at `--font-weight-normal` with `font-variant-numeric: tabular-nums` (set because `DESIGN.md` decides tabular Figure Numerals); size, line height, colour and letter-spacing are untouched. `docs/design/RECONCILIATION.md` gains a Section 1 row and section 26 recording the override of the snapshot's "mono value". Measured with a scratch script at all three gate profiles, both themes: Gotham served (one face fetched; 357.9px against 321.6px for the fallback); before, every play count computed `instrument-serif`, after, `gotham` at weight 400, colour equal row by row, size equal, every row height unchanged (81.2px desktop and wide touch, 73px mobile). Gotham has `tnum` (default 1111 vs 0000 = 34.4 vs 68.6px, with tabular-nums both 57.6px). Four digits did not fit at full size on mobile: 8080 measured 54px against a 44px room (407: 40.5px, fits), so Step 5b applied by the controller's ruling (one-attribute template edit): the plays span carries `data-digits` (`templates/results.html`, rebuilt by `renderMetric` in `static/js/results.js` on a sort switch), and under 768px only, a 4-digit count is set at 1.093rem and a 5-digit one at 0.874rem (widest digit d = 0.6003em, room R = 44px, S(n) = floor((R - 2) / (n * d) / 16)), 6 or more at the 0.75rem floor. After: 8080 and 88888 measure 41.95px in 44px; 888888 measures 43.2px in 44px at the floor (fits, but with under the 2px spare, so fit is not promised for six digits). Desktop and wide touch widths and sizes, and mobile rows of one to three digits, are identical to the full-size measurement.
+
+Deviations: the master plan named `.metric-value`; the rule is `.metric-val-plays`. The plan numbered the RECONCILIATION section 22, but sections 22 to 25 already exist, so the override is section 26 (row, CSS comment and prose follow). Section 26 includes the plan's conditional narrow-screens paragraph, because Step 5b applied.
+
+Edited existing tests: none. New test: `test_each_play_count_states_how_many_digits_it_has` in `tests/test_routes.py`; with the template's `data-digits` planted as a constant `"4"` in a scratch copy it failed on the 407 assertion, and it passes on the real template.
+
+Validation: `pytest -q` -- **2591 passed**.
+
+### 2026-10-20 - The UI consistency round 1 plan opens its branch
+
+Side task, no batch tag: add the approved UI consistency round 1 plan, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (2026-10-20): "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #7 and the plan. The plan passed a brief review (plan-review.md), three fix rounds, and two re-reviews (plan-rereview-1.md, plan-rereview-2.md); the last approved it.
+
+Deviations: the plan is committed as approved. The one commit-time fix (plan-rereview-2 Minor 1, Step 5b item 4 must say to replace the single line and keep the `else` braces) was already present in the approved draft, so no further wording change was made. No DOC-driven wording change was needed. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
+### 2026-10-20 - The heatmap and the blur check use the shared pre-check
+
+Side task, no batch tag: answer the heatmap start and the blur check from the shared Last.fm pre-check, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the last two hand-written copies of the Last.fm existence and privacy check go, so the album form, the heatmap start and the blur check read one Last.fm answer one way.
+
+What changed: `_validate_heatmap_user` (`routes/heatmap_flow.py`) and `validate_user` (`routes/api.py`) call `precheck.check_lastfm_user` and keep only their own response shapes. No visible behaviour change: statuses and bodies are pinned by the cross-route table in `tests/test_precheck_routes.py`. New there: `test_a_malformed_last_fm_answer_is_unavailable_on_every_route` (nine rows; before this commit the three heatmap rows failed, a bad body being a 500 there, and `validate` read `"yes"` as an existing user). The Last.fm username leaves two more log lines: the heatmap route's two failure lines no longer carry it (the blur check's line never did; it is now the pre-check's class-only line) (note for the lastfm-scrobbles PR: they need not be counted under F-B23-40). SESSION_CONTEXT Sections 3-4 follow; no diagram changes.
+
+Deviations: none from the brief. Edited existing test, by name: `tests/services/test_failure_logging.py::test_validate_user_failure_logs_the_class_only_at_error` now expects the fragment "User existence check failed" (was "Username validation failed").
+
+Mutation evidence (planted in a scratch copy, named tests failed, restored): `Verdict.PRIVATE` mapped to the heatmap 404 branch -> `test_every_route_reads_the_last_fm_answer_the_same_way[private-heatmap]`; `Verdict.UNAVAILABLE` answered 200 `valid: True` in `validate_user` -> `[outage-on-existence-validate]` and `[outage-on-privacy-validate]`; `registered_year` dropped from the success payload -> `test_validate_user_success`; `exists` read outside the `try` in `check_lastfm_user` -> all nine rows of the malformed-answer test.
+
+Validation: `pytest -q` -- **2739 passed**.
+
+### 2026-10-20 - The album form is refused with a reason, never started doomed
+
+Side task, no batch tag: the album route parses the form, pre-checks the Last.fm user, then admits the job, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a listener who submits a value the form never offers, or who submits while Last.fm cannot answer, should be told why on the form instead of seeing "no albums" or a job that fails later.
+
+User-visible changes: (1) a filter value the form never offers is refused on the form with that field's sentence and no Last.fm lookup, including a `custom` scope without a year and a `decade` scope without a decade, which used to widen to every year; (2) an outage or timeout of the Last.fm pre-check, or an existence answer of the wrong shape, is refused with a retryable HTTP 503 ("Validation service unavailable. Try again.") instead of logging "proceeding" and starting a job that fails. Also stricter or different than before: the form's own ranges are now enforced on the server (`min_plays` 1-50, `min_tracks` 1-10, release year 1900 to this year, username up to 64 characters, the `/validate_user` limit; the form input allows 100 but a Last.fm name is far shorter); a blank `min_plays` or `min_tracks` now takes its default (before, the form answered "Year must be a valid number."); the username is stripped of surrounding spaces; a whitespace-only username is refused ("Username and year are required."). The listener's name no longer appears in the album route's log lines (the pre-check logs the exception class only).
+
+What changed: `results_loading` calls `parse_album_request`, `precheck.check_lastfm_user`, `registration_refusal` and `admission.admit`, in that order, through one `_refuse` helper; the job record is written by `AlbumRequest.to_params()`, so it carries `mode: "album"`. New `tests/test_album_request_flow.py` and `tests/test_precheck_routes.py` (the album, heatmap and validate routes read one Last.fm answer the same way, and a stalled Last.fm costs each its budget). SESSION_CONTEXT Sections 4-5, `runtime-system.md` (edge `Routes --> AlbumRequest`) and `top-albums-sequence.md` follow. The Mermaid MCP validator was not available to the implementer; the edited diagram lines contain no `;` and the controller validates the two files.
+
+Deviations: none from the brief. Edited existing tests, by name: `test_results_loading_registration_check_unavailable_proceeds` is replaced by `test_results_loading_lookup_unavailable_refuses_and_starts_nothing`; `test_results_loading_registration_check_failure_logs_no_message` is renamed `test_results_loading_lookup_failure_logs_no_message_and_no_name` and now asserts "User existence check failed" and that `flounder14` is absent from the log; in `tests/test_pipeline_integration.py::test_album_pipeline_runs_on_a_real_thread_end_to_end` the `check_user_exists` mock gains `"exists": True` (the old mock had no `exists` key and passed only because the route swallowed the `KeyError`; a malformed Last.fm answer is now an outage). The Retry contract, `tests/test_loading_retry_contract.py` (PR #256 is in the base), now reads `scrobblescope.album_request.FORM_FIELDS` instead of scanning `results_loading`, drops its `ast` helper and keeps the loading-config and `retryCurrentSearch` checks; `test_route_fields_are_found` asserts `"include_unmatched" in FORM_FIELDS and len(FORM_FIELDS) == 10`. `FORM_FIELDS` is the list that contract reads.
+
+Mutation evidence (each planted defect, then the named tests failed, then restored): the decade membership check removed in `album_request.py` -> `test_a_bad_filter_is_refused_on_the_form_and_starts_nothing[overrides1-Choose a decade from the list.]`; the `UNAVAILABLE` branch removed from `album_flow.py` -> both `test_a_pre_check_outage_refuses_retryably_and_starts_nothing` rows, the three malformed-answer rows and the album outage and stalled rows of `tests/test_precheck_routes.py`; params built without `mode` -> `test_an_album_job_record_says_it_is_an_album_job`; `exists` read outside the `try` in `check_lastfm_user` -> the three malformed-answer rows and `tests/test_precheck.py::test_a_malformed_existence_answer_is_unavailable_never_an_error`; privacy asked first -> `test_every_route_reads_the_last_fm_answer_the_same_way[missing-album]` and `tests/test_precheck.py::test_a_missing_user_is_missing_and_privacy_is_never_asked`; `timeout=` dropped from `_check_user_exists` -> `test_a_stalled_last_fm_costs_a_route_its_budget_not_the_session` (all three rows) and `tests/test_precheck.py::test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget`; `"source"` added to `FORM_FIELDS` -> all three tests of `tests/test_loading_retry_contract.py`.
+
+Validation: `pytest -q` -- **2730 passed**.
+
+### 2026-10-20 - Jobs start through one admission path
+
+Side task, no batch tag: start every job through one admission path and let job threads read the job record, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the album and heatmap routes each wrote expire, slot, create, start, delete-on-failure by hand, and the export route (WP-4) would have been a third copy; the ten album parameters were also re-passed positionally to a thread although the job record already holds them.
+
+What changed: new `scrobblescope/routes/admission.py` (`Refused.CAPACITY` / `START_FAILED`, `admit(params, target, *, label)`); `jobs.params(job_id)` (a copy of the params, `None` for a gone job, never renews the lease); `background_task(job_id)` and `heatmap_task(job_id)` read their parameters from the record, through `AlbumRequest.from_params` for the album run (new `_album_request_for`); a job that is gone, or a record that is not a usable request, runs nothing, still frees the slot the route took, and the unusable record ends as `internal_error`. `results_loading` and `_dispatch_heatmap_job` call `admit` and keep their own parsing, session key and HTTP answers; the thread is started as `start_job_thread(target, args=(job_id,))`. No listener-visible change. SESSION_CONTEXT Sections 3-5 and the runtime, top-albums and heatmap architecture files follow. The Mermaid MCP validator was not reachable from this session, so the edited diagram lines were checked by eye (no `;` in any message).
+
+Mutation evidence (each planted defect, then the named test failed, then restored): `jobs.create` before the slot -> `test_a_full_house_refuses_and_creates_nothing`; `jobs.delete` removed -> `test_a_thread_that_will_not_start_leaves_no_orphan_job`; `jobs.expire_stale()` removed -> `test_admission_drops_expired_jobs_first`; min plays/tracks defaults passed -> `test_background_task_runs_the_pipeline_with_the_job_records_parameters`; vanished-job release dropped -> `test_background_task_for_a_vanished_job_runs_nothing_and_frees_its_slot` and `TestHeatmapTask::test_a_vanished_job_runs_nothing_and_frees_its_slot`; `jobs.fail` dropped from `_album_request_for` -> `test_background_task_for_an_unusable_record_fails_the_job_and_frees_its_slot`; a second release in `admit` -> `test_a_real_thread_start_failure_frees_the_slot_once_and_removes_the_job`; the stored dict returned from `jobs.params` -> `test_params_returns_a_copy_and_none_for_a_missing_job`; a literal heatmap name -> `TestHeatmapTask::test_the_username_comes_from_the_job_record`; the flag left out of the album job record -> `test_results_loading_passes_the_include_flag_to_the_job_thread`.
+
+Deviations: the plan's `heatmap_flow` and `album_flow` code was applied as written; `ruff` placed the new `admission` import in alphabetical position among the `scrobblescope` imports in both route modules. Edited existing tests, by name: in `tests/services/test_orchestrator_fetch_and_process.py` the six `background_task` call sites (`test_background_task_runs_single_event_loop`, its call and its name assertion now `testuser`; `test_background_task_releases_slot_on_exception`; `test_background_task_releases_slot_when_event_loop_setup_raises`; `test_background_task_releases_slot_when_loop_close_raises`; `test_background_task_crash_publishes_internal_error`; `test_background_task_stores_unmatched_rows_when_the_flag_is_on`); the seven `heatmap_task(` calls in `tests/test_heatmap.py` `TestHeatmapTask` (`test_release_job_slot_called_on_success`, `..._on_exception`, `..._when_event_loop_setup_raises`, `..._when_loop_close_raises`, `test_unhandled_crash_publishes_internal_error`, `test_user_not_found_crash_publishes_user_not_found`, `test_untyped_not_found_text_is_ours_not_user_not_found`); and `tests/test_routes.py::test_results_loading_passes_the_include_flag_to_the_job_thread` (docstring and the args assertion). The failed-thread-start path is tested for real, not patched, in `tests/test_admission.py`.
+
+Validation: `pytest -q` -- **2699 passed**.
+
+### 2026-10-20 - Last.fm pre-check lookups have a time limit and one answer
+
+Side task, no batch tag: give the Last.fm pre-check one shared answer and a short timeout, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a slow Last.fm must not hold a request thread for a minute, and the three routes must agree on what a failed check means.
+
+What changed: new `scrobblescope/routes/precheck.py` (`Verdict`, `UserCheck`, `check_lastfm_user`, `UNAVAILABLE_MESSAGE`, `not_found_message`); `utils.run_async_in_thread(coro, timeout=None)` cancels the coroutine and raises `TimeoutError` in the calling thread; `config.LASTFM_PRECHECK_TIMEOUT_SECONDS` (default 5, env of the same name); the `routes` facade's `_check_user_exists` and `_check_profile_is_public` pass it. Why: each of the three routes called the same two checks and handled failure its own way, and none had a limit but the HTTP session's 30 seconds per call (two calls: up to 60 seconds of one of four request threads). User-visible change now: the heatmap start and the blur check refuse after at most 5 seconds per lookup; the album route still swallows an outage until the next commit switches it over. The username leaves the pre-check's failure lines (class name only), and a malformed Last.fm existence answer (not a mapping, no boolean `exists`, a non-integer `registered_year`) is an outage (`UNAVAILABLE`), not a 500. SESSION_CONTEXT Sections 3-4 and the key runtime facts name the module and the setting.
+
+Mutation evidence (each planted defect, then the named test failed, then restored): timeout ignored in `run_async_in_thread` -> `test_run_async_in_thread_stops_waiting_when_the_timeout_passes`; `timeout=` dropped in `_check_profile_is_public` -> `test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget[_check_profile_is_public-...]`; privacy `except` returns PUBLIC -> `test_an_outage_on_the_privacy_check_is_unavailable_never_public`; existence read outside the `try` -> `test_a_malformed_existence_answer_is_unavailable_never_an_error[none]`; `.get("exists")` truthiness -> the same test, `empty` row; privacy asked before existence -> `test_a_missing_user_is_missing_and_privacy_is_never_asked`; username in the failure line -> `test_a_failed_check_logs_the_class_and_never_the_listeners_name`.
+
+Deviations: none. No existing test was edited; two tests were added to `tests/test_utils.py` and the new module `tests/test_precheck.py` has 17 cases.
+
+Validation: `pytest -q` -- **2688 passed**.
+
+### 2026-10-20 - Task 1's drift note and the module count are corrected
+
+Side task, no batch tag: correct a false drift note and the tracked test-module count, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the log and findings must be true for what the branch ships.
+
+What changed: the Deviations paragraph of the "The request flows are pinned before they are refactored" entry said `_dispatch_heatmap_job` was gone and heatmap job creation was inline. It is not: the function exists in `scrobblescope/routes/heatmap_flow.py` and calls `acquire_job_slot`, so there was no drift for the heatmap mutation; the paragraph now says so (the privacy-outage note was checked and stands: `_validate_heatmap_user`). The `docs/agents/FINDINGS.md` header line said 87 tracked test modules; `git ls-files tests | grep -c '/test_[^/]*\.py$'` measures 88, so it now says 88. The review of Task 1 found both.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2669 passed**.
+
+### 2026-10-20 - The album form has one owner
+
+Side task, no batch tag: add the pure album request module (not yet wired into any route), on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the album form needs one Python owner that says what a valid request is, so the Spotify export route (WP-4) can call it too.
+
+What changed: new `scrobblescope/album_request.py` (`AlbumRequest`, `Refusal`, `parse_album_request`, `registration_refusal`, the sets and bounds, `FORM_FIELDS`), `jobs.MODE_ALBUM` and `jobs.MODE_HEATMAP`, and 63 tests in new `tests/test_album_request.py`, which also read `templates/index.html` and fail if the form and the server drift. Why (B-1): the sets lived only in the template, so a bad decade made every album fail the release filter and the listener saw "no albums". Once wired, these refusals are new: unknown release scope, unknown decade, missing or malformed custom release year, unknown ranking, unknown limit, min_plays outside 1-50, min_tracks outside 1-10, username over 64. The bound of 64 is the limit `/validate_user` already enforces; the form's `maxlength` is 100. SESSION_CONTEXT Sections 3-4 and the runtime-system diagram (node, `AlbumRequest --> JobModule` edge) name the module.
+
+Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: year bound `<=` to `<` (year 2025 rows fail), decade membership check removed (decade rows), custom year no longer required (`Enter a release year.` row), include/playtime coercion removed, decade kept for every scope, min_plays upper bound 100 (51 row), blank no longer a missing field (defaults test), unknown registration year refused, `"100"` dropped from `LIMIT_OPTIONS` (limit 100 row), parser reading `source` and `"decade"` dropped from `FORM_FIELDS` (FORM_FIELDS test), `"fortnight"` added to `RELEASE_SCOPES` (release-window test).
+
+Deviations: none from the plan. The runtime-system Mermaid block was not run through the render MCP call (not available to this implementer); the edit adds one node, one edge and one class-list name only. No existing test was edited.
+
+Validation: `pytest -q` -- **2669 passed**.
+
+### 2026-10-20 - The request flows are pinned before they are refactored
+
+Side task, no batch tag: add parity tests for the album, heatmap and validate_user request flows, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, and AGENTS.md "Refactor requires parity tests" puts them before PR #3 changes the code behind these routes.
+
+What changed: new `tests/test_request_flow_parity.py` (16 tests, tests only, no source change). It pins which form fields land in the job record per release scope, that the values reach the album and heatmap pipelines in the right slots, the inclusive 2002 and current-year bounds, that a full house leaves no job behind, and the bodies of the heatmap privacy-outage and validate_user outage answers. It deliberately does not pin the fail-open pre-check or the positional thread arguments, which later tasks replace. Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: decade kept whatever the scope (custom and previous rows fail), min_plays and min_tracks swapped in the orchestrator call, username no longer stripped in heatmap_loading, `year < 2002` made `<=`, the heatmap job created before the slot is acquired, the heatmap privacy-outage `retryable` set False, and the privacy check asked before existence in validate_user.
+
+Deviations: plan drift only. The plan names `background_task` and `_dispatch_heatmap_job`; the tree has the `_fetch_and_process` call inside `background_task` in `scrobblescope/orchestrator/__init__.py` (found as planned) and `_dispatch_heatmap_job` also exists in `scrobblescope/routes/heatmap_flow.py` (it calls `acquire_job_slot` and then creates the job), so the heatmap mutation was planted there as the plan says and there was no drift for it. The one placement difference found: the heatmap privacy-outage answer lives in `_validate_heatmap_user` in the same file. (This entry first said `_dispatch_heatmap_job` was gone; that was false and is corrected here.) Behaviour and test code are as planned. No existing test was edited.
+
+Validation: `pytest -q` -- **2606 passed**.
+
+### 2026-10-20 - The album request module plan opens its branch
+
+Side task, no batch tag: add the album request module plan as the branch's first commit, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes", so every PR plan is the first commit of its own branch.
+
+What changed: `docs/superpowers/plans/2026-10-20-album-request-module.md` is the owner-approved plan for PR #3, and PLAYBOOK Section 3's "Before WP-1" bullet names it. The plan passed a brief review (plan-review.md), a fix round, and a re-review (plan-rereview-1.md) that approved it. One fix was applied at commit time (re-review Minor N1): the three pointers to the Retry rule now all read "Task 5 Step 4, item 4" (the assumptions row and Task 2 Interfaces said "Task 5 Step 5"; Task 5 Touches said "Step 4, item 3").
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - The test-module count counts both sides of the merge
 
 Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.

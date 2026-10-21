@@ -32,6 +32,9 @@ work packages and the editorial revision above; no work package is added.
 **Scope amended 2026-10-20** (owner directive to keep planned scope current): the
 include-unmatched control shipped on the album form before WP-1, so WP-3, WP-5 and WP-6
 now account for it. No work package is added.
+**Scope amended 2026-10-20** (pre-Batch-23 tranche, PR #3): the album request
+module, the Last.fm pre-check and the admission module now exist, so WP-4
+reuses them instead of writing them. No work package is added.
 **Planning authority:** this definition owns batch scope, shared contracts
 and acceptance. Each WP gets a specialized plan before implementation,
 executed through subagent-driven development (SDD). Its approved plan owns
@@ -453,7 +456,9 @@ and the orchestrator never knows about zips.
 ### WP-4 -- Routes and upload handling
 
 - [ ] `POST /spotify_export_loading` takes the file and mode plus the
-  existing album fields through the existing validators, runs `open_export`
+  existing album fields through `album_request.parse_album_request(form,
+  current_year=..., require_username=False)` (an `AlbumRequest` with
+  `username=None`, or a `Refusal` naming the field), runs `open_export`
   synchronously, takes a job slot, creates the job and starts the thread,
   returning 202 with the job id and redirect.
 - [ ] `UploadAwareRequest` in `create_app` applies the upload cap and returns
@@ -470,6 +475,18 @@ and the orchestrator never knows about zips.
   export routes all call it; each route keeps its own request parsing,
   session and HTTP response. The export route is the third caller, which is
   what makes the extraction worth doing here (owner ruling, 2026-09-21).
+  The module exists: `scrobblescope/routes/admission.py`, `admit(params,
+  target, *, label)`, written by the album-request-module PR, which also
+  tests, through the admission path the album and heatmap routes share, that
+  a failed thread start leaves no slot held and no orphan job. WP-4 adds the
+  export route as the third caller and `EXPORT_MAX_IN_FLIGHT` inside it. A
+  thread entry point takes only the job id and reads its parameters from the
+  job record (`jobs.params`); the export thread follows that shape. The job
+  kind is `params["mode"]`, written at creation and never defaulted when
+  read (`jobs.MODE_ALBUM`, `jobs.MODE_HEATMAP`). An export album job keeps
+  `mode` "album", because every album page answers 404 for any other kind,
+  and records where its data came from in the separate `source` field
+  (`_extract_job_params` gains `source`, as this work package already says).
 - [ ] **Bound export jobs waiting to parse** (owner ruling, 2026-09-23). The
   parse semaphore limits running parses, not buffers waiting for a permit.
   So admission caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, sized
@@ -481,7 +498,8 @@ and the orchestrator never knows about zips.
   code; the thread started with the expected arguments; and a test proving
   the stream is `BytesIO` and never `SpooledTemporaryFile`. For admission:
   a failed thread start leaves no slot held and no orphaned job, tested for
-  each of the three routes. For the waiting bound: with
+  each of the three routes (PR #3 tests the path the album and heatmap
+  routes share; WP-4 adds the export route's). For the waiting bound: with
   `EXPORT_MAX_IN_FLIGHT` export jobs in flight, the next export upload gets
   429 and creates no job while a Last.fm job is still admitted when the
   shared job limit has spare capacity. The buffer is closed after every

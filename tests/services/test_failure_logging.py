@@ -212,7 +212,7 @@ def test_validate_user_failure_logs_the_class_only_at_error(client, caplog):
         response = client.get("/validate_user", query_string={"username": "someone"})
 
     assert response.status_code >= 500
-    _assert_type_only_at_error(caplog, error_fragment="Username validation failed")
+    _assert_type_only_at_error(caplog, error_fragment="User existence check failed")
 
 
 def test_album_start_thread_failure_logs_the_class_only_at_error(client, caplog):
@@ -304,6 +304,55 @@ def test_heatmap_start_thread_failure_logs_the_class_only_at_error(client, caplo
 
     assert response.status_code == 500
     _assert_type_only_at_error(caplog, error_fragment="Failed to start heatmap task")
+
+
+LISTENER = "zz-listener-7"
+
+_PRECHECK_FAILURES = {
+    "existence-lookup-raises": [RuntimeError(MARKER)],
+    "existence-answer-malformed": ["not a mapping"],
+    "privacy-lookup-raises": [
+        {"exists": True, "registered_year": None},
+        RuntimeError(MARKER),
+    ],
+}
+
+_PRECHECK_ROUTES = {
+    "validate": lambda client: client.get(
+        "/validate_user", query_string={"username": LISTENER}
+    ),
+    "heatmap": lambda client: client.post(
+        "/heatmap_loading", data={"username": LISTENER}
+    ),
+    "album": lambda client: client.post(
+        "/results_loading", data={**VALID_FORM_DATA, "username": LISTENER}
+    ),
+}
+
+
+@pytest.mark.parametrize("failure", list(_PRECHECK_FAILURES))
+@pytest.mark.parametrize("route", list(_PRECHECK_ROUTES))
+def test_precheck_failure_never_logs_the_listener_name(client, caplog, route, failure):
+    """
+    GIVEN the pre-check cannot answer for a distinctive Last.fm username
+    WHEN the validate, heatmap or album route runs
+    THEN the answer is the retryable 503 and no log record at any level carries
+         the username, in its message or its arguments (Rule 6: listener data).
+    """
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=_PRECHECK_FAILURES[failure],
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        response = _PRECHECK_ROUTES[route](client)
+
+    assert response.status_code == 503
+    assert caplog.records, "nothing was logged"
+    for record in caplog.records:
+        assert LISTENER not in record.getMessage()
+        assert LISTENER not in str(record.args)
 
 
 def _failing_conn():

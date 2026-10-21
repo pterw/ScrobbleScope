@@ -723,3 +723,20 @@ def test_record_partial_source_keeps_each_kind_once_in_order():
 
     stats = jobs.progress(job_id)["stats"]
     assert stats["partial_data_sources"] == ["lastfm", "provider"]
+
+
+def test_params_returns_a_copy_and_none_for_a_missing_job():
+    """
+    GIVEN a job holding params
+    WHEN a caller reads them and changes what it got
+    THEN the job's own params are untouched; a missing job answers None.
+
+    Mutation: return the stored dict itself and the second read sees "changed".
+    """
+    job_id = jobs.create(dict(TEST_JOB_PARAMS))
+
+    got = jobs.params(job_id)
+    got["username"] = "changed"
+
+    assert jobs.params(job_id)["username"] == TEST_JOB_PARAMS["username"]
+    assert jobs.params("no-such-job") is None

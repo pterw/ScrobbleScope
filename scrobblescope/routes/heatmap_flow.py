@@ -11,7 +11,7 @@ from flask import jsonify, render_template, request, session
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.heatmap import heatmap_task
-from scrobblescope.utils import log_failure
+from scrobblescope.routes import admission, precheck
 
 bp = _routes.bp
 
@@ -59,74 +59,62 @@ def heatmap_loading():
 def _validate_heatmap_user(username):
     """Return a JSON validation error, or None for an existing public user.
 
-    Keep lookup and privacy service failures retryable without reserving a
-    worker slot or changing this browser's saved heatmap job.
+    The answer is the shared pre-check's (``routes/precheck.py``); this maps
+    it to the heatmap's JSON. A lookup or privacy outage is a retryable 503
+    that reserves no worker slot and leaves this browser's saved heatmap job
+    alone.
     """
-    try:
-        user_info = _routes._check_user_exists(username)
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure(f"User existence check failed for {username}")
+    check = precheck.check_lastfm_user(username)
+
+    if check.verdict is precheck.Verdict.PUBLIC:
+        return None
+    if check.verdict is precheck.Verdict.UNAVAILABLE:
         return (
             jsonify(
                 {
                     "error": True,
-                    "message": "Validation service unavailable. Try again.",
+                    "message": precheck.UNAVAILABLE_MESSAGE,
                     "retryable": True,
                 }
             ),
             503,
         )
-
-    if not user_info["exists"]:
+    if check.verdict is precheck.Verdict.MISSING:
         return (
             jsonify(
                 {
                     "error": True,
                     "error_code": "user_not_found",
-                    "message": f"User '{username}' was not found on Last.fm.",
+                    "message": precheck.not_found_message(username),
                     "retryable": False,
                 }
             ),
             404,
         )
-
-    try:
-        if not _routes._check_profile_is_public(username):
-            return (
-                jsonify(
-                    {
-                        "error": True,
-                        "error_code": "private_profile",
-                        "message": _routes._PRIVATE_PROFILE_MESSAGE,
-                        "retryable": False,
-                    }
-                ),
-                403,
-            )
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure(f"Profile privacy check failed for {username}")
-        return (
-            jsonify(
-                {
-                    "error": True,
-                    "message": "Validation service unavailable. Try again.",
-                    "retryable": True,
-                }
-            ),
-            503,
-        )
-    return None
+    return (
+        jsonify(
+            {
+                "error": True,
+                "error_code": "private_profile",
+                "message": _routes._PRIVATE_PROFILE_MESSAGE,
+                "retryable": False,
+            }
+        ),
+        403,
+    )
 
 
 def _dispatch_heatmap_job(username):
-    """Reserve and launch a heatmap job, saving its ID only after startup.
+    """Admit a heatmap job, saving its ID only after startup.
 
-    Remove orphan job state if thread startup fails; the worker launcher
-    owns releasing the reserved slot on that failure path.
+    Admission removes the orphan job and the slot if thread startup fails.
     """
-    jobs.expire_stale()
-
-    if not _routes.acquire_job_slot():
+    admitted = admission.admit(
+        {"username": username, "mode": jobs.MODE_HEATMAP},
+        heatmap_task,
+        label="heatmap task",
+    )
+    if admitted is admission.Refused.CAPACITY:
         return (
             jsonify(
                 {
@@ -137,14 +125,7 @@ def _dispatch_heatmap_job(username):
             ),
             429,
         )
-
-    job_id = jobs.create({"username": username, "mode": "heatmap"})
-
-    try:
-        _routes.start_job_thread(heatmap_task, args=(job_id, username))
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure("Failed to start heatmap task thread")
-        jobs.delete(job_id)
+    if admitted is admission.Refused.START_FAILED:
         return (
             jsonify(
                 {
@@ -156,8 +137,8 @@ def _dispatch_heatmap_job(username):
             500,
         )
 
-    session[_routes._LATEST_HEATMAP_JOB] = job_id
-    return jsonify({"job_id": job_id}), 202
+    session[_routes._LATEST_HEATMAP_JOB] = admitted
+    return jsonify({"job_id": admitted}), 202
 
 
 @bp.route("/heatmap_data")
