@@ -47,6 +47,12 @@ SPOTIFY_DETAILS = Phase(
 DEEZER_FALLBACK = Phase(Band(60, 15), "deezer_fallback", "Checking Deezer", "album")
 HEATMAP_LASTFM_FETCH = Phase(Band(5, 75), "lastfm_fetch", "Fetching scrobbles", "page")
 
+#: The job kinds. A job record's ``params["mode"]`` holds one of them, written
+#: when the job is created; the pages and APIs that serve one kind refuse the
+#: other. Callers compare against these, never against a string literal.
+MODE_ALBUM = "album"
+MODE_HEATMAP = "heatmap"
+
 _ERROR_FIELDS = ("error_code", "error_source", "retryable", "retry_after")
 
 
@@ -492,6 +498,16 @@ def exists(job_id):
 def unmatched(job_id):
     """Return a copy of the job's unmatched albums dict, or None if not found."""
     return _store.read(job_id, lambda record: dict(record["unmatched"]))
+
+
+def params(job_id):
+    """Return a copy of the job's params, or None if the job is gone.
+
+    The thread entry points read their parameters here instead of receiving
+    them as arguments, so the job record is the one place a run's parameters
+    live. A read never renews the lease.
+    """
+    return _store.read(job_id, lambda record: dict(record.get("params", {})))
 
 
 def _context_view(record):

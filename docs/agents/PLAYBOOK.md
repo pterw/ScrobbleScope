@@ -103,12 +103,17 @@ See FINDINGS F-DOCSYNC-3.
   architecture diagrams), backend hygiene, UI consistency, and four of the
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
-  normalized Last.fm scrobbles with one album aggregate. Job persistence
+  normalized Last.fm scrobbles with one album aggregate. The album request
+  module is done (PR #3, branch refactor/album-request-module, plan
+  `docs/superpowers/plans/2026-10-20-album-request-module.md`); the other
+  three seams remain. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
   PR #4, normalized Last.fm scrobbles with one album aggregate, is under way on `refactor/lastfm-scrobbles`; its plan is `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md` (Task 1 now; Tasks 2-5 after PR #3 merges).
+  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
+  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -177,26 +182,30 @@ Deviations: none. No test was edited.
 
 Validation: `pytest -q` -- **2590 passed**.
 
-### 2026-10-20 - The test-module count counts both sides of the merge
+### 2026-10-20 - Section 3 says PR #3 is done, not under way
 
-Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
+Side task, no batch tag: remove the Section 3 sentence that called PR #3 under way, on `refactor/album-request-module`, a branch off `main`.
 
-Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
+Owner intent: Section 3 must not say the album request module is both done and under way.
 
-What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
+What changed: the "Before WP-1" bullet carried "PR #3, the album request module, is under way" (added with the plan) and "The album request module is done" (added by Task 7). The PR is complete, so the first sentence is deleted; its plan path moves into the "is done" sentence so the path is still named. PR #4's and PR #7's sentences are untouched.
 
-Deviations: none. No test was edited.
+Deviations: none.
 
-Validation: `pytest -q` -- **2590 passed**.
+Edited existing tests: none.
 
-### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
+Validation: `pytest -q` -- **2769 passed**.
 
-Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
+### 2026-10-20 - The entry the import-position fix corrected is named
 
-Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
+Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
 
-What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
+Owner intent: a reader following the entry "Two sentences made true after the admission module" must be sent to the entry that really changed.
 
-Deviations: none. No test was edited.
+What changed: that entry says the `admission` import-position phrase was corrected in "The album form is refused with a reason"; it was corrected in "Jobs start through one admission path" (Task 4's entry), which `--fix` has since rotated into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Both headings were checked there with grep. The earlier entry is a dated record and is left as written; this entry is the correction. In `tests/test_routes.py` the comment in the failed-thread-start test said the route calls `jobs.delete`; since Task 4 `admission.admit` does, so the comment now says that. Comment only, no code.
 
-Validation: `pytest -q` -- **2590 passed**.
+Deviations: none.
+
+Edited existing tests: `test_results_loading_thread_start_failure_renders_error`, comment only.
+
+Validation: `pytest -q` -- **2752 passed**.

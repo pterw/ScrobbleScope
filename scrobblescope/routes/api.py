@@ -15,8 +15,9 @@ from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.domain import format_album_key
 from scrobblescope.release_checks import CHECK_UNCHECKED, STATUS_PENDING
+from scrobblescope.routes import precheck
 from scrobblescope.spotify import fetch_spotify_artist_spotlight
-from scrobblescope.utils import create_optimized_session, log_failure
+from scrobblescope.utils import create_optimized_session
 
 bp = _routes.bp
 
@@ -30,30 +31,21 @@ def validate_user():
     if len(username) > 64:
         return jsonify({"valid": False, "message": "Username is too long."}), 400
 
-    try:
-        result = _routes._check_user_exists(username)
-        if result["exists"] and not _routes._check_profile_is_public(username):
-            return jsonify(
-                {"valid": False, "message": _routes._PRIVATE_PROFILE_MESSAGE}
-            )
-    except Exception:  # noqa: BLE001 -- logged by log_failure
-        log_failure("Username validation failed")
+    check = precheck.check_lastfm_user(username)
+    if check.verdict is precheck.Verdict.UNAVAILABLE:
         return (
-            jsonify(
-                {
-                    "valid": False,
-                    "message": "Validation service unavailable. Try again.",
-                }
-            ),
+            jsonify({"valid": False, "message": precheck.UNAVAILABLE_MESSAGE}),
             503,
         )
+    if check.verdict is precheck.Verdict.PRIVATE:
+        return jsonify({"valid": False, "message": _routes._PRIVATE_PROFILE_MESSAGE})
+    if check.verdict is precheck.Verdict.MISSING:
+        return jsonify({"valid": False, "message": "Username not found on Last.fm."})
 
-    if result["exists"]:
-        payload = {"valid": True, "message": "Username found."}
-        if result.get("registered_year"):
-            payload["registered_year"] = result["registered_year"]
-        return jsonify(payload)
-    return jsonify({"valid": False, "message": "Username not found on Last.fm."})
+    payload = {"valid": True, "message": "Username found."}
+    if check.registered_year:
+        payload["registered_year"] = check.registered_year
+    return jsonify(payload)
 
 
 @bp.route("/csrf-token", methods=["GET"])
@@ -186,7 +178,7 @@ def release_checks():
     job_context = jobs.context(job_id)
     if job_context is None:
         return _release_check_error("Job not found or expired.", 404)
-    if job_context.get("params", {}).get("mode", "album") != "album":
+    if job_context.get("params", {}).get("mode") != jobs.MODE_ALBUM:
         # A heatmap job has no albums to correct, so this is a wrong-mode
         # request rather than an empty one -- the same 404 the album pages
         # give, for the same reason.

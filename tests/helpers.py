@@ -23,6 +23,7 @@ TEST_JOB_PARAMS = {
     "min_plays": 10,
     "min_tracks": 3,
     "limit_results": "all",
+    "mode": "album",
 }
 
 

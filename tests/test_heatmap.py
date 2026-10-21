@@ -553,6 +553,10 @@ class TestFetchAndProcessHeatmap:
 class TestHeatmapTask:
     """Tests for the synchronous thread entry point."""
 
+    @staticmethod
+    def _job():
+        return jobs.create({"username": "user", "mode": "heatmap"})
+
     def test_release_job_slot_called_on_success(self):
         """release_job_slot is called even when the task succeeds."""
         with (
@@ -562,7 +566,7 @@ class TestHeatmapTask:
                 new_callable=AsyncMock,
             ),
         ):
-            heatmap_task("job-ok", "user")
+            heatmap_task(self._job())
             mock_release.assert_called_once()
 
     def test_release_job_slot_called_on_exception(self):
@@ -577,7 +581,7 @@ class TestHeatmapTask:
             patch("scrobblescope.jobs.fail"),
         ):
             # Should NOT raise -- heatmap_task catches exceptions.
-            heatmap_task("job-err", "user")
+            heatmap_task(self._job())
             mock_release.assert_called_once()
 
     def test_release_job_slot_called_when_event_loop_setup_raises(self):
@@ -589,7 +593,7 @@ class TestHeatmapTask:
             patch("scrobblescope.heatmap.release_job_slot") as mock_release,
             patch("scrobblescope.jobs.fail"),
         ):
-            heatmap_task("job-loop-err", "user")
+            heatmap_task(self._job())
             mock_release.assert_called_once()
 
     def test_release_job_slot_called_when_loop_close_raises(self):
@@ -605,7 +609,7 @@ class TestHeatmapTask:
             patch("scrobblescope.jobs.fail"),
         ):
             with pytest.raises(RuntimeError, match="close failed"):
-                heatmap_task("job-loop-err", "user")
+                heatmap_task(self._job())
             mock_release.assert_called_once()
 
     def test_unhandled_crash_publishes_internal_error(self):
@@ -622,7 +626,7 @@ class TestHeatmapTask:
                 side_effect=ZeroDivisionError("ours"),
             ),
         ):
-            heatmap_task(job_id, "user")
+            heatmap_task(job_id)
 
         progress = jobs.progress(job_id)
         assert progress["error"] is True
@@ -644,7 +648,7 @@ class TestHeatmapTask:
                 side_effect=UserNotFoundError(),
             ),
         ):
-            heatmap_task(job_id, "ghost")
+            heatmap_task(job_id)
 
         progress = jobs.progress(job_id)
         assert progress["error"] is True
@@ -666,11 +670,42 @@ class TestHeatmapTask:
                 side_effect=ValueError("User 'ghost' not found on Last.fm"),
             ),
         ):
-            heatmap_task(job_id, "ghost")
+            heatmap_task(job_id)
 
         progress = jobs.progress(job_id)
         assert progress["error_code"] == "internal_error"
         assert progress["retryable"] is False
+
+    def test_the_username_comes_from_the_job_record(self):
+        """heatmap_task takes only the job id and reads the name from the record.
+
+        Mutation: pass a literal name to the pipeline and this fails.
+        """
+        job_id = jobs.create({"username": "recorded", "mode": "heatmap"})
+        with (
+            patch("scrobblescope.heatmap.release_job_slot"),
+            patch(
+                "scrobblescope.heatmap._fetch_and_process_heatmap",
+                new_callable=AsyncMock,
+            ) as mock_pipeline,
+        ):
+            heatmap_task(job_id)
+
+        mock_pipeline.assert_awaited_once_with(job_id, "recorded")
+
+    def test_a_vanished_job_runs_nothing_and_frees_its_slot(self):
+        """Mutation: drop the release in the vanished-job branch and the slot leaks."""
+        with (
+            patch("scrobblescope.heatmap.release_job_slot") as mock_release,
+            patch(
+                "scrobblescope.heatmap._fetch_and_process_heatmap",
+                new_callable=AsyncMock,
+            ) as mock_pipeline,
+        ):
+            heatmap_task("no-such-job")
+
+        mock_pipeline.assert_not_called()
+        mock_release.assert_called_once()
 
 
 # ===========================================================================

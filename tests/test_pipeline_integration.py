@@ -69,7 +69,7 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         patch("scrobblescope.worker.threading.Thread", _CapturingThread),
         patch(
             "scrobblescope.routes.check_user_exists",
-            return_value={"registered_year": 2000},
+            return_value={"exists": True, "registered_year": 2000},
         ),
         patch("scrobblescope.routes.check_profile_is_public", return_value=True),
         patch(

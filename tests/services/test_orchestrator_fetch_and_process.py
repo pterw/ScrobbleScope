@@ -576,12 +576,12 @@ def test_background_task_runs_single_event_loop():
         ) as mock_fp,
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
-        background_task(job_id, "flounder14", 2025, "playcount", "same")
+        background_task(job_id)
 
         mock_fp.assert_awaited_once()
         call_args = mock_fp.call_args
         assert call_args[0][0] == job_id
-        assert call_args[0][1] == "flounder14"
+        assert call_args[0][1] == "testuser"
         mock_release.assert_called_once()
 
 
@@ -601,7 +601,7 @@ def test_background_task_releases_slot_on_exception():
         ),
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
-        background_task(job_id, "flounder14", 2025, "playcount", "same")
+        background_task(job_id)
 
     mock_release.assert_called_once()
 
@@ -618,7 +618,7 @@ def test_background_task_releases_slot_when_event_loop_setup_raises():
         patch("asyncio.set_event_loop", side_effect=RuntimeError("loop setup failed")),
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
-        background_task(job_id, "flounder14", 2025, "playcount", "same")
+        background_task(job_id)
 
     mock_release.assert_called_once()
 
@@ -641,7 +641,7 @@ def test_background_task_releases_slot_when_loop_close_raises():
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
         with pytest.raises(RuntimeError, match="close failed"):
-            background_task(job_id, "flounder14", 2025, "playcount", "same")
+            background_task(job_id)
 
     mock_release.assert_called_once()
 
@@ -748,12 +748,108 @@ def test_background_task_crash_publishes_internal_error():
         ),
         patch("scrobblescope.orchestrator.release_job_slot"),
     ):
-        background_task(job_id, "flounder14", 2025, "playcount", "same")
+        background_task(job_id)
 
     progress = jobs.progress(job_id)
     assert progress["error"] is True
     assert progress["error_code"] == "internal_error"
     assert progress["error_source"] == "internal"
+
+
+def test_background_task_runs_the_pipeline_with_the_job_records_parameters():
+    """
+    GIVEN a job whose record holds a value in every slot
+    WHEN background_task is given only the job id
+    THEN the pipeline is awaited with those values, each in its own slot.
+
+    Mutation: pass the defaults for min_plays and min_tracks and this fails.
+    """
+    job_id = jobs.create(
+        {
+            **TEST_JOB_PARAMS,
+            "username": "recorded",
+            "year": 2023,
+            "sort_mode": "playtime",
+            "release_scope": "custom",
+            "release_year": 1982,
+            "min_plays": 7,
+            "min_tracks": 4,
+            "limit_results": "25",
+            "include_unmatched": True,
+        }
+    )
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._fetch_and_process",
+            new_callable=AsyncMock,
+        ) as mock_fp,
+        patch("scrobblescope.orchestrator.release_job_slot"),
+    ):
+        background_task(job_id)
+
+    mock_fp.assert_awaited_once_with(
+        job_id,
+        "recorded",
+        2023,
+        "playtime",
+        "custom",
+        None,
+        1982,
+        7,
+        4,
+        "25",
+        include_unmatched=True,
+    )
+
+
+def test_background_task_for_a_vanished_job_runs_nothing_and_frees_its_slot():
+    """
+    GIVEN the job expired between admission and the thread's first line
+    WHEN background_task runs
+    THEN the pipeline is not run and the slot the route took is released once.
+
+    Mutation: drop `release_job_slot()` from the vanished-job branch and the
+    slot leaks (the assertion on mock_release fails).
+    """
+    with (
+        patch(
+            "scrobblescope.orchestrator._fetch_and_process",
+            new_callable=AsyncMock,
+        ) as mock_fp,
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
+    ):
+        background_task("no-such-job")
+
+    mock_fp.assert_not_called()
+    mock_release.assert_called_once()
+
+
+def test_background_task_for_an_unusable_record_fails_the_job_and_frees_its_slot():
+    """
+    GIVEN a job record that holds no username or year (not a usable request)
+    WHEN background_task runs
+    THEN the pipeline is not run, the job ends as internal_error so a polling
+    page stops waiting, and the slot the route took is released once.
+
+    Mutation: drop `jobs.fail(job_id, "internal_error")` from
+    `_album_request_for` and the job never ends; drop the release in
+    background_task and mock_release is not called.
+    """
+    job_id = jobs.create({"mode": "album"})
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._fetch_and_process",
+            new_callable=AsyncMock,
+        ) as mock_fp,
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
+    ):
+        background_task(job_id)
+
+    mock_fp.assert_not_called()
+    mock_release.assert_called_once()
+    assert jobs.progress(job_id)["error_code"] == "internal_error"
 
 
 @pytest.mark.asyncio
@@ -1003,19 +1099,7 @@ def test_background_task_stores_unmatched_rows_when_the_flag_is_on():
             ),
             patch("scrobblescope.orchestrator.release_job_slot"),
         ):
-            background_task(
-                job_id,
-                "flounder14",
-                2025,
-                "playcount",
-                "same",
-                None,
-                None,
-                10,
-                3,
-                "all",
-                flag,
-            )
+            background_task(job_id)
         stored[flag] = (
             jobs.context(job_id)["results"],
             jobs.progress(job_id)["message"],

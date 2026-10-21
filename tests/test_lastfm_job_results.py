@@ -531,7 +531,7 @@ def _run_heatmap_task(fake):
         patch("scrobblescope.heatmap.cleanup_expired_cache"),
         patch("scrobblescope.heatmap.release_job_slot"),
     ):
-        heatmap_task(job_id, "parity_user")
+        heatmap_task(job_id)
     return job_id
 
 

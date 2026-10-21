@@ -242,8 +242,12 @@ def _report_heatmap_failure(job_id, username, exc):
     jobs.fail(job_id, error_code, username=username)
 
 
-def heatmap_task(job_id, username):
+def heatmap_task(job_id):
     """Thread entry point: run the heatmap pipeline in a dedicated event loop.
+
+    The username comes from the job record (``jobs.params``), where admission
+    stored it. A job that is gone runs nothing, and the slot the route
+    acquired is still released.
 
     The build-run-close-release protocol, including that the loop is built inside
     the ``try`` so the slot is released in the ``finally``, lives in
@@ -254,6 +258,11 @@ def heatmap_task(job_id, username):
     point's backstop (``_report_album_failure``) does not classify: it always
     publishes ``internal_error`` (F-SWE-5).
     """
+    username = (jobs.params(job_id) or {}).get("username")
+    if not username:
+        logging.warning("Heatmap job %s was gone before its thread started.", job_id)
+        release_job_slot()
+        return
     run_coroutine_in_new_loop(
         _fetch_and_process_heatmap(job_id, username),
         # Explicit, for the same reason as the album entry point: these tests patch

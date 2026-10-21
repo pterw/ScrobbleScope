@@ -263,6 +263,7 @@ def check_include_results_page(page, base_url: str) -> list[str]:
             "year": 2025,
             "sort_mode": "playcount",
             "include_unmatched": True,
+            "mode": jobs.MODE_ALBUM,
         }
     )
     failures = []

@@ -208,6 +208,7 @@ def test_results_complete_renders_no_matches_for_empty_results(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "10",
+            "mode": "album",
         }
     )
     jobs.succeed(job_id, [], "No albums found for the specified criteria.")
@@ -391,8 +392,8 @@ def test_results_loading_thread_start_failure_renders_error(client, fresh_job_st
     assert response.status_code == 200
     assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
-    # The route must have called jobs.delete on the job it created: the store must be
-    # back to its pre-request size with no orphan entry left behind.
+    # A failed thread start leaves no orphan job: admission.admit deletes the job it
+    # created, so the store is back to its pre-request size.
     assert set(fresh_job_store.ids()) == jobs_before
 
 
@@ -513,6 +514,7 @@ def test_results_complete_with_results_renders_data(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "all",
+            "mode": "album",
         }
     )
     jobs.succeed(
@@ -539,6 +541,48 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+def test_each_play_count_states_how_many_digits_it_has(client):
+    """The narrow-screen sizing keys on the digit count, so a count must
+    carry its own length, whatever it is."""
+    job_id = jobs.create(
+        {
+            "username": "flounder14",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": "album",
+        }
+    )
+    jobs.succeed(
+        job_id,
+        [
+            {
+                "artist": "A",
+                "album": "Four",
+                "play_count": 8080,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2025-02-07",
+            },
+            {
+                "artist": "B",
+                "album": "Three",
+                "play_count": 407,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2025-02-07",
+            },
+        ],
+        "Done!",
+    )
+
+    html = client.post("/results_complete", data={"job_id": job_id}).get_data(
+        as_text=True
+    )
+
+    assert re.search(r'data-digits="4">\s*8080\s*</span>', html)
+    assert re.search(r'data-digits="3">\s*407\s*</span>', html)
+
+
 def test_results_complete_links_each_row_to_its_own_provider(client):
     """
     GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album
@@ -559,6 +603,7 @@ def test_results_complete_links_each_row_to_its_own_provider(client):
             "min_plays": 10,
             "min_tracks": 3,
             "limit_results": "all",
+            "mode": "album",
         }
     )
     jobs.succeed(
@@ -1897,22 +1942,26 @@ def test_results_loading_year_at_registration_year_allowed(client):
     assert response.location.startswith("/loading?job_id=")
 
 
-def test_results_loading_registration_check_unavailable_proceeds(client):
+def test_results_loading_lookup_unavailable_refuses_and_starts_nothing(
+    client, fresh_job_store
+):
     """
-    GIVEN the registration year check raises an exception (Last.fm unavailable)
+    GIVEN the Last.fm lookup raises (Last.fm unavailable)
     WHEN POST /results_loading is submitted
-    THEN the route proceeds to start the job rather than blocking the user.
+    THEN the route refuses retryably (503) and starts no job; it no longer
+    proceeds without the check.
     """
     with (
         patch(
             "scrobblescope.routes.run_async_in_thread",
             side_effect=Exception("network error"),
         ),
-        patch("scrobblescope.routes.start_job_thread"),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
-    assert response.status_code == 303
-    assert response.location.startswith("/loading?job_id=")
+    assert response.status_code == 503
+    mock_start.assert_not_called()
+    assert fresh_job_store.ids() == []
 
 
 def test_results_loading_no_registered_year_proceeds(client):
@@ -2986,9 +3035,9 @@ def test_artist_spotlight_api_failure_line_carries_no_artist_or_message(
         assert "Wjkl" not in record.getMessage()
 
 
-def test_results_loading_registration_check_failure_logs_no_message(client, caplog):
-    """The optional registration-year check writes the exception class, not
-    its message, when the Last.fm call fails."""
+def test_results_loading_lookup_failure_logs_no_message_and_no_name(client, caplog):
+    """The pre-check writes the exception class, not its message and not the
+    listener's name, when the Last.fm call fails."""
     import logging
 
     with (
@@ -3002,9 +3051,10 @@ def test_results_loading_registration_check_failure_logs_no_message(client, capl
         client.post("/results_loading", data=VALID_FORM_DATA)
 
     text = " ".join(r.getMessage() for r in caplog.records)
-    assert "Registration year check failed for flounder14" in text
+    assert "User existence check failed" in text
     assert "RuntimeError" in text
     assert "Zqxv" not in text
+    assert "flounder14" not in text
 
 
 # --- Partial runs are disclosed on Results (review 4, frontend 3) ---
@@ -3765,11 +3815,10 @@ def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
     GIVEN the index form posted with the "Include" radio (value 1)
     WHEN /results_loading starts the job
     THEN the job params hold include_unmatched True and the thread receives
-    the flag as background_task's last argument; with the "Hide"
-    radio (value 0), or without the field, both are False.
+    only the job id and the record holds the flag; with the "Hide"
+    radio (value 0), or without the field, it is False.
 
-    Mutation: leave the flag out of the thread args and the args assertion
-    fails.
+    Mutation: leave the flag out of the job record and the first element fails.
     """
     flags = {}
     for key, field in (
@@ -3790,11 +3839,32 @@ def test_results_loading_passes_the_include_flag_to_the_job_thread(client):
         job_id = response.location.split("job_id=", 1)[1]
         flags[key] = (
             jobs.context(job_id)["params"]["include_unmatched"],
-            mock_start.call_args.kwargs["args"][-1],
+            mock_start.call_args.kwargs["args"] == (job_id,),
         )
 
     assert flags == {
         "all": (True, True),
-        "matched": (False, False),
-        "absent": (False, False),
+        "matched": (False, True),
+        "absent": (False, True),
     }
+
+
+@pytest.mark.parametrize(
+    "path", ["/results", "/loading", "/unmatched", "/api/release_checks"]
+)
+def test_a_job_that_never_said_its_kind_is_not_served_as_an_album_job(client, path):
+    """
+    GIVEN a job record with no `mode`
+    WHEN an album page or the release-check API is asked for it
+    THEN the answer is 404 (it is not assumed to be an album run).
+
+    Mutation: restore `.get("mode", "album")` in routes._get_validated_job_context
+    or api.release_checks and the matching rows return 200.
+    """
+    job_id = jobs.create(
+        {"username": "someone", "year": 2025, "sort_mode": "playcount"}
+    )
+
+    response = client.get(f"{path}?job_id={job_id}")
+
+    assert response.status_code == 404

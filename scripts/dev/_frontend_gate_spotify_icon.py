@@ -302,7 +302,14 @@ def check_export_icon_keeps_its_size(page, base_url: str) -> list[str]:
     minimum. The ink inside the icon's box on the decoded download, divided by
     the export's scale, must clear MIN_ICON_PX in whichever engine runs this.
     """
-    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create(
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
+    )
     try:
         jobs.succeed(job_id, [_SPOTIFY_ROW], "Done")
         page.route("**/api/artist_spotlight?*", lambda route: route.fulfill(json={}))
@@ -348,7 +355,14 @@ def check_spotify_icon_follows_system_under_forced_colors(
     is black on black or white on white and vanishes. Each system scheme is
     paired with the opposite saved theme and must still show its own file.
     """
-    job_id = jobs.create({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    job_id = jobs.create(
+        {
+            "username": "gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "mode": jobs.MODE_ALBUM,
+        }
+    )
     failures = []
     try:
         jobs.succeed(job_id, [_SPOTIFY_ROW], "Done")
