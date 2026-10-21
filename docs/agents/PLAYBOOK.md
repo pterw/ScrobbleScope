@@ -156,6 +156,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Close two guard gaps the reviews found
+
+Side task, no batch tag: two test guards the PR #4 task reviews found too weak, on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: a guard test must fail for every way of breaking what it guards, not only the one way its author planted.
+
+What changed: `test_the_routes_never_import_the_correction_worker` now catches all three import forms of `scrobblescope.release_checks` (`from scrobblescope.release_checks import x`, `from scrobblescope import release_checks`, `import scrobblescope.release_checks`); the task 3 review had planted the middle form in `routes/api.py` and the test passed. New `test_each_request_field_reaches_the_enrichment_tail` (six parametrised cases in `tests/services/test_finish_album_job.py`) asserts that `finish_album_job` passes `year`, `sort_mode`, `release_scope`, `decade`, `release_year` and `limit_results` to `_process_filtered_albums` each in its own place, with `overall_start_time` and `include_unmatched`, and that the job's progress was 20 at that call (the task 5 review's Minor 2). `min_plays` and `min_tracks` are not asserted: `finish_album_job` does not read them, `select_albums` applied them before. Proof by planted defect in a scratch copy: all three import forms fail the first test; swapping `decade` and `release_year` fails two cases, `year + 1` fails one, dropping the `jobs.advance(job_id, 20, ...)` call fails all six.
+
+Deviations: none. Edited existing test: `test_the_routes_never_import_the_correction_worker`.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-20 - One album selection and one publish step
 
 Side task, no batch tag: `plays.select_albums` returns one typed `AlbumSelection` and `orchestrator.finish_album_job` is the one publish step after it (PR #4 of the pre-Batch-23 tranche, task 23d, F-B23-1's threshold half, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
@@ -213,17 +225,3 @@ Deviations: the drain item of the design was already done (`utils.cancel_and_dra
 Mutation evidence (scratch copy, each restored afterwards): `from scrobblescope.utils import _GlobalThrottle` added to `release_checks.py` failed `test_no_module_reads_another_modules_private_name` (named `release_checks`); `from scrobblescope.release_checks import enqueue_release_check` added to `routes/api.py` failed `test_the_routes_never_import_the_correction_worker`; `CHECK_MOVED_OUT = "moved-out"` failed `test_release_status_strings_are_the_ones_the_browser_compares`. Each time `3 passed` once restored.
 
 Validation: `pytest -q` -- **2797 passed**.
-
-### 2026-10-20 - Last.fm usernames leave the log lines
-
-Side task, no batch tag: nine log lines stop carrying a Last.fm username (finding F-B23-40; PR #4 of the pre-Batch-23 tranche, task 2), on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: F-B23-40 and the tranche spec's "Last.fm usernames leave the logs": a handle paired with a scrobble total is a listener-linked fact, and the export path will share this code. The message a browser user reads ("User 'x' was not found on Last.fm.") is not a log line and stays.
-
-What changed: nine lines in four files. Eight username lines: `lastfm.py` (went-private and not-found lines, now fixed text), `heatmap.py` (fetch timing and `_report_heatmap_failure` now name the job id; "Heatmap ready" now reads "Heatmap job <id> is ready" and the scrobble total is gone) and `orchestrator/__init__.py` (the `fetch_top_albums_async` DEBUG start line drops the user; `_fetch_and_process` and `_report_album_failure` name the job id). The ninth is `utils.get_cached_response`'s cache-hit line, which wrote the cache key (it embeds the query string: the API key and `user:<name>`) and now writes the URL only. The `RedactingFormatter` docstring in `api_logging.py` no longer lists the cache-hit line as a carrier. The three route lines that were also in F-B23-40's sweep (registration-year warning, two heatmap pre-check lines) left with PR #3 and are neither changed nor tested here. New `tests/test_log_privacy.py` (7 tests: heatmap run, album run, both thread-entry backstops, both page-layer refusals, the real cache hit). F-B23-40 is marked resolved in `docs/agents/FINDINGS.md` (with the `**Completed:**` line the checker requires, DOC015/DOC016), and `doc_state_sync.py --fix` then rotated it to `docs/history/findings/FINDINGS_ARCHIVE.md`.
-
-Deviations: three existing tests in `tests/services/test_failure_logging.py` (`test_album_pipeline_crash_logs_the_class_only_at_error`, `test_album_backstop_logs_the_class_only_at_error`, `test_heatmap_backstop_logs_the_class_only_at_error`) now also assert the username is absent, through an optional `listener` argument of `_assert_type_only_at_error`. The plan's Step 1b (`tests/test_lastfm_job_results.py::_run_heatmap_task` calling `heatmap_task(job_id)` after PR #3) was already done by the merge of `main`, so this commit does not touch that file. The RED run of Step 2 was not taken before the edits; the mutation table below stands in for it. No other deviation.
-
-Mutation evidence: each of the nine lines restored to its old form in a scratch copy, and each named test failed (`1 failed`) and passed again once restored: went-private and not-found page-layer cases (rows 1-2), `test_a_heatmap_run_logs_its_job_id_not_its_listener` (rows 3-4), `test_the_heatmap_backstop_logs_the_job_id_not_the_listener` and `test_heatmap_backstop_logs_the_class_only_at_error` (row 5), `test_an_album_run_logs_no_listener` (row 6), `test_album_pipeline_crash_logs_the_class_only_at_error` (row 7), `test_the_album_backstop_logs_the_job_id_not_the_listener` and `test_album_backstop_logs_the_class_only_at_error` (row 8), `test_a_cache_hit_logs_no_listener` (row 9).
-
-Validation: `pytest -q` -- **2794 passed**.

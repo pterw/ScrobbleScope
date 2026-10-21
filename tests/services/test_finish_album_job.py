@@ -193,3 +193,59 @@ async def test_the_albums_choice_reaches_the_enrichment_tail():
         )
 
     assert tail.await_args.kwargs["include_unmatched"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "value", "argument"),
+    [
+        ("year", 2019, 2),
+        ("sort_mode", "alphabetical", 3),
+        ("release_scope", "decade", 4),
+        ("decade", "1990s", 5),
+        ("release_year", 1997, 6),
+        ("limit_results", "25", 7),
+    ],
+)
+async def test_each_request_field_reaches_the_enrichment_tail(field, value, argument):
+    """
+    GIVEN a request whose fields all differ from one another
+    WHEN the publish step runs
+    THEN the tail receives each field in its own place, unchanged, and the
+    job's progress stood at 20 when the tail was called.
+
+    ``min_plays`` and ``min_tracks`` are not read here: ``select_albums``
+    applied them before the publish step.
+
+    Planted defects: swap ``decade`` and ``release_year``; pass ``year + 1``;
+    drop the ``jobs.advance(job_id, 20, ...)`` call.
+    """
+    selection, _ = lastfm_albums(ELIGIBLE, plays_seen=50)
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    request = dataclasses.replace(
+        ALBUM,
+        year=2019,
+        sort_mode="alphabetical",
+        release_scope="decade",
+        decade="1990s",
+        release_year=1997,
+        limit_results="25",
+        include_unmatched=True,
+    )
+    seen = {}
+
+    async def tail(*args, **kwargs):
+        seen["args"] = args
+        seen["kwargs"] = kwargs
+        seen["progress"] = jobs.progress(job_id)["progress"]
+        return []
+
+    with patch("scrobblescope.orchestrator._process_filtered_albums", tail):
+        await finish_album_job(job_id, selection, request, overall_start_time=7.5)
+
+    assert seen["args"][0] == job_id
+    assert seen["args"][1] == ELIGIBLE
+    assert seen["args"][argument] == value
+    assert seen["args"][8] == 7.5
+    assert seen["kwargs"] == {"include_unmatched": True}
+    assert seen["progress"] == 20

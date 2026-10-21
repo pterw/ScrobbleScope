@@ -83,16 +83,22 @@ def test_the_routes_never_import_the_correction_worker():
     ``release_status`` and the job's stats, and never start or touch the
     worker thread.
 
-    Planted defect: add ``from scrobblescope.release_checks import
-    enqueue_release_check`` to ``routes/api.py``.
+    Every import form counts. Planted defects, each added to ``routes/api.py``:
+    ``from scrobblescope.release_checks import enqueue_release_check``,
+    ``from scrobblescope import release_checks``, and
+    ``import scrobblescope.release_checks``.
     """
+    module = "scrobblescope.release_checks"
     offenders = []
     for path in sorted((SRC / "routes").glob("*.py")):
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.ImportFrom) and node.module == (
-                "scrobblescope.release_checks"
-            ):
-                offenders.append(path.name)
+            if isinstance(node, ast.ImportFrom):
+                names = {f"{node.module}.{alias.name}" for alias in node.names}
+                if node.module == module or module in names:
+                    offenders.append(path.name)
+            elif isinstance(node, ast.Import):
+                if any(alias.name == module for alias in node.names):
+                    offenders.append(path.name)
     assert offenders == []
 
 
