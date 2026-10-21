@@ -65,21 +65,21 @@ sequenceDiagram
             Heatmap->>Jobs: expire_stale()
             Heatmap->>Jobs: start: progress 0%, stats cleared
             Heatmap->>Jobs: Progress 5%
-            Heatmap->>LastFM: Fetch last 365 days of recent tracks
+            Heatmap->>LastFM: Fetch last 365 days of recent tracks (lastfm.fetch_scrobbles)
             loop Paginated pages, 5%-80% progress
-                LastFM-->>Heatmap: Raw scrobble page
+                LastFM-->>Heatmap: Page of scrobbles, turned into plays inside lastfm.py
                 Heatmap->>Jobs: Store page progress
             end
-            Heatmap->>Jobs: record_stat(pages_expected and pages_received)
             alt Terminal Last.fm failure
-                Heatmap->>Jobs: fail(lastfm_unavailable)
-            else Pages available
+                Note over Heatmap,Jobs: fetch_scrobbles raises ProviderError(lastfm unavailable), and the unhandled-exception path below publishes lastfm_unavailable
+            else Plays available
+                Heatmap->>Jobs: record_stat(pages_expected and pages_received)
                 opt Partial pages returned
                     Heatmap->>Jobs: record_stat(partial_data_warning)
                     Note over Heatmap,Jobs: Continue with the available pages
                 end
                 Heatmap->>Jobs: Progress 80%
-                Heatmap->>Heatmap: Decode UTC timestamps, filter boundaries, and fill empty days
+                Heatmap->>Heatmap: plays.aggregate_daily_counts: the UTC day of each play, boundaries filtered, empty days filled
                 Heatmap->>Heatmap: Total and peak-day statistics
                 alt No scrobbles in range
                     Heatmap->>Jobs: fail(no_scrobbles_in_range)
@@ -138,13 +138,11 @@ The client requests `/heatmap_data` only after progress reaches 100%, so the
 the client always sends one, so those responses are not drawn.
 
 `heatmap.py` self-arrows cover in-process work and the `cleanup_expired_cache()`
-helper it imports from `utils.py`, which is not drawn as a participant. The
-inner, status-based Last.fm path's terminal error code is `lastfm_unavailable`
-because that is the only reason the fetch layer emits today; the code passes
-through whatever reason the fetch metadata carries. The outer backstop -- the
-`opt Unhandled exception anywhere above` block -- is a different path: it
-classifies the escaped exception, by its type, with
-`errors.classify_exception_to_error_code`, the one classifier the album
-pipeline also uses, and publishes that code; a
+helper it imports from `utils.py`, which is not drawn as a participant.
+A total Last.fm failure is an exception, not a status: `lastfm.fetch_scrobbles`
+raises a typed provider failure, and the one backstop -- the
+`opt Unhandled exception anywhere above` block -- classifies it by type with
+`errors.classify_exception_to_error_code`, the classifier the album pipeline
+also uses, and publishes that code (`lastfm_unavailable` for an outage). A
 fault the classifier does not recognize is ours, so it publishes
 `internal_error` instead (F-SWE-5).

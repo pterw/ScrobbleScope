@@ -9,6 +9,34 @@ Newest rotation first.
 
 ---
 
+### F-B23-2: Last.fm's payload shape travels into both calculations -- RESOLVED
+
+`lastfm.py` returns raw JSON pages. `orchestrator.fetch_top_albums_async`
+then reads `recenttracks`, `track`, `album.#text`, `artist.#text` and
+`date.uts` itself, and `heatmap._aggregate_daily_counts` reads `recenttracks`
+and `date.uts`. A change to Last.fm's payload therefore reaches two
+calculations, and WP-6's first-listen and busiest-hour statistics would add
+more of the same reads. Global Rule 4 puts that translation inside the
+provider module.
+
+The fix is to have `lastfm.py` translate the payload into native listening
+facts, keeping completeness explicit. Two differences must survive:
+- the heatmap counts dated rows even without album metadata, while album
+  aggregation needs artist, album and track;
+- the Spotify-export rules (30 seconds, private sessions) must not be imposed
+  on Last.fm.
+
+It cannot land inside Batch 23 as-is: `tests/test_heatmap.py` feeds
+`_aggregate_daily_counts` raw pages, and Batch 23 keeps the Last.fm path's
+tests unmodified. It is separate from F-B22-7, which translates Spotify's
+metadata payload.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-20
+By refactor(lastfm): Hand callers scrobbles, not pages -- lastfm.fetch_scrobbles returns plays.Play records and both calculations read them; the two differences listed above are pinned in tests/test_lastfm_job_results.py and tests/test_plays.py, and the Spotify-export rules stay out of plays.py.
+Source: card 02 of `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
+(2026-09-23).
+
 ### F-B23-40: the Last.fm username appears in log lines, beside the listener's scrobble total -- RESOLVED
 
 `lastfm.py` ("Profile of %s is private", "User %s not found"), `orchestrator/__init__.py` (`_fetch_and_process` and `_report_album_failure`), `heatmap.py` ("Heatmap ready for %s: %s scrobbles" and `_report_heatmap_failure`), `routes/heatmap_flow.py` and `routes/album_flow.py` write the Last.fm username into ERROR, WARNING and INFO lines, and the heatmap line pairs it with the listener's scrobble total. `log_failure`'s docstring and BATCH23's Data handling section say listener-linked facts stay out of logs. Ask the owner whether a public Last.fm handle counts; if it does, log the job id instead. The scrobble-total line is the clearer one to drop first, before the export path shares this code.

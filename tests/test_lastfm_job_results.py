@@ -155,11 +155,6 @@ async def test_the_now_playing_entry_is_not_an_album_play():
     assert album["play_count"] == 12
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Task 4 (23c) flips this: owner ruling 2026-09-29, the now-playing "
-    "entry is not a scrobble, so it leaves total_scrobbles",
-)
 @pytest.mark.asyncio
 async def test_the_scrobble_total_counts_completed_scrobbles_only():
     """
@@ -262,11 +257,6 @@ async def test_an_entry_with_no_album_artist_or_track_name_is_not_an_album_play(
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Task 4 (23c) flips this: a scrobble with no album field at all is "
-    "not an album play (design section 3.4, item 2)",
-)
 @pytest.mark.asyncio
 async def test_an_entry_with_no_album_field_is_not_an_album_play():
     """
@@ -436,11 +426,6 @@ async def test_an_unusable_first_page_ends_the_album_job_as_lastfm_unavailable()
     enqueue.assert_not_called()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Task 4 (23c) flips this: a failed fetch writes nothing before it "
-    "raises (design section 3.4, item 4)",
-)
 @pytest.mark.asyncio
 async def test_a_failed_lastfm_job_records_no_listening_stats():
     """
@@ -479,11 +464,6 @@ async def test_a_user_not_found_on_a_later_page_ends_the_album_job_as_user_not_f
     process.assert_not_awaited()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Task 4 (23c) flips this: one unreadable entry is dropped and "
-    "counted, it does not fail the job (design section 3.4, item 3)",
-)
 @pytest.mark.asyncio
 async def test_one_unreadable_timestamp_does_not_fail_the_album_job():
     """
@@ -668,11 +648,6 @@ def test_a_user_not_found_on_a_later_page_ends_the_heatmap_as_user_not_found():
     assert progress["retryable"] is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Task 4 (23c) flips this: one unreadable entry is dropped and "
-    "counted, it does not fail the job (design section 3.4, item 3)",
-)
 @pytest.mark.asyncio
 async def test_one_unreadable_timestamp_does_not_fail_the_heatmap():
     """

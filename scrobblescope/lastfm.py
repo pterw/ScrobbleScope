@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,7 +12,8 @@ from scrobblescope.config import (
     LASTFM_REQUESTS_PER_SECOND,
     MAX_CONCURRENT_LASTFM,
 )
-from scrobblescope.errors import PrivateProfileError, UserNotFoundError
+from scrobblescope.errors import PrivateProfileError, ProviderError, UserNotFoundError
+from scrobblescope.plays import Play, Window
 from scrobblescope.utils import (
     cancel_and_drain,
     create_optimized_session,
@@ -384,3 +386,131 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
 
         logging.info(f"Last.fm: Fetched {pages_received}/{pages_expected} pages")
         return all_pages, metadata
+
+
+@dataclass(frozen=True, slots=True)
+class FetchSummary:
+    """How complete a fetch was: the pages Last.fm reported and the pages read."""
+
+    pages_expected: int
+    pages_received: int
+
+    @property
+    def pages_dropped(self) -> int:
+        """Return how many pages never arrived."""
+        return max(0, self.pages_expected - self.pages_received)
+
+    @property
+    def partial(self) -> bool:
+        """Return whether any page was lost."""
+        return self.pages_received < self.pages_expected
+
+    @property
+    def data_loss_pct(self) -> int:
+        """Return the share of pages lost, as a whole percent (0 when none expected)."""
+        if self.pages_expected == 0:
+            return 0
+        return round((self.pages_dropped / self.pages_expected) * 100)
+
+
+@dataclass(frozen=True, slots=True)
+class ScrobbleFetch:
+    """The scrobbles of one user in one window, with how complete they are.
+
+    ``dropped_undated`` counts entries with no date (the now-playing entry);
+    ``dropped_malformed`` counts entries that could not be read. Neither is
+    ever logged by content.
+    """
+
+    plays: tuple[Play, ...]
+    summary: FetchSummary
+    dropped_undated: int
+    dropped_malformed: int
+
+
+def _page_number(page: Any) -> int:
+    """Return the page's own number, or 0 when it carries none.
+
+    Pages are sorted by this so the plays leave in page order, not in the order
+    the network happened to answer; a stable sort leaves unnumbered pages as
+    received.
+    """
+    try:
+        return int(page["recenttracks"]["@attr"]["page"])
+    except (KeyError, TypeError, ValueError):
+        return 0
+
+
+def _name_of(entry: dict, key: str) -> str:
+    """Return the ``#text`` of an entry's artist or album object, or ``""``."""
+    value = entry.get(key)
+    text = value.get("#text") if isinstance(value, dict) else None
+    return text if isinstance(text, str) else ""
+
+
+def _plays_from_pages(pages: list) -> tuple[list[Play], int, int]:
+    """Turn well-formed Last.fm pages into plays; count the entries that cannot be.
+
+    Returns ``(plays, dropped_undated, dropped_malformed)``. The date comes from
+    ``date.uts`` decoded as UTC, never from ``date["#text"]``, which is
+    locale-dependent. Nothing but the timestamp and the three names is kept:
+    no mbid, image, url or username ever leaves this function.
+    """
+    plays: list[Play] = []
+    undated = 0
+    malformed = 0
+    for page in sorted(pages, key=_page_number):
+        for entry in page.get("recenttracks", {}).get("track", []):
+            if not isinstance(entry, dict):
+                malformed += 1
+                continue
+            date_field = entry.get("date")
+            uts = date_field.get("uts") if isinstance(date_field, dict) else None
+            if not uts:
+                undated += 1
+                continue
+            try:
+                played_at = datetime.fromtimestamp(int(uts), tz=UTC)
+            except (TypeError, ValueError, OverflowError, OSError):
+                malformed += 1
+                continue
+            name = entry.get("name")
+            plays.append(
+                Play(
+                    played_at=played_at,
+                    artist=_name_of(entry, "artist"),
+                    album=_name_of(entry, "album"),
+                    track=name if isinstance(name, str) else "",
+                )
+            )
+    return plays, undated, malformed
+
+
+async def fetch_scrobbles(username, window: Window, progress_cb=None) -> ScrobbleFetch:
+    """Return the scrobbles of *username* inside *window* as normalized plays.
+
+    Pagination, retries, the page cache and every Last.fm quirk stay behind this
+    function; raw pages never leave it. ``progress_cb(pages_done, pages_expected,
+    pages_received)`` is passed to the page fan-out untouched.
+
+    Raises the typed failures the page layer raises (``UserNotFoundError``,
+    ``PrivateProfileError``) and, when page 1 never answered,
+    ``ProviderError("lastfm", "unavailable")``. A total failure is an exception,
+    never a status value. Partial data is a value, not an exception: see
+    ``ScrobbleFetch.summary``. No message names the user or any page content.
+    """
+    pages, meta = await fetch_all_recent_tracks_async(
+        username, window.start_ts(), window.end_ts(), progress_cb=progress_cb
+    )
+    if meta.get("status") == "error":
+        raise ProviderError("lastfm", "unavailable")
+    plays, undated, malformed = _plays_from_pages(pages)
+    if malformed:
+        logging.warning(
+            f"Last.fm: {malformed} entries could not be read and were skipped"
+        )
+    summary = FetchSummary(
+        pages_expected=meta.get("pages_expected", 0),
+        pages_received=meta.get("pages_received", len(pages)),
+    )
+    return ScrobbleFetch(tuple(plays), summary, undated, malformed)

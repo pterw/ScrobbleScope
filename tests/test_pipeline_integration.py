@@ -73,7 +73,7 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
         ),
         patch("scrobblescope.routes.check_profile_is_public", return_value=True),
         patch(
-            o + "fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new_callable=AsyncMock,
             return_value=(
                 [lastfm_page],

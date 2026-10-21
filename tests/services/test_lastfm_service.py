@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -8,16 +9,20 @@ import pytest
 
 from scrobblescope.errors import (
     PrivateProfileError,
+    ProviderError,
     UserNotFoundError,
     classify_exception_to_error_code,
 )
 from scrobblescope.lastfm import (
+    FetchSummary,
     _is_well_formed_page,
     check_profile_is_public,
     check_user_exists,
     fetch_all_recent_tracks_async,
     fetch_recent_tracks_page_async,
+    fetch_scrobbles,
 )
+from scrobblescope.plays import Window
 from tests.helpers import NoopAsyncContext, make_response_context
 
 
@@ -1124,3 +1129,262 @@ async def test_page_fetch_403_without_error_17_is_an_outage_not_a_private_profil
     assert "Invalid API key" not in caplog.text
     assert "Suspended" not in caplog.text
     assert "someone" not in caplog.text
+
+
+# --- fetch_scrobbles: pages in, plays out (Task 23c) ---------------------------
+
+
+def _scrobble_page(tracks, number=1, total=1):
+    return {
+        "recenttracks": {
+            "@attr": {"page": str(number), "totalPages": str(total)},
+            "track": tracks,
+        }
+    }
+
+
+def _raw(artist, album, name, uts):
+    return {
+        "artist": {"#text": artist},
+        "album": {"#text": album},
+        "name": name,
+        "date": {"uts": str(uts)},
+    }
+
+
+async def _scrobbles(pages, meta=None, window=None, progress_cb=None):
+    """Run ``fetch_scrobbles`` over ``pages``; return (result, the fetch mock)."""
+    meta = meta or {
+        "status": "ok",
+        "pages_expected": len(pages),
+        "pages_received": len(pages),
+    }
+    with patch(
+        "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+        new_callable=AsyncMock,
+        return_value=(pages, meta),
+    ) as fetch:
+        result = await fetch_scrobbles(
+            "anyone", window or Window.year(2023), progress_cb=progress_cb
+        )
+    return result, fetch
+
+
+@pytest.mark.asyncio
+async def test_fetch_scrobbles_hands_back_plays_with_utc_timestamps():
+    """
+    GIVEN a page with one scrobble at 2023-06-15T12:00:00Z
+    WHEN fetch_scrobbles runs
+    THEN the play carries that moment with tzinfo exactly UTC, and the three names.
+
+    Planted defect: read the artist from the album's key and the album from the
+    artist's.
+    """
+    page = _scrobble_page([_raw("Mitski", "Laurel Hell", "Heat Lightning", 1686830400)])
+
+    result, _ = await _scrobbles([page])
+
+    (play,) = result.plays
+    assert play.played_at == datetime(2023, 6, 15, 12, tzinfo=UTC)
+    assert play.played_at.tzinfo is UTC
+    assert (play.artist, play.album, play.track) == (
+        "Mitski",
+        "Laurel Hell",
+        "Heat Lightning",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_play_at_2330_utc_keeps_its_utc_day():
+    """
+    GIVEN a scrobble at 23:30 UTC on 2026-04-10
+    WHEN fetch_scrobbles runs
+    THEN its day is the UTC day, whatever zone the host is in.
+
+    Planted defect: decode the timestamp with the host's local zone. The play
+    then has no tzinfo and its constructor refuses it.
+    """
+    page = _scrobble_page([_raw("A", "B", "C", 1775863800)])
+
+    result, _ = await _scrobbles([page], window=Window.year(2026))
+
+    assert result.plays[0].played_at.date() == date(2026, 4, 10)
+    assert result.plays[0].played_at.tzinfo is UTC
+
+
+@pytest.mark.asyncio
+async def test_the_now_playing_entry_is_dropped_and_counted():
+    """
+    GIVEN a now-playing entry (no date) beside a dated scrobble
+    WHEN fetch_scrobbles runs
+    THEN one play is returned and one undated entry is counted.
+
+    Planted defect: turn the undated entry into a play.
+    """
+    now_playing = {"artist": {"#text": "A"}, "album": {"#text": "B"}, "name": "C"}
+    page = _scrobble_page([now_playing, _raw("A", "B", "C", 1686830400)])
+
+    result, _ = await _scrobbles([page])
+
+    assert len(result.plays) == 1
+    assert (result.dropped_undated, result.dropped_malformed) == (1, 0)
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_entry_is_dropped_and_counted_not_fatal(caplog):
+    """
+    GIVEN entries that are not objects, have a non-numeric timestamp, or one too
+    large to be a date, beside a good scrobble
+    WHEN fetch_scrobbles runs
+    THEN the good one is returned, the three bad ones are counted, and the log
+    names their count and nothing of their content.
+
+    Planted defect: let the first unreadable entry raise.
+    """
+    bad_text = _raw("Zqxv Artist", "Zqxv Album", "Zqxv Track", "abc")
+    too_big = _raw("Zqxv Artist", "Zqxv Album", "Zqxv Track", "9" * 20)
+    page = _scrobble_page(["Zqxv", bad_text, too_big, _raw("A", "B", "C", 1686830400)])
+
+    with caplog.at_level(logging.DEBUG):
+        result, _ = await _scrobbles([page])
+
+    assert len(result.plays) == 1
+    assert result.dropped_malformed == 3
+    assert "3 entries" in caplog.text
+    assert "Zqxv" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_missing_name_becomes_an_empty_string():
+    """
+    GIVEN an entry with no album object at all
+    WHEN fetch_scrobbles runs
+    THEN its play has an empty album: the aggregators decide what an empty name
+    means, the border does not invent one.
+
+    Planted defect: default a missing album to "...".
+    """
+    entry = {"artist": {"#text": "A"}, "name": "C", "date": {"uts": "1686830400"}}
+
+    result, _ = await _scrobbles([_scrobble_page([entry])])
+
+    assert result.plays[0].album == ""
+
+
+@pytest.mark.asyncio
+async def test_plays_leave_in_page_order_whatever_order_the_pages_arrive():
+    """
+    GIVEN page 2 arrives before page 1
+    WHEN fetch_scrobbles runs
+    THEN the plays are ordered by page number, so "first seen" does not depend
+    on which page the network answered first.
+
+    Planted defect: keep arrival order.
+    """
+    first = _scrobble_page([_raw("A", "B", "one", 1686830400)], number=1, total=2)
+    second = _scrobble_page([_raw("A", "B", "two", 1686830401)], number=2, total=2)
+
+    result, _ = await _scrobbles([second, first])
+
+    assert [play.track for play in result.plays] == ["one", "two"]
+
+
+@pytest.mark.asyncio
+async def test_the_summary_reports_dropped_pages():
+    """
+    GIVEN a fetch that read 3 of 5 pages
+    WHEN fetch_scrobbles runs
+    THEN the summary is partial with two pages dropped and 40 percent lost.
+
+    Planted defect: compute the loss percentage against the pages received
+    instead of the pages expected.
+    """
+    meta = {
+        "status": "partial",
+        "pages_expected": 5,
+        "pages_received": 3,
+        "pages_dropped": 2,
+    }
+    pages = [_scrobble_page([], n, 5) for n in (1, 2, 3)]
+
+    result, _ = await _scrobbles(pages, meta)
+
+    assert result.summary == FetchSummary(pages_expected=5, pages_received=3)
+    assert result.summary.partial is True
+    assert result.summary.pages_dropped == 2
+    assert result.summary.data_loss_pct == 40
+
+
+@pytest.mark.asyncio
+async def test_metadata_without_page_counts_is_a_complete_fetch():
+    """
+    GIVEN metadata that carries only a status
+    WHEN fetch_scrobbles runs
+    THEN the summary is not partial and computing its loss does not divide by zero.
+
+    Planted defect: divide by pages_expected without a guard.
+    """
+    result, _ = await _scrobbles([_scrobble_page([])], meta={"status": "ok"})
+
+    assert result.summary.partial is False
+    assert result.summary.pages_dropped == 0
+    assert result.summary.data_loss_pct == 0
+
+
+@pytest.mark.asyncio
+async def test_an_unusable_first_page_raises_the_typed_unavailable_failure():
+    """
+    GIVEN the page layer reports that page 1 never answered
+    WHEN fetch_scrobbles runs
+    THEN it raises the typed Last.fm-unavailable failure, which classifies as
+    lastfm_unavailable and names no username.
+
+    Planted defect: return an empty fetch instead of raising.
+    """
+    meta = {"status": "error", "reason": "lastfm_unavailable"}
+
+    with pytest.raises(ProviderError) as excinfo:
+        await _scrobbles([], meta)
+
+    assert classify_exception_to_error_code(excinfo.value) == "lastfm_unavailable"
+    assert "anyone" not in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_fetch_scrobbles_passes_the_window_and_callback_through():
+    """
+    GIVEN a year window and a progress callback
+    WHEN fetch_scrobbles runs
+    THEN the page layer is asked for that window's epoch bounds with the very
+    same callback.
+
+    Planted defect: drop the progress callback from the page-layer call.
+    """
+    callback = MagicMock()
+
+    _, fetch = await _scrobbles(
+        [_scrobble_page([])], window=Window.year(2024), progress_cb=callback
+    )
+
+    fetch.assert_awaited_once_with(
+        "anyone", 1704067200, 1735689599, progress_cb=callback
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_scrobbles_logs_no_listening_facts(caplog):
+    """
+    GIVEN pages whose names are distinctive markers, with a dropped entry
+    WHEN fetch_scrobbles runs at DEBUG
+    THEN no marker reaches any log record.
+
+    Planted defect: log each play it builds (its names) at DEBUG.
+    """
+    page = _scrobble_page(
+        [_raw("Zqxv Artist", "Zqxv Album", "Zqxv Track", 1686830400), "Zqxv"]
+    )
+
+    with caplog.at_level(logging.DEBUG):
+        await _scrobbles([page])
+
+    assert "Zqxv" not in caplog.text

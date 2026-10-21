@@ -20,9 +20,6 @@ use this facade so that the internal module boundaries may evolve safely.
 import asyncio
 import logging
 import time
-from collections import defaultdict
-from datetime import UTC, datetime
-from typing import Any
 
 from scrobblescope import jobs
 from scrobblescope.album_request import AlbumRequest
@@ -35,12 +32,12 @@ from scrobblescope.cache import (
 )
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
-from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.errors import (
     SpotifyUnavailableError,
     classify_exception_to_error_code,
 )
-from scrobblescope.lastfm import fetch_all_recent_tracks_async
+from scrobblescope.lastfm import fetch_scrobbles
+from scrobblescope.plays import Window, aggregate_albums
 from scrobblescope.release_checks import enqueue_release_check
 from scrobblescope.spotify import (
     album_metadata_from_details,
@@ -102,75 +99,49 @@ async def fetch_top_albums_async(
 
     Returns an ``(eligible_albums, threshold_exclusions, fetch_metadata)``
     tuple. Threshold exclusions retain report facts but never enter Spotify
-    enrichment.
+    enrichment. Last.fm is read as plays (``lastfm.fetch_scrobbles``) and
+    grouped by ``plays.aggregate_albums``; a total Last.fm failure raises.
 
     The returned ``fetch_metadata`` dict includes a ``stats`` key with
     aggregation counters (total_scrobbles, pages_fetched, unique_albums,
-    albums_passing_filter) so the caller can record them as job stats.
+    albums_passing_filter, albums_below_threshold) so the caller can record
+    them as job stats. Task 23d replaces this tuple with a typed selection.
 
     Args:
         progress_cb: Optional ``Callable[[int, int, int], None]`` forwarded to
-            ``fetch_all_recent_tracks_async`` for per-page progress.
+            ``fetch_scrobbles`` for per-page progress.
     """
     logging.debug(f"Start fetch_top_albums_async(year={year})")
-    from_ts = int(datetime(year, 1, 1, tzinfo=UTC).timestamp())
-    to_ts = int(datetime(year, 12, 31, 23, 59, 59, tzinfo=UTC).timestamp())
-    pages, fetch_metadata = await fetch_all_recent_tracks_async(
-        username, from_ts, to_ts, progress_cb=progress_cb
-    )
-    logging.debug(f"Pages fetched: {len(pages)}")
-    total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
-    logging.debug(f"Total tracks: {total_tracks}")
-
-    if fetch_metadata.get("status") == "partial":
-        dropped = fetch_metadata["pages_dropped"]
-        expected = fetch_metadata["pages_expected"]
-        pct = round((dropped / expected) * 100)
-        fetch_metadata["partial_data_warning"] = (
-            f"Note: {dropped} of {expected} Last.fm pages failed to load "
-            f"({pct}% data loss). Results may be incomplete."
-        )
-
-    albums: defaultdict[tuple[str, str], dict[str, Any]] = defaultdict(
-        lambda: {"play_count": 0, "track_counts": defaultdict(int)}
-    )
-    for page in pages:
-        for t in page.get("recenttracks", {}).get("track", []):
-            alb = t.get("album", {}).get("#text", "...")
-            art = t.get("artist", {}).get("#text", "...")
-            name = t.get("name", "...")
-            date = t.get("date", {}).get("uts")
-            if not date:
-                continue
-            ts = int(date)
-            if ts < from_ts or ts > to_ts:
-                continue
-            if alb and art and name:
-                key = normalize_name(art, alb)
-                if "original_artist" not in albums[key]:
-                    albums[key]["original_artist"] = art
-                    albums[key]["original_album"] = alb
-                albums[key]["play_count"] += 1
-                normalized = normalize_track_name(name)
-                albums[key]["track_counts"][normalized] += 1
-    logging.debug(f"Unique albums: {len(albums)}")
+    window = Window.year(year)
+    fetch = await fetch_scrobbles(username, window, progress_cb=progress_cb)
+    aggregate = aggregate_albums(fetch.plays, window)
 
     filtered, threshold_exclusions = partition_albums_by_threshold(
-        dict(albums), min_plays, min_tracks
+        aggregate.albums, min_plays, min_tracks
     )
-    logging.debug(f"Albums after filter: {len(filtered)}")
-
     total_below_threshold = len(threshold_exclusions)
     threshold_exclusions = _cap_threshold_exclusions(threshold_exclusions)
 
-    fetch_metadata["stats"] = {
-        "total_scrobbles": total_tracks,
-        "pages_fetched": len(pages),
-        "unique_albums": len(albums),
-        "albums_passing_filter": len(filtered),
-        "albums_below_threshold": total_below_threshold,
+    summary = fetch.summary
+    fetch_metadata: dict = {
+        "status": "partial" if summary.partial else "ok",
+        "pages_expected": summary.pages_expected,
+        "pages_received": summary.pages_received,
+        "stats": {
+            "total_scrobbles": aggregate.plays_seen,
+            "pages_fetched": summary.pages_received,
+            "unique_albums": len(aggregate.albums),
+            "albums_passing_filter": len(filtered),
+            "albums_below_threshold": total_below_threshold,
+        },
     }
-
+    if summary.partial:
+        fetch_metadata["pages_dropped"] = summary.pages_dropped
+        fetch_metadata["partial_data_warning"] = (
+            f"Note: {summary.pages_dropped} of {summary.pages_expected} Last.fm "
+            f"pages failed to load ({summary.data_loss_pct}% data loss). "
+            "Results may be incomplete."
+        )
     return filtered, threshold_exclusions, fetch_metadata
 
 
@@ -459,7 +430,7 @@ def _apply_post_slice(results, limit_results):
 
 
 async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
-    """Fetch Last.fm albums and finish upstream-error or empty jobs in place.
+    """Fetch Last.fm albums and finish an empty job in place.
 
     None means this stage has already written terminal job state. A nonempty
     album mapping proceeds to Spotify; exceptions retain the outer classifier.
@@ -492,15 +463,6 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
     logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
     _record_lastfm_stats(job_id, fetch_metadata)
-
-    # Upstream failure: Last.fm was unreachable
-    if fetch_metadata.get("status") == "error":
-        jobs.fail(
-            job_id,
-            fetch_metadata.get("reason", "lastfm_unavailable"),
-            username=username,
-        )
-        return None
 
     for unmatched_key, item in threshold_exclusions.items():
         jobs.record_unmatched(job_id, "|".join(unmatched_key), item)
@@ -795,8 +757,8 @@ __all__ = [
     "background_task",
     "create_optimized_session",
     "enqueue_release_check",
-    "fetch_all_recent_tracks_async",
     "fetch_deezer_album",
+    "fetch_scrobbles",
     "fetch_spotify_access_token",
     "fetch_spotify_album_details_batch",
     "fetch_top_albums_async",

@@ -61,7 +61,7 @@ async def test_fetch_top_albums_aggregates_play_counts():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -87,7 +87,7 @@ async def test_fetch_top_albums_min_plays_filter():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -121,7 +121,7 @@ async def test_fetch_top_albums_min_tracks_filter():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -154,7 +154,7 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -180,9 +180,9 @@ async def test_fetch_top_albums_uses_utc_year_window_on_non_utc_host():
 
     fetch_tracks = AsyncMock(return_value=([], {"status": "ok"}))
     with (
-        patch("scrobblescope.orchestrator.datetime", new=utc_minus_five_datetime),
+        patch("scrobblescope.plays.datetime", new=utc_minus_five_datetime),
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=fetch_tracks,
         ),
     ):
@@ -218,7 +218,7 @@ async def test_fetch_top_albums_skips_now_playing_track():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -257,7 +257,7 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -287,7 +287,7 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
 
     with (
         patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -320,7 +320,7 @@ async def test_threshold_exclusion_cap_is_independent_of_input_order():
     async def _excluded(page_tracks):
         """Run the aggregation over one page and return the exclusions mapping."""
         with patch(
-            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=([_page(page_tracks)], fetch_meta)),
         ):
             _, excluded, _ = await fetch_top_albums_async("testuser", 2023)

@@ -403,18 +403,25 @@ buffer it is handed.
 - [ ] `_iter_json_array` streams with an incremental UTF-8 decoder and
   `JSONDecoder.raw_decode`, counting bytes actually read. Never `json.load`
   on a whole entry.
-- [ ] `iter_plays` yields tz-aware UTC plays, applies the play rule, skips
-  podcasts and audiobooks, keeps skip counters, and never copies a private
-  field.
-- [ ] `aggregate_albums` produces an unpartitioned album mapping keyed by
-  `normalize_name`, with `play_count`, `track_counts`, `original_artist`
-  and `original_album`, plus aggregation stats. It does not reproduce
-  `fetch_top_albums_async`'s full return tuple of eligible albums,
-  exclusions and fetch metadata. WP-3 owns threshold partitioning and its
-  post-partition counters. The specialized plans pin this hand-off and
-  keep source-specific row/skip counters distinct from accepted play counts.
-- [ ] `aggregate_daily_counts_from_plays` anchors its window at
-  `min(today, last play)` and reuses WP-0's zero-fill.
+- [ ] `iter_plays` yields `plays.Play`, the record the Last.fm path already
+  emits (`scrobblescope/plays.py`, Batch 23 WP-0 Task 23): a frozen
+  `(played_at, artist, album, track)` whose `played_at` is a datetime with
+  `tzinfo` exactly `datetime.UTC` (the constructor refuses anything else) and
+  whose three names are strings, empty when the export gave none. Nothing else
+  crosses the border: no IP address, user agent, country, username or
+  platform. `iter_plays` applies the play rule, skips podcasts and audiobooks,
+  keeps skip counters, and never copies a private field; the 30-second and
+  private-session rules live here, never in `plays.py`.
+- [ ] The parser adds no aggregator. `plays.aggregate_albums(plays, window)`
+  (with `plays.Window.year(year)` for the album job) produces the
+  unpartitioned album mapping keyed by `normalize_name`, with `play_count`,
+  `track_counts`, `original_artist` and `original_album`, plus `plays_seen`;
+  it is the one aggregator both sources use. WP-3 owns threshold partitioning
+  and its post-partition counters. Source-specific row and skip counters stay
+  distinct from accepted play counts.
+- [ ] The heatmap's daily counts come from `plays.aggregate_daily_counts`.
+  WP-2 chooses the window, anchored at `min(today, last play)`; the shared
+  `plays.zero_fill_daily_counts` fills the empty days.
 - **Acceptance:** zips built in memory cover a nested folder, ignored Video
   and `__MACOSX` entries, the 29999/30000 ms boundary, podcast, audiobook,
   private-session and null-metadata rows, a year boundary asserted tz-aware,

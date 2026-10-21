@@ -28,16 +28,29 @@ def test_spotify_fixture_has_every_field_the_app_reads():
     assert meta.track_durations  # at least one track survived translation
 
 
-def test_lastfm_fixture_flows_through_aggregate_daily_counts():
-    """Runs the fixture through the heatmap's real aggregator instead of just
-    asserting the fixture has fields nobody reads: `date.uts` is what
-    `_aggregate_daily_counts` keys scrobbles off of, so a fixture that drops
-    or renames it fails here, not just in a hand-written field check."""
-    from scrobblescope.heatmap import _aggregate_daily_counts
+@pytest.mark.asyncio
+async def test_lastfm_fixture_flows_through_scrobbles_into_daily_counts():
+    """Runs the fixture through the real normalizer and the heatmap's real
+    aggregator: `date.uts` is what a play's timestamp comes from, so a fixture
+    that drops or renames it fails here, not just in a hand-written field
+    check.
+
+    Planted defect: read the date from ``date["#text"]`` (a locale-dependent
+    string the fixture carries) instead of ``date["uts"]``."""
+    from scrobblescope.lastfm import fetch_scrobbles
+    from scrobblescope.plays import Window, aggregate_daily_counts
 
     page = _load("lastfm_recenttracks_page.json")
+    meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
 
-    counts = _aggregate_daily_counts([page], date(2008, 6, 9), date(2008, 6, 9))
+    with patch(
+        "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+        new_callable=AsyncMock,
+        return_value=([page], meta),
+    ):
+        fetch = await fetch_scrobbles("RJ", Window.year(2008))
+
+    counts = aggregate_daily_counts(fetch.plays, date(2008, 6, 9), date(2008, 6, 9))
 
     assert counts == {"2008-06-09": 1}
 
@@ -54,7 +67,7 @@ async def test_lastfm_fixture_flows_through_fetch_top_albums():
     track = page["recenttracks"]["track"][0]
 
     with patch(
-        "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+        "scrobblescope.lastfm.fetch_all_recent_tracks_async",
         new_callable=AsyncMock,
         return_value=(
             [page],

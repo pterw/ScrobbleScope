@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The Last.fm scrobbles plan opens its branch
+
+Side task, no batch tag: commit the approved plan for PR #4 (normalized Last.fm scrobbles with one album aggregate) as the branch's first commit, on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming it. The plan passed a brief review (plan-review.md), a fix round, and a re-review (plan-rereview-1.md) that approved it. One fix was applied at commit time (re-review Minor N1): Task 1's adaptation table said `_run_heatmap_task` calls `heatmap_task(job_id)` after PR #3 without naming the commit. Task 1 lands before #3 merges, so the table row now names Task 2, Task 2's Touches gains `tests/test_lastfm_job_results.py`, and Task 2 gains Step 1b (the one-line call edit, to be named in its commit body and entry).
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
 ### 2026-10-20 - Section 3 says PR #3 is done, not under way
 
 Side task, no batch tag: remove the Section 3 sentence that called PR #3 under way, on `refactor/album-request-module`, a branch off `main`.

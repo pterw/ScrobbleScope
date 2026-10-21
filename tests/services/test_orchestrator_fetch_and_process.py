@@ -205,21 +205,12 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
 async def test_fetch_and_process_discards_exclusions_on_lastfm_error():
     """An upstream failure must not publish a partial unmatched report."""
     job_id = jobs.create(TEST_JOB_PARAMS)
-    threshold_item = {
-        "artist": "Artist",
-        "album": "Album",
-        "reason_code": "below_threshold",
-    }
 
     with (
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(
-                {},
-                {("artist", "album"): threshold_item},
-                {"status": "error", "reason": "lastfm_unavailable"},
-            ),
+            side_effect=ProviderError("lastfm", "unavailable"),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",

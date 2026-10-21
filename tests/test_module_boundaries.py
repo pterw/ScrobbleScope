@@ -127,3 +127,35 @@ def test_release_status_strings_are_the_ones_the_browser_compares():
         release_status.STATUS_DONE,
         release_status.STATUS_SKIPPED,
     ) == ("pending", "running", "done", "skipped")
+
+
+PAGE_LAYER = {"fetch_recent_tracks_page_async", "fetch_all_recent_tracks_async"}
+
+
+def test_nothing_outside_lastfm_reads_the_page_layer():
+    """
+    GIVEN every module under scrobblescope/ except lastfm.py
+    WHEN its imports and attribute reads are walked
+    THEN none names the Last.fm page functions: callers get plays from
+    ``lastfm.fetch_scrobbles`` and raw pages never leave the module.
+
+    Planted defect: add ``from scrobblescope.lastfm import
+    fetch_all_recent_tracks_async`` to ``heatmap.py``.
+    """
+    offenders = []
+    for path in sorted(SRC.rglob("*.py")):
+        module = _module_name(path)
+        if module == "scrobblescope.lastfm":
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom) and node.module == (
+                "scrobblescope.lastfm"
+            ):
+                offenders += [
+                    f"{module}: imports {item.name}"
+                    for item in node.names
+                    if item.name in PAGE_LAYER
+                ]
+            if isinstance(node, ast.Attribute) and node.attr in PAGE_LAYER:
+                offenders.append(f"{module}: reads .{node.attr}")
+    assert offenders == []

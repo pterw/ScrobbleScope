@@ -80,12 +80,11 @@ sequenceDiagram
                 LastFM-->>Orch: Scrobbles + page progress
                 Orch->>Jobs: Progress 5%-20%
             end
-            Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
-            Orch->>Jobs: Aggregation stats, and partial_data_warning plus record_partial_source(lastfm) when pages were dropped (failed, or malformed after every retry)
+            Orch->>Orch: Turn pages into plays (lastfm.fetch_scrobbles), group them into albums (plays.aggregate_albums) and partition by threshold (inside fetch_top_albums_async)
             alt Terminal Last.fm failure
-                Orch->>Jobs: fail(lastfm_unavailable)
-                Note over Orch,Jobs: jobs.fail also stores an empty result list
+                Note over Orch,Jobs: fetch_scrobbles raises ProviderError(lastfm unavailable) before any stat is written, and _fetch_and_process classifies it and calls jobs.fail(lastfm_unavailable), which also stores an empty result list
             else Pages available
+                Orch->>Jobs: Aggregation stats, and partial_data_warning plus record_partial_source(lastfm) when pages were dropped (failed, or malformed after every retry)
                 Orch->>Jobs: Persist one below_threshold exclusion per album, with its counts and failed thresholds
                 Note over Orch,Jobs: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
                 alt No albums pass filters
@@ -257,9 +256,10 @@ An include run (`include_unmatched`) merges the job's `no_spotify_match` and
 the release-check worker then selects those rows as ordinary result
 candidates; their release date stays "unknown" until a later change dates them.
 
-Grouping and threshold filtering happen inside `fetch_top_albums_async`, so
-they run before every downstream branch. The Last.fm failure terminal and the
-empty-result terminal simply discard the grouped set. The cache lookup returns
+Grouping (`plays.aggregate_albums`) and threshold filtering happen inside
+`fetch_top_albums_async`, so they run before every downstream branch. A Last.fm
+failure raises before any grouping; the empty-result terminal simply discards
+the grouped set. The cache lookup returns
 hits only, and the hit/miss partition runs on the full candidate set whether or
 not a connection was opened.
 

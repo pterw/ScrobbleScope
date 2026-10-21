@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2797 tests across 96 tracked test modules.
+2831 tests across 97 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -527,32 +527,6 @@ repairs and before WP-6's detailed design. Scheduling it inside Batch 23 needs
 an explicit scope amendment, and `BATCH23_DEFINITION.md` WP-6 carries that
 decision point. Source: card 01 of
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
-(2026-09-23).
-
-### F-B23-2: Last.fm's payload shape travels into both calculations
-
-`lastfm.py` returns raw JSON pages. `orchestrator.fetch_top_albums_async`
-then reads `recenttracks`, `track`, `album.#text`, `artist.#text` and
-`date.uts` itself, and `heatmap._aggregate_daily_counts` reads `recenttracks`
-and `date.uts`. A change to Last.fm's payload therefore reaches two
-calculations, and WP-6's first-listen and busiest-hour statistics would add
-more of the same reads. Global Rule 4 puts that translation inside the
-provider module.
-
-The fix is to have `lastfm.py` translate the payload into native listening
-facts, keeping completeness explicit. Two differences must survive:
-- the heatmap counts dated rows even without album metadata, while album
-  aggregation needs artist, album and track;
-- the Spotify-export rules (30 seconds, private sessions) must not be imposed
-  on Last.fm.
-
-It cannot land inside Batch 23 as-is: `tests/test_heatmap.py` feeds
-`_aggregate_daily_counts` raw pages, and Batch 23 keeps the Last.fm path's
-tests unmodified. It is separate from F-B22-7, which translates Spotify's
-metadata payload.
-
-Status: open (P2). A parity refactor for a batch after Batch 23. Source:
-card 02 of `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
 
 ### F-B23-3: the album pipeline runs the cache connection protocol itself
