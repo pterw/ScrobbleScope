@@ -12,7 +12,7 @@ username, IP address, user agent, country or platform (``BATCH23_DEFINITION.md``
 entry, the export's 30-second and private-session rules -- are applied by that
 source's own module before a ``Play`` exists, never here.
 
-    plays <- domain
+    plays <- domain, unmatched
 """
 
 from collections.abc import Iterable
@@ -21,6 +21,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import TypedDict
 
 from scrobblescope.domain import normalize_name, normalize_track_name
+from scrobblescope.unmatched import partition_albums_by_threshold
 
 #: An album's identity: ``domain.normalize_name(artist, album)``.
 AlbumKey = tuple[str, str]
@@ -180,3 +181,60 @@ def aggregate_daily_counts(
             key = day.isoformat()
             counts[key] = counts.get(key, 0) + 1
     return zero_fill_daily_counts(counts, from_date, to_date)
+
+
+@dataclass(frozen=True, slots=True)
+class AlbumSelection:
+    """The albums a window's listening leaves after the thresholds.
+
+    ``eligible`` goes on to enrichment. ``exclusions`` holds the report facts of
+    albums below a minimum, already capped; ``total_below_threshold`` is their
+    count before the cap. ``plays_seen`` and ``unique_albums`` come from the
+    aggregate. Immutable and job-free, so a test can build one without a job.
+    """
+
+    eligible: dict[AlbumKey, AlbumTally]
+    exclusions: dict[AlbumKey, dict]
+    total_below_threshold: int
+    plays_seen: int
+    unique_albums: int
+
+    def stats(self) -> dict[str, int]:
+        """Return the four aggregation stats a job records, under their wire names."""
+        return {
+            "total_scrobbles": self.plays_seen,
+            "unique_albums": self.unique_albums,
+            "albums_passing_filter": len(self.eligible),
+            "albums_below_threshold": self.total_below_threshold,
+        }
+
+
+def select_albums(
+    aggregate: AlbumAggregate, min_plays: int, min_tracks: int, exclusion_cap: int
+) -> AlbumSelection:
+    """Apply the listening minimums to *aggregate* and cap the exclusion report.
+
+    The partition is ``unmatched.partition_albums_by_threshold`` (each excluded
+    album appears once even when it fails both minimums). When more albums are
+    excluded than *exclusion_cap*, the most played are kept, and ties are broken
+    by normalized key so the retained set does not depend on the aggregate's
+    insertion order -- a property of the fetch path, not of this decision.
+    Pure: no I/O and no job.
+    """
+    eligible, excluded = partition_albums_by_threshold(
+        aggregate.albums, min_plays, min_tracks
+    )
+    total_below_threshold = len(excluded)
+    if total_below_threshold > exclusion_cap:
+        kept = sorted(
+            excluded,
+            key=lambda key: (-int(excluded[key].get("play_count", 0)), key),
+        )[:exclusion_cap]
+        excluded = {key: excluded[key] for key in kept}
+    return AlbumSelection(
+        eligible=eligible,
+        exclusions=excluded,
+        total_below_threshold=total_below_threshold,
+        plays_seen=aggregate.plays_seen,
+        unique_albums=len(aggregate.albums),
+    )

@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2831 tests across 97 tracked test modules.
+2841 tests across 98 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -525,7 +525,7 @@ patch target then still holds.
 Status: open (P2). Owner timing, 2026-09-23: settle it after WP-0's provider
 repairs and before WP-6's detailed design. Scheduling it inside Batch 23 needs
 an explicit scope amendment, and `BATCH23_DEFINITION.md` WP-6 carries that
-decision point. Source: card 01 of
+decision point. The threshold half landed in Task 23d (plays.select_albums returns the exclusions without a job and finish_album_job publishes them), the release-scope half in _build_results is still open. Source: card 01 of
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
 

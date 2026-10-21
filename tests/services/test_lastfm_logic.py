@@ -65,7 +65,8 @@ async def test_fetch_top_albums_aggregates_play_counts():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
+        selection, _ = await fetch_top_albums_async("testuser", 2023)
+    result = selection.eligible
 
     assert len(result) == 1
     key = next(iter(result))
@@ -91,7 +92,8 @@ async def test_fetch_top_albums_min_plays_filter():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
+        selection, _ = await fetch_top_albums_async("testuser", 2023)
+    result, excluded = selection.eligible, selection.exclusions
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
@@ -125,7 +127,8 @@ async def test_fetch_top_albums_min_tracks_filter():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
+        selection, _ = await fetch_top_albums_async("testuser", 2023)
+    result, excluded = selection.eligible, selection.exclusions
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
@@ -158,7 +161,8 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
+        selection, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
+    result = selection.eligible
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist X" not in artist_keys
@@ -222,9 +226,10 @@ async def test_fetch_top_albums_skips_now_playing_track():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _, _ = await fetch_top_albums_async(
+        selection, _ = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
+    result = selection.eligible
 
     assert len(result) == 1
     key = next(iter(result))
@@ -261,9 +266,10 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _, _ = await fetch_top_albums_async(
+        selection, _ = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
+    result = selection.eligible
 
     assert len(result) == 1, (
         "Japanese-titled album should survive the min_tracks filter. "
@@ -274,11 +280,11 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
 
 
 @pytest.mark.asyncio
-async def test_fetch_top_albums_returns_stats_in_metadata():
+async def test_fetch_top_albums_returns_stats_in_the_selection():
     """
     GIVEN 18 scrobbles of one album with 3 distinct tracks (passes both filters)
     WHEN fetch_top_albums_async runs
-    THEN fetch_metadata["stats"] contains total_scrobbles=18, unique_albums=1,
+    THEN selection.stats() contains total_scrobbles=18, unique_albums=1,
     and albums_passing_filter=1.
     """
     tracks = [_track("Artist A", "Album A", f"Track {i}") for i in range(3)] * 6
@@ -291,11 +297,13 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        _, exclusions, metadata = await fetch_top_albums_async(
+        selection, summary = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
 
-    stats = metadata["stats"]
+    stats = selection.stats()
+    exclusions = selection.exclusions
+    assert summary.pages_received == 1
     assert stats["total_scrobbles"] == 18
     assert stats["unique_albums"] == 1
     assert stats["albums_passing_filter"] == 1
@@ -323,8 +331,8 @@ async def test_threshold_exclusion_cap_is_independent_of_input_order():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=([_page(page_tracks)], fetch_meta)),
         ):
-            _, excluded, _ = await fetch_top_albums_async("testuser", 2023)
-        return excluded
+            selection, _ = await fetch_top_albums_async("testuser", 2023)
+        return selection.exclusions
 
     forward = await _excluded(tracks)
     backward = await _excluded(list(reversed(tracks)))

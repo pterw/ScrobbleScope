@@ -95,6 +95,7 @@ flowchart LR
     LastFMClient --> Errors
     LastFMClient --> Plays
     Plays --> Domain
+    Plays --> Unmatched
     SpotifyClient --> Utils
     SpotifyClient --> Domain
     SpotifyClient --> Enrichment

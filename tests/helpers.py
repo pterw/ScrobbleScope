@@ -138,3 +138,35 @@ def lastfm_now_playing(artist, album, name):
         "name": name,
         "@attr": {"nowplaying": "true"},
     }
+
+
+def lastfm_albums(
+    eligible=None,
+    exclusions=None,
+    *,
+    pages_expected=1,
+    pages_received=1,
+    plays_seen=0,
+    total_below_threshold=None,
+):
+    """What ``fetch_top_albums_async`` returns: ``(AlbumSelection, FetchSummary)``.
+
+    For tests that patch ``scrobblescope.orchestrator.fetch_top_albums_async``.
+    ``unique_albums`` is derived (eligible plus excluded); the count of albums
+    below threshold is ``len(exclusions)`` unless a cap made it larger.
+    """
+    from scrobblescope.lastfm import FetchSummary
+    from scrobblescope.plays import AlbumSelection
+
+    eligible = eligible or {}
+    exclusions = exclusions or {}
+    selection = AlbumSelection(
+        eligible=eligible,
+        exclusions=exclusions,
+        total_below_threshold=(
+            len(exclusions) if total_below_threshold is None else total_below_threshold
+        ),
+        plays_seen=plays_seen,
+        unique_albums=len(eligible) + len(exclusions),
+    )
+    return selection, FetchSummary(pages_expected, pages_received)

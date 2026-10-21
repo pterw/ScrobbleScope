@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2831 passing** across 97 tracked test modules |
+| Tests | **2841 passing** across 98 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2831 passed**.
+- Latest validated test count: **2841 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -60,7 +60,7 @@ scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, matches_release_criteria, release_window
-  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts
+  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, AlbumSelection, select_albums
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
@@ -75,7 +75,7 @@ scrobblescope/
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
   release_status.py         # the release-check wire strings (CHECK_*, STATUS_*): the worker writes them, /api/release_checks and the Results page read them
   orchestrator/
-    __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+    __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async, finish_album_job (the one publish step)
     _search.py               # Spotify parallel-search phase
     _details.py              # Spotify batch-detail phase
     _cache.py                # DB metadata cache lookup/persist phase
@@ -160,7 +160,7 @@ scripts/
 ```
 errors.py        <- (leaf)
 domain.py        <- (leaf)
-plays.py         <- domain
+plays.py         <- domain, unmatched
 config.py        <- (leaf)
 api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
@@ -176,7 +176,7 @@ unmatched.py     <- (leaf)
 release_status.py <- (leaf)
 musicbrainz.py   <- config, domain, errors, utils
 release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_status, unmatched, utils, worker
-orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
+orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, errors, jobs, utils; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
 orchestrator/_cache.py    <- cache, jobs, utils; orchestrator (facade)
@@ -296,7 +296,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2831 tests)
+## 6. Test structure (2841 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

@@ -664,26 +664,41 @@ def test_build_results_skip_line_carries_no_album_or_artist(caplog):
 
 def test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence():
     """
-    GIVEN a Last.fm fetch that dropped pages and carries the warning sentence
-    WHEN its stats are recorded on the job
-    THEN the job also holds the kind ("lastfm"), so the Results page never has
-         to read the sentence to know what degraded
+    GIVEN a Last.fm fetch that dropped a page of four
+    WHEN its fetch stats are recorded on the job
+    THEN the job holds the sentence, the number of pages dropped and the kind
+         ("lastfm"), so the Results page never has to read the sentence to know
+         what degraded
     """
-    from scrobblescope.orchestrator import _record_lastfm_stats
+    from scrobblescope.lastfm import FetchSummary
+    from scrobblescope.orchestrator import _record_fetch_stats
 
     job_id = jobs.create(TEST_JOB_PARAMS)
-    _record_lastfm_stats(
-        job_id,
-        {
-            "stats": {"total_scrobbles": 5},
-            "partial_data_warning": "Note: 1 of 4 Last.fm pages failed to load.",
-            "pages_dropped": 1,
-        },
-    )
+    _record_fetch_stats(job_id, FetchSummary(pages_expected=4, pages_received=3))
 
     stats = jobs.progress(job_id)["stats"]
     assert stats["partial_data_sources"] == ["lastfm"]
     assert stats["pages_dropped"] == 1
+    assert stats["pages_fetched"] == 3
+    assert stats["partial_data_warning"].startswith(
+        "Note: 1 of 4 Last.fm pages failed to load (25% data loss)."
+    )
+
+
+def test_a_complete_lastfm_fetch_records_pages_and_no_notice():
+    """A fetch that read every page records the count and no page-loss notice.
+
+    Planted defect: write the page-loss notice even when no page was dropped."""
+    from scrobblescope.lastfm import FetchSummary
+    from scrobblescope.orchestrator import _record_fetch_stats
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _record_fetch_stats(job_id, FetchSummary(pages_expected=2, pages_received=2))
+
+    stats = jobs.progress(job_id)["stats"]
+    assert stats["pages_fetched"] == 2
+    assert "partial_data_warning" not in stats
+    assert "partial_data_sources" not in stats
 
 
 # ---------------------------------------------------------------------------

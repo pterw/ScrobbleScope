@@ -428,7 +428,7 @@ buffer it is handed.
   an array broken across chunk boundaries, a real deflate bomb, a lying zip
   header, non-zips, empty zips and truncated JSON. Every limit is
   mutation-checked. The aggregator's output feeds
-  `partition_albums_by_threshold` unchanged.
+  `plays.select_albums` unchanged.
 
 ### WP-3 -- Job hand-off
 
@@ -436,8 +436,13 @@ A new `scrobblescope/export_jobs.py`, so the parser never knows about jobs
 and the orchestrator never knows about zips.
 
 - [ ] `export_album_task` parses in `asyncio.to_thread`, closes the buffer,
-  then runs the existing threshold partition, stats, unmatched records and
-  `_process_filtered_albums`, mapping `ExportError` to a classified code through `jobs.fail`.
+  then calls `plays.aggregate_albums`, `plays.select_albums` (the one
+  threshold partition and exclusion cap) and `orchestrator.finish_album_job`
+  with the request's `album_request.AlbumRequest` (built by
+  `parse_album_request(..., require_username=False)`, so its `username` is
+  `None`) -- the one publish step: stats, unmatched records, the "no album
+  passes" ending, then enrichment -- mapping `ExportError` to a classified
+  code through `jobs.fail`.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
 - [ ] A `BoundedSemaphore(2)` limits concurrent parses. Whole-process memory
@@ -451,8 +456,8 @@ and the orchestrator never knows about zips.
   2026-10-20). The album form posts `include_unmatched`; the export route
   and `export_album_task` accept it and honour it with the meaning it has
   on the Last.fm path. Acceptance adds one export run with it on.
-- **Acceptance:** `process_albums` receives the aggregate;
-  `fetch_all_recent_tracks_async` is never called, proven by patching it to
+- **Acceptance:** `process_albums` receives the selection's eligible albums;
+  `lastfm.fetch_scrobbles` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,
   parser failure and success included; the object the task closes is the
   one the request created. A delayed task must still read that buffer after

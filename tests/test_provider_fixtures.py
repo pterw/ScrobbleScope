@@ -74,9 +74,10 @@ async def test_lastfm_fixture_flows_through_fetch_top_albums():
             {"status": "ok", "pages_expected": 1, "pages_received": 1},
         ),
     ):
-        eligible, _, _ = await fetch_top_albums_async(
+        selection, _ = await fetch_top_albums_async(
             "RJ", 2008, min_plays=1, min_tracks=1
         )
+    eligible = selection.eligible
 
     key = normalize_name(track["artist"]["#text"], track["album"]["#text"])
     assert eligible[key]["original_artist"] == track["artist"]["#text"]

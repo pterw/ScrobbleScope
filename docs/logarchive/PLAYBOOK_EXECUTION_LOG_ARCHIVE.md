@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Last.fm-derived job results are pinned before the seam work
+
+Side task, no batch tag: parity tests for the Last.fm path ahead of the scrobbles-not-pages refactor (PR #4 of the pre-Batch-23 tranche, task 23a, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "Any new tests should always test intended behavior and not that the func/code works as written." AGENTS.md "Refactor requires parity tests".
+
+What changed: `tests/test_lastfm_job_results.py` runs the album and heatmap pipelines with only the Last.fm HTTP edge faked (`tests/helpers.py`: `FakeLastfm`, `lastfm_edge`, `lastfm_page`, `lastfm_track`, `lastfm_now_playing`) and asserts on the job each one publishes: aggregation across pages, the year and 365-day windows, the now-playing entry, empty names, casing, the partial-run notice, the below-threshold report, inclusive minimums, and the three failure endings (outage, user not found, unreadable entry). Five tests assert behaviour that Task 4 changes by owner ruling (2026-09-29) and are `xfail(strict=True)` until then (5 xfailed, not counted in N).
+
+Deviations: none. No production file changed; no existing test was edited (`tests/helpers.py` gained imports and helpers only).
+
+Mutation evidence: 19 planted defects, each run in a scratch copy and each failing its named test (the table is in the plan, Task 1 Step 4); every test passed again once restored.
+
+Validation: `pytest -q` -- **2608 passed**.
+
 ### 2026-10-20 - The Last.fm scrobbles plan opens its branch
 
 Side task, no batch tag: commit the approved plan for PR #4 (normalized Last.fm scrobbles with one album aggregate) as the branch's first commit, on `refactor/lastfm-scrobbles`, a branch off `main`.

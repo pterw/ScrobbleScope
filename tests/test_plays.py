@@ -16,6 +16,7 @@ from scrobblescope.plays import (
     Window,
     aggregate_albums,
     aggregate_daily_counts,
+    select_albums,
     zero_fill_daily_counts,
 )
 
@@ -282,3 +283,83 @@ class TestZeroFill:
             {"2026-01-02": 5}, date(2026, 1, 1), date(2026, 1, 3)
         )
         assert result == {"2026-01-01": 0, "2026-01-02": 5, "2026-01-03": 0}
+
+
+# ---------------------------------------------------------------------------
+# select_albums and AlbumSelection
+# ---------------------------------------------------------------------------
+
+
+def _aggregate(albums, plays_seen=0):
+    """An AlbumAggregate holding ``albums`` given as {(artist, album): (plays, tracks)}."""
+    built = {}
+    for (artist, album), (plays, tracks) in albums.items():
+        built[normalize_name(artist, album)] = {
+            "play_count": plays,
+            "track_counts": {f"t{n}": 1 for n in range(tracks)},
+            "original_artist": artist,
+            "original_album": album,
+        }
+    return AlbumAggregate(albums=built, plays_seen=plays_seen)
+
+
+class TestSelectAlbums:
+    def test_it_splits_by_both_minimums_and_counts_each_side(self):
+        """Planted defect: make a minimum exclusive."""
+        aggregate = _aggregate(
+            {
+                ("A", "Passes"): (10, 3),
+                ("B", "Few Plays"): (9, 3),
+                ("C", "Few Tracks"): (12, 2),
+            },
+            plays_seen=31,
+        )
+
+        selection = select_albums(aggregate, 10, 3, exclusion_cap=500)
+
+        assert set(selection.eligible) == {normalize_name("A", "Passes")}
+        assert set(selection.exclusions) == {
+            normalize_name("B", "Few Plays"),
+            normalize_name("C", "Few Tracks"),
+        }
+        assert selection.total_below_threshold == 2
+        assert selection.unique_albums == 3
+        assert selection.plays_seen == 31
+
+    def test_stats_are_the_four_numbers_a_job_records(self):
+        """Planted defect: report the capped exclusion count as the total."""
+        albums = {(f"Artist{n:04d}", f"Album{n:04d}"): (1, 1) for n in range(600)}
+        albums[("Big", "Hit")] = (50, 5)
+        selection = select_albums(_aggregate(albums, 650), 10, 3, exclusion_cap=500)
+
+        assert selection.stats() == {
+            "total_scrobbles": 650,
+            "unique_albums": 601,
+            "albums_passing_filter": 1,
+            "albums_below_threshold": 600,
+        }
+        assert len(selection.exclusions) == 500
+
+    def test_the_cap_keeps_the_most_played_exclusions(self):
+        """Planted defect: keep the first 500 inserted instead of the top 500."""
+        albums = {(f"Low{n:03d}", f"Low{n:03d}"): (1, 1) for n in range(500)}
+        albums.update({(f"High{n}", f"High{n}"): (9, 1) for n in range(5)})
+
+        selection = select_albums(_aggregate(albums), 10, 3, exclusion_cap=500)
+
+        assert {a["artist"] for a in selection.exclusions.values()} >= {
+            f"High{n}" for n in range(5)
+        }
+
+    def test_the_cap_does_not_depend_on_input_order(self):
+        """Every album ties on one play, so only the key can break the tie.
+        Planted defect: sort by play count alone (a stable sort then keeps
+        whichever tied albums were inserted first)."""
+        albums = {(f"Artist{n:04d}", f"Album{n:04d}"): (1, 1) for n in range(600)}
+        forward = select_albums(_aggregate(albums), 10, 3, exclusion_cap=500)
+        backward = select_albums(
+            _aggregate(dict(reversed(list(albums.items())))), 10, 3, exclusion_cap=500
+        )
+
+        assert len(forward.exclusions) == 500
+        assert set(forward.exclusions) == set(backward.exclusions)
