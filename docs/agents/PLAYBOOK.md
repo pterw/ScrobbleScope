@@ -108,6 +108,8 @@ See FINDINGS F-DOCSYNC-3.
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
+  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
+  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -150,50 +152,68 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-20 - The test-module count counts both sides of the merge
+### 2026-10-20 - The figure font constant stops looking like a password
 
-Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
+Side task, no batch tag: rename the figure-face gate's `FIGURE_TOKEN` constant, on `feat/ui-consistency`, a branch off `main`.
 
-Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
+Owner intent: PR #260 must pass Codacy without suppressing a scanner.
 
-What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
+What changed: Codacy's Bandit check (B105, hardcoded password) read `FIGURE_TOKEN = "--font-figure"` in `scripts/dev/_frontend_gate_figures.py` as a credential because the name contains TOKEN. The value is a CSS custom-property name, so the constant is now `FIGURE_FONT_PROPERTY`; its four uses follow. Behaviour and messages are unchanged. The plan under `docs/superpowers/plans/` keeps the old name as an archival record.
 
-Deviations: none. No test was edited.
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**.
+
+Side task, no batch tag: correct the figure-face gate module's ledger citation and the FINDINGS test-module count, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent: the gate's own prose and the project's counts must be true for what the branch ships.
+
+What changed: the docstring of `scripts/dev/_frontend_gate_figures.py` now cites `docs/design/RECONCILIATION.md` section 26 (the play-count override; Task 1 renumbered it because sections 22 to 25 exist) instead of 22, and states the "cannot drift to the wrong face together" clause once instead of twice. The `docs/agents/FINDINGS.md` header now says 87 tracked test modules, the measured `git ls-files tests | grep -c '/test_[^/]*\.py$'`; the earlier commit added a module and left 86 there.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**.
+
+### 2026-10-20 - The gate holds the Results play count to the figure face
+
+Side task, no batch tag: add a frontend-gate check that the Results play count wears the heatmap's figure face, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (tranche design, "UI PR (#7)"): a frontend-gate check asserts that the computed font of a results play count equals that of a heatmap KPI value, at every viewport the gate runs.
+
+What changed: new `scripts/dev/_frontend_gate_figures.py` (`check_results_play_count_uses_the_figure_face`, registered in `scripts/dev/frontend_gate.py` as "results play count figure face" for the desktop, mobile and wide-touch profiles, Chromium only) and `tests/scripts/dev/test_frontend_gate_figures.py` (16 tests). Why: the serif count shipped beside a Gotham KPI and nothing could see it. The check reads the computed family and weight of every play count, on load and after the sort is switched (results.js rebuilds the cell), and requires them to equal the heatmap KPI value's; it also requires that KPI value to be the `--font-figure` token at weight 400, so the pair cannot drift to the wrong face together; an empty selection fails instead of passing. At the mobile profile only it also requires the seeded four-digit count to keep its right edge inside its cell (the guard for Task 1's narrow-screen sizing). The module is documented in SESSION_CONTEXT (tree and import lines), `docs/architecture/documentation-tooling.md` (count fifteen, list, Mermaid) and DEVELOPMENT.md.
+
+Mutation (unit, scratch copy, each planted defect failed its named tests): weight branch deleted -> `test_a_bold_play_count_fails_even_in_the_right_face`; family branch -> serif, one-wrong-among-many and rebuilt-cell tests; reference early return -> the two reference tests; both empty-selection returns -> `test_no_kpi_and_no_play_count_each_fail_rather_than_pass_vacuously`; second face call -> `test_a_cell_rebuilt_by_a_sort_switch_is_judged_again`; `>` to `<` -> three fit tests; `if narrow:` guards -> `test_at_a_desktop_width_the_fit_is_not_judged`; second fit call and `jobs.delete(heatmap_job)` -> their named tests.
+
+Live probe (scratch tree, real Chromium; the worktree CSS untouched): old face planted -> at every profile `play count on load is set in 'instrument-serif,corporate-a,Georgia,serif', the heatmap KPI value in 'gotham,ff-din-paneuropean,ui-sans-serif,sans-serif'` and the same `after switching sort`; bold planted -> `play count on load has font weight 700, the heatmap KPI value 400` (and after switching sort) at every profile; the `data-digits="4"` rule removed -> `[mobile] play count 8080 on load ends 10.0px past the cell it sits in` and the same after switching sort, desktop and wide touch PASS. The worktree passes at all three profiles.
+
+Deviations: none in the code. The check adds 3 planned runs (Firefox runs only the assets canary). The Mermaid block was edited by one node line and one class-list entry in the file's existing pattern; no external validator was run.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**. Gate: `[frontend_gate] 48 checks passed in 78 runs across chromium, firefox (static assets & tokens canary on firefox); profiles: desktop, mobile, wide touch`.
+
+### 2026-10-20 - The Results play count is set in the figure face
+
+Side task, no batch tag: set the Results table's play count in the figure face, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (tranche design, "UI PR (#7)"): "the results table's play count uses the figure face (`--font-figure`, Gotham, weight 400 -- never bold, as the heatmap KPI rule records)"; `DESIGN.md` gives play counts to the Figure Numerals.
+
+What changed: `.metric-val-plays` in `static/css/results.css` takes `--font-figure` at `--font-weight-normal` with `font-variant-numeric: tabular-nums` (set because `DESIGN.md` decides tabular Figure Numerals); size, line height, colour and letter-spacing are untouched. `docs/design/RECONCILIATION.md` gains a Section 1 row and section 26 recording the override of the snapshot's "mono value". Measured with a scratch script at all three gate profiles, both themes: Gotham served (one face fetched; 357.9px against 321.6px for the fallback); before, every play count computed `instrument-serif`, after, `gotham` at weight 400, colour equal row by row, size equal, every row height unchanged (81.2px desktop and wide touch, 73px mobile). Gotham has `tnum` (default 1111 vs 0000 = 34.4 vs 68.6px, with tabular-nums both 57.6px). Four digits did not fit at full size on mobile: 8080 measured 54px against a 44px room (407: 40.5px, fits), so Step 5b applied by the controller's ruling (one-attribute template edit): the plays span carries `data-digits` (`templates/results.html`, rebuilt by `renderMetric` in `static/js/results.js` on a sort switch), and under 768px only, a 4-digit count is set at 1.093rem and a 5-digit one at 0.874rem (widest digit d = 0.6003em, room R = 44px, S(n) = floor((R - 2) / (n * d) / 16)), 6 or more at the 0.75rem floor. After: 8080 and 88888 measure 41.95px in 44px; 888888 measures 43.2px in 44px at the floor (fits, but with under the 2px spare, so fit is not promised for six digits). Desktop and wide touch widths and sizes, and mobile rows of one to three digits, are identical to the full-size measurement.
+
+Deviations: the master plan named `.metric-value`; the rule is `.metric-val-plays`. The plan numbered the RECONCILIATION section 22, but sections 22 to 25 already exist, so the override is section 26 (row, CSS comment and prose follow). Section 26 includes the plan's conditional narrow-screens paragraph, because Step 5b applied.
+
+Edited existing tests: none. New test: `test_each_play_count_states_how_many_digits_it_has` in `tests/test_routes.py`; with the template's `data-digits` planted as a constant `"4"` in a scratch copy it failed on the 407 assertion, and it passes on the real template.
+
+Validation: `pytest -q` -- **2591 passed**.
+
+### 2026-10-20 - The UI consistency round 1 plan opens its branch
+
+Side task, no batch tag: add the approved UI consistency round 1 plan, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent (2026-10-20): "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming PR #7 and the plan. The plan passed a brief review (plan-review.md), three fix rounds, and two re-reviews (plan-rereview-1.md, plan-rereview-2.md); the last approved it.
+
+Deviations: the plan is committed as approved. The one commit-time fix (plan-rereview-2 Minor 1, Step 5b item 4 must say to replace the single line and keep the `else` braces) was already present in the approved draft, so no further wording change was made. No DOC-driven wording change was needed. No test was edited.
 
 Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
-
-Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
-
-What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
-
-Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: an agent that reads Section 3's "Before WP-1" bullet should find the design and the PR order without searching.
-
-What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. SESSION_CONTEXT's Batch 23 status row names the spec path after the existing "side-task PRs runs" sentence. Both documents come from this branch and are committed on it.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2590 passed**.
-
-### 2026-10-20 - Hygiene entries corrected after review
-
-Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
-
-Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
-
-What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
-
-Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2543 passed**.

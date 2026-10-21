@@ -9,6 +9,54 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The test-module count counts both sides of the merge
+
+Side task, no batch tag: correct the tracked test-module count in SESSION_CONTEXT and FINDINGS, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: PLAYBOOK, SESSION_CONTEXT and FINDINGS must be up to date, so a hand-kept figure must match the tree.
+
+What changed: both files said 85 tracked test modules. main and this branch each added one module to a base of 84 (PR #256's retry-contract test, and `tests/test_requirements_split.py`), and the merge kept 85. `git ls-tree -r --name-only HEAD tests` counts 86, so both lines now say 86.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
+### 2026-10-20 - The master plan records the agent cap and the #5/#6 order
+
+Side task, no batch tag: record two owner rulings in the tranche master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the plan that orders the tranche must say what the owner ruled, so a later session does not work from the superseded text.
+
+What changed: `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md` now allows at most ten subagents at once (the owner's words are quoted), and says PRs #5 and #6 touch disjoint files, so their code phases may overlap, with #5 landing first only if #6 later needs `_results.py`. The design spec is left as written: it is the owner-approved dated design.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
+### 2026-10-20 - Section 3 names the pre-Batch-23 tranche's spec and plan
+
+Side task, no batch tag: point PLAYBOOK Section 3 and SESSION_CONTEXT at the tranche's spec and master plan, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: an agent that reads Section 3's "Before WP-1" bullet should find the design and the PR order without searching.
+
+What changed: PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. SESSION_CONTEXT's Batch 23 status row names the spec path after the existing "side-task PRs runs" sentence. Both documents come from this branch and are committed on it.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
+### 2026-10-20 - Hygiene entries corrected after review
+
+Side task, no batch tag: three wording and count fixes to the hygiene commits, on `chore/pre-batch23-hygiene`, a branch off `main`.
+
+Owner intent: the per-task reviews found documentation on this unpushed branch that was loose or false, so correct it before the PR rather than leave it.
+
+What changed: (1) `docs/agents/FINDINGS.md` header said 84 tracked test modules; the requirements-split test added a module, so the measured count is 85 (SESSION_CONTEXT's Tests row already said 85). (2) The Task 2 claim that "nine of the ten scripts in `static/js/` already" use hyphens was wrong, since only three names contain a hyphen; it now says `page_motion.js` was the only script name with an underscore, in the `page-motion.js` entry and in the hygiene plan's Task 2 "Why". (3) The Python 3.13 spellings entry now names the edited existing tests and mentions the `except` tuple reorder in `scrobblescope/spotify.py`.
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2543 passed**.
+
 ### 2026-10-20 - Ruff judges the code as Python 3.13
 
 Side task, no batch tag: ruff's `target-version` set to `py313`, on `chore/pre-batch23-hygiene`, a branch off `main`.
