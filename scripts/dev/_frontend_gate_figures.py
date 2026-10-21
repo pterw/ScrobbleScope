@@ -20,7 +20,7 @@ from __future__ import annotations
 from scrobblescope import jobs
 
 #: The token the heatmap KPI value and the play count both resolve through.
-FIGURE_TOKEN = "--font-figure"
+FIGURE_FONT_PROPERTY = "--font-figure"
 
 #: Book. The kit serves 300, 400 and 700; the KPI rule records why not 700.
 FIGURE_WEIGHT = "400"
@@ -173,13 +173,15 @@ def check_results_play_count_uses_the_figure_face(page, base_url: str) -> list[s
 
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job}", wait_until="load")
         page.wait_for_selector(KPI_SELECTOR, state="visible")
-        kpi = page.evaluate(FACE_JS, [KPI_SELECTOR, FIGURE_TOKEN])
+        kpi = page.evaluate(FACE_JS, [KPI_SELECTOR, FIGURE_FONT_PROPERTY])
 
         page.goto(f"{base_url}/results?job_id={results_job}", wait_until="load")
         page.evaluate("async () => { await document.fonts.ready; }")
         narrow = page.viewport_size["width"] < MOBILE_BELOW_PX
         failures = figure_face_failures(
-            page.evaluate(FACE_JS, [PLAYS_SELECTOR, FIGURE_TOKEN]), kpi, "on load"
+            page.evaluate(FACE_JS, [PLAYS_SELECTOR, FIGURE_FONT_PROPERTY]),
+            kpi,
+            "on load",
         )
         if narrow:
             failures.extend(
@@ -192,7 +194,7 @@ def check_results_play_count_uses_the_figure_face(page, base_url: str) -> list[s
         page.locator("#toggle-sort-plays").click()
         failures.extend(
             figure_face_failures(
-                page.evaluate(FACE_JS, [PLAYS_SELECTOR, FIGURE_TOKEN]),
+                page.evaluate(FACE_JS, [PLAYS_SELECTOR, FIGURE_FONT_PROPERTY]),
                 kpi,
                 "after switching sort",
             )

@@ -152,7 +152,17 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-20 - The figure-face gate cites the right ledger section
+### 2026-10-20 - The figure font constant stops looking like a password
+
+Side task, no batch tag: rename the figure-face gate's `FIGURE_TOKEN` constant, on `feat/ui-consistency`, a branch off `main`.
+
+Owner intent: PR #260 must pass Codacy without suppressing a scanner.
+
+What changed: Codacy's Bandit check (B105, hardcoded password) read `FIGURE_TOKEN = "--font-figure"` in `scripts/dev/_frontend_gate_figures.py` as a credential because the name contains TOKEN. The value is a CSS custom-property name, so the constant is now `FIGURE_FONT_PROPERTY`; its four uses follow. Behaviour and messages are unchanged. The plan under `docs/superpowers/plans/` keeps the old name as an archival record.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2607 passed**.
 
 Side task, no batch tag: correct the figure-face gate module's ledger citation and the FINDINGS test-module count, on `feat/ui-consistency`, a branch off `main`.
 
