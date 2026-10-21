@@ -799,6 +799,12 @@ A Results page switched to Listening Time in the browser ranks matched albums wi
 
 - [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
 
+### F-B23-47: `test_job_threads_can_share_the_token_state_dict_without_error` can fail when run beside other test files
+
+The test in `tests/services/test_spotify_service.py` runs eight threads at a one-microsecond switch interval and asserts on garbage collection and on a remaining count, so its outcome depends on thread timing. It failed once during PR #5 Task 2's run, alongside `tests/services/test_enrichment.py` and the cache test files, and passed alone and in the full suite. Task 2's reviewer judged it a microsecond switch-interval thread race that is flaky by design and unrelated to the diff. No fix in PR #5. What would close it: assert only what the threads guarantee (no exception, a consistent dict) and move the garbage-collection and remaining-count checks to a deterministic test.
+
+- [ ] **Status:** open (P3). Source: PR #5 Task 2 run and review, 2026-10-21.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in

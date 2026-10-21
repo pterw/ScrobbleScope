@@ -208,9 +208,9 @@ silent:
   metadata cache is read first: a cached row already holds `release_date` and
   skips every provider call. The cache is optional at runtime: when the
   database is missing or does not answer, `open_album_cache` yields a
-  disabled cache and every album is a miss. (2) For each miss, Spotify is searched, then its
-  album details are fetched. (3) An album Spotify could not enrich falls to
-  Deezer, which supplies the date instead. `process_albums` in
+  disabled cache and every album is a miss. (2) For each miss, Spotify is
+  searched, then its album details are fetched. (3) An album Spotify could not
+  enrich falls to Deezer, which supplies the date instead. `process_albums` in
   `orchestrator/__init__.py` orchestrates steps 1 to 3, and
   `AlbumCache.persist` (reported to the job by `_persist_new_metadata`)
   writes the enriched albums back to the cache, so a

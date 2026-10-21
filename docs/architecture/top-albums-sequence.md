@@ -108,7 +108,7 @@ sequenceDiagram
                             Cache-->>Orch: Matching in-TTL rows only
                             Orch->>Jobs: record_stat(db_cache_lookup_hits)
                         end
-                        Orch->>Cache: Clean stale rows (both lookup outcomes)
+                        Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)
                     end
                     Orch->>Orch: Partition cache hits and misses (runs with or without a connection)
                     Orch->>Jobs: record_stat(cache_hits)

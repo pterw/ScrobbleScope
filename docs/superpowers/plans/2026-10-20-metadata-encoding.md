@@ -18,7 +18,7 @@
 - From the linked worktree `C:/ssw/me`, every Python command uses the primary checkout's interpreter. In every command below, `PY`, `RUFF` and `PRECOMMIT` are shell variables; set them once per shell:
   `PY="C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe"`, `RUFF="C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/ruff.exe"`, `PRECOMMIT="C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pre-commit.exe"`. Always quote them: `"$PY" -m pytest ...`.
 - Markdown is ASCII only (`--`, never an em dash). Cite code by name, not line number.
-- New tests assert intended behaviour, not the code as written (owner, 2026-10-20), and each comes with mutation evidence: the planted defect named and the test shown failing, then restored and shown passing. Plant each mutation in a scratch copy of the tree (a private directory named for this PR and task, removed afterwards), or copy the file aside before planting and copy it back after. Never restore with `git checkout -- <file>` or `git restore`: a file under edit holds the task's uncommitted work (`constraints.md` R9).
+- New tests assert intended behaviour, not the code as written (owner, 2026-10-20), and each comes with mutation evidence: the planted defect named and the test shown failing, then restored and shown passing. Plant each mutation in a scratch copy of the tree (a private directory named for this PR and task, removed afterwards), or copy the file aside before planting and copy it back after. Never restore with `git checkout -- <file>` or `git restore`: a file under edit holds the task's uncommitted work.
 - A refactor starts from parity tests in a preceding commit (AGENTS.md "Refactor requires parity tests"): Task 1 precedes Tasks 3 and 4. A parity test must pass on the unchanged tree; if one fails there, the test is wrong, never the code.
 - Use the Python 3.13 spellings the hygiene PR (#2) establishes: `from datetime import UTC`, never `timezone.utc`, in every line this plan adds.
 - Docstrings: every new function has a docstring; comments say why (AGENTS.md "Docstrings and comments"). Log lines name a job id, an exception class, counts and elapsed time. They never carry a Last.fm username, an artist, album or track name (`BATCH23_DEFINITION.md` "Data handling").
@@ -2303,7 +2303,7 @@ async def _persist_new_metadata(album_cache, job_id, new_metadata):
 
 - [ ] **Step 6: Re-point the existing tests**
 
-Do the re-point with a byte-safe script, not `sed -i` (`constraints.md` R9: GNU `sed -i` has mangled backslash escapes and CRLF files on this branch set). `SCRATCH` is a private directory named for this PR and task, for example `C:/ssw/mee-t4-scratch`, removed afterwards:
+Do the re-point with a byte-safe script, not `sed -i` (GNU `sed -i` has mangled backslash escapes and CRLF files on this branch set). `SCRATCH` is a private directory named for this PR and task, for example `C:/ssw/mee-t4-scratch`, removed afterwards:
 
 ```bash
 NAMES='get_db_connection|batch_lookup_metadata|batch_persist_metadata|batch_lookup_original_release|cleanup_stale_metadata'
@@ -2374,7 +2374,7 @@ Expected: no hits (dated plans and handoffs stay as history; `docs/agents/PLAYBO
 
 - [ ] **Step 9: Mutation evidence**
 
-Plant each defect in a scratch copy of the tree, or copy the file aside first and copy it back after each row (`constraints.md` R9: never `git checkout -- <file>`; `cache.py`, `_cache.py` and `__init__.py` hold this task's uncommitted work). Run the named tests, confirm failure, restore, confirm they pass.
+Plant each defect in a scratch copy of the tree, or copy the file aside first and copy it back after each row (never `git checkout -- <file>`; `cache.py`, `_cache.py` and `__init__.py` hold this task's uncommitted work). Run the named tests, confirm failure, restore, confirm they pass.
 
 | # | Planted defect | File | Test that must fail |
 |---|---|---|---|

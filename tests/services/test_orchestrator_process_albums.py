@@ -345,7 +345,7 @@ async def test_process_albums_conn_always_closed():
     """
     GIVEN a DB connection is established but Spotify search raises
     WHEN process_albums is called
-    THEN the connection should still be closed in the finally block.
+    THEN the connection should still be closed when the open_album_cache block ends.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
