@@ -155,6 +155,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Two sentences made true after the admission module
+
+Side task, no batch tag: correct two sentences that Task 4 of the album request module left untrue, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the shared documents must describe the code that ships, so a reader of SESSION_CONTEXT Section 5 and of the admission entry is not misled about who cleans up and where the import sits.
+
+What changed: SESSION_CONTEXT Section 5 said that on a failed thread start "the route deletes the newly created job"; since the admission module, `admission.admit` deletes it (it calls `jobs.delete` after `start_job_thread` raises), so the sentence now says so. The 2026-10-20 entry "The album form is refused with a reason" said ruff put the `admission` import "after the other `scrobblescope` imports"; in both `album_flow.py` and `heatmap_flow.py` it sits in alphabetical position, and the entry now says that. Both checked against the code before editing.
+
+Deviations: none. No code or test changed.
+
+Validation: `pytest -q` -- **2743 passed**.
+
 ### 2026-10-20 - A job says what kind it is
 
 Side task, no batch tag: make the job kind a record field that is never defaulted when read, and amend WP-4 to match, on `refactor/album-request-module`, a branch off `main`.
@@ -198,17 +210,3 @@ Deviations: none from the brief. Edited existing tests, by name: `test_results_l
 Mutation evidence (each planted defect, then the named tests failed, then restored): the decade membership check removed in `album_request.py` -> `test_a_bad_filter_is_refused_on_the_form_and_starts_nothing[overrides1-Choose a decade from the list.]`; the `UNAVAILABLE` branch removed from `album_flow.py` -> both `test_a_pre_check_outage_refuses_retryably_and_starts_nothing` rows, the three malformed-answer rows and the album outage and stalled rows of `tests/test_precheck_routes.py`; params built without `mode` -> `test_an_album_job_record_says_it_is_an_album_job`; `exists` read outside the `try` in `check_lastfm_user` -> the three malformed-answer rows and `tests/test_precheck.py::test_a_malformed_existence_answer_is_unavailable_never_an_error`; privacy asked first -> `test_every_route_reads_the_last_fm_answer_the_same_way[missing-album]` and `tests/test_precheck.py::test_a_missing_user_is_missing_and_privacy_is_never_asked`; `timeout=` dropped from `_check_user_exists` -> `test_a_stalled_last_fm_costs_a_route_its_budget_not_the_session` (all three rows) and `tests/test_precheck.py::test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget`; `"source"` added to `FORM_FIELDS` -> all three tests of `tests/test_loading_retry_contract.py`.
 
 Validation: `pytest -q` -- **2730 passed**.
-
-### 2026-10-20 - Jobs start through one admission path
-
-Side task, no batch tag: start every job through one admission path and let job threads read the job record, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: the album and heatmap routes each wrote expire, slot, create, start, delete-on-failure by hand, and the export route (WP-4) would have been a third copy; the ten album parameters were also re-passed positionally to a thread although the job record already holds them.
-
-What changed: new `scrobblescope/routes/admission.py` (`Refused.CAPACITY` / `START_FAILED`, `admit(params, target, *, label)`); `jobs.params(job_id)` (a copy of the params, `None` for a gone job, never renews the lease); `background_task(job_id)` and `heatmap_task(job_id)` read their parameters from the record, through `AlbumRequest.from_params` for the album run (new `_album_request_for`); a job that is gone, or a record that is not a usable request, runs nothing, still frees the slot the route took, and the unusable record ends as `internal_error`. `results_loading` and `_dispatch_heatmap_job` call `admit` and keep their own parsing, session key and HTTP answers; the thread is started as `start_job_thread(target, args=(job_id,))`. No listener-visible change. SESSION_CONTEXT Sections 3-5 and the runtime, top-albums and heatmap architecture files follow. The Mermaid MCP validator was not reachable from this session, so the edited diagram lines were checked by eye (no `;` in any message).
-
-Mutation evidence (each planted defect, then the named test failed, then restored): `jobs.create` before the slot -> `test_a_full_house_refuses_and_creates_nothing`; `jobs.delete` removed -> `test_a_thread_that_will_not_start_leaves_no_orphan_job`; `jobs.expire_stale()` removed -> `test_admission_drops_expired_jobs_first`; min plays/tracks defaults passed -> `test_background_task_runs_the_pipeline_with_the_job_records_parameters`; vanished-job release dropped -> `test_background_task_for_a_vanished_job_runs_nothing_and_frees_its_slot` and `TestHeatmapTask::test_a_vanished_job_runs_nothing_and_frees_its_slot`; `jobs.fail` dropped from `_album_request_for` -> `test_background_task_for_an_unusable_record_fails_the_job_and_frees_its_slot`; a second release in `admit` -> `test_a_real_thread_start_failure_frees_the_slot_once_and_removes_the_job`; the stored dict returned from `jobs.params` -> `test_params_returns_a_copy_and_none_for_a_missing_job`; a literal heatmap name -> `TestHeatmapTask::test_the_username_comes_from_the_job_record`; the flag left out of the album job record -> `test_results_loading_passes_the_include_flag_to_the_job_thread`.
-
-Deviations: the plan's `heatmap_flow` and `album_flow` code was applied as written; `ruff` reordered the new `admission` import after the other `scrobblescope` imports in both route modules. Edited existing tests, by name: in `tests/services/test_orchestrator_fetch_and_process.py` the six `background_task` call sites (`test_background_task_runs_single_event_loop`, its call and its name assertion now `testuser`; `test_background_task_releases_slot_on_exception`; `test_background_task_releases_slot_when_event_loop_setup_raises`; `test_background_task_releases_slot_when_loop_close_raises`; `test_background_task_crash_publishes_internal_error`; `test_background_task_stores_unmatched_rows_when_the_flag_is_on`); the seven `heatmap_task(` calls in `tests/test_heatmap.py` `TestHeatmapTask` (`test_release_job_slot_called_on_success`, `..._on_exception`, `..._when_event_loop_setup_raises`, `..._when_loop_close_raises`, `test_unhandled_crash_publishes_internal_error`, `test_user_not_found_crash_publishes_user_not_found`, `test_untyped_not_found_text_is_ours_not_user_not_found`); and `tests/test_routes.py::test_results_loading_passes_the_include_flag_to_the_job_thread` (docstring and the args assertion). The failed-thread-start path is tested for real, not patched, in `tests/test_admission.py`.
-
-Validation: `pytest -q` -- **2699 passed**.

@@ -257,7 +257,7 @@ User submits form (index.html)
     -> start_job_thread(background_task, args=(job_id,)) [worker.py]
        -- worker runs an injected callable; it does not import orchestrator
        -- on failure, start_job_thread releases the slot before re-raising,
-         then the route deletes the newly created job
+         then admission.admit deletes the newly created job
     -> Renders loading.html with job_id
 
 background_task (orchestrator/__init__.py, daemon Thread):
