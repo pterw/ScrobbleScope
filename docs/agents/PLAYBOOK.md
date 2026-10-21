@@ -158,6 +158,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - No attribution line in a PR body either
+
+Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: "make sure no attribution trailers are in any PR body".
+
+What changed: AGENTS.md Commit Rules "Co-author prohibition" now forbids any attribution line (such as a "Generated with" footer) in a commit message or a pull request body, whatever a harness suggests, and points a PR body at `.github/PULL_REQUEST_TEMPLATE.md`. The bold label is unchanged, so the docsync citations and `tests/test_docsync_declarations.py` still find it. The sweeper found no other live copy of the rule: the cloud-kit implementer files cover implementer commits only and stay.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-21 - The PR template asks for state and validation
 
 Side task, no batch tag: the PR template gains State and Validation sections, on `chore/pr-template`, a branch off `main`.
@@ -193,23 +205,3 @@ What changed: `test_the_routes_never_import_the_correction_worker` now catches a
 Deviations: none. Edited existing test: `test_the_routes_never_import_the_correction_worker`.
 
 Validation: `pytest -q` -- **2847 passed**.
-
-### 2026-10-20 - One album selection and one publish step
-
-Side task, no batch tag: `plays.select_albums` returns one typed `AlbumSelection` and `orchestrator.finish_album_job` is the one publish step after it (PR #4 of the pre-Batch-23 tranche, task 23d, F-B23-1's threshold half, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: review card B-3, "one typed album aggregate built from normalized plays, the same for a Last.fm job and an export job, and one publish step after aggregation... No sentinel returns from the aggregation" (Task 23 brief), so Batch 23 WP-3's `export_album_task` ends exactly as a Last.fm job does.
-
-What changed: `plays.py` gains the frozen `AlbumSelection(eligible, exclusions, total_below_threshold, plays_seen, unique_albums)` with `stats()` (the four wire-named counts) and the pure `select_albums(aggregate, min_plays, min_tracks, exclusion_cap)`: the one threshold partition and the exclusion cap, ties broken by normalized key. `orchestrator/__init__.py` deletes `_fetch_job_albums` (the `None` sentinel), `_record_lastfm_stats`, `_cap_threshold_exclusions` and Task 4's interim metadata dict. `fetch_top_albums_async` now returns `(AlbumSelection, FetchSummary)`, never `None` and never a status dict. New `finish_album_job(job_id, selection, album, *, overall_start_time)` takes PR #3's `AlbumRequest` (its `username` is `None` for an export), records the four stats and one unmatched record per exclusion, ends with one `jobs.succeed(job_id, [], "No albums found for the specified criteria.")` and no correction-worker hand-off when nothing is eligible, and otherwise runs `_process_filtered_albums`. The Last.fm-only stats (`pages_fetched`, the page-loss notice, `record_partial_source(lastfm)`, `pages_dropped`) move to `_record_fetch_stats`, which `_fetch_and_process` calls before `finish_album_job`; `_fetch_and_process` rebuilds the `AlbumRequest` from its positional parameters. `tests/helpers.py` gains `lastfm_albums` for tests that patch `fetch_top_albums_async`. `_process_filtered_albums`, `_build_results` (F-B23-1's release-scope half stays open) and the two `return []` after a Spotify failure are unchanged.
-
-`BATCH23_DEFINITION.md` amendments, this PR's by the tranche spec's documentation rule (a seam change that alters what a Batch 23 work package may assume amends the definition in the same PR): WP-3's first bullet (the export job calls `aggregate_albums`, `select_albums` and `finish_album_job` with an `AlbumRequest`), WP-3's acceptance start (`process_albums` receives the selection's eligible albums, `lastfm.fetch_scrobbles` is never called) and WP-2's acceptance sentence (the aggregator's output feeds `plays.select_albums`). The unexecuted Spotify-export plan is a dated plan and is not annotated.
-
-Docs: SESSION_CONTEXT Sections 3 and 4 (module list, `plays.py` and `orchestrator/__init__.py` imports re-derived by the `ast` snippet), `docs/architecture/runtime-system.md` (edge `Plays --> Unmatched`), `docs/architecture/top-albums-sequence.md` (three messages and one paragraph), F-B23-1's Status (threshold half landed). Every added Mermaid line was checked by script (no `;`, blocks balanced); the `validate_and_render_mermaid_diagram` tool was not available to the implementer, so the controller renders them.
-
-Deviations: the plan's sequence message ended "...retry); Last.fm only", whose `;` Mermaid reads as a statement separator, so it uses a comma. The plan's `_process_filtered_albums` docstring replacement would have left "It is called by `_fetch_and_process` ... and is called through" with a dangling `fetch_metadata` reference, so the sentence now reads "It is called through `finish_album_job`, which Batch 23's export task also calls". Edits were byte-safe Python, not `sed -i` (R9). Dated Section 4 entries and the logarchive still name the deleted functions, as point-in-time records.
-
-Mutation evidence (scratch copy of the tree, one plant at a time, each restored): (1) `select_albums` sorting without the key tie-break fails `test_the_cap_does_not_depend_on_input_order` and `test_threshold_exclusion_cap_is_independent_of_input_order`; (2) slicing `list(excluded)[:cap]` fails `test_the_cap_keeps_the_most_played_exclusions`; (3) `stats()` reporting `len(self.exclusions)` fails `test_stats_are_the_four_numbers_a_job_records`; (4) `partition_albums_by_threshold` with `play_count <= min_plays` fails `test_it_splits_by_both_minimums_and_counts_each_side`; (5) publishing after the empty-result `jobs.succeed` fails `test_stats_and_exclusions_are_readable_by_the_time_the_job_ends`; (6) deleting the empty-result `jobs.succeed`/`return []` fails `test_a_selection_with_nothing_eligible_ends_the_job_once` and `test_when_every_album_is_below_a_minimum_the_job_ends_with_the_report`; (7) calling `jobs.succeed` twice fails `test_a_selection_with_nothing_eligible_ends_the_job_once`; (8) omitting `include_unmatched=` fails `test_the_albums_choice_reaches_the_enrichment_tail`; (9) `_publish_selection` writing `pages_fetched` fails `test_the_shared_step_writes_no_lastfm_only_stats`; (10) deleting the stats loop fails `test_a_selection_with_albums_is_published_and_enriched` and `test_stats_and_exclusions_are_readable_by_the_time_the_job_ends`; (11) deleting `record_partial_source` fails `test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence` and `test_a_dropped_page_makes_the_album_job_partial_and_says_so`; (12) `if True:` in `_record_fetch_stats` fails `test_a_complete_lastfm_fetch_records_pages_and_no_notice`; (13) skipping `_record_fetch_stats` fails `test_a_dropped_page_makes_the_album_job_partial_and_says_so`.
-
-Edited existing tests: `tests/services/test_lastfm_logic.py` (8 tests unpack `(selection, summary)`; the stats test is renamed `test_fetch_top_albums_returns_stats_in_the_selection` and asserts `summary.pages_received == 1`), `tests/services/test_orchestrator_fetch_and_process.py` (12 patch return values now `lastfm_albums(...)`), `tests/services/test_orchestrator_helpers.py::test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence` (replaced, with `test_a_complete_lastfm_fetch_records_pages_and_no_notice` added), `tests/test_provider_fixtures.py::test_lastfm_fixture_flows_through_fetch_top_albums`. New: `tests/services/test_finish_album_job.py`, `TestSelectAlbums` in `tests/test_plays.py`. `tests/test_lastfm_job_results.py` is unchanged and still passes (the parity suite proves the tail rewrite).
-
-Validation: `pytest -q` -- **2841 passed**.
