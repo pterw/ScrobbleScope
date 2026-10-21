@@ -158,6 +158,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The PR template asks for state and validation
+
+Side task, no batch tag: the PR template gains State and Validation sections, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: "The state format is good, I think the State section and table is worth incorporating into the pull request template which exists in this repo."
+
+What changed: `.github/PULL_REQUEST_TEMPLATE.md` now runs Summary (names the plan file for a tranche or batch PR), State (a Task / What / Commits / Review table for a multi-task PR, kept true at every push), Validation at this head (head SHA, gates and results, CI run), the unchanged six-box Checklist with a note to tick gate boxes only once CI and the final gate pass at the head that leaves draft, and a closing comment forbidding attribution lines. The comments are HTML so GitHub hides them. Template only, so a PR opened from it starts with the right shape.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-20 - Make the #4 docs say what the branch now does
 
 Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.
@@ -201,25 +213,3 @@ Mutation evidence (scratch copy of the tree, one plant at a time, each restored)
 Edited existing tests: `tests/services/test_lastfm_logic.py` (8 tests unpack `(selection, summary)`; the stats test is renamed `test_fetch_top_albums_returns_stats_in_the_selection` and asserts `summary.pages_received == 1`), `tests/services/test_orchestrator_fetch_and_process.py` (12 patch return values now `lastfm_albums(...)`), `tests/services/test_orchestrator_helpers.py::test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence` (replaced, with `test_a_complete_lastfm_fetch_records_pages_and_no_notice` added), `tests/test_provider_fixtures.py::test_lastfm_fixture_flows_through_fetch_top_albums`. New: `tests/services/test_finish_album_job.py`, `TestSelectAlbums` in `tests/test_plays.py`. `tests/test_lastfm_job_results.py` is unchanged and still passes (the parity suite proves the tail rewrite).
 
 Validation: `pytest -q` -- **2841 passed**.
-
-### 2026-10-20 - Callers get scrobbles, not Last.fm pages
-
-Side task, no batch tag: `lastfm.fetch_scrobbles` hands back normalized plays and both calculations read them (PR #4 of the pre-Batch-23 tranche, task 23c, F-B23-2, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: the 2026-09-29 rulings, "tests move to the new interfaces" and `total_scrobbles` counts completed scrobbles only (the now-playing entry is not one). Batch 23 WP-2's Spotify parser must emit the same record, so one aggregator serves both sources.
-
-What changed: new `scrobblescope/plays.py` (a leaf over `domain`) holds the frozen `Play(played_at, artist, album, track)` (`played_at.tzinfo` must be exactly `datetime.UTC`), `Window` (UTC bounds, `Window.year`, `start_ts`, `end_ts`, inclusive `contains`), `AlbumTally`, `AlbumAggregate`, and the pure `aggregate_albums`, `aggregate_daily_counts` and `zero_fill_daily_counts`. `lastfm.py` gains `FetchSummary`, `ScrobbleFetch` and `fetch_scrobbles(username, window, progress_cb)`: pages are sorted by their own number, `date.uts` becomes a UTC datetime, and only the timestamp and the three names survive (a missing name is `""`). `heatmap.py` drops `_aggregate_daily_counts` and `_zero_fill_daily_counts` and reads `fetch_scrobbles`; `orchestrator/__init__.py` rebuilds `fetch_top_albums_async` on `fetch_scrobbles` and `plays.aggregate_albums` (same return tuple until task 23d), loses its status-error branch in `_fetch_job_albums` and the imports nothing uses now (`defaultdict`, `datetime`, `Any`, `normalize_name`, `normalize_track_name`), and exports `fetch_scrobbles` in place of `fetch_all_recent_tracks_async`. `tests/test_module_boundaries.py` gets a rule: nothing outside `lastfm.py` names the page-layer functions.
-
-Behaviour changes, each pinned by task 23a's `tests/test_lastfm_job_results.py` and flipped here: (1) `total_scrobbles` no longer counts the now-playing entry; (2) a track object with no `album`, `artist` or `name` key is skipped by the album calculation instead of being counted under the invented name "..."; (3) an unreadable timestamp or a non-object entry is dropped and counted, with a count-only WARNING line, instead of failing the job; (4) a failed Last.fm fetch writes no listening stats before it raises. A fifth, harmless change: plays leave the fetch in page-number order (pages used to arrive in `as_completed` order, so which casing of an album became `original_album` could differ between runs). Accepted cost of (4): a plain Last.fm outage used to end quietly with `Failed to fetch initial page`; it now raises, so it also logs one class-only ERROR line from the handler (`Error processing request for job ...` for an album job, `Unhandled error in heatmap task for job ...` for a heatmap job), carrying a job id and an exception class and no listener data.
-
-Memory (hosting ceiling, budget 20 MB peak added per 80,000-scrobble job; `tracemalloc`, the plan's probe, 400 pages of 200 scrobbles): raw pages held 104.9 MB; plays added 9.6 MB; peak added 10.4 MB. Within budget, so no trim.
-
-Docs: SESSION_CONTEXT Sections 3 to 5 (module list, dependency graph, background_task flow), `docs/architecture/runtime-system.md` (the `Plays` node and four edges), `docs/architecture/top-albums-sequence.md` and `docs/architecture/heatmap-sequence.md` (the failure branch is now a raise, not a status), F-B23-2 resolved, and `BATCH23_DEFINITION.md` WP-2 (the record, the one aggregator, the daily counts). Every added Mermaid line was checked by script (no `;`, participants declared, blocks balanced); the `validate_and_render_mermaid_diagram` tool was not available to the implementer, so the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid; the two sequence diagrams render once their pre-existing `;` in Note lines (from main, fixed by the documentation PR) are read as commas.
-
-Deviations: the two sequence-diagram Notes the plan wrote contain a `;`, which Mermaid reads as a statement separator, so each uses a comma instead. In `top-albums-sequence.md` the "Aggregation stats" line moves into the `else Pages available` branch, because a failed fetch now writes no stats (the plan did not name it). Edits were byte-safe Python, not `sed -i` (R9). `tests/test_lastfm_job_results.py`'s module docstring still says the five tests are marked xfail; the plan allows only the five marker deletions there, so the sentence is left for the controller.
-
-Edited existing tests: `tests/services/test_lastfm_logic.py` (9 patch strings re-pointed to `scrobblescope.lastfm.fetch_all_recent_tracks_async`; the UTC-window test patches `scrobblescope.plays.datetime`), `tests/test_heatmap.py` (`TestAggregateDailyCounts` moved to `tests/test_plays.py`; 7 pipeline tests re-pointed to `fetch_scrobbles`; `test_upstream_error_sets_job_error` replaced by `test_a_total_lastfm_failure_propagates_to_the_backstop`; `test_lastfm_outage_crash_publishes_lastfm_unavailable` added), `tests/test_provider_fixtures.py` (2), `tests/test_pipeline_integration.py` (1 patch string), `tests/services/test_orchestrator_fetch_and_process.py::test_fetch_and_process_discards_exclusions_on_lastfm_error` (now a raised `ProviderError`), `tests/test_lastfm_job_results.py` (5 xfail markers removed, nothing else), `tests/test_module_boundaries.py` (one rule added). New: `tests/test_plays.py`, and `fetch_scrobbles` tests in `tests/services/test_lastfm_service.py`.
-
-Mutation evidence (scratch copy, each restored afterwards): all 32 plants of the plan's Step 11 table failed the test it names (for example `Play.__post_init__` with `is UTC` failed the three `TestPlay` tests, `window.contains` skip deleted failed `test_a_play_outside_the_window_is_seen_but_not_counted` and Task 1's `test_scrobbles_outside_the_year_are_not_counted`, `datetime.fromtimestamp(int(uts))` without a zone failed 25 tests including `test_a_play_at_2330_utc_keeps_its_utc_day`, the heatmap `try/except ProviderError` failed `test_a_total_lastfm_failure_propagates_to_the_backstop`, a page-layer import in `heatmap.py` failed `test_nothing_outside_lastfm_reads_the_page_layer`). `tests/test_lastfm_job_results.py` reports `23 passed`, no xfail left.
-
-Validation: `pytest -q` -- **2831 passed**.
