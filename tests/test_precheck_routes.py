@@ -136,3 +136,32 @@ def test_a_stalled_last_fm_costs_a_route_its_budget_not_the_session(
     assert elapsed < 1.5
     mock_start.assert_not_called()
     assert fresh_job_store.ids() == []
+
+
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize(
+    "answer",
+    [{"registered_year": 2016}, {"exists": "yes"}, None],
+    ids=["no-exists-key", "exists-not-a-bool", "none"],
+)
+def test_a_malformed_last_fm_answer_is_unavailable_on_every_route(
+    client, fresh_job_store, route, answer
+):
+    """
+    GIVEN Last.fm answers the existence check with a body of the wrong shape
+    WHEN the album form, the heatmap start or the blur check asks
+    THEN each says "unavailable" (retryable) and starts nothing: a bad body is
+    an outage, never a 500 and never a guess.
+
+    Mutation: read `info["exists"]` outside precheck's try and every row 500s.
+    """
+    with (
+        patch("scrobblescope.routes._check_user_exists", return_value=answer),
+        patch("scrobblescope.routes._check_profile_is_public", return_value=True),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = _call(client, route)
+
+    assert _outcome(route, response) == "unavailable"
+    mock_start.assert_not_called()
+    assert fresh_job_store.ids() == []

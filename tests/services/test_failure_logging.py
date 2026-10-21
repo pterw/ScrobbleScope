@@ -212,7 +212,7 @@ def test_validate_user_failure_logs_the_class_only_at_error(client, caplog):
         response = client.get("/validate_user", query_string={"username": "someone"})
 
     assert response.status_code >= 500
-    _assert_type_only_at_error(caplog, error_fragment="Username validation failed")
+    _assert_type_only_at_error(caplog, error_fragment="User existence check failed")
 
 
 def test_album_start_thread_failure_logs_the_class_only_at_error(client, caplog):

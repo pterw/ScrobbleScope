@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2730 passing** across 92 tracked test modules |
+| Tests | **2739 passing** across 92 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2730 passed**.
+- Latest validated test count: **2739 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -87,7 +87,7 @@ scrobblescope/
     pages.py                  # home page
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
-    api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
+    api.py                    # validate_user (via precheck), csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
     precheck.py               # check_lastfm_user: one exists/private/outage answer, each lookup timed out; shared by the album, heatmap and validate routes
     admission.py              # admit: expire, slot, create, start the thread with the job id only; Refused.CAPACITY / START_FAILED
 templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
@@ -183,8 +183,8 @@ routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, util
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- admission, album_request, jobs, orchestrator, precheck, spotlight, unmatched; routes (facade)
-routes/heatmap_flow.py  <- admission, heatmap, jobs, utils; routes (facade)
-routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
+routes/heatmap_flow.py  <- admission, heatmap, jobs, precheck; routes (facade)
+routes/api.py           <- domain, jobs, precheck, release_checks, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
 app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
@@ -290,7 +290,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2730 tests)
+## 6. Test structure (2739 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
