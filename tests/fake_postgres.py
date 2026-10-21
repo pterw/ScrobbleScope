@@ -3,18 +3,29 @@
 ``scrobblescope.cache`` sends a handful of statements: a batch read of
 ``spotify_cache``, an upsert into it, a stale-row delete, and a read and an
 upsert of ``original_release_cache``. This fake answers exactly those against
-two dicts and refuses anything else with an ``AssertionError``, so a test that
-drives the real cache module sees what the SQL's arguments would store, not a
-mock's call list, and notices at once if a change adds a statement.
+two dicts, so a test that drives the real cache module sees what the SQL's
+arguments would store, not a mock's call list.
 
-``statements`` records ``(verb, table)`` for every statement, in order, which
-is how a test proves a job's database traffic did not grow. ``connect_attempts``
-counts calls to ``asyncpg.connect`` and ``closes`` counts ``close()`` calls.
+``statements`` records ``(verb, table)`` for EVERY statement the code sends, in
+order, before anything else happens to it (``table`` is ``None`` when the
+statement names neither cache table, e.g. ``SELECT 1``), which is how a test
+proves a job's database traffic did not grow. A statement the fake does not
+answer, or one sent on a closed connection (asyncpg raises ``InterfaceError``),
+raises, and is also listed in ``refused``. The cache module swallows every
+database error, so the raise alone is invisible: ``fake_postgres`` asserts
+``refused`` is empty when its block ends, and a sequence assertion sees the
+extra ``statements`` entry. Not modelled: TTLs (the days argument,
+``updated_at``), column types and unique-key rules.
+
+``connect_attempts`` counts calls to ``asyncpg.connect`` and ``closes`` counts
+``close()`` calls.
 """
 
 import json
 from contextlib import contextmanager
 from unittest.mock import patch
+
+from asyncpg.exceptions import InterfaceError
 
 #: The seven data columns of ``spotify_cache`` after the two key columns, in
 #: the order ``cache.py``'s upsert passes its arrays.
@@ -42,8 +53,10 @@ class FakePostgres:
         self.metadata = {}
         self.original_releases = {}
         self.statements = []
+        self.refused = []
         self.connect_attempts = 0
         self.closes = 0
+        self.closed = False
         self._failures = {}
 
     def seed_metadata(self, artist_norm, album_norm, **columns):
@@ -81,8 +94,14 @@ class FakePostgres:
         elif "spotify_cache" in sql:
             table = "spotify_cache"
         else:
-            raise AssertionError(f"FakePostgres: unknown table in {sql[:80]!r}")
+            table = None
         self.statements.append((verb, table))
+        if self.closed:
+            self.refused.append(f"{verb} on a closed connection")
+            raise InterfaceError("connection is closed")
+        if table is None:
+            self.refused.append(f"{verb} names no cache table: {sql[:80]!r}")
+            raise AssertionError(f"FakePostgres: unknown table in {sql[:80]!r}")
         error = self._failures.get((verb, table))
         if error is not None:
             raise error
@@ -133,6 +152,7 @@ class FakePostgres:
     async def close(self):
         """Count a close; the cache module must close exactly once per job."""
         self.closes += 1
+        self.closed = True
 
 
 @contextmanager
@@ -153,6 +173,7 @@ def fake_postgres(
             db.connect_attempts += 1
             if connect_error is not None:
                 raise connect_error
+            db.closed = False
             return db
 
     with (
@@ -160,3 +181,4 @@ def fake_postgres(
         patch("scrobblescope.cache._DATABASE_URL", url),
     ):
         yield db
+    assert not db.refused, f"FakePostgres refused statements: {db.refused}"

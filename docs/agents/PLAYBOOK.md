@@ -162,6 +162,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The fake Postgres refuses what Postgres refuses
+
+Side task, no batch tag: fix round 1 of the cache parity tests' fake database (`tests/fake_postgres.py`), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: the hosting-cost pin and the connection-ownership checks that Tasks 3 and 4 re-run must fail when the code misbehaves, not stay green because the fake is lenient.
+
+What changed and why: review of the first commit planted two defects that left all 17 tests green. (1) A statement naming neither cache table (`SELECT 1` in `cleanup_stale_metadata`) was refused before it was recorded, and every cache caller swallows exceptions, so nothing showed. The fake now records every statement first (`table` is `None` when it names no cache table), then refuses it, lists it in the new `refused` list, and `fake_postgres` asserts `refused` is empty when its block ends; the sequence pin sees the extra entry as well. (2) The fake accepted `fetch`/`execute` after `close()`; asyncpg raises `InterfaceError`. `close()` now sets `closed`, each connect clears it, and a statement on a closed connection is recorded, listed in `refused` and raises `asyncpg.exceptions.InterfaceError`. The module docstring says what is not modelled (TTLs, column types, unique-key rules).
+
+Deviations: none. Edited existing tests: none; `tests/fake_postgres.py` is the only file changed (no new test).
+
+Mutation evidence (planted in a file kept aside, restored after): (16) the `[deezer]` leak case, `provider_url` suffixed with the listener on the Deezer fallback path -> `test_a_stored_row_carries_no_listening_fact[deezer]` fails; (17) `SELECT 1` after the DELETE in `cleanup_stale_metadata` -> `test_a_search_costs_one_connection_and_a_fixed_statement_sequence` and 15 more fail (the refused-statement assertion at the end of `fake_postgres`, and the extra sequence entry); (18) `conn.close()` before `_persist_new_metadata` in `process_albums` -> 16 tests fail (stored row absent, refused assertion). The 15 earlier rows were re-run against the stricter fake and each still fails its named test(s); restored, all 17 pass.
+
+Validation: `pytest -q` -- **2878 passed**.
+
 ### 2026-10-21 - An album reads itself from a cache row
 
 Side task, no batch tag: one classmethod, one property and one constant on `AlbumMetadata` that read a `spotify_cache` row as an album, plus one line in `spotify.py`, on `refactor/metadata-encoding`, a branch off `main`.
@@ -199,17 +213,5 @@ Owner intent: "All plans should stay for archival purposes" (2026-10-20), so eve
 What changed: `docs/superpowers/plans/2026-10-20-metadata-encoding.md` is new. It passed a brief review (plan-review: no Critical, two Important, eight Minor) and a drift review against `main` at eb0db9e (no structural drift). Fixes applied, each in the plan: I1 no mutation step restores with `git checkout -- <file>` any more (Task 1 Step 5, Task 2 Step 5, Task 3 Step 9, Task 4 Step 9 and the Global Constraint now plant in a scratch copy or copy the file aside); I2 Task 2 mutation row 3 plants `album_id = spotify_id`, which the Deezer-row test can fail; M1 the six-tuple assumptions row names `test_batch_persist_metadata_upsert_call_shape` as the second six-element caller; M2 every new test that named no planted defect has one (Task 1 rows 13 and 14, Task 3 rows 8-10, Task 4 rows 8 and 9; one test is covered by Task 3 row 3); M3 `test_a_stored_row_carries_no_listening_fact` now puts the listener's name on the album entry and Task 1 row 15 plants a leak of it; M4 Task 1 Step 1 greps the names `fake_postgres` patches; M5 Task 4 no longer adds the schema remediation text or the `correction_lookup_schema` site (scope stays the P5 list; its deviation note and mutation row are gone); M6 Task 1 row 10 plants a second `conn.execute` with the same arguments; M7 Task 5 Step 2 says the seam is under way; M8 Task 3's entry notes that the first view of a search renders the provider-supplied URL where it used to render a constructed one, so F-B23-32's exposure widens slightly. Drift fixes: 5 renames to the public cache names (the Assumptions table rows and the Task 2 rationale) and the two "unverified until #4 merges" markers resolved as held; cosmetic: heading dated eb0db9e, the worktree path `C:/ssw/meta` is `C:/ssw/me` (2 places), Task 1 carries the test-module-count bookkeeping for its new `test_*.py` module, the Validation line is the exact form, the Task 4 `sed -i` re-point is a byte-safe script, and the Task 4 sweep excludes this file so it does not match its own entry. Section 3's "Before WP-1" bullet was stale: it did not say the include-unmatched control (PR #1) and backend hygiene (PR #2) are done, still listed the metadata encoding as not started, and still called PR #7 round 1 under way after it finished; it now says all three (plan numbers, not GitHub numbers).
 
 Deviations: none from the brief; every proposed fix held at source. Edited existing tests: none (a plan and PLAYBOOK only).
-
-Validation: `pytest -q` -- **2847 passed**.
-
-### 2026-10-20 - Make the #4 docs say what the branch now does
-
-Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: the branch's docs describe the branch as it is when it merges, not as it stood while the tasks were under way.
-
-What changed: Section 3's "Before WP-1" bullet now says PR #4 is done (PR #3's form) and that the two seams remaining are one album-metadata encoding and the statistics module, and drops the "Tasks 2-5 after PR #3 merges" sentence. The `tests/test_lastfm_job_results.py` module docstring no longer says five tests are xfail-marked; they pass since Task 4. `fetch_top_albums_async`'s docstring already describes behaviour only, with no plan label (nothing to change). The "Callers get scrobbles, not Last.fm pages" entry's "so the controller renders them" now records what was done: the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid. README's "What each module owns" table gains `plays.py` and `release_status.py`. `orchestrator/__init__.py`'s `__all__` is back in sorted order (no name added or removed).
-
-Deviations: none. Edited existing tests: none (docstring only in `tests/test_lastfm_job_results.py`).
 
 Validation: `pytest -q` -- **2847 passed**.
