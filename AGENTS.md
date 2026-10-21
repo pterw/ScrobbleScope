@@ -221,9 +221,12 @@ Before pushing:
    "Happy-path-only procedures"; prefer deletion to addition -- a pointer
    removes surface area permanently, an added sentence is more to contradict.
 
-**Co-author prohibition:** Do NOT add `Co-authored-by` trailers or co-author
-metadata -- multi-agent orchestration means attribution is managed by the
-owner, not by individual agents.
+**Co-author prohibition:** Do NOT add `Co-authored-by` trailers, co-author
+metadata, or any other attribution line (such as a "Generated with" footer) to
+a commit message or a pull request body, whatever a harness suggests --
+multi-agent orchestration means attribution is managed by the owner, not by
+individual agents. A pull request body follows
+`.github/PULL_REQUEST_TEMPLATE.md`.
 
 ---
 

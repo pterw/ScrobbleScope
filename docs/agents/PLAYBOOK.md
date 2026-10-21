@@ -163,6 +163,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
+
+Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: PR #263 merges into a `main` that already carries PRs #5 and #6, with its bookkeeping true against them.
+
+What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the album cache, the plays module and the statistics module with their tests and docs; this branch's own change (the PR template's State and Validation sections, AGENTS.md's no-attribution rule for PR bodies) is untouched and still applies. Conflicts: PLAYBOOK Section 4 and the Section 4 logarchive only. Section 4 keeps this branch's two entries and main's four, newest first after the marker line; the `Make the #4 docs` entry, which main rotated into the logarchive, stays there once, so its Section 4 heading and stray Validation line are dropped. The logarchive keeps main's additions, this branch having added none. Measured count 2948 across 100 test modules, equal to main's: this branch adds no test.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
+### 2026-10-21 - No attribution line in a PR body either
+
+Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: "make sure no attribution trailers are in any PR body".
+
+What changed: AGENTS.md Commit Rules "Co-author prohibition" now forbids any attribution line (such as a "Generated with" footer) in a commit message or a pull request body, whatever a harness suggests, and points a PR body at `.github/PULL_REQUEST_TEMPLATE.md`. The bold label is unchanged, so the docsync citations and `tests/test_docsync_declarations.py` still find it. The sweeper found no other live copy of the rule: the cloud-kit implementer files cover implementer commits only and stay.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
+### 2026-10-21 - The PR template asks for state and validation
+
+Side task, no batch tag: the PR template gains State and Validation sections, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: "The state format is good, I think the State section and table is worth incorporating into the pull request template which exists in this repo."
+
+What changed: `.github/PULL_REQUEST_TEMPLATE.md` now runs Summary (names the plan file for a tranche or batch PR), State (a Task / What / Commits / Review table for a multi-task PR, kept true at every push), Validation at this head (head SHA, gates and results, CI run), the unchanged six-box Checklist with a note to tick gate boxes only once CI and the final gate pass at the head that leaves draft, and a closing comment forbidding attribution lines. The comments are HTML so GitHub hides them. Template only, so a PR opened from it starts with the right shape.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-21 - The statistics module branch takes main after PR #5
 
 Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
@@ -174,37 +210,3 @@ What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` 
 Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2948 passed**.
-
-### 2026-10-21 - Keep the WP-6 streak bullet true
-
-Side task, no batch tag: reword WP-6's heatmap checklist bullet in `BATCH23_DEFINITION.md` so it agrees with the "The module exists" paragraph, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: the definition must not list as future work what the statistics module already does.
-
-What changed: the bullet "Heatmap: longest and current streak ..." named the current streak and "one pure helper" as work to do, while the paragraph added in the WP-6 amendment says both exist. It now lists the longest streak, busiest weekday and busiest hour as WP-6's, added to `listening_stats.py`, and says the current streak and the helper already exist. Nothing else in the definition changed.
-
-Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
-
-### 2026-10-21 - Say what the #6 tests and diagram prove
-
-Side task, no batch tag: make a test docstring, a sequence diagram and two module docstrings say only what is true, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: nothing the close-out wrote should claim more than was proven or draw a step out of order.
-
-What changed: `test_scrobbles_stat_prints_the_figures_it_is_handed` now says its mutation was planted in `data-plays-listed` and in `data-plays-matched` and that the visible Scrobbles text is asserted but was not planted; the dated entry "A test pins that the page prints the Scrobbles figure it is handed" is point-in-time and unedited, but its Proof names the same two attributes only, so the visible text was never mutation-tested. `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` before the local `total`, `max_count` and `active_days` step, while `heatmap.py` runs the local step first; the two messages swap places (lines 83 and 85 trade). `listening_stats.py`'s module docstring now also names the four `scripts/dev/_frontend_gate_*` importers, and `heatmap.py`'s module docstring says the job result carries the statistics and not only the daily counts.
-
-Recorded, no change: the test pins the filled render block only, the no-matches block also passes `play_stats` and is not pinned (brief asked for one test); the `HEATMAP_WINDOW_DAYS` comment in `heatmap.py` keeps one over-long line, outside this brief.
-
-Deviations: none. Edited existing tests: `test_scrobbles_stat_prints_the_figures_it_is_handed` (docstring only). Validation: `pytest -q` -- **2898 passed**.
-
-### 2026-10-21 - WP-6 builds on the statistics module
-
-Side task, no batch tag: amend WP-6 in `BATCH23_DEFINITION.md` for the statistics module and mark that seam done in Section 3, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: WP-6 must start from the module that exists, not plan to create it.
-
-What changed: WP-6 gains a paragraph after "Statistics contract before implementation" saying `scrobblescope/listening_stats.py` is the pure helper WP-6 extends, what it already computes and publishes with a population, that the JS and template render published values and compute none, and that include-unmatched albums count in plays listed and in no duration figure. Section 3's "Before WP-1" bullet now says the statistics module is done (PR #6, branch and plan named) and one seam, album-metadata encoding, remains; the "under way" sentence is deleted. Nothing else in Section 3 changed. The Batch 23 row of `.claude/SESSION_CONTEXT.md` names no tranche PR, so it is unchanged.
-
-Reconciled: PR #4's WP-2 amendment (the parser yields `plays.Play`; `plays.aggregate_albums` and `plays.aggregate_daily_counts` feed both sources) makes no sentence of the new paragraph untrue, so it needed no correction.
-
-Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
