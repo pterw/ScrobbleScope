@@ -53,7 +53,6 @@
     </div>
 
     {% set album_list = data|default([]) %}
-    {% set total_scrobbles = album_list | sum(attribute='play_count') %}
     {% if has_durations is not defined %}
         {% set ns = namespace(has=false) %}
         {% for a in album_list %}
@@ -93,7 +92,7 @@
         <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
-                <span id="stat-scrobbles" class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
+                <span id="stat-scrobbles" data-plays-listed="{{ play_stats.plays_listed.value }}" data-plays-matched="{{ play_stats.plays_matched.value }}" class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(play_stats.plays_listed.value) }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">counted</span>
         </div>

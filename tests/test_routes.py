@@ -3499,6 +3499,35 @@ def test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops(client):
     assert _scrobbles_figure(response.data.decode("utf-8")) == "50"
 
 
+def test_scrobbles_stat_publishes_both_populations_for_the_albums_control(client):
+    """
+    GIVEN an include run: three matched albums and two unmatched
+    WHEN the Results page renders
+    THEN the Scrobbles stat shows the listed plays and carries both figures
+    as data attributes, so switching the Unmatched albums control (Hide/Include) needs no arithmetic.
+
+    Mutation: render only one attribute, or derive matched from listed in the
+    template, and the matched assertion fails.
+    """
+    page = _render_include_results(client)
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="200"' in stat
+    assert 'data-plays-matched="120"' in stat
+    assert _scrobbles_figure(page) == "200"
+
+
+def test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures(client):
+    """A run without the include control states one figure twice.
+
+    Mutation: have the template write 0 into ``data-plays-matched`` unless
+    an unmatched row exists; the attribute reads 0 and this fails.
+    """
+    page = _render_results(client, [{**_provider_row("spotify", 0), "play_count": 50}])
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="50"' in stat
+    assert 'data-plays-matched="50"' in stat
+
+
 @pytest.mark.parametrize(
     ("seconds", "expected", "absent"),
     [

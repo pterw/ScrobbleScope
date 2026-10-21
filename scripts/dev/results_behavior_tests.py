@@ -589,9 +589,14 @@ class ResultsBehaviorTests(unittest.TestCase):
         """Load results.js into the rows an include run renders, with the
         Unmatched albums control, both stats and the locked Listening Time button."""
         self.page.emulate_media(reduced_motion="reduce")
+        rows_in_use = include_rows or self.INCLUDE_ROWS
+        # The server publishes both figures; the fixture derives them from the
+        # rows this call renders, so a custom row set stays self-consistent.
+        listed = sum(int(r[1]) for r in rows_in_use)
+        matched = sum(int(r[1]) for r in rows_in_use if not r[4])
         rows = ""
         for number, (name, plays, seconds, duration, unmatched) in enumerate(
-            include_rows or self.INCLUDE_ROWS, 1
+            rows_in_use, 1
         ):
             marker = (
                 f'<span class="provider-badge provider-badge--unmatched">'
@@ -616,7 +621,9 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.start(
             "results.js",
             '<div id="toastContainer"></div><button id="export-csv"></button>'
-            '<span id="stat-total-albums">5</span><span id="stat-scrobbles">200</span>'
+            '<span id="stat-total-albums">5</span>'
+            f'<span id="stat-scrobbles" data-plays-listed="{listed}" '
+            f'data-plays-matched="{matched}">{listed}</span>'
             '<span id="stat-top-artist" title="Lost One Band">Lost One Band</span>'
             '<button id="toggle-sort-plays"></button>'
             '<button id="toggle-sort-playtime" disabled '
@@ -643,6 +650,24 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator("#stat-scrobbles").inner_text(),
             self.page.locator("#stat-top-artist").inner_text(),
         ]
+
+    def test_scrobbles_stat_shows_the_published_figures_not_a_sum_of_rows(self):
+        """Choosing Hide shows the published matched figure; Include shows
+        the published listed figure. The numbers are deliberately not the sum of
+        the rows, so a script that still adds up row play counts is caught.
+
+        Mutation: restore the reduce over ``data-play-count`` in
+        ``setUnmatchedHidden`` and the stat reads 120 instead of 999.
+        """
+        self.include_run()
+        self.page.evaluate(
+            "() => { const s = document.getElementById('stat-scrobbles');"
+            " s.dataset.playsMatched = '999'; s.dataset.playsListed = '1001'; }"
+        )
+        self.page.locator("label[for=results_albums_matched]").click()
+        self.assertEqual(self.page.locator("#stat-scrobbles").inner_text(), "999")
+        self.page.locator("label[for=results_albums_all]").click()
+        self.assertEqual(self.page.locator("#stat-scrobbles").inner_text(), "1,001")
 
     def test_matched_only_hides_rows_renumbers_and_offers_listening_time(self):
         """Choosing Hide takes both unmatched rows out, ranks the rest 01..03,

@@ -18,6 +18,7 @@ from scrobblescope.album_request import (
     parse_album_request,
     registration_refusal,
 )
+from scrobblescope.listening_stats import album_play_statistics
 from scrobblescope.orchestrator import background_task
 from scrobblescope.routes import admission, precheck
 from scrobblescope.spotlight import select_spotlight_artists
@@ -240,6 +241,9 @@ def _render_results_page():
         )
 
     filtered_results = _filter_results_for_display(results_data, sort_mode)
+    # The figures describe the rows this page lists, after every filter it
+    # applies, so they are computed here and not at job completion.
+    play_stats = album_play_statistics(filtered_results)
 
     unmatched_count = len(job_context.get("unmatched", {}))
     unchecked_count = sum(
@@ -274,6 +278,7 @@ def _render_results_page():
             has_durations=has_durations,
             filter_description=filter_description,
             job_id=job_id,
+            play_stats=play_stats,
         )
 
     # Passed so the release-check status line renders with the page. It sits
@@ -317,6 +322,7 @@ def _render_results_page():
         partial_notice=partial_notice,
         partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
+        play_stats=play_stats,
         include_unmatched=include_unmatched,
         unmatched_row_count=unmatched_row_count,
         unmatched_badges=unmatched_badges,

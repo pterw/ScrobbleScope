@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The window declaration drops two heatmap.js sites
+
+Side task, no batch tag: retire two docsync value sites that name `static/js/heatmap.js`'s window code, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the 365-day window declaration must stop guarding text that the next commit deletes, so the statistics move is not blocked by a stale pattern (seam B-4).
+
+What changed: `config/docsync.toml` loses the `WINDOW_DAYS = (\d+)` site and the `whole (\d+)-day window` site, both in `static/js/heatmap.js`. Task 4 removes that text because the browser stops dividing by a window length; the average now divides by the zero-filled window in Python. A declaration whose pattern no longer matches fails DOC009, so the sites go first, in their own commit. The Python constant (`HEATMAP_WINDOW_DAYS`), the exported caption (`LAST (\d+) DAYS`) and all copy sites stay guarded. A staged `config/docsync.toml` change outside `[test_count]` is control-plane, so the commit used the documented escape: `--check` exit 0, `SKIP=doc-state-sync-check git commit`, `--check` again. Never `--no-verify`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2888 passed**.
+
 ### 2026-10-21 - Listening statistics have one module
 
 Side task, no batch tag: the pure listening statistics module and its tests, on `refactor/statistics-module`, a branch off `main`.

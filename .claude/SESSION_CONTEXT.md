@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2895 passing** across 99 tracked test modules |
+| Tests | **2897 passing** across 99 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2895 passed**.
+- Latest validated test count: **2897 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -189,7 +189,7 @@ listening_stats.py <- (leaf; standard library only)
 routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- admission, album_request, jobs, orchestrator, precheck, spotlight, unmatched; routes (facade)
+routes/album_flow.py    <- admission, album_request, jobs, listening_stats, orchestrator, precheck, spotlight, unmatched; routes (facade)
 routes/heatmap_flow.py  <- admission, heatmap, jobs, precheck; routes (facade)
 routes/api.py           <- domain, jobs, precheck, release_status, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
@@ -298,7 +298,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2895 tests)
+## 6. Test structure (2897 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
