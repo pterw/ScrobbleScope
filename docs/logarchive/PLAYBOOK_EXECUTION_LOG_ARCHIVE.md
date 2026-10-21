@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
+
+Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a test must fail when the rule it names is broken, so the streak case cannot pass for a port that forgives two quiet days.
+
+What changed: in `tests/fixtures/heatmap_kpi_cases.json` the case `two_quiet_days_make_the_streak_zero` gains a play at day offset 2 (days 0 and 1 stay empty). Before, the only play sat at offset 5, so a streak that ended two days back still found nothing and returned 0; now it finds the offset-2 play and returns 1, and the case fails. The expected values were measured with the JS harness on unchanged `heatmap.js` (scrobbles 5, best day MAR 5 with 4, streak 0). Planting "forgive two quiet days" in `heatmap.js` failed the JS case; the same plant in `scrobblescope/listening_stats.py` failed the Python case. The test-seam comment in `static/js/heatmap.js` called the hooked functions side-effect free, but `renderKpisInto` sets `kpiRow`; it now says they touch only the row they are handed. No empty-window case is added: the JS and Python empty-window outputs differ and that choice belongs to Task 4.
+
+Deviations: none. Edited existing tests: `test_kpi_blocks_show_what_the_window_holds[two_quiet_days_make_the_streak_zero]` and `test_the_published_figures_are_the_ones_the_pinned_kpis_show[two_quiet_days_make_the_streak_zero]` (data only).
+
+Validation: `pytest -q` -- **2888 passed**.
+
 ### 2026-10-21 - The window declaration drops two heatmap.js sites
 
 Side task, no batch tag: retire two docsync value sites that name `static/js/heatmap.js`'s window code, on `refactor/statistics-module`, a branch off `main`.

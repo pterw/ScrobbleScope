@@ -390,26 +390,29 @@ def test_kpi_blocks_render_the_published_figures_and_compute_nothing(js_page):
     GIVEN a payload whose statistics disagree with its own daily counts
     WHEN the KPI row renders
     THEN it shows the published figures, not figures worked out from the
-    counts: the page states what the server decided.
+    counts: the page states what the server decided. Every published figure
+    differs from what its counts give (total 3, average 0.3, best day 2 on
+    Mar 9, streak 2), so a recompute of any one of them fails.
 
-    Mutation: bring back a browser-side streak or best-day computation and
-    the row shows 0 and 1 instead of 7 and 9.
+    Mutation: bring back a browser-side total, average, streak or best-day
+    computation and that block shows the counts' figure instead of 14,
+    12.3, 9 / MAR 5 or 7.
     """
     published = {
         "total_plays": {"value": 14, "population": "p"},
-        "daily_average": {"value": 0.04, "population": "p"},
+        "daily_average": {"value": 12.3, "population": "p"},
         "best_day": {"value": {"date": "2026-03-05", "count": 9}, "population": "p"},
         "current_streak": {"value": 7, "population": "p"},
     }
     data = {
         "from_date": "2026-03-01",
         "to_date": "2026-03-10",
-        "daily_counts": {"2026-03-10": 1},
+        "daily_counts": {"2026-03-09": 2, "2026-03-10": 1},
         "statistics": published,
     }
     assert js_page.evaluate(RENDER_KPIS_JS, data) == [
         {"label": "SCROBBLES", "value": "14", "sub": ""},
-        {"label": "DAILY AVERAGE", "value": "0.0", "sub": ""},
+        {"label": "DAILY AVERAGE", "value": "12.3", "sub": ""},
         {"label": "BEST DAY", "value": "9", "sub": "MAR 5"},
         {"label": "CURRENT STREAK", "value": "7", "sub": "DAYS"},
     ]

@@ -161,6 +161,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The KPI test catches a recomputed average
+
+Side task, no batch tag: make the KPI "published figures" test fail if the browser recomputes any figure, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the page must show the figure the server decided, and the test that says so must be able to fail when it does not.
+
+What changed: `test_kpi_blocks_render_the_published_figures_and_compute_nothing` published a daily average of 0.04, which a browser recompute from the same counts also formats as "0.0", so a recomputed average passed. It now publishes 12.3 over counts that give 0.3, and the counts (`2026-03-09: 2`, `2026-03-10: 1`) give a total of 3, a best day of 2 on Mar 9 and a streak of 2, each different from the published 14, 9 on Mar 5 and 7. Only the test's data, assertions and docstring changed; no production code.
+
+Proof: a recompute planted in `renderKpis` (scratch copy of `heatmap.js`, restored) for each of total, average, best day and streak failed the test on that block (3 vs 14, 0.3 vs 12.3, 2 / MAR 9 vs 9 / MAR 5, 2 vs 7).
+
+Deviations: none. Edited existing tests: `test_kpi_blocks_render_the_published_figures_and_compute_nothing`. Validation: `pytest -q` -- **2897 passed**.
+
 ### 2026-10-21 - The Scrobbles figure comes from Python
 
 Side task, no batch tag: compute the Results Scrobbles figure in `listening_stats` and make the page and `results.js` read it, on `refactor/statistics-module`, a branch off `main`.
@@ -206,15 +218,3 @@ What changed: in `tests/test_listening_stats.py` the album population test now a
 Deviations: none. Edited existing tests: `TestHeatmapStatistics::test_every_figure_states_its_population` and `TestAlbumPlayStatistics::test_each_figure_says_what_it_leaves_out`.
 
 Validation: `pytest -q` -- **2890 passed**.
-
-### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
-
-Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: a test must fail when the rule it names is broken, so the streak case cannot pass for a port that forgives two quiet days.
-
-What changed: in `tests/fixtures/heatmap_kpi_cases.json` the case `two_quiet_days_make_the_streak_zero` gains a play at day offset 2 (days 0 and 1 stay empty). Before, the only play sat at offset 5, so a streak that ended two days back still found nothing and returned 0; now it finds the offset-2 play and returns 1, and the case fails. The expected values were measured with the JS harness on unchanged `heatmap.js` (scrobbles 5, best day MAR 5 with 4, streak 0). Planting "forgive two quiet days" in `heatmap.js` failed the JS case; the same plant in `scrobblescope/listening_stats.py` failed the Python case. The test-seam comment in `static/js/heatmap.js` called the hooked functions side-effect free, but `renderKpisInto` sets `kpiRow`; it now says they touch only the row they are handed. No empty-window case is added: the JS and Python empty-window outputs differ and that choice belongs to Task 4.
-
-Deviations: none. Edited existing tests: `test_kpi_blocks_show_what_the_window_holds[two_quiet_days_make_the_streak_zero]` and `test_the_published_figures_are_the_ones_the_pinned_kpis_show[two_quiet_days_make_the_streak_zero]` (data only).
-
-Validation: `pytest -q` -- **2888 passed**.
