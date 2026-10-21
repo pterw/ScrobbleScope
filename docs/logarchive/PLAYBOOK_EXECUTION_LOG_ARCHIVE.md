@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The metadata encoding plan opens its branch
+
+Side task, no batch tag: the approved album metadata encoding plan added as the branch's first commit, with its review and drift fixes folded in and PLAYBOOK Section 3 made true, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is the first commit of its branch; plan fixes are applied in a brief'd docs task when the branch is cut.
+
+What changed: `docs/superpowers/plans/2026-10-20-metadata-encoding.md` is new. It passed a brief review (plan-review: no Critical, two Important, eight Minor) and a drift review against `main` at eb0db9e (no structural drift). Fixes applied, each in the plan: I1 no mutation step restores with `git checkout -- <file>` any more (Task 1 Step 5, Task 2 Step 5, Task 3 Step 9, Task 4 Step 9 and the Global Constraint now plant in a scratch copy or copy the file aside); I2 Task 2 mutation row 3 plants `album_id = spotify_id`, which the Deezer-row test can fail; M1 the six-tuple assumptions row names `test_batch_persist_metadata_upsert_call_shape` as the second six-element caller; M2 every new test that named no planted defect has one (Task 1 rows 13 and 14, Task 3 rows 8-10, Task 4 rows 8 and 9; one test is covered by Task 3 row 3); M3 `test_a_stored_row_carries_no_listening_fact` now puts the listener's name on the album entry and Task 1 row 15 plants a leak of it; M4 Task 1 Step 1 greps the names `fake_postgres` patches; M5 Task 4 no longer adds the schema remediation text or the `correction_lookup_schema` site (scope stays the P5 list; its deviation note and mutation row are gone); M6 Task 1 row 10 plants a second `conn.execute` with the same arguments; M7 Task 5 Step 2 says the seam is under way; M8 Task 3's entry notes that the first view of a search renders the provider-supplied URL where it used to render a constructed one, so F-B23-32's exposure widens slightly. Drift fixes: 5 renames to the public cache names (the Assumptions table rows and the Task 2 rationale) and the two "unverified until #4 merges" markers resolved as held; cosmetic: heading dated eb0db9e, the worktree path `C:/ssw/meta` is `C:/ssw/me` (2 places), Task 1 carries the test-module-count bookkeeping for its new `test_*.py` module, the Validation line is the exact form, the Task 4 `sed -i` re-point is a byte-safe script, and the Task 4 sweep excludes this file so it does not match its own entry. Section 3's "Before WP-1" bullet was stale: it did not say the include-unmatched control (PR #1) and backend hygiene (PR #2) are done, still listed the metadata encoding as not started, and still called PR #7 round 1 under way after it finished; it now says all three (plan numbers, not GitHub numbers).
+
+Deviations: none from the brief; every proposed fix held at source. Edited existing tests: none (a plan and PLAYBOOK only).
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-20 - Make the #4 docs say what the branch now does
 
 Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.

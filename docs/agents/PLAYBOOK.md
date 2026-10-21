@@ -162,6 +162,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - A Deezer album with no stored link is pinned
+
+Side task, no batch tag: fix round 1 of Task 2, the album reading itself from a cache row, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a test must fail when the code does the wrong thing, so the rule that a Deezer row with no stored link has no link needs a test of its own.
+
+What changed and why: review found that a mutant giving every provider the Spotify classic link (`open.spotify.com/album/<id>`) passed all 14 tests, though it would send a Deezer id to a Spotify page. `test_a_deezer_row_with_no_stored_link_has_no_link` builds a Deezer row with `provider_url` NULL and asserts the link is `""` (the plan and `from_row` agree). Two existing tests also gained `assert album is not None`, so a wrong `from_row` fails on an assertion instead of an AttributeError on None.
+
+Deviations: none. Edited existing tests: `test_a_deezer_row_keeps_the_deezer_id_and_link` and `test_an_older_spotify_row_is_a_spotify_album_with_the_classic_link` (one added assertion each).
+
+Mutation evidence (planted in a file kept aside, restored after): the link fallback made unconditional (`if True` for `provider == "spotify"`) -> `test_a_deezer_row_with_no_stored_link_has_no_link` fails; restored, 18 pass in the file.
+
+Validation: `pytest -q` -- **2879 passed**.
+
 ### 2026-10-21 - The fake Postgres refuses what Postgres refuses
 
 Side task, no batch tag: fix round 1 of the cache parity tests' fake database (`tests/fake_postgres.py`), on `refactor/metadata-encoding`, a branch off `main`.
@@ -203,15 +217,3 @@ Deviations: no source file changed. Mutation row 15 (listener's name) and row 5 
 Mutation evidence (15 rows, each planted in the named file, the FAIL line seen, the file restored from a byte copy, the PASS seen): 1 `album_image_url` read from `spotify_id` fails the Spotify round trip; 2 `spotify_id` written for Deezer fails `assert '9' is None`; 3 `_album_provider` without the Spotify fallback fails the older-row test; 4 `_album_url` without the classic link fails both older-row cases; 5 play count in the stored row fails `assert '4242' not in ...`; 6 `raise` after the last connect attempt fails the asleep test with `TimeoutError`; 7 no `DATABASE_URL` branch fails `assert 1 == 0` (a connect was attempted); 8 bare persist fails `[write]` with `OSError`; 9 no `conn.close()` fails both close tests with `(1, 0) == (1, 1)`; 10 upsert issued twice fails the statement sequence; 11 swapped original-release arrays fail the MusicBrainz test; 12 `"provider": None` on the exclusion entry fails both rows; 13 bare metadata read fails `[read]`; 14 bare correction read fails `[correction_read]`; 15 listener's name in the stored `provider_url` fails `assert 'listener_zq' not in ...`.
 
 Validation: `pytest -q` -- **2864 passed**.
-
-### 2026-10-21 - The metadata encoding plan opens its branch
-
-Side task, no batch tag: the approved album metadata encoding plan added as the branch's first commit, with its review and drift fixes folded in and PLAYBOOK Section 3 made true, on `refactor/metadata-encoding`, a branch off `main`.
-
-Owner intent: "All plans should stay for archival purposes" (2026-10-20), so every PR's plan is the first commit of its branch; plan fixes are applied in a brief'd docs task when the branch is cut.
-
-What changed: `docs/superpowers/plans/2026-10-20-metadata-encoding.md` is new. It passed a brief review (plan-review: no Critical, two Important, eight Minor) and a drift review against `main` at eb0db9e (no structural drift). Fixes applied, each in the plan: I1 no mutation step restores with `git checkout -- <file>` any more (Task 1 Step 5, Task 2 Step 5, Task 3 Step 9, Task 4 Step 9 and the Global Constraint now plant in a scratch copy or copy the file aside); I2 Task 2 mutation row 3 plants `album_id = spotify_id`, which the Deezer-row test can fail; M1 the six-tuple assumptions row names `test_batch_persist_metadata_upsert_call_shape` as the second six-element caller; M2 every new test that named no planted defect has one (Task 1 rows 13 and 14, Task 3 rows 8-10, Task 4 rows 8 and 9; one test is covered by Task 3 row 3); M3 `test_a_stored_row_carries_no_listening_fact` now puts the listener's name on the album entry and Task 1 row 15 plants a leak of it; M4 Task 1 Step 1 greps the names `fake_postgres` patches; M5 Task 4 no longer adds the schema remediation text or the `correction_lookup_schema` site (scope stays the P5 list; its deviation note and mutation row are gone); M6 Task 1 row 10 plants a second `conn.execute` with the same arguments; M7 Task 5 Step 2 says the seam is under way; M8 Task 3's entry notes that the first view of a search renders the provider-supplied URL where it used to render a constructed one, so F-B23-32's exposure widens slightly. Drift fixes: 5 renames to the public cache names (the Assumptions table rows and the Task 2 rationale) and the two "unverified until #4 merges" markers resolved as held; cosmetic: heading dated eb0db9e, the worktree path `C:/ssw/meta` is `C:/ssw/me` (2 places), Task 1 carries the test-module-count bookkeeping for its new `test_*.py` module, the Validation line is the exact form, the Task 4 `sed -i` re-point is a byte-safe script, and the Task 4 sweep excludes this file so it does not match its own entry. Section 3's "Before WP-1" bullet was stale: it did not say the include-unmatched control (PR #1) and backend hygiene (PR #2) are done, still listed the metadata encoding as not started, and still called PR #7 round 1 under way after it finished; it now says all three (plan numbers, not GitHub numbers).
-
-Deviations: none from the brief; every proposed fix held at source. Edited existing tests: none (a plan and PLAYBOOK only).
-
-Validation: `pytest -q` -- **2847 passed**.

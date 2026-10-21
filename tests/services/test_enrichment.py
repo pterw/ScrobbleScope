@@ -124,11 +124,22 @@ def test_a_deezer_row_keeps_the_deezer_id_and_link():
     columns."""
     album = AlbumMetadata.from_row(_row(**_DEEZER_COLUMNS))
 
+    assert album is not None
     assert (album.provider, album.album_id, album.url) == (
         "deezer",
         "6237061",
         "https://www.deezer.com/album/6237061",
     )
+
+
+def test_a_deezer_row_with_no_stored_link_has_no_link():
+    """Only a Spotify album can be given a link from its id; a Deezer id on a
+    Spotify page would point at the wrong album, so the link stays empty."""
+    album = AlbumMetadata.from_row(_row(**{**_DEEZER_COLUMNS, "provider_url": None}))
+
+    assert album is not None
+    assert (album.provider, album.album_id) == ("deezer", "6237061")
+    assert album.url == ""
 
 
 @pytest.mark.parametrize(
@@ -145,6 +156,7 @@ def test_an_older_spotify_row_is_a_spotify_album_with_the_classic_link(columns):
     and `_album_url` carried."""
     album = AlbumMetadata.from_row(_row(**columns))
 
+    assert album is not None
     assert (album.provider, album.album_id) == ("spotify", "sp1")
     assert album.url == SPOTIFY_ALBUM_URL.format(album_id="sp1")
     assert album.url == "https://open.spotify.com/album/sp1"
