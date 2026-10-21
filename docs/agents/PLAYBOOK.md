@@ -104,15 +104,13 @@ See FINDINGS F-DOCSYNC-3.
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
   normalized Last.fm scrobbles with one album aggregate. The album request
-  module is done (PR #3, branch refactor/album-request-module); the other
+  module is done (PR #3, branch refactor/album-request-module, plan
+  `docs/superpowers/plans/2026-10-20-album-request-module.md`); the other
   three seams remain. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
-  PR #3, the album request module, is under way on
-  `refactor/album-request-module`; its plan is
-  `docs/superpowers/plans/2026-10-20-album-request-module.md`.
   PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
   plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
@@ -157,6 +155,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Section 3 says PR #3 is done, not under way
+
+Side task, no batch tag: remove the Section 3 sentence that called PR #3 under way, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: Section 3 must not say the album request module is both done and under way.
+
+What changed: the "Before WP-1" bullet carried "PR #3, the album request module, is under way" (added with the plan) and "The album request module is done" (added by Task 7). The PR is complete, so the first sentence is deleted; its plan path moves into the "is done" sentence so the path is still named. PR #4's and PR #7's sentences are untouched.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2769 passed**.
+
 ### 2026-10-20 - The entry the import-position fix corrected is named
 
 Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
@@ -194,19 +206,5 @@ Owner intent: the shared documents must describe the code that ships, so a reade
 What changed: SESSION_CONTEXT Section 5 said that on a failed thread start "the route deletes the newly created job"; since the admission module, `admission.admit` deletes it (it calls `jobs.delete` after `start_job_thread` raises), so the sentence now says so. The 2026-10-20 entry "The album form is refused with a reason" said ruff put the `admission` import "after the other `scrobblescope` imports"; in both `album_flow.py` and `heatmap_flow.py` it sits in alphabetical position, and the entry now says that. Both checked against the code before editing.
 
 Deviations: none. No code or test changed.
-
-Validation: `pytest -q` -- **2743 passed**.
-
-### 2026-10-20 - A job says what kind it is
-
-Side task, no batch tag: make the job kind a record field that is never defaulted when read, and amend WP-4 to match, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: a record that forgot its kind must not be served as an album run. This is B-12's server half; every writer now sets `mode`, so the default is a trap rather than a convenience.
-
-What changed: the `"album"` default is gone from three sites -- `routes._get_validated_job_context`, `api.release_checks` and `album_flow._extract_job_params` (its unread `mode` entry is deleted) -- and the literals `"album"` and `"heatmap"` become `jobs.MODE_ALBUM` and `jobs.MODE_HEATMAP` (`expected_mode` in `album_flow`, `release_checks`, `_latest_heatmap_job`). New: `test_a_job_that_never_said_its_kind_is_not_served_as_an_album_job` (four rows: `/results`, `/loading`, `/unmatched`, `/api/release_checks`; before this commit all four failed). Seeds that now say `"mode"`: `TEST_JOB_PARAMS` in `tests/helpers.py`; three literals in `tests/test_routes.py`; and the frontend-gate seeds, three in `_frontend_gate_results.py`, one in `_frontend_gate_include.py`, two in `_frontend_gate_spotify_icon.py`. `BATCH23_DEFINITION.md` WP-4 is amended: a "Scope amended 2026-10-20 (pre-Batch-23 tranche, PR #3)" paragraph says WP-4 reuses the album request module, the pre-check and the admission module; the export route's form fields go through `album_request.parse_album_request(form, current_year=..., require_username=False)`; the admission bullet records that `admit(params, target, *, label)` exists, that the thread entry point takes only the job id, that the kind is `params["mode"]` and an export album job keeps `mode` "album" with its origin in `source`; and Acceptance says PR #3 tests the path the album and heatmap routes share while WP-4 adds the export route's. PLAYBOOK Section 3 ("Before WP-1") now says the album request module is done and the other three seams remain; no "Last verified" date and no `Branch:` line moved.
-
-Deviations: none from the brief. Edited existing fixtures, by name: `TEST_JOB_PARAMS` (`tests/helpers.py`) and, in `tests/test_routes.py`, the album literals in `test_results_complete_renders_no_matches_for_empty_results`, `test_results_complete_with_results_renders_data` and `test_results_complete_links_each_row_to_its_own_provider`; no other test needed a `mode`. `ruff format` wrapped the `_latest_heatmap_job` condition over four lines.
-
-Mutation evidence (planted in a scratch copy, named tests failed, restored): `.get("mode", "album")` back in `_get_validated_job_context` -> the `/results`, `/loading` and `/unmatched` rows; the same default back in `release_checks` -> the `/api/release_checks` row. Gates: `frontend_gate.py` 47 checks passed in 75 runs; `results_behavior_tests.py` OK.
 
 Validation: `pytest -q` -- **2743 passed**.
