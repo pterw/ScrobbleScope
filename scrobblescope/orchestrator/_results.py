@@ -68,35 +68,6 @@ def _get_user_friendly_reason(
         return f"Unknown release year: {release_date}"
 
 
-def _album_provider(cached):
-    """Return the provider that supplied *cached*'s metadata, or None.
-
-    ``provider`` is only present on rows written since Batch 22 WP-1
-    Task 2 (or backfilled by its migration). A row with a ``spotify_id``
-    but no ``provider`` predates that column and is a Spotify row in
-    every case, so it falls back to "spotify" rather than reporting an
-    unknown source for data that is, in fact, known.
-    """
-    return cached.get("provider") or ("spotify" if cached.get("spotify_id") else None)
-
-
-def _album_url(cached):
-    """Return the link to *cached*'s album page on its provider, or None.
-
-    ``provider_url`` is only present on rows written since Task 2; a
-    Spotify row from before that (or fetched live before Task 5 wired the
-    provider fields into the live fetch path) carries only ``spotify_id``,
-    from which the classic Spotify album URL is reconstructed.
-    """
-    url = cached.get("provider_url")
-    if url:
-        return url
-    spotify_id = cached.get("spotify_id")
-    if spotify_id:
-        return f"https://open.spotify.com/album/{spotify_id}"
-    return None
-
-
 def _build_results(
     cache_hits,
     job_id,
@@ -131,10 +102,10 @@ def _build_results(
     original_release_hits = original_release_hits or {}
     results = []
     for key, entry in cache_hits.items():
-        cached = entry["cached"]
+        metadata = entry["cached"]
         original_data = entry["original"]
 
-        provider_release_date = cached.get("release_date", "")
+        provider_release_date = metadata.release_date
         correction = original_release_hits.get(key)
         corrected = bool(correction and correction.get("original_release"))
         release_date = (
@@ -156,10 +127,12 @@ def _build_results(
                 "album": album,
                 "reason": reason,
                 "reason_code": REASON_RELEASE_SCOPE,
-                "album_image": cached.get("album_image_url"),
-                "spotify_id": cached.get("spotify_id"),
-                "provider": _album_provider(cached),
-                "album_url": _album_url(cached),
+                "album_image": metadata.image_url,
+                "spotify_id": metadata.spotify_id,
+                "provider": metadata.provider,
+                # An empty link is no link: the page tests it for truth and
+                # the JSON has always said null.
+                "album_url": metadata.url or None,
                 "play_count": original_data.get("play_count"),
                 # Always the provider's own date, corrected or not. The
                 # correction worker (Task 9) reads it back off the unmatched
@@ -172,7 +145,7 @@ def _build_results(
             jobs.record_unmatched(job_id, unmatched_key, unmatched_entry)
             continue
 
-        track_durations = cached.get("track_durations") or {}
+        track_durations = metadata.track_durations
 
         play_time_sec = sum(
             track_durations.get(track, 0) * count
@@ -188,10 +161,10 @@ def _build_results(
             "play_time_seconds": play_time_sec,
             "different_songs": len(original_data["track_counts"]),
             "release_date": release_date,
-            "album_image": cached.get("album_image_url"),
-            "spotify_id": cached.get("spotify_id", ""),
-            "provider": _album_provider(cached),
-            "album_url": _album_url(cached),
+            "album_image": metadata.image_url,
+            "spotify_id": metadata.spotify_id,
+            "provider": metadata.provider,
+            "album_url": metadata.url or None,
             # Carries the cache_hits key -- already the normalized
             # (artist_norm, album_norm) tuple, no extra normalize_name call
             # needed -- forward so jobs.update_result can match by

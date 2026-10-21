@@ -36,7 +36,7 @@ flowchart LR
         ReleaseChecks[release_checks.py<br/>one correction worker,<br/>FIFO job queue]
         ReleaseStatus[release_status.py<br/>check and status strings]
         MusicBrainzClient[musicbrainz.py]
-        Cache[cache.py]
+        Cache[cache.py<br/>AlbumCache]
         Utils[utils.py]
         ApiLogging[api_logging.py<br/>trace hook + call summary]
         Domain[domain.py]
@@ -109,6 +109,7 @@ flowchart LR
     MusicBrainzClient --> Errors
     Spotlight --> Utils
     Cache --> Utils
+    Cache --> Enrichment
     Utils --> ApiLogging
 
     Worker -.->|runs injected callable| Album
@@ -205,11 +206,14 @@ silent:
 - **How an album gets its release date, in one place.** The date is decided
   in four steps, and this bullet is the only full account of them. (1) The
   metadata cache is read first: a cached row already holds `release_date` and
-  skips every provider call. (2) For each miss, Spotify is searched, then its
-  album details are fetched. (3) An album Spotify could not enrich falls to
-  Deezer, which supplies the date instead. `process_albums` in
+  skips every provider call. The cache is optional at runtime: when the
+  database is missing or does not answer, `open_album_cache` yields a
+  disabled cache and every album is a miss. (2) For each miss, Spotify is
+  searched, then its album details are fetched. (3) An album Spotify could not
+  enrich falls to Deezer, which supplies the date instead. `process_albums` in
   `orchestrator/__init__.py` orchestrates steps 1 to 3, and
-  `_persist_new_metadata` writes the enriched rows back to the cache, so a
+  `AlbumCache.persist` (reported to the job by `_persist_new_metadata`)
+  writes the enriched albums back to the cache, so a
   later job reads them free. (4) When the results list is built
   (`orchestrator/_results.py`), the album's date is the MusicBrainz original
   release date if one is already cached for it, otherwise the provider's own

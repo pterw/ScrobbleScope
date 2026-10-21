@@ -95,10 +95,16 @@ def test_album_pipeline_runs_on_a_real_thread_end_to_end(client):
             return_value={"sp1": {"release_date": "1977-02-04"}},
         ) as mock_details,
         patch(
-            o + "get_db_connection", new_callable=AsyncMock, return_value=AsyncMock()
+            "scrobblescope.cache.get_db_connection",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
         ),
-        patch(o + "batch_lookup_metadata", new_callable=AsyncMock, return_value={}),
-        patch(o + "batch_persist_metadata", new_callable=AsyncMock),
+        patch(
+            "scrobblescope.cache.batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         # Closes the unconditional MusicBrainz call (enqueue_release_check in
         # _process_filtered_albums) by mock, not by accident of
         # MUSICBRAINZ_ENABLED/_CONTACT in this env.

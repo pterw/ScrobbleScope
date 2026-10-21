@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2847 tests across 98 tracked test modules.
+2897 tests across 99 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -529,27 +529,6 @@ decision point. The threshold half landed in Task 23d (plays.select_albums retur
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
 
-### F-B23-3: the album pipeline runs the cache connection protocol itself
-
-`orchestrator.process_albums` opens the cache connection, holds it across
-provider work, and closes it in a `finally`. Meanwhile
-`orchestrator/_cache.py` owns the cache-failure policy, including writing job
-warnings through the facade. So understanding what "the cache is optional"
-means takes both modules. It also makes the connection-closure test in
-`tests/services/test_orchestrator_process_albums.py` configure the provider
-machinery.
-
-The fix is for the existing cache module to own the operation's lifetime and
-its failure classification, while job messages and enrichment decisions stay
-with the caller. There is one concrete adapter, so no generic cache-backend
-layer. Metadata and release-check cache policy stay separate.
-
-Status: open (P2). F-B22-7 and F-B22-8 have both landed (reconcile Tasks
-4-6 and 11); reassess against the code they left. No performance gain is
-claimed. Source: card 03 of
-`docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
-(2026-09-23).
-
 ### F-B23-4: the frontend gate's touch-target check failed once on a tree that passes
 
 At `ffbee0e` the frontend gate failed once, and then passed three times on
@@ -698,7 +677,7 @@ to this finding.
 
 ### F-B23-32: provider URLs reach href and src unchecked
 
-Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_results.py` `_album_url`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
+Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `enrichment.py` `AlbumMetadata.from_row` (the one place a cached link enters), `_results.py`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-3.
 
@@ -819,6 +798,12 @@ The moved-out correction note (`release-check-note`, `is-release-corrected`) on 
 A Results page switched to Listening Time in the browser ranks matched albums with no Spotify duration last, shown as a dash, while a run that starts in playtime mode drops them server-side (`_filter_results_for_display`), so the same listener sees two different leaderboards for the "same" ranking. This is pre-existing on `main` for play-count runs (`setLeaderboardMetric` sorts every row), and is now also reached after Hide on an include run. What would close it: one rule for both paths (hide durationless rows while the client metric is playtime, with renumbering, or keep them server-side too), decided in the UI-consistency PR.
 
 - [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
+
+### F-B23-47: `test_job_threads_can_share_the_token_state_dict_without_error` can fail when run beside other test files
+
+The test in `tests/services/test_spotify_service.py` runs eight threads at a one-microsecond switch interval and asserts on garbage collection and on a remaining count, so its outcome depends on thread timing. It failed once during PR #5 Task 2's run, alongside `tests/services/test_enrichment.py` and the cache test files, and passed alone and in the full suite. Task 2's reviewer judged it a microsecond switch-interval thread race that is flaky by design and unrelated to the diff. No fix in PR #5. What would close it: assert only what the threads guarantee (no exception, a consistent dict) and move the garbage-collection and remaining-count checks to a deterministic test.
+
+- [ ] **Status:** open (P3). Source: PR #5 Task 2 run and review, 2026-10-21.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

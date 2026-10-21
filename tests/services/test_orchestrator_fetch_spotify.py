@@ -7,6 +7,7 @@ import pytest
 
 from scrobblescope import jobs
 from scrobblescope.cache import cleanup_stale_metadata
+from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import (
     ProviderError,
     SpotifyUnavailableError,
@@ -138,15 +139,15 @@ async def test_fetch_spotify_misses_malformed_album_details():
     # sp1 should be promoted with empty track_durations (missing 'tracks')
     assert ("artist1", "album1") in cache_hits
     promoted = cache_hits[("artist1", "album1")]["cached"]
-    assert promoted["track_durations"] == {}
-    assert promoted["spotify_id"] == "sp1"
+    assert promoted.track_durations == {}
+    assert promoted.spotify_id == "sp1"
 
     # sp2 (None details) should be skipped entirely -- not promoted
     assert ("artist2", "album2") not in cache_hits
 
     # Only sp1 should produce a persist row
-    assert len(new_rows) == 1
-    assert new_rows[0][2] == "sp1"
+    assert list(new_rows) == [("artist1", "album1")]
+    assert new_rows[("artist1", "album1")].album_id == "sp1"
 
 
 @pytest.mark.asyncio
@@ -496,7 +497,7 @@ async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
             {},
         )
 
-    assert result == []
+    assert result == {}
     mock_batch.assert_not_called()
 
 
@@ -703,15 +704,7 @@ async def test_deezer_throttling_degrades_and_records_the_album_as_unavailable()
     job_id = jobs.create(TEST_JOB_PARAMS)
     data = {"original_artist": "A", "original_album": "B", "play_count": 3}
     misses = {("throttled", "alb"): dict(data), ("found", "alb"): dict(data)}
-    metadata = MagicMock(
-        release_date="2020-01-01",
-        image_url="img",
-        track_durations={"t": 1},
-        provider="deezer",
-        album_id="9",
-        url="u",
-    )
-    metadata.as_cache_row.return_value = ("found", "alb")
+    metadata = _deezer_metadata()
 
     async def search(session, artist, album):
         if artist == "throttled":
@@ -729,7 +722,7 @@ async def test_deezer_throttling_degrades_and_records_the_album_as_unavailable()
     ):
         rows = await _run_deezer_fallback_phase(job_id, MagicMock(), misses, cache_hits)
 
-    assert rows == [("found", "alb")]
+    assert rows == {("found", "alb"): metadata}
     assert list(cache_hits) == [("found", "alb")]
     unmatched = jobs.unmatched(job_id)
     assert [v["reason_code"] for v in unmatched.values()] == ["provider_unavailable"]
@@ -749,17 +742,16 @@ def _plain_album(name):
     }
 
 
-def _deezer_metadata(key):
-    metadata = MagicMock(
-        release_date="2020-01-01",
-        image_url="img",
-        track_durations={"t": 1},
+def _deezer_metadata():
+    """The Deezer album every fake Deezer lookup in this file returns."""
+    return AlbumMetadata(
         provider="deezer",
         album_id="9",
         url="u",
+        release_date="2020-01-01",
+        image_url="img",
+        track_durations={"t": 1},
     )
-    metadata.as_cache_row.return_value = key
-    return metadata
 
 
 def _fake_session_ctx(session=None):
@@ -779,7 +771,7 @@ async def _run_misses_with_spotify_down(
         return 9 if (artist, album) in deezer_finds else None
 
     async def fetch_deezer(session, album_id):
-        return _deezer_metadata(("found", "album"))
+        return _deezer_metadata()
 
     async def down(session, artist, album, token, semaphore=None):
         raise ProviderError("spotify", "unavailable")
@@ -829,7 +821,7 @@ async def test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_un
         job_id, misses, deezer_finds={("found", "album")}
     )
 
-    assert rows == [("found", "album")]
+    assert rows == {("found", "album"): _deezer_metadata()}
     assert list(hits) == [("found", "album")]
     unmatched = jobs.unmatched(job_id)
     assert [v["reason_code"] for v in unmatched.values()] == ["provider_unavailable"]
@@ -880,7 +872,7 @@ async def test_one_answered_spotify_search_keeps_the_job_alive_when_deezer_has_n
 
     rows, hits = await _run_misses_with_spotify_down(job_id, misses, search=search)
 
-    assert rows == [] and hits == {}
+    assert rows == {} and hits == {}
     reasons = {v["artist"]: v["reason_code"] for v in jobs.unmatched(job_id).values()}
     assert reasons == {"Miss": "no_spotify_match", "Bad": "provider_unavailable"}
 
@@ -914,7 +906,7 @@ async def test_spotify_token_transport_failure_degrades_and_fails_only_if_deezer
         return 9 if deezer_finds else None
 
     async def fetch_deezer(session, album_id):
-        return _deezer_metadata(("found", "album"))
+        return _deezer_metadata()
 
     job_id = jobs.create(TEST_JOB_PARAMS)
     with (
@@ -941,7 +933,7 @@ async def test_spotify_token_transport_failure_degrades_and_fails_only_if_deezer
     ):
         if deezer_finds:
             rows = await _fetch_spotify_misses(job_id, misses, {})
-            assert rows == [("found", "album")]
+            assert rows == {("found", "album"): _deezer_metadata()}
         else:
             with pytest.raises(SpotifyUnavailableError, match="token fetch failed"):
                 await _fetch_spotify_misses(job_id, misses, {})
@@ -1121,7 +1113,7 @@ async def _run_process_with_spotify_details(
         return 9 if (artist, album) in deezer_finds else None
 
     async def fetch_deezer(session, album_id):
-        return _deezer_metadata(("found", "album"))
+        return _deezer_metadata()
 
     hits = {}
     with (
@@ -1149,7 +1141,7 @@ async def _run_process_with_spotify_details(
             "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
         ),
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -1252,7 +1244,7 @@ async def test_details_unanswered_for_every_album_but_one_deezer_match_is_not_a_
         deezer_finds={("found", "album")},
     )
 
-    assert rows == [("found", "album")]
+    assert rows == {("found", "album"): _deezer_metadata()}
     assert list(hits) == [("found", "album")]
     (row,) = jobs.unmatched(job_id).values()
     assert row["artist"] == "Lost"
@@ -1285,7 +1277,7 @@ async def test_a_no_match_answer_beside_an_unanswered_details_call_does_not_fail
         details=_all_details_unanswered("sp-bad"),
     )
 
-    assert rows == [] and hits == {}
+    assert rows == {} and hits == {}
     reasons = {v["artist"]: v["reason_code"] for v in jobs.unmatched(job_id).values()}
     assert reasons == {"Miss": "no_spotify_match", "Bad": "provider_unavailable"}
 
@@ -1522,7 +1514,7 @@ async def test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searche
             "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
         ),
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),
