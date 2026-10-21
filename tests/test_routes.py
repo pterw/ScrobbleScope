@@ -3450,6 +3450,55 @@ def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(clien
     assert "switch-row" not in page
 
 
+def _scrobbles_figure(page):
+    """The text of the Results page's Scrobbles stat."""
+    return re.search(r'id="stat-scrobbles"[^>]*>([\d,]+)<', page).group(1)
+
+
+def test_scrobbles_figure_is_the_plays_of_the_albums_the_page_lists(client):
+    """
+    GIVEN a run of three matched albums, and an include run that also lists
+    two unmatched albums
+    WHEN the Results page renders
+    THEN Scrobbles states the plays of every album listed: 50 + 40 + 30, and
+    with the unmatched rows 50 + 45 + 40 + 35 + 30.
+
+    Mutation: sum only the matched rows on an include run and the second
+    assertion reads 120; sum only the first row and both fail.
+    """
+    matched = _render_results(
+        client,
+        [
+            {**_provider_row("spotify", 0), "play_count": 50},
+            {**_provider_row("spotify", 1), "play_count": 40},
+            {**_provider_row("spotify", 2), "play_count": 30},
+        ],
+    )
+    assert _scrobbles_figure(matched) == "120"
+    assert _scrobbles_figure(_render_include_results(client)) == "200"
+
+
+def test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops(client):
+    """
+    GIVEN a playtime-ranked run in which one album has no listening time
+    WHEN the Results page renders
+    THEN that album is not listed, and its plays are not in Scrobbles: the
+    figure describes the rows on the page.
+
+    Mutation: sum the stored rows before the playtime filter and the figure
+    reads 90.
+    """
+    rows = [
+        {**_provider_row("spotify", 0), "play_count": 50},
+        {**_provider_row("spotify", 1), "play_count": 40, "play_time_seconds": 0},
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "sort_mode": "playtime"})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    assert _scrobbles_figure(response.data.decode("utf-8")) == "50"
+
+
 @pytest.mark.parametrize(
     ("seconds", "expected", "absent"),
     [

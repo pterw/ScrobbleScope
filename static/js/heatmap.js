@@ -1872,7 +1872,7 @@
 
   // Module top level, not inside DOMContentLoaded: a harness that loads this
   // file via page.add_script_tag() after the document has already reached
-  // "complete" never sees a later DOMContentLoaded fire. These five
+  // "complete" never sees a later DOMContentLoaded fire. These
   // functions are side-effect free, so the seam is safe to expose
   // immediately -- but only when a test flag is set before this script
   // runs (F-B21-18's "guarded seam"); on every other page load
@@ -1884,6 +1884,10 @@
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,
+      renderKpisInto: function (row, data) {
+        kpiRow = row;
+        renderKpis(data, data.daily_counts, parseLocalDate(data.to_date));
+      },
     };
   }
 

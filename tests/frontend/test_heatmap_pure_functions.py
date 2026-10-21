@@ -3,8 +3,9 @@
 Scope is exactly Q14 answer a
 (docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md, "Owner
 answers, 2026-09-23"): ``rocketColor``, ``countToNorm`` and the export header
-(``exportHeaderModel`` + ``exportHeaderLayout``). ``computeStreak`` is out of
-scope here; Q14 defers it to WP-6.
+(``exportHeaderModel`` + ``exportHeaderLayout``). The KPI blocks (streak, best
+day, daily average) joined with PR #6; their cases live in
+``tests/fixtures/heatmap_kpi_cases.json``, shared with the Python tests.
 
 ``arrowKeyTarget`` joined the seam with the 2026-09-28 review fix (finding 2):
 the grid's arrow keys move by each layout's own steps, so the step
@@ -16,6 +17,7 @@ from __future__ import annotations
 import pytest
 
 from tests.frontend.conftest import HEATMAP_JS
+from tests.helpers import expected_kpi_blocks, kpi_payload, load_kpi_cases
 
 pytestmark = pytest.mark.browser
 
@@ -340,3 +342,33 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
         page.close()
     assert alert_text == "Spotify is not answering."
     assert phase_text == ""
+
+
+KPI_CASES = load_kpi_cases()
+
+RENDER_KPIS_JS = """(data) => {
+    const row = document.createElement('div');
+    window.__scrobbleHeatmapTestHooks.renderKpisInto(row, data);
+    return Array.from(row.querySelectorAll('.heatmap-kpi')).map((item) => ({
+        label: item.querySelector('.heatmap-kpi-label').textContent,
+        value: item.querySelector('.heatmap-kpi-value').textContent,
+        sub: (item.querySelector('.heatmap-kpi-sub') || { textContent: '' }).textContent,
+    }));
+}"""
+
+
+@pytest.mark.parametrize("case", KPI_CASES, ids=lambda c: c["name"])
+def test_kpi_blocks_show_what_the_window_holds(js_page, case):
+    """The four KPI blocks state the window's total, daily average, best day
+    and current streak, as the case name says they must.
+
+    Mutation: make the streak start from the window's first day instead of
+    its last (``computeStreak``'s ``toDate``), and every case with a streak
+    other than 0 fails; make the best-day reduce use ``>`` instead of ``>=``
+    and ``a_tie_for_best_day_goes_to_the_earlier_day``,
+    ``average_is_over_every_day_of_the_window`` and
+    ``a_streak_stops_at_the_first_day_of_the_window`` fail.
+    """
+    assert js_page.evaluate(RENDER_KPIS_JS, kpi_payload(case)) == expected_kpi_blocks(
+        case
+    )

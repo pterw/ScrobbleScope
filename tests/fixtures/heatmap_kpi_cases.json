@@ -1,0 +1,50 @@
+[
+  {
+    "name": "streak_ends_today",
+    "end": "2026-03-10",
+    "plays": {"0": 1, "1": 3, "2": 1},
+    "expected": {"scrobbles": "5", "daily_average": "0.0", "best_count": "3", "best_label": "MAR 9", "streak": "3"}
+  },
+  {
+    "name": "streak_may_end_yesterday",
+    "end": "2026-03-10",
+    "plays": {"1": 2, "2": 1},
+    "expected": {"scrobbles": "3", "daily_average": "0.0", "best_count": "2", "best_label": "MAR 9", "streak": "2"}
+  },
+  {
+    "name": "a_gap_ends_the_streak",
+    "end": "2026-03-10",
+    "plays": {"0": 1, "2": 5},
+    "expected": {"scrobbles": "6", "daily_average": "0.0", "best_count": "5", "best_label": "MAR 8", "streak": "1"}
+  },
+  {
+    "name": "two_quiet_days_make_the_streak_zero",
+    "end": "2026-03-10",
+    "plays": {"5": 4},
+    "expected": {"scrobbles": "4", "daily_average": "0.0", "best_count": "4", "best_label": "MAR 5", "streak": "0"}
+  },
+  {
+    "name": "a_tie_for_best_day_goes_to_the_earlier_day",
+    "end": "2026-03-10",
+    "plays": {"10": 2, "3": 2},
+    "expected": {"scrobbles": "4", "daily_average": "0.0", "best_count": "2", "best_label": "FEB 28", "streak": "0"}
+  },
+  {
+    "name": "average_is_over_every_day_of_the_window",
+    "end": "2026-03-10",
+    "plays": {"0": 365, "1": 365},
+    "expected": {"scrobbles": "730", "daily_average": "2.0", "best_count": "365", "best_label": "MAR 9", "streak": "2"}
+  },
+  {
+    "name": "average_shows_one_decimal_and_thousands_separator",
+    "end": "2026-03-10",
+    "plays": {"0": 1000},
+    "expected": {"scrobbles": "1,000", "daily_average": "2.7", "best_count": "1000", "best_label": "MAR 10", "streak": "1"}
+  },
+  {
+    "name": "a_streak_stops_at_the_first_day_of_the_window",
+    "end": "2026-03-10",
+    "every_day": 1,
+    "expected": {"scrobbles": "365", "daily_average": "1.0", "best_count": "1", "best_label": "MAR 11", "streak": "365"}
+  }
+]

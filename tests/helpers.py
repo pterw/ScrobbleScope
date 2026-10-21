@@ -1,4 +1,7 @@
 import contextlib
+import json
+from datetime import date, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Standard form data for POST /results_loading tests (year as string, flounder14).
@@ -170,3 +173,54 @@ def lastfm_albums(
         unique_albums=len(eligible) + len(exclusions),
     )
     return selection, FetchSummary(pages_expected, pages_received)
+
+
+KPI_CASES_PATH = Path(__file__).parent / "fixtures" / "heatmap_kpi_cases.json"
+KPI_WINDOW_DAYS = 365
+
+
+def load_kpi_cases():
+    """Return the heatmap KPI case table (``tests/fixtures/heatmap_kpi_cases.json``)."""
+    return json.loads(KPI_CASES_PATH.read_text(encoding="utf-8"))
+
+
+def kpi_window(case):
+    """Expand *case* to ``(from_iso, to_iso, daily_counts)``.
+
+    ``daily_counts`` is zero-filled and ascending, the shape the heatmap job
+    publishes: one key per UTC day of a 365-day window ending on ``case["end"]``.
+    """
+    end = date.fromisoformat(case["end"])
+    counts = {
+        (end - timedelta(days=k)).isoformat(): 0
+        for k in range(KPI_WINDOW_DAYS - 1, -1, -1)
+    }
+    if "every_day" in case:
+        counts = {day: case["every_day"] for day in counts}
+    for offset, count in case.get("plays", {}).items():
+        counts[(end - timedelta(days=int(offset))).isoformat()] = count
+    return next(iter(counts)), case["end"], counts
+
+
+def kpi_payload(case):
+    """Return the heatmap result dict a job would store for *case*, without statistics."""
+    from_iso, to_iso, counts = kpi_window(case)
+    return {
+        "username": "kpi-user",
+        "from_date": from_iso,
+        "to_date": to_iso,
+        "total_scrobbles": sum(counts.values()),
+        "max_count": max(counts.values()),
+        "daily_counts": counts,
+    }
+
+
+def expected_kpi_blocks(case):
+    """Return the four KPI blocks the page must show for *case*, in order."""
+    e = case["expected"]
+    return [
+        {"label": "SCROBBLES", "value": e["scrobbles"], "sub": ""},
+        {"label": "DAILY AVERAGE", "value": e["daily_average"], "sub": ""},
+        {"label": "BEST DAY", "value": e["best_count"], "sub": e["best_label"]},
+        {"label": "CURRENT STREAK", "value": e["streak"], "sub": "DAYS"},
+    ]
