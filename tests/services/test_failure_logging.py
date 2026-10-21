@@ -405,7 +405,7 @@ def _database_site(name):
     text changes the line and fails the equality.
     """
     from scrobblescope import cache, release_checks
-    from scrobblescope import orchestrator as orch
+    from scrobblescope.cache import AlbumCache
 
     def patched(target, attr, exc=None):
         return patch.object(
@@ -437,42 +437,34 @@ def _database_site(name):
         await release_checks.run_release_checks(jobs.create(TEST_JOB_PARAMS))
 
     def metadata_lookup():
-        return orch._lookup_cached_metadata(
-            # AsyncMock: the stale-row cleanup that follows must succeed.
-            AsyncMock(),
-            jobs.create(TEST_JOB_PARAMS),
-            [("a", "b")],
-        )
+        # AsyncMock: the stale-row cleanup that follows must succeed.
+        return AlbumCache(AsyncMock()).lookup([("a", "b")])
 
     def release_check_lookup():
         return release_checks._lookup_cached(MagicMock(), [{"key": ("a", "b")}])
 
     sites = {
         "metadata_lookup": (
-            patched(orch, "batch_lookup_metadata"),
+            patched(cache, "batch_lookup_metadata"),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache"],
             "RuntimeError",
         ),
         "metadata_lookup_schema": (
-            patched(orch, "batch_lookup_metadata", _SchemaError(MARKER)),
+            patched(cache, "batch_lookup_metadata", _SchemaError(MARKER)),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache" + _remedy()],
             "_SchemaError",
         ),
         "metadata_persist": (
-            patched(orch, "batch_persist_metadata"),
-            lambda: orch._persist_new_metadata(
-                MagicMock(),
-                jobs.create(TEST_JOB_PARAMS),
-                {("a", "b"): spotify_metadata()},
-            ),
+            patched(cache, "batch_persist_metadata"),
+            lambda: AlbumCache(MagicMock()).persist({("a", "b"): spotify_metadata()}),
             ["DB persist failed (non-fatal)"],
             "RuntimeError",
         ),
         "correction_lookup": (
-            patched(orch, "batch_lookup_original_release"),
-            lambda: orch._lookup_cached_original_release(MagicMock(), [("a", "b")]),
+            patched(cache, "batch_lookup_original_release"),
+            lambda: AlbumCache(MagicMock()).lookup_original_releases([("a", "b")]),
             ["Original-release cache lookup failed (non-fatal)"],
             "RuntimeError",
         ),

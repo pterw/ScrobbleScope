@@ -162,6 +162,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The cache owns its connection and its failures
+
+Side task, no batch tag: Task 4 of PR #5, the cache owns its connection and its failures (`AlbumCache`, `open_album_cache`, `process_albums`, `orchestrator/_cache.py`, the facade's imports), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent (the spec's hosting ceiling): a missing or sleeping database degrades to provider calls and never fails a job.
+
+Why (F-B23-3): `process_albums` opened the connection, held it across provider work and closed it in a `finally` that did not guard `close()`, while `orchestrator/_cache.py` owned the failure policy, so understanding "the cache is optional" took two modules and a failing `close()` failed a job whose results were built. The connection-closure test also had to configure the provider machinery.
+
+What changed: `cache.AlbumCache(conn)` has `enabled`, `lookup_failed`, `persist_failed`, `lookup`, `persist`, `lookup_original_releases` and `close`; `open_album_cache()` connects through `get_db_connection` and closes when its block ends however it ends. `process_albums` wraps Phases 1 to 4b in `async with open_album_cache()`, and `_lookup_cached_metadata` and `_persist_new_metadata` take the cache and turn its flags into the same job stats and log lines as before (every log line is kept word for word). The facade no longer imports `get_db_connection` or the four batch functions, so tests patch them at `scrobblescope.cache.<name>`. `_lookup_cached_original_release` is gone (its body is `AlbumCache.lookup_original_releases`). A new boundary test pins that only `cache.py` names the metadata read, write and cleanup functions and holds the one INSERT into `spotify_cache`. Docs: SESSION_CONTEXT Sections 3 to 5, `runtime-system.md` (one node and the release-date bullet), `top-albums-sequence.md` (four messages and one note, commas only), `BATCH23_DEFINITION.md` (the PR #5 amendment of WP-3's metadata shape: Data handling and a WP-3 bullet), and F-B23-3 marked resolved.
+
+Deviations: a failing `close()` is now logged by exception class and swallowed, the one behaviour change. `_lookup_cached_original_release` is deleted and its two tests moved to `tests/services/test_cache.py`. Mutation row 7 of the brief (record `db_cache_persisted` after a failed persist) is not caught by `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning`, so a test was added, `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` in `test_orchestrator_process_albums.py`; Task 1's parity file stays untouched. The re-point script printed 46, 2, 2 and 3 replacements, and `ruff format` then reflowed the lines the longer patch strings overran. The Mermaid validator was not available to the implementer, so the controller renders the two diagram files (`runtime-system.md` flowchart node, `top-albums-sequence.md` sequence).
+
+Hosting evidence: `tests/test_album_cache_parity.py` and `tests/fake_postgres.py` are unchanged by this task and pass (one connection, one close, the same statement sequence, under every injected failure), and the diff of `scrobblescope/` adds no `.execute(`, `.fetch(` or `asyncpg.connect(` line.
+
+Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (patch strings, and two direct `_lookup_cached_metadata` calls now wrap `AlbumCache`), `tests/services/test_orchestrator_fetch_spotify.py` and `tests/test_pipeline_integration.py` (patch strings only), `tests/services/test_orchestrator_helpers.py` (two tests moved to `test_cache.py`), `tests/services/test_failure_logging.py` (four sites re-pointed at `AlbumCache`).
+
+Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `AlbumCache.close` without its `try`/`except` -> `test_a_failing_close_is_logged_by_class_and_never_raised` (RuntimeError) and `test_process_albums_survives_a_connection_that_fails_to_close` fail; (2) `open_album_cache` without `try`/`finally` -> `test_the_connection_closes_once_however_the_block_ends[True]` (`(1, 0) == (1, 1)`) and `test_the_connection_is_closed_once_when_no_provider_can_answer` fail; (3) `persist` guard without `self._conn is None` -> `test_a_cache_with_no_database_does_nothing_and_fails_nothing` fails; (4) `lookup` without `try`/`except` -> `test_a_failing_cache_statement_never_fails_the_search[read]` fails; (5) a reconnect in `lookup`'s `except` -> the same test fails on `(2, 1) == (1, 1)`; (6) `release_checks.py` importing `batch_persist_metadata` -> `test_only_the_cache_module_reads_or_writes_the_metadata_table` fails; (7) `db_cache_persisted` recorded after a failed persist -> `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` fails; (8) a bare write in `persist` -> `test_a_failed_read_is_a_miss_and_a_failed_write_is_not_an_error` and `test_a_failing_cache_statement_never_fails_the_search[write]` fail; (9) `lookup` returning `{}` -> `test_what_persist_writes_lookup_reads_back` fails; (10) Task 3's row 3 re-planted (`if metadata is not None:` removed) -> `test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album` fails.
+
+Validation: `pytest -q` -- **2891 passed**.
+
 ### 2026-10-21 - Album metadata is one record from provider to results
 
 Side task, no batch tag: Task 3 of PR #5, album metadata stored and read as one record from provider to results (cache, the three orchestrator phases, the results builder and seven test files), on `refactor/metadata-encoding`, a branch off `main`.
@@ -207,19 +227,5 @@ What changed and why: review of the first commit planted two defects that left a
 Deviations: none. Edited existing tests: none; `tests/fake_postgres.py` is the only file changed (no new test).
 
 Mutation evidence (planted in a file kept aside, restored after): (16) the `[deezer]` leak case, `provider_url` suffixed with the listener on the Deezer fallback path -> `test_a_stored_row_carries_no_listening_fact[deezer]` fails; (17) `SELECT 1` after the DELETE in `cleanup_stale_metadata` -> `test_a_search_costs_one_connection_and_a_fixed_statement_sequence` and 15 more fail (the refused-statement assertion at the end of `fake_postgres`, and the extra sequence entry); (18) `conn.close()` before `_persist_new_metadata` in `process_albums` -> 16 tests fail (stored row absent, refused assertion). The 15 earlier rows were re-run against the stricter fake and each still fails its named test(s); restored, all 17 pass.
-
-Validation: `pytest -q` -- **2878 passed**.
-
-### 2026-10-21 - An album reads itself from a cache row
-
-Side task, no batch tag: one classmethod, one property and one constant on `AlbumMetadata` that read a `spotify_cache` row as an album, plus one line in `spotify.py`, on `refactor/metadata-encoding`, a branch off `main`.
-
-Owner intent: one album-metadata encoding, so the rules for reading a cache row are written once and tested before anything calls them.
-
-What changed and why: the legacy-row rules lived in two places that disagree about where they live: `cache.batch_lookup_metadata` builds a dict and `_results._album_provider` / `_album_url` finish the job later. `enrichment.py` gains `SPOTIFY_ALBUM_URL`, `AlbumMetadata.spotify_id` (the Spotify album id, `None` for any other provider) and `AlbumMetadata.from_row(row)` (a row with no provider is a Spotify row, a Spotify row with no link gets the classic album page, a NULL release date reads as `""`, `track_durations` reads as a dict whether the driver returned text or a dict). `spotify.album_metadata_from_details` uses the constant for its default link; the link is unchanged. SESSION_CONTEXT Section 3 names the new role. Additive: no caller changes. Task 3 deletes `_album_provider` and `_album_url` and calls `from_row`.
-
-Deviations: a row naming no provider album now reads as `None` (no write path produces one). Edited existing tests: none; the import block of `tests/services/test_enrichment.py` gained `dataclasses`, `pytest` and `SPOTIFY_ALBUM_URL`, and 14 tests (8 functions, parametrized) were appended.
-
-Mutation evidence (each planted in a copy of `enrichment.py` kept aside, restored after, test re-run green): (1) `spotify_id` returns `album_id` for every provider -> `test_only_a_spotify_album_has_a_spotify_id` fails (`'6237061' is None`); (2) release_date/image_url swapped -> `test_a_stored_row_maps_every_field_to_the_album` fails; (3) `album_id = spotify_id` -> `test_a_deezer_row_keeps_the_deezer_id_and_link` fails; (4) provider fallback dropped -> `test_an_older_spotify_row_...[written_before_the_provider_columns]` fails; (5) link fallback deleted -> the same test fails for both rows; (6) `json.loads` and `or {}` dropped -> `test_track_durations_read_as_a_dict_...` fails for json_text, empty_object, empty_text and null; (7) `release_date=row.get("release_date")` -> `test_a_row_with_no_release_date_has_an_empty_one` fails; (8) the `return None` guard deleted -> `test_a_row_that_names_no_provider_album_reads_as_nothing` fails; (9) field `play_count: int = 0` added -> `test_album_metadata_holds_album_facts_only` fails. Every first failing assertion is the one the row names.
 
 Validation: `pytest -q` -- **2878 passed**.

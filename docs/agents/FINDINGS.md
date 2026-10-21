@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2879 tests across 99 tracked test modules.
+2891 tests across 99 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -526,27 +526,6 @@ Status: open (P2). Owner timing, 2026-09-23: settle it after WP-0's provider
 repairs and before WP-6's detailed design. Scheduling it inside Batch 23 needs
 an explicit scope amendment, and `BATCH23_DEFINITION.md` WP-6 carries that
 decision point. The threshold half landed in Task 23d (plays.select_albums returns the exclusions without a job and finish_album_job publishes them), the release-scope half in _build_results is still open. Source: card 01 of
-`docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
-(2026-09-23).
-
-### F-B23-3: the album pipeline runs the cache connection protocol itself
-
-`orchestrator.process_albums` opens the cache connection, holds it across
-provider work, and closes it in a `finally`. Meanwhile
-`orchestrator/_cache.py` owns the cache-failure policy, including writing job
-warnings through the facade. So understanding what "the cache is optional"
-means takes both modules. It also makes the connection-closure test in
-`tests/services/test_orchestrator_process_albums.py` configure the provider
-machinery.
-
-The fix is for the existing cache module to own the operation's lifetime and
-its failure classification, while job messages and enrichment decisions stay
-with the caller. There is one concrete adapter, so no generic cache-backend
-layer. Metadata and release-check cache policy stay separate.
-
-Status: open (P2). F-B22-7 and F-B22-8 have both landed (reconcile Tasks
-4-6 and 11); reassess against the code they left. No performance gain is
-claimed. Source: card 03 of
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
 

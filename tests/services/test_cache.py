@@ -1,17 +1,21 @@
-from unittest.mock import AsyncMock
+import logging
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION,
+    AlbumCache,
     batch_lookup_metadata,
     batch_lookup_original_release,
     batch_persist_metadata,
     batch_persist_original_release,
+    open_album_cache,
     schema_is_out_of_date,
 )
 from scrobblescope.enrichment import AlbumMetadata
 from tests.album_metadata import deezer_metadata, spotify_metadata
+from tests.fake_postgres import fake_postgres
 
 
 @pytest.mark.asyncio
@@ -241,3 +245,151 @@ def test_a_transient_failure_is_not_a_stale_schema():
 def test_the_remediation_names_the_command_that_fixes_it():
     """The reader will not be the person who wrote the check."""
     assert "init_db.py" in SCHEMA_OUT_OF_DATE_REMEDIATION
+
+
+KEY = ("radiohead", "ok computer")
+MARKER = "secret-marker-do-not-log"
+
+
+@pytest.mark.asyncio
+async def test_a_cache_with_no_database_does_nothing_and_fails_nothing():
+    """
+    GIVEN no DATABASE_URL
+    WHEN every operation runs
+    THEN each returns its empty answer, nothing connects, and no failure is
+    flagged: a missing cache is not an error.
+    """
+    with fake_postgres(url=None) as db:
+        async with open_album_cache() as album_cache:
+            assert album_cache.enabled is False
+            assert await album_cache.lookup([KEY]) == {}
+            await album_cache.persist({KEY: spotify_metadata()})
+            assert await album_cache.lookup_original_releases([KEY]) == {}
+
+    assert (album_cache.lookup_failed, album_cache.persist_failed) == (False, False)
+    assert db.connect_attempts == 0
+    assert db.statements == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("block_raises", [False, True])
+async def test_the_connection_closes_once_however_the_block_ends(block_raises):
+    """The block's own failure (a provider outage, say) still closes the
+    connection, and a normal exit closes it once."""
+    with fake_postgres() as db:
+        try:
+            async with open_album_cache():
+                if block_raises:
+                    raise RuntimeError("a provider failed")
+        except RuntimeError:
+            assert block_raises
+
+    assert (db.connect_attempts, db.closes) == (1, 1)
+
+
+@pytest.mark.asyncio
+async def test_a_failing_close_is_logged_by_class_and_never_raised(caplog):
+    """
+    GIVEN a connection whose close() raises
+    WHEN the block ends
+    THEN nothing is raised (the job's work is done and its results are built),
+    and the log names the exception class, not its text.
+    """
+    with fake_postgres() as db:
+
+        async def broken_close():
+            raise RuntimeError(MARKER)
+
+        db.close = broken_close
+        with caplog.at_level(logging.WARNING):
+            async with open_album_cache():
+                pass
+
+    assert "Closing the cache DB connection failed" in caplog.text
+    assert "RuntimeError" in caplog.text
+    assert MARKER not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_a_failed_read_is_a_miss_and_a_failed_write_is_not_an_error():
+    """
+    GIVEN the metadata read and the metadata write both fail
+    WHEN the cache is used
+    THEN the read answers {}, the write returns, and each failure is flagged
+    for the caller to report.
+    """
+    with fake_postgres() as db:
+        db.fail("SELECT", "spotify_cache", OSError("down"))
+        db.fail("INSERT", "spotify_cache", OSError("down"))
+        async with open_album_cache() as album_cache:
+            assert await album_cache.lookup([KEY]) == {}
+            await album_cache.persist({KEY: spotify_metadata()})
+
+    assert album_cache.lookup_failed is True
+    assert album_cache.persist_failed is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "album",
+    [
+        spotify_metadata(
+            "sp1", "1997-06-16", "https://img.example.com/ok.jpg", {"a": 1}
+        ),
+        deezer_metadata("6237061", "1977-02-04"),
+        spotify_metadata("sp2", "2001-01-01", None, {}),
+    ],
+    ids=["spotify", "deezer", "spotify_without_cover_or_durations"],
+)
+async def test_what_persist_writes_lookup_reads_back(album):
+    """Every provider's album survives the cache unchanged, and a healthy cache
+    flags no failure."""
+    with fake_postgres():
+        async with open_album_cache() as album_cache:
+            await album_cache.persist({KEY: album})
+            assert await album_cache.lookup([KEY]) == {KEY: album}
+
+    assert (album_cache.lookup_failed, album_cache.persist_failed) == (False, False)
+
+
+@pytest.mark.asyncio
+async def test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album():
+    """A row with no provider and no album id is left out of a lookup."""
+    with fake_postgres() as db:
+        db.seed_metadata(*KEY, release_date="1997", provider=None, spotify_id=None)
+        async with open_album_cache() as album_cache:
+            assert await album_cache.lookup([KEY]) == {}
+
+
+@pytest.mark.asyncio
+async def test_original_release_lookup_without_a_connection_skips_the_query():
+    """No DB connection means no correction lookup and an empty result."""
+    with patch(
+        "scrobblescope.cache.batch_lookup_original_release", new_callable=AsyncMock
+    ) as mock_lookup:
+        result = await AlbumCache(None).lookup_original_releases([("artist", "album")])
+
+    assert result == {}
+    mock_lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_original_release_lookup_failure_is_non_fatal(caplog):
+    """A correction-cache failure is logged and cannot block album results."""
+    with (
+        caplog.at_level(logging.WARNING),
+        patch(
+            "scrobblescope.cache.batch_lookup_original_release",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("database unavailable"),
+        ),
+    ):
+        result = await AlbumCache(AsyncMock()).lookup_original_releases(
+            [("artist", "album")]
+        )
+
+    assert result == {}
+    assert "Original-release cache lookup failed (non-fatal): RuntimeError" in (
+        caplog.text
+    )
+    assert "database unavailable" not in caplog.text

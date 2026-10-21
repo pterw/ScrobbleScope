@@ -15,6 +15,8 @@ reference at the top of each phase file, not through its own import. Moving
 an import out of this file without also checking every submodule that reads
 it this way silently breaks that patch path. Importers should continue to
 use this facade so that the internal module boundaries may evolve safely.
+The cache is the exception: its operations are patched at
+``scrobblescope.cache.<name>``, because ``open_album_cache`` is the only door to it.
 """
 
 import asyncio
@@ -23,13 +25,7 @@ import time
 
 from scrobblescope import jobs
 from scrobblescope.album_request import AlbumRequest
-from scrobblescope.cache import (
-    batch_lookup_metadata,
-    batch_lookup_original_release,
-    batch_persist_metadata,
-    cleanup_stale_metadata,
-    get_db_connection,
-)
+from scrobblescope.cache import open_album_cache
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
 from scrobblescope.errors import (
@@ -229,56 +225,54 @@ async def process_albums(
         f"decade={decade}, release_year={release_year}"
     )
 
-    # =================================================================
-    # Phase 1: DB Batch Lookup
-    # =================================================================
-    conn = await get_db_connection()
-    jobs.record_stat(job_id, "db_cache_enabled", bool(conn))
-    cached_metadata = await _lookup_cached_metadata(
-        conn, job_id, list(filtered_albums.keys())
-    )
+    async with open_album_cache() as album_cache:
+        # =============================================================
+        # Phase 1: DB Batch Lookup
+        # =============================================================
+        jobs.record_stat(job_id, "db_cache_enabled", album_cache.enabled)
+        cached_metadata = await _lookup_cached_metadata(
+            album_cache, job_id, list(filtered_albums.keys())
+        )
 
-    # =================================================================
-    # Phase 2: Partition into cache hits and misses
-    # =================================================================
-    cache_hits = {}  # key -> {"cached": AlbumMetadata, "original": original_data}
-    cache_misses = {}  # key -> original_data
+        # =============================================================
+        # Phase 2: Partition into cache hits and misses
+        # =============================================================
+        cache_hits = {}  # key -> {"cached": AlbumMetadata, "original": original_data}
+        cache_misses = {}  # key -> original_data
 
-    for key, original_data in filtered_albums.items():
-        if key in cached_metadata:
-            cache_hits[key] = {
-                "cached": cached_metadata[key],
-                "original": original_data,
-            }
-        else:
-            cache_misses[key] = original_data
+        for key, original_data in filtered_albums.items():
+            if key in cached_metadata:
+                cache_hits[key] = {
+                    "cached": cached_metadata[key],
+                    "original": original_data,
+                }
+            else:
+                cache_misses[key] = original_data
 
-    db_hit_count = len(cache_hits)
-    jobs.record_stat(job_id, "cache_hits", db_hit_count)
-    logging.info(f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses")
+        db_hit_count = len(cache_hits)
+        jobs.record_stat(job_id, "cache_hits", db_hit_count)
+        logging.info(
+            f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses"
+        )
 
-    # =================================================================
-    # Phase 3: Spotify fetch for misses only
-    # =================================================================
-    try:
+        # =============================================================
+        # Phase 3: Spotify fetch for misses only
+        # =============================================================
         new_metadata = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
 
         # =============================================================
         # Phase 4: DB Batch Persist
         # =============================================================
-        await _persist_new_metadata(conn, job_id, new_metadata)
+        await _persist_new_metadata(album_cache, job_id, new_metadata)
 
         # =============================================================
         # Phase 4b: Original-release correction lookup (Task 8, Batch 22
         # WP-3). Applies findings already in original_release_cache --
         # the live MusicBrainz worker (Task 9) is what populates new ones.
         # =============================================================
-        original_release_hits = await _lookup_cached_original_release(
-            conn, list(cache_hits.keys())
+        original_release_hits = await album_cache.lookup_original_releases(
+            list(cache_hits.keys())
         )
-    finally:
-        if conn:
-            await conn.close()
 
     # =================================================================
     # Phase 5: Build results from unified cache_hits
@@ -682,7 +676,6 @@ def background_task(job_id):
 # imported last, after every name above is defined.
 from scrobblescope.orchestrator._cache import (  # noqa: E402
     _lookup_cached_metadata,
-    _lookup_cached_original_release,
     _persist_new_metadata,
 )
 from scrobblescope.orchestrator._deezer_fallback import (  # noqa: E402
@@ -708,17 +701,12 @@ __all__ = [
     "_fetch_spotify_misses",
     "_get_user_friendly_reason",
     "_lookup_cached_metadata",
-    "_lookup_cached_original_release",
     "_persist_new_metadata",
     "_run_deezer_fallback_phase",
     "_run_spotify_batch_detail_phase",
     "_run_spotify_search_phase",
     "album_metadata_from_details",
     "background_task",
-    "batch_lookup_metadata",
-    "batch_lookup_original_release",
-    "batch_persist_metadata",
-    "cleanup_stale_metadata",
     "create_optimized_session",
     "enqueue_release_check",
     "fetch_deezer_album",
@@ -727,8 +715,8 @@ __all__ = [
     "fetch_spotify_album_details_batch",
     "fetch_top_albums_async",
     "finish_album_job",
-    "get_db_connection",
     "merge_unmatched_rows",
+    "open_album_cache",
     "process_albums",
     "release_job_slot",
     "search_deezer_album",

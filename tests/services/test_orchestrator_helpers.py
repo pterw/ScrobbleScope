@@ -1,5 +1,4 @@
 import logging
-from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -24,7 +23,6 @@ from scrobblescope.orchestrator import (
     _apply_pre_slice,
     _build_results,
     _get_user_friendly_reason,
-    _lookup_cached_original_release,
     merge_unmatched_rows,
 )
 from tests.album_metadata import spotify_metadata
@@ -267,44 +265,6 @@ def _corrected_cache_hits(provider_release_date):
             },
         }
     }
-
-
-@pytest.mark.asyncio
-async def test_lookup_cached_original_release_without_connection_skips_query():
-    """No DB connection means no correction lookup and an empty result."""
-    album_keys = [("artist", "album")]
-
-    with patch(
-        "scrobblescope.orchestrator.batch_lookup_original_release",
-        new_callable=AsyncMock,
-    ) as mock_lookup:
-        result = await _lookup_cached_original_release(None, album_keys)
-
-    assert result == {}
-    mock_lookup.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_lookup_cached_original_release_failure_is_non_fatal(caplog):
-    """A correction-cache failure is logged and cannot block album results."""
-    mock_conn = AsyncMock()
-    album_keys = [("artist", "album")]
-
-    with (
-        caplog.at_level(logging.WARNING),
-        patch(
-            "scrobblescope.orchestrator.batch_lookup_original_release",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("database unavailable"),
-        ),
-    ):
-        result = await _lookup_cached_original_release(mock_conn, album_keys)
-
-    assert result == {}
-    assert "Original-release cache lookup failed (non-fatal): RuntimeError" in (
-        caplog.text
-    )
-    assert "database unavailable" not in caplog.text
 
 
 def test_build_results_cached_original_release_excludes_album_outside_filter():

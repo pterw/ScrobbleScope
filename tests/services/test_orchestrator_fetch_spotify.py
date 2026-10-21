@@ -1141,7 +1141,7 @@ async def _run_process_with_spotify_details(
             "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
         ),
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -1514,7 +1514,7 @@ async def test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searche
             "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
         ),
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),

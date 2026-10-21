@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 
 try:
     import asyncpg
@@ -285,3 +286,124 @@ async def batch_persist_original_release(conn, rows):
         mb_release_groups,
         original_releases,
     )
+
+
+class AlbumCache:
+    """One job's use of the shared album cache, and what its failures mean.
+
+    The cache is optional at runtime (BATCH23 / the hosting cost ceiling): a
+    missing, sleeping or failing database never fails a job. This class is the
+    one place that says so. Every operation answers with an empty value instead
+    of raising, and records which operation failed in ``lookup_failed`` and
+    ``persist_failed`` so the caller can tell the job (job messages stay with
+    the caller). It issues the same statements the pipeline always did, on the
+    one connection ``open_album_cache`` opened: it never reconnects and never
+    retries a statement.
+
+    Build one with ``open_album_cache``; the constructor takes the connection
+    (or None for a disabled cache) so tests can hand it a fake.
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.lookup_failed = False
+        self.persist_failed = False
+
+    @property
+    def enabled(self):
+        """True while a database connection is open."""
+        return self._conn is not None
+
+    async def lookup(self, keys):
+        """Return cached ``AlbumMetadata`` for *keys*, then clear stale rows.
+
+        Returns {} when the cache is disabled or the read fails (every album is
+        then a miss and the providers answer). A schema that is out of date
+        gets its own remediation text: until it is fixed every read misses.
+        The stale-row cleanup runs after the read whether or not it succeeded.
+        """
+        if self._conn is None:
+            return {}
+        try:
+            hits = await batch_lookup_metadata(self._conn, keys)
+        # Fail open: a failed cache read makes every album a miss, not a failed job.
+        except Exception as exc:  # noqa: BLE001
+            self.lookup_failed = True
+            if schema_is_out_of_date(exc):
+                log_failure(
+                    "DB lookup failed, proceeding without cache "
+                    f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                    logging.WARNING,
+                )
+            else:
+                log_failure(
+                    "DB lookup failed, proceeding without cache", logging.WARNING
+                )
+            hits = {}
+        # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
+        await cleanup_stale_metadata(self._conn)
+        return hits
+
+    async def persist(self, albums):
+        """Write *albums* (``{key: AlbumMetadata}``) in one upsert.
+
+        A no-op when the cache is disabled or *albums* is empty. A failure is
+        logged, flagged in ``persist_failed`` and not raised: it costs the next
+        job a lookup, not this one.
+        """
+        if self._conn is None or not albums:
+            return
+        try:
+            await batch_persist_metadata(self._conn, albums)
+        # Fail open: a failed persist costs the next job a lookup, not this one.
+        except Exception:  # noqa: BLE001
+            self.persist_failed = True
+            log_failure("DB persist failed (non-fatal)", logging.WARNING)
+
+    async def lookup_original_releases(self, keys):
+        """Return cached MusicBrainz findings for *keys*, or {} without raising.
+
+        A missing correction only skips the display upgrade; it must never
+        block a job the way a metadata-fetch failure would.
+        """
+        if self._conn is None:
+            return {}
+        try:
+            return await batch_lookup_original_release(self._conn, keys)
+        # Fail open: a missing correction only skips the display upgrade.
+        except Exception:  # noqa: BLE001
+            log_failure(
+                "Original-release cache lookup failed (non-fatal)", logging.WARNING
+            )
+            return {}
+
+    async def close(self):
+        """Close the connection at most once; a failed close is logged only.
+
+        The cache is optional, so closing it must not take down a job whose
+        results are already built.
+        """
+        conn, self._conn = self._conn, None
+        if conn is None:
+            return
+        try:
+            await conn.close()
+        # A failed close must not mask the job's own outcome.
+        except Exception:  # noqa: BLE001
+            log_failure("Closing the cache DB connection failed", logging.WARNING)
+
+
+@asynccontextmanager
+async def open_album_cache():
+    """Open the shared album cache for one job and close it when the block ends.
+
+    Connects through ``get_db_connection`` (``DATABASE_URL``, the retry
+    backoff and the connect timeout are its, unchanged) and yields an
+    ``AlbumCache``, disabled when no connection could be had. The connection is
+    closed when the block ends, whether it ends normally or with an exception.
+    """
+    album_cache = AlbumCache(await get_db_connection())
+    try:
+        yield album_cache
+    finally:
+        await album_cache.close()
