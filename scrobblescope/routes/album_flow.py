@@ -13,8 +13,13 @@ from flask import jsonify, redirect, render_template, request, session, url_for
 
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
+from scrobblescope.album_request import (
+    Refusal,
+    parse_album_request,
+    registration_refusal,
+)
 from scrobblescope.orchestrator import background_task
-from scrobblescope.routes import admission
+from scrobblescope.routes import admission, precheck
 from scrobblescope.spotlight import select_spotlight_artists
 from scrobblescope.unmatched import (
     CATEGORY_METADATA,
@@ -445,98 +450,52 @@ def unmatched_view():
     return _render_unmatched_page()
 
 
+def _refuse(message, status=200):
+    """Re-render the form with *message*.
+
+    Every refusal is a 200 with the reason on the form, except an outage of the
+    Last.fm pre-check, which is a retryable 503: the listener can try again.
+    """
+    return render_template("index.html", error=message), status
+
+
 @bp.route("/results_loading", methods=["POST"])
 def results_loading():
+    """Turn the submitted form into a job, or re-render the form with one reason.
+
+    Order: parse the form (no network), pre-check the Last.fm user, compare the
+    registration year, admit the job. Each step that refuses ends the request
+    before the next one runs, so a refusal never costs a slot or a job.
     """
-    Handles form submission, performs the main Last.fm fetch,
-    and prepares the session for lazy loading.
-    """
-    username = request.form.get("username")
-    year = request.form.get("year")
-    sort_mode = request.form.get("sort_by", "playcount")
-    include_unmatched = request.form.get("include_unmatched") == "1"
-    # An include run is always a play-count run: an unmatched album has no play
-    # time. The page disables the choice; this is the same rule for a form
-    # posted without scripts.
-    if include_unmatched and sort_mode == "playtime":
-        sort_mode = "playcount"
-    release_scope = request.form.get("release_scope", "same")
-    decade = request.form.get("decade") if release_scope == "decade" else None
-    release_year = (
-        request.form.get("release_year") if release_scope == "custom" else None
+    album = parse_album_request(request.form, current_year=_routes._current_year())
+    if isinstance(album, Refusal):
+        logging.warning("Album form refused on field %s.", album.field)
+        return _refuse(album.message)
+
+    # Existence first, then privacy: a name Last.fm does not know gets "not
+    # found", never a verdict about a ghost. A lookup that cannot answer
+    # refuses retryably and starts nothing.
+    check = precheck.check_lastfm_user(album.username)
+    if check.verdict is precheck.Verdict.UNAVAILABLE:
+        return _refuse(precheck.UNAVAILABLE_MESSAGE, status=503)
+    if check.verdict is precheck.Verdict.MISSING:
+        return _refuse(precheck.not_found_message(album.username))
+    if check.verdict is precheck.Verdict.PRIVATE:
+        return _refuse(_routes._PRIVATE_PROFILE_MESSAGE)
+
+    # The registration-year comparison is the one optional step: an account
+    # whose registration year Last.fm did not report is simply not compared.
+    hint = registration_refusal(album.year, check.registered_year)
+    if hint is not None:
+        return _refuse(hint.message)
+
+    admitted = admission.admit(
+        album.to_params(), background_task, label="background task"
     )
-    min_plays = request.form.get("min_plays", "10")
-    min_tracks = request.form.get("min_tracks", "3")
-    limit_results = request.form.get("limit_results", "all")
-
-    if not username or not year:
-        logging.warning("Missing username or year in form submission.")
-        return render_template("index.html", error="Username and year are required.")
-
-    try:
-        year = int(year)
-        if release_year:
-            release_year = int(release_year)
-        min_plays = int(min_plays)
-        min_tracks = int(min_tracks)
-    except ValueError:
-        logging.warning("Invalid year format.")
-        return render_template("index.html", error="Year must be a valid number.")
-
-    current_year = _routes._current_year()
-    if year < 2002 or year > current_year:
-        return render_template(
-            "index.html", error=f"Year must be between 2002 and {current_year}."
-        )
-
-    try:
-        user_info = _routes._check_user_exists(username)
-        # Existence first, as the heatmap route does: a user Last.fm does not
-        # know gets "not found", never a privacy verdict about a ghost.
-        if not user_info["exists"]:
-            return render_template(
-                "index.html",
-                error=f"User '{username}' was not found on Last.fm.",
-            )
-        if not _routes._check_profile_is_public(username):
-            return render_template("index.html", error=_routes._PRIVATE_PROFILE_MESSAGE)
-        registered_year = user_info.get("registered_year")
-        if registered_year and year < registered_year:
-            return render_template(
-                "index.html",
-                error=(
-                    f"Year {year} is before your Last.fm registration year"
-                    f" ({registered_year}). Please choose {registered_year} or later."
-                ),
-            )
-    # The registration-year hint is optional; the search proceeds without it.
-    except Exception as exc:  # noqa: BLE001
-        logging.warning(
-            "Registration year check failed for %s; proceeding without it: %s",
-            username,
-            type(exc).__name__,
-        )
-
-    params = {
-        "username": username,
-        "year": year,
-        "sort_mode": sort_mode,
-        "include_unmatched": include_unmatched,
-        "release_scope": release_scope,
-        "decade": decade,
-        "release_year": release_year,
-        "min_plays": min_plays,
-        "min_tracks": min_tracks,
-        "limit_results": limit_results,
-    }
-
-    admitted = admission.admit(params, background_task, label="background task")
     if admitted is admission.Refused.CAPACITY:
-        return render_template("index.html", error=_routes._capacity_message())
+        return _refuse(_routes._capacity_message())
     if admitted is admission.Refused.START_FAILED:
-        return render_template(
-            "index.html", error="Failed to start processing. Please try again."
-        )
+        return _refuse("Failed to start processing. Please try again.")
 
     session[_routes._LATEST_ALBUM_JOB] = admitted
 

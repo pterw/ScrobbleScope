@@ -56,6 +56,7 @@ flowchart LR
     Routes --> Utils
     Routes --> Spotlight
     Routes --> Unmatched
+    Routes --> AlbumRequest
     Album --> Worker
     Album --> LastFMClient
     Album --> SpotifyClient

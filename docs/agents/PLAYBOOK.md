@@ -153,6 +153,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The album form is refused with a reason, never started doomed
+
+Side task, no batch tag: the album route parses the form, pre-checks the Last.fm user, then admits the job, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a listener who submits a value the form never offers, or who submits while Last.fm cannot answer, should be told why on the form instead of seeing "no albums" or a job that fails later.
+
+User-visible changes: (1) a filter value the form never offers is refused on the form with that field's sentence and no Last.fm lookup, including a `custom` scope without a year and a `decade` scope without a decade, which used to widen to every year; (2) an outage or timeout of the Last.fm pre-check, or an existence answer of the wrong shape, is refused with a retryable HTTP 503 ("Validation service unavailable. Try again.") instead of logging "proceeding" and starting a job that fails. Also stricter or different than before: the form's own ranges are now enforced on the server (`min_plays` 1-50, `min_tracks` 1-10, release year 1900 to this year, username up to 64 characters, the `/validate_user` limit; the form input allows 100 but a Last.fm name is far shorter); a blank `min_plays` or `min_tracks` now takes its default (before, the form answered "Year must be a valid number."); the username is stripped of surrounding spaces; a whitespace-only username is refused ("Username and year are required."). The listener's name no longer appears in the album route's log lines (the pre-check logs the exception class only).
+
+What changed: `results_loading` calls `parse_album_request`, `precheck.check_lastfm_user`, `registration_refusal` and `admission.admit`, in that order, through one `_refuse` helper; the job record is written by `AlbumRequest.to_params()`, so it carries `mode: "album"`. New `tests/test_album_request_flow.py` and `tests/test_precheck_routes.py` (the album, heatmap and validate routes read one Last.fm answer the same way, and a stalled Last.fm costs each its budget). SESSION_CONTEXT Sections 4-5, `runtime-system.md` (edge `Routes --> AlbumRequest`) and `top-albums-sequence.md` follow. The Mermaid MCP validator was not available to the implementer; the edited diagram lines contain no `;` and the controller validates the two files.
+
+Deviations: none from the brief. Edited existing tests, by name: `test_results_loading_registration_check_unavailable_proceeds` is replaced by `test_results_loading_lookup_unavailable_refuses_and_starts_nothing`; `test_results_loading_registration_check_failure_logs_no_message` is renamed `test_results_loading_lookup_failure_logs_no_message_and_no_name` and now asserts "User existence check failed" and that `flounder14` is absent from the log; in `tests/test_pipeline_integration.py::test_album_pipeline_runs_on_a_real_thread_end_to_end` the `check_user_exists` mock gains `"exists": True` (the old mock had no `exists` key and passed only because the route swallowed the `KeyError`; a malformed Last.fm answer is now an outage). The Retry contract, `tests/test_loading_retry_contract.py` (PR #256 is in the base), now reads `scrobblescope.album_request.FORM_FIELDS` instead of scanning `results_loading`, drops its `ast` helper and keeps the loading-config and `retryCurrentSearch` checks; `test_route_fields_are_found` asserts `"include_unmatched" in FORM_FIELDS and len(FORM_FIELDS) == 10`. `FORM_FIELDS` is the list that contract reads.
+
+Mutation evidence (each planted defect, then the named tests failed, then restored): the decade membership check removed in `album_request.py` -> `test_a_bad_filter_is_refused_on_the_form_and_starts_nothing[overrides1-Choose a decade from the list.]`; the `UNAVAILABLE` branch removed from `album_flow.py` -> both `test_a_pre_check_outage_refuses_retryably_and_starts_nothing` rows, the three malformed-answer rows and the album outage and stalled rows of `tests/test_precheck_routes.py`; params built without `mode` -> `test_an_album_job_record_says_it_is_an_album_job`; `exists` read outside the `try` in `check_lastfm_user` -> the three malformed-answer rows and `tests/test_precheck.py::test_a_malformed_existence_answer_is_unavailable_never_an_error`; privacy asked first -> `test_every_route_reads_the_last_fm_answer_the_same_way[missing-album]` and `tests/test_precheck.py::test_a_missing_user_is_missing_and_privacy_is_never_asked`; `timeout=` dropped from `_check_user_exists` -> `test_a_stalled_last_fm_costs_a_route_its_budget_not_the_session` (all three rows) and `tests/test_precheck.py::test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget`; `"source"` added to `FORM_FIELDS` -> all three tests of `tests/test_loading_retry_contract.py`.
+
+Validation: `pytest -q` -- **2730 passed**.
+
 ### 2026-10-20 - Jobs start through one admission path
 
 Side task, no batch tag: start every job through one admission path and let job threads read the job record, on `refactor/album-request-module`, a branch off `main`.
@@ -190,19 +206,5 @@ Owner intent: the log and findings must be true for what the branch ships.
 What changed: the Deviations paragraph of the "The request flows are pinned before they are refactored" entry said `_dispatch_heatmap_job` was gone and heatmap job creation was inline. It is not: the function exists in `scrobblescope/routes/heatmap_flow.py` and calls `acquire_job_slot`, so there was no drift for the heatmap mutation; the paragraph now says so (the privacy-outage note was checked and stands: `_validate_heatmap_user`). The `docs/agents/FINDINGS.md` header line said 87 tracked test modules; `git ls-files tests | grep -c '/test_[^/]*\.py$'` measures 88, so it now says 88. The review of Task 1 found both.
 
 Deviations: none. No test was edited.
-
-Validation: `pytest -q` -- **2669 passed**.
-
-### 2026-10-20 - The album form has one owner
-
-Side task, no batch tag: add the pure album request module (not yet wired into any route), on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: the album form needs one Python owner that says what a valid request is, so the Spotify export route (WP-4) can call it too.
-
-What changed: new `scrobblescope/album_request.py` (`AlbumRequest`, `Refusal`, `parse_album_request`, `registration_refusal`, the sets and bounds, `FORM_FIELDS`), `jobs.MODE_ALBUM` and `jobs.MODE_HEATMAP`, and 63 tests in new `tests/test_album_request.py`, which also read `templates/index.html` and fail if the form and the server drift. Why (B-1): the sets lived only in the template, so a bad decade made every album fail the release filter and the listener saw "no albums". Once wired, these refusals are new: unknown release scope, unknown decade, missing or malformed custom release year, unknown ranking, unknown limit, min_plays outside 1-50, min_tracks outside 1-10, username over 64. The bound of 64 is the limit `/validate_user` already enforces; the form's `maxlength` is 100. SESSION_CONTEXT Sections 3-4 and the runtime-system diagram (node, `AlbumRequest --> JobModule` edge) name the module.
-
-Mutation proofs, each planted in a scratch copy and shown failing then passing once restored: year bound `<=` to `<` (year 2025 rows fail), decade membership check removed (decade rows), custom year no longer required (`Enter a release year.` row), include/playtime coercion removed, decade kept for every scope, min_plays upper bound 100 (51 row), blank no longer a missing field (defaults test), unknown registration year refused, `"100"` dropped from `LIMIT_OPTIONS` (limit 100 row), parser reading `source` and `"decade"` dropped from `FORM_FIELDS` (FORM_FIELDS test), `"fortnight"` added to `RELEASE_SCOPES` (release-window test).
-
-Deviations: none from the plan. The runtime-system Mermaid block was not run through the render MCP call (not available to this implementer); the edit adds one node, one edge and one class-list name only. No existing test was edited.
 
 Validation: `pytest -q` -- **2669 passed**.

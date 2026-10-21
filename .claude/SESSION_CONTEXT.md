@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2699 passing** across 90 tracked test modules |
+| Tests | **2730 passing** across 92 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2699 passed**.
+- Latest validated test count: **2730 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -182,7 +182,7 @@ spotlight.py     <- utils
 routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
-routes/album_flow.py    <- admission, jobs, orchestrator, spotlight, unmatched; routes (facade)
+routes/album_flow.py    <- admission, album_request, jobs, orchestrator, precheck, spotlight, unmatched; routes (facade)
 routes/heatmap_flow.py  <- admission, heatmap, jobs, utils; routes (facade)
 routes/api.py           <- domain, jobs, release_checks, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
@@ -245,6 +245,11 @@ in its focused owner files rather than growing a second copy here.
 ```
 User submits form (index.html)
   -> POST /results_loading (routes/album_flow.py)
+    -> album_request.parse_album_request: form -> AlbumRequest or Refusal
+       (a Refusal re-renders the form with that field's sentence, no lookup)
+    -> precheck.check_lastfm_user: exists, then public, each lookup timed out;
+       an outage refuses with 503 and starts nothing
+    -> registration_refusal: the optional registration-year hint
     -> admission.admit (routes/admission.py): jobs.expire_stale(), then
        acquire_job_slot() [worker.py] -- BEFORE jobs.create; on failure the
        request is rejected and no job is created
@@ -285,7 +290,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2699 tests)
+## 6. Test structure (2730 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

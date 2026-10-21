@@ -1897,22 +1897,26 @@ def test_results_loading_year_at_registration_year_allowed(client):
     assert response.location.startswith("/loading?job_id=")
 
 
-def test_results_loading_registration_check_unavailable_proceeds(client):
+def test_results_loading_lookup_unavailable_refuses_and_starts_nothing(
+    client, fresh_job_store
+):
     """
-    GIVEN the registration year check raises an exception (Last.fm unavailable)
+    GIVEN the Last.fm lookup raises (Last.fm unavailable)
     WHEN POST /results_loading is submitted
-    THEN the route proceeds to start the job rather than blocking the user.
+    THEN the route refuses retryably (503) and starts no job; it no longer
+    proceeds without the check.
     """
     with (
         patch(
             "scrobblescope.routes.run_async_in_thread",
             side_effect=Exception("network error"),
         ),
-        patch("scrobblescope.routes.start_job_thread"),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
-    assert response.status_code == 303
-    assert response.location.startswith("/loading?job_id=")
+    assert response.status_code == 503
+    mock_start.assert_not_called()
+    assert fresh_job_store.ids() == []
 
 
 def test_results_loading_no_registered_year_proceeds(client):
@@ -2986,9 +2990,9 @@ def test_artist_spotlight_api_failure_line_carries_no_artist_or_message(
         assert "Wjkl" not in record.getMessage()
 
 
-def test_results_loading_registration_check_failure_logs_no_message(client, caplog):
-    """The optional registration-year check writes the exception class, not
-    its message, when the Last.fm call fails."""
+def test_results_loading_lookup_failure_logs_no_message_and_no_name(client, caplog):
+    """The pre-check writes the exception class, not its message and not the
+    listener's name, when the Last.fm call fails."""
     import logging
 
     with (
@@ -3002,9 +3006,10 @@ def test_results_loading_registration_check_failure_logs_no_message(client, capl
         client.post("/results_loading", data=VALID_FORM_DATA)
 
     text = " ".join(r.getMessage() for r in caplog.records)
-    assert "Registration year check failed for flounder14" in text
+    assert "User existence check failed" in text
     assert "RuntimeError" in text
     assert "Zqxv" not in text
+    assert "flounder14" not in text
 
 
 # --- Partial runs are disclosed on Results (review 4, frontend 3) ---

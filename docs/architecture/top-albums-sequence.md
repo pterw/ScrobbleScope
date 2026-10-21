@@ -4,7 +4,7 @@ This diagram is the canonical owner of the Top Albums pipeline sequence:
 admission, Last.fm retrieval, enrichment across two metadata providers, the
 deferred MusicBrainz correction pass, result storage, and polling.
 
-The concurrency slot is acquired before job creation. `start_job_thread` releases
+The concurrency slot is acquired before job creation. The form is parsed and the Last.fm pre-check answered before the slot is touched, so a refusal costs neither a slot nor a job. `start_job_thread` releases
 the slot when the thread does not start; once the thread runs, `background_task`
 is a single call into `worker.run_coroutine_in_new_loop`, which owns the
 build-run-close-release protocol -- the event-loop setup sits inside the `try`
@@ -30,18 +30,20 @@ sequenceDiagram
 
     User->>Browser: Submit username, year, filters, sort, and the Albums choice (include_unmatched)
     Browser->>Routes: POST /results_loading + CSRF token
-    alt Missing field, non-numeric input, or year outside 2002 to this year
-        Routes-->>Browser: index.html + error
+    alt A field is missing, malformed, or outside what the form offers
+        Routes-->>Browser: index.html + error naming the field, no lookup made
     else Input valid
         Routes->>LastFM: Check that the user exists (and read the registration year), then that recent listening is public
         alt User not found
             Routes-->>Browser: index.html + "not found" message, no privacy check made
         else Recent listening is private (HTTP 403, error 17)
             Routes-->>Browser: index.html + private-profile message
+        else Last.fm cannot answer, or not within the pre-check timeout
+            Routes-->>Browser: index.html + "Validation service unavailable. Try again.", HTTP 503, no job created
         else Year predates the registration year
             Routes-->>Browser: index.html + error
-        else Registration year satisfied, unknown, or either lookup failed
-            Note over Routes,LastFM: A failed lookup is logged and the search proceeds without the hint; only a confirmed missing user or private profile refuses
+        else Registration year satisfied or unknown
+            Note over Routes,LastFM: Only the registration-year comparison is optional, an unknown year is not compared. A failed lookup refuses and never proceeds
             Routes->>Jobs: expire_stale()
             Routes->>Worker: acquire_job_slot()
             alt Slot exhausted
@@ -49,7 +51,7 @@ sequenceDiagram
                 Routes-->>Browser: Too many requests, no job created
             else Slot acquired
                 Worker-->>Routes: True
-                Note over Routes,Jobs: include_unmatched is stored in params, and an include run is always stored as a play-count run
+                Note over Routes,Jobs: The AlbumRequest is stored as the job's params with mode album, and an include run is always stored as a play-count run
                 Routes->>Jobs: create(params)
                 Jobs-->>Routes: UUID job_id
                 Routes->>Worker: start_job_thread(background_task, job_id)
