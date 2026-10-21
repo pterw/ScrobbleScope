@@ -112,11 +112,11 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); one album-metadata
   encoding is done (PR #5, branch refactor/metadata-encoding, plan
   `docs/superpowers/plans/2026-10-20-metadata-encoding.md`); the statistics
-  module remains. Job persistence waits: a database-backed job store would keep the
-  database awake, which the hosting cost ceiling does not allow. The design is
-  `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
-  order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`. PR #7, UI
-  consistency, finished round 1 (plan
+  module remains. Job persistence waits: a database-backed job store would keep
+  the database awake, which the hosting cost ceiling does not allow. The
+  design is `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md`
+  and the order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
+  PR #7, UI consistency, finished round 1 (plan
   `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
   wait for the owner's screenshots, each with its own plan.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
@@ -161,6 +161,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - Place the cache close where the code closes it
+
+Side task, no batch tag: two doc truths from the close-out review (SESSION_CONTEXT Section 5, PLAYBOOK Section 3), on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: docs follow the code.
+
+What changed and why: SESSION_CONTEXT Section 5 put the `async with open_album_cache()` close under phase 4, but in `process_albums` the block ends after phase 4b (the original-release lookup) and before phase 5, so item 4 now says the persist is followed by the original-release lookup and the connection closes after that (review Minor 4). In PLAYBOOK Section 3 the "Before WP-1" bullet had one 83-column line; it is re-wrapped near 80 columns, words unchanged (review Minor 2). Review Minor 1 is recorded here and not repaired: the body of `c006554` said "a test docstring" without naming the file, which is `tests/services/test_orchestrator_process_albums.py`; history is not rewritten.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2897 passed**.
+
 ### 2026-10-21 - Pin the classic link when external_urls is null
 
 Side task, no batch tag: pin the null `external_urls` guard of `album_metadata_from_details` with a test, on `refactor/metadata-encoding`, a branch off `main`.
@@ -204,23 +218,3 @@ Deviations: none.
 Edited existing tests: none. Added `test_album_metadata_from_details_keeps_the_classic_link` (5 cases) in `tests/services/test_spotify_service.py`; with the fallback removed, 4 of the 5 fail, and with it restored all pass.
 
 Validation: `pytest -q` -- **2896 passed**.
-
-### 2026-10-21 - The cache owns its connection and its failures
-
-Side task, no batch tag: Task 4 of PR #5, the cache owns its connection and its failures (`AlbumCache`, `open_album_cache`, `process_albums`, `orchestrator/_cache.py`, the facade's imports), on `refactor/metadata-encoding`, a branch off `main`.
-
-Owner intent (the spec's hosting ceiling): a missing or sleeping database degrades to provider calls and never fails a job.
-
-Why (F-B23-3): `process_albums` opened the connection, held it across provider work and closed it in a `finally` that did not guard `close()`, while `orchestrator/_cache.py` owned the failure policy, so understanding "the cache is optional" took two modules and a failing `close()` failed a job whose results were built. The connection-closure test also had to configure the provider machinery.
-
-What changed: `cache.AlbumCache(conn)` has `enabled`, `lookup_failed`, `persist_failed`, `lookup`, `persist`, `lookup_original_releases` and `close`; `open_album_cache()` connects through `get_db_connection` and closes when its block ends however it ends. `process_albums` wraps Phases 1 to 4b in `async with open_album_cache()`, and `_lookup_cached_metadata` and `_persist_new_metadata` take the cache and turn its flags into the same job stats and log lines as before (every log line is kept word for word). The facade no longer imports `get_db_connection` or the four batch functions, so tests patch them at `scrobblescope.cache.<name>`. `_lookup_cached_original_release` is gone (its body is `AlbumCache.lookup_original_releases`). A new boundary test pins that only `cache.py` names the metadata read, write and cleanup functions and holds the one INSERT into `spotify_cache`. Docs: SESSION_CONTEXT Sections 3 to 5, `runtime-system.md` (one node and the release-date bullet), `top-albums-sequence.md` (four messages and one note, commas only), `BATCH23_DEFINITION.md` (the PR #5 amendment of WP-3's metadata shape: Data handling and a WP-3 bullet), and F-B23-3 marked resolved.
-
-Deviations: a failing `close()` is now logged by exception class and swallowed, the one behaviour change. `_lookup_cached_original_release` is deleted and its two tests moved to `tests/services/test_cache.py`. Mutation row 7 of the brief (record `db_cache_persisted` after a failed persist) is not caught by `test_a_failing_cache_statement_never_fails_the_search[write]`, which checks only `db_cache_warning`, so a test was added, `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` in `test_orchestrator_process_albums.py`; Task 1's parity file stays untouched. The re-point script printed 46, 2, 2 and 3 replacements, and `ruff format` then reflowed the lines the longer patch strings overran. The Mermaid validator was not available to the implementer, so the controller renders the two diagram files (`runtime-system.md` flowchart node, `top-albums-sequence.md` sequence).
-
-Hosting evidence: `tests/test_album_cache_parity.py` and `tests/fake_postgres.py` are unchanged by this task and pass (one connection, one close, the same statement sequence, under every injected failure), and the diff of `scrobblescope/` adds no `.execute(`, `.fetch(` or `asyncpg.connect(` line.
-
-Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (patch strings, and two direct `_lookup_cached_metadata` calls now wrap `AlbumCache`), `tests/services/test_orchestrator_fetch_spotify.py` and `tests/test_pipeline_integration.py` (patch strings only), `tests/services/test_orchestrator_helpers.py` (two tests moved to `test_cache.py`), `tests/services/test_failure_logging.py` (four sites re-pointed at `AlbumCache`).
-
-Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `AlbumCache.close` without its `try`/`except` -> `test_a_failing_close_is_logged_by_class_and_never_raised` (RuntimeError) and `test_process_albums_survives_a_connection_that_fails_to_close` fail; (2) `open_album_cache` without `try`/`finally` -> `test_the_connection_closes_once_however_the_block_ends[True]` (`(1, 0) == (1, 1)`) and `test_the_connection_is_closed_once_when_no_provider_can_answer` fail; (3) `persist` guard without `self._conn is None` -> `test_a_cache_with_no_database_does_nothing_and_fails_nothing` fails; (4) `lookup` without `try`/`except` -> `test_a_failing_cache_statement_never_fails_the_search[read]` fails; (5) a reconnect in `lookup`'s `except` -> the same test fails on `(2, 1) == (1, 1)`; (6) `release_checks.py` importing `batch_persist_metadata` -> `test_only_the_cache_module_reads_or_writes_the_metadata_table` fails; (7) `db_cache_persisted` recorded after a failed persist -> `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` fails; (8) a bare write in `persist` -> `test_a_failed_read_is_a_miss_and_a_failed_write_is_not_an_error` and `test_a_failing_cache_statement_never_fails_the_search[write]` fail; (9) `lookup` returning `{}` -> `test_what_persist_writes_lookup_reads_back` fails; (10) Task 3's row 3 re-planted (`if metadata is not None:` removed) -> `test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album` fails.
-
-Validation: `pytest -q` -- **2891 passed**.

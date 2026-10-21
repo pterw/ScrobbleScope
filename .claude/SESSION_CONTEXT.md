@@ -277,7 +277,7 @@ background_task (orchestrator/__init__.py, daemon Thread):
       1: open_album_cache (connect) + batch lookup (30-day TTL)
       2: Partition cache_hits / cache_misses
       3: Spotify fetch for misses only, then Deezer for Spotify's misses
-      4: DB batch persist; the async with closes the connection (a failed close is logged, never raised)
+      4: DB batch persist, then the original-release lookup; the async with ends after that and closes the connection (a failed close is logged, never raised)
       5: Build results (cached original-release dates applied here)
          -> jobs.succeed() -> enqueue_release_check(job_id)
 
