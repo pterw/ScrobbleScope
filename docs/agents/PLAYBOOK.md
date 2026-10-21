@@ -160,6 +160,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - Keep the WP-6 streak bullet true
+
+Side task, no batch tag: reword WP-6's heatmap checklist bullet in `BATCH23_DEFINITION.md` so it agrees with the "The module exists" paragraph, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: the definition must not list as future work what the statistics module already does.
+
+What changed: the bullet "Heatmap: longest and current streak ..." named the current streak and "one pure helper" as work to do, while the paragraph added in the WP-6 amendment says both exist. It now lists the longest streak, busiest weekday and busiest hour as WP-6's, added to `listening_stats.py`, and says the current streak and the helper already exist. Nothing else in the definition changed.
+
+Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
+
 ### 2026-10-21 - Say what the #6 tests and diagram prove
 
 Side task, no batch tag: make a test docstring, a sequence diagram and two module docstrings say only what is true, on `refactor/statistics-module`, a branch off `main`.
@@ -193,17 +203,5 @@ Owner intent: nothing the statistics module touches should describe a step or a 
 What changed: `docs/architecture/heatmap-sequence.md` drew `heatmap_statistics` twice (lines 83 and 85); it is now one `Heatmap->>Heatmap` message carrying its figures, and the local step Task 4 removed (`total`, `max_count` and `active_days` computed in `heatmap.py`, `total_scrobbles` and `active_days` recorded as stats) is drawn again as one message after the Note. In the statistics-module plan, "Albums control" is now "Unmatched albums control" (line 22) and the worktree `C:/ssw/stm` is `C:/ssw/st` (line 50), as constraints L2 asks. `top-albums-sequence.md` is left to the documentation PR.
 
 Recorded, no change: the UTC-day test's remaining gap (a host-zone read that skips `astimezone`) has no code path, because the only timestamp-to-date reads are `listening_stats.utc_date` (`astimezone(UTC)`) and `plays.py`'s `play.played_at.date()`, and `Play` requires a UTC `played_at`. Task 5's Minor 2 (a missing `data-plays-*` attribute would render NaN) needs no guard, because the server always renders both. The `config/docsync.toml` window comment stays: the daily average still divides by `len(daily_counts)`, the zero-filled `HEATMAP_WINDOW_DAYS` window, so it is true.
-
-Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.
-
-### 2026-10-21 - A test pins that the page prints the Scrobbles figure it is handed
-
-Side task, no batch tag: pin that `results.html` prints the Scrobbles figures the route hands it, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: the page must show the figure Python decided, and a template that quietly re-adds the rows must fail a test.
-
-What changed: `data` and `play_stats` both come from `filtered_results`, so a template summing `data` for the two `data-plays-*` attributes passed every earlier route test. `test_scrobbles_stat_prints_the_figures_it_is_handed` patches `album_play_statistics` to return 777 listed and 555 matched over one 50-play row and asserts both attributes and the visible figure carry the handed values. Test only; no production code.
-
-Proof: a Jinja sum over `data` planted (scratch copy of `results.html`, restored) in `data-plays-listed` failed on 50 vs 777, and in `data-plays-matched` on 50 vs 555.
 
 Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2898 passed**.

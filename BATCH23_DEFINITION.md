@@ -588,9 +588,10 @@ because it has no durations.
   keep one original track name per normalized key.
 - [ ] Per year: the age of the music as a decade breakdown, and hours
   listened.
-- [ ] Heatmap: longest and current streak, busiest weekday and busiest hour,
-  stated as UTC, with both aggregators feeding one pure helper so the two
-  sources cannot disagree.
+- [ ] Heatmap: the longest streak, busiest weekday and busiest hour, stated as
+  UTC, added to `listening_stats.py` (the current streak and the pure helper
+  already exist, see the paragraph above), with both aggregators feeding it so
+  the two sources cannot disagree.
 - [ ] The results rows, a year-summary block, the heatmap result partial, and
   three new CSV columns.
 - **Acceptance:** pure-function tests per statistic with tz-aware timestamps
