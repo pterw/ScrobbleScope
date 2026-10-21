@@ -19,6 +19,7 @@ import pytest
 
 from scrobblescope import jobs
 from scrobblescope.utils import log_failure
+from tests.album_metadata import spotify_metadata
 from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
 MARKER = "Zqxv Distinctive Artist - Wjkl Distinctive Album"
@@ -462,7 +463,9 @@ def _database_site(name):
         "metadata_persist": (
             patched(orch, "batch_persist_metadata"),
             lambda: orch._persist_new_metadata(
-                MagicMock(), jobs.create(TEST_JOB_PARAMS), [("row",)]
+                MagicMock(),
+                jobs.create(TEST_JOB_PARAMS),
+                {("a", "b"): spotify_metadata()},
             ),
             ["DB persist failed (non-fatal)"],
             "RuntimeError",

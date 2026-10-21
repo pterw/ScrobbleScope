@@ -9,6 +9,7 @@ except ImportError:
     asyncpg = None
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_DAYS
+from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.utils import log_failure
 
 # Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
@@ -102,11 +103,14 @@ async def get_db_connection():
 
 
 async def batch_lookup_metadata(conn, keys):
-    """Look up cached Spotify metadata for a batch of (artist_norm, album_norm) keys.
+    """Look up cached album metadata for a batch of (artist_norm, album_norm) keys.
 
     Executes a single SELECT using unnest() for efficient batch lookup.
     Only rows updated within the configured TTL are returned.
-    Returns a dict keyed by (artist_norm, album_norm) with plain-dict values.
+    Returns a dict keyed by (artist_norm, album_norm) with ``AlbumMetadata``
+    values. ``AlbumMetadata.from_row`` owns how a stored row is read, rows
+    older than the provider columns included; a row that names no provider
+    album is left out, so it is a miss and the next fetch overwrites it.
     """
     if not keys:
         return {}
@@ -129,18 +133,9 @@ async def batch_lookup_metadata(conn, keys):
     )
     result = {}
     for r in rows:
-        td = r["track_durations"]
-        if isinstance(td, str):
-            td = json.loads(td)
-        result[(r["artist_norm"], r["album_norm"])] = {
-            "spotify_id": r["spotify_id"],
-            "release_date": r["release_date"],
-            "album_image_url": r["album_image_url"],
-            "track_durations": td if td else {},
-            "provider": r.get("provider"),
-            "provider_album_id": r.get("provider_album_id"),
-            "provider_url": r.get("provider_url"),
-        }
+        metadata = AlbumMetadata.from_row(r)
+        if metadata is not None:
+            result[(r["artist_norm"], r["album_norm"])] = metadata
     return result
 
 
@@ -164,28 +159,33 @@ async def cleanup_stale_metadata(conn):
         log_failure("Stale cache cleanup failed (non-fatal)", logging.WARNING)
 
 
-async def batch_persist_metadata(conn, rows):
+async def batch_persist_metadata(conn, albums):
     """Persist newly fetched album metadata in a single INSERT statement.
 
-    Uses INSERT ... SELECT FROM unnest() with ON CONFLICT DO UPDATE (upsert).
-    Each element in *rows* is a tuple of (artist_norm, album_norm, spotify_id,
-    release_date, album_image_url, track_durations_dict), optionally followed
-    by (provider, provider_album_id, provider_url). A row without the
-    trailing three elements is treated as a Spotify row (``provider``
-    defaults to ``"spotify"`` and ``provider_album_id`` to ``spotify_id``),
-    matching every caller that predates the provider contract.
+    *albums* maps (artist_norm, album_norm) to the ``AlbumMetadata`` a provider
+    returned. This is the only statement that writes ``spotify_cache``, and
+    ``AlbumMetadata`` has no field a listening fact could travel in, so the
+    shared table's contract (BATCH23 "Data handling": no listening facts, no
+    link to a listener) is held by the type. Uses INSERT ... SELECT FROM
+    unnest() with ON CONFLICT DO UPDATE (upsert). The legacy ``spotify_id``
+    column takes the album id for a Spotify album and NULL for any other
+    provider; ``provider_album_id`` always takes the id the provider issued.
     """
-    if not rows:
+    if not albums:
         return
-    artists = [r[0] for r in rows]
-    albums = [r[1] for r in rows]
-    spotify_ids = [r[2] for r in rows]
-    release_dates = [r[3] for r in rows]
-    image_urls = [r[4] for r in rows]
-    track_durations_json = [json.dumps(r[5]) if r[5] else "{}" for r in rows]
-    providers = [r[6] if len(r) > 6 else "spotify" for r in rows]
-    provider_album_ids = [r[7] if len(r) > 7 else r[2] for r in rows]
-    provider_urls = [r[8] if len(r) > 8 else None for r in rows]
+    keys = list(albums)
+    metadata = [albums[key] for key in keys]
+    artists = [key[0] for key in keys]
+    album_norms = [key[1] for key in keys]
+    spotify_ids = [m.spotify_id for m in metadata]
+    release_dates = [m.release_date for m in metadata]
+    image_urls = [m.image_url for m in metadata]
+    track_durations_json = [
+        json.dumps(m.track_durations) if m.track_durations else "{}" for m in metadata
+    ]
+    providers = [m.provider for m in metadata]
+    provider_album_ids = [m.album_id for m in metadata]
+    provider_urls = [m.url for m in metadata]
     await conn.execute(
         """
         INSERT INTO spotify_cache
@@ -207,7 +207,7 @@ async def batch_persist_metadata(conn, rows):
             updated_at        = NOW()
         """,
         artists,
-        albums,
+        album_norms,
         spotify_ids,
         release_dates,
         image_urls,

@@ -698,7 +698,7 @@ to this finding.
 
 ### F-B23-32: provider URLs reach href and src unchecked
 
-Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `_results.py` `_album_url`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
+Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `enrichment.py` `AlbumMetadata.from_row` (the one place a cached link enters), `_results.py`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-3.
 

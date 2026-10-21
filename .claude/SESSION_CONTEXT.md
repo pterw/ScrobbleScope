@@ -164,7 +164,7 @@ plays.py         <- domain, unmatched
 config.py        <- (leaf)
 api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
-cache.py         <- config, utils
+cache.py         <- config, enrichment, utils
 worker.py        <- config
 jobs.py          <- config, errors
 album_request.py <- jobs

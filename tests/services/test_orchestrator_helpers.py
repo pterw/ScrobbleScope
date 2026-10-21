@@ -9,6 +9,7 @@ from scrobblescope.domain import (
     normalize_name,
     release_window,
 )
+from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import (
     PrivateProfileError,
     ProviderError,
@@ -26,6 +27,7 @@ from scrobblescope.orchestrator import (
     _lookup_cached_original_release,
     merge_unmatched_rows,
 )
+from tests.album_metadata import spotify_metadata
 from tests.helpers import TEST_JOB_PARAMS
 
 # =====================================================================
@@ -217,18 +219,14 @@ def test_build_results_zero_playtime_no_division_error():
     """When all albums have zero play_time_seconds and sort_mode='playtime',
     the `or 1` guard in proportion calculation must prevent ZeroDivisionError.
 
-    Also verifies that missing track_durations (None) defaults to an empty
-    dict, producing play_time_seconds=0 rather than a TypeError.
+    An album with no durations gives play_time_seconds=0 rather than a TypeError.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = {
         ("artist", "album"): {
-            "cached": {
-                "spotify_id": "sp1",
-                "release_date": "2025-01-01",
-                "album_image_url": "https://img.example.com/a.jpg",
-                "track_durations": None,  # missing durations
-            },
+            "cached": spotify_metadata(
+                "sp1", "2025-01-01", "https://img.example.com/a.jpg", {}
+            ),
             "original": {
                 "play_count": 20,
                 "track_counts": {"song a": 5, "song b": 3},
@@ -258,12 +256,9 @@ def _corrected_cache_hits(provider_release_date):
     """
     return {
         ("artist", "album"): {
-            "cached": {
-                "spotify_id": "sp1",
-                "release_date": provider_release_date,
-                "album_image_url": "https://img.example.com/a.jpg",
-                "track_durations": {},
-            },
+            "cached": spotify_metadata(
+                "sp1", provider_release_date, "https://img.example.com/a.jpg", {}
+            ),
             "original": {
                 "play_count": 20,
                 "track_counts": {"song a": 5},
@@ -455,12 +450,9 @@ def test_build_results_records_reason_code():
     job_id = jobs.create(TEST_JOB_PARAMS)
     cache_hits = {
         ("artist", "album"): {
-            "cached": {
-                "spotify_id": "sp1",
-                "release_date": "2018-01-01",
-                "album_image_url": "https://img.example.com/a.jpg",
-                "track_durations": {},
-            },
+            "cached": spotify_metadata(
+                "sp1", "2018-01-01", "https://img.example.com/a.jpg", {}
+            ),
             "original": {
                 "play_count": 20,
                 "track_counts": {"song a": 5},
@@ -847,3 +839,34 @@ def test_merge_unmatched_rows_row_carries_the_designed_keys():
         "_normalized_key": normalize_name("Sigur R\u00f3s", "Takk... (Deluxe)"),
     }
     assert row["_normalized_key"] != ("Sigur R\u00f3s", "Takk... (Deluxe)")
+
+
+def test_a_cached_album_with_no_link_has_a_null_album_url():
+    """An album whose record holds an empty link is listed with album_url null,
+    as the page and the JSON have always had it, not with an empty string."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    album = AlbumMetadata(
+        provider="deezer",
+        album_id="9",
+        url="",
+        release_date="2025-01-01",
+        image_url=None,
+        track_durations={},
+    )
+    cache_hits = {
+        ("artist", "album"): {
+            "cached": album,
+            "original": {
+                "play_count": 20,
+                "track_counts": {"song a": 5},
+                "original_artist": "Artist",
+                "original_album": "Album",
+            },
+        }
+    }
+
+    (row,) = _build_results(
+        cache_hits, job_id, year=2025, sort_mode="playcount", release_scope="same"
+    )
+
+    assert row["album_url"] is None

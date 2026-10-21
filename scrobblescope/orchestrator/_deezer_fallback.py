@@ -73,8 +73,8 @@ async def _run_deezer_fallback_phase(
     uses. Reports progress in the 60-75% range. Promotes matched albums
     into *cache_hits* (mutated in place) and registers the final unmatched
     entry for anything neither provider could enrich, since this is the
-    last phase in the chain. Returns new_metadata_rows for the newly
-    matched Deezer albums.
+    last phase in the chain. Returns the newly matched Deezer albums as
+    ``{(artist_norm, album_norm): AlbumMetadata}``.
 
     An album neither provider matched is recorded as a no-match only when
     both providers answered. If Spotify could not answer for it (its key is
@@ -117,7 +117,7 @@ async def _run_deezer_fallback_phase(
         asyncio.ensure_future(enrich_one(key, data)) for key, data in misses.items()
     ]
 
-    new_metadata_rows = []
+    new_metadata = {}
     matched_count = 0
     done = 0
     total = len(tasks)
@@ -135,19 +135,8 @@ async def _run_deezer_fallback_phase(
 
             if metadata is not None:
                 matched_count += 1
-                cache_hits[key] = {
-                    "cached": {
-                        "spotify_id": None,
-                        "release_date": metadata.release_date,
-                        "album_image_url": metadata.image_url,
-                        "track_durations": metadata.track_durations,
-                        "provider": metadata.provider,
-                        "provider_album_id": metadata.album_id,
-                        "provider_url": metadata.url,
-                    },
-                    "original": data,
-                }
-                new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
+                cache_hits[key] = {"cached": metadata, "original": data}
+                new_metadata[key] = metadata
             else:
                 original_artist = data["original_artist"]
                 original_album = data["original_album"]
@@ -194,4 +183,4 @@ async def _run_deezer_fallback_phase(
         f"Deezer fallback completed in {fallback_duration:.1f}s: "
         f"{matched_count}/{total} misses found on Deezer"
     )
-    return new_metadata_rows
+    return new_metadata

@@ -23,7 +23,8 @@ from scrobblescope.utils import log_failure
 
 
 async def _lookup_cached_metadata(conn, job_id, album_keys):
-    """DB Batch Lookup. Returns {} without raising if the DB read failed."""
+    """DB Batch Lookup. Returns {key: AlbumMetadata}; {} without raising if the DB
+    read failed."""
     cached_metadata = {}
     if not conn:
         jobs.record_stat(
@@ -75,16 +76,18 @@ async def _lookup_cached_original_release(conn, keys):
         return {}
 
 
-async def _persist_new_metadata(conn, job_id, new_metadata_rows):
-    """DB Batch Persist. Non-fatal on failure."""
-    if not (conn and new_metadata_rows):
+async def _persist_new_metadata(conn, job_id, new_metadata):
+    """DB Batch Persist. Non-fatal on failure.
+
+    *new_metadata* maps (artist_norm, album_norm) to the ``AlbumMetadata`` the
+    providers returned this job.
+    """
+    if not (conn and new_metadata):
         return
     try:
-        await _orchestrator.batch_persist_metadata(conn, new_metadata_rows)
-        jobs.record_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
-        logging.info(
-            f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
-        )
+        await _orchestrator.batch_persist_metadata(conn, new_metadata)
+        jobs.record_stat(job_id, "db_cache_persisted", len(new_metadata))
+        logging.info(f"Persisted {len(new_metadata)} new metadata rows to DB cache")
     # Fail open: a failed persist costs the next job a lookup, not this one.
     except Exception:  # noqa: BLE001
         log_failure("DB persist failed (non-fatal)", logging.WARNING)

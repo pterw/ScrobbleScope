@@ -109,6 +109,7 @@ flowchart LR
     MusicBrainzClient --> Errors
     Spotlight --> Utils
     Cache --> Utils
+    Cache --> Enrichment
     Utils --> ApiLogging
 
     Worker -.->|runs injected callable| Album

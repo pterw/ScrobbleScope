@@ -8,6 +8,7 @@ from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import process_albums
 from scrobblescope.orchestrator._cache import _lookup_cached_metadata
+from tests.album_metadata import spotify_metadata
 from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK, TEST_JOB_PARAMS
 
 
@@ -30,12 +31,12 @@ async def test_process_albums_cache_hit_skips_spotify():
     }
 
     mock_cached = {
-        ("radiohead", "ok computer"): {
-            "spotify_id": "abc123",
-            "release_date": "1997-06-16",
-            "album_image_url": "https://img.example.com/ok.jpg",
-            "track_durations": {"paranoid android": 383, "karma police": 264},
-        }
+        ("radiohead", "ok computer"): spotify_metadata(
+            "abc123",
+            "1997-06-16",
+            "https://img.example.com/ok.jpg",
+            {"paranoid android": 383, "karma police": 264},
+        )
     }
 
     mock_conn = AsyncMock()
@@ -92,12 +93,12 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
         }
     }
     cached_metadata = {
-        album_key: {
-            "spotify_id": "sp-rumours",
-            "release_date": "2011-01-31",
-            "album_image_url": "https://img.example.com/rumours.jpg",
-            "track_durations": {"dreams": 257},
-        }
+        album_key: spotify_metadata(
+            "sp-rumours",
+            "2011-01-31",
+            "https://img.example.com/rumours.jpg",
+            {"dreams": 257},
+        )
     }
     cached_original_release = {
         album_key: {
@@ -165,12 +166,12 @@ async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion(
         }
     }
     cached_metadata = {
-        album_key: {
-            "spotify_id": "sp-rumours",
-            "release_date": "2011-01-31",
-            "album_image_url": "https://img.example.com/rumours.jpg",
-            "track_durations": {"dreams": 257},
-        }
+        album_key: spotify_metadata(
+            "sp-rumours",
+            "2011-01-31",
+            "https://img.example.com/rumours.jpg",
+            {"dreams": 257},
+        )
     }
     mock_conn = AsyncMock()
 
@@ -268,9 +269,9 @@ async def test_process_albums_cache_miss_fetches_and_persists():
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    persist_rows = mock_persist.call_args[0][1]
-    assert len(persist_rows) == 1
-    assert persist_rows[0][2] == "sp1"
+    persisted = mock_persist.call_args[0][1]
+    assert list(persisted) == [("artist", "album")]
+    assert persisted[("artist", "album")].album_id == "sp1"
 
     progress = jobs.progress(job_id)
     assert progress is not None
@@ -505,12 +506,12 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
         },
     }
     mock_cached = {
-        ("radiohead", "ok computer"): {
-            "spotify_id": "abc123",
-            "release_date": "1997-06-16",
-            "album_image_url": "https://img.example.com/ok.jpg",
-            "track_durations": {"paranoid android": 383, "karma police": 264},
-        }
+        ("radiohead", "ok computer"): spotify_metadata(
+            "abc123",
+            "1997-06-16",
+            "https://img.example.com/ok.jpg",
+            {"paranoid android": 383, "karma police": 264},
+        )
     }
 
     mock_conn = AsyncMock()
@@ -994,13 +995,18 @@ async def test_process_albums_deezer_row_persists_provider_fields():
         await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    rows = mock_persist.call_args[0][1]
-    assert len(rows) == 1
-    row = rows[0]
-    assert row[2] is None  # spotify_id
-    assert row[6] == "deezer"
-    assert row[7] == "dz1"
-    assert row[8] == "https://www.deezer.com/album/dz1"
+    persisted = mock_persist.call_args[0][1]
+    assert persisted == {
+        ("artist", "album"): AlbumMetadata(
+            provider="deezer",
+            album_id="dz1",
+            url="https://www.deezer.com/album/dz1",
+            release_date="2025-02-02",
+            image_url="https://cdn.example/dz.jpg",
+            track_durations={"t1": 200},
+        )
+    }
+    assert persisted[("artist", "album")].spotify_id is None
 
 
 class _StaleSchemaError(Exception):
@@ -1053,8 +1059,8 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
     """
     GIVEN a cache miss that Spotify finds and details
     WHEN process_albums persists it
-    THEN the row is the provider contract's nine-element form, so the
-    Spotify URL is stored rather than left NULL (F-B22-7).
+    THEN the provider record is what is persisted, so the Spotify URL is stored
+    rather than left NULL (F-B22-7).
     """
     from scrobblescope.domain import normalize_track_name
 
@@ -1112,15 +1118,13 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
         await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    (row,) = mock_persist.call_args[0][1]
-    assert row == (
-        "artist",
-        "album",
-        "sp1",
-        "2025-01-01",
-        "https://img.example.com/a.jpg",
-        {normalize_track_name("Track One"): 240},
-        "spotify",
-        "sp1",
-        "https://open.spotify.com/album/sp1",
-    )
+    assert mock_persist.call_args[0][1] == {
+        ("artist", "album"): AlbumMetadata(
+            provider="spotify",
+            album_id="sp1",
+            url="https://open.spotify.com/album/sp1",
+            release_date="2025-01-01",
+            image_url="https://img.example.com/a.jpg",
+            track_durations={normalize_track_name("Track One"): 240},
+        )
+    }

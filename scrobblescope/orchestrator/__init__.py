@@ -95,7 +95,8 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     for whatever Spotify still could not enrich.
 
     Mutates *cache_hits* in place by promoting newly found entries.
-    Returns a list of new_metadata_rows tuples for DB persistence.
+    Returns the newly fetched metadata as
+    ``{(artist_norm, album_norm): AlbumMetadata}`` for DB persistence.
     Spotify being down degrades, per album: a token that cannot be had, or
     a search Spotify could not answer, sends that album to Deezer, and an
     album Deezer cannot match either is recorded as unavailable, never as
@@ -114,10 +115,10 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     are skipped and those albums go to Deezer as unanswered.
     """
     if not cache_misses:
-        return []
+        return {}
 
     had_cache_hits = bool(cache_hits)
-    new_metadata_rows = []
+    new_metadata = {}
     token = await fetch_spotify_access_token()
     still_missing = cache_misses
     unanswered_keys = set(cache_misses)
@@ -155,7 +156,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                     jobs.record_partial_source(job_id, "provider")
                 valid_spotify_ids = list(spotify_id_to_original_data.keys())
                 if valid_spotify_ids:
-                    new_metadata_rows = await _run_spotify_batch_detail_phase(
+                    new_metadata = await _run_spotify_batch_detail_phase(
                         job_id,
                         session,
                         valid_spotify_ids,
@@ -179,7 +180,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
 
     if still_missing:
         async with create_optimized_session() as session:
-            deezer_rows = await _run_deezer_fallback_phase(
+            deezer_metadata = await _run_deezer_fallback_phase(
                 job_id,
                 session,
                 still_missing,
@@ -187,14 +188,14 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                 spotify_unavailable_keys=unanswered_keys,
                 spotify_detail_unavailable_keys=detail_unavailable_keys,
             )
-        new_metadata_rows.extend(deezer_rows)
+        new_metadata.update(deezer_metadata)
 
     # Spotify "gave nothing" for a miss when its search went unanswered or,
     # having matched it, its details did. Both are outages, not answers.
     spotify_gave_nothing = set(cache_misses) <= (
         unanswered_keys | detail_unavailable_keys
     )
-    if spotify_gave_nothing and not had_cache_hits and not new_metadata_rows:
+    if spotify_gave_nothing and not had_cache_hits and not new_metadata:
         if not token:
             raise SpotifyUnavailableError(
                 "Spotify token fetch failed and Deezer could not enrich any album."
@@ -208,7 +209,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
             "Spotify answered no search and Deezer could not enrich any album."
         )
 
-    return new_metadata_rows
+    return new_metadata
 
 
 async def process_albums(
@@ -240,7 +241,7 @@ async def process_albums(
     # =================================================================
     # Phase 2: Partition into cache hits and misses
     # =================================================================
-    cache_hits = {}  # key -> {"cached": dict, "original": original_data}
+    cache_hits = {}  # key -> {"cached": AlbumMetadata, "original": original_data}
     cache_misses = {}  # key -> original_data
 
     for key, original_data in filtered_albums.items():
@@ -260,14 +261,12 @@ async def process_albums(
     # Phase 3: Spotify fetch for misses only
     # =================================================================
     try:
-        new_metadata_rows = await _fetch_spotify_misses(
-            job_id, cache_misses, cache_hits
-        )
+        new_metadata = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
 
         # =============================================================
         # Phase 4: DB Batch Persist
         # =============================================================
-        await _persist_new_metadata(conn, job_id, new_metadata_rows)
+        await _persist_new_metadata(conn, job_id, new_metadata)
 
         # =============================================================
         # Phase 4b: Original-release correction lookup (Task 8, Batch 22

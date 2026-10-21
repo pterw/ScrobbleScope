@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - Cache storage and failure behaviour are pinned end to end
+
+Side task, no batch tag: parity tests with an in-memory fake Postgres that pin album metadata storage, read-back and cache-failure behaviour, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, and the encoding change of PR #5 starts from parity tests that name no function of `cache.py` (AGENTS.md "Refactor requires parity tests").
+
+What changed: `tests/fake_postgres.py` is a fake database (two dicts; it refuses any statement the cache module does not send, records `(verb, table)` per statement, counts connects and closes). `tests/test_album_cache_parity.py` holds 17 tests through the real cache module and the correction worker. Every existing test patches `cache.py`'s own functions, so none could prove the stored row, the read-back or the Results JSON survives the encoding change. The tests pin: stored columns per provider; live search equals cached search; legacy rows read as Spotify albums with the classic link; a stored row carries no listening fact (no play count, no listener name); no database, a sleeping database (bounded attempts), a failing read, a failing write and a failing correction read all degrade to provider calls; one connection and a fixed statement sequence per search (the hosting-cost evidence Tasks 3 and 4 re-run); a MusicBrainz finding is stored and corrects the next search; the exclusion record carries the provider facts.
+
+Deviations: no source file changed. Mutation row 15 (listener's name) and row 5 (play count) were planted as a suffix on the stored `provider_url` (`row[8] + "?u=" + original_data["listener"]`, and `"?plays=" + play_count`), not inside the durations dict as the plan wrote them, because a leak inside the durations dict trips the `json.loads(...) == DURATIONS` assertion first and never proves the `LISTENER not in stored` / `str(PLAY_COUNT) not in stored` assertions. Row 10 doubles the upsert by wrapping `conn.execute` in `batch_persist_metadata`. Edited existing tests: none.
+
+Mutation evidence (15 rows, each planted in the named file, the FAIL line seen, the file restored from a byte copy, the PASS seen): 1 `album_image_url` read from `spotify_id` fails the Spotify round trip; 2 `spotify_id` written for Deezer fails `assert '9' is None`; 3 `_album_provider` without the Spotify fallback fails the older-row test; 4 `_album_url` without the classic link fails both older-row cases; 5 play count in the stored row fails `assert '4242' not in ...`; 6 `raise` after the last connect attempt fails the asleep test with `TimeoutError`; 7 no `DATABASE_URL` branch fails `assert 1 == 0` (a connect was attempted); 8 bare persist fails `[write]` with `OSError`; 9 no `conn.close()` fails both close tests with `(1, 0) == (1, 1)`; 10 upsert issued twice fails the statement sequence; 11 swapped original-release arrays fail the MusicBrainz test; 12 `"provider": None` on the exclusion entry fails both rows; 13 bare metadata read fails `[read]`; 14 bare correction read fails `[correction_read]`; 15 listener's name in the stored `provider_url` fails `assert 'listener_zq' not in ...`.
+
+Validation: `pytest -q` -- **2864 passed**.
+
 ### 2026-10-21 - The metadata encoding plan opens its branch
 
 Side task, no batch tag: the approved album metadata encoding plan added as the branch's first commit, with its review and drift fixes folded in and PLAYBOOK Section 3 made true, on `refactor/metadata-encoding`, a branch off `main`.
