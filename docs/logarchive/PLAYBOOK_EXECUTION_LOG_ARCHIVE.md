@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Names that cross modules are public
+
+Side task, no batch tag: seven private names become public and the release-check strings get their own leaf module (PR #4 of the pre-Batch-23 tranche, task 23b, architecture-walk-2 B-7), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "seams worth doing before feature work are done now" (2026-09-29); the 2026-09-29 rulings allow a seam commit to edit existing tests.
+
+What changed: seven renames, one new leaf, one guard test. `cache.py`: `_get_db_connection`, `_batch_lookup_metadata`, `_batch_persist_metadata`, `_batch_lookup_original_release`, `_batch_persist_original_release`, `_cleanup_stale_metadata` lose their underscore; `domain.py`: `_matches_release_criteria` likewise. Each had a caller in a second package (the orchestrator and the release worker), so a private name said otherwise. The orchestrator facade no longer re-exports `matches_release_criteria`; its one test file imports it from `domain`. `scrobblescope/release_status.py` (new, a leaf) holds the eight `CHECK_*` and `STATUS_*` wire strings; `release_checks.py` imports them and `routes/api.py` reads them from there, so no route imports the thread-owning worker. `tests/test_module_boundaries.py` (new, three tests) walks the source with `ast`: no module reads another package's underscore name, no route imports `release_checks`, and the strings equal what `static/js/results-release-checks.js` compares. SESSION_CONTEXT Sections 3-4 and the runtime-system diagram follow (node `ReleaseStatus`, edges `Routes --> ReleaseStatus` and `ReleaseChecks --> ReleaseStatus`). The Mermaid validator tool was not available to this implementer; the added lines were checked by hand (no `;`, every node declared, block unchanged in shape).
+
+Config-import re-check: a module-level `ast` walk finds 13 modules importing `scrobblescope.config`; as drawn nodes (`routes/` and `orchestrator/` one node each) that is still eleven, and `release_status.py` imports nothing, so the "eleven nodes" paragraph stays true.
+
+Deviations: the drain item of the design was already done (`utils.cancel_and_drain`); the rename was a byte-safe Python script, not the plan's `sed` (R9); in SESSION_CONTEXT Section 4 `release_status` goes after `precheck` in the `routes/api.py` line (PR #3 added `precheck`; alphabetical order). The guard test's first run listed exactly the ten reads the plan predicted. Edited existing tests (renames only, no assertion changed): `tests/services/test_failure_logging.py`, `tests/services/test_orchestrator_fetch_spotify.py`, `tests/services/test_orchestrator_process_albums.py`, `tests/services/test_release_checks.py`, `tests/test_pipeline_integration.py`, `tests/test_repositories.py`, `tests/services/test_cache.py`, `tests/services/test_enrichment.py` (one docstring), `tests/services/test_orchestrator_helpers.py` (renames, and `matches_release_criteria` is imported from `domain`, not the facade).
+
+Mutation evidence (scratch copy, each restored afterwards): `from scrobblescope.utils import _GlobalThrottle` added to `release_checks.py` failed `test_no_module_reads_another_modules_private_name` (named `release_checks`); `from scrobblescope.release_checks import enqueue_release_check` added to `routes/api.py` failed `test_the_routes_never_import_the_correction_worker`; `CHECK_MOVED_OUT = "moved-out"` failed `test_release_status_strings_are_the_ones_the_browser_compares`. Each time `3 passed` once restored.
+
+Validation: `pytest -q` -- **2797 passed**.
+
 ### 2026-10-20 - Last.fm usernames leave the log lines
 
 Side task, no batch tag: nine log lines stop carrying a Last.fm username (finding F-B23-40; PR #4 of the pre-Batch-23 tranche, task 2), on `refactor/lastfm-scrobbles`, a branch off `main`.

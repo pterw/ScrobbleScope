@@ -105,13 +105,15 @@ See FINDINGS F-DOCSYNC-3.
   module, one album-metadata encoding, the statistics module, and
   normalized Last.fm scrobbles with one album aggregate. The album request
   module is done (PR #3, branch refactor/album-request-module, plan
-  `docs/superpowers/plans/2026-10-20-album-request-module.md`); the other
-  three seams remain. Job persistence
+  `docs/superpowers/plans/2026-10-20-album-request-module.md`); normalized
+  Last.fm scrobbles with one album aggregate is done (PR #4, branch
+  refactor/lastfm-scrobbles, plan
+  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); the other two
+  seams remain, one album-metadata encoding and the statistics module. Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
-  PR #4, normalized Last.fm scrobbles with one album aggregate, is under way on `refactor/lastfm-scrobbles`; its plan is `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md` (Task 1 now; Tasks 2-5 after PR #3 merges).
   PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
   plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
@@ -155,6 +157,18 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-10-20 - Make the #4 docs say what the branch now does
+
+Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: the branch's docs describe the branch as it is when it merges, not as it stood while the tasks were under way.
+
+What changed: Section 3's "Before WP-1" bullet now says PR #4 is done (PR #3's form) and that the two seams remaining are one album-metadata encoding and the statistics module, and drops the "Tasks 2-5 after PR #3 merges" sentence. The `tests/test_lastfm_job_results.py` module docstring no longer says five tests are xfail-marked; they pass since Task 4. `fetch_top_albums_async`'s docstring already describes behaviour only, with no plan label (nothing to change). The "Callers get scrobbles, not Last.fm pages" entry's "so the controller renders them" now records what was done: the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid. README's "What each module owns" table gains `plays.py` and `release_status.py`. `orchestrator/__init__.py`'s `__all__` is back in sorted order (no name added or removed).
+
+Deviations: none. Edited existing tests: none (docstring only in `tests/test_lastfm_job_results.py`).
+
+Validation: `pytest -q` -- **2847 passed**.
 
 ### 2026-10-20 - Close two guard gaps the reviews found
 
@@ -200,7 +214,7 @@ Behaviour changes, each pinned by task 23a's `tests/test_lastfm_job_results.py` 
 
 Memory (hosting ceiling, budget 20 MB peak added per 80,000-scrobble job; `tracemalloc`, the plan's probe, 400 pages of 200 scrobbles): raw pages held 104.9 MB; plays added 9.6 MB; peak added 10.4 MB. Within budget, so no trim.
 
-Docs: SESSION_CONTEXT Sections 3 to 5 (module list, dependency graph, background_task flow), `docs/architecture/runtime-system.md` (the `Plays` node and four edges), `docs/architecture/top-albums-sequence.md` and `docs/architecture/heatmap-sequence.md` (the failure branch is now a raise, not a status), F-B23-2 resolved, and `BATCH23_DEFINITION.md` WP-2 (the record, the one aggregator, the daily counts). Every added Mermaid line was checked by script (no `;`, participants declared, blocks balanced); the `validate_and_render_mermaid_diagram` tool was not available to the implementer, so the controller renders them.
+Docs: SESSION_CONTEXT Sections 3 to 5 (module list, dependency graph, background_task flow), `docs/architecture/runtime-system.md` (the `Plays` node and four edges), `docs/architecture/top-albums-sequence.md` and `docs/architecture/heatmap-sequence.md` (the failure branch is now a raise, not a status), F-B23-2 resolved, and `BATCH23_DEFINITION.md` WP-2 (the record, the one aggregator, the daily counts). Every added Mermaid line was checked by script (no `;`, participants declared, blocks balanced); the `validate_and_render_mermaid_diagram` tool was not available to the implementer, so the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid; the two sequence diagrams render once their pre-existing `;` in Note lines (from main, fixed by the documentation PR) are read as commas.
 
 Deviations: the two sequence-diagram Notes the plan wrote contain a `;`, which Mermaid reads as a statement separator, so each uses a comma instead. In `top-albums-sequence.md` the "Aggregation stats" line moves into the `else Pages available` branch, because a failed fetch now writes no stats (the plan did not name it). Edits were byte-safe Python, not `sed -i` (R9). `tests/test_lastfm_job_results.py`'s module docstring still says the five tests are marked xfail; the plan allows only the five marker deletions there, so the sentence is left for the controller.
 
@@ -209,19 +223,3 @@ Edited existing tests: `tests/services/test_lastfm_logic.py` (9 patch strings re
 Mutation evidence (scratch copy, each restored afterwards): all 32 plants of the plan's Step 11 table failed the test it names (for example `Play.__post_init__` with `is UTC` failed the three `TestPlay` tests, `window.contains` skip deleted failed `test_a_play_outside_the_window_is_seen_but_not_counted` and Task 1's `test_scrobbles_outside_the_year_are_not_counted`, `datetime.fromtimestamp(int(uts))` without a zone failed 25 tests including `test_a_play_at_2330_utc_keeps_its_utc_day`, the heatmap `try/except ProviderError` failed `test_a_total_lastfm_failure_propagates_to_the_backstop`, a page-layer import in `heatmap.py` failed `test_nothing_outside_lastfm_reads_the_page_layer`). `tests/test_lastfm_job_results.py` reports `23 passed`, no xfail left.
 
 Validation: `pytest -q` -- **2831 passed**.
-
-### 2026-10-20 - Names that cross modules are public
-
-Side task, no batch tag: seven private names become public and the release-check strings get their own leaf module (PR #4 of the pre-Batch-23 tranche, task 23b, architecture-walk-2 B-7), on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: "seams worth doing before feature work are done now" (2026-09-29); the 2026-09-29 rulings allow a seam commit to edit existing tests.
-
-What changed: seven renames, one new leaf, one guard test. `cache.py`: `_get_db_connection`, `_batch_lookup_metadata`, `_batch_persist_metadata`, `_batch_lookup_original_release`, `_batch_persist_original_release`, `_cleanup_stale_metadata` lose their underscore; `domain.py`: `_matches_release_criteria` likewise. Each had a caller in a second package (the orchestrator and the release worker), so a private name said otherwise. The orchestrator facade no longer re-exports `matches_release_criteria`; its one test file imports it from `domain`. `scrobblescope/release_status.py` (new, a leaf) holds the eight `CHECK_*` and `STATUS_*` wire strings; `release_checks.py` imports them and `routes/api.py` reads them from there, so no route imports the thread-owning worker. `tests/test_module_boundaries.py` (new, three tests) walks the source with `ast`: no module reads another package's underscore name, no route imports `release_checks`, and the strings equal what `static/js/results-release-checks.js` compares. SESSION_CONTEXT Sections 3-4 and the runtime-system diagram follow (node `ReleaseStatus`, edges `Routes --> ReleaseStatus` and `ReleaseChecks --> ReleaseStatus`). The Mermaid validator tool was not available to this implementer; the added lines were checked by hand (no `;`, every node declared, block unchanged in shape).
-
-Config-import re-check: a module-level `ast` walk finds 13 modules importing `scrobblescope.config`; as drawn nodes (`routes/` and `orchestrator/` one node each) that is still eleven, and `release_status.py` imports nothing, so the "eleven nodes" paragraph stays true.
-
-Deviations: the drain item of the design was already done (`utils.cancel_and_drain`); the rename was a byte-safe Python script, not the plan's `sed` (R9); in SESSION_CONTEXT Section 4 `release_status` goes after `precheck` in the `routes/api.py` line (PR #3 added `precheck`; alphabetical order). The guard test's first run listed exactly the ten reads the plan predicted. Edited existing tests (renames only, no assertion changed): `tests/services/test_failure_logging.py`, `tests/services/test_orchestrator_fetch_spotify.py`, `tests/services/test_orchestrator_process_albums.py`, `tests/services/test_release_checks.py`, `tests/test_pipeline_integration.py`, `tests/test_repositories.py`, `tests/services/test_cache.py`, `tests/services/test_enrichment.py` (one docstring), `tests/services/test_orchestrator_helpers.py` (renames, and `matches_release_criteria` is imported from `domain`, not the facade).
-
-Mutation evidence (scratch copy, each restored afterwards): `from scrobblescope.utils import _GlobalThrottle` added to `release_checks.py` failed `test_no_module_reads_another_modules_private_name` (named `release_checks`); `from scrobblescope.release_checks import enqueue_release_check` added to `routes/api.py` failed `test_the_routes_never_import_the_correction_worker`; `CHECK_MOVED_OUT = "moved-out"` failed `test_release_status_strings_are_the_ones_the_browser_compares`. Each time `3 passed` once restored.
-
-Validation: `pytest -q` -- **2797 passed**.

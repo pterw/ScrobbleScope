@@ -4,9 +4,9 @@ Every test fakes only the Last.fm HTTP edge (``tests.helpers.lastfm_edge``) and
 reads the answer from the job the pipeline publishes. Nothing here imports a
 function that sits between the page layer and the job, so the suite means the
 same thing before and after the scrobbles-not-pages refactor (Batch 23 WP-0,
-Task 23). Five tests assert a behaviour the refactor changes by owner ruling
-(2026-09-29) and are marked ``xfail(strict=True)``; the refactor's commit
-removes each marker.
+Task 23). Five tests assert a behaviour the refactor changed by owner ruling
+(2026-09-29). They were ``xfail(strict=True)`` until the refactor landed and
+now pass as ordinary tests.
 """
 
 from datetime import UTC, datetime, timedelta

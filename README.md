@@ -356,9 +356,11 @@ module, so the clients stay thin:
 | `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
 | `jobs.py` | The job module: the lifecycle of one search (create, advance, record, succeed or fail, reset, read, expire) and the rules that keep a job coherent, over a storage seam whose one adapter today is an in-memory store under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
+| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection) and into daily counts |
 | `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, with no enrichment step |
 | `lastfm.py`, `spotify.py`, `deezer.py`, `musicbrainz.py` | One module per external API, each owning that provider's quirks and nothing else |
 | `enrichment.py` | The provider-neutral album record both metadata providers return |
+| `release_status.py` | The release-check wire strings (`CHECK_*`, `STATUS_*`): the worker writes them, `/api/release_checks` and the Results page read them |
 | `release_checks.py` | The correction worker: one thread, a FIFO queue of jobs, and the rules for which albums are worth a lookup |
 | `cache.py` | Every asyncpg call, with batch lookups, batch writes and connection retry |
 | `domain.py` | Name normalization -- the keys everything else joins on -- and the release-window rule both the album filter and the correction worker apply |
