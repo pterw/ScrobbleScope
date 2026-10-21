@@ -4,8 +4,8 @@ Split out of ``scrobblescope/orchestrator.py`` (WP-0, Batch 22): these two
 functions are ``process_albums``'s Phase 1 (DB Batch Lookup) and Phase 4 (DB
 Batch Persist) blocks, extracted verbatim with the connection still owned and
 closed by the caller. See ``scrobblescope/orchestrator/_search.py`` for why
-``_batch_lookup_metadata``, ``_batch_persist_metadata``,
-and ``_cleanup_stale_metadata`` are read through the live ``orchestrator``
+``batch_lookup_metadata``, ``batch_persist_metadata``,
+and ``cleanup_stale_metadata`` are read through the live ``orchestrator``
 module reference rather than imported directly.
 """
 
@@ -34,7 +34,7 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
         return cached_metadata
 
     try:
-        cached_metadata = await _orchestrator._batch_lookup_metadata(conn, album_keys)
+        cached_metadata = await _orchestrator.batch_lookup_metadata(conn, album_keys)
         jobs.record_stat(job_id, "db_cache_lookup_hits", len(cached_metadata))
         logging.info(
             f"DB cache: {len(cached_metadata)} hits / {len(album_keys)} total albums"
@@ -54,7 +54,7 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
         )
         cached_metadata = {}
     # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
-    await _orchestrator._cleanup_stale_metadata(conn)
+    await _orchestrator.cleanup_stale_metadata(conn)
     return cached_metadata
 
 
@@ -68,7 +68,7 @@ async def _lookup_cached_original_release(conn, keys):
     if not conn:
         return {}
     try:
-        return await _orchestrator._batch_lookup_original_release(conn, keys)
+        return await _orchestrator.batch_lookup_original_release(conn, keys)
     # Fail open: a missing correction only skips the display upgrade.
     except Exception:  # noqa: BLE001
         log_failure("Original-release cache lookup failed (non-fatal)", logging.WARNING)
@@ -80,7 +80,7 @@ async def _persist_new_metadata(conn, job_id, new_metadata_rows):
     if not (conn and new_metadata_rows):
         return
     try:
-        await _orchestrator._batch_persist_metadata(conn, new_metadata_rows)
+        await _orchestrator.batch_persist_metadata(conn, new_metadata_rows)
         jobs.record_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
         logging.info(
             f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"

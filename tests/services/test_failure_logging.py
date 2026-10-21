@@ -166,7 +166,7 @@ async def test_release_check_failure_logs_the_class_only_at_error(caplog):
         patch.object(release_checks, "_mark_unchecked"),
         patch.object(
             release_checks,
-            "_get_db_connection",
+            "get_db_connection",
             new_callable=AsyncMock,
             return_value=MagicMock(close=AsyncMock()),
         ),
@@ -448,19 +448,19 @@ def _database_site(name):
 
     sites = {
         "metadata_lookup": (
-            patched(orch, "_batch_lookup_metadata"),
+            patched(orch, "batch_lookup_metadata"),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache"],
             "RuntimeError",
         ),
         "metadata_lookup_schema": (
-            patched(orch, "_batch_lookup_metadata", _SchemaError(MARKER)),
+            patched(orch, "batch_lookup_metadata", _SchemaError(MARKER)),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache" + _remedy()],
             "_SchemaError",
         ),
         "metadata_persist": (
-            patched(orch, "_batch_persist_metadata"),
+            patched(orch, "batch_persist_metadata"),
             lambda: orch._persist_new_metadata(
                 MagicMock(), jobs.create(TEST_JOB_PARAMS), [("row",)]
             ),
@@ -468,26 +468,26 @@ def _database_site(name):
             "RuntimeError",
         ),
         "correction_lookup": (
-            patched(orch, "_batch_lookup_original_release"),
+            patched(orch, "batch_lookup_original_release"),
             lambda: orch._lookup_cached_original_release(MagicMock(), [("a", "b")]),
             ["Original-release cache lookup failed (non-fatal)"],
             "RuntimeError",
         ),
         "stale_cleanup": (
             patch.object(cache, "METADATA_CACHE_TTL_DAYS", 30),
-            lambda: cache._cleanup_stale_metadata(_failing_conn()),
+            lambda: cache.cleanup_stale_metadata(_failing_conn()),
             ["Stale cache cleanup failed (non-fatal)"],
             "RuntimeError",
         ),
         "release_check_lookup": (
-            patched(release_checks, "_batch_lookup_original_release"),
+            patched(release_checks, "batch_lookup_original_release"),
             release_check_lookup,
             ["Original-release cache lookup failed"],
             "RuntimeError",
         ),
         "release_check_lookup_schema": (
             patched(
-                release_checks, "_batch_lookup_original_release", _SchemaError(MARKER)
+                release_checks, "batch_lookup_original_release", _SchemaError(MARKER)
             ),
             release_check_lookup,
             ["Original-release cache lookup failed" + _remedy()],
@@ -495,7 +495,7 @@ def _database_site(name):
         ),
         "release_check_persist": (
             _all(
-                patched(release_checks, "_batch_persist_original_release"),
+                patched(release_checks, "batch_persist_original_release"),
                 no_musicbrainz_answer(),
             ),
             persist_one_finding,
@@ -506,7 +506,7 @@ def _database_site(name):
             _all(
                 patched(
                     release_checks,
-                    "_batch_persist_original_release",
+                    "batch_persist_original_release",
                     _SchemaError(MARKER),
                 ),
                 no_musicbrainz_answer(),
@@ -524,7 +524,7 @@ def _database_site(name):
                 patch.object(release_checks, "_mark_unchecked"),
                 patch.object(
                     release_checks,
-                    "_get_db_connection",
+                    "get_db_connection",
                     new_callable=AsyncMock,
                     return_value=MagicMock(
                         close=AsyncMock(side_effect=RuntimeError(MARKER))
@@ -558,7 +558,7 @@ def _database_site(name):
                     },
                 ),
             ),
-            cache._get_db_connection,
+            cache.get_db_connection,
             [
                 "DB connection attempt 1/2 failed (db-down), retrying in 0.00s",
                 "DB cache unavailable (db-down): connection failed after 2 "

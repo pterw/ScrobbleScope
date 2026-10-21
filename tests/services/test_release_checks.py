@@ -99,17 +99,17 @@ def _worker_patches(lookup, cached=None, conn=_UNSET, persist=None, extra=()):
             patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
             patch("scrobblescope.release_checks.MUSICBRAINZ_CONTACT", "a@b.c"),
             patch(
-                "scrobblescope.release_checks._get_db_connection",
+                "scrobblescope.release_checks.get_db_connection",
                 new_callable=AsyncMock,
                 return_value=conn,
             ),
             patch(
-                "scrobblescope.release_checks._batch_lookup_original_release",
+                "scrobblescope.release_checks.batch_lookup_original_release",
                 new_callable=AsyncMock,
                 return_value=cached or {},
             ),
             patch(
-                "scrobblescope.release_checks._batch_persist_original_release",
+                "scrobblescope.release_checks.batch_persist_original_release",
                 AsyncMock() if persist is None else persist,
             ),
             patch("scrobblescope.release_checks.lookup_original_release", lookup),
@@ -153,7 +153,7 @@ def test_window_end_returns_none_on_unusable_inputs():
 
 
 # F-B23-5: `_window_end` restated the same scope table
-# `domain._matches_release_criteria` uses; Task 12 moves it to
+# `domain.matches_release_criteria` uses; Task 12 moves it to
 # `domain.release_window`. This parity test pins `_window_end`'s current
 # outputs on every divergence the finding names first, so the refactor has a
 # net -- it must keep passing, unchanged.
@@ -333,7 +333,7 @@ async def test_a_missing_correction_table_names_the_migration(caplog):
     with caplog.at_level(logging.WARNING):
         with _worker_patches(lookup, conn=conn) as _:
             with patch(
-                "scrobblescope.release_checks._batch_lookup_original_release",
+                "scrobblescope.release_checks.batch_lookup_original_release",
                 new_callable=AsyncMock,
                 side_effect=_MissingTableError(),
             ):
@@ -520,7 +520,7 @@ async def test_run_release_checks_treats_everything_as_pending_when_cache_lookup
         lookup,
         extra=[
             patch(
-                "scrobblescope.release_checks._batch_lookup_original_release",
+                "scrobblescope.release_checks.batch_lookup_original_release",
                 AsyncMock(side_effect=RuntimeError("cache down")),
             )
         ],
@@ -597,7 +597,7 @@ async def test_run_release_checks_marks_skipped_when_musicbrainz_is_disabled():
     with (
         patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", False),
         patch("scrobblescope.release_checks.lookup_original_release", lookup),
-        patch("scrobblescope.release_checks._get_db_connection", connect),
+        patch("scrobblescope.release_checks.get_db_connection", connect),
     ):
         await run_release_checks(job_id)
 
@@ -677,7 +677,7 @@ async def test_run_release_checks_finishes_without_a_db_trip_when_nothing_qualif
     with (
         patch("scrobblescope.release_checks.MUSICBRAINZ_ENABLED", True),
         patch("scrobblescope.release_checks.lookup_original_release", lookup),
-        patch("scrobblescope.release_checks._get_db_connection", connect),
+        patch("scrobblescope.release_checks.get_db_connection", connect),
     ):
         await run_release_checks(job_id)
 
@@ -704,7 +704,7 @@ async def test_run_release_checks_on_a_missing_job_is_a_noop():
     connect = AsyncMock()
     lookup = AsyncMock()
     with (
-        patch("scrobblescope.release_checks._get_db_connection", connect),
+        patch("scrobblescope.release_checks.get_db_connection", connect),
         patch("scrobblescope.release_checks.lookup_original_release", lookup),
     ):
         await run_release_checks("does-not-exist")

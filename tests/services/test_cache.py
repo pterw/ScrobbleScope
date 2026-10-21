@@ -4,10 +4,10 @@ import pytest
 
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION,
-    _batch_lookup_metadata,
-    _batch_lookup_original_release,
-    _batch_persist_metadata,
-    _batch_persist_original_release,
+    batch_lookup_metadata,
+    batch_lookup_original_release,
+    batch_persist_metadata,
+    batch_persist_original_release,
     schema_is_out_of_date,
 )
 
@@ -32,7 +32,7 @@ async def test_batch_lookup_metadata_selects_and_returns_provider_columns():
         ]
     )
 
-    result = await _batch_lookup_metadata(mock_conn, [("grey orton", "rumours")])
+    result = await batch_lookup_metadata(mock_conn, [("grey orton", "rumours")])
 
     fetch_sql = mock_conn.fetch.call_args[0][0]
     assert "provider" in fetch_sql
@@ -62,7 +62,7 @@ async def test_batch_lookup_metadata_defaults_provider_fields_when_absent():
         ]
     )
 
-    result = await _batch_lookup_metadata(mock_conn, [("radiohead", "ok computer")])
+    result = await batch_lookup_metadata(mock_conn, [("radiohead", "ok computer")])
 
     row = result[("radiohead", "ok computer")]
     assert row["provider"] is None
@@ -89,7 +89,7 @@ async def test_batch_persist_metadata_writes_provider_columns_when_given():
         )
     ]
 
-    await _batch_persist_metadata(mock_conn, rows)
+    await batch_persist_metadata(mock_conn, rows)
 
     mock_conn.execute.assert_awaited_once()
     call_args = mock_conn.execute.call_args[0]
@@ -109,7 +109,7 @@ async def test_batch_persist_metadata_defaults_provider_for_legacy_six_tuple():
     mock_conn = AsyncMock()
     rows = [("artist1", "album1", "sp1", "2025-01-01", "https://img/1.jpg", {})]
 
-    await _batch_persist_metadata(mock_conn, rows)
+    await batch_persist_metadata(mock_conn, rows)
 
     call_args = mock_conn.execute.call_args[0]
     assert call_args[7] == ["spotify"]
@@ -120,7 +120,7 @@ async def test_batch_persist_metadata_defaults_provider_for_legacy_six_tuple():
 @pytest.mark.asyncio
 async def test_batch_lookup_original_release_empty_keys_makes_no_call():
     mock_conn = AsyncMock()
-    result = await _batch_lookup_original_release(mock_conn, [])
+    result = await batch_lookup_original_release(mock_conn, [])
     assert result == {}
     mock_conn.fetch.assert_not_awaited()
 
@@ -141,7 +141,7 @@ async def test_batch_lookup_original_release_returns_cache_miss_record():
         ]
     )
 
-    result = await _batch_lookup_original_release(
+    result = await batch_lookup_original_release(
         mock_conn, [("some artist", "obscure ep")]
     )
 
@@ -152,7 +152,7 @@ async def test_batch_lookup_original_release_returns_cache_miss_record():
 @pytest.mark.asyncio
 async def test_batch_persist_original_release_empty_rows_makes_no_call():
     mock_conn = AsyncMock()
-    await _batch_persist_original_release(mock_conn, [])
+    await batch_persist_original_release(mock_conn, [])
     mock_conn.execute.assert_not_awaited()
 
 
@@ -164,7 +164,7 @@ async def test_batch_persist_original_release_upsert_call_shape():
         ("some artist", "obscure ep", None, None),
     ]
 
-    await _batch_persist_original_release(mock_conn, rows)
+    await batch_persist_original_release(mock_conn, rows)
 
     mock_conn.execute.assert_awaited_once()
     call_args = mock_conn.execute.call_args[0]

@@ -27,11 +27,11 @@ from typing import Any
 from scrobblescope import jobs
 from scrobblescope.album_request import AlbumRequest
 from scrobblescope.cache import (
-    _batch_lookup_metadata,
-    _batch_lookup_original_release,
-    _batch_persist_metadata,
-    _cleanup_stale_metadata,
-    _get_db_connection,
+    batch_lookup_metadata,
+    batch_lookup_original_release,
+    batch_persist_metadata,
+    cleanup_stale_metadata,
+    get_db_connection,
 )
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
 from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
@@ -315,7 +315,7 @@ async def process_albums(
     # =================================================================
     # Phase 1: DB Batch Lookup
     # =================================================================
-    conn = await _get_db_connection()
+    conn = await get_db_connection()
     jobs.record_stat(job_id, "db_cache_enabled", bool(conn))
     cached_metadata = await _lookup_cached_metadata(
         conn, job_id, list(filtered_albums.keys())
@@ -765,7 +765,6 @@ from scrobblescope.orchestrator._details import (  # noqa: E402
 from scrobblescope.orchestrator._results import (  # noqa: E402
     _build_results,
     _get_user_friendly_reason,
-    _matches_release_criteria,
     merge_unmatched_rows,
 )
 from scrobblescope.orchestrator._search import _run_spotify_search_phase  # noqa: E402
@@ -775,19 +774,18 @@ __all__ = [
     "_PLAYTIME_ALBUM_CAP",
     "_apply_post_slice",
     "_apply_pre_slice",
-    "_batch_lookup_metadata",
-    "_batch_lookup_original_release",
-    "_batch_persist_metadata",
+    "batch_lookup_metadata",
+    "batch_lookup_original_release",
+    "batch_persist_metadata",
     "_build_results",
-    "_cleanup_stale_metadata",
+    "cleanup_stale_metadata",
     "_fetch_and_process",
     "_fetch_job_albums",
     "_fetch_spotify_misses",
-    "_get_db_connection",
+    "get_db_connection",
     "_get_user_friendly_reason",
     "_lookup_cached_metadata",
     "_lookup_cached_original_release",
-    "_matches_release_criteria",
     "_persist_new_metadata",
     "_record_lastfm_stats",
     "_run_deezer_fallback_phase",

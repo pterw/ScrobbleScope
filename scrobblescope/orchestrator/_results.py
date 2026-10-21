@@ -8,7 +8,7 @@ synchronous logic -- no I/O -- except for the one cross-cutting call,
 import logging
 
 from scrobblescope import jobs
-from scrobblescope.domain import _matches_release_criteria, normalize_name
+from scrobblescope.domain import matches_release_criteria, normalize_name
 from scrobblescope.unmatched import (
     REASON_NO_SPOTIFY_MATCH,
     REASON_PROVIDER_UNAVAILABLE,
@@ -141,7 +141,7 @@ def _build_results(
             correction["original_release"] if corrected else provider_release_date
         )
 
-        if not _matches_release_criteria(
+        if not matches_release_criteria(
             release_date, release_scope, year, decade, release_year
         ):
             artist = original_data["original_artist"]

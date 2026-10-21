@@ -43,9 +43,9 @@ import threading
 from scrobblescope import jobs
 from scrobblescope.cache import (
     SCHEMA_OUT_OF_DATE_REMEDIATION,
-    _batch_lookup_original_release,
-    _batch_persist_original_release,
-    _get_db_connection,
+    batch_lookup_original_release,
+    batch_persist_original_release,
+    get_db_connection,
     schema_is_out_of_date,
 )
 from scrobblescope.config import (
@@ -54,29 +54,24 @@ from scrobblescope.config import (
     MUSICBRAINZ_ENABLED,
 )
 from scrobblescope.domain import (
-    _matches_release_criteria,
+    matches_release_criteria,
     normalize_name,
     release_window,
 )
 from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import lookup_original_release
+from scrobblescope.release_status import (
+    CHECK_CONFIRMED,
+    CHECK_MOVED_OUT,
+    CHECK_UNAVAILABLE,
+    CHECK_UNCHECKED,
+    STATUS_DONE,
+    STATUS_RUNNING,
+    STATUS_SKIPPED,
+)
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import create_optimized_session, log_failure
 from scrobblescope.worker import new_thread_event_loop
-
-# Each result's ``release_check`` field, as the results page reads it.
-CHECK_UNCHECKED = "unchecked"
-CHECK_CONFIRMED = "confirmed"
-CHECK_MOVED_OUT = "moved_out"
-CHECK_UNAVAILABLE = "unavailable"
-
-# The job's own ``progress.stats.release_check`` status. PENDING is never
-# written: it is what the API reports while the key is absent, between a job
-# publishing its results and the worker first reporting on them.
-STATUS_PENDING = "pending"
-STATUS_RUNNING = "running"
-STATUS_DONE = "done"
-STATUS_SKIPPED = "skipped"
 
 _JOB_QUEUE = queue.Queue()
 _worker_lock = threading.Lock()
@@ -183,7 +178,7 @@ def _matches_window(original_release, params):
 
     The rule lives in ``domain`` so the album filter and this re-check share it.
     """
-    return _matches_release_criteria(
+    return matches_release_criteria(
         original_release,
         params.get("release_scope"),
         params.get("year"),
@@ -260,7 +255,7 @@ async def _lookup_cached(conn, candidates):
     the whole job.
     """
     try:
-        return await _batch_lookup_original_release(
+        return await batch_lookup_original_release(
             conn, [candidate["key"] for candidate in candidates]
         )
     # Fail open: a failed cache read costs requests, never the job.
@@ -318,7 +313,7 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
     # restarts is a request nobody gets back.
     if conn and persist:
         try:
-            await _batch_persist_original_release(
+            await batch_persist_original_release(
                 conn, [(artist_norm, album_norm, mb_release_group, original_release)]
             )
         # Fail open: an unpersisted finding is looked up again next time.
@@ -385,7 +380,7 @@ async def run_release_checks(job_id):
         )
         return
 
-    conn = await _get_db_connection()
+    conn = await get_db_connection()
     if not conn:
         # The page that is open still gets its corrections; only their reuse
         # by the next job is lost. On Fly.io the DB wakes with the app, so
