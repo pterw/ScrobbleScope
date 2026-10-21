@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2787 tests across 94 tracked test modules.
+2794 tests across 95 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -809,12 +809,6 @@ The CI failure at 043368eb (run 36808671140, Linux, desktop) had a ring that was
 Observed again on 2026-09-30: three frontend-gate runs overlapping on the owner's Windows machine produced `net::ERR_NO_BUFFER_SPACE` on an app script load in one of them (the theme-persistence check); a lone re-run passed.
 
 - [ ] **Status:** open (P3). Source: gate runs of the third-review fix session (2026-09-29 to 2026-09-30).
-
-### F-B23-40: the Last.fm username appears in log lines, beside the listener's scrobble total
-
-`lastfm.py` ("Profile of %s is private", "User %s not found"), `orchestrator/__init__.py` (`_fetch_and_process` and `_report_album_failure`), `heatmap.py` ("Heatmap ready for %s: %s scrobbles" and `_report_heatmap_failure`), `routes/heatmap_flow.py` and `routes/album_flow.py` write the Last.fm username into ERROR, WARNING and INFO lines, and the heatmap line pairs it with the listener's scrobble total. `log_failure`'s docstring and BATCH23's Data handling section say listener-linked facts stay out of logs. Ask the owner whether a public Last.fm handle counts; if it does, log the job id instead. The scrobble-total line is the clearer one to drop first, before the export path shares this code.
-
-- [ ] **Status:** open (P3). Source: review 4 of PR #245 (backend), R4-backend-9.
 
 ### F-B23-41: result-table and unmatched-row links are under the 44px touch minimum, and the gate measures no populated row
 

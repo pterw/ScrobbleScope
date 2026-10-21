@@ -234,7 +234,7 @@ async def fetch_recent_tracks_page_async(
                     # preflight) is a privacy verdict, and retrying cannot help.
                     error_number = await _error_number(resp)
                     if error_number == "17":
-                        logging.error(f"Profile of {username} is private on Last.fm")
+                        logging.error("Profile went private on Last.fm during a job")
                         raise PrivateProfileError()
                     # Any other 403 (10 invalid key, 26 suspended key, an
                     # unknown body) is our access failing, not the listener's
@@ -247,7 +247,7 @@ async def fetch_recent_tracks_page_async(
                     return None, None
                 if resp.status == 404:
                     # User not found
-                    logging.error(f"User {username} not found on Last.fm")
+                    logging.error("User not found on Last.fm during a job")
                     raise UserNotFoundError()
                 if resp.status != 200:
                     body = await resp.text(errors="replace")

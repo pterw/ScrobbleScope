@@ -24,8 +24,16 @@ from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 MARKER = "Zqxv Distinctive Artist - Wjkl Distinctive Album"
 
 
-def _assert_type_only_at_error(caplog, *, error_fragment, exc_name="RuntimeError"):
-    """Assert the marker is absent from every ERROR record and present in DEBUG."""
+def _assert_type_only_at_error(
+    caplog, *, error_fragment, exc_name="RuntimeError", listener=None
+):
+    """Assert the marker is absent from every ERROR record and present in DEBUG.
+
+    When ``listener`` is given, no record at any level may carry that Last.fm
+    username either (F-B23-40).
+    """
+    if listener is not None:
+        assert all(listener not in r.getMessage() for r in caplog.records)
     serious = [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert serious, "nothing was logged at WARNING or above"
     for record in serious:
@@ -91,7 +99,9 @@ async def test_album_pipeline_crash_logs_the_class_only_at_error(caplog):
         await _fetch_and_process(job_id, "testuser", 2025, "playcount", "all")
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Error processing request")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Error processing request", listener="testuser"
+    )
 
 
 def test_album_backstop_logs_the_class_only_at_error(caplog):
@@ -110,7 +120,9 @@ def test_album_backstop_logs_the_class_only_at_error(caplog):
             _report_album_failure(job_id, "testuser", 2025)
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Unhandled error in background")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Unhandled error in background", listener="testuser"
+    )
 
 
 def test_heatmap_backstop_logs_the_class_only_at_error(caplog):
@@ -129,7 +141,9 @@ def test_heatmap_backstop_logs_the_class_only_at_error(caplog):
             _report_heatmap_failure(job_id, "testuser", exc)
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Unhandled error in heatmap")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Unhandled error in heatmap", listener="testuser"
+    )
 
 
 @pytest.mark.asyncio

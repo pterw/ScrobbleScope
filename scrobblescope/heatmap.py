@@ -161,7 +161,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         username, from_ts, to_ts, progress_cb=_heatmap_progress
     )
     fetch_elapsed = time.time() - fetch_start
-    logging.info(f"Heatmap Last.fm fetch for {username}: {fetch_elapsed:.1f}s")
+    logging.info(f"Heatmap Last.fm fetch for job {job_id}: {fetch_elapsed:.1f}s")
 
     # Record fetch stats for observability.
     jobs.record_stat(job_id, "pages_expected", fetch_metadata.get("pages_expected", 0))
@@ -219,7 +219,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         },
         "Heatmap ready!",
     )
-    logging.info("Heatmap ready for %s: %s scrobbles", username, total)
+    logging.info("Heatmap job %s is ready", job_id)
 
 
 def _report_heatmap_failure(job_id, username, exc):
@@ -237,7 +237,7 @@ def _report_heatmap_failure(job_id, username, exc):
     that never failed. The inner, status-based Last.fm path inside
     ``_fetch_and_process_heatmap`` still publishes its own code.
     """
-    log_failure(f"Unhandled error in heatmap task for {username}")
+    log_failure(f"Unhandled error in heatmap task for job {job_id}")
     error_code = classify_exception_to_error_code(exc) or "internal_error"
     jobs.fail(job_id, error_code, username=username)
 

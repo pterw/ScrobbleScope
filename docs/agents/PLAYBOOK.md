@@ -156,6 +156,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - Last.fm usernames leave the log lines
+
+Side task, no batch tag: nine log lines stop carrying a Last.fm username (finding F-B23-40; PR #4 of the pre-Batch-23 tranche, task 2), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: F-B23-40 and the tranche spec's "Last.fm usernames leave the logs": a handle paired with a scrobble total is a listener-linked fact, and the export path will share this code. The message a browser user reads ("User 'x' was not found on Last.fm.") is not a log line and stays.
+
+What changed: nine lines in four files. Eight username lines: `lastfm.py` (went-private and not-found lines, now fixed text), `heatmap.py` (fetch timing and `_report_heatmap_failure` now name the job id; "Heatmap ready" now reads "Heatmap job <id> is ready" and the scrobble total is gone) and `orchestrator/__init__.py` (the `fetch_top_albums_async` DEBUG start line drops the user; `_fetch_and_process` and `_report_album_failure` name the job id). The ninth is `utils.get_cached_response`'s cache-hit line, which wrote the cache key (it embeds the query string: the API key and `user:<name>`) and now writes the URL only. The `RedactingFormatter` docstring in `api_logging.py` no longer lists the cache-hit line as a carrier. The three route lines that were also in F-B23-40's sweep (registration-year warning, two heatmap pre-check lines) left with PR #3 and are neither changed nor tested here. New `tests/test_log_privacy.py` (7 tests: heatmap run, album run, both thread-entry backstops, both page-layer refusals, the real cache hit). F-B23-40 is marked resolved in `docs/agents/FINDINGS.md` (with the `**Completed:**` line the checker requires, DOC015/DOC016), and `doc_state_sync.py --fix` then rotated it to `docs/history/findings/FINDINGS_ARCHIVE.md`.
+
+Deviations: three existing tests in `tests/services/test_failure_logging.py` (`test_album_pipeline_crash_logs_the_class_only_at_error`, `test_album_backstop_logs_the_class_only_at_error`, `test_heatmap_backstop_logs_the_class_only_at_error`) now also assert the username is absent, through an optional `listener` argument of `_assert_type_only_at_error`. The plan's Step 1b (`tests/test_lastfm_job_results.py::_run_heatmap_task` calling `heatmap_task(job_id)` after PR #3) was already done by the merge of `main`, so this commit does not touch that file. The RED run of Step 2 was not taken before the edits; the mutation table below stands in for it. No other deviation.
+
+Mutation evidence: each of the nine lines restored to its old form in a scratch copy, and each named test failed (`1 failed`) and passed again once restored: went-private and not-found page-layer cases (rows 1-2), `test_a_heatmap_run_logs_its_job_id_not_its_listener` (rows 3-4), `test_the_heatmap_backstop_logs_the_job_id_not_the_listener` and `test_heatmap_backstop_logs_the_class_only_at_error` (row 5), `test_an_album_run_logs_no_listener` (row 6), `test_album_pipeline_crash_logs_the_class_only_at_error` (row 7), `test_the_album_backstop_logs_the_job_id_not_the_listener` and `test_album_backstop_logs_the_class_only_at_error` (row 8), `test_a_cache_hit_logs_no_listener` (row 9).
+
+Validation: `pytest -q` -- **2794 passed**.
+
 ### 2026-10-20 - Last.fm-derived job results are pinned before the seam work
 
 Side task, no batch tag: parity tests for the Last.fm path ahead of the scrobbles-not-pages refactor (PR #4 of the pre-Batch-23 tranche, task 23a, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
@@ -195,17 +209,3 @@ Deviations: none.
 Edited existing tests: none.
 
 Validation: `pytest -q` -- **2769 passed**.
-
-### 2026-10-20 - The entry the import-position fix corrected is named
-
-Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: a reader following the entry "Two sentences made true after the admission module" must be sent to the entry that really changed.
-
-What changed: that entry says the `admission` import-position phrase was corrected in "The album form is refused with a reason"; it was corrected in "Jobs start through one admission path" (Task 4's entry), which `--fix` has since rotated into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Both headings were checked there with grep. The earlier entry is a dated record and is left as written; this entry is the correction. In `tests/test_routes.py` the comment in the failed-thread-start test said the route calls `jobs.delete`; since Task 4 `admission.admit` does, so the comment now says that. Comment only, no code.
-
-Deviations: none.
-
-Edited existing tests: `test_results_loading_thread_start_failure_renders_error`, comment only.
-
-Validation: `pytest -q` -- **2752 passed**.

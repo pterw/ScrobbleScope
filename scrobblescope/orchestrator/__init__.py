@@ -112,7 +112,7 @@ async def fetch_top_albums_async(
         progress_cb: Optional ``Callable[[int, int, int], None]`` forwarded to
             ``fetch_all_recent_tracks_async`` for per-page progress.
     """
-    logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
+    logging.debug(f"Start fetch_top_albums_async(year={year})")
     from_ts = int(datetime(year, 1, 1, tzinfo=UTC).timestamp())
     to_ts = int(datetime(year, 12, 31, 23, 59, 59, tzinfo=UTC).timestamp())
     pages, fetch_metadata = await fetch_all_recent_tracks_async(
@@ -662,7 +662,7 @@ async def _fetch_and_process(
         error_code = classify_exception_to_error_code(exc) or "internal_error"
         jobs.fail(job_id, error_code, username=username)
 
-        log_failure(f"Error processing request for {username} in {year}")
+        log_failure(f"Error processing request for job {job_id} in {year}")
         return []
 
 
@@ -678,7 +678,7 @@ def _report_album_failure(job_id, username, year):
     only logged, and a page polling the job waited on a job that would never
     finish.
     """
-    log_failure(f"Unhandled error in background task for {username}/{year}")
+    log_failure(f"Unhandled error in background task for job {job_id}, year {year}")
     jobs.fail(job_id, "internal_error", username=username)
 
 

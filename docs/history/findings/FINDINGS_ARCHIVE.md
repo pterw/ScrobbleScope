@@ -9,6 +9,15 @@ Newest rotation first.
 
 ---
 
+### F-B23-40: the Last.fm username appears in log lines, beside the listener's scrobble total -- RESOLVED
+
+`lastfm.py` ("Profile of %s is private", "User %s not found"), `orchestrator/__init__.py` (`_fetch_and_process` and `_report_album_failure`), `heatmap.py` ("Heatmap ready for %s: %s scrobbles" and `_report_heatmap_failure`), `routes/heatmap_flow.py` and `routes/album_flow.py` write the Last.fm username into ERROR, WARNING and INFO lines, and the heatmap line pairs it with the listener's scrobble total. `log_failure`'s docstring and BATCH23's Data handling section say listener-linked facts stay out of logs. Ask the owner whether a public Last.fm handle counts; if it does, log the job id instead. The scrobble-total line is the clearer one to drop first, before the export path shares this code.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-20
+The commit that logs a job id in place of a Last.fm username: the scrobble-total line is gone, and the request-cache hit line no longer writes the cache key (which embeds the name). The route pre-check lines left with PR #3's shared pre-check.
+Source: review 4 of PR #245 (backend), R4-backend-9.
+
 ### F-SWE-3: a Spotify server error bypasses the configured retries -- RESOLVED
 
 `search_for_spotify_album_id` (`spotify.py`, its inner `search_once`) returns
