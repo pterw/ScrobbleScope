@@ -155,6 +155,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - No username reaches a pre-check failure log, pinned
+
+Side task, no batch tag: pin by test that no Last.fm username reaches a pre-check failure log, and correct one sentence of the entry "The heatmap and the blur check use the shared pre-check", on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: Rule 6 (a failure is logged by exception type, never with listener data) must fail a test when broken, not only hold by reading the code.
+
+What changed: new `test_precheck_failure_never_logs_the_listener_name` in `tests/services/test_failure_logging.py` (nine rows: the validate, heatmap and album routes, each with a raising existence lookup, a malformed existence answer and a raising privacy lookup; username `zz-listener-7`; every DEBUG-and-up record is checked for it in message and args). Review found that planting a username log line on the UNAVAILABLE branch of `heatmap_flow.py` or `api.py` left the suite green. The earlier entry said the username "leaves two more log lines" and then named the blur check's line, which never carried it; only the heatmap route's two lines changed, and that sentence now says so.
+
+Deviations: none. No existing test edited; no production code changed.
+
+Mutation evidence (planted in a scratch copy, restored): an error line carrying the username on the UNAVAILABLE branch of `routes/heatmap_flow.py`, of `routes/api.py` and of `routes/album_flow.py` in turn -> three rows of the new test fail each time (the `existence-answer-malformed` and `privacy-lookup-raises` rows among them), then 9 passed once restored.
+
+Validation: `pytest -q` -- **2752 passed**.
+
 ### 2026-10-20 - Two sentences made true after the admission module
 
 Side task, no batch tag: correct two sentences that Task 4 of the album request module left untrue, on `refactor/album-request-module`, a branch off `main`.
@@ -187,26 +201,10 @@ Side task, no batch tag: answer the heatmap start and the blur check from the sh
 
 Owner intent: the last two hand-written copies of the Last.fm existence and privacy check go, so the album form, the heatmap start and the blur check read one Last.fm answer one way.
 
-What changed: `_validate_heatmap_user` (`routes/heatmap_flow.py`) and `validate_user` (`routes/api.py`) call `precheck.check_lastfm_user` and keep only their own response shapes. No visible behaviour change: statuses and bodies are pinned by the cross-route table in `tests/test_precheck_routes.py`. New there: `test_a_malformed_last_fm_answer_is_unavailable_on_every_route` (nine rows; before this commit the three heatmap rows failed, a bad body being a 500 there, and `validate` read `"yes"` as an existing user). The Last.fm username leaves two more log lines: the heatmap route's two failure lines no longer carry it, and the blur check's line is now the pre-check's class-only line (note for the lastfm-scrobbles PR: they need not be counted under F-B23-40). SESSION_CONTEXT Sections 3-4 follow; no diagram changes.
+What changed: `_validate_heatmap_user` (`routes/heatmap_flow.py`) and `validate_user` (`routes/api.py`) call `precheck.check_lastfm_user` and keep only their own response shapes. No visible behaviour change: statuses and bodies are pinned by the cross-route table in `tests/test_precheck_routes.py`. New there: `test_a_malformed_last_fm_answer_is_unavailable_on_every_route` (nine rows; before this commit the three heatmap rows failed, a bad body being a 500 there, and `validate` read `"yes"` as an existing user). The Last.fm username leaves two more log lines: the heatmap route's two failure lines no longer carry it (the blur check's line never did; it is now the pre-check's class-only line) (note for the lastfm-scrobbles PR: they need not be counted under F-B23-40). SESSION_CONTEXT Sections 3-4 follow; no diagram changes.
 
 Deviations: none from the brief. Edited existing test, by name: `tests/services/test_failure_logging.py::test_validate_user_failure_logs_the_class_only_at_error` now expects the fragment "User existence check failed" (was "Username validation failed").
 
 Mutation evidence (planted in a scratch copy, named tests failed, restored): `Verdict.PRIVATE` mapped to the heatmap 404 branch -> `test_every_route_reads_the_last_fm_answer_the_same_way[private-heatmap]`; `Verdict.UNAVAILABLE` answered 200 `valid: True` in `validate_user` -> `[outage-on-existence-validate]` and `[outage-on-privacy-validate]`; `registered_year` dropped from the success payload -> `test_validate_user_success`; `exists` read outside the `try` in `check_lastfm_user` -> all nine rows of the malformed-answer test.
 
 Validation: `pytest -q` -- **2739 passed**.
-
-### 2026-10-20 - The album form is refused with a reason, never started doomed
-
-Side task, no batch tag: the album route parses the form, pre-checks the Last.fm user, then admits the job, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: a listener who submits a value the form never offers, or who submits while Last.fm cannot answer, should be told why on the form instead of seeing "no albums" or a job that fails later.
-
-User-visible changes: (1) a filter value the form never offers is refused on the form with that field's sentence and no Last.fm lookup, including a `custom` scope without a year and a `decade` scope without a decade, which used to widen to every year; (2) an outage or timeout of the Last.fm pre-check, or an existence answer of the wrong shape, is refused with a retryable HTTP 503 ("Validation service unavailable. Try again.") instead of logging "proceeding" and starting a job that fails. Also stricter or different than before: the form's own ranges are now enforced on the server (`min_plays` 1-50, `min_tracks` 1-10, release year 1900 to this year, username up to 64 characters, the `/validate_user` limit; the form input allows 100 but a Last.fm name is far shorter); a blank `min_plays` or `min_tracks` now takes its default (before, the form answered "Year must be a valid number."); the username is stripped of surrounding spaces; a whitespace-only username is refused ("Username and year are required."). The listener's name no longer appears in the album route's log lines (the pre-check logs the exception class only).
-
-What changed: `results_loading` calls `parse_album_request`, `precheck.check_lastfm_user`, `registration_refusal` and `admission.admit`, in that order, through one `_refuse` helper; the job record is written by `AlbumRequest.to_params()`, so it carries `mode: "album"`. New `tests/test_album_request_flow.py` and `tests/test_precheck_routes.py` (the album, heatmap and validate routes read one Last.fm answer the same way, and a stalled Last.fm costs each its budget). SESSION_CONTEXT Sections 4-5, `runtime-system.md` (edge `Routes --> AlbumRequest`) and `top-albums-sequence.md` follow. The Mermaid MCP validator was not available to the implementer; the edited diagram lines contain no `;` and the controller validates the two files.
-
-Deviations: none from the brief. Edited existing tests, by name: `test_results_loading_registration_check_unavailable_proceeds` is replaced by `test_results_loading_lookup_unavailable_refuses_and_starts_nothing`; `test_results_loading_registration_check_failure_logs_no_message` is renamed `test_results_loading_lookup_failure_logs_no_message_and_no_name` and now asserts "User existence check failed" and that `flounder14` is absent from the log; in `tests/test_pipeline_integration.py::test_album_pipeline_runs_on_a_real_thread_end_to_end` the `check_user_exists` mock gains `"exists": True` (the old mock had no `exists` key and passed only because the route swallowed the `KeyError`; a malformed Last.fm answer is now an outage). The Retry contract, `tests/test_loading_retry_contract.py` (PR #256 is in the base), now reads `scrobblescope.album_request.FORM_FIELDS` instead of scanning `results_loading`, drops its `ast` helper and keeps the loading-config and `retryCurrentSearch` checks; `test_route_fields_are_found` asserts `"include_unmatched" in FORM_FIELDS and len(FORM_FIELDS) == 10`. `FORM_FIELDS` is the list that contract reads.
-
-Mutation evidence (each planted defect, then the named tests failed, then restored): the decade membership check removed in `album_request.py` -> `test_a_bad_filter_is_refused_on_the_form_and_starts_nothing[overrides1-Choose a decade from the list.]`; the `UNAVAILABLE` branch removed from `album_flow.py` -> both `test_a_pre_check_outage_refuses_retryably_and_starts_nothing` rows, the three malformed-answer rows and the album outage and stalled rows of `tests/test_precheck_routes.py`; params built without `mode` -> `test_an_album_job_record_says_it_is_an_album_job`; `exists` read outside the `try` in `check_lastfm_user` -> the three malformed-answer rows and `tests/test_precheck.py::test_a_malformed_existence_answer_is_unavailable_never_an_error`; privacy asked first -> `test_every_route_reads_the_last_fm_answer_the_same_way[missing-album]` and `tests/test_precheck.py::test_a_missing_user_is_missing_and_privacy_is_never_asked`; `timeout=` dropped from `_check_user_exists` -> `test_a_stalled_last_fm_costs_a_route_its_budget_not_the_session` (all three rows) and `tests/test_precheck.py::test_a_stalled_last_fm_lookup_gives_up_within_the_precheck_budget`; `"source"` added to `FORM_FIELDS` -> all three tests of `tests/test_loading_retry_contract.py`.
-
-Validation: `pytest -q` -- **2730 passed**.
