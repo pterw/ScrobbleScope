@@ -36,6 +36,21 @@ class TestUtcDate:
         moment = datetime(2026, 3, 2, 6, 0, tzinfo=TOKYO)
         assert utc_date(moment) == date(2026, 3, 1)
 
+    def test_the_date_is_read_in_utc_whatever_the_host_zone_is(self):
+        """A host in UTC hides a conversion that uses the system zone, so fake one.
+
+        The moment is 20:00 UTC on 1 March. A host east of UTC (Tokyo here)
+        would call it 2 March; the answer must be 1 March on every host.
+        Mutation: ``moment.astimezone()`` with no argument returns 2 March.
+        """
+
+        class _MomentOnATokyoHost(datetime):
+            def astimezone(self, tz=None):
+                return super().astimezone(TOKYO if tz is None else tz)
+
+        moment = _MomentOnATokyoHost(2026, 3, 1, 20, 0, tzinfo=UTC)
+        assert utc_date(moment) == date(2026, 3, 1)
+
     def test_a_naive_moment_is_refused(self):
         """A naive datetime has no zone to convert from, so any answer is a guess."""
         with pytest.raises(ValueError, match="timezone"):
@@ -93,6 +108,11 @@ class TestBestDay:
         counts = _window(date(2026, 3, 1), 10, {"2026-03-02": 4, "2026-03-09": 4})
         assert best_day(counts) == (date(2026, 3, 2), 4)
 
+    def test_a_tie_goes_to_the_earlier_day_whatever_order_the_days_arrive_in(self):
+        """The later day comes first in the mapping; only sorting finds the earlier one."""
+        counts = {"2026-03-09": 4, "2026-03-02": 4, "2026-03-05": 1}
+        assert best_day(counts) == (date(2026, 3, 2), 4)
+
     def test_a_window_with_no_plays_has_no_best_day(self):
         """Not 'the first day with 0 plays': nothing was played, so no day is best."""
         assert best_day(_window(date(2026, 3, 1), 10)) == (None, 0)
@@ -144,9 +164,22 @@ class TestHeatmapStatistics:
             "best_day",
             "current_streak",
         }
-        for name, fact in stats.items():
-            assert fact["population"].strip(), f"{name} states no population"
-        assert len({fact["population"] for fact in stats.values()}) == 4
+        assert {name: fact["population"] for name, fact in stats.items()} == {
+            "total_plays": "all plays inside the window",
+            "daily_average": (
+                "all plays inside the window, over every UTC day of the window "
+                "including the days with none"
+            ),
+            "best_day": (
+                "the UTC day with the most plays inside the window; "
+                "the earliest day wins a tie"
+            ),
+            "current_streak": (
+                "consecutive UTC days with a play, ending on the window's last "
+                "day or the day before it, counted back no further than the "
+                "window's first day"
+            ),
+        }
 
     def test_a_window_with_no_plays_publishes_null_for_best_day(self):
         stats = heatmap_statistics(_window(date(2026, 3, 1), 10), date(2026, 3, 10))
@@ -181,8 +214,13 @@ class TestAlbumPlayStatistics:
         assert stats["plays_listed"]["value"] == 4
 
     def test_each_figure_says_what_it_leaves_out(self):
+        """Each sentence is pinned whole: a reworded or swapped one is a lie."""
         stats = album_play_statistics(self.ROWS)
-        assert "unmatched" in stats["plays_matched"]["population"]
-        assert (
-            stats["plays_listed"]["population"] != stats["plays_matched"]["population"]
+        assert stats["plays_listed"]["population"] == (
+            "plays of every album row the page lists, including albums "
+            "listed through include-unmatched"
+        )
+        assert stats["plays_matched"]["population"] == (
+            "plays of the album rows a provider matched; albums listed "
+            "through include-unmatched (unmatched) are left out"
         )

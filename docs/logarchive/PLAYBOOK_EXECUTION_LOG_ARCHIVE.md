@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The heatmap KPIs and the Scrobbles figure are pinned before they move
+
+Side task, no batch tag: parity tests for the heatmap KPI blocks and the Results Scrobbles figure, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: a refactor starts from parity tests, so the next two commits can move the streak, best-day, average and Scrobbles rules out of the browser and Jinja provably unchanged (seam B-4).
+
+What changed: `tests/fixtures/heatmap_kpi_cases.json` holds eight 365-day windows ending 2026-03-10 (streak ends today, streak may end yesterday, a gap ends it, two quiet days make it zero, a tie for best day goes to the earlier day, the average is over every day, one decimal with a thousands separator, a streak stops at the window's first day), each with the KPI text worked out by hand. `tests/helpers.py` gains `load_kpi_cases`, `kpi_window`, `kpi_payload` and `expected_kpi_blocks`. `static/js/heatmap.js` gains the test-seam hook `renderKpisInto(row, data)`, present only when `window.__scrobbleHeatmapTestMode` is set, so a real page is unchanged. `tests/frontend/test_heatmap_pure_functions.py` runs each case through it (8 tests). `tests/test_routes.py` gains two tests: Scrobbles is the plays of every album the page lists (120 matched, 200 with unmatched rows), and a playtime ranking leaves out an album with no listening time (50). SESSION_CONTEXT Section 6 names the new fixture.
+
+Mutation evidence, each planted in the working file and restored: `while (dailyCounts[isoDate(d)])` to `while (false)` failed `streak_ends_today`, `streak_may_end_yesterday`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window`; `>=` to `>` in the best-day reduce failed `a_tie_for_best_day_goes_to_the_earlier_day`, `average_is_over_every_day_of_the_window` and `a_streak_stops_at_the_first_day_of_the_window`; `sum(attribute='play_count')` to `sum(attribute='play_time_seconds')` in `results.html` failed both route tests.
+
+Deviations: none. Edited existing tests: none (the module docstring of `tests/frontend/test_heatmap_pure_functions.py` changed, no test).
+
+Validation: `pytest -q` -- **2857 passed**.
+
 ### 2026-10-21 - The statistics module plan opens its branch
 
 Side task, no batch tag: the approved statistics module plan, committed as the branch's first commit, on `refactor/statistics-module`, a branch off `main`.

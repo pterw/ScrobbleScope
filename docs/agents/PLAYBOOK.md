@@ -161,6 +161,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The statistics tests pin the sentences and the UTC day
+
+Side task, no batch tag: make the listening statistics tests fail on a false population sentence, a system-zone date and an unsorted best day, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: tests assert intended behaviour, not the code as written, so a wrong module must not pass them.
+
+What changed: in `tests/test_listening_stats.py` the album population test now asserts both published sentences whole (before, rewording the matched sentence to "include-unmatched are counted", or dropping only "(unmatched)", still passed because the word also sits in "include-unmatched"; swapping the two sentences failed only the distinctness check), and the heatmap population test asserts all four sentences whole instead of "not blank and distinct". A new `TestUtcDate` test gives `utc_date` a datetime subclass whose `astimezone()` with no argument answers in Tokyo, so a conversion that uses the host zone returns 2 March instead of 1 March on any host; a UTC host (CI) hid that defect before, since the system zone there is UTC. It does not use `time.tzset`. A new `TestBestDay` test lists the later tied day first, so dropping `sorted()` returns the later day. Mutations (copy-aside, module restored): rewording, dropping "(unmatched)", swapping the album sentences, swapping two heatmap sentences, `astimezone()` with no argument (also with `TZ=UTC0`) and dropping `sorted()` each fail one or more tests; restored, 33 pass. The 24-row mutation table of Task 2 was not re-run: no test it relies on was weakened, the two edited tests only got stricter.
+
+Deviations: none. Edited existing tests: `TestHeatmapStatistics::test_every_figure_states_its_population` and `TestAlbumPlayStatistics::test_each_figure_says_what_it_leaves_out`.
+
+Validation: `pytest -q` -- **2890 passed**.
+
 ### 2026-10-21 - The two-quiet-days KPI case catches a lenient streak
 
 Side task, no batch tag: make the shared KPI fixture's two-quiet-days case fail a lenient streak, on `refactor/statistics-module`, a branch off `main`.
@@ -198,17 +210,3 @@ Mutation evidence, each planted in a scratch copy of the module and restored: 24
 Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2888 passed**.
-
-### 2026-10-21 - The heatmap KPIs and the Scrobbles figure are pinned before they move
-
-Side task, no batch tag: parity tests for the heatmap KPI blocks and the Results Scrobbles figure, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: a refactor starts from parity tests, so the next two commits can move the streak, best-day, average and Scrobbles rules out of the browser and Jinja provably unchanged (seam B-4).
-
-What changed: `tests/fixtures/heatmap_kpi_cases.json` holds eight 365-day windows ending 2026-03-10 (streak ends today, streak may end yesterday, a gap ends it, two quiet days make it zero, a tie for best day goes to the earlier day, the average is over every day, one decimal with a thousands separator, a streak stops at the window's first day), each with the KPI text worked out by hand. `tests/helpers.py` gains `load_kpi_cases`, `kpi_window`, `kpi_payload` and `expected_kpi_blocks`. `static/js/heatmap.js` gains the test-seam hook `renderKpisInto(row, data)`, present only when `window.__scrobbleHeatmapTestMode` is set, so a real page is unchanged. `tests/frontend/test_heatmap_pure_functions.py` runs each case through it (8 tests). `tests/test_routes.py` gains two tests: Scrobbles is the plays of every album the page lists (120 matched, 200 with unmatched rows), and a playtime ranking leaves out an album with no listening time (50). SESSION_CONTEXT Section 6 names the new fixture.
-
-Mutation evidence, each planted in the working file and restored: `while (dailyCounts[isoDate(d)])` to `while (false)` failed `streak_ends_today`, `streak_may_end_yesterday`, `a_gap_ends_the_streak`, `average_is_over_every_day_of_the_window`, `average_shows_one_decimal_and_thousands_separator` and `a_streak_stops_at_the_first_day_of_the_window`; `>=` to `>` in the best-day reduce failed `a_tie_for_best_day_goes_to_the_earlier_day`, `average_is_over_every_day_of_the_window` and `a_streak_stops_at_the_first_day_of_the_window`; `sum(attribute='play_count')` to `sum(attribute='play_time_seconds')` in `results.html` failed both route tests.
-
-Deviations: none. Edited existing tests: none (the module docstring of `tests/frontend/test_heatmap_pure_functions.py` changed, no test).
-
-Validation: `pytest -q` -- **2857 passed**.
