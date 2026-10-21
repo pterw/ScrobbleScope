@@ -155,6 +155,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-20 - The entry the import-position fix corrected is named
+
+Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a reader following the entry "Two sentences made true after the admission module" must be sent to the entry that really changed.
+
+What changed: that entry says the `admission` import-position phrase was corrected in "The album form is refused with a reason"; it was corrected in "Jobs start through one admission path" (Task 4's entry), which `--fix` has since rotated into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Both headings were checked there with grep. The earlier entry is a dated record and is left as written; this entry is the correction. In `tests/test_routes.py` the comment in the failed-thread-start test said the route calls `jobs.delete`; since Task 4 `admission.admit` does, so the comment now says that. Comment only, no code.
+
+Deviations: none.
+
+Edited existing tests: `test_results_loading_thread_start_failure_renders_error`, comment only.
+
+Validation: `pytest -q` -- **2752 passed**.
+
 ### 2026-10-20 - No username reaches a pre-check failure log, pinned
 
 Side task, no batch tag: pin by test that no Last.fm username reaches a pre-check failure log, and correct one sentence of the entry "The heatmap and the blur check use the shared pre-check", on `refactor/album-request-module`, a branch off `main`.
@@ -194,17 +208,3 @@ Deviations: none from the brief. Edited existing fixtures, by name: `TEST_JOB_PA
 Mutation evidence (planted in a scratch copy, named tests failed, restored): `.get("mode", "album")` back in `_get_validated_job_context` -> the `/results`, `/loading` and `/unmatched` rows; the same default back in `release_checks` -> the `/api/release_checks` row. Gates: `frontend_gate.py` 47 checks passed in 75 runs; `results_behavior_tests.py` OK.
 
 Validation: `pytest -q` -- **2743 passed**.
-
-### 2026-10-20 - The heatmap and the blur check use the shared pre-check
-
-Side task, no batch tag: answer the heatmap start and the blur check from the shared Last.fm pre-check, on `refactor/album-request-module`, a branch off `main`.
-
-Owner intent: the last two hand-written copies of the Last.fm existence and privacy check go, so the album form, the heatmap start and the blur check read one Last.fm answer one way.
-
-What changed: `_validate_heatmap_user` (`routes/heatmap_flow.py`) and `validate_user` (`routes/api.py`) call `precheck.check_lastfm_user` and keep only their own response shapes. No visible behaviour change: statuses and bodies are pinned by the cross-route table in `tests/test_precheck_routes.py`. New there: `test_a_malformed_last_fm_answer_is_unavailable_on_every_route` (nine rows; before this commit the three heatmap rows failed, a bad body being a 500 there, and `validate` read `"yes"` as an existing user). The Last.fm username leaves two more log lines: the heatmap route's two failure lines no longer carry it (the blur check's line never did; it is now the pre-check's class-only line) (note for the lastfm-scrobbles PR: they need not be counted under F-B23-40). SESSION_CONTEXT Sections 3-4 follow; no diagram changes.
-
-Deviations: none from the brief. Edited existing test, by name: `tests/services/test_failure_logging.py::test_validate_user_failure_logs_the_class_only_at_error` now expects the fragment "User existence check failed" (was "Username validation failed").
-
-Mutation evidence (planted in a scratch copy, named tests failed, restored): `Verdict.PRIVATE` mapped to the heatmap 404 branch -> `test_every_route_reads_the_last_fm_answer_the_same_way[private-heatmap]`; `Verdict.UNAVAILABLE` answered 200 `valid: True` in `validate_user` -> `[outage-on-existence-validate]` and `[outage-on-privacy-validate]`; `registered_year` dropped from the success payload -> `test_validate_user_success`; `exists` read outside the `try` in `check_lastfm_user` -> all nine rows of the malformed-answer test.
-
-Validation: `pytest -q` -- **2739 passed**.

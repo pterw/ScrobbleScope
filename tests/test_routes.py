@@ -392,8 +392,8 @@ def test_results_loading_thread_start_failure_renders_error(client, fresh_job_st
     assert response.status_code == 200
     assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
-    # The route must have called jobs.delete on the job it created: the store must be
-    # back to its pre-request size with no orphan entry left behind.
+    # A failed thread start leaves no orphan job: admission.admit deletes the job it
+    # created, so the store is back to its pre-request size.
     assert set(fresh_job_store.ids()) == jobs_before
 
 

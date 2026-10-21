@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - The heatmap and the blur check use the shared pre-check
+
+Side task, no batch tag: answer the heatmap start and the blur check from the shared Last.fm pre-check, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the last two hand-written copies of the Last.fm existence and privacy check go, so the album form, the heatmap start and the blur check read one Last.fm answer one way.
+
+What changed: `_validate_heatmap_user` (`routes/heatmap_flow.py`) and `validate_user` (`routes/api.py`) call `precheck.check_lastfm_user` and keep only their own response shapes. No visible behaviour change: statuses and bodies are pinned by the cross-route table in `tests/test_precheck_routes.py`. New there: `test_a_malformed_last_fm_answer_is_unavailable_on_every_route` (nine rows; before this commit the three heatmap rows failed, a bad body being a 500 there, and `validate` read `"yes"` as an existing user). The Last.fm username leaves two more log lines: the heatmap route's two failure lines no longer carry it (the blur check's line never did; it is now the pre-check's class-only line) (note for the lastfm-scrobbles PR: they need not be counted under F-B23-40). SESSION_CONTEXT Sections 3-4 follow; no diagram changes.
+
+Deviations: none from the brief. Edited existing test, by name: `tests/services/test_failure_logging.py::test_validate_user_failure_logs_the_class_only_at_error` now expects the fragment "User existence check failed" (was "Username validation failed").
+
+Mutation evidence (planted in a scratch copy, named tests failed, restored): `Verdict.PRIVATE` mapped to the heatmap 404 branch -> `test_every_route_reads_the_last_fm_answer_the_same_way[private-heatmap]`; `Verdict.UNAVAILABLE` answered 200 `valid: True` in `validate_user` -> `[outage-on-existence-validate]` and `[outage-on-privacy-validate]`; `registered_year` dropped from the success payload -> `test_validate_user_success`; `exists` read outside the `try` in `check_lastfm_user` -> all nine rows of the malformed-answer test.
+
+Validation: `pytest -q` -- **2739 passed**.
+
 ### 2026-10-20 - The album form is refused with a reason, never started doomed
 
 Side task, no batch tag: the album route parses the form, pre-checks the Last.fm user, then admits the job, on `refactor/album-request-module`, a branch off `main`.
