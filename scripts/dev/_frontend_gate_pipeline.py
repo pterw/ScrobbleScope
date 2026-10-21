@@ -9,9 +9,11 @@ replaced job still delivering progress -- exist only in that interaction.
 from __future__ import annotations
 
 import re
+from datetime import date
 
 from scripts.dev._frontend_gate_shared import GATE_JOB_IDS, MIGRATED_PAGES
 from scrobblescope import jobs
+from scrobblescope.listening_stats import heatmap_statistics
 
 ALBUM_PROGRESS_TRACK = "#progress-track"
 ALBUM_PROGRESS_BAR = "#progress-bar"
@@ -634,6 +636,7 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     # as the index composition measured by the large-display check.
     page.set_viewport_size({"width": 1920, "height": 945})
     jobs.reset(heatmap_job_id)
+    counts = {"2025-01-01": 4}
     jobs.succeed(
         heatmap_job_id,
         {
@@ -641,7 +644,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
             "from_date": "2025-01-01",
             "to_date": "2025-12-31",
             "total_scrobbles": 4,
-            "daily_counts": {"2025-01-01": 4},
+            "daily_counts": counts,
+            "statistics": heatmap_statistics(counts, date.fromisoformat("2025-12-31")),
         },
         "Done",
     )

@@ -103,19 +103,24 @@ See FINDINGS F-DOCSYNC-3.
   architecture diagrams), backend hygiene, UI consistency, and four of the
   architecture seams the 2026-09-30 review proposed -- the album request
   module, one album-metadata encoding, the statistics module, and
-  normalized Last.fm scrobbles with one album aggregate. The album request
-  module is done (PR #3, branch refactor/album-request-module, plan
+  normalized Last.fm scrobbles with one album aggregate. The include-unmatched
+  control (PR #1) and backend hygiene (PR #2) are done. The album request module
+  is done (PR #3, branch refactor/album-request-module, plan
   `docs/superpowers/plans/2026-10-20-album-request-module.md`); normalized
   Last.fm scrobbles with one album aggregate is done (PR #4, branch
   refactor/lastfm-scrobbles, plan
-  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); the other two
-  seams remain, one album-metadata encoding and the statistics module. Job persistence
+  `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md`); one album-metadata
+  encoding is done (PR #5, branch refactor/metadata-encoding, plan
+  `docs/superpowers/plans/2026-10-20-metadata-encoding.md`); the statistics
+  module is done (PR #6, branch refactor/statistics-module, plan
+  `docs/superpowers/plans/2026-10-20-statistics-module.md`). Job persistence
   waits: a database-backed job store would keep the database awake, which
   the hosting cost ceiling does not allow. The design is
   `docs/superpowers/specs/2026-10-20-pre-batch23-tranche-design.md` and the
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
-  PR #7, UI consistency, is under way on `feat/ui-consistency`; round 1's
-  plan is `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`.
+  PR #7, UI consistency, finished round 1 (plan
+  `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
+  wait for the owner's screenshots, each with its own plan.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -158,6 +163,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
+
+Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: PR #263 merges into a `main` that already carries PRs #5 and #6, with its bookkeeping true against them.
+
+What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the album cache, the plays module and the statistics module with their tests and docs; this branch's own change (the PR template's State and Validation sections, AGENTS.md's no-attribution rule for PR bodies) is untouched and still applies. Conflicts: PLAYBOOK Section 4 and the Section 4 logarchive only. Section 4 keeps this branch's two entries and main's four, newest first after the marker line; the `Make the #4 docs` entry, which main rotated into the logarchive, stays there once, so its Section 4 heading and stray Validation line are dropped. The logarchive keeps main's additions, this branch having added none. Measured count 2948 across 100 test modules, equal to main's: this branch adds no test.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - No attribution line in a PR body either
 
 Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
@@ -182,26 +199,14 @@ Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2847 passed**.
 
-### 2026-10-20 - Make the #4 docs say what the branch now does
+### 2026-10-21 - The statistics module branch takes main after PR #5
 
-Side task, no batch tag: eight stale or untrue sentences the PR #4 task reviews found, fixed, on `refactor/lastfm-scrobbles`, a branch off `main`.
+Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
 
-Owner intent: the branch's docs describe the branch as it is when it merges, not as it stood while the tasks were under way.
+Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
 
-What changed: Section 3's "Before WP-1" bullet now says PR #4 is done (PR #3's form) and that the two seams remaining are one album-metadata encoding and the statistics module, and drops the "Tasks 2-5 after PR #3 merges" sentence. The `tests/test_lastfm_job_results.py` module docstring no longer says five tests are xfail-marked; they pass since Task 4. `fetch_top_albums_async`'s docstring already describes behaviour only, with no plan label (nothing to change). The "Callers get scrobbles, not Last.fm pages" entry's "so the controller renders them" now records what was done: the controller rendered `runtime-system.md`, `top-albums-sequence.md` and `heatmap-sequence.md` with the Mermaid validator at 9a8d79c and all three are valid. README's "What each module owns" table gains `plays.py` and `release_status.py`. `orchestrator/__init__.py`'s `__all__` is back in sorted order (no name added or removed).
+What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
 
-Deviations: none. Edited existing tests: none (docstring only in `tests/test_lastfm_job_results.py`).
+Deviations: none. Edited existing tests: none.
 
-Validation: `pytest -q` -- **2847 passed**.
-
-### 2026-10-20 - Close two guard gaps the reviews found
-
-Side task, no batch tag: two test guards the PR #4 task reviews found too weak, on `refactor/lastfm-scrobbles`, a branch off `main`.
-
-Owner intent: a guard test must fail for every way of breaking what it guards, not only the one way its author planted.
-
-What changed: `test_the_routes_never_import_the_correction_worker` now catches all three import forms of `scrobblescope.release_checks` (`from scrobblescope.release_checks import x`, `from scrobblescope import release_checks`, `import scrobblescope.release_checks`); the task 3 review had planted the middle form in `routes/api.py` and the test passed. New `test_each_request_field_reaches_the_enrichment_tail` (six parametrised cases in `tests/services/test_finish_album_job.py`) asserts that `finish_album_job` passes `year`, `sort_mode`, `release_scope`, `decade`, `release_year` and `limit_results` to `_process_filtered_albums` each in its own place, with `overall_start_time` and `include_unmatched`, and that the job's progress was 20 at that call (the task 5 review's Minor 2). `min_plays` and `min_tracks` are not asserted: `finish_album_job` does not read them, `select_albums` applied them before. Proof by planted defect in a scratch copy: all three import forms fail the first test; swapping `decade` and `release_year` fails two cases, `year + 1` fails one, dropping the `jobs.advance(job_id, 20, ...)` call fails all six.
-
-Deviations: none. Edited existing test: `test_the_routes_never_import_the_correction_worker`.
-
-Validation: `pytest -q` -- **2847 passed**.
+Validation: `pytest -q` -- **2948 passed**.

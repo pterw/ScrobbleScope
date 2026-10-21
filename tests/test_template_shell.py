@@ -19,6 +19,7 @@ import pytest
 from flask import render_template
 
 from app import create_app
+from scrobblescope.listening_stats import album_play_statistics
 
 BOOTSTRAP = "bootstrap"
 TAILWIND = "tailwind.css"
@@ -84,6 +85,7 @@ TEMPLATE_CONTEXT = {
         "job_id": "job-1",
         "username": "someone",
         "year": "2024",
+        "play_stats": album_play_statistics([]),
     },
     "results_empty.html": {},
     "unmatched.html": {"reasons": {}},
@@ -872,6 +874,7 @@ def _results_html(app, **overrides) -> str:
         "username": "someone",
         "year": "2024",
         "data": [album],
+        "play_stats": album_play_statistics([album]),
     }
     context.update(overrides)
     with app.test_request_context("/"):

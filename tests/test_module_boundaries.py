@@ -165,3 +165,53 @@ def test_nothing_outside_lastfm_reads_the_page_layer():
             if isinstance(node, ast.Attribute) and node.attr in PAGE_LAYER:
                 offenders.append(f"{module}: reads .{node.attr}")
     assert offenders == []
+
+
+METADATA_CACHE_FUNCTIONS = frozenset(
+    {"batch_lookup_metadata", "batch_persist_metadata", "cleanup_stale_metadata"}
+)
+
+
+def test_only_the_cache_module_reads_or_writes_the_metadata_table():
+    """
+    GIVEN every module under scrobblescope/
+    WHEN its imports, attribute reads and string constants are walked
+    THEN no module but cache.py names the metadata table's read, write or
+    cleanup functions, and exactly one module holds an INSERT into it.
+
+    The shared table's contract (no listening facts) is held by one write
+    path: ``AlbumCache.persist`` taking ``AlbumMetadata``. A second writer
+    would be a second place to inspect.
+
+    Planted defect: add ``from scrobblescope.cache import batch_persist_metadata``
+    to ``release_checks.py``; the test names it.
+    """
+    offenders = []
+    writers = []
+    for path in sorted(SRC.rglob("*.py")):
+        module = _module_name(path)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if module != "scrobblescope.cache":
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module == "scrobblescope.cache"
+                ):
+                    offenders += [
+                        f"{module} imports {item.name}"
+                        for item in node.names
+                        if item.name in METADATA_CACHE_FUNCTIONS
+                    ]
+                if (
+                    isinstance(node, ast.Attribute)
+                    and node.attr in METADATA_CACHE_FUNCTIONS
+                ):
+                    offenders.append(f"{module} reads .{node.attr}")
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and "INSERT INTO spotify_cache" in node.value
+            ):
+                writers.append(module)
+    assert offenders == []
+    assert writers == ["scrobblescope.cache"]

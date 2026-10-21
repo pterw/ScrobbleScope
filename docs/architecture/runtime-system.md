@@ -36,13 +36,14 @@ flowchart LR
         ReleaseChecks[release_checks.py<br/>one correction worker,<br/>FIFO job queue]
         ReleaseStatus[release_status.py<br/>check and status strings]
         MusicBrainzClient[musicbrainz.py]
-        Cache[cache.py]
+        Cache[cache.py<br/>AlbumCache]
         Utils[utils.py]
         ApiLogging[api_logging.py<br/>trace hook + call summary]
         Domain[domain.py]
         Plays[plays.py<br/>normalized plays, album and daily aggregates]
         Errors[errors.py]
         Spotlight[spotlight.py<br/>artist sampling]
+        Stats[listening_stats.py<br/>statistics, populations stated]
         Unmatched[unmatched.py<br/>reason codes,<br/>threshold partition]
         AlbumRequest[album_request.py<br/>form -> request or refusal]
     end
@@ -59,6 +60,7 @@ flowchart LR
     Routes --> Spotlight
     Routes --> Unmatched
     Routes --> AlbumRequest
+    Routes --> Stats
     Album --> Worker
     Album --> LastFMClient
     Album --> SpotifyClient
@@ -78,6 +80,7 @@ flowchart LR
     Heatmap --> Utils
     Heatmap --> Errors
     Heatmap --> Plays
+    Heatmap --> Stats
     AlbumRequest --> JobModule
     JobModule --> Errors
     App --> ApiLogging
@@ -109,6 +112,7 @@ flowchart LR
     MusicBrainzClient --> Errors
     Spotlight --> Utils
     Cache --> Utils
+    Cache --> Enrichment
     Utils --> ApiLogging
 
     Worker -.->|runs injected callable| Album
@@ -138,7 +142,7 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,ReleaseStatus,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Plays,Errors,AlbumRequest runtime
+    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,ReleaseStatus,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Plays,Errors,AlbumRequest,Stats runtime
     class Pages,APIs runtime
     class JobStore,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external
@@ -205,11 +209,14 @@ silent:
 - **How an album gets its release date, in one place.** The date is decided
   in four steps, and this bullet is the only full account of them. (1) The
   metadata cache is read first: a cached row already holds `release_date` and
-  skips every provider call. (2) For each miss, Spotify is searched, then its
-  album details are fetched. (3) An album Spotify could not enrich falls to
-  Deezer, which supplies the date instead. `process_albums` in
+  skips every provider call. The cache is optional at runtime: when the
+  database is missing or does not answer, `open_album_cache` yields a
+  disabled cache and every album is a miss. (2) For each miss, Spotify is
+  searched, then its album details are fetched. (3) An album Spotify could not
+  enrich falls to Deezer, which supplies the date instead. `process_albums` in
   `orchestrator/__init__.py` orchestrates steps 1 to 3, and
-  `_persist_new_metadata` writes the enriched rows back to the cache, so a
+  `AlbumCache.persist` (reported to the job by `_persist_new_metadata`)
+  writes the enriched albums back to the cache, so a
   later job reads them free. (4) When the results list is built
   (`orchestrator/_results.py`), the album's date is the MusicBrainz original
   release date if one is already cached for it, otherwise the provider's own

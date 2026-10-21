@@ -161,6 +161,12 @@ outline, specialized WP plans and user-facing copy must follow it.
 - WP-3/WP-4 verification must exercise the full export-to-enrichment path
   and inspect disk writes, persistence arguments and captured logs. Prove
   both the prohibited-data exclusions and the permitted catalog-cache use.
+  The shared metadata table has one write path (amended 2026-10-21, PR #5):
+  `AlbumCache.persist` takes `AlbumMetadata` records, which hold only
+  provider-returned album facts (provider, album id, link, release date,
+  cover, track durations), so no listening fact has an argument to travel
+  in. `tests/fake_postgres.py` stores what the SQL would store; inspect
+  that, not a positional tuple.
 
 ## Runtime model
 
@@ -456,6 +462,14 @@ and the orchestrator never knows about zips.
   2026-10-20). The album form posts `include_unmatched`; the export route
   and `export_album_task` accept it and honour it with the meaning it has
   on the Last.fm path. Acceptance adds one export run with it on.
+- [ ] **The export job reaches the cache only through `process_albums`**
+  (amended 2026-10-21, PR #5). `process_albums` opens and closes the cache
+  itself (`open_album_cache`); `export_album_task` passes no connection and
+  imports nothing from `scrobblescope.cache`. Enrichment reaches the job as
+  `AlbumMetadata` records, so an export row carries the same `provider`,
+  `spotify_id`, `album_url` and `album_image` fields as a Last.fm row.
+  Acceptance adds: with the cache database missing, an export job completes
+  from provider calls and records `db_cache_warning`.
 - **Acceptance:** `process_albums` receives the selection's eligible albums;
   `lastfm.fetch_scrobbles` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,
@@ -569,14 +583,29 @@ silently change existing ranking and percentage semantics. It also says whether
 albums listed through the include-unmatched control, which carry no provider
 metadata or durations, count in each summary (amended 2026-10-20).
 
+**The module exists (amended 2026-10-20, pre-Batch-23 PR #6).**
+`scrobblescope/listening_stats.py` is the pure helper this work package
+extends; it is not created here. It already computes the heatmap's current
+streak, best day, daily average and total from the zero-filled UTC
+`{date: plays}` window, and the Results page's plays listed and plays matched,
+each published with a one-sentence population
+(`{"value": ..., "population": ...}`). `heatmap.js`, `results.js` and
+`results.html` render published values and compute none, and WP-6 keeps it so.
+WP-6 adds its further statistics to that module as pure functions; its
+specialized plan decides what data the aggregators keep for them, since the
+daily window carries only plays per UTC day. An album listed through
+include-unmatched counts in "plays listed" and in no duration-based figure,
+because it has no durations.
+
 - [ ] Per album: completion ("9 of 12 tracks"), the most-played track shown
   with its original name, and the first listen that year. Both aggregators
   keep one original track name per normalized key.
 - [ ] Per year: the age of the music as a decade breakdown, and hours
   listened.
-- [ ] Heatmap: longest and current streak, busiest weekday and busiest hour,
-  stated as UTC, with both aggregators feeding one pure helper so the two
-  sources cannot disagree.
+- [ ] Heatmap: the longest streak, busiest weekday and busiest hour, stated as
+  UTC, added to `listening_stats.py` (the current streak and the pure helper
+  already exist, see the paragraph above), with both aggregators feeding it so
+  the two sources cannot disagree.
 - [ ] The results rows, a year-summary block, the heatmap result partial, and
   three new CSV columns.
 - **Acceptance:** pure-function tests per statistic with tz-aware timestamps

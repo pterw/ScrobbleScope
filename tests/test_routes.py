@@ -3450,6 +3450,112 @@ def test_results_include_run_marks_unmatched_rows_and_locks_listening_time(clien
     assert "switch-row" not in page
 
 
+def _scrobbles_figure(page):
+    """The text of the Results page's Scrobbles stat."""
+    return re.search(r'id="stat-scrobbles"[^>]*>([\d,]+)<', page).group(1)
+
+
+def test_scrobbles_figure_is_the_plays_of_the_albums_the_page_lists(client):
+    """
+    GIVEN a run of three matched albums, and an include run that also lists
+    two unmatched albums
+    WHEN the Results page renders
+    THEN Scrobbles states the plays of every album listed: 50 + 40 + 30, and
+    with the unmatched rows 50 + 45 + 40 + 35 + 30.
+
+    Mutation: sum only the matched rows on an include run and the second
+    assertion reads 120; sum only the first row and both fail.
+    """
+    matched = _render_results(
+        client,
+        [
+            {**_provider_row("spotify", 0), "play_count": 50},
+            {**_provider_row("spotify", 1), "play_count": 40},
+            {**_provider_row("spotify", 2), "play_count": 30},
+        ],
+    )
+    assert _scrobbles_figure(matched) == "120"
+    assert _scrobbles_figure(_render_include_results(client)) == "200"
+
+
+def test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops(client):
+    """
+    GIVEN a playtime-ranked run in which one album has no listening time
+    WHEN the Results page renders
+    THEN that album is not listed, and its plays are not in Scrobbles: the
+    figure describes the rows on the page.
+
+    Mutation: sum the stored rows before the playtime filter and the figure
+    reads 90.
+    """
+    rows = [
+        {**_provider_row("spotify", 0), "play_count": 50},
+        {**_provider_row("spotify", 1), "play_count": 40, "play_time_seconds": 0},
+    ]
+    job_id = jobs.create({**TEST_JOB_PARAMS, "sort_mode": "playtime"})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    assert _scrobbles_figure(response.data.decode("utf-8")) == "50"
+
+
+def test_scrobbles_stat_publishes_both_populations_for_the_albums_control(client):
+    """
+    GIVEN an include run: three matched albums and two unmatched
+    WHEN the Results page renders
+    THEN the Scrobbles stat shows the listed plays and carries both figures
+    as data attributes, so switching the Unmatched albums control (Hide/Include) needs no arithmetic.
+
+    Mutation: render only one attribute, or derive matched from listed in the
+    template, and the matched assertion fails.
+    """
+    page = _render_include_results(client)
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="200"' in stat
+    assert 'data-plays-matched="120"' in stat
+    assert _scrobbles_figure(page) == "200"
+
+
+def test_scrobbles_stat_on_a_run_without_unmatched_rows_has_equal_figures(client):
+    """A run without the include control states one figure twice.
+
+    Mutation: have the template write 0 into ``data-plays-matched`` unless
+    an unmatched row exists; the attribute reads 0 and this fails.
+    """
+    page = _render_results(client, [{**_provider_row("spotify", 0), "play_count": 50}])
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="50"' in stat
+    assert 'data-plays-matched="50"' in stat
+
+
+def test_scrobbles_stat_prints_the_figures_it_is_handed(client):
+    """
+    GIVEN a run whose stats say 777 listed and 555 matched plays, figures no
+    sum over the page's rows (50 plays) could give
+    WHEN the Results page renders
+    THEN the stat and both data attributes carry the handed figures.
+
+    Mutation: have the template sum the rows for data-plays-listed, or for
+    data-plays-matched, and that attribute reads 50 instead of the handed
+    figure (each planted and shown failing). The visible Scrobbles text is
+    asserted too but was not planted; it prints the same value the first
+    attribute does.
+    """
+    handed = {
+        "plays_listed": {"value": 777, "population": "test"},
+        "plays_matched": {"value": 555, "population": "test"},
+    }
+    with patch("scrobblescope.routes.album_flow.album_play_statistics") as stats:
+        stats.return_value = handed
+        page = _render_results(
+            client, [{**_provider_row("spotify", 0), "play_count": 50}]
+        )
+    stat = re.search(r'<span id="stat-scrobbles"[^>]*>', page).group(0)
+    assert 'data-plays-listed="777"' in stat
+    assert 'data-plays-matched="555"' in stat
+    assert _scrobbles_figure(page) == "777"
+
+
 @pytest.mark.parametrize(
     ("seconds", "expected", "absent"),
     [

@@ -515,21 +515,11 @@ file = "scrobblescope/errors.py"
 pattern = 'last (\d+) days'
 expect = "365"
 
-[[value.sites]]
-file = "static/js/heatmap.js"
-pattern = 'WINDOW_DAYS = (\d+)'
-expect = "365"
-
 # The caption burned into the exported JPEG. Upper case, so it matches the
 # export and not prose comments in the same file that mention the window.
 [[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'LAST (\d+) DAYS'
-expect = "365"
-
-[[value.sites]]
-file = "static/js/heatmap.js"
-pattern = 'whole (\d+)-day window'
 expect = "365"
 
 [[value.sites]]
@@ -754,4 +744,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 2847
+pinned = 2948

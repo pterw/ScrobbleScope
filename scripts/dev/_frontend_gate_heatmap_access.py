@@ -69,6 +69,7 @@ from scripts.dev._frontend_gate_shared import (
     wait_for_settled,
 )
 from scrobblescope import jobs
+from scrobblescope.listening_stats import heatmap_statistics
 
 #: The heatmap path this check drives. Looked up rather than hard-coded a
 #: second time, so a path that stops being migrated is caught here too.
@@ -622,6 +623,7 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
     to_date = _shift_iso_date(from_date, 499)
     seeded_date = "2025-01-01"
     seeded_count = 5
+    counts = {seeded_date: seeded_count}
     jobs.succeed(
         job_id,
         {
@@ -630,7 +632,10 @@ def check_heatmap_cells_are_keyboard_accessible(page, base_url: str) -> list[str
             "to_date": to_date,
             "total_scrobbles": seeded_count,
             "max_count": seeded_count,
-            "daily_counts": {seeded_date: seeded_count},
+            "daily_counts": counts,
+            "statistics": heatmap_statistics(
+                counts, datetime.date.fromisoformat(to_date)
+            ),
         },
         "Done",
     )
@@ -1183,6 +1188,9 @@ def check_heatmap_document_listeners_attach_once(page, base_url: str) -> list[st
             "total_scrobbles": 3,
             "max_count": 3,
             "daily_counts": {"2025-01-01": 3},
+            "statistics": heatmap_statistics(
+                {"2025-01-01": 3}, datetime.date.fromisoformat("2025-03-01")
+            ),
         },
         "Done",
     )
@@ -1243,18 +1251,23 @@ def check_heatmap_focus_survives_breakpoint(page, base_url: str) -> list[str]:
     """
     failures: list[str] = []
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
-    # The window the app really renders (WINDOW_DAYS in heatmap.js): a short
-    # range scales the desktop grid up several times over, and the ring's
-    # paint with it, past where _check_ring_painted looks.
+    # The window the app really renders (HEATMAP_WINDOW_DAYS in heatmap.py): a
+    # short range scales the desktop grid up several times over, and the
+    # ring's paint with it, past where _check_ring_painted looks.
+    counts = {"2025-01-01": 3}
+    to_date = _shift_iso_date("2025-01-01", 364)
     jobs.succeed(
         job_id,
         {
             "username": "frontend-gate",
             "from_date": "2025-01-01",
-            "to_date": _shift_iso_date("2025-01-01", 364),
+            "to_date": to_date,
             "total_scrobbles": 3,
             "max_count": 3,
-            "daily_counts": {"2025-01-01": 3},
+            "daily_counts": counts,
+            "statistics": heatmap_statistics(
+                counts, datetime.date.fromisoformat(to_date)
+            ),
         },
         "Done",
     )
@@ -1387,6 +1400,9 @@ def _seed_year_job() -> tuple[str, str]:
             "total_scrobbles": sum(counts.values()),
             "max_count": max(counts.values()),
             "daily_counts": counts,
+            "statistics": heatmap_statistics(
+                counts, datetime.date.fromisoformat(to_date)
+            ),
         },
         "Done",
     )

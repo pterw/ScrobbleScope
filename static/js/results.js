@@ -420,7 +420,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (totalAlbums) totalAlbums.textContent = visible.length.toLocaleString('en-US');
         const scrobbles = document.getElementById('stat-scrobbles');
         if (scrobbles) {
-            const plays = visible.reduce((sum, row) => sum + Number(row.dataset.playCount || 0), 0);
+            // Both figures were computed on the server (listening_stats.py);
+            // the control only chooses which one to show.
+            const plays = Number(hidden
+                ? scrobbles.dataset.playsMatched
+                : scrobbles.dataset.playsListed);
             scrobbles.textContent = plays.toLocaleString('en-US');
         }
         const topArtist = document.getElementById('stat-top-artist');

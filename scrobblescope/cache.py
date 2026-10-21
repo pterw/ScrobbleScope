@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 
 try:
     import asyncpg
@@ -9,6 +10,7 @@ except ImportError:
     asyncpg = None
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_DAYS
+from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.utils import log_failure
 
 # Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
@@ -102,11 +104,14 @@ async def get_db_connection():
 
 
 async def batch_lookup_metadata(conn, keys):
-    """Look up cached Spotify metadata for a batch of (artist_norm, album_norm) keys.
+    """Look up cached album metadata for a batch of (artist_norm, album_norm) keys.
 
     Executes a single SELECT using unnest() for efficient batch lookup.
     Only rows updated within the configured TTL are returned.
-    Returns a dict keyed by (artist_norm, album_norm) with plain-dict values.
+    Returns a dict keyed by (artist_norm, album_norm) with ``AlbumMetadata``
+    values. ``AlbumMetadata.from_row`` owns how a stored row is read, rows
+    older than the provider columns included; a row that names no provider
+    album is left out, so it is a miss and the next fetch overwrites it.
     """
     if not keys:
         return {}
@@ -129,18 +134,9 @@ async def batch_lookup_metadata(conn, keys):
     )
     result = {}
     for r in rows:
-        td = r["track_durations"]
-        if isinstance(td, str):
-            td = json.loads(td)
-        result[(r["artist_norm"], r["album_norm"])] = {
-            "spotify_id": r["spotify_id"],
-            "release_date": r["release_date"],
-            "album_image_url": r["album_image_url"],
-            "track_durations": td if td else {},
-            "provider": r.get("provider"),
-            "provider_album_id": r.get("provider_album_id"),
-            "provider_url": r.get("provider_url"),
-        }
+        metadata = AlbumMetadata.from_row(r)
+        if metadata is not None:
+            result[(r["artist_norm"], r["album_norm"])] = metadata
     return result
 
 
@@ -164,28 +160,33 @@ async def cleanup_stale_metadata(conn):
         log_failure("Stale cache cleanup failed (non-fatal)", logging.WARNING)
 
 
-async def batch_persist_metadata(conn, rows):
+async def batch_persist_metadata(conn, albums):
     """Persist newly fetched album metadata in a single INSERT statement.
 
-    Uses INSERT ... SELECT FROM unnest() with ON CONFLICT DO UPDATE (upsert).
-    Each element in *rows* is a tuple of (artist_norm, album_norm, spotify_id,
-    release_date, album_image_url, track_durations_dict), optionally followed
-    by (provider, provider_album_id, provider_url). A row without the
-    trailing three elements is treated as a Spotify row (``provider``
-    defaults to ``"spotify"`` and ``provider_album_id`` to ``spotify_id``),
-    matching every caller that predates the provider contract.
+    *albums* maps (artist_norm, album_norm) to the ``AlbumMetadata`` a provider
+    returned. This is the only statement that writes ``spotify_cache``, and
+    ``AlbumMetadata`` has no field a listening fact could travel in, so the
+    shared table's contract (BATCH23 "Data handling": no listening facts, no
+    link to a listener) is held by the type. Uses INSERT ... SELECT FROM
+    unnest() with ON CONFLICT DO UPDATE (upsert). The legacy ``spotify_id``
+    column takes the album id for a Spotify album and NULL for any other
+    provider; ``provider_album_id`` always takes the id the provider issued.
     """
-    if not rows:
+    if not albums:
         return
-    artists = [r[0] for r in rows]
-    albums = [r[1] for r in rows]
-    spotify_ids = [r[2] for r in rows]
-    release_dates = [r[3] for r in rows]
-    image_urls = [r[4] for r in rows]
-    track_durations_json = [json.dumps(r[5]) if r[5] else "{}" for r in rows]
-    providers = [r[6] if len(r) > 6 else "spotify" for r in rows]
-    provider_album_ids = [r[7] if len(r) > 7 else r[2] for r in rows]
-    provider_urls = [r[8] if len(r) > 8 else None for r in rows]
+    keys = list(albums)
+    metadata = [albums[key] for key in keys]
+    artists = [key[0] for key in keys]
+    album_norms = [key[1] for key in keys]
+    spotify_ids = [m.spotify_id for m in metadata]
+    release_dates = [m.release_date for m in metadata]
+    image_urls = [m.image_url for m in metadata]
+    track_durations_json = [
+        json.dumps(m.track_durations) if m.track_durations else "{}" for m in metadata
+    ]
+    providers = [m.provider for m in metadata]
+    provider_album_ids = [m.album_id for m in metadata]
+    provider_urls = [m.url for m in metadata]
     await conn.execute(
         """
         INSERT INTO spotify_cache
@@ -207,7 +208,7 @@ async def batch_persist_metadata(conn, rows):
             updated_at        = NOW()
         """,
         artists,
-        albums,
+        album_norms,
         spotify_ids,
         release_dates,
         image_urls,
@@ -285,3 +286,124 @@ async def batch_persist_original_release(conn, rows):
         mb_release_groups,
         original_releases,
     )
+
+
+class AlbumCache:
+    """One job's use of the shared album cache, and what its failures mean.
+
+    The cache is optional at runtime (BATCH23 / the hosting cost ceiling): a
+    missing, sleeping or failing database never fails a job. This class is the
+    one place that says so. Every operation answers with an empty value instead
+    of raising, and records which operation failed in ``lookup_failed`` and
+    ``persist_failed`` so the caller can tell the job (job messages stay with
+    the caller). It issues the same statements the pipeline always did, on the
+    one connection ``open_album_cache`` opened: it never reconnects and never
+    retries a statement.
+
+    Build one with ``open_album_cache``; the constructor takes the connection
+    (or None for a disabled cache) so tests can hand it a fake.
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.lookup_failed = False
+        self.persist_failed = False
+
+    @property
+    def enabled(self):
+        """True while a database connection is open."""
+        return self._conn is not None
+
+    async def lookup(self, keys):
+        """Return cached ``AlbumMetadata`` for *keys*, then clear stale rows.
+
+        Returns {} when the cache is disabled or the read fails (every album is
+        then a miss and the providers answer). A schema that is out of date
+        gets its own remediation text: until it is fixed every read misses.
+        The stale-row cleanup runs after the read whether or not it succeeded.
+        """
+        if self._conn is None:
+            return {}
+        try:
+            hits = await batch_lookup_metadata(self._conn, keys)
+        # Fail open: a failed cache read makes every album a miss, not a failed job.
+        except Exception as exc:  # noqa: BLE001
+            self.lookup_failed = True
+            if schema_is_out_of_date(exc):
+                log_failure(
+                    "DB lookup failed, proceeding without cache "
+                    f"({SCHEMA_OUT_OF_DATE_REMEDIATION})",
+                    logging.WARNING,
+                )
+            else:
+                log_failure(
+                    "DB lookup failed, proceeding without cache", logging.WARNING
+                )
+            hits = {}
+        # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
+        await cleanup_stale_metadata(self._conn)
+        return hits
+
+    async def persist(self, albums):
+        """Write *albums* (``{key: AlbumMetadata}``) in one upsert.
+
+        A no-op when the cache is disabled or *albums* is empty. A failure is
+        logged, flagged in ``persist_failed`` and not raised: it costs the next
+        job a lookup, not this one.
+        """
+        if self._conn is None or not albums:
+            return
+        try:
+            await batch_persist_metadata(self._conn, albums)
+        # Fail open: a failed persist costs the next job a lookup, not this one.
+        except Exception:  # noqa: BLE001
+            self.persist_failed = True
+            log_failure("DB persist failed (non-fatal)", logging.WARNING)
+
+    async def lookup_original_releases(self, keys):
+        """Return cached MusicBrainz findings for *keys*, or {} without raising.
+
+        A missing correction only skips the display upgrade; it must never
+        block a job the way a metadata-fetch failure would.
+        """
+        if self._conn is None:
+            return {}
+        try:
+            return await batch_lookup_original_release(self._conn, keys)
+        # Fail open: a missing correction only skips the display upgrade.
+        except Exception:  # noqa: BLE001
+            log_failure(
+                "Original-release cache lookup failed (non-fatal)", logging.WARNING
+            )
+            return {}
+
+    async def close(self):
+        """Close the connection at most once; a failed close is logged only.
+
+        The cache is optional, so closing it must not take down a job whose
+        results are already built.
+        """
+        conn, self._conn = self._conn, None
+        if conn is None:
+            return
+        try:
+            await conn.close()
+        # A failed close must not mask the job's own outcome.
+        except Exception:  # noqa: BLE001
+            log_failure("Closing the cache DB connection failed", logging.WARNING)
+
+
+@asynccontextmanager
+async def open_album_cache():
+    """Open the shared album cache for one job and close it when the block ends.
+
+    Connects through ``get_db_connection`` (``DATABASE_URL``, the retry
+    backoff and the connect timeout are its, unchanged) and yields an
+    ``AlbumCache``, disabled when no connection could be had. The connection is
+    closed when the block ends, whether it ends normally or with an exception.
+    """
+    album_cache = AlbumCache(await get_db_connection())
+    try:
+        yield album_cache
+    finally:
+        await album_cache.close()

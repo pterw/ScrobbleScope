@@ -10,6 +10,7 @@ from scrobblescope.cache import (
     batch_persist_metadata,
     get_db_connection,
 )
+from tests.album_metadata import spotify_metadata
 
 # --- DB helper tests ---
 
@@ -229,46 +230,39 @@ async def test_batch_lookup_metadata_parses_track_durations():
     result = await batch_lookup_metadata(mock_conn, [("radiohead", "ok computer")])
 
     assert ("radiohead", "ok computer") in result
-    td = result[("radiohead", "ok computer")]["track_durations"]
-    assert isinstance(td, dict)
-    assert td["paranoid android"] == 383
-    assert td["karma police"] == 264
+    album = result[("radiohead", "ok computer")]
+    assert album.track_durations == {"paranoid android": 383, "karma police": 264}
 
 
 @pytest.mark.asyncio
 async def test_batch_persist_metadata_empty_rows():
     """
-    GIVEN an empty list of rows
+    GIVEN no albums
     WHEN batch_persist_metadata is called
     THEN it should return immediately without making a DB call.
     """
     mock_conn = AsyncMock()
-    await batch_persist_metadata(mock_conn, [])
+    await batch_persist_metadata(mock_conn, {})
     mock_conn.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_batch_persist_metadata_upsert_call_shape():
     """
-    GIVEN a list of metadata rows
+    GIVEN a mapping of albums
     WHEN batch_persist_metadata is called
     THEN it should execute a single INSERT ... unnest() statement
     with the correct array parameters.
     """
     mock_conn = AsyncMock()
-    rows = [
-        (
-            "artist1",
-            "album1",
-            "sp1",
-            "2025-01-01",
-            "https://img/1.jpg",
-            {"track a": 200},
+    albums = {
+        ("artist1", "album1"): spotify_metadata(
+            "sp1", "2025-01-01", "https://img/1.jpg", {"track a": 200}
         ),
-        ("artist2", "album2", "sp2", "2024-06-15", None, {}),
-    ]
+        ("artist2", "album2"): spotify_metadata("sp2", "2024-06-15", None, {}),
+    }
 
-    await batch_persist_metadata(mock_conn, rows)
+    await batch_persist_metadata(mock_conn, albums)
 
     mock_conn.execute.assert_awaited_once()
     call_args = mock_conn.execute.call_args

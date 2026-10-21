@@ -4,10 +4,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope import jobs
+from scrobblescope.cache import AlbumCache, open_album_cache
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import process_albums
-from scrobblescope.orchestrator._cache import _lookup_cached_metadata
+from scrobblescope.orchestrator._cache import (
+    _lookup_cached_metadata,
+    _persist_new_metadata,
+)
+from tests.album_metadata import spotify_metadata
+from tests.fake_postgres import fake_postgres
 from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK, TEST_JOB_PARAMS
 
 
@@ -30,29 +36,27 @@ async def test_process_albums_cache_hit_skips_spotify():
     }
 
     mock_cached = {
-        ("radiohead", "ok computer"): {
-            "spotify_id": "abc123",
-            "release_date": "1997-06-16",
-            "album_image_url": "https://img.example.com/ok.jpg",
-            "track_durations": {"paranoid android": 383, "karma police": 264},
-        }
+        ("radiohead", "ok computer"): spotify_metadata(
+            "abc123",
+            "1997-06-16",
+            "https://img.example.com/ok.jpg",
+            {"paranoid android": 383, "karma police": 264},
+        )
     }
 
     mock_conn = AsyncMock()
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value=mock_cached,
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -92,12 +96,12 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
         }
     }
     cached_metadata = {
-        album_key: {
-            "spotify_id": "sp-rumours",
-            "release_date": "2011-01-31",
-            "album_image_url": "https://img.example.com/rumours.jpg",
-            "track_durations": {"dreams": 257},
-        }
+        album_key: spotify_metadata(
+            "sp-rumours",
+            "2011-01-31",
+            "https://img.example.com/rumours.jpg",
+            {"dreams": 257},
+        )
     }
     cached_original_release = {
         album_key: {
@@ -109,23 +113,21 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value=cached_metadata,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_original_release",
+            "scrobblescope.cache.batch_lookup_original_release",
             new_callable=AsyncMock,
             return_value=cached_original_release,
         ) as mock_original_lookup,
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -165,34 +167,32 @@ async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion(
         }
     }
     cached_metadata = {
-        album_key: {
-            "spotify_id": "sp-rumours",
-            "release_date": "2011-01-31",
-            "album_image_url": "https://img.example.com/rumours.jpg",
-            "track_durations": {"dreams": 257},
-        }
+        album_key: spotify_metadata(
+            "sp-rumours",
+            "2011-01-31",
+            "https://img.example.com/rumours.jpg",
+            {"dreams": 257},
+        )
     }
     mock_conn = AsyncMock()
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value=cached_metadata,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_original_release",
+            "scrobblescope.cache.batch_lookup_original_release",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -232,17 +232,17 @@ async def test_process_albums_cache_miss_fetches_and_persists():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
         patch(
-            "scrobblescope.orchestrator.batch_persist_metadata",
+            "scrobblescope.cache.batch_persist_metadata",
             new_callable=AsyncMock,
         ) as mock_persist,
         patch(
@@ -268,9 +268,9 @@ async def test_process_albums_cache_miss_fetches_and_persists():
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    persist_rows = mock_persist.call_args[0][1]
-    assert len(persist_rows) == 1
-    assert persist_rows[0][2] == "sp1"
+    persisted = mock_persist.call_args[0][1]
+    assert list(persisted) == [("artist", "album")]
+    assert persisted[("artist", "album")].album_id == "sp1"
 
     progress = jobs.progress(job_id)
     assert progress is not None
@@ -306,7 +306,7 @@ async def test_process_albums_db_unavailable_falls_back():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -345,7 +345,7 @@ async def test_process_albums_conn_always_closed():
     """
     GIVEN a DB connection is established but Spotify search raises
     WHEN process_albums is called
-    THEN the connection should still be closed in the finally block.
+    THEN the connection should still be closed when the open_album_cache block ends.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
     filtered = {
@@ -365,18 +365,16 @@ async def test_process_albums_conn_always_closed():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -410,18 +408,16 @@ async def test_process_albums_empty_input():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
     ):
         results = await process_albums(job_id, {}, 2025, "playcount", "same")
 
@@ -450,12 +446,12 @@ async def test_process_albums_all_misses_token_failure_raises():
     mock_conn = AsyncMock()
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
@@ -505,23 +501,23 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
         },
     }
     mock_cached = {
-        ("radiohead", "ok computer"): {
-            "spotify_id": "abc123",
-            "release_date": "1997-06-16",
-            "album_image_url": "https://img.example.com/ok.jpg",
-            "track_durations": {"paranoid android": 383, "karma police": 264},
-        }
+        ("radiohead", "ok computer"): spotify_metadata(
+            "abc123",
+            "1997-06-16",
+            "https://img.example.com/ok.jpg",
+            {"paranoid android": 383, "karma police": 264},
+        )
     }
 
     mock_conn = AsyncMock()
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value=mock_cached,
         ),
@@ -583,18 +579,16 @@ async def test_process_albums_deezer_not_called_when_spotify_matches_everything(
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -681,18 +675,16 @@ async def test_process_albums_deezer_fallback_for_spotify_misses():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -761,18 +753,16 @@ async def test_process_albums_neither_provider_matches_registers_unmatched():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -834,18 +824,16 @@ async def test_process_albums_deezer_only_succeeds_when_no_spotify_token():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -892,18 +880,16 @@ async def test_process_albums_raises_when_no_token_and_deezer_also_fails():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
-        patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
-        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
             new_callable=AsyncMock,
@@ -954,17 +940,17 @@ async def test_process_albums_deezer_row_persists_provider_fields():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
         patch(
-            "scrobblescope.orchestrator.batch_persist_metadata", new_callable=AsyncMock
+            "scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock
         ) as mock_persist,
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
@@ -994,13 +980,18 @@ async def test_process_albums_deezer_row_persists_provider_fields():
         await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    rows = mock_persist.call_args[0][1]
-    assert len(rows) == 1
-    row = rows[0]
-    assert row[2] is None  # spotify_id
-    assert row[6] == "deezer"
-    assert row[7] == "dz1"
-    assert row[8] == "https://www.deezer.com/album/dz1"
+    persisted = mock_persist.call_args[0][1]
+    assert persisted == {
+        ("artist", "album"): AlbumMetadata(
+            provider="deezer",
+            album_id="dz1",
+            url="https://www.deezer.com/album/dz1",
+            release_date="2025-02-02",
+            image_url="https://cdn.example/dz.jpg",
+            track_durations={"t1": 200},
+        )
+    }
+    assert persisted[("artist", "album")].spotify_id is None
 
 
 class _StaleSchemaError(Exception):
@@ -1026,7 +1017,7 @@ async def test_lookup_reports_a_stale_schema_as_its_own_fault(caplog):
     conn.fetch = AsyncMock(side_effect=_StaleSchemaError())
 
     with caplog.at_level(logging.WARNING):
-        cached = await _lookup_cached_metadata(conn, "job-1", [("a", "b")])
+        cached = await _lookup_cached_metadata(AlbumCache(conn), "job-1", [("a", "b")])
 
     assert cached == {}
     logged = " ".join(record.message for record in caplog.records)
@@ -1041,7 +1032,7 @@ async def test_lookup_still_reports_a_transient_failure_plainly(caplog):
     conn.fetch = AsyncMock(side_effect=OSError("connection reset"))
 
     with caplog.at_level(logging.WARNING):
-        cached = await _lookup_cached_metadata(conn, "job-1", [("a", "b")])
+        cached = await _lookup_cached_metadata(AlbumCache(conn), "job-1", [("a", "b")])
 
     assert cached == {}
     logged = " ".join(record.message for record in caplog.records)
@@ -1053,8 +1044,8 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
     """
     GIVEN a cache miss that Spotify finds and details
     WHEN process_albums persists it
-    THEN the row is the provider contract's nine-element form, so the
-    Spotify URL is stored rather than left NULL (F-B22-7).
+    THEN the provider record is what is persisted, so the Spotify URL is stored
+    rather than left NULL (F-B22-7).
     """
     from scrobblescope.domain import normalize_track_name
 
@@ -1076,17 +1067,17 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
 
     with (
         patch(
-            "scrobblescope.orchestrator.get_db_connection",
+            "scrobblescope.cache.get_db_connection",
             new_callable=AsyncMock,
             return_value=mock_conn,
         ),
         patch(
-            "scrobblescope.orchestrator.batch_lookup_metadata",
+            "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
             return_value={},
         ),
         patch(
-            "scrobblescope.orchestrator.batch_persist_metadata",
+            "scrobblescope.cache.batch_persist_metadata",
             new_callable=AsyncMock,
         ) as mock_persist,
         patch(
@@ -1112,15 +1103,89 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
         await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     mock_persist.assert_awaited_once()
-    (row,) = mock_persist.call_args[0][1]
-    assert row == (
-        "artist",
-        "album",
-        "sp1",
-        "2025-01-01",
-        "https://img.example.com/a.jpg",
-        {normalize_track_name("Track One"): 240},
-        "spotify",
-        "sp1",
-        "https://open.spotify.com/album/sp1",
-    )
+    assert mock_persist.call_args[0][1] == {
+        ("artist", "album"): AlbumMetadata(
+            provider="spotify",
+            album_id="sp1",
+            url="https://open.spotify.com/album/sp1",
+            release_date="2025-01-01",
+            image_url="https://img.example.com/a.jpg",
+            track_durations={normalize_track_name("Track One"): 240},
+        )
+    }
+
+
+@pytest.mark.asyncio
+async def test_process_albums_survives_a_connection_that_fails_to_close():
+    """
+    GIVEN a cache connection whose close() raises
+    WHEN process_albums has built its results
+    THEN it returns them: the cache is optional at runtime, so closing it must
+    not fail a job whose work is done.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    key = ("radiohead", "ok computer")
+    filtered = {
+        key: {
+            "play_count": 50,
+            "track_counts": {"paranoid android": 10},
+            "original_artist": "Radiohead",
+            "original_album": "OK Computer",
+        }
+    }
+    mock_conn = AsyncMock()
+    mock_conn.close = AsyncMock(side_effect=RuntimeError("close failed"))
+
+    with (
+        patch(
+            "scrobblescope.cache.get_db_connection",
+            new_callable=AsyncMock,
+            return_value=mock_conn,
+        ),
+        patch(
+            "scrobblescope.cache.batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={
+                key: spotify_metadata(
+                    "abc123", "2025-01-01", None, {"paranoid android": 383}
+                )
+            },
+        ),
+        patch(
+            "scrobblescope.cache.batch_lookup_original_release",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+    ):
+        results = await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    assert [row["spotify_id"] for row in results] == ["abc123"]
+    mock_conn.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows():
+    """
+    GIVEN the metadata write fails
+    WHEN the job reports the persist step
+    THEN it records the persist warning and no persisted-row count, while a
+    healthy write records the count and no warning.
+    """
+    new_metadata = {("a", "b"): spotify_metadata()}
+
+    async def stats_after(fail):
+        job_id = jobs.create(TEST_JOB_PARAMS)
+        with fake_postgres() as db:
+            if fail:
+                db.fail("INSERT", "spotify_cache", OSError("down"))
+            async with open_album_cache() as album_cache:
+                await _persist_new_metadata(album_cache, job_id, new_metadata)
+        return jobs.progress(job_id)["stats"]
+
+    failed = await stats_after(fail=True)
+    assert failed["db_cache_warning"] == "DB persist failed."
+    assert "db_cache_persisted" not in failed
+
+    healthy = await stats_after(fail=False)
+    assert healthy["db_cache_persisted"] == 1
+    assert "db_cache_warning" not in healthy
