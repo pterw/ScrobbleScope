@@ -161,6 +161,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-21 - Pin the classic link when external_urls is null
+
+Side task, no batch tag: pin the null `external_urls` guard of `album_metadata_from_details` with a test, on `refactor/metadata-encoding`, a branch off `main`.
+
+Owner intent: a claim in a document is backed by a test that fails without it.
+
+What changed and why: `dfd22dc`'s fallback also guards a payload whose `external_urls` is `null` (`(details.get("external_urls") or {})`) and its entry says "missing or null", but no case passed `{"external_urls": None}`; the old `None` parameter became `details = {}`, the missing key. The parametrized test now takes the whole details payload and gains a `null-object` case (expected: `https://open.spotify.com/album/sp3`). With the guard replaced by `details.get("external_urls", {})` the new case fails with `AttributeError: 'NoneType' object has no attribute 'get'` and the other five pass; restored, all six pass. Review of close-out, Minor 3. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_album_metadata_from_details_keeps_the_classic_link` in `tests/services/test_spotify_service.py` (parameters now carry the details payload; 5 cases became 6).
+
+Validation: `pytest -q` -- **2897 passed**.
+
 ### 2026-10-21 - Make the #5 docs true for the merge
 
 Side task, no batch tag: close-out of PR #5, making the docs true for the merge (PLAYBOOK Section 3, the plan's citations, a test docstring, two architecture files, F-B23-47), on `refactor/metadata-encoding`, a branch off `main`.
@@ -210,23 +224,3 @@ Edited existing tests: `tests/services/test_orchestrator_process_albums.py` (pat
 Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `AlbumCache.close` without its `try`/`except` -> `test_a_failing_close_is_logged_by_class_and_never_raised` (RuntimeError) and `test_process_albums_survives_a_connection_that_fails_to_close` fail; (2) `open_album_cache` without `try`/`finally` -> `test_the_connection_closes_once_however_the_block_ends[True]` (`(1, 0) == (1, 1)`) and `test_the_connection_is_closed_once_when_no_provider_can_answer` fail; (3) `persist` guard without `self._conn is None` -> `test_a_cache_with_no_database_does_nothing_and_fails_nothing` fails; (4) `lookup` without `try`/`except` -> `test_a_failing_cache_statement_never_fails_the_search[read]` fails; (5) a reconnect in `lookup`'s `except` -> the same test fails on `(2, 1) == (1, 1)`; (6) `release_checks.py` importing `batch_persist_metadata` -> `test_only_the_cache_module_reads_or_writes_the_metadata_table` fails; (7) `db_cache_persisted` recorded after a failed persist -> `test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows` fails; (8) a bare write in `persist` -> `test_a_failed_read_is_a_miss_and_a_failed_write_is_not_an_error` and `test_a_failing_cache_statement_never_fails_the_search[write]` fail; (9) `lookup` returning `{}` -> `test_what_persist_writes_lookup_reads_back` fails; (10) Task 3's row 3 re-planted (`if metadata is not None:` removed) -> `test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album` fails.
 
 Validation: `pytest -q` -- **2891 passed**.
-
-### 2026-10-21 - Album metadata is one record from provider to results
-
-Side task, no batch tag: Task 3 of PR #5, album metadata stored and read as one record from provider to results (cache, the three orchestrator phases, the results builder and seven test files), on `refactor/metadata-encoding`, a branch off `main`.
-
-Owner intent: card B-5 and the Task 27 brief say it in one line: one `AlbumMetadata.from_row` replaces the repair code, and `_album_provider` and `_album_url` are deleted.
-
-Why (B-5): after the providers an album was re-encoded as a nine-tuple for the database, as a 4-key or 7-key dict for the results and as a 7-key dict from cache reads; two functions in `_results.py` existed only to repair what the shortest of them lacked, and `batch_persist_metadata` kept a six-tuple branch that only a test reached. There is now one record, and one place a stored row is read (`AlbumMetadata.from_row`) and one statement that writes `spotify_cache` (`batch_persist_metadata`).
-
-What changed: `batch_lookup_metadata` returns `{key: AlbumMetadata}` (a row naming no provider album is left out, so it is a miss) and `batch_persist_metadata` takes `{key: AlbumMetadata}`, with the same SQL and the same single statement. `_run_spotify_batch_detail_phase`, `_run_deezer_fallback_phase` and `_fetch_spotify_misses` return `{key: AlbumMetadata}`; `cache_hits[key]["cached"]` holds an `AlbumMetadata` for hits and live fetches alike; `_persist_new_metadata` takes that dict. Deleted: `AlbumMetadata.as_cache_row`, `_album_provider`, `_album_url`, the `len(r) > 6` branches and both inline `cached` dicts. New: `tests/album_metadata.py` (builders `spotify_metadata`, `deezer_metadata`). Docs: `cache.py` now imports `enrichment` (SESSION_CONTEXT module graph and the `Cache --> Enrichment` edge in `runtime-system.md`; the Mermaid validator tool was not available to this implementer, so the edge was checked by hand against the neighbouring edges, and the "eleven nodes import config" count was re-checked with an `ast` walk: this change adds no `config` import, so it stands); F-B23-32 now names `AlbumMetadata.from_row` as the one place a cached link enters.
-
-Deviations: a live Spotify result now shows the link Spotify returned in `external_urls.spotify` rather than a rebuilt classic link (the same string in practice). A stored row naming no provider album is a miss. `cache_hits[key]["cached"]` keeps its key name though it now also holds live fetches. The first view of a search now renders the provider-supplied URL (`external_urls.spotify`) where it used to render a constructed one, so F-B23-32's exposure to unchecked provider URLs widens slightly (the finding is edited in this commit; its status stays open). Beyond the brief's edit list: `test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call` asserted `result == []` and now asserts `result == {}` (the return type changed), and the docstring of `test_an_older_spotify_row_is_a_spotify_album_with_the_classic_link` no longer names the two deleted functions (the sweep greps for them). The sweep regex also matches the brief-named test `test_a_cached_album_with_no_link_has_a_null_album_url` (substring `_album_url`); that is the only hit.
-
-Task 1's `tests/test_album_cache_parity.py` and `tests/fake_postgres.py` are unchanged and pass: this is the parity proof, and the statement sequence and connection count are as before.
-
-Edited existing tests: `tests/services/test_enrichment.py` (two `as_cache_row` tests deleted, replaced by Task 1's stored-column tests and the persist tests below), `tests/services/test_cache.py` (four tests replaced by five; the six-tuple test is deleted because no caller builds a six-tuple, its legacy-row rule now lives in `from_row`), `tests/test_repositories.py`, `tests/services/test_orchestrator_process_albums.py` (four fixtures, three persist assertions), `tests/services/test_orchestrator_helpers.py` (three fixtures, one new test), `tests/services/test_orchestrator_fetch_spotify.py` (return type of the phases), `tests/services/test_failure_logging.py` (one argument).
-
-Mutation evidence (each planted in a file kept aside, restored byte for byte, then re-run green): (1) `spotify_ids` from `album_id` -> `test_batch_persist_metadata_writes_a_deezer_album_without_a_spotify_id` and `test_a_deezer_album_is_stored_without_a_spotify_id_and_a_repeat_search_matches_it` fail; (2) `provider_album_ids` and `provider_urls` swapped -> `test_batch_persist_metadata_writes_a_spotify_id_to_both_columns` and `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` fail; (3) `if metadata is not None:` removed -> `test_a_row_naming_no_provider_album_is_a_cache_miss` fails; (4) result `album_url` from `image_url` -> `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` fails; (5) `or None` dropped -> `test_a_cached_album_with_no_link_has_a_null_album_url` fails; (6) `new_metadata[key] = metadata` deleted -> the Spotify parity test fails (the repeat search finds nothing stored); (7) `new_metadata.update(deezer_metadata)` deleted -> the Deezer parity test and `test_spotify_search_outage_degrades_to_deezer_and_lists_the_rest_as_unavailable` fail; (8) provider columns dropped from the `from_row` input -> `test_batch_lookup_metadata_returns_albums_with_their_provider_columns` fails; (9) `provider_url` dropped from the SELECT -> the same test fails on its SQL assertion; (10) `{**r, "provider": r["provider"]}` -> `test_batch_lookup_metadata_reads_a_pre_provider_row_as_a_spotify_album` fails (`KeyError: 'provider'`).
-
-Validation: `pytest -q` -- **2879 passed**.

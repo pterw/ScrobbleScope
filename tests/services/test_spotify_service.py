@@ -577,24 +577,34 @@ def test_album_metadata_from_details_degrades_field_by_field(images):
 
 
 @pytest.mark.parametrize(
-    ("external_urls", "expected"),
+    ("details", "expected"),
     [
-        (None, "https://open.spotify.com/album/sp3"),
-        ({"spotify": None}, "https://open.spotify.com/album/sp3"),
-        ({"spotify": ""}, "https://open.spotify.com/album/sp3"),
         ({}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": None}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {"spotify": None}}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {"spotify": ""}}, "https://open.spotify.com/album/sp3"),
+        ({"external_urls": {}}, "https://open.spotify.com/album/sp3"),
         (
-            {"spotify": "https://open.spotify.com/album/sent-by-spotify"},
+            {
+                "external_urls": {
+                    "spotify": "https://open.spotify.com/album/sent-by-spotify"
+                }
+            },
             "https://open.spotify.com/album/sent-by-spotify",
         ),
     ],
-    ids=["no-key", "null-link", "empty-link", "empty-object", "link-sent"],
+    ids=[
+        "no-key",
+        "null-object",
+        "null-link",
+        "empty-link",
+        "empty-object",
+        "link-sent",
+    ],
 )
-def test_album_metadata_from_details_keeps_the_classic_link(external_urls, expected):
+def test_album_metadata_from_details_keeps_the_classic_link(details, expected):
     """A missing, null or empty Spotify link falls back to the album's
     classic URL, and a link Spotify sends is kept as sent."""
-    details = {} if external_urls is None else {"external_urls": external_urls}
-
     assert album_metadata_from_details("sp3", details).url == expected
 
 
