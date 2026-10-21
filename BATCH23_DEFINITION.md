@@ -403,25 +403,32 @@ buffer it is handed.
 - [ ] `_iter_json_array` streams with an incremental UTF-8 decoder and
   `JSONDecoder.raw_decode`, counting bytes actually read. Never `json.load`
   on a whole entry.
-- [ ] `iter_plays` yields tz-aware UTC plays, applies the play rule, skips
-  podcasts and audiobooks, keeps skip counters, and never copies a private
-  field.
-- [ ] `aggregate_albums` produces an unpartitioned album mapping keyed by
-  `normalize_name`, with `play_count`, `track_counts`, `original_artist`
-  and `original_album`, plus aggregation stats. It does not reproduce
-  `fetch_top_albums_async`'s full return tuple of eligible albums,
-  exclusions and fetch metadata. WP-3 owns threshold partitioning and its
-  post-partition counters. The specialized plans pin this hand-off and
-  keep source-specific row/skip counters distinct from accepted play counts.
-- [ ] `aggregate_daily_counts_from_plays` anchors its window at
-  `min(today, last play)` and reuses WP-0's zero-fill.
+- [ ] `iter_plays` yields `plays.Play`, the record the Last.fm path already
+  emits (`scrobblescope/plays.py`, Batch 23 WP-0 Task 23): a frozen
+  `(played_at, artist, album, track)` whose `played_at` is a datetime with
+  `tzinfo` exactly `datetime.UTC` (the constructor refuses anything else) and
+  whose three names are strings, empty when the export gave none. Nothing else
+  crosses the border: no IP address, user agent, country, username or
+  platform. `iter_plays` applies the play rule, skips podcasts and audiobooks,
+  keeps skip counters, and never copies a private field; the 30-second and
+  private-session rules live here, never in `plays.py`.
+- [ ] The parser adds no aggregator. `plays.aggregate_albums(plays, window)`
+  (with `plays.Window.year(year)` for the album job) produces the
+  unpartitioned album mapping keyed by `normalize_name`, with `play_count`,
+  `track_counts`, `original_artist` and `original_album`, plus `plays_seen`;
+  it is the one aggregator both sources use. WP-3 owns threshold partitioning
+  and its post-partition counters. Source-specific row and skip counters stay
+  distinct from accepted play counts.
+- [ ] The heatmap's daily counts come from `plays.aggregate_daily_counts`.
+  WP-2 chooses the window, anchored at `min(today, last play)`; the shared
+  `plays.zero_fill_daily_counts` fills the empty days.
 - **Acceptance:** zips built in memory cover a nested folder, ignored Video
   and `__MACOSX` entries, the 29999/30000 ms boundary, podcast, audiobook,
   private-session and null-metadata rows, a year boundary asserted tz-aware,
   an array broken across chunk boundaries, a real deflate bomb, a lying zip
   header, non-zips, empty zips and truncated JSON. Every limit is
   mutation-checked. The aggregator's output feeds
-  `partition_albums_by_threshold` unchanged.
+  `plays.select_albums` unchanged.
 
 ### WP-3 -- Job hand-off
 
@@ -429,8 +436,13 @@ A new `scrobblescope/export_jobs.py`, so the parser never knows about jobs
 and the orchestrator never knows about zips.
 
 - [ ] `export_album_task` parses in `asyncio.to_thread`, closes the buffer,
-  then runs the existing threshold partition, stats, unmatched records and
-  `_process_filtered_albums`, mapping `ExportError` to a classified code through `jobs.fail`.
+  then calls `plays.aggregate_albums`, `plays.select_albums` (the one
+  threshold partition and exclusion cap) and `orchestrator.finish_album_job`
+  with the request's `album_request.AlbumRequest` (built by
+  `parse_album_request(..., require_username=False)`, so its `username` is
+  `None`) -- the one publish step: stats, unmatched records, the "no album
+  passes" ending, then enrichment -- mapping `ExportError` to a classified
+  code through `jobs.fail`.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
 - [ ] A `BoundedSemaphore(2)` limits concurrent parses. Whole-process memory
@@ -444,8 +456,8 @@ and the orchestrator never knows about zips.
   2026-10-20). The album form posts `include_unmatched`; the export route
   and `export_album_task` accept it and honour it with the meaning it has
   on the Last.fm path. Acceptance adds one export run with it on.
-- **Acceptance:** `process_albums` receives the aggregate;
-  `fetch_all_recent_tracks_async` is never called, proven by patching it to
+- **Acceptance:** `process_albums` receives the selection's eligible albums;
+  `lastfm.fetch_scrobbles` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,
   parser failure and success included; the object the task closes is the
   one the request created. A delayed task must still read that buffer after

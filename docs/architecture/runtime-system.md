@@ -34,11 +34,13 @@ flowchart LR
         DeezerClient[deezer.py<br/>fallback provider]
         Enrichment[enrichment.py<br/>AlbumMetadata contract]
         ReleaseChecks[release_checks.py<br/>one correction worker,<br/>FIFO job queue]
+        ReleaseStatus[release_status.py<br/>check and status strings]
         MusicBrainzClient[musicbrainz.py]
         Cache[cache.py]
         Utils[utils.py]
         ApiLogging[api_logging.py<br/>trace hook + call summary]
         Domain[domain.py]
+        Plays[plays.py<br/>normalized plays, album and daily aggregates]
         Errors[errors.py]
         Spotlight[spotlight.py<br/>artist sampling]
         Unmatched[unmatched.py<br/>reason codes,<br/>threshold partition]
@@ -69,25 +71,31 @@ flowchart LR
     Album --> Errors
     Album --> Unmatched
     Album --> AlbumRequest
+    Album --> Plays
     Heatmap --> Worker
     Heatmap --> LastFMClient
     Heatmap --> JobModule
     Heatmap --> Utils
     Heatmap --> Errors
+    Heatmap --> Plays
     AlbumRequest --> JobModule
     JobModule --> Errors
     App --> ApiLogging
-    Routes --> ReleaseChecks
+    Routes --> ReleaseStatus
     ReleaseChecks --> MusicBrainzClient
     ReleaseChecks --> Cache
     ReleaseChecks --> JobModule
     ReleaseChecks --> Domain
+    ReleaseChecks --> ReleaseStatus
     ReleaseChecks --> Errors
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
     ReleaseChecks --> Worker
     LastFMClient --> Utils
     LastFMClient --> Errors
+    LastFMClient --> Plays
+    Plays --> Domain
+    Plays --> Unmatched
     SpotifyClient --> Utils
     SpotifyClient --> Domain
     SpotifyClient --> Enrichment
@@ -130,7 +138,7 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Errors,AlbumRequest runtime
+    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,ReleaseStatus,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Plays,Errors,AlbumRequest runtime
     class Pages,APIs runtime
     class JobStore,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external

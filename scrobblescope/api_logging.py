@@ -66,9 +66,11 @@ class RedactingFormatter(logging.Formatter):
     Protects Last.fm's key from every line the app writes, tracebacks
     included. What can still carry it: every DEBUG traceback (the ERROR line
     of a failure names its class only: ``utils.log_failure``, and
-    ``utils.run_async_in_thread``) and ``utils.get_cached_response``'s debug
-    line (its cache key embeds the URL), and any future line that writes an
-    exception's message. ``utils.retry_with_semaphore``'s error line (on a
+    ``utils.run_async_in_thread``), and any future line that writes an
+    exception's message. ``utils.get_cached_response``'s debug line was one
+    more until it stopped writing the cache key (the key embeds the request's
+    query string: the API key and the listener's name).
+    ``utils.retry_with_semaphore``'s error line (on a
     connect timeout) and ``routes.album_flow.results_loading``'s
     registration-year warning were two more until they stopped writing
     exception messages.

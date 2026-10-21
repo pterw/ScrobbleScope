@@ -11,7 +11,7 @@ from scrobblescope.orchestrator import (
     _process_filtered_albums,
     background_task,
 )
-from tests.helpers import TEST_JOB_PARAMS
+from tests.helpers import TEST_JOB_PARAMS, lastfm_albums
 
 
 @pytest.mark.asyncio
@@ -55,7 +55,7 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -107,7 +107,7 @@ async def test_fetch_and_process_hands_the_finished_job_to_the_correction_worker
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -177,10 +177,8 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(
-                {},
-                {("lizzy mcalpine", "older"): threshold_item},
-                {"status": "ok"},
+            return_value=lastfm_albums(
+                exclusions={("lizzy mcalpine", "older"): threshold_item}
             ),
         ),
         patch(
@@ -205,21 +203,12 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
 async def test_fetch_and_process_discards_exclusions_on_lastfm_error():
     """An upstream failure must not publish a partial unmatched report."""
     job_id = jobs.create(TEST_JOB_PARAMS)
-    threshold_item = {
-        "artist": "Artist",
-        "album": "Album",
-        "reason_code": "below_threshold",
-    }
 
     with (
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(
-                {},
-                {("artist", "album"): threshold_item},
-                {"status": "error", "reason": "lastfm_unavailable"},
-            ),
+            side_effect=ProviderError("lastfm", "unavailable"),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -260,7 +249,7 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -305,7 +294,7 @@ async def test_playcount_limit_slices_before_spotify_when_scope_is_all():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -358,7 +347,7 @@ async def test_playcount_limit_not_presliced_with_scoped_release():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -400,7 +389,7 @@ async def test_fetch_and_process_lastfm_phase_callback():
         if cb:
             cb(23, 102, 23)
             observed_phase = jobs.progress(job_id).get("phase")
-        return {}, {}, {"status": "ok"}
+        return lastfm_albums()
 
     with (
         patch(
@@ -449,7 +438,7 @@ async def test_playtime_limit_does_not_preslice():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -501,7 +490,7 @@ async def test_playtime_cap_fires_and_warns_when_album_count_exceeds_limit(caplo
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -546,7 +535,7 @@ async def test_playtime_cap_does_not_fire_below_limit():
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
-            return_value=(filtered, {}, {"status": "ok"}),
+            return_value=lastfm_albums(filtered),
         ),
         patch(
             "scrobblescope.orchestrator.process_albums",
@@ -667,7 +656,7 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
             cb(1, 3, 1)
             cb(2, 3, 2)
             cb(3, 3, 3)
-        return {}, {}, {"status": "ok"}
+        return lastfm_albums()
 
     progress_calls = []
 
@@ -1091,7 +1080,7 @@ def test_background_task_stores_unmatched_rows_when_the_flag_is_on():
             patch(
                 "scrobblescope.orchestrator.fetch_top_albums_async",
                 new_callable=AsyncMock,
-                return_value=(dict(_INCLUDE_FILTERED), {}, {"status": "ok"}),
+                return_value=lastfm_albums(dict(_INCLUDE_FILTERED)),
             ),
             patch(
                 "scrobblescope.orchestrator.process_albums",

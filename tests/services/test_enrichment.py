@@ -25,7 +25,7 @@ def test_album_metadata_carries_its_provider_and_url():
 
 
 def test_cache_row_matches_what_the_persistence_layer_unpacks():
-    """The row order is `_batch_persist_metadata`'s, not this module's.
+    """The row order is `batch_persist_metadata`'s, not this module's.
 
     The previous shape led with `provider`, so a caller who passed it
     straight through would have written the provider name into

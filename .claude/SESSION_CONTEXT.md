@@ -9,7 +9,7 @@ Last updated: 2026-10-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2769 passing** across 93 tracked test modules |
+| Tests | **2847 passing** across 98 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -46,7 +46,7 @@ Last updated: 2026-10-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2769 passed**.
+- Latest validated test count: **2847 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -59,27 +59,29 @@ app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
-  domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
+  domain.py                 # normalize_name, format_album_key, normalize_track_name, matches_release_criteria, release_window
+  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, AlbumSelection, select_albums
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
   album_request.py          # AlbumRequest (the ten job parameters, defaults declared once), parse_album_request: form -> request or Refusal, registration_refusal
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
-  cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
-  lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
+  cache.py                  # asyncpg DB helpers (get_db_connection, retry/backoff, batch lookup/persist, cleanup_stale_metadata)
+  lastfm.py                 # check_user_exists, check_profile_is_public, fetch_scrobbles (pages in, plays out; pagination, retries and the page cache stay inside)
   enrichment.py             # AlbumMetadata, the one contract every enrichment provider returns
   spotify.py                # fetch_spotify_access_token, search, batch details
   deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
+  release_status.py         # the release-check wire strings (CHECK_*, STATUS_*): the worker writes them, /api/release_checks and the Results page read them
   orchestrator/
-    __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+    __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async, finish_album_job (the one publish step)
     _search.py               # Spotify parallel-search phase
     _details.py              # Spotify batch-detail phase
     _cache.py                # DB metadata cache lookup/persist phase
     _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
-  heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap
   spotlight.py              # pure artist aggregation and stable sample selection
   unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
   routes/
@@ -158,6 +160,7 @@ scripts/
 ```
 errors.py        <- (leaf)
 domain.py        <- (leaf)
+plays.py         <- domain, unmatched
 config.py        <- (leaf)
 api_logging.py   <- (leaf; standard library + aiohttp)
 utils.py         <- api_logging, config
@@ -166,26 +169,27 @@ worker.py        <- config
 jobs.py          <- config, errors
 album_request.py <- jobs
 enrichment.py    <- (leaf)
-lastfm.py        <- config, errors, utils
+lastfm.py        <- config, errors, plays, utils
 spotify.py       <- config, domain, enrichment, errors, utils
 deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
+release_status.py <- (leaf)
 musicbrainz.py   <- config, domain, errors, utils
-release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, unmatched, utils, worker
-orchestrator/__init__.py  <- album_request, cache, config, deezer, domain, errors, jobs, lastfm, release_checks, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
+release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_status, unmatched, utils, worker
+orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, errors, jobs, utils; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, jobs, utils; orchestrator (facade)
 orchestrator/_cache.py    <- cache, jobs, utils; orchestrator (facade)
 orchestrator/_deezer_fallback.py <- domain, errors, jobs, unmatched, utils; orchestrator (facade)
 orchestrator/_results.py  <- domain, jobs, unmatched, utils
-heatmap.py       <- errors, jobs, lastfm, utils, worker
+heatmap.py       <- errors, jobs, lastfm, plays, utils, worker
 spotlight.py     <- utils
 routes/__init__.py     <- config, domain, jobs, lastfm, spotify, unmatched, utils, worker; routes/admission, routes/album_flow, routes/api, routes/heatmap_flow, routes/pages, routes/precheck (imported last, for re-export)
 routes/admission.py     <- jobs, utils; routes (facade)
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- admission, album_request, jobs, orchestrator, precheck, spotlight, unmatched; routes (facade)
 routes/heatmap_flow.py  <- admission, heatmap, jobs, precheck; routes (facade)
-routes/api.py           <- domain, jobs, precheck, release_checks, spotify, utils; routes (facade)
+routes/api.py           <- domain, jobs, precheck, release_status, spotify, utils; routes (facade)
 routes/precheck.py     <- utils; routes (facade)
 app.py           <- api_logging (RedactingFormatter, module level); routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
@@ -265,8 +269,8 @@ User submits form (index.html)
 background_task (orchestrator/__init__.py, daemon Thread):
   -> reads its AlbumRequest from the job record (jobs.params)
   -> asyncio event loop -> _fetch_and_process(...)
-    -> Fetch Last.fm scrobbles (paginated, async)
-    -> Group into albums, filter by thresholds
+    -> lastfm.fetch_scrobbles (paginated, async; pages become plays)
+    -> plays.aggregate_albums, then filter by thresholds
     -> process_albums (5-phase cache flow; phases 1/4 in orchestrator/_cache.py,
        phase 3's search+detail steps in orchestrator/_search.py and
        orchestrator/_details.py, phase 5 in orchestrator/_results.py):
@@ -292,7 +296,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2769 tests)
+## 6. Test structure (2847 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

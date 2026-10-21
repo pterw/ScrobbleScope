@@ -45,7 +45,7 @@ def schema_is_out_of_date(exc):
     return getattr(exc, "sqlstate", None) in _STALE_SCHEMA_SQLSTATES
 
 
-async def _get_db_connection():
+async def get_db_connection():
     """Open a single asyncpg connection from DATABASE_URL, or return None.
 
     Returns None if DATABASE_URL is unset, asyncpg is unavailable, or the
@@ -101,7 +101,7 @@ async def _get_db_connection():
             await asyncio.sleep(delay)
 
 
-async def _batch_lookup_metadata(conn, keys):
+async def batch_lookup_metadata(conn, keys):
     """Look up cached Spotify metadata for a batch of (artist_norm, album_norm) keys.
 
     Executes a single SELECT using unnest() for efficient batch lookup.
@@ -144,7 +144,7 @@ async def _batch_lookup_metadata(conn, keys):
     return result
 
 
-async def _cleanup_stale_metadata(conn):
+async def cleanup_stale_metadata(conn):
     """Delete spotify_cache rows older than METADATA_CACHE_TTL_DAYS.
 
     Called opportunistically after each batch lookup. Non-fatal: any error
@@ -164,7 +164,7 @@ async def _cleanup_stale_metadata(conn):
         log_failure("Stale cache cleanup failed (non-fatal)", logging.WARNING)
 
 
-async def _batch_persist_metadata(conn, rows):
+async def batch_persist_metadata(conn, rows):
     """Persist newly fetched album metadata in a single INSERT statement.
 
     Uses INSERT ... SELECT FROM unnest() with ON CONFLICT DO UPDATE (upsert).
@@ -218,7 +218,7 @@ async def _batch_persist_metadata(conn, rows):
     )
 
 
-async def _batch_lookup_original_release(conn, keys):
+async def batch_lookup_original_release(conn, keys):
     """Look up cached MusicBrainz original-release findings for a batch of
     (artist_norm, album_norm) keys.
 
@@ -253,7 +253,7 @@ async def _batch_lookup_original_release(conn, keys):
     }
 
 
-async def _batch_persist_original_release(conn, rows):
+async def batch_persist_original_release(conn, rows):
     """Persist MusicBrainz original-release findings in a single INSERT.
 
     Each element in *rows* is a tuple of (artist_norm, album_norm,

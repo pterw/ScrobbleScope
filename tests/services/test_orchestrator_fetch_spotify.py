@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 
 from scrobblescope import jobs
-from scrobblescope.cache import _cleanup_stale_metadata
+from scrobblescope.cache import cleanup_stale_metadata
 from scrobblescope.errors import (
     ProviderError,
     SpotifyUnavailableError,
@@ -20,13 +20,13 @@ from tests.helpers import TEST_JOB_PARAMS, NoopAsyncContext
 async def test_cleanup_stale_metadata_issues_delete():
     """
     GIVEN a live DB connection
-    WHEN _cleanup_stale_metadata is called
+    WHEN cleanup_stale_metadata is called
     THEN it should execute a DELETE statement parameterised with the TTL value.
     """
     mock_conn = AsyncMock()
     mock_conn.execute.return_value = "DELETE 3"
 
-    await _cleanup_stale_metadata(mock_conn)
+    await cleanup_stale_metadata(mock_conn)
 
     mock_conn.execute.assert_awaited_once()
     sql, ttl = mock_conn.execute.call_args[0]
@@ -39,7 +39,7 @@ async def test_cleanup_stale_metadata_issues_delete():
 async def test_cleanup_stale_metadata_nonfatal(caplog):
     """
     GIVEN conn.execute raises an exception
-    WHEN _cleanup_stale_metadata is called
+    WHEN cleanup_stale_metadata is called
     THEN no exception should propagate and a warning must be logged.
 
     Previously this test had no assertion at all: it passed vacuously and would
@@ -51,7 +51,7 @@ async def test_cleanup_stale_metadata_nonfatal(caplog):
     mock_conn.execute.side_effect = RuntimeError("DB gone away")
 
     with caplog.at_level(logging.WARNING):
-        await _cleanup_stale_metadata(mock_conn)  # must not raise
+        await cleanup_stale_metadata(mock_conn)  # must not raise
 
     assert "Stale cache cleanup failed" in caplog.text
 
@@ -1149,7 +1149,7 @@ async def _run_process_with_spotify_details(
             "scrobblescope.orchestrator.fetch_deezer_album", side_effect=fetch_deezer
         ),
         patch(
-            "scrobblescope.orchestrator._get_db_connection",
+            "scrobblescope.orchestrator.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),
@@ -1522,7 +1522,7 @@ async def test_one_over_cap_retry_after_stops_the_jobs_remaining_spotify_searche
             "scrobblescope.orchestrator.search_deezer_album", side_effect=deezer_search
         ),
         patch(
-            "scrobblescope.orchestrator._get_db_connection",
+            "scrobblescope.orchestrator.get_db_connection",
             new_callable=AsyncMock,
             return_value=None,
         ),

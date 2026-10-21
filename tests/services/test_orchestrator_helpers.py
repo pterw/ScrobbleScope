@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from scrobblescope import jobs
-from scrobblescope.domain import normalize_name, release_window
+from scrobblescope.domain import (
+    matches_release_criteria,
+    normalize_name,
+    release_window,
+)
 from scrobblescope.errors import (
     PrivateProfileError,
     ProviderError,
@@ -20,7 +24,6 @@ from scrobblescope.orchestrator import (
     _build_results,
     _get_user_friendly_reason,
     _lookup_cached_original_release,
-    _matches_release_criteria,
     merge_unmatched_rows,
 )
 from tests.helpers import TEST_JOB_PARAMS
@@ -51,7 +54,7 @@ def test_matches_release_criteria_adversarial(release_date, expected):
     - None -> same guard -> returns False
     - Year-only string without dash -> succeeds (no split needed)
     """
-    result = _matches_release_criteria(release_date, release_scope="same", year=2025)
+    result = matches_release_criteria(release_date, release_scope="same", year=2025)
     assert result is expected
 
 
@@ -61,9 +64,9 @@ def test_matches_release_criteria_adversarial(release_date, expected):
 
 
 # The rule two consumers now derive from: the release-window scope table used
-# to be restated in both `_matches_release_criteria` (here) and
+# to be restated in both `matches_release_criteria` (here) and
 # `release_checks._window_end`. Task 12 moves it to `domain.release_window`,
-# and this parity test pins `_matches_release_criteria`'s current outputs
+# and this parity test pins `matches_release_criteria`'s current outputs
 # first, so the refactor has a net -- it must keep passing, unchanged.
 @pytest.mark.parametrize(
     "release_date, release_scope, year, decade, release_year, expected",
@@ -101,12 +104,12 @@ def test_matches_release_criteria_parity_before_release_window(
 ):
     """
     GIVEN every divergence F-B23-5 names plus the four bounded scopes
-    WHEN `_matches_release_criteria` is called before it derives from
+    WHEN `matches_release_criteria` is called before it derives from
         `domain.release_window`
     THEN it returns today's output -- the net Task 12's refactor must not
         tear, since every case here keeps passing afterward unchanged.
     """
-    result = _matches_release_criteria(
+    result = matches_release_criteria(
         release_date, release_scope, year, decade, release_year
     )
     assert result is expected
@@ -115,13 +118,13 @@ def test_matches_release_criteria_parity_before_release_window(
 def test_matches_release_criteria_logs_actual_bad_input_under_custom(caplog):
     """
     GIVEN a "custom" scope whose release_year cannot be parsed as a year
-    WHEN `_matches_release_criteria` catches `release_window`'s ValueError
+    WHEN `matches_release_criteria` catches `release_window`'s ValueError
     THEN the warning names the scope and every input `release_window`
         received -- including the actual bad value, `release_year` -- rather
         than always blaming `decade` (Finding 7).
     """
     with caplog.at_level(logging.WARNING):
-        result = _matches_release_criteria(
+        result = matches_release_criteria(
             "2025-06-01",
             release_scope="custom",
             year=2025,
@@ -277,7 +280,7 @@ async def test_lookup_cached_original_release_without_connection_skips_query():
     album_keys = [("artist", "album")]
 
     with patch(
-        "scrobblescope.orchestrator._batch_lookup_original_release",
+        "scrobblescope.orchestrator.batch_lookup_original_release",
         new_callable=AsyncMock,
     ) as mock_lookup:
         result = await _lookup_cached_original_release(None, album_keys)
@@ -295,7 +298,7 @@ async def test_lookup_cached_original_release_failure_is_non_fatal(caplog):
     with (
         caplog.at_level(logging.WARNING),
         patch(
-            "scrobblescope.orchestrator._batch_lookup_original_release",
+            "scrobblescope.orchestrator.batch_lookup_original_release",
             new_callable=AsyncMock,
             side_effect=RuntimeError("database unavailable"),
         ),
@@ -661,26 +664,41 @@ def test_build_results_skip_line_carries_no_album_or_artist(caplog):
 
 def test_lastfm_page_loss_is_recorded_as_a_kind_beside_its_sentence():
     """
-    GIVEN a Last.fm fetch that dropped pages and carries the warning sentence
-    WHEN its stats are recorded on the job
-    THEN the job also holds the kind ("lastfm"), so the Results page never has
-         to read the sentence to know what degraded
+    GIVEN a Last.fm fetch that dropped a page of four
+    WHEN its fetch stats are recorded on the job
+    THEN the job holds the sentence, the number of pages dropped and the kind
+         ("lastfm"), so the Results page never has to read the sentence to know
+         what degraded
     """
-    from scrobblescope.orchestrator import _record_lastfm_stats
+    from scrobblescope.lastfm import FetchSummary
+    from scrobblescope.orchestrator import _record_fetch_stats
 
     job_id = jobs.create(TEST_JOB_PARAMS)
-    _record_lastfm_stats(
-        job_id,
-        {
-            "stats": {"total_scrobbles": 5},
-            "partial_data_warning": "Note: 1 of 4 Last.fm pages failed to load.",
-            "pages_dropped": 1,
-        },
-    )
+    _record_fetch_stats(job_id, FetchSummary(pages_expected=4, pages_received=3))
 
     stats = jobs.progress(job_id)["stats"]
     assert stats["partial_data_sources"] == ["lastfm"]
     assert stats["pages_dropped"] == 1
+    assert stats["pages_fetched"] == 3
+    assert stats["partial_data_warning"].startswith(
+        "Note: 1 of 4 Last.fm pages failed to load (25% data loss)."
+    )
+
+
+def test_a_complete_lastfm_fetch_records_pages_and_no_notice():
+    """A fetch that read every page records the count and no page-loss notice.
+
+    Planted defect: write the page-loss notice even when no page was dropped."""
+    from scrobblescope.lastfm import FetchSummary
+    from scrobblescope.orchestrator import _record_fetch_stats
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    _record_fetch_stats(job_id, FetchSummary(pages_expected=2, pages_received=2))
+
+    stats = jobs.progress(job_id)["stats"]
+    assert stats["pages_fetched"] == 2
+    assert "partial_data_warning" not in stats
+    assert "partial_data_sources" not in stats
 
 
 # ---------------------------------------------------------------------------

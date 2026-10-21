@@ -106,7 +106,7 @@ def normalize_track_name(name):
     return n.strip()
 
 
-def _matches_release_criteria(
+def matches_release_criteria(
     release_date, release_scope, year, decade=None, release_year=None
 ):
     """Check whether a release date matches the user's filter criteria.
@@ -153,7 +153,7 @@ def release_window(release_scope, year, decade=None, release_year=None):
     """Return the inclusive ``(first, last)`` years *release_scope* accepts.
 
     The one rule behind both consumers: the album filter's
-    ``_matches_release_criteria`` and the correction worker's
+    ``matches_release_criteria`` and the correction worker's
     ``release_checks._window_end``. Each used to restate the same scope
     table (``same``, ``previous``, ``decade``, ``custom``); this is now the
     single place the machine rule is written (F-B23-5).

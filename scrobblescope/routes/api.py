@@ -14,7 +14,7 @@ from flask_wtf.csrf import generate_csrf
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.domain import format_album_key
-from scrobblescope.release_checks import CHECK_UNCHECKED, STATUS_PENDING
+from scrobblescope.release_status import CHECK_UNCHECKED, STATUS_PENDING
 from scrobblescope.routes import precheck
 from scrobblescope.spotify import fetch_spotify_artist_spotlight
 from scrobblescope.utils import create_optimized_session

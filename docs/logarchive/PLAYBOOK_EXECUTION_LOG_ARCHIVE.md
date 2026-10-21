@@ -9,6 +9,116 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-20 - Names that cross modules are public
+
+Side task, no batch tag: seven private names become public and the release-check strings get their own leaf module (PR #4 of the pre-Batch-23 tranche, task 23b, architecture-walk-2 B-7), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "seams worth doing before feature work are done now" (2026-09-29); the 2026-09-29 rulings allow a seam commit to edit existing tests.
+
+What changed: seven renames, one new leaf, one guard test. `cache.py`: `_get_db_connection`, `_batch_lookup_metadata`, `_batch_persist_metadata`, `_batch_lookup_original_release`, `_batch_persist_original_release`, `_cleanup_stale_metadata` lose their underscore; `domain.py`: `_matches_release_criteria` likewise. Each had a caller in a second package (the orchestrator and the release worker), so a private name said otherwise. The orchestrator facade no longer re-exports `matches_release_criteria`; its one test file imports it from `domain`. `scrobblescope/release_status.py` (new, a leaf) holds the eight `CHECK_*` and `STATUS_*` wire strings; `release_checks.py` imports them and `routes/api.py` reads them from there, so no route imports the thread-owning worker. `tests/test_module_boundaries.py` (new, three tests) walks the source with `ast`: no module reads another package's underscore name, no route imports `release_checks`, and the strings equal what `static/js/results-release-checks.js` compares. SESSION_CONTEXT Sections 3-4 and the runtime-system diagram follow (node `ReleaseStatus`, edges `Routes --> ReleaseStatus` and `ReleaseChecks --> ReleaseStatus`). The Mermaid validator tool was not available to this implementer; the added lines were checked by hand (no `;`, every node declared, block unchanged in shape).
+
+Config-import re-check: a module-level `ast` walk finds 13 modules importing `scrobblescope.config`; as drawn nodes (`routes/` and `orchestrator/` one node each) that is still eleven, and `release_status.py` imports nothing, so the "eleven nodes" paragraph stays true.
+
+Deviations: the drain item of the design was already done (`utils.cancel_and_drain`); the rename was a byte-safe Python script, not the plan's `sed` (R9); in SESSION_CONTEXT Section 4 `release_status` goes after `precheck` in the `routes/api.py` line (PR #3 added `precheck`; alphabetical order). The guard test's first run listed exactly the ten reads the plan predicted. Edited existing tests (renames only, no assertion changed): `tests/services/test_failure_logging.py`, `tests/services/test_orchestrator_fetch_spotify.py`, `tests/services/test_orchestrator_process_albums.py`, `tests/services/test_release_checks.py`, `tests/test_pipeline_integration.py`, `tests/test_repositories.py`, `tests/services/test_cache.py`, `tests/services/test_enrichment.py` (one docstring), `tests/services/test_orchestrator_helpers.py` (renames, and `matches_release_criteria` is imported from `domain`, not the facade).
+
+Mutation evidence (scratch copy, each restored afterwards): `from scrobblescope.utils import _GlobalThrottle` added to `release_checks.py` failed `test_no_module_reads_another_modules_private_name` (named `release_checks`); `from scrobblescope.release_checks import enqueue_release_check` added to `routes/api.py` failed `test_the_routes_never_import_the_correction_worker`; `CHECK_MOVED_OUT = "moved-out"` failed `test_release_status_strings_are_the_ones_the_browser_compares`. Each time `3 passed` once restored.
+
+Validation: `pytest -q` -- **2797 passed**.
+
+### 2026-10-20 - Last.fm usernames leave the log lines
+
+Side task, no batch tag: nine log lines stop carrying a Last.fm username (finding F-B23-40; PR #4 of the pre-Batch-23 tranche, task 2), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: F-B23-40 and the tranche spec's "Last.fm usernames leave the logs": a handle paired with a scrobble total is a listener-linked fact, and the export path will share this code. The message a browser user reads ("User 'x' was not found on Last.fm.") is not a log line and stays.
+
+What changed: nine lines in four files. Eight username lines: `lastfm.py` (went-private and not-found lines, now fixed text), `heatmap.py` (fetch timing and `_report_heatmap_failure` now name the job id; "Heatmap ready" now reads "Heatmap job <id> is ready" and the scrobble total is gone) and `orchestrator/__init__.py` (the `fetch_top_albums_async` DEBUG start line drops the user; `_fetch_and_process` and `_report_album_failure` name the job id). The ninth is `utils.get_cached_response`'s cache-hit line, which wrote the cache key (it embeds the query string: the API key and `user:<name>`) and now writes the URL only. The `RedactingFormatter` docstring in `api_logging.py` no longer lists the cache-hit line as a carrier. The three route lines that were also in F-B23-40's sweep (registration-year warning, two heatmap pre-check lines) left with PR #3 and are neither changed nor tested here. New `tests/test_log_privacy.py` (7 tests: heatmap run, album run, both thread-entry backstops, both page-layer refusals, the real cache hit). F-B23-40 is marked resolved in `docs/agents/FINDINGS.md` (with the `**Completed:**` line the checker requires, DOC015/DOC016), and `doc_state_sync.py --fix` then rotated it to `docs/history/findings/FINDINGS_ARCHIVE.md`.
+
+Deviations: three existing tests in `tests/services/test_failure_logging.py` (`test_album_pipeline_crash_logs_the_class_only_at_error`, `test_album_backstop_logs_the_class_only_at_error`, `test_heatmap_backstop_logs_the_class_only_at_error`) now also assert the username is absent, through an optional `listener` argument of `_assert_type_only_at_error`. The plan's Step 1b (`tests/test_lastfm_job_results.py::_run_heatmap_task` calling `heatmap_task(job_id)` after PR #3) was already done by the merge of `main`, so this commit does not touch that file. The RED run of Step 2 was not taken before the edits; the mutation table below stands in for it. No other deviation.
+
+Mutation evidence: each of the nine lines restored to its old form in a scratch copy, and each named test failed (`1 failed`) and passed again once restored: went-private and not-found page-layer cases (rows 1-2), `test_a_heatmap_run_logs_its_job_id_not_its_listener` (rows 3-4), `test_the_heatmap_backstop_logs_the_job_id_not_the_listener` and `test_heatmap_backstop_logs_the_class_only_at_error` (row 5), `test_an_album_run_logs_no_listener` (row 6), `test_album_pipeline_crash_logs_the_class_only_at_error` (row 7), `test_the_album_backstop_logs_the_job_id_not_the_listener` and `test_album_backstop_logs_the_class_only_at_error` (row 8), `test_a_cache_hit_logs_no_listener` (row 9).
+
+Validation: `pytest -q` -- **2794 passed**.
+
+### 2026-10-20 - Last.fm-derived job results are pinned before the seam work
+
+Side task, no batch tag: parity tests for the Last.fm path ahead of the scrobbles-not-pages refactor (PR #4 of the pre-Batch-23 tranche, task 23a, review card B-3), on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "Any new tests should always test intended behavior and not that the func/code works as written." AGENTS.md "Refactor requires parity tests".
+
+What changed: `tests/test_lastfm_job_results.py` runs the album and heatmap pipelines with only the Last.fm HTTP edge faked (`tests/helpers.py`: `FakeLastfm`, `lastfm_edge`, `lastfm_page`, `lastfm_track`, `lastfm_now_playing`) and asserts on the job each one publishes: aggregation across pages, the year and 365-day windows, the now-playing entry, empty names, casing, the partial-run notice, the below-threshold report, inclusive minimums, and the three failure endings (outage, user not found, unreadable entry). Five tests assert behaviour that Task 4 changes by owner ruling (2026-09-29) and are `xfail(strict=True)` until then (5 xfailed, not counted in N).
+
+Deviations: none. No production file changed; no existing test was edited (`tests/helpers.py` gained imports and helpers only).
+
+Mutation evidence: 19 planted defects, each run in a scratch copy and each failing its named test (the table is in the plan, Task 1 Step 4); every test passed again once restored.
+
+Validation: `pytest -q` -- **2608 passed**.
+
+### 2026-10-20 - The Last.fm scrobbles plan opens its branch
+
+Side task, no batch tag: commit the approved plan for PR #4 (normalized Last.fm scrobbles with one album aggregate) as the branch's first commit, on `refactor/lastfm-scrobbles`, a branch off `main`.
+
+Owner intent: "All plans should stay for archival purposes", so every PR plan is its branch's first commit.
+
+What changed: `docs/superpowers/plans/2026-10-20-lastfm-scrobbles.md` is added, and PLAYBOOK Section 3's "Before WP-1" bullet gains one sentence naming it. The plan passed a brief review (plan-review.md), a fix round, and a re-review (plan-rereview-1.md) that approved it. One fix was applied at commit time (re-review Minor N1): Task 1's adaptation table said `_run_heatmap_task` calls `heatmap_task(job_id)` after PR #3 without naming the commit. Task 1 lands before #3 merges, so the table row now names Task 2, Task 2's Touches gains `tests/test_lastfm_job_results.py`, and Task 2 gains Step 1b (the one-line call edit, to be named in its commit body and entry).
+
+Deviations: none. No test was edited.
+
+Validation: `pytest -q` -- **2590 passed**.
+
+### 2026-10-20 - Section 3 says PR #3 is done, not under way
+
+Side task, no batch tag: remove the Section 3 sentence that called PR #3 under way, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: Section 3 must not say the album request module is both done and under way.
+
+What changed: the "Before WP-1" bullet carried "PR #3, the album request module, is under way" (added with the plan) and "The album request module is done" (added by Task 7). The PR is complete, so the first sentence is deleted; its plan path moves into the "is done" sentence so the path is still named. PR #4's and PR #7's sentences are untouched.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2769 passed**.
+
+### 2026-10-20 - The entry the import-position fix corrected is named
+
+Side task, no batch tag: name the right entry in the record of the import-position fix, and make one test comment true, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: a reader following the entry "Two sentences made true after the admission module" must be sent to the entry that really changed.
+
+What changed: that entry says the `admission` import-position phrase was corrected in "The album form is refused with a reason"; it was corrected in "Jobs start through one admission path" (Task 4's entry), which `--fix` has since rotated into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Both headings were checked there with grep. The earlier entry is a dated record and is left as written; this entry is the correction. In `tests/test_routes.py` the comment in the failed-thread-start test said the route calls `jobs.delete`; since Task 4 `admission.admit` does, so the comment now says that. Comment only, no code.
+
+Deviations: none.
+
+Edited existing tests: `test_results_loading_thread_start_failure_renders_error`, comment only.
+
+Validation: `pytest -q` -- **2752 passed**.
+
+### 2026-10-20 - No username reaches a pre-check failure log, pinned
+
+Side task, no batch tag: pin by test that no Last.fm username reaches a pre-check failure log, and correct one sentence of the entry "The heatmap and the blur check use the shared pre-check", on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: Rule 6 (a failure is logged by exception type, never with listener data) must fail a test when broken, not only hold by reading the code.
+
+What changed: new `test_precheck_failure_never_logs_the_listener_name` in `tests/services/test_failure_logging.py` (nine rows: the validate, heatmap and album routes, each with a raising existence lookup, a malformed existence answer and a raising privacy lookup; username `zz-listener-7`; every DEBUG-and-up record is checked for it in message and args). Review found that planting a username log line on the UNAVAILABLE branch of `heatmap_flow.py` or `api.py` left the suite green. The earlier entry said the username "leaves two more log lines" and then named the blur check's line, which never carried it; only the heatmap route's two lines changed, and that sentence now says so.
+
+Deviations: none. No existing test edited; no production code changed.
+
+Mutation evidence (planted in a scratch copy, restored): an error line carrying the username on the UNAVAILABLE branch of `routes/heatmap_flow.py`, of `routes/api.py` and of `routes/album_flow.py` in turn -> three rows of the new test fail each time (the `existence-answer-malformed` and `privacy-lookup-raises` rows among them), then 9 passed once restored.
+
+Validation: `pytest -q` -- **2752 passed**.
+
+### 2026-10-20 - Two sentences made true after the admission module
+
+Side task, no batch tag: correct two sentences that Task 4 of the album request module left untrue, on `refactor/album-request-module`, a branch off `main`.
+
+Owner intent: the shared documents must describe the code that ships, so a reader of SESSION_CONTEXT Section 5 and of the admission entry is not misled about who cleans up and where the import sits.
+
+What changed: SESSION_CONTEXT Section 5 said that on a failed thread start "the route deletes the newly created job"; since the admission module, `admission.admit` deletes it (it calls `jobs.delete` after `start_job_thread` raises), so the sentence now says so. The 2026-10-20 entry "The album form is refused with a reason" said ruff put the `admission` import "after the other `scrobblescope` imports"; in both `album_flow.py` and `heatmap_flow.py` it sits in alphabetical position, and the entry now says that. Both checked against the code before editing.
+
+Deviations: none. No code or test changed.
+
+Validation: `pytest -q` -- **2743 passed**.
+
 ### 2026-10-20 - A job says what kind it is
 
 Side task, no batch tag: make the job kind a record field that is never defaulted when read, and amend WP-4 to match, on `refactor/album-request-module`, a branch off `main`.

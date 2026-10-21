@@ -24,8 +24,16 @@ from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 MARKER = "Zqxv Distinctive Artist - Wjkl Distinctive Album"
 
 
-def _assert_type_only_at_error(caplog, *, error_fragment, exc_name="RuntimeError"):
-    """Assert the marker is absent from every ERROR record and present in DEBUG."""
+def _assert_type_only_at_error(
+    caplog, *, error_fragment, exc_name="RuntimeError", listener=None
+):
+    """Assert the marker is absent from every ERROR record and present in DEBUG.
+
+    When ``listener`` is given, no record at any level may carry that Last.fm
+    username either (F-B23-40).
+    """
+    if listener is not None:
+        assert all(listener not in r.getMessage() for r in caplog.records)
     serious = [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert serious, "nothing was logged at WARNING or above"
     for record in serious:
@@ -91,7 +99,9 @@ async def test_album_pipeline_crash_logs_the_class_only_at_error(caplog):
         await _fetch_and_process(job_id, "testuser", 2025, "playcount", "all")
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Error processing request")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Error processing request", listener="testuser"
+    )
 
 
 def test_album_backstop_logs_the_class_only_at_error(caplog):
@@ -110,7 +120,9 @@ def test_album_backstop_logs_the_class_only_at_error(caplog):
             _report_album_failure(job_id, "testuser", 2025)
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Unhandled error in background")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Unhandled error in background", listener="testuser"
+    )
 
 
 def test_heatmap_backstop_logs_the_class_only_at_error(caplog):
@@ -129,7 +141,9 @@ def test_heatmap_backstop_logs_the_class_only_at_error(caplog):
             _report_heatmap_failure(job_id, "testuser", exc)
 
     assert jobs.progress(job_id)["error_code"] == "internal_error"
-    _assert_type_only_at_error(caplog, error_fragment="Unhandled error in heatmap")
+    _assert_type_only_at_error(
+        caplog, error_fragment="Unhandled error in heatmap", listener="testuser"
+    )
 
 
 @pytest.mark.asyncio
@@ -152,7 +166,7 @@ async def test_release_check_failure_logs_the_class_only_at_error(caplog):
         patch.object(release_checks, "_mark_unchecked"),
         patch.object(
             release_checks,
-            "_get_db_connection",
+            "get_db_connection",
             new_callable=AsyncMock,
             return_value=MagicMock(close=AsyncMock()),
         ),
@@ -434,19 +448,19 @@ def _database_site(name):
 
     sites = {
         "metadata_lookup": (
-            patched(orch, "_batch_lookup_metadata"),
+            patched(orch, "batch_lookup_metadata"),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache"],
             "RuntimeError",
         ),
         "metadata_lookup_schema": (
-            patched(orch, "_batch_lookup_metadata", _SchemaError(MARKER)),
+            patched(orch, "batch_lookup_metadata", _SchemaError(MARKER)),
             metadata_lookup,
             ["DB lookup failed, proceeding without cache" + _remedy()],
             "_SchemaError",
         ),
         "metadata_persist": (
-            patched(orch, "_batch_persist_metadata"),
+            patched(orch, "batch_persist_metadata"),
             lambda: orch._persist_new_metadata(
                 MagicMock(), jobs.create(TEST_JOB_PARAMS), [("row",)]
             ),
@@ -454,26 +468,26 @@ def _database_site(name):
             "RuntimeError",
         ),
         "correction_lookup": (
-            patched(orch, "_batch_lookup_original_release"),
+            patched(orch, "batch_lookup_original_release"),
             lambda: orch._lookup_cached_original_release(MagicMock(), [("a", "b")]),
             ["Original-release cache lookup failed (non-fatal)"],
             "RuntimeError",
         ),
         "stale_cleanup": (
             patch.object(cache, "METADATA_CACHE_TTL_DAYS", 30),
-            lambda: cache._cleanup_stale_metadata(_failing_conn()),
+            lambda: cache.cleanup_stale_metadata(_failing_conn()),
             ["Stale cache cleanup failed (non-fatal)"],
             "RuntimeError",
         ),
         "release_check_lookup": (
-            patched(release_checks, "_batch_lookup_original_release"),
+            patched(release_checks, "batch_lookup_original_release"),
             release_check_lookup,
             ["Original-release cache lookup failed"],
             "RuntimeError",
         ),
         "release_check_lookup_schema": (
             patched(
-                release_checks, "_batch_lookup_original_release", _SchemaError(MARKER)
+                release_checks, "batch_lookup_original_release", _SchemaError(MARKER)
             ),
             release_check_lookup,
             ["Original-release cache lookup failed" + _remedy()],
@@ -481,7 +495,7 @@ def _database_site(name):
         ),
         "release_check_persist": (
             _all(
-                patched(release_checks, "_batch_persist_original_release"),
+                patched(release_checks, "batch_persist_original_release"),
                 no_musicbrainz_answer(),
             ),
             persist_one_finding,
@@ -492,7 +506,7 @@ def _database_site(name):
             _all(
                 patched(
                     release_checks,
-                    "_batch_persist_original_release",
+                    "batch_persist_original_release",
                     _SchemaError(MARKER),
                 ),
                 no_musicbrainz_answer(),
@@ -510,7 +524,7 @@ def _database_site(name):
                 patch.object(release_checks, "_mark_unchecked"),
                 patch.object(
                     release_checks,
-                    "_get_db_connection",
+                    "get_db_connection",
                     new_callable=AsyncMock,
                     return_value=MagicMock(
                         close=AsyncMock(side_effect=RuntimeError(MARKER))
@@ -544,7 +558,7 @@ def _database_site(name):
                     },
                 ),
             ),
-            cache._get_db_connection,
+            cache.get_db_connection,
             [
                 "DB connection attempt 1/2 failed (db-down), retrying in 0.00s",
                 "DB cache unavailable (db-down): connection failed after 2 "

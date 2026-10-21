@@ -318,7 +318,7 @@ def get_cached_response(url, params=None):
         if key in REQUEST_CACHE:
             timestamp, data = REQUEST_CACHE[key]
             if time.time() - timestamp < REQUEST_CACHE_TIMEOUT:
-                logging.debug(f"Cache hit for {key}")
+                logging.debug("Cache hit for %s", url)
                 return data
     return None
 

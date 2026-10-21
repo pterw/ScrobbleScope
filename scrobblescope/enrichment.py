@@ -17,7 +17,7 @@ class AlbumMetadata:
     track_durations: dict[str, int]
 
     def as_cache_row(self, artist_norm: str, album_norm: str) -> tuple:
-        """Return one row in the order ``_batch_persist_metadata`` unpacks.
+        """Return one row in the order ``batch_persist_metadata`` unpacks.
 
         The keys are arguments because this object does not carry them: it
         describes an album a provider returned, not which lookup asked for
