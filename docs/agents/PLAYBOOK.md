@@ -168,6 +168,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Two of the new review findings say what the code does
+
+Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
+
+Owner intent: the findings must say what the code does, so the two claims the review of the previous commit found wrong are corrected.
+
+What changed: `docs/agents/FINDINGS.md` only. F-B23-51 no longer says a Deezer outage hides the Last.fm page-loss detail on the loading page (the Deezer writer is guarded by a read of the existing value; only the Spotify writers overwrite it there, while Results keeps just the generic Last.fm sentence whenever any provider sentence is present). F-B23-52 no longer says the three writers use "the same keys": it now lists the keys all three share and the keys each adds, including that the Deezer literal also carries `album_image` and `spotify_id` (both None), as read from `partition_albums_by_threshold`, `_results.py` and `_deezer_fallback.py`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
 
 Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).
@@ -205,19 +217,5 @@ What changed: `test_unmatched_view_coverless_rows_wear_their_albums_wash` assert
 Deviations: the plan's block compared only each row's artwork classes; the code review noted that lets row-order nondeterminism pass, and the controller ruled for the whole-page comparison with only the token masked. Edited existing tests: `test_unmatched_view_coverless_rows_wear_their_albums_wash` (the only edit).
 
 Mutations, each proven red then reverted: reversing the order of the unmatched reasons on every second render fails; `cover_wash_filter` drawing from `random.randrange(6)` fails; leaving the token unmasked fails under a patched `TimestampSigner.get_timestamp` that signs a different second per render, while the masked test passes under that same patch.
-
-Validation: `pytest -q` -- **2961 passed**.
-
-### 2026-10-22 - Log lines reach stdout as UTF-8
-
-Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: the production log stream must never lose a line because of a listener's artist name.
-
-What changed: the stream setup block in `app.py` reconfigured only `sys.stderr` to UTF-8, while `logging.StreamHandler(sys.stdout)` is the production log channel (the file handler is ephemeral on Fly.io). It now loops over `(sys.stdout, sys.stderr)`. Why: when stdout is a pipe or a file (a redirected log, a process manager) Python uses the locale's code page, where a non-Latin artist name raised `UnicodeEncodeError` inside logging and the line was lost. The plan's wording blamed a Windows console; since PEP 528 a real console writes UTF-8, so the `app.py` comment and the test name say pipe or file under a legacy code page. `tests/test_app_factory.py` gains `test_a_log_line_reaches_stdout_whole_when_its_encoding_is_legacy`, which reuses `_import_app_in_child` with `PYTHONIOENCODING=cp1252`.
-
-Deviations: the test goes beyond the plan's block (owner rule: a wrong implementation must not pass): the child also writes the probe to `sys.stderr`, and the test asserts it arrives intact there, so the stderr half of the fix is pinned too; the test is renamed from `..._on_a_narrow_console` to match the corrected description. Edited existing tests: none.
-
-Mutations, each proven red then reverted: a loop over `(sys.stderr,)` only fails (the probe is missing from stdout, with a Logging error); a loop over `(sys.stdout,)` only fails (the probe is missing from stderr); `reconfigure(errors="replace")` with no encoding fails (the probe arrives as `?`). The frontend gate passed.
 
 Validation: `pytest -q` -- **2961 passed**.

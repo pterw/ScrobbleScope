@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Log lines reach stdout as UTF-8
+
+Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: the production log stream must never lose a line because of a listener's artist name.
+
+What changed: the stream setup block in `app.py` reconfigured only `sys.stderr` to UTF-8, while `logging.StreamHandler(sys.stdout)` is the production log channel (the file handler is ephemeral on Fly.io). It now loops over `(sys.stdout, sys.stderr)`. Why: when stdout is a pipe or a file (a redirected log, a process manager) Python uses the locale's code page, where a non-Latin artist name raised `UnicodeEncodeError` inside logging and the line was lost. The plan's wording blamed a Windows console; since PEP 528 a real console writes UTF-8, so the `app.py` comment and the test name say pipe or file under a legacy code page. `tests/test_app_factory.py` gains `test_a_log_line_reaches_stdout_whole_when_its_encoding_is_legacy`, which reuses `_import_app_in_child` with `PYTHONIOENCODING=cp1252`.
+
+Deviations: the test goes beyond the plan's block (owner rule: a wrong implementation must not pass): the child also writes the probe to `sys.stderr`, and the test asserts it arrives intact there, so the stderr half of the fix is pinned too; the test is renamed from `..._on_a_narrow_console` to match the corrected description. Edited existing tests: none.
+
+Mutations, each proven red then reverted: a loop over `(sys.stderr,)` only fails (the probe is missing from stdout, with a Logging error); a loop over `(sys.stdout,)` only fails (the probe is missing from stderr); `reconfigure(errors="replace")` with no encoding fails (the probe arrives as `?`). The frontend gate passed.
+
+Validation: `pytest -q` -- **2961 passed**.
+
 ### 2026-10-22 - Importing the app no longer runs a shell command
 
 Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
