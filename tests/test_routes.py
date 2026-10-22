@@ -735,6 +735,41 @@ def test_unmatched_api_returns_data(client):
     assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
 
 
+def test_unmatched_api_refuses_a_heatmap_job(client):
+    """A heatmap job's id gets the missing-job 404, not an unmatched report."""
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.record_unmatched(
+        job_id,
+        "artist::album_key",
+        {"artist": "Radiohead", "album": "OK Computer", "reason": "x"},
+    )
+
+    response = client.get(f"/api/unmatched?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
+def test_unmatched_api_unknown_job(client):
+    """An id no job has gets the missing-job 404 and its exact body."""
+    response = client.get("/api/unmatched?job_id=does_not_exist")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
+def test_unmatched_api_refuses_a_job_of_another_mode(client):
+    """Only an album job has an unmatched report: any other mode is refused."""
+    job_id = jobs.create({"username": "testuser", "mode": "other"})
+    jobs.record_unmatched(
+        job_id,
+        "artist::album_key",
+        {"artist": "Radiohead", "album": "OK Computer", "reason": "x"},
+    )
+
+    response = client.get(f"/api/unmatched?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
 # --- Release-check API tests ---
 
 
@@ -2191,6 +2226,36 @@ def test_heatmap_data_expired_job(client):
     assert response.status_code == 404
     data = response.get_json()
     assert data["error"] is True
+
+
+@pytest.mark.parametrize("state", ["running", "finished", "failed"])
+def test_heatmap_data_refuses_an_album_job(client, state):
+    """An album job's id gets the missing-job 404 in every state, never a 500."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    if state == "finished":
+        jobs.succeed(job_id, [{"artist": "Radiohead", "album": "Kid A"}], "Done!")
+    elif state == "failed":
+        jobs.fail(job_id, "lastfm_rate_limited")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {
+        "error": True,
+        "message": "Job not found or expired.",
+    }
+
+
+def test_heatmap_data_refuses_a_job_of_another_mode(client):
+    """Only a heatmap job is served: a finished job of any other mode is refused."""
+    job_id = jobs.create({"username": "testuser", "mode": "other"})
+    jobs.succeed(job_id, {"grid": []}, "Done!")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {
+        "error": True,
+        "message": "Job not found or expired.",
+    }
 
 
 def test_heatmap_data_still_processing(client):
