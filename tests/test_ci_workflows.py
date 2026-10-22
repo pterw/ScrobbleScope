@@ -103,3 +103,107 @@ def test_guard_flags_a_secret_anywhere_but_a_step_env(workflow):
 def test_guard_allows_a_secret_in_a_step_level_env():
     workflow = STEP + "        env:\n          K: ${{ secrets.K }}\n"
     assert _secret_lines_outside_step_env(workflow) == []
+
+
+IMAGE_STEP = "Read the runner image version"
+RESTORE_STEP = "Restore Playwright system packages"
+INSTALL_STEP = "Install Playwright browser"
+SAVE_STEP = "Save Playwright system packages"
+APT_ARCHIVES = "/var/cache/apt/archives"
+
+
+def _steps(workflow_text: str) -> dict[str, list[str]]:
+    """Return each step's lines, keyed by its name, in file order."""
+    steps: dict[str, list[str]] = {}
+    current = None
+    for line in _lines(workflow_text):
+        stripped = line.strip()
+        if line.startswith("      - name: "):
+            current = stripped.removeprefix("- name: ")
+            steps[current] = []
+        elif current is not None and (not line.strip() or _indent(line) > 6):
+            steps[current].append(line)
+        elif current is not None:
+            current = None
+    return steps
+
+
+def _code(step: list[str]) -> list[str]:
+    """Return a step's stripped, non-blank, non-comment lines."""
+    stripped = (line.strip() for line in step)
+    return [line for line in stripped if line and not line.startswith("#")]
+
+
+def _value(step: list[str], key: str) -> str | None:
+    """Return the value of the step's first ``key: value`` line, if any."""
+    prefix = f"{key}: "
+    for line in _code(step):
+        if line.startswith(prefix):
+            return line.removeprefix(prefix)
+    return None
+
+
+def _first_restore_key(step: list[str]) -> str | None:
+    """Return the first line under the step's ``restore-keys: |`` block."""
+    code = _code(step)
+    for i, line in enumerate(code):
+        if line.startswith("restore-keys:"):
+            return code[i + 1] if i + 1 < len(code) else None
+    return None
+
+
+def _copies(line: str, source: str, target: str) -> bool:
+    """True if the ``cp`` line names ``source`` before ``target``."""
+    start = line.find(source)
+    return (
+        "cp" in line.split()
+        and start != -1
+        and line.find(target, start + len(source)) != -1
+    )
+
+
+def test_playwright_packages_are_restored_seeded_and_saved_around_the_install():
+    """The packages are restored before the install, copied into apt's cache
+    directory before it, copied back after it and saved even when a later
+    step fails, so a slow mirror is paid for at most once (F-B23-57)."""
+    steps = _steps(WORKFLOW.read_text(encoding="utf-8"))
+    names = list(steps)
+    for name in (IMAGE_STEP, RESTORE_STEP, INSTALL_STEP, SAVE_STEP):
+        assert name in names, f"step {name!r} is missing from {names}"
+    order = [
+        names.index(n) for n in (IMAGE_STEP, RESTORE_STEP, INSTALL_STEP, SAVE_STEP)
+    ]
+    assert order == sorted(order), f"steps are out of order: {names}"
+
+    restore, install, save = steps[RESTORE_STEP], steps[INSTALL_STEP], steps[SAVE_STEP]
+    restore_id = _value(restore, "id")
+    image_id = _value(steps[IMAGE_STEP], "id")
+    assert restore_id, "the restore step needs an id for the save step to read"
+    assert image_id, "the runner-image step needs an id for the key to read"
+    assert str(_value(restore, "uses")).startswith("actions/cache/restore@")
+    assert str(_value(save, "uses")).startswith("actions/cache/save@")
+
+    path = _value(restore, "path")
+    assert path, "the restore step has no path"
+    assert _value(save, "path") == path, "restore and save use different paths"
+    assert _value(save, "key") == (
+        "${{ steps." + restore_id + ".outputs.cache-primary-key }}"
+    ), "the save step must store under the restore step's primary key"
+    assert _value(save, "if") == (
+        "steps." + restore_id + ".outputs.cache-hit != 'true'"
+    ), "the save step must run only when the exact key was not found"
+
+    key = _value(restore, "key") or ""
+    assert f"steps.{image_id}.outputs." in key, "the key omits the runner image"
+    prefix = _first_restore_key(restore)
+    assert prefix and key.startswith(prefix), "restore-keys is not a key prefix"
+
+    code = _code(install)
+    runs = [
+        i for i, line in enumerate(code) if "playwright install --with-deps" in line
+    ]
+    assert len(runs) == 1, f"expected one browser install line, found {runs}"
+    seeds = [line for line in code[: runs[0]] if _copies(line, path, APT_ARCHIVES)]
+    saves = [line for line in code[runs[0] + 1 :] if _copies(line, APT_ARCHIVES, path)]
+    assert seeds, "no line before the install copies the cache into apt's archives"
+    assert saves, "no line after the install copies apt's archives back to the cache"

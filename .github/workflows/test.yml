@@ -114,11 +114,55 @@ jobs:
           path: coverage.xml
           retention-days: 14
 
+      - name: Read the runner image version
+        id: runner-image
+        run: echo "version=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      # --with-deps installs about 50 MB of Ubuntu packages (48 of them on
+      # 2026-10-22) from the runner's Azure mirror on every run. That day the
+      # mirror served them at 43.5 kB/s and the step took 21 minutes instead
+      # of about one (F-B23-57). The packages are kept between runs here, so
+      # apt downloads only a package newer than the cached one; its index
+      # still comes from the mirror (12.5 MB in 16 s that day). The runner
+      # image version is in the key, so the cache refreshes with the image,
+      # and the restore key reuses the previous image's packages meanwhile.
+      - name: Restore Playwright system packages
+        id: playwright-apt
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/playwright-apt
+          key: playwright-apt-${{ runner.os }}-${{ runner.arch }}-${{ steps.runner-image.outputs.version }}-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: |
+            playwright-apt-${{ runner.os }}-${{ runner.arch }}-
+
       # Last on purpose. Starting a browser costs far more than a lint, a
       # rebuild or the suite, so every cheaper gate reports first.
       - name: Install Playwright browser
         run: |
+          # apt reads packages from a root-owned directory the cache action
+          # cannot write, so the cached ones are copied in first and the
+          # current set copied back after; autoclean drops versions the
+          # mirror no longer serves, so the cache does not grow without end.
+          mkdir -p ~/.cache/playwright-apt
+          find ~/.cache/playwright-apt -name '*.deb' -exec sudo cp -t /var/cache/apt/archives/ {} +
           python -m playwright install --with-deps chromium firefox
+          sudo apt-get autoclean -q
+          rm -f ~/.cache/playwright-apt/*.deb
+          find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -exec cp -t ~/.cache/playwright-apt/ {} +
+          echo "cached packages: $(find ~/.cache/playwright-apt -name '*.deb' | wc -l)"
+          du -sh ~/.cache/playwright-apt
+
+      # Saved here, not by the cache action's own post-job step: that one
+      # saves only when the whole job succeeds. Saving right after the
+      # install means a later failure (the frontend gate or any step after
+      # it) no longer prevents the cache from filling. A hit on the exact
+      # key means the cache is already stored under it.
+      - name: Save Playwright system packages
+        if: steps.playwright-apt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/playwright-apt
+          key: ${{ steps.playwright-apt.outputs.cache-primary-key }}
 
       - name: Run frontend gate
         if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}

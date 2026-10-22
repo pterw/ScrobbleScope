@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
+
+Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).
+
+Owner intent: the review's open items must not live only in an untracked page, so the report is committed beside the other reports and each carried-over candidate becomes a finding with a timing.
+
+What changed: `docs/history/reports/architecture-review-2026-10-21.html` is a byte-for-byte copy (`cmp` clean, 57166 bytes) of the owner's untracked file; the original stays where it was. `docs/agents/FINDINGS.md` gains F-B23-51 to F-B23-56 under "P2 -- Scaling roadmap", all open P2: 51 a Last.fm page-loss detail lost when a provider also fails (candidate 1, D2), 52 the unmatched-album record built as a dict literal in three places (candidate 2), 53 the mode rule written inline at five call sites (candidate 3), 54 the results page's two keyword blocks (candidate 4), 55 the orchestrator facade's re-export block (candidate 5), 56 three browser pollers (candidate 6). Each was re-checked at e94b6e8 by `git grep`. Changes since the triage at eb0db9e: `partial_data_warning` has six writers, one guarded, so "four of five unguarded" is five of six; the five mode checks are `_get_validated_job_context`, `_latest_heatmap_job`, `release_checks`, `heatmap_data` and `unmatched_data`, two of them added by F-B23-50; `_render_results_page` now carries `play_stats` in both keyword blocks (PR #262); `orchestrator/__init__.py` is 725 lines, not 738 (PR #261); `heatmap.js` polling is unchanged, so F-B23-56 has no conflict to wait for. F-B23-50 is closed by the previous PR and F-B23-49 stays unused.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
+### 2026-10-22 - Two job endpoints refuse the other mode's job
+
+Side task, no batch tag: making `/heatmap_data` and `/api/unmatched` refuse a job of the other mode, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: every job endpoint answers a job that is not its own the way it answers a missing job, and "a wrong implementation must not pass".
+
+What changed: `heatmap_data` spreads `ctx["results"]` into its answer, and an album job's results are a list of rows, so a finished album job id raised `TypeError` and answered 500 (a running one answered 202, a failed one 200); `unmatched_data` answered a heatmap job with 200 and a report (F-B23-50, 2026-10-21 architecture review D1 and D3). `heatmap_data` now returns the missing-job 404 unless the job's mode is heatmap; `unmatched_data` reads `jobs.context` once and returns its missing-job 404 unless the job exists and its mode is album. Both are allowlists, so a job of any third mode is refused. `/progress` stays shared by both modes (`static/js/heatmap.js` polls it). F-B23-50 is filed as resolved. F-B22-3's body named `jobs.unmatched` as an endpoint read; it now names `jobs.progress` and `jobs.context`.
+
+Deviations: the plan's planted defect (a) predicted `running` gets 202 when the mode check moves after the results branch; it passes (404) instead, and the defect is caught by `finished` and `failed`. Beyond the plan, per the code review: `test_unmatched_api_unknown_job` (the rewritten unknown-job branch had no test) and one other-mode case per endpoint (the guards are allowlists). Edited existing tests: none. Tests added: `test_heatmap_data_refuses_an_album_job` (running, finished, failed), `test_heatmap_data_refuses_a_job_of_another_mode`, `test_unmatched_api_refuses_a_heatmap_job`, `test_unmatched_api_unknown_job`, `test_unmatched_api_refuses_a_job_of_another_mode`.
+
+Mutations, each proven red then reverted: mode check after the results branch (`finished` TypeError, `failed` 200 not 404); results-type guard instead of the mode check (`running`, `finished`, `failed` fail); `unmatched_data` mode clause deleted (heatmap job gets 200); `job_context is None or` removed (the unknown job raises AttributeError); `unmatched_data` denylist `== MODE_HEATMAP` (the other-mode job gets 200); `heatmap_data` denylist `== MODE_ALBUM` (the other-mode job gets 200). The frontend gate passed.
+
+Validation: `pytest -q` -- **2968 passed**.
+
+### 2026-10-22 - The coverless-wash route test no longer reads the clock
+
+Side task, no batch tag: making a flaky route test independent of the clock, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: a test that fails now and then with no defect in the code teaches the team to ignore red, and "a false green is worse than a true red", so the fix must not weaken what the test guards.
+
+What changed: `test_unmatched_view_coverless_rows_wear_their_albums_wash` asserted the two `POST /unmatched_view` pages byte-identical, but `templates/base.html` renders a CSRF meta token that Flask-WTF signs with a timestamp, so renders a second apart differ (PR #262 CI, 2026-10-21; filed and closed as F-B23-48). The test now also asserts the second status, then masks each page's own token (read from its `csrf-token` meta tag, every occurrence replaced by a fixed placeholder) and compares the two pages whole, so row order or any other render nondeterminism still fails. The per-row expected-wash assertions are unchanged. The docstring's THEN clause and Mutation paragraph are updated.
+
+Deviations: the plan's block compared only each row's artwork classes; the code review noted that lets row-order nondeterminism pass, and the controller ruled for the whole-page comparison with only the token masked. Edited existing tests: `test_unmatched_view_coverless_rows_wear_their_albums_wash` (the only edit).
+
+Mutations, each proven red then reverted: reversing the order of the unmatched reasons on every second render fails; `cover_wash_filter` drawing from `random.randrange(6)` fails; leaving the token unmasked fails under a patched `TimestampSigner.get_timestamp` that signs a different second per render, while the masked test passes under that same patch.
+
+Validation: `pytest -q` -- **2961 passed**.
+
 ### 2026-10-22 - Log lines reach stdout as UTF-8
 
 Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
