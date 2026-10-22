@@ -190,6 +190,66 @@ review, 2026-09-27.
 
 ## P2 -- Scaling roadmap
 
+### F-B23-51: a Last.fm page-loss detail is lost when a provider also fails
+
+A run that drops Last.fm pages and also meets a Spotify outage loses the count on the loading page, and a run that meets any provider outage leaves Results with only the generic Last.fm sentence (a Deezer-only outage keeps the loading-page count, because that writer is guarded). `jobs.record_stat` overwrites its key, and `partial_data_warning` has six writers at HEAD: three Spotify-outage sentences in `_fetch_spotify_misses`, the Last.fm sentence in `_record_fetch_stats` (`scrobblescope/orchestrator/__init__.py`), the Deezer sentence in `_run_deezer_fallback_phase` (`_deezer_fallback.py`, the only one guarded by a read of the existing value) and the heatmap's own sentence in `_fetch_and_process_heatmap` (`scrobblescope/heatmap.py`). The Last.fm sentence ("3 of 12 pages failed to load (25% data loss)") is written first, so a later provider sentence replaces it; the loading page (`static/js/loading.js`) prints whichever string is last, and `_partial_run_notice` (`scrobblescope/routes/album_flow.py`) words the Results notice from `partial_data_sources`, which keeps the kinds but not the counts, so when both kinds are present Results says only "Some Last.fm pages failed to load" beside the provider sentence. The review's count of "four of five writers unguarded" is five of six at HEAD; PRs #261 to #263 and the job-endpoint fix did not change the writers.
+
+Fix shape: the review's candidate 1, one record of a run's completeness. The pipeline records facts (pages expected, received and dropped; which providers could not answer; how many albums were unchecked) and one renderer words them for the loading page and for Results, so a second degradation cannot hide the first and the export path's writer adds a fact, not a sentence.
+
+When: its own PR before Batch 23 WP-3, because the export path adds another writer.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-52: the unmatched-album record is a dict literal built in three places
+
+Three writers hand `jobs.record_unmatched` a dict literal with overlapping keys: the below-threshold exclusion in `partition_albums_by_threshold` (`scrobblescope/unmatched.py`, published through `_publish_selection`), the release-scope exclusion in `scrobblescope/orchestrator/_results.py`, and the provider-unavailable or no-match exclusion in `_run_deezer_fallback_phase` (`scrobblescope/orchestrator/_deezer_fallback.py`). Each spells the field names itself. All three carry `artist`, `album`, `reason`, `reason_code` and `play_count`; threshold entries add `track_count`, `failed_thresholds`, `min_plays`, `min_tracks` and `shortfall`; release-scope entries add `album_image`, `spotify_id`, `provider`, `album_url` and `provider_release_date`; Deezer entries add `album_image` and `spotify_id` (both None). The readers (`scrobblescope/release_checks.py`, `_partial_run_notice`, the unmatched page) probe with `.get`, so a renamed or missing field fails silently as a blank cell. PR #261 changed album metadata, not these records, so the writers are still literals at HEAD.
+
+Fix shape: the review's candidate 2. One `UnmatchedAlbum` record with a constructor per reason, so a field is spelled once and a reason carries the fields it needs.
+
+When: before Batch 23 WP-5 (per-source wording) and WP-6.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-53: the job's mode and payload rule is written inline at five call sites
+
+Which jobs an endpoint may answer is decided by a mode comparison repeated at each reader: `_get_validated_job_context` and `_latest_heatmap_job` (`scrobblescope/routes/__init__.py`), `release_checks` and `unmatched_data` (`scrobblescope/routes/api.py`), and `heatmap_data` (`scrobblescope/routes/heatmap_flow.py`). The last two were added by F-B23-50 (a defect fixed by copying the rule into two more endpoints), so the next endpoint, or a third job kind, has to remember to copy it, and the rule's shape differs by site (an allowlist of one mode, a 404 body, a session pop). `/progress` is deliberately shared by both modes and stays outside the seam.
+
+Fix shape: the review's candidate 3. One job read seam that takes the expected mode and returns the job context or one refusal, so the mode and the payload shape (a list of rows for an album job, a mapping for a heatmap job) are decided once.
+
+When: before Batch 23 WP-3 adds a third job kind.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-54: the results page builds its empty and filled views from two keyword blocks
+
+`_render_results_page` (`scrobblescope/routes/album_flow.py`) calls `render_template("results.html", ...)` twice, once with `no_matches=True` for an empty filter and once for the filled page, each with its own list of about a dozen keywords (`partial_notice`, `unmatched_count`, `play_stats`, `has_durations` and the rest). A figure added to one block and not the other makes the empty page differ from the filled page without a test noticing; `_render_unmatched_page` has one filled call and two empty-state returns, so it is not yet drifting. PR #262 added `play_stats` to the results blocks, so they were in step at HEAD, but nothing keeps them so (the triage asked that PR to add it to both blocks).
+
+Fix shape: the review's candidate 4. One view model per page (results, unmatched) that the route builds once and the template reads, so an empty page is the same model with no rows.
+
+When: with Batch 23 WP-5's results work.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-55: the orchestrator facade re-exports every dependency so tests can patch it there
+
+`scrobblescope/orchestrator/__init__.py` (725 lines at HEAD) keeps every external dependency imported even where only a submodule calls it, because the suite patches them at `scrobblescope.orchestrator.<name>` and each phase file reads the live attribute through the facade (its docstring says so). Understanding what one phase depends on takes the facade and the phase file, and moving an import silently breaks a patch path. `tests/services/test_orchestrator_fetch_and_process.py`, `test_orchestrator_fetch_spotify.py` and `test_orchestrator_process_albums.py` alone hold over 200 `patch(` calls.
+
+Fix shape: the review's candidate 5. Phase collaborators passed as parameters (or held by a small object), retiring the re-export block. Parity tests that pin the current behaviour come first, then the patch targets move in one pass.
+
+When: the owner's decision, its own PR, possibly after Batch 23. Not scheduled.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-56: three browser pollers repeat the same loop
+
+`static/js/loading.js` (`fetchProgress`, a one-second `setTimeout` chain), `static/js/heatmap.js` (`pollProgress` on a `setInterval`, with a sequence number and an in-flight flag) and `static/js/results-release-checks.js` (`poll`, a `setTimeout` chain written to avoid overlapping requests, F-B21-33) each fetch a job endpoint, ignore a stale reply, stop on a terminal state and tolerate a transient network error, with different answers to each. This is the third occurrence, so global-rules Rule 3 allows the abstraction. PR #262 has merged and touched `heatmap.js` rendering, not its polling, so no conflict remains to wait for.
+
+Fix shape: the review's candidate 6. One poller module (endpoint, interval, a stop predicate, a reply handler) that the three pages configure.
+
+When: its own frontend PR, with the frontend gate and the results behaviour tests.
+
+- [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
 ### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
 
 `check_retired` (`scripts/docsync/declarations.py`) compares a raw file line

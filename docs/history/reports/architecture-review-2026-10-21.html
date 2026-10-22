@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScrobbleScope architecture hardening review -- 2026-10-21</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "strict" });
+</script>
+<style>
+  :root{color-scheme:light;--ink:#14212b;--muted:#4c6168;--accent:#0f5f57;--line:#c8d6d6;--paper:#f6f7f4;--red:#a8382f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 Arial,Helvetica,sans-serif}
+  main{max-width:1180px;margin:auto;padding:54px 28px 84px}
+  h1{font:normal clamp(2.3rem,5vw,4.1rem)/1.05 Georgia,serif;max-width:900px;margin:14px 0 24px}
+  h2{font:normal clamp(1.55rem,3vw,2.15rem)/1.15 Georgia,serif;margin:6px 0 14px}
+  h3{font-size:1rem;margin:0 0 8px}
+  p{margin:0 0 12px}
+  .eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;color:var(--muted);font-weight:bold}
+  .meta{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0}
+  .badge{padding:4px 10px;background:#e3eeed;font-size:.78rem;font-weight:bold}
+  .badge.strong{background:#d3ece0;color:#12523d}
+  .badge.worth{background:#fbeccd;color:#6b4c10}
+  .badge.defect{background:#f7dcd8;color:#7d2a22}
+  .status{background:white;border-left:4px solid var(--accent);padding:16px 20px;margin:24px 0}
+  nav{display:flex;gap:8px 20px;flex-wrap:wrap;padding:18px 0;border-top:1px solid var(--line)}
+  a{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
+  article{background:white;border-top:3px solid var(--ink);padding:30px;margin:32px 0;scroll-margin-top:14px}
+  article.defects{border-top-color:var(--red)}
+  .number{color:var(--accent);font:normal 1.25rem Georgia,serif}
+  .files{font:12px/1.7 Consolas,"Courier New",monospace;color:var(--muted);overflow-wrap:anywhere;margin:10px 0 18px}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  .diagram{background:var(--paper);border:1px solid var(--line);padding:16px;min-height:250px}
+  .diagram.after{background:#eef5f1}
+  .dtitle{font:bold .72rem/1 Arial;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:12px}
+  .node{border:1px solid #8ea9a6;background:white;padding:9px 11px;text-align:center;font-size:.82rem;margin:8px auto;max-width:330px}
+  .deep{background:var(--ink);border:4px solid var(--accent);color:white;padding:18px 14px}
+  .deep small{display:block;color:#c9e2dc;margin-top:7px;font-size:.76rem}
+  .arrow{text-align:center;color:var(--muted);font-size:19px;line-height:1.1}
+  .leak{border-color:var(--red);color:var(--red);background:#fdf6f5}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .split .node,.row3 .node{width:100%;font-size:.76rem}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+  .label{font-size:.71rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:bold;display:block;margin-bottom:4px}
+  .note{background:#fbf4e3;border-left:3px solid #a27722;padding:12px 15px;margin-top:16px;font-size:.88rem}
+  .note.red{background:#fdf1ef;border-left-color:var(--red)}
+  .wins{display:flex;gap:7px;flex-wrap:wrap;list-style:none;padding:0;margin:16px 0}
+  .wins li{background:#eef5f1;color:#20574d;padding:5px 9px;font-size:.79rem}
+  .evidence{border-top:1px solid var(--line);padding-top:14px;margin-top:18px;font-size:.86rem}
+  .evidence p{margin:7px 0}
+  code{font:12px/1.6 Consolas,"Courier New",monospace;background:#eef1f2;padding:1px 4px;overflow-wrap:anywhere}
+  pre{background:#eef1f2;padding:10px 12px;overflow-x:auto;font:12px/1.5 Consolas,"Courier New",monospace;margin:8px 0}
+  pre.mermaid{background:white;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:.87rem}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted)}
+  .small{font-size:.84rem;color:var(--muted)}
+  @media(max-width:760px){main{padding:26px 14px}article{padding:20px 15px}.pair,.row3{grid-template-columns:1fr}.diagram{min-height:0}table{font-size:.79rem}th,td{padding:8px 4px}}
+  @media print{body{background:white}main{max-width:none;padding:0}article{break-inside:avoid}nav{display:none}a{color:inherit}}
+</style></head><body><main>
+
+<header>
+  <div class="eyebrow">ScrobbleScope / architecture hardening / 2026-10-21</div>
+  <h1>Six places where a fact<br>has no owner</h1>
+  <div class="meta">
+    <span class="badge">Scope: runtime app + browser scripts</span>
+    <span class="badge">6 candidates</span>
+    <span class="badge defect">3 defects confirmed by running the app</span>
+    <span class="badge">Evidence tier: Verify</span>
+    <span class="badge">Read-only: no repository source edited</span>
+  </div>
+  <div class="status">
+    <p><b>What this is.</b> A deepening review: refactors that turn shallow modules into deep ones, chosen for
+    <b>testability</b> and <b>AI-navigability</b>. Every candidate below is a place where one fact -- a run's
+    completeness, an exclusion's fields, a job's payload shape, a page's view data, a phase's collaborators, a
+    poller's ordering rule -- lives in several modules at once, so changing it is a search rather than an edit.</p>
+    <p><b>What it is not.</b> No interfaces are designed here, and this is not a re-run of the two earlier reviews:
+    the <a href="#ledger">overlap ledger</a> records which existing owner each neighbouring idea already has, so the six
+    below are the ones <i>nobody</i> owns.</p>
+  </div>
+</header>
+
+<nav>
+  <a href="#method">Method and evidence</a>
+  <a href="#defects">Confirmed defects</a>
+  <a href="#c1">1. How complete was this run</a>
+  <a href="#c2">2. What an exclusion describes</a>
+  <a href="#c3">3. One reader for a job</a>
+  <a href="#c4">4. One view model per page</a>
+  <a href="#c5">5. The seam the patcher draws</a>
+  <a href="#c6">6. One poller in the browser</a>
+  <a href="#ledger">Overlap ledger</a>
+  <a href="#top">Top recommendation</a>
+</nav>
+
+<section id="method">
+  <div class="eyebrow">Method</div>
+  <h2>Where I looked, and why there</h2>
+  <p>The hot spots first: the twenty-five commits before <code>da4d8995</code> are provider semantics, the results and
+  unmatched pages, the frontend gate and the job store's lifecycle. So the pass read the album pipeline
+  (<code>orchestrator/</code> and its four phase submodules), both pipelines' entry points
+  (<code>orchestrator.background_task</code>, <code>heatmap.heatmap_task</code>), the job module and its store seam,
+  the whole route package, the four providers, the cache, the result templates and every page script. The control plane
+  (<code>scripts/docsync/</code>, <code>scripts/dev/</code>, <code>tests/</code>) was surveyed by shape and size; it has
+  its own decomposition plan and its own findings, so nothing there is proposed.</p>
+  <p>The unit of judgement is the <b>deletion test</b>. Every candidate answers yes to "would deleting this
+  <i>concentrate</i> complexity rather than move it?": deleting the six warning literals concentrates the degraded-run
+  rule; deleting the three exclusion dict literals concentrates the exclusion shape; deleting the four inline mode
+  checks concentrates the job-payload rule; deleting the duplicated <code>render_template</code> blocks concentrates the
+  page's contract; deleting the facade's re-export block concentrates a phase's dependencies into its signature;
+  deleting two of three hand-rolled pollers concentrates the ordering rule.</p>
+  <div class="note">
+    <b>Vocabulary.</b> The shared design vocabulary is used as the skill defines it -- <b>module</b>, <b>interface</b>,
+    <b>depth</b>, <b>seam</b>, <b>adapter</b>, <b>leverage</b>, <b>locality</b>. The subject matter keeps the
+    repository's own domain words (job, phase, results, unmatched, release scope) because those are the names the code
+    already carries. This repository has no <code>CONTEXT.md</code> and no <code>docs/adr/</code>:
+    <code>docs/agents/global-rules.md</code>, <code>docs/ARCHITECTURE.md</code> and
+    <code>docs/agents/FINDINGS.md</code> are its architecture and decision authority, and those were read first.
+  </div>
+  <div class="note">
+    <b>Two global rules that shape the advice.</b> Rule 3 (duplication buffer) says duplication is the correct answer
+    until the <i>third</i> occurrence, so each card below names how many occurrences it is acting on -- candidate 6 is
+    the third poller, which is what makes unifying it permitted rather than premature. Rule 4 (anti-corruption layer)
+    is why candidates 1 and 2 push shape to the module that already owns the concept instead of inventing a new one.
+    Rule 7 (deterministic diagnostics) is why nothing here asks a gate to guess: every candidate removes a place where
+    a reader had to infer meaning from a string.
+  </div>
+</section>
+
+<article class="defects" id="defects">
+  <div class="eyebrow">Evidence tier: Verify</div>
+  <h2><span class="number">00.</span> Three defects I confirmed by running the code</h2>
+  <p>These are not structural observations. Each was reproduced on this worktree at <code>da4d8995</code> with a
+  throwaway probe that imported the app factory and drove the job store directly; the probe was deleted afterwards.</p>
+  <table>
+    <thead><tr><th>#</th><th>Defect</th><th>How it was confirmed</th><th>Owner</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>D1</td>
+        <td>An album job's id on <code>GET /heatmap_data</code> raises
+        <code>TypeError: 'list' object is not a mapping</code> and answers <b>HTTP 500</b>: the endpoint spreads the
+        stored results into its envelope and never checks the job's mode.</td>
+        <td><code>jobs.succeed(album_job, [{...}], "Done!")</code>, then
+        <code>client.get("/heatmap_data?job_id=...")</code> returned 500, with that traceback raised at
+        <code>routes/heatmap_flow.py:200</code>.</td>
+        <td><a href="#c3">Candidate 3</a></td>
+      </tr>
+      <tr>
+        <td>D2</td>
+        <td>When a run loses Last.fm pages and then also loses a provider, the <b>page-loss detail is destroyed</b>. The
+        only surviving text is the provider sentence, so "3 of 12 pages (25% data loss)" reaches no reader -- not the
+        loading page, which prints the stored stat verbatim, and not the Results notice, which re-words it
+        generically.</td>
+        <td>Recorded the Last.fm sentence and then the provider sentence through <code>jobs.record_stat</code>:
+        <code>progress["stats"]["partial_data_warning"]</code> held only the second, while
+        <code>partial_data_sources</code> held <code>["lastfm","provider"]</code>, and
+        <code>_partial_run_notice(...)</code> returned the generic two-source sentence.</td>
+        <td><a href="#c1">Candidate 1</a></td>
+      </tr>
+      <tr>
+        <td>D3</td>
+        <td>A <b>wrong-mode job is answered as a valid one</b> by the two service endpoints that take a
+        <code>job_id</code> query parameter without a mode check: a heatmap job id on <code>/api/unmatched</code>
+        answers 200 with an empty report, and on <code>/progress</code> answers 200 with a heatmap payload. Only
+        <code>/api/release_checks</code> checks the mode, and it does so inline, in its own words.</td>
+        <td><code>client.get("/api/unmatched?job_id=&lt;heatmap job&gt;")</code> and
+        <code>client.get("/progress?job_id=&lt;heatmap job&gt;")</code> both returned 200.</td>
+        <td><a href="#c3">Candidate 3</a></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top:14px">The ownership question behind D1 and D3 -- who may read a job's state at all --
+  is already filed as <b>F-B22-3</b> and is deliberately not re-litigated here. Both defects are about the <i>shape</i>
+  and the <i>mode</i> of the answer, which F-B22-3 does not cover.</p>
+</article>
+
+<article id="c1">
+  <div class="eyebrow">Candidate 01</div>
+  <h2>One owner for "how complete was this run"</h2>
+  <span class="badge strong">Strong</span>
+  <p class="files">
+    scrobblescope/jobs.py:232-262 (<code>record_stat</code>, <code>record_partial_source</code>) --
+    scrobblescope/orchestrator/__init__.py:126-133 and 396-399 (the Last.fm text is built here and recorded there),
+    215-218, 234-238, 254-258 (three provider sites) --
+    scrobblescope/orchestrator/_deezer_fallback.py:181-190 (the one guarded writer) --
+    scrobblescope/heatmap.py:184-192 (the same concept, string only, no kind) --
+    scrobblescope/routes/album_flow.py:418-446 (<code>_partial_run_notice</code>) --
+    static/js/loading.js:53-76 -- templates/results.html:66-74
+  </p>
+  <h3>Problem</h3>
+  <p>"This run was degraded, and how" is written by six call sites, in two vocabularies: a single
+  <code>partial_data_warning</code> string, which <code>jobs.record_stat</code> overwrites last-writer-wins, and a
+  de-duplicated <code>partial_data_sources</code> list of kinds. Only one of the six writers guards its write
+  (<code>_deezer_fallback</code> checks whether a warning already exists); the other five simply overwrite. So the first
+  degradation's <i>detail</i> is destroyed by the second, and the two readers disagree about which half to trust: the
+  loading page prints the stored string, while the Results page ignores it whenever a provider kind is present and
+  composes fresh copy. Confirmed (D2): a run that dropped 3 of 12 Last.fm pages and then failed a Spotify token shows
+  only "Spotify is temporarily unavailable for some albums..." -- the 25% data-loss sentence reaches nobody.</p>
+  <p>The heatmap pipeline copies the shape without the kind: <code>heatmap.py</code> records the string and never calls
+  <code>record_partial_source</code>, so the second half of the pair is absent there and any reader that needs the kind
+  sees nothing.</p>
+  <h3>Solution</h3>
+  <p>The job owns <b>facts</b>, not prose: a degradation is recorded as a kind plus its detail
+  (<code>dropped</code>/<code>expected</code> pages, or which provider in which phase went unanswered), appended rather
+  than assigned, and read back as a list. One renderer turns facts into the sentence each surface needs -- the Results
+  notice keeps its single owner, and the loading line gets one too. <code>partial_data_warning</code> and
+  <code>partial_data_sources</code> retire as separate keys; they are two halves of one fact, which is why they can
+  disagree today.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: six writers, two keys, three readers</div>
+      <div class="row3">
+        <div class="node">orchestrator: pages dropped</div>
+        <div class="node">orchestrator: token failed</div>
+        <div class="node">orchestrator: detail 429</div>
+      </div>
+      <div class="row3">
+        <div class="node">_deezer_fallback (guarded)</div>
+        <div class="node">heatmap: pages dropped</div>
+        <div class="node">_record_lastfm_stats</div>
+      </div>
+      <div class="arrow">&#8595; assign &#8595; append</div>
+      <div class="node leak"><b>stats["partial_data_warning"]</b> -- one string, overwritten</div>
+      <div class="node"><b>stats["partial_data_sources"]</b> -- de-duplicated kinds</div>
+      <div class="arrow">&#8595;</div>
+      <div class="row3">
+        <div class="node">loading.js prints the string</div>
+        <div class="node">results notice re-words it</div>
+        <div class="node leak">the heatmap has no kind</div>
+      </div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: one record, one renderer</div>
+      <div class="row3">
+        <div class="node">orchestrator</div>
+        <div class="node">_deezer_fallback</div>
+        <div class="node">heatmap</div>
+      </div>
+      <div class="arrow">&#8595; record_degradation(kind, detail)</div>
+      <div class="node deep">the job's degradations<small>a list of facts, appended in order</small></div>
+      <div class="arrow">&#8595; one renderer per surface</div>
+      <div class="row3">
+        <div class="node">loading line</div>
+        <div class="node">results notice</div>
+        <div class="node">unmatched link</div>
+      </div>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>Locality: "what went wrong in this run" is one record</li>
+    <li>A seventh writer is one call, not a seventh string</li>
+    <li>The lost detail cannot be lost again</li>
+    <li>Tests assert facts, not sentences</li>
+    <li>The heatmap gains the kind it never had</li>
+  </ul>
+  <p><b>How the tests improve.</b> Today the pipeline tests assert a stat <i>equals a sentence</i>
+  (<code>test_orchestrator_fetch_spotify.py</code> asserts <code>partial_data_sources</code>;
+  <code>test_heatmap.py</code> counts warning calls), so any wording change breaks them while a lost fact passes. With
+  facts, a paging-outage test asserts the record carries <code>{"kind": "lastfm_pages", "detail": {"dropped": 3,
+  "expected": 12}}</code> and the renderer's own test owns the words -- two properties, two tests, neither guessing.</p>
+  <div class="evidence">
+    <p><b>Why this is not F-B23-1.</b> The album calculation F-B23-1 describes is where <i>album rows and exclusions</i>
+    are assembled; this record is the <i>run's</i> completeness, written after the calculation and read by other
+    surfaces. F-B23-1 is open and is not this.</p>
+    <p><b>What the export work will add.</b> Batch 23's export path (skipped files, a partial parse) is a seventh
+    writer to these same two keys, from a fourth module. Landing the owner first means that work writes one fact
+    instead of a seventh wording plus a fourth copy of the guard.</p>
+  </div>
+</article>
+
+<article id="c2">
+  <div class="eyebrow">Candidate 02</div>
+  <h2>One owner for the album an exclusion describes</h2>
+  <span class="badge strong">Strong</span>
+  <p class="files">
+    scrobblescope/unmatched.py:20-45, 100-136 (<code>CATEGORY_METADATA</code>, <code>partition_albums_by_threshold</code>) --
+    scrobblescope/orchestrator/_results.py:141-168 (release-scope entry, 11 fields) --
+    scrobblescope/orchestrator/_deezer_fallback.py:152-175 (no-match entry, 7 fields) --
+    scrobblescope/release_checks.py:155-170 (reads a field back off the entry) --
+    templates/unmatched.html:71, 144-236 -- static/js/unmatched.js -- scrobblescope/jobs.py:265-271
+  </p>
+  <h3>Problem</h3>
+  <p>An "unmatched entry" is three different records. <code>_results</code> writes eleven fields, including
+  <code>provider</code>, <code>album_url</code> and <code>provider_release_date</code>; <code>_deezer_fallback</code>
+  writes seven, none of those three; <code>partition_albums_by_threshold</code> writes a third shape with
+  <code>failed_thresholds</code>, <code>shortfall</code>, <code>min_plays</code> and <code>min_tracks</code>. Every
+  consumer therefore reads by convention: the template carries a predicate that exists only to paper over the
+  difference (<code>{% if item.provider == 'spotify' or (reason_key != 'below_threshold' and not item.album_image and
+  not item.provider) %}</code>), and the correction worker reads <code>provider_release_date</code> straight off the
+  entry -- a contract held by a comment in the writer and nothing in the reader.</p>
+  <p>The consequence is latency, not just tidiness: to answer "what does the Unmatched page know about an album, and
+  why" you must read three writers, two reason tables (<code>CATEGORY_METADATA</code> plus the per-entry prose the
+  grouper falls back to for legacy rows) and a 286-line template. WP-5's per-source wording would mean editing all
+  three writers and the template predicate together, and nothing fails if one is missed.</p>
+  <h3>Solution</h3>
+  <p>The module that already owns the subject -- <code>unmatched.py</code>, which owns the reason codes and their copy
+  -- owns the record too: one frozen value object for an excluded album, with one named constructor per reason
+  (<code>for_release_scope</code>, <code>for_no_match</code>, <code>for_below_threshold</code>), and
+  <code>jobs.record_unmatched</code> accepting the object rather than a dict literal. The grouper reads attributes; the
+  template's compensating predicate collapses into "does this album have a provider page"; the correction worker's
+  field becomes declared rather than assumed.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: three writers, three shapes, one reader with an if</div>
+      <div class="row3">
+        <div class="node">_results.py<br>11 fields</div>
+        <div class="node">_deezer_fallback.py<br>7 fields</div>
+        <div class="node">unmatched.py<br>9 other fields</div>
+      </div>
+      <div class="arrow">&#8595; three dict literals</div>
+      <div class="node leak">any dict, keyed by <i>reason</i> or by <i>reason_code</i></div>
+      <div class="arrow">&#8595;</div>
+      <div class="node">unmatched.html: six <code>item.*</code> reads plus a predicate that only exists because the writers disagree</div>
+      <div class="node leak">release_checks reads <code>provider_release_date</code> by convention</div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: one shape with three named doors</div>
+      <div class="row3">
+        <div class="node">_results.py</div>
+        <div class="node">_deezer_fallback.py</div>
+        <div class="node">threshold partition</div>
+      </div>
+      <div class="arrow">&#8595;</div>
+      <div class="node deep">UnmatchedAlbum<small>fields declared once; one constructor per reason</small></div>
+      <div class="arrow">&#8595; jobs.record_unmatched(job_id, album)</div>
+      <div class="node">grouper, template and correction worker read attributes</div>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>One file answers "what does an exclusion carry"</li>
+    <li>The template loses a branch that exists only for heterogeneity</li>
+    <li>Legacy rows get one documented compatibility rule</li>
+    <li>The correction worker's field is declared</li>
+    <li>WP-5's source wording has one place to land</li>
+  </ul>
+  <p><b>How the tests improve.</b> The writers' tests assert dict literals key by key today, so a field the reader needs
+  and the writer forgot passes everywhere. With one constructor per reason, each writer's test asserts <i>which
+  constructor was called with what facts</i>, and a single test on the record proves every reason carries the fields its
+  readers need -- the property the repository keeps re-checking by hand.</p>
+  <div class="evidence">
+    <p><b>Why this is not B-5 or F-B23-1.</b> B-5 ("album metadata speaks one encoding") is the <i>enrichment</i> record
+    a provider returns, and F-B23-1 is the album calculation's return value; this is the <i>exclusion</i> record the
+    Unmatched report renders -- a different fact, with different readers, and no owner on any plan.</p>
+    <p><b>Evidence.</b> The field counts are read from the three writers at <code>da4d8995</code>. The template reads
+    were grepped across the whole file, including the two ranges the indexer flagged as partially parsed
+    (<code>unmatched.html:192</code> and <code>200-204</code>).</p>
+  </div>
+</article>
+
+<article id="c3">
+  <div class="eyebrow">Candidate 03</div>
+  <h2>One reader for a job, one rule for its payload</h2>
+  <span class="badge strong">Strong</span>
+  <p class="files">
+    scrobblescope/routes/api.py:65-96 (<code>/progress</code>), 99-126 (<code>/api/unmatched</code>), 129-204
+    (<code>/api/release_checks</code>, with its own mode check and error envelope) --
+    scrobblescope/routes/heatmap_flow.py:163-202 (<code>/heatmap_data</code>, no mode check, spread payload) --
+    scrobblescope/routes/__init__.py:80-147 (<code>_get_validated_job_context</code>, the page routes' HTML failures) --
+    scrobblescope/jobs.py:470-517 (<code>progress</code>, <code>exists</code>, <code>unmatched</code>, <code>context</code>)
+  </p>
+  <h3>Problem</h3>
+  <p>Five endpoints answer "give me job X's state", and each re-decides the same three things: whether the job is the
+  right <i>mode</i> for this endpoint, what the <i>envelope</i> is, and what a failure looks like. The page routes got
+  the mode rule right and even share it (<code>_get_validated_job_context(expected_mode=...)</code>, whose docstring
+  says "unavailable or wrong-mode jobs return 404, matching the APIs"); the service endpoints did not, so the rule now
+  exists in four spellings -- the shared helper, one inline check in <code>release_checks</code>, and no check at all in
+  the two others.</p>
+  <p>The unprotected one is the one that breaks: <code>/heatmap_data</code> builds its envelope by spreading the stored
+  result into it, so an album job's list payload raises <code>TypeError</code> and answers <b>500</b> (D1, reproduced).
+  A heatmap job id on <code>/api/unmatched</code> is answered as a valid empty report (D3). Both are the same
+  missing rule, not two bugs. The failure envelopes diverge as well: <code>/progress</code> invents a synthetic
+  100%-complete error payload for a missing job, <code>/api/unmatched</code> answers
+  <code>{"count": 0, "data": {}}</code>, and <code>/api/release_checks</code> has a third shape plus a deliberately
+  not-a-real-status word (<code>"error"</code>) that its own comment explains.</p>
+  <h3>Solution</h3>
+  <p>One read seam on the module that owns job state, e.g. a snapshot function that takes the job id and the mode the
+  caller expects and returns either a typed view (mode, payload, progress, unmatched) or a typed refusal
+  (<code>missing</code> / <code>not_found</code> / <code>wrong_mode</code>). The mode rule and the payload shape live
+  there once; the endpoints keep only their own envelope, because that is genuinely theirs.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: each endpoint decides for itself</div>
+      <div class="split">
+        <div class="node">/results /loading (HTML)</div>
+        <div class="node">mode checked, helper shared</div>
+        <div class="node">/progress (JSON)</div>
+        <div class="node leak">no mode check</div>
+        <div class="node">/heatmap_data (JSON)</div>
+        <div class="node leak">no mode check, spreads the payload</div>
+        <div class="node">/api/unmatched (JSON)</div>
+        <div class="node leak">no mode check</div>
+        <div class="node">/api/release_checks (JSON)</div>
+        <div class="node">mode checked inline, own error shape</div>
+      </div>
+      <div class="arrow">&#8595;</div>
+      <div class="node leak">four spellings of one rule; the list payload reaches the heatmap envelope</div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: one rule, five thin views</div>
+      <pre class="mermaid">
+flowchart TB
+  A["page routes"] --> S
+  B["GET /progress"] --> S
+  C["GET /heatmap_data"] --> S
+  D["GET /api/unmatched"] --> S
+  E["GET /api/release_checks"] --> S
+  S["jobs.snapshot(job_id, mode)"] --> V["typed view or typed refusal"]
+  V --> O1["payload shape is decided once"]
+  V --> O2["mode rule is decided once"]
+      </pre>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>D1 and D3 become unrepresentable, not fixed twice</li>
+    <li>Each endpoint's test shrinks to its own envelope</li>
+    <li>One test covers mode and payload for all five</li>
+    <li>A sixth poll endpoint is a call, not a re-implementation</li>
+    <li>Pollers get one failure vocabulary to stop on</li>
+  </ul>
+  <p><b>How the tests improve.</b> Today each endpoint's suite must re-prove the mode behaviour that only one endpoint
+  implements, which is how the gap survived: no test asks <code>/heatmap_data</code> about a foreign job. With the seam,
+  the cross-mode property is one table-driven test at the seam, and the endpoint tests stop carrying a responsibility
+  they never had.</p>
+  <div class="evidence">
+    <p><b>Why this is not F-B22-3.</b> That finding owns <i>ownership</i> -- whether an unguessable job id is enough
+    authorisation -- and says so explicitly for "every job-polling endpoint". This candidate is about the answer's
+    <b>shape and mode</b>, and leaves the ownership decision to that owner. If the owner ever adds a session check, the
+    seam is where it lands once.</p>
+    <p><b>Forward note.</b> Batch 23's export path adds a third job mode and at least one more poll endpoint, which is
+    three more chances to forget the same rule.</p>
+  </div>
+</article>
+
+<article id="c4">
+  <div class="eyebrow">Candidate 04</div>
+  <h2>One view model per page</h2>
+  <span class="badge worth">Worth exploring</span>
+  <p class="files">
+    scrobblescope/routes/album_flow.py:449-560 (<code>_render_results_page</code>, two kwarg blocks) --
+    scrobblescope/routes/album_flow.py:122-330 (<code>_render_unmatched_page</code>) --
+    scrobblescope/routes/album_flow.py:24-72 (<code>_extract_job_params</code>, <code>_filter_results_for_display</code>,
+    <code>_get_filter_description</code>) -- templates/results.html -- templates/unmatched.html
+  </p>
+  <h3>Problem</h3>
+  <p>The Results page's contract is a literal keyword-argument block inside a route function, and it exists twice: the
+  no-matches branch and the filled branch. The two have already drifted -- the empty branch omits
+  <code>release_check</code>, <code>spotlight_artists</code> and the four <code>top_artist_*</code> names and passes
+  <code>filter_description</code> instead -- which is exactly the failure mode of a duplicated contract: it is invisible
+  until someone reads both blocks side by side. Answering "what does the Results page show for a degraded run" takes the
+  route, both branches, <code>_partial_run_notice</code>, <code>_filter_results_for_display</code>,
+  <code>select_spotlight_artists</code> and the 364-line template. <code>_render_unmatched_page</code> repeats the shape
+  for its own page.</p>
+  <p>This is the "shallow interface" smell in its page-sized form: the interface (what the template is handed) is as
+  complex as the implementation (how the page is assembled), so nothing is gained by the split and nothing is testable
+  without a Flask client that renders HTML.</p>
+  <h3>Solution</h3>
+  <p>One function per page returning the whole mapping, with the route reduced to
+  <code>render_template("results.html", **view)</code>. Pure where it can be (given a job context and a progress
+  payload, return the view), and the two branches become one branch with a flag, so the empty state cannot omit a name
+  the template reads.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: the contract is written twice, inline</div>
+      <div class="node">route: <code>_render_results_page</code></div>
+      <div class="arrow">&#8595;</div>
+      <div class="split">
+        <div class="node">empty branch<br>14 names</div>
+        <div class="node leak">filled branch<br>20 names, 6 not in the other</div>
+      </div>
+      <div class="arrow">&#8595;</div>
+      <div class="node">results.html reads names the view never declares</div>
+      <div class="node" style="font-size:.76rem">to test the view: a Flask client, a rendered page, a regex</div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: one function, one contract</div>
+      <div class="node">route: <code>render_template("results.html", **results_view(...))</code></div>
+      <div class="arrow">&#8595;</div>
+      <div class="node deep">results_view<small>one mapping, one flag for the empty state, pure</small></div>
+      <div class="arrow">&#8595;</div>
+      <div class="split">
+        <div class="node">results.html</div>
+        <div class="node">a test that reads the mapping, no HTML</div>
+      </div>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>The page's facts are assertable without rendering</li>
+    <li>The two branches cannot drift</li>
+    <li>The template's required names are one list</li>
+    <li><code>_extract_job_params</code> gets a single consumer</li>
+    <li>WP-5's results work lands in one function</li>
+  </ul>
+  <p><b>How the tests improve.</b> Today the strongest assertion available is a regex over rendered markup
+  (<code>tests/test_routes.py</code> matches the partial-notice paragraph) or the 39 KB template-shell suite. A view
+  function lets a test say "a run that dropped pages and lost a provider produces this notice and this unmatched count"
+  with no request and no HTML, while the template-shell suite keeps owning the markup.</p>
+  <div class="evidence">
+    <p><b>Why this is not B-10.</b> B-10 ("the results row is a DOM-encoded model") is about the per-album row's
+    pre-formatted fields -- <code>play_time</code>, <code>play_time_mobile</code>,
+    <code>proportion_of_max</code> -- which is a data-shape question owned by the WP-5 design. This card is about the
+    <i>page's</i> contract: which facts the template is handed, and where that list lives.</p>
+    <p><b>Strength, honestly.</b> Worth exploring rather than Strong: it removes drift and buys testability, but it is
+    not blocking any work package, so it should ride along with whichever change next touches the results route rather
+    than open its own front.</p>
+  </div>
+</article>
+
+<article id="c5">
+  <div class="eyebrow">Candidate 05</div>
+  <h2>The seam the patcher draws</h2>
+  <span class="badge worth">Worth exploring</span>
+  <p class="files">
+    scrobblescope/orchestrator/__init__.py:10-17 (the rule), 709-731 (the re-export block), 732-769 (<code>__all__</code>)
+    -- scrobblescope/orchestrator/_search.py:1-10, _details.py, _cache.py, _deezer_fallback.py (each says it again) --
+    scrobblescope/routes/__init__.py:13-20, 281-291 -- scrobblescope/heatmap.py:259-266 --
+    scrobblescope/worker.py:76-109 (the counter-example in the same repository) -- the tests that patch
+    <code>scrobblescope.orchestrator.&lt;name&gt;</code>, <code>scrobblescope.routes.&lt;name&gt;</code> and
+    <code>scrobblescope.heatmap.release_job_slot</code>
+  </p>
+  <h3>Problem</h3>
+  <p>Every collaborator a phase calls is a module global, re-exported through the package facade, because the phase reads
+  it as <code>_orchestrator.fetch_spotify_album_details_batch</code> so that an existing
+  <code>mock.patch("scrobblescope.orchestrator.X")</code> still lands. That is the seam: <b>the interface is the test
+  surface</b>. The code says the quiet part out loud -- "Moving an import out of this file without also checking every
+  submodule that reads it this way silently breaks that patch path" -- and repeats the warning in four more modules, plus
+  the equivalent in <code>routes/__init__.py</code> and <code>heatmap.py</code>.</p>
+  <p>The cost is measurable. The facade's <code>__all__</code> lists 36 names, most of which nothing in that file calls;
+  the file is 770 lines and 29 KB, and its job is "the import surface the suite patches". A module boundary cannot move
+  without auditing the test suite, and a dependency added to a phase silently becomes a new public name. A phase's own
+  signature does not say what it depends on, so reading one in isolation does not tell you what it can reach.</p>
+  <p>The same repository already shows the alternative: <code>worker.run_coroutine_in_new_loop</code> takes
+  <code>make_loop</code> and <code>release_slot</code> as parameters with local defaults, and both callers pass their own
+  names explicitly -- "so callers keep their own patchable name". The pattern exists; it was applied to the loop protocol
+  and nowhere else.</p>
+  <h3>Solution</h3>
+  <p>No interface is designed here, but the shape is the one already in <code>worker.py</code>: a phase takes the
+  collaborators it uses as parameters, with the current module globals as defaults, and the two entry points pass them.
+  The re-export block becomes deletable, the ordering constraint ("they must be imported last") disappears, and the five
+  "read through the facade" warnings go with it.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: the patch target is the interface</div>
+      <pre class="mermaid">
+flowchart TB
+  T1["mock.patch scrobblescope.orchestrator.X"] --> F["orchestrator/__init__ -- 769 lines, 36 re-exported names"]
+  T2["mock.patch scrobblescope.routes.Y"] --> R["routes/__init__"]
+  T3["mock.patch scrobblescope.heatmap.release_job_slot"] --> H["heatmap.py"]
+  F --> P1["_search reads _orchestrator.X"]
+  F --> P2["_details reads _orchestrator.X"]
+  F --> P3["_cache reads _orchestrator.X"]
+  F --> P4["_deezer_fallback reads _orchestrator.X"]
+      </pre>
+      <div class="arrow">&#8595;</div>
+      <div class="node leak">a phase's dependencies are absent from its signature</div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: the phase's parameters are its seam</div>
+      <div class="node">a phase<br><small style="font-size:.75rem">fetch_details, album_metadata_from_details, ... each defaulting to the current global</small></div>
+      <div class="arrow">&#8595; passed by the entry point</div>
+      <div class="split">
+        <div class="node">a fake is an argument, not a patch target</div>
+        <div class="node">the facade keeps only its entry points</div>
+      </div>
+      <div class="node deep">the documented trap stops existing<small>six modules no longer carry the same warning</small></div>
+      <div class="note red" style="margin-top:10px;font-size:.82rem">Cost, stated plainly: this touches many
+      <code>mock.patch</code> targets in <code>tests/services/test_orchestrator_*</code> (25-55 KiB each). Parity tests
+      exist, and AGENTS.md's Proposal and Design Rules require them before a structural refactor -- which is why this is
+      a candidate to schedule, not a drive-by.</div>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>Locality: a phase's dependencies are readable in its signature</li>
+    <li>The 30 KB facade shrinks to the entry points</li>
+    <li>Module boundaries can move without a test audit</li>
+    <li>Six copies of the same warning disappear</li>
+    <li>Leverage: one pattern, already proven in worker.py</li>
+  </ul>
+  <p><b>How the tests improve.</b> A phase test stops needing the package namespace to be shaped a particular way: it
+  passes a fake and asserts the phase's answer. The compensation layer is visible in the suites today --
+  <code>test_orchestrator_fetch_spotify.py</code> is 55 KiB and much of it is about the module's wiring rather than about
+  what the pipeline decides.</p>
+  <div class="evidence">
+    <p><b>Not the deferred "generic provider framework".</b> The earlier report's ledger records a provider framework as
+    an existing deferred decision, and this does not ask for one: no new provider abstraction, no registry, no plugin
+    protocol. It asks only that a function receive what it calls.</p>
+    <p><b>Evidence.</b> The warning text quoted above is in <code>orchestrator/__init__.py</code>'s module docstring and
+    is repeated in <code>_search.py</code>, <code>_details.py</code>, <code>_cache.py</code> and
+    <code>_deezer_fallback.py</code>; the same reasoning appears in <code>routes/__init__.py</code> and in the two
+    entry-point comments in <code>heatmap.py</code>.</p>
+  </div>
+</article>
+
+<article id="c6">
+  <div class="eyebrow">Candidate 06</div>
+  <h2>One poller in the browser</h2>
+  <span class="badge worth">Worth exploring</span>
+  <p class="files">
+    static/js/loading.js:33-35, 156-205 (four guard variables, <code>shouldPollAgain</code>, <code>fetchProgress</code>) --
+    static/js/heatmap.js:656-666, 1089-1181 (<code>startPolling</code>, <code>stopPolling</code>,
+    <code>pollProgress</code>, the same four names, its own transient-error branch) --
+    static/js/results-release-checks.js:18-33, 117-170 (<code>POLL_MS</code>, a timer, a <code>visibilitychange</code>
+    pause) -- tests/frontend/ (the browser harness) -- tests/test_template_shell.py:920-930 (asserts script text)
+  </p>
+  <h3>Problem</h3>
+  <p>Three pages each hand-roll the same poller, and this is the <b>third</b> occurrence -- which is the point at which
+  this repository's own duplication rule stops protecting the copies. Each has: an interval, an in-flight guard, a
+  sequence guard so a late reply cannot overwrite a newer one, a stop-on-terminal rule, and a "keep going on a transient
+  network error" decision. The sequence guard alone is spelled four times in two files with identical names
+  (<code>pollSeq</code>, <code>latestAppliedPollSeq</code>, <code>pollInFlight</code>, plus <code>errorDetected</code> in
+  one and <code>stopped</code> in another), and the guards have already diverged: only
+  <code>results-release-checks.js</code> pauses while the tab is hidden, and only <code>heatmap.js</code> has the
+  explicit transient-error branch. The behaviour differences are not decisions anyone wrote down; they are what happens
+  when one concept is implemented three times.</p>
+  <p>That <code>heatmap.js</code> also carries rendering, tooltip ownership, keyboard navigation, theme observation and
+  the JPEG export in the same 1716-line file means the polling third cannot be read on its own -- <b>locality</b> is the
+  casualty, not line count.</p>
+  <h3>Solution</h3>
+  <p>One small module with a pure step function ("given this reply and this state, what next?") plus a thin timer
+  wrapper that owns the interval, the in-flight and sequence guards and the hidden-tab pause. Each page supplies its
+  URL, its terminal test and its render callback. Nothing about the pages' markup changes.</p>
+  <div class="pair">
+    <div class="diagram">
+      <div class="dtitle">Before: one concept, three implementations</div>
+      <div class="row3">
+        <div class="node">loading.js<br>seq guard, no pause</div>
+        <div class="node">heatmap.js<br>seq guard, own error branch</div>
+        <div class="node">results-release-checks.js<br>timer, pauses when hidden</div>
+      </div>
+      <div class="arrow">&#8595; three intervals, three stop rules</div>
+      <div class="node leak">the same four variable names twice; the differences are accidental</div>
+      <div class="arrow">&#8595;</div>
+      <div class="node">testable today only through a browser harness (one file) or by asserting script text</div>
+    </div>
+    <div class="diagram after">
+      <div class="dtitle">After: one poller, three callers</div>
+      <div class="row3">
+        <div class="node">loading.js</div>
+        <div class="node">heatmap.js</div>
+        <div class="node">results-release-checks.js</div>
+      </div>
+      <div class="arrow">&#8595; url, isTerminal, onPayload</div>
+      <div class="node deep">poll.js<small>pure step function + timer wrapper; the guards live once</small></div>
+      <div class="arrow">&#8595;</div>
+      <div class="split">
+        <div class="node">one test for the ordering rule</div>
+        <div class="node">heatmap.js sheds a third of its scope</div>
+      </div>
+    </div>
+  </div>
+  <h3>Benefits</h3>
+  <ul class="wins">
+    <li>The out-of-order rule is tested once, as a pure function</li>
+    <li>The hidden-tab pause becomes shared, not one page's</li>
+    <li>heatmap.js's rendering and a11y concerns become readable alone</li>
+    <li>A fourth polling page is a caller, not a copy</li>
+    <li>Leverage: the harness already tests pure JS functions</li>
+  </ul>
+  <p><b>How the tests improve.</b> The repository already has the right harness for this and uses it on one file:
+  <code>tests/frontend/</code> runs pure JS functions under Chromium. A pure step function can be tested there for the
+  property none of the three copies proves today -- that a reply from an older request cannot win -- while
+  <code>test_template_shell.py</code> stops being the place where polling is "covered" by asserting that the script text
+  contains <code>'pending'</code> and <code>'running'</code>.</p>
+  <div class="evidence">
+    <p><b>Not F-B21-18's browser seam.</b> That finding owns the harness itself (how many pages are covered, how it is
+    wired); this is about the code under test, and it makes the harness's job smaller.</p>
+    <p><b>Gate note.</b> The frontend gate has checks that drive these pages end to end
+    (<code>check_pipeline_state_machines</code>), so a shared poller is exercised by the existing gate as well as by the
+    new unit test -- the extraction does not create a coverage hole.</p>
+  </div>
+</article>
+
+<section id="ledger" style="margin-top:34px">
+  <div class="eyebrow">Overlap ledger</div>
+  <h2>What I deliberately did not propose</h2>
+  <p>Two earlier reviews already hold a numbered list of candidates, and re-proposing a plan-owned seam costs a reader
+  more than it gives. The dispositions below are the second-pass review's own ledger
+  (<code>docs/history/reports/architecture-review-20260930-0040.html</code>, 2026-09-30); the ones marked <b>re-read</b>
+  were independently re-verified against source and <code>docs/agents/FINDINGS.md</code> for this review.</p>
+  <table>
+    <thead><tr><th>Existing idea</th><th>Owner / disposition</th><th>Why this review leaves it alone</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Album calculation owns its answer (rows, exclusions, statistics returned together)</td>
+        <td><b>F-B23-1</b>, open -- re-read. Also B-3 on the second-pass list.</td>
+        <td>Same area as candidate 1, different fact: F-B23-1 is the calculation's return value; candidate 1 is the
+        run's completeness, written after it.</td>
+      </tr>
+      <tr>
+        <td>Last.fm payload shape travels into two calculations</td>
+        <td><b>F-B23-2</b>, open -- re-read.</td>
+        <td>A translation concern at the provider border; candidate 1 sits downstream of it.</td>
+      </tr>
+      <tr>
+        <td>The album pipeline runs the cache connection protocol itself</td>
+        <td><b>F-B23-3</b>, open -- re-read.</td>
+        <td>The cache's lifetime, not its records; candidate 2 is about exclusion records, and this one is owned.</td>
+      </tr>
+      <tr>
+        <td>Cache owns its operation; the cache takes and returns the metadata object (B-5)</td>
+        <td>Second-pass candidate, open.</td>
+        <td>Enrichment metadata encoding. Candidate 2 is the exclusion record, which B-5 does not touch.</td>
+      </tr>
+      <tr>
+        <td>Job endpoints trust an unguessable job id with no session ownership check</td>
+        <td><b>F-B22-3</b>, open -- re-read.</td>
+        <td>Ownership. Candidate 3 is shape and mode only, and says so in its own card.</td>
+      </tr>
+      <tr>
+        <td>Pipeline parameters from the job record; job admission as one transaction (B-1, B-12)</td>
+        <td>Second-pass candidates, open, gated to WP-4.</td>
+        <td>Request intake and admission. Candidate 4 touches the same defaults only as a by-product.</td>
+      </tr>
+      <tr>
+        <td>Progress vocabulary spelled in eight places; phases belong to the job module (B-9)</td>
+        <td>Planned as Task 22.</td>
+        <td>The phase <i>vocabulary</i>. Candidate 1 owns the run's <i>completeness</i>, a different fact.</td>
+      </tr>
+      <tr>
+        <td>Results row is a DOM-encoded model (B-10); source wording has no owner (B-11)</td>
+        <td>Planned into WP-5's design.</td>
+        <td>Per-row presentation. Candidate 4 is the page's contract; its card states the boundary.</td>
+      </tr>
+      <tr>
+        <td>Statistics module: streak, best day, average, one typed aggregate (B-4)</td>
+        <td>Planned, before WP-6.</td>
+        <td>Where a number is computed, not who polls for it.</td>
+      </tr>
+      <tr>
+        <td>Release-date read path (B-6), private names across seams (B-7), release-scope table restated in prose (B-13)</td>
+        <td>Folded into Task 23 / Task 15 by the second pass.</td>
+        <td>Documentation and read-path work already scheduled.</td>
+      </tr>
+      <tr>
+        <td>Error-code table has no presentation half (B-8)</td>
+        <td>Done as Task 18 (its review produced F-B23-37).</td>
+        <td>Already closed out; the error-source label map was verified correct in <code>loading.js</code>.</td>
+      </tr>
+      <tr>
+        <td>Browser test seam (F-B21-18 and its residual F-B23-9)</td>
+        <td>Open, owned.</td>
+        <td>Candidate 6 makes that harness's job smaller; it does not compete with it.</td>
+      </tr>
+      <tr>
+        <td>utils.py holds five unrelated concerns (F-SWE-7)</td>
+        <td>Open, with its own plan (<code>2026-10-01-f-swe-7-utils-split.md</code>).</td>
+        <td>Read and confirmed: rate limiters, the retry helper, the response cache, cancellation and formatting do share
+        one module. It has an owner, so no card.</td>
+      </tr>
+      <tr>
+        <td>In-memory job store, process-local token cache, REQUEST_CACHE growth (F-MAS-5..8)</td>
+        <td>Open, owner-gated scaling decisions.</td>
+        <td>Not re-litigated.</td>
+      </tr>
+      <tr>
+        <td>The mutation-test runner is written, unadopted and uncommitted (F-SWE-8)</td>
+        <td>Open, owner-gated.</td>
+        <td>Noticed (<code>scripts/dev/mutation_test.py</code> is untracked, with its tests) and left alone; filed.</td>
+      </tr>
+      <tr>
+        <td>Six frontend-gate checks judge less than they name (F-B23-36); intermittent gate failures (F-B23-39)</td>
+        <td>Open.</td>
+        <td>Gate behaviour. The gate's decomposition has its own plan; candidate 6 changes only what the gate drives.</td>
+      </tr>
+      <tr>
+        <td>docsync and the worktree guard internals</td>
+        <td>Owned by <code>docs/architecture/documentation-tooling.md</code> and its plans.</td>
+        <td>Surveyed by shape (module sizes, entry-point thinness, the DOC catalogue's ownership rule in AGENTS.md) and
+        not proposed against.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>Also considered and dropped</b>, so the six cards are visibly the survivors:
+    <i>an error-source label for <code>internal</code></i> -- already fixed, since an unmapped source now shows no line;
+    <i>splitting spotify.py's token layer</i> -- its process-local cache is F-MAS-7, already filed;
+    <i>the cache_hits envelope</i> (<code>{"cached", "original"}</code>, built in three places) -- real, but the
+    cache-owns-its-operation change (B-5) subsumes it;
+    <i>the album's many parallel keyed structures</i> (<code>cache_hits</code>, <code>search_miss_keys</code>,
+    <code>unanswered_keys</code>, <code>detail_unavailable_keys</code>) -- the same ground as F-B23-1;
+    <i>six statistics computed in the browser</i> -- B-4;
+    <i>page-motion timing coupled to a CSS duration</i> -- a two-line comment, not a deepening.
+  </div>
+</section>
+
+<section id="top" style="margin-top:34px">
+  <div class="eyebrow">Top recommendation</div>
+  <h2>Start with <a href="#c1">candidate 1</a>, then <a href="#c3">candidate 3</a></h2>
+  <p><b>Why candidate 1 first.</b> It is the only candidate that fixes a defect <i>and</i> removes the place the next
+  work package was going to add a fourth copy of the same idea. The run's completeness is already wrong in a way a
+  listener can see (D2: a 25% page loss disappears from the story), the fix is confined to the job module plus its
+  renderers, and Batch 23's export path -- skipped files, a partial parse -- is a seventh writer to the same two keys
+  from a fourth module. Landing the owner first makes that work cheaper; landing it after makes the tangle worse.</p>
+  <p><b>Why candidate 3 second.</b> It is small, it deletes a 500 a crafted URL can still reach today (D1) and a
+  wrong-mode answer (D3), and it has to land before the export path adds a third mode and another poll endpoint.
+  F-B22-3 keeps the ownership question; this keeps the shape question, and the seam is where the owner's answer would
+  land once.</p>
+  <p><b>Then candidate 2</b>, before WP-5's per-source wording and WP-6's per-album statistics both reach into the
+  exclusion record. <b>Candidate 6</b> is a good parallel task for whoever works in the browser: it is the third
+  occurrence of one concept, so it is permitted now, and it shrinks the file the next frontend change must read.
+  <b>Candidate 4</b> should ride along with whichever change next touches the results route rather than open its own
+  front. <b>Candidate 5</b> is the deepest and the most expensive: schedule it deliberately, with parity tests in
+  place, and let the owner weigh it -- it is the only card that asks the repository to change where a seam is drawn.</p>
+  <div class="note">
+    <b>What would change this order.</b> If the owner's next WP is the export path's parser, candidate 1 moves from
+    "first" to "before that WP lands"; if the owner is mid-frontend work, candidate 6 is the cheapest first move and
+    changes nothing on the server.
+  </div>
+</section>
+
+<footer style="margin-top:38px;border-top:1px solid var(--line);padding-top:18px">
+  <div class="eyebrow">Evidence limits</div>
+  <p class="small">Repository root: <code>C:/Users/peter/.config/superpowers/worktrees/ScrobbleScope/batch-21/impeccable-init</code>.
+  Paths in the cards are relative to it. Source snapshot: <code>da4d8995</code> ("Refresh a rejected token once per loop,
+  not per call"), branch <code>feat/batch23-wp0-hygiene</code>, working tree carrying the untracked files
+  <code>git status</code> already listed. Scope: the runtime application, the browser scripts and the two result
+  templates, plus the docs that own architecture and findings. The tooling control plane was surveyed, not audited.</p>
+  <p class="small">Codebase Memory: project <code>ScrobbleScope</code>, generation <code>2026-09-14T15:54:48Z</code>,
+  1680 nodes / 6939 edges. Every Python path cited here reports <code>metadata_changed</code> or
+  <code>not_tracked</code> freshness against that generation, so the graph was <b>not</b> treated as authority: each
+  claim comes from reading the source at the paths named. <code>static/</code>, <code>scripts/</code>, <code>tests/scripts</code>
+  and <code>docs/</code> are excluded from the index by design, so the browser-script claims are source reads only.
+  Two templates carry partial-parse ranges (<code>results.html:60-65,130</code>; <code>unmatched.html:192,200-204</code>);
+  both ranges were read directly and neither contradicts a claim made here.</p>
+  <p class="small">What was run: a throwaway probe that created jobs, recorded stats and drove the Flask test client to
+  confirm D1, D2 and D3 (results quoted in section 00); Python file sizes, line counts and definition counts for the
+  modules named; grep sweeps for the vocabulary of every claim (the warning keys, the poll guards, the entry fields, the
+  patch-target comments). What was <b>not</b> run, and therefore is not claimed: the full <code>pytest</code> suite, the
+  frontend gate, <code>pre-commit</code>, <code>doc_state_sync.py</code>, any live provider call, and any coverage
+  measurement. This review's only write to the tree is this file itself, as a new untracked page under
+  <code>docs/superpowers/plans/</code> (where the two earlier review pages live); no existing source, plan or document
+  was modified, nothing was staged, and no <code>git</code> state-changing command was issued. Its own throwaway probe
+  and render-check scripts were temporary files under <code>tmp/</code> and were deleted.</p>
+  <p class="small">Rendering: one self-contained file, Tailwind and Mermaid from CDNs. Two panels use Mermaid for
+  graph-shaped relationships (candidate 3's fan-in, candidate 5's patch fan-in); the rest are hand-built. Without network
+  access the layout degrades to plain HTML and those two panels show their source text instead of a diagram -- the prose
+  carries the same content in every case. Written 2026-10-21. Domain vocabulary is the repository's own; the architecture
+  words (module, interface, depth, seam, adapter, leverage, locality) are the review skill's.</p>
+</footer>
+
+</main></body></html>
