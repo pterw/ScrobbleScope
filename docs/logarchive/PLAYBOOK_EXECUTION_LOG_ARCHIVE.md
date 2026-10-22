@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Importing the app no longer runs a shell command
+
+Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: the owner ruled against adding colour to the console output, so nothing may keep a call whose only purpose was to enable it.
+
+What changed: `app.py` loses the `os.system("")` call and its `# Enable ANSI escape codes on Windows cmd` comment (`import os` stays; it is still used). Why: nothing in `app.py` or `scrobblescope/` emits ANSI escape codes, so the call enabled nothing, and on Linux it spawned `/bin/sh` at every first import. `tests/test_app_factory.py` gains `_import_app_in_child(tmp_path, *, prelude="", epilogue="", extra_env=None)` (imports `app` in a fresh interpreter in `tmp_path` with `DEBUG_MODE=1`; Task 4 reuses it) and `test_importing_the_app_runs_no_shell_command`, which stubs `os.system` and records every `subprocess.Popen` construction in the child, then asserts both lists are empty. Two controller strengthenings of the plan's text after code review: (1) the plan's test stubbed only `os.system`, so `subprocess.run("", shell=True)` and `os.popen("")` left it green; recording `Popen` (which `subprocess.run`, `subprocess.call` and `os.popen` all construct) makes the test name true; (2) the helper prepends `REPO_ROOT` to an inherited `PYTHONPATH` (`os.pathsep.join`) instead of replacing it, with its signature unchanged.
+
+Deviations: `ruff format` collapsed the plan's `prelude` string layout; the Popen recording and the `PYTHONPATH` join go beyond the plan's test block. Edited existing tests: none.
+
+Mutations, each proven red then reverted: `os.system("")` re-added -> `SYSTEM_CALLS ['']`, test fails; `subprocess.run("", shell=True)` added -> `POPEN_CALLS [('',)]`, fails; `os.popen("").close()` added -> `POPEN_CALLS [('',)]`, fails. Test-first red against the unfixed `app.py`: `SHELL_CALLS ['']` (code phase). The frontend gate passed (48 checks, 78 runs).
+
+Validation: `pytest -q` -- **2960 passed**.
+
 ### 2026-10-22 - The Last.fm pre-check timeout must be a positive number
 
 Side task, no batch tag: validating `LASTFM_PRECHECK_TIMEOUT_SECONDS` at startup, on `fix/pre-batch23-side-tasks`, a branch off `main`.

@@ -168,6 +168,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
+
+Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).
+
+Owner intent: the review's open items must not live only in an untracked page, so the report is committed beside the other reports and each carried-over candidate becomes a finding with a timing.
+
+What changed: `docs/history/reports/architecture-review-2026-10-21.html` is a byte-for-byte copy (`cmp` clean, 57166 bytes) of the owner's untracked file; the original stays where it was. `docs/agents/FINDINGS.md` gains F-B23-51 to F-B23-56 under "P2 -- Scaling roadmap", all open P2: 51 a Last.fm page-loss detail lost when a provider also fails (candidate 1, D2), 52 the unmatched-album record built as a dict literal in three places (candidate 2), 53 the mode rule written inline at five call sites (candidate 3), 54 the results page's two keyword blocks (candidate 4), 55 the orchestrator facade's re-export block (candidate 5), 56 three browser pollers (candidate 6). Each was re-checked at e94b6e8 by `git grep`. Changes since the triage at eb0db9e: `partial_data_warning` has six writers, one guarded, so "four of five unguarded" is five of six; the five mode checks are `_get_validated_job_context`, `_latest_heatmap_job`, `release_checks`, `heatmap_data` and `unmatched_data`, two of them added by F-B23-50; `_render_results_page` now carries `play_stats` in both keyword blocks (PR #262); `orchestrator/__init__.py` is 725 lines, not 738 (PR #261); `heatmap.js` polling is unchanged, so F-B23-56 has no conflict to wait for. F-B23-50 is closed by the previous PR and F-B23-49 stays unused.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - Two job endpoints refuse the other mode's job
 
 Side task, no batch tag: making `/heatmap_data` and `/api/unmatched` refuse a job of the other mode, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
@@ -209,17 +221,3 @@ Deviations: the test goes beyond the plan's block (owner rule: a wrong implement
 Mutations, each proven red then reverted: a loop over `(sys.stderr,)` only fails (the probe is missing from stdout, with a Logging error); a loop over `(sys.stdout,)` only fails (the probe is missing from stderr); `reconfigure(errors="replace")` with no encoding fails (the probe arrives as `?`). The frontend gate passed.
 
 Validation: `pytest -q` -- **2961 passed**.
-
-### 2026-10-22 - Importing the app no longer runs a shell command
-
-Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: the owner ruled against adding colour to the console output, so nothing may keep a call whose only purpose was to enable it.
-
-What changed: `app.py` loses the `os.system("")` call and its `# Enable ANSI escape codes on Windows cmd` comment (`import os` stays; it is still used). Why: nothing in `app.py` or `scrobblescope/` emits ANSI escape codes, so the call enabled nothing, and on Linux it spawned `/bin/sh` at every first import. `tests/test_app_factory.py` gains `_import_app_in_child(tmp_path, *, prelude="", epilogue="", extra_env=None)` (imports `app` in a fresh interpreter in `tmp_path` with `DEBUG_MODE=1`; Task 4 reuses it) and `test_importing_the_app_runs_no_shell_command`, which stubs `os.system` and records every `subprocess.Popen` construction in the child, then asserts both lists are empty. Two controller strengthenings of the plan's text after code review: (1) the plan's test stubbed only `os.system`, so `subprocess.run("", shell=True)` and `os.popen("")` left it green; recording `Popen` (which `subprocess.run`, `subprocess.call` and `os.popen` all construct) makes the test name true; (2) the helper prepends `REPO_ROOT` to an inherited `PYTHONPATH` (`os.pathsep.join`) instead of replacing it, with its signature unchanged.
-
-Deviations: `ruff format` collapsed the plan's `prelude` string layout; the Popen recording and the `PYTHONPATH` join go beyond the plan's test block. Edited existing tests: none.
-
-Mutations, each proven red then reverted: `os.system("")` re-added -> `SYSTEM_CALLS ['']`, test fails; `subprocess.run("", shell=True)` added -> `POPEN_CALLS [('',)]`, fails; `os.popen("").close()` added -> `POPEN_CALLS [('',)]`, fails. Test-first red against the unfixed `app.py`: `SHELL_CALLS ['']` (code phase). The frontend gate passed (48 checks, 78 runs).
-
-Validation: `pytest -q` -- **2960 passed**.
