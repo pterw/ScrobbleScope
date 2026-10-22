@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - F-B22-3 moves to Batch 23 WP-3
+
+Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: ruling 2026-10-21 (Q1) -- Last.fm jobs keep the job ID as their capability, and export jobs, which hold an uploaded private history, are bound to the session that created them.
+
+What changed: `docs/agents/FINDINGS.md` F-B22-3 gains the ruling paragraph and a status line that names WP-3 (still open, P2; its shape is unchanged). The `release_checks` docstring in `scrobblescope/routes/api.py` now states the ruling instead of calling it an open question (docstring only, no code change). `BATCH23_DEFINITION.md` gets a `Scope amended 2026-10-21` header line and a WP-3 checklist item, "Export jobs belong to their session", with its acceptance. No work package is added. This lets WP-3 implement the binding without re-asking the owner.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-22 - Plan the pre-Batch-23 side tasks
 
 Side task, no batch tag: the plan for the pre-Batch-23 side-task PR, on `fix/pre-batch23-side-tasks`, a branch off `main`.

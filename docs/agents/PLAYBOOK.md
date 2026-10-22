@@ -168,6 +168,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - The coverless-wash route test no longer reads the clock
+
+Side task, no batch tag: making a flaky route test independent of the clock, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: a test that fails now and then with no defect in the code teaches the team to ignore red, and "a false green is worse than a true red", so the fix must not weaken what the test guards.
+
+What changed: `test_unmatched_view_coverless_rows_wear_their_albums_wash` asserted the two `POST /unmatched_view` pages byte-identical, but `templates/base.html` renders a CSRF meta token that Flask-WTF signs with a timestamp, so renders a second apart differ (PR #262 CI, 2026-10-21; filed and closed as F-B23-48). The test now also asserts the second status, then masks each page's own token (read from its `csrf-token` meta tag, every occurrence replaced by a fixed placeholder) and compares the two pages whole, so row order or any other render nondeterminism still fails. The per-row expected-wash assertions are unchanged. The docstring's THEN clause and Mutation paragraph are updated.
+
+Deviations: the plan's block compared only each row's artwork classes; the code review noted that lets row-order nondeterminism pass, and the controller ruled for the whole-page comparison with only the token masked. Edited existing tests: `test_unmatched_view_coverless_rows_wear_their_albums_wash` (the only edit).
+
+Mutations, each proven red then reverted: reversing the order of the unmatched reasons on every second render fails; `cover_wash_filter` drawing from `random.randrange(6)` fails; leaving the token unmasked fails under a patched `TimestampSigner.get_timestamp` that signs a different second per render, while the masked test passes under that same patch.
+
+Validation: `pytest -q` -- **2961 passed**.
+
 ### 2026-10-22 - Log lines reach stdout as UTF-8
 
 Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
@@ -209,15 +223,3 @@ Deviations: `ruff format` wrapped the constant's assignment over three lines; th
 Mutations, each proven red then reverted: `value <= 0` -> `value < 0` fails the `0` case and the child-process test; dropping `not math.isfinite(value) or` fails the `nan`, `inf` and `five` cases; the constant back to a bare `float(os.getenv(...))` fails the child-process test; `or default` -> `or "5"` fails the caller-default test.
 
 Validation: `pytest -q` -- **2959 passed**.
-
-### 2026-10-22 - F-B22-3 moves to Batch 23 WP-3
-
-Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: ruling 2026-10-21 (Q1) -- Last.fm jobs keep the job ID as their capability, and export jobs, which hold an uploaded private history, are bound to the session that created them.
-
-What changed: `docs/agents/FINDINGS.md` F-B22-3 gains the ruling paragraph and a status line that names WP-3 (still open, P2; its shape is unchanged). The `release_checks` docstring in `scrobblescope/routes/api.py` now states the ruling instead of calling it an open question (docstring only, no code change). `BATCH23_DEFINITION.md` gets a `Scope amended 2026-10-21` header line and a WP-3 checklist item, "Export jobs belong to their session", with its acceptance. No work package is added. This lets WP-3 implement the binding without re-asking the owner.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2948 passed**.

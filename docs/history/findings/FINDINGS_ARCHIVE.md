@@ -9,6 +9,14 @@ Newest rotation first.
 
 ---
 
+### F-B23-48: `test_unmatched_view_coverless_rows_wear_their_albums_wash` compared whole pages that carry a timestamped CSRF token -- RESOLVED
+
+The test asserted that two `POST /unmatched_view` pages were byte-identical, but `templates/base.html` renders `<meta name="csrf-token" content="{{ csrf_token() }}">` and Flask-WTF signs that token with a timestamp, so two renders that straddle a second boundary differ there with no defect in the code. It failed this way in PR #262 CI on 2026-10-21 and passed on re-run; it was the only whole-page equality assertion in `tests/`. Fixed: the test now takes each page's own token from its csrf-token meta tag, replaces every occurrence of it in that page with a fixed placeholder, and asserts the two masked pages are equal, so only the clock-dependent part is excluded and row order or any other render nondeterminism still fails.
+
+- [x] **Status:** resolved
+- **Completed:** 2026-10-22
+- Source: PR #262 CI run and controller diagnosis, 2026-10-21.
+
 ### F-B23-3: the album pipeline runs the cache connection protocol itself -- RESOLVED
 
 `orchestrator.process_albums` opens the cache connection, holds it across

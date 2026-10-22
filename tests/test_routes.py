@@ -3282,12 +3282,13 @@ def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
     a no-provider row that asks for an artist portrait
     WHEN POST /unmatched_view is submitted twice
     THEN each placeholder carries the wash cover_wash_index picks for its own
-    album, two albums with different picks differ, and the second render
-    repeats the first.
+    album, two albums with different picks differ, and the second render is
+    the same page as the first once each page's own CSRF token is masked.
 
     Mutation: make the cover_wash filter return one fixed class and the
     different-albums assertion fails; revert a template placeholder to its
-    plain class and that row's assertion fails.
+    plain class and that row's assertion fails; make the wash random per
+    render, or reorder the rows between renders, and the page comparison fails.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
     rows = {
@@ -3314,8 +3315,19 @@ def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
     first = client.post("/unmatched_view", data={"job_id": job_id})
     second = client.post("/unmatched_view", data={"job_id": job_id})
     assert first.status_code == 200
+    assert second.status_code == 200
     first_html = first.data.decode("utf-8")
-    assert first_html == second.data.decode("utf-8")
+    second_html = second.data.decode("utf-8")
+
+    # base.html's CSRF meta token is signed with a timestamp, so two renders a
+    # second apart differ there by design. Mask each page's own token wherever
+    # it appears and compare everything else whole, so row order or any other
+    # render nondeterminism still fails.
+    def mask_csrf(page):
+        token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page).group(1)
+        return page.replace(token, "CSRF-TOKEN")
+
+    assert mask_csrf(second_html) == mask_csrf(first_html)
 
     picks = {}
     for number, title in enumerate(rows):
