@@ -171,6 +171,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - F-B23-57 says what a cancelled run leaves behind
+
+Side task, no batch tag: correcting one sentence of the archived F-B23-57 record, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: the finding must not promise more than the cache delivers.
+
+What changed: the "Not covered" text of F-B23-57 in `docs/history/findings/FINDINGS_ARCHIVE.md` said a cache miss on a slow mirror waits once per runner image or dependency change. The save step runs after the install, so a run cancelled inside the install saves nothing and the next run waits again; the sentence now says so. Nothing else in the record or the archive changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
 ### 2026-10-22 - CI keeps Playwright's Ubuntu packages between runs
 
 Side task, no batch tag: caching the Ubuntu packages Playwright's browser install downloads, on `ci/playwright-apt-cache`, a branch off `main`.
@@ -202,18 +214,6 @@ Side task, no batch tag: correcting two claims in the new review findings, on `d
 Owner intent: the findings must say what the code does, so the two claims the review of the previous commit found wrong are corrected.
 
 What changed: `docs/agents/FINDINGS.md` only. F-B23-51 no longer says a Deezer outage hides the Last.fm page-loss detail on the loading page (the Deezer writer is guarded by a read of the existing value; only the Spotify writers overwrite it there, while Results keeps just the generic Last.fm sentence whenever any provider sentence is present). F-B23-52 no longer says the three writers use "the same keys": it now lists the keys all three share and the keys each adds, including that the Deezer literal also carries `album_image` and `spotify_id` (both None), as read from `partition_albums_by_threshold`, `_results.py` and `_deezer_fallback.py`.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2968 passed**.
-
-### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
-
-Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).
-
-Owner intent: the review's open items must not live only in an untracked page, so the report is committed beside the other reports and each carried-over candidate becomes a finding with a timing.
-
-What changed: `docs/history/reports/architecture-review-2026-10-21.html` is a byte-for-byte copy (`cmp` clean, 57166 bytes) of the owner's untracked file; the original stays where it was. `docs/agents/FINDINGS.md` gains F-B23-51 to F-B23-56 under "P2 -- Scaling roadmap", all open P2: 51 a Last.fm page-loss detail lost when a provider also fails (candidate 1, D2), 52 the unmatched-album record built as a dict literal in three places (candidate 2), 53 the mode rule written inline at five call sites (candidate 3), 54 the results page's two keyword blocks (candidate 4), 55 the orchestrator facade's re-export block (candidate 5), 56 three browser pollers (candidate 6). Each was re-checked at e94b6e8 by `git grep`. Changes since the triage at eb0db9e: `partial_data_warning` has six writers, one guarded, so "four of five unguarded" is five of six; the five mode checks are `_get_validated_job_context`, `_latest_heatmap_job`, `release_checks`, `heatmap_data` and `unmatched_data`, two of them added by F-B23-50; `_render_results_page` now carries `play_stats` in both keyword blocks (PR #262); `orchestrator/__init__.py` is 725 lines, not 738 (PR #261); `heatmap.js` polling is unchanged, so F-B23-56 has no conflict to wait for. F-B23-50 is closed by the previous PR and F-B23-49 stays unused.
 
 Deviations: none. Edited existing tests: none.
 

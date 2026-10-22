@@ -15,7 +15,7 @@ Evidence (2026-10-22): in PR #265's CI run, step "Install Playwright browser" fe
 
 Fix: the packages `playwright install --with-deps` downloads are kept in the Actions cache, keyed by runner image and `requirements-dev.txt`, with a restore key that reuses the previous image's packages. They are restored before the install, copied into apt's archive directory, copied back after the install and saved by a step right after it, so a failed later step cannot prevent the save. The apt index and the browser downloads are unchanged; `apt-get autoclean` bounds the cache.
 
-Not covered: a cache miss on a slow mirror still waits, once per runner image or dependency change. On an exact key hit nothing is re-saved, so a package newer than the cached copy downloads on every run until the runner image or `requirements-dev.txt` changes the key. A cache saved by a pull-request run is scoped to that PR's branch; other branches see it only after a push-to-main run saves one.
+Not covered: a cache miss on a slow mirror still waits, once per runner image or dependency change, and a run cancelled inside the install saves nothing, so the next run waits again. On an exact key hit nothing is re-saved, so a package newer than the cached copy downloads on every run until the runner image or `requirements-dev.txt` changes the key. A cache saved by a pull-request run is scoped to that PR's branch; other branches see it only after a push-to-main run saves one.
 
 - [x] **Status:** resolved
 **Completed:** 2026-10-22
