@@ -168,6 +168,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Importing the app no longer runs a shell command
+
+Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: the owner ruled against adding colour to the console output, so nothing may keep a call whose only purpose was to enable it.
+
+What changed: `app.py` loses the `os.system("")` call and its `# Enable ANSI escape codes on Windows cmd` comment (`import os` stays; it is still used). Why: nothing in `app.py` or `scrobblescope/` emits ANSI escape codes, so the call enabled nothing, and on Linux it spawned `/bin/sh` at every first import. `tests/test_app_factory.py` gains `_import_app_in_child(tmp_path, *, prelude="", epilogue="", extra_env=None)` (imports `app` in a fresh interpreter in `tmp_path` with `DEBUG_MODE=1`; Task 4 reuses it) and `test_importing_the_app_runs_no_shell_command`, which stubs `os.system` and records every `subprocess.Popen` construction in the child, then asserts both lists are empty. Two controller strengthenings of the plan's text after code review: (1) the plan's test stubbed only `os.system`, so `subprocess.run("", shell=True)` and `os.popen("")` left it green; recording `Popen` (which `subprocess.run`, `subprocess.call` and `os.popen` all construct) makes the test name true; (2) the helper prepends `REPO_ROOT` to an inherited `PYTHONPATH` (`os.pathsep.join`) instead of replacing it, with its signature unchanged.
+
+Deviations: `ruff format` collapsed the plan's `prelude` string layout; the Popen recording and the `PYTHONPATH` join go beyond the plan's test block. Edited existing tests: none.
+
+Mutations, each proven red then reverted: `os.system("")` re-added -> `SYSTEM_CALLS ['']`, test fails; `subprocess.run("", shell=True)` added -> `POPEN_CALLS [('',)]`, fails; `os.popen("").close()` added -> `POPEN_CALLS [('',)]`, fails. Test-first red against the unfixed `app.py`: `SHELL_CALLS ['']` (code phase). The frontend gate passed (48 checks, 78 runs).
+
+Validation: `pytest -q` -- **2960 passed**.
+
 ### 2026-10-22 - The Last.fm pre-check timeout must be a positive number
 
 Side task, no batch tag: validating `LASTFM_PRECHECK_TIMEOUT_SECONDS` at startup, on `fix/pre-batch23-side-tasks`, a branch off `main`.
@@ -201,18 +215,6 @@ Side task, no batch tag: the plan for the pre-Batch-23 side-task PR, on `fix/pre
 Owner intent: "Cheap fixes first -- anything else that comes before the scope in the tranche should be filed as a potential finding/candidate. Goal is to finish the tranch and avoid scope creep"; on 2026-10-22 the side-task PR runs next and the Batch 23 WP-0 close-out runs "After the tranche, before WP-1".
 
 What changed: `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md` is committed with every fix its brief review asked for (one Important, twelve Minor: the Task 0 staging order for DOC001, corrected predictions for the planted defects, the archives in the staging lists, the canonical open-finding record, a self-contained Task 5 proof, ruff-formatted code blocks, and the frontend gate before Tasks 3, 4 and 6). PLAYBOOK Section 3 names the PR in the "Before WP-1" bullet and says the WP-0 close-out runs after the tranche, before WP-1; "Next action: WP-0 is next." is unchanged because WP-0 is still the next work package.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2948 passed**.
-
-### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
-
-Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
-
-Owner intent: PR #263 merges into a `main` that already carries PRs #5 and #6, with its bookkeeping true against them.
-
-What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the album cache, the plays module and the statistics module with their tests and docs; this branch's own change (the PR template's State and Validation sections, AGENTS.md's no-attribution rule for PR bodies) is untouched and still applies. Conflicts: PLAYBOOK Section 4 and the Section 4 logarchive only. Section 4 keeps this branch's two entries and main's four, newest first after the marker line; the `Make the #4 docs` entry, which main rotated into the logarchive, stays there once, so its Section 4 heading and stray Validation line are dropped. The logarchive keeps main's additions, this branch having added none. Measured count 2948 across 100 test modules, equal to main's: this branch adds no test.
 
 Deviations: none. Edited existing tests: none.
 

@@ -2,6 +2,10 @@
 provider API keys (F-SWE-4)."""
 
 import logging
+import os
+import subprocess
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -91,3 +95,53 @@ def test_every_root_log_handler_redacts_the_api_key():
         assert isinstance(handler.formatter, RedactingFormatter), (
             f"{type(handler).__name__} has no RedactingFormatter"
         )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _import_app_in_child(tmp_path, *, prelude="", epilogue="", extra_env=None):
+    """Import ``app`` in a fresh interpreter and return the completed process.
+
+    Module-level start-up work (stream setup, logging handlers) runs only at
+    first import, so it can only be observed in a new process. The child runs
+    in *tmp_path* so its ``logs/`` directory lands there, with DEBUG_MODE=1 so
+    a missing SECRET_KEY or API key warns instead of refusing to start.
+    """
+    python_path = os.pathsep.join(
+        [str(REPO_ROOT), *filter(None, [os.environ.get("PYTHONPATH")])]
+    )
+    env = {**os.environ, "PYTHONPATH": python_path, "DEBUG_MODE": "1"}
+    env.update(extra_env or {})
+    return subprocess.run(
+        [sys.executable, "-c", f"{prelude}\nimport app\n{epilogue}"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        timeout=120,
+    )
+
+
+def test_importing_the_app_runs_no_shell_command(tmp_path):
+    """Importing the app spawns no shell: no `os.system`, no `subprocess.Popen`.
+
+    `subprocess.run`, `subprocess.call` and `os.popen` all construct a Popen,
+    so recording Popen construction covers them as well as `os.system`.
+    """
+    prelude = (
+        "import os, subprocess\n"
+        "system_calls = []\n"
+        "popen_calls = []\n"
+        "os.system = lambda command: system_calls.append(command) or 0\n"
+        "_Popen = subprocess.Popen\n"
+        "class RecordingPopen(_Popen):\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        popen_calls.append(args)\n"
+        "        super().__init__(*args, **kwargs)\n"
+        "subprocess.Popen = RecordingPopen"
+    )
+    epilogue = "print('SYSTEM_CALLS', system_calls)\nprint('POPEN_CALLS', popen_calls)"
+    result = _import_app_in_child(tmp_path, prelude=prelude, epilogue=epilogue)
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    assert b"SYSTEM_CALLS []" in result.stdout
+    assert b"POPEN_CALLS []" in result.stdout

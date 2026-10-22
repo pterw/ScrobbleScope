@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
+
+Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: PR #263 merges into a `main` that already carries PRs #5 and #6, with its bookkeeping true against them.
+
+What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the album cache, the plays module and the statistics module with their tests and docs; this branch's own change (the PR template's State and Validation sections, AGENTS.md's no-attribution rule for PR bodies) is untouched and still applies. Conflicts: PLAYBOOK Section 4 and the Section 4 logarchive only. Section 4 keeps this branch's two entries and main's four, newest first after the marker line; the `Make the #4 docs` entry, which main rotated into the logarchive, stays there once, so its Section 4 heading and stray Validation line are dropped. The logarchive keeps main's additions, this branch having added none. Measured count 2948 across 100 test modules, equal to main's: this branch adds no test.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - No attribution line in a PR body either
 
 Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
