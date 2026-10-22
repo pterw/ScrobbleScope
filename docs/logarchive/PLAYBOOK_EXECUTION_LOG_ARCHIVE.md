@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - The statistics module branch takes main after PR #5
+
+Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
+
+Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
+
+What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - Keep the WP-6 streak bullet true
 
 Side task, no batch tag: reword WP-6's heatmap checklist bullet in `BATCH23_DEFINITION.md` so it agrees with the "The module exists" paragraph, on `refactor/statistics-module`, a branch off `main`.

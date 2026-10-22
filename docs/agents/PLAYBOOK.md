@@ -96,7 +96,8 @@ See FINDINGS F-DOCSYNC-3.
   final gates in the definition. Then write one tagged `(Batch 23 WP-0)`
   Section 4 entry, carrying an explicit `**Status:** WP-0 complete` line
   (DOC007 requires it before the package reads done). Earlier WP-0 commits
-  remain untagged by the owner's 2026-09-23 ruling in the definition.
+  remain untagged by the owner's 2026-09-23 ruling in the definition. It runs
+  after the tranche, before WP-1 (owner ruling 2026-10-22).
 - **Before WP-1: a tranche of side-task PRs** (owner rulings 2026-10-20).
   Each is its own branch off `main` and its own PR, with atomic commits:
   the include-unmatched control, a documentation refresh (README,
@@ -120,7 +121,11 @@ See FINDINGS F-DOCSYNC-3.
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
   PR #7, UI consistency, finished round 1 (plan
   `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
-  wait for the owner's screenshots, each with its own plan.
+  wait for the owner's screenshots, each with its own plan. A side-task PR of
+  cheap fixes from the 2026-10-21 architecture review and the logging audit
+  runs next (branch `fix/pre-batch23-side-tasks`, plan
+  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`); the
+  documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -163,6 +168,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Plan the pre-Batch-23 side tasks
+
+Side task, no batch tag: the plan for the pre-Batch-23 side-task PR, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: "Cheap fixes first -- anything else that comes before the scope in the tranche should be filed as a potential finding/candidate. Goal is to finish the tranch and avoid scope creep"; on 2026-10-22 the side-task PR runs next and the Batch 23 WP-0 close-out runs "After the tranche, before WP-1".
+
+What changed: `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md` is committed with every fix its brief review asked for (one Important, twelve Minor: the Task 0 staging order for DOC001, corrected predictions for the planted defects, the archives in the staging lists, the canonical open-finding record, a self-contained Task 5 proof, ruff-formatted code blocks, and the frontend gate before Tasks 3, 4 and 6). PLAYBOOK Section 3 names the PR in the "Before WP-1" bullet and says the WP-0 close-out runs after the tranche, before WP-1; "Next action: WP-0 is next." is unchanged because WP-0 is still the next work package.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
 
 Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
@@ -198,15 +215,3 @@ What changed: `.github/PULL_REQUEST_TEMPLATE.md` now runs Summary (names the pla
 Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2847 passed**.
-
-### 2026-10-21 - The statistics module branch takes main after PR #5
-
-Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
-
-Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
-
-What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2948 passed**.
