@@ -9,6 +9,18 @@ Newest rotation first.
 
 ---
 
+### F-B23-57: CI downloads Playwright's Ubuntu packages from a slow mirror on every run -- RESOLVED
+
+Evidence (2026-10-22): in PR #265's CI run, step "Install Playwright browser" fetched 53.7 MB of Ubuntu packages at 43.5 kB/s from the runner's Azure mirror and took 20 min 32 s. The apt index (12.5 MB in 16 s) and the four browser downloads (14 s together) were fast, so the package download was the whole stall. PR #266's first attempt stalled in the same step and was cancelled and re-run.
+
+Fix: the packages `playwright install --with-deps` downloads are kept in the Actions cache, keyed by runner image and `requirements-dev.txt`, with a restore key that reuses the previous image's packages. They are restored before the install, copied into apt's archive directory, copied back after the install and saved by a step right after it, so a failed later step cannot prevent the save. The apt index and the browser downloads are unchanged; `apt-get autoclean` bounds the cache.
+
+Not covered: a cache miss on a slow mirror still waits, once per runner image or dependency change. On an exact key hit nothing is re-saved, so a package newer than the cached copy downloads on every run until the runner image or `requirements-dev.txt` changes the key. A cache saved by a pull-request run is scoped to that PR's branch; other branches see it only after a push-to-main run saves one.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-22
+Source: PR #265 and #266 CI runs and controller log analysis, 2026-10-22.
+
 ### F-B23-50: `/heatmap_data` answered an album job with a 500, and `/api/unmatched` answered a heatmap job as valid -- RESOLVED
 
 `heatmap_data` (`scrobblescope/routes/heatmap_flow.py`) spreads `ctx["results"]` into its answer (`{"ready": True, **ctx["results"]}`), and an album job's results are a list of rows, so an album job id raised `TypeError` and answered 500 once the job finished; a running album job answered 202 and a failed one answered 200 with the error body. `unmatched_data` (`scrobblescope/routes/api.py`) read `jobs.unmatched(job_id)` and answered a heatmap job with 200 and an empty report. Fixed: both endpoints now refuse a job whose mode is not their own with the same 404 a missing job gets (the album pages and the release-check endpoint already followed that rule), and `unmatched_data` reads `jobs.context` once so the mode and the report come from one record. `/progress` stays shared by both modes on purpose, because `static/js/heatmap.js` polls it. The same mode check now appears inline at five code sites (the album pages' shared `_get_validated_job_context`, `_latest_heatmap_job`, `api.release_checks`, and these two), and F-B23-53's job read seam owns folding them into one.

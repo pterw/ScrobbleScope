@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Two job endpoints refuse the other mode's job
+
+Side task, no batch tag: making `/heatmap_data` and `/api/unmatched` refuse a job of the other mode, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: every job endpoint answers a job that is not its own the way it answers a missing job, and "a wrong implementation must not pass".
+
+What changed: `heatmap_data` spreads `ctx["results"]` into its answer, and an album job's results are a list of rows, so a finished album job id raised `TypeError` and answered 500 (a running one answered 202, a failed one 200); `unmatched_data` answered a heatmap job with 200 and a report (F-B23-50, 2026-10-21 architecture review D1 and D3). `heatmap_data` now returns the missing-job 404 unless the job's mode is heatmap; `unmatched_data` reads `jobs.context` once and returns its missing-job 404 unless the job exists and its mode is album. Both are allowlists, so a job of any third mode is refused. `/progress` stays shared by both modes (`static/js/heatmap.js` polls it). F-B23-50 is filed as resolved. F-B22-3's body named `jobs.unmatched` as an endpoint read; it now names `jobs.progress` and `jobs.context`.
+
+Deviations: the plan's planted defect (a) predicted `running` gets 202 when the mode check moves after the results branch; it passes (404) instead, and the defect is caught by `finished` and `failed`. Beyond the plan, per the code review: `test_unmatched_api_unknown_job` (the rewritten unknown-job branch had no test) and one other-mode case per endpoint (the guards are allowlists). Edited existing tests: none. Tests added: `test_heatmap_data_refuses_an_album_job` (running, finished, failed), `test_heatmap_data_refuses_a_job_of_another_mode`, `test_unmatched_api_refuses_a_heatmap_job`, `test_unmatched_api_unknown_job`, `test_unmatched_api_refuses_a_job_of_another_mode`.
+
+Mutations, each proven red then reverted: mode check after the results branch (`finished` TypeError, `failed` 200 not 404); results-type guard instead of the mode check (`running`, `finished`, `failed` fail); `unmatched_data` mode clause deleted (heatmap job gets 200); `job_context is None or` removed (the unknown job raises AttributeError); `unmatched_data` denylist `== MODE_HEATMAP` (the other-mode job gets 200); `heatmap_data` denylist `== MODE_ALBUM` (the other-mode job gets 200). The frontend gate passed.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - The coverless-wash route test no longer reads the clock
 
 Side task, no batch tag: making a flaky route test independent of the clock, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
