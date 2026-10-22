@@ -96,7 +96,8 @@ See FINDINGS F-DOCSYNC-3.
   final gates in the definition. Then write one tagged `(Batch 23 WP-0)`
   Section 4 entry, carrying an explicit `**Status:** WP-0 complete` line
   (DOC007 requires it before the package reads done). Earlier WP-0 commits
-  remain untagged by the owner's 2026-09-23 ruling in the definition.
+  remain untagged by the owner's 2026-09-23 ruling in the definition. It runs
+  after the tranche, before WP-1 (owner ruling 2026-10-22).
 - **Before WP-1: a tranche of side-task PRs** (owner rulings 2026-10-20).
   Each is its own branch off `main` and its own PR, with atomic commits:
   the include-unmatched control, a documentation refresh (README,
@@ -120,7 +121,11 @@ See FINDINGS F-DOCSYNC-3.
   order is `docs/superpowers/plans/2026-10-20-pre-batch23-tranche.md`.
   PR #7, UI consistency, finished round 1 (plan
   `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
-  wait for the owner's screenshots, each with its own plan.
+  wait for the owner's screenshots, each with its own plan. A side-task PR of
+  cheap fixes from the 2026-10-21 architecture review and the logging audit
+  runs next (branch `fix/pre-batch23-side-tasks`, plan
+  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`); the
+  documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -163,49 +168,55 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
+### 2026-10-22 - Log lines reach stdout as UTF-8
 
-Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.
+Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
 
-Owner intent: PR #263 merges into a `main` that already carries PRs #5 and #6, with its bookkeeping true against them.
+Owner intent: the production log stream must never lose a line because of a listener's artist name.
 
-What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the album cache, the plays module and the statistics module with their tests and docs; this branch's own change (the PR template's State and Validation sections, AGENTS.md's no-attribution rule for PR bodies) is untouched and still applies. Conflicts: PLAYBOOK Section 4 and the Section 4 logarchive only. Section 4 keeps this branch's two entries and main's four, newest first after the marker line; the `Make the #4 docs` entry, which main rotated into the logarchive, stays there once, so its Section 4 heading and stray Validation line are dropped. The logarchive keeps main's additions, this branch having added none. Measured count 2948 across 100 test modules, equal to main's: this branch adds no test.
+What changed: the stream setup block in `app.py` reconfigured only `sys.stderr` to UTF-8, while `logging.StreamHandler(sys.stdout)` is the production log channel (the file handler is ephemeral on Fly.io). It now loops over `(sys.stdout, sys.stderr)`. Why: when stdout is a pipe or a file (a redirected log, a process manager) Python uses the locale's code page, where a non-Latin artist name raised `UnicodeEncodeError` inside logging and the line was lost. The plan's wording blamed a Windows console; since PEP 528 a real console writes UTF-8, so the `app.py` comment and the test name say pipe or file under a legacy code page. `tests/test_app_factory.py` gains `test_a_log_line_reaches_stdout_whole_when_its_encoding_is_legacy`, which reuses `_import_app_in_child` with `PYTHONIOENCODING=cp1252`.
 
-Deviations: none. Edited existing tests: none.
+Deviations: the test goes beyond the plan's block (owner rule: a wrong implementation must not pass): the child also writes the probe to `sys.stderr`, and the test asserts it arrives intact there, so the stderr half of the fix is pinned too; the test is renamed from `..._on_a_narrow_console` to match the corrected description. Edited existing tests: none.
 
-Validation: `pytest -q` -- **2948 passed**.
+Mutations, each proven red then reverted: a loop over `(sys.stderr,)` only fails (the probe is missing from stdout, with a Logging error); a loop over `(sys.stdout,)` only fails (the probe is missing from stderr); `reconfigure(errors="replace")` with no encoding fails (the probe arrives as `?`). The frontend gate passed.
 
-### 2026-10-21 - No attribution line in a PR body either
+Validation: `pytest -q` -- **2961 passed**.
 
-Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
+### 2026-10-22 - Importing the app no longer runs a shell command
 
-Owner intent: "make sure no attribution trailers are in any PR body".
+Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
 
-What changed: AGENTS.md Commit Rules "Co-author prohibition" now forbids any attribution line (such as a "Generated with" footer) in a commit message or a pull request body, whatever a harness suggests, and points a PR body at `.github/PULL_REQUEST_TEMPLATE.md`. The bold label is unchanged, so the docsync citations and `tests/test_docsync_declarations.py` still find it. The sweeper found no other live copy of the rule: the cloud-kit implementer files cover implementer commits only and stay.
+Owner intent: the owner ruled against adding colour to the console output, so nothing may keep a call whose only purpose was to enable it.
 
-Deviations: none. Edited existing tests: none.
+What changed: `app.py` loses the `os.system("")` call and its `# Enable ANSI escape codes on Windows cmd` comment (`import os` stays; it is still used). Why: nothing in `app.py` or `scrobblescope/` emits ANSI escape codes, so the call enabled nothing, and on Linux it spawned `/bin/sh` at every first import. `tests/test_app_factory.py` gains `_import_app_in_child(tmp_path, *, prelude="", epilogue="", extra_env=None)` (imports `app` in a fresh interpreter in `tmp_path` with `DEBUG_MODE=1`; Task 4 reuses it) and `test_importing_the_app_runs_no_shell_command`, which stubs `os.system` and records every `subprocess.Popen` construction in the child, then asserts both lists are empty. Two controller strengthenings of the plan's text after code review: (1) the plan's test stubbed only `os.system`, so `subprocess.run("", shell=True)` and `os.popen("")` left it green; recording `Popen` (which `subprocess.run`, `subprocess.call` and `os.popen` all construct) makes the test name true; (2) the helper prepends `REPO_ROOT` to an inherited `PYTHONPATH` (`os.pathsep.join`) instead of replacing it, with its signature unchanged.
 
-Validation: `pytest -q` -- **2847 passed**.
+Deviations: `ruff format` collapsed the plan's `prelude` string layout; the Popen recording and the `PYTHONPATH` join go beyond the plan's test block. Edited existing tests: none.
 
-### 2026-10-21 - The PR template asks for state and validation
+Mutations, each proven red then reverted: `os.system("")` re-added -> `SYSTEM_CALLS ['']`, test fails; `subprocess.run("", shell=True)` added -> `POPEN_CALLS [('',)]`, fails; `os.popen("").close()` added -> `POPEN_CALLS [('',)]`, fails. Test-first red against the unfixed `app.py`: `SHELL_CALLS ['']` (code phase). The frontend gate passed (48 checks, 78 runs).
 
-Side task, no batch tag: the PR template gains State and Validation sections, on `chore/pr-template`, a branch off `main`.
+Validation: `pytest -q` -- **2960 passed**.
 
-Owner intent: "The state format is good, I think the State section and table is worth incorporating into the pull request template which exists in this repo."
+### 2026-10-22 - The Last.fm pre-check timeout must be a positive number
 
-What changed: `.github/PULL_REQUEST_TEMPLATE.md` now runs Summary (names the plan file for a tranche or batch PR), State (a Task / What / Commits / Review table for a multi-task PR, kept true at every push), Validation at this head (head SHA, gates and results, CI run), the unchanged six-box Checklist with a note to tick gate boxes only once CI and the final gate pass at the head that leaves draft, and a closing comment forbidding attribution lines. The comments are HTML so GitHub hides them. Template only, so a PR opened from it starts with the right shape.
+Side task, no batch tag: validating `LASTFM_PRECHECK_TIMEOUT_SECONDS` at startup, on `fix/pre-batch23-side-tasks`, a branch off `main`.
 
-Deviations: none. Edited existing tests: none.
+Owner intent: a bad timeout value should stop startup with the variable's name, not ship a form that can never pass or never stops waiting.
 
-Validation: `pytest -q` -- **2847 passed**.
+What changed: `scrobblescope/config.py` gains `_positive_seconds(name, default)`, and `LASTFM_PRECHECK_TIMEOUT_SECONDS` is read through it. A blank or unset variable takes the default 5; zero, a negative number, `nan`, `inf` or text that is not a number raises `ValueError` naming the variable and the value at import. Why: zero makes every pre-check time out at once, so every form submission is refused "try again", and `nan` never compares greater than the elapsed time while `inf` removes the bound. `.env.example` documents the variable; SESSION_CONTEXT's Key runtime facts bullet states the rule. New `tests/test_config.py` (11 tests): the unset, blank and fractional-override cases, the default the caller passes (a `"7"` default, so a function that hard-codes 5 fails), six refused values each checked for the variable's name and the quoted value, and a child-process import test that checks the module constant itself refuses `0` (stderr names the variable and `ValueError`) and accepts `0.25`. The code-phase review's two minor findings were folded into these new tests (the caller-default test and the `ValueError` assertion); its third, a child-process check of `nan` and `inf`, is deferred because the wiring is shared with the `0` case. Test-module count 100 -> 101.
 
-### 2026-10-21 - The statistics module branch takes main after PR #5
+Deviations: `ruff format` wrapped the constant's assignment over three lines; the two test additions above go beyond the plan's test block. Edited existing tests: none (the module is new).
 
-Side task, no batch tag: merge of `origin/main` (d1c775d, PR #261, one album-metadata encoding) into `refactor/statistics-module`, on `refactor/statistics-module`, a branch off `main`.
+Mutations, each proven red then reverted: `value <= 0` -> `value < 0` fails the `0` case and the child-process test; dropping `not math.isfinite(value) or` fails the `nan`, `inf` and `five` cases; the constant back to a bare `float(os.getenv(...))` fails the child-process test; `or default` -> `or "5"` fails the caller-default test.
 
-Owner intent: PR #6 merges into a `main` that already carries PR #5, with both PRs' bookkeeping and docs true for the merged tree.
+Validation: `pytest -q` -- **2959 passed**.
 
-What changed: one merge commit (`git merge --no-ff`). PR #5 brings `AlbumCache` / `open_album_cache` in `cache.py`, `AlbumMetadata.from_row`, the slimmed `orchestrator/_cache.py`, `tests/fake_postgres.py`, `tests/test_album_cache_parity.py` and the metadata-encoding plan; PR #6 brings `listening_stats.py` and its importers. No code or test file conflicted (the two PRs touched different code files). Conflicts were in bookkeeping only. PLAYBOOK Section 3, "Before WP-1" bullet: PR #5's wording is the base, and it now also says the statistics module is done (PR #6, branch `refactor/statistics-module`, plan `docs/superpowers/plans/2026-10-20-statistics-module.md`), so no seam of the four remains; the job persistence and design sentences are kept. PLAYBOOK Section 4: every dated entry of both sides is kept whole, then `--fix` rotated the oldest five into the logarchive as it does on every commit (no entry dropped). `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: both sides' rotated entries kept, each with its own Validation line. `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `config/docsync.toml`: the count lines (Tests row, Section 6 title, status line, FINDINGS header, `[test_count]` pin) were re-measured, not hand-merged; the module count is 100 (`git ls-files tests | grep -c '/test_[^/]*\.py$'`, PR #5 adds `test_album_cache_parity.py`). The module-list and dependency-graph lines of both sides merged cleanly and were re-checked against the imports of `cache.py`, `orchestrator/__init__.py`, `orchestrator/_cache.py` and `heatmap.py`. `BATCH23_DEFINITION.md`, `FINDINGS_ARCHIVE.md` and the architecture diagrams merged without conflict (union of both PRs' edits).
+### 2026-10-22 - F-B22-3 moves to Batch 23 WP-3
+
+Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: ruling 2026-10-21 (Q1) -- Last.fm jobs keep the job ID as their capability, and export jobs, which hold an uploaded private history, are bound to the session that created them.
+
+What changed: `docs/agents/FINDINGS.md` F-B22-3 gains the ruling paragraph and a status line that names WP-3 (still open, P2; its shape is unchanged). The `release_checks` docstring in `scrobblescope/routes/api.py` now states the ruling instead of calling it an open question (docstring only, no code change). `BATCH23_DEFINITION.md` gets a `Scope amended 2026-10-21` header line and a WP-3 checklist item, "Export jobs belong to their session", with its acceptance. No work package is added. This lets WP-3 implement the binding without re-asking the owner.
 
 Deviations: none. Edited existing tests: none.
 

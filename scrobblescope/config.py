@@ -1,3 +1,4 @@
+import math
 import os
 
 # API keys from .env file
@@ -32,12 +33,33 @@ SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 # to wait out.
 MAX_RETRY_AFTER_SECONDS = int(os.getenv("MAX_RETRY_AFTER_SECONDS", "30"))
 
+
+def _positive_seconds(name, default):
+    """Return the environment variable *name* as a positive number of seconds.
+
+    A blank or unset variable takes *default*. Zero, a negative number, a
+    non-finite value or text that is not a number raises ``ValueError``
+    naming the variable: such a value cannot bound a wait (zero refuses every
+    lookup at once, ``nan`` and ``inf`` never time out), so startup refuses it
+    rather than serve a form that can never pass, or never stops waiting.
+    """
+    raw = os.getenv(name, "").strip() or default
+    try:
+        value = float(raw)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive number of seconds; got {raw!r}.")
+    return value
+
+
 # The longest one Last.fm pre-check lookup (does the user exist, is the
 # profile public) may take before the form or button is answered "try again".
 # Each lookup has its own budget, so a request thread is held at most twice
 # this, not the HTTP session's 30 seconds per call: gunicorn runs four threads.
-LASTFM_PRECHECK_TIMEOUT_SECONDS = float(
-    os.getenv("LASTFM_PRECHECK_TIMEOUT_SECONDS", "5")
+# It must be a positive number; startup refuses anything else.
+LASTFM_PRECHECK_TIMEOUT_SECONDS = _positive_seconds(
+    "LASTFM_PRECHECK_TIMEOUT_SECONDS", "5"
 )
 
 # Deezer: 50 requests per 5 seconds per IP (10/s), no API key required.
