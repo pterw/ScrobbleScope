@@ -163,6 +163,15 @@ def heatmap_data():
             404,
         )
 
+    if ctx.get("params", {}).get("mode") != jobs.MODE_HEATMAP:
+        # An album job's results are a list of rows, not the mapping this
+        # answer spreads, so a wrong-mode id is refused the way a missing
+        # job is -- the same rule the album pages and release checks follow.
+        return (
+            jsonify({"error": True, "message": "Job not found or expired."}),
+            404,
+        )
+
     progress = ctx["progress"]
     if progress.get("error"):
         return (

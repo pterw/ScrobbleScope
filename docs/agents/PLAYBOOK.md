@@ -168,6 +168,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Two job endpoints refuse the other mode's job
+
+Side task, no batch tag: making `/heatmap_data` and `/api/unmatched` refuse a job of the other mode, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: every job endpoint answers a job that is not its own the way it answers a missing job, and "a wrong implementation must not pass".
+
+What changed: `heatmap_data` spreads `ctx["results"]` into its answer, and an album job's results are a list of rows, so a finished album job id raised `TypeError` and answered 500 (a running one answered 202, a failed one 200); `unmatched_data` answered a heatmap job with 200 and a report (F-B23-50, 2026-10-21 architecture review D1 and D3). `heatmap_data` now returns the missing-job 404 unless the job's mode is heatmap; `unmatched_data` reads `jobs.context` once and returns its missing-job 404 unless the job exists and its mode is album. Both are allowlists, so a job of any third mode is refused. `/progress` stays shared by both modes (`static/js/heatmap.js` polls it). F-B23-50 is filed as resolved. F-B22-3's body named `jobs.unmatched` as an endpoint read; it now names `jobs.progress` and `jobs.context`.
+
+Deviations: the plan's planted defect (a) predicted `running` gets 202 when the mode check moves after the results branch; it passes (404) instead, and the defect is caught by `finished` and `failed`. Beyond the plan, per the code review: `test_unmatched_api_unknown_job` (the rewritten unknown-job branch had no test) and one other-mode case per endpoint (the guards are allowlists). Edited existing tests: none. Tests added: `test_heatmap_data_refuses_an_album_job` (running, finished, failed), `test_heatmap_data_refuses_a_job_of_another_mode`, `test_unmatched_api_refuses_a_heatmap_job`, `test_unmatched_api_unknown_job`, `test_unmatched_api_refuses_a_job_of_another_mode`.
+
+Mutations, each proven red then reverted: mode check after the results branch (`finished` TypeError, `failed` 200 not 404); results-type guard instead of the mode check (`running`, `finished`, `failed` fail); `unmatched_data` mode clause deleted (heatmap job gets 200); `job_context is None or` removed (the unknown job raises AttributeError); `unmatched_data` denylist `== MODE_HEATMAP` (the other-mode job gets 200); `heatmap_data` denylist `== MODE_ALBUM` (the other-mode job gets 200). The frontend gate passed.
+
+Validation: `pytest -q` -- **2968 passed**.
+
+### 2026-10-22 - The coverless-wash route test no longer reads the clock
+
+Side task, no batch tag: making a flaky route test independent of the clock, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
+
+Owner intent: a test that fails now and then with no defect in the code teaches the team to ignore red, and "a false green is worse than a true red", so the fix must not weaken what the test guards.
+
+What changed: `test_unmatched_view_coverless_rows_wear_their_albums_wash` asserted the two `POST /unmatched_view` pages byte-identical, but `templates/base.html` renders a CSRF meta token that Flask-WTF signs with a timestamp, so renders a second apart differ (PR #262 CI, 2026-10-21; filed and closed as F-B23-48). The test now also asserts the second status, then masks each page's own token (read from its `csrf-token` meta tag, every occurrence replaced by a fixed placeholder) and compares the two pages whole, so row order or any other render nondeterminism still fails. The per-row expected-wash assertions are unchanged. The docstring's THEN clause and Mutation paragraph are updated.
+
+Deviations: the plan's block compared only each row's artwork classes; the code review noted that lets row-order nondeterminism pass, and the controller ruled for the whole-page comparison with only the token masked. Edited existing tests: `test_unmatched_view_coverless_rows_wear_their_albums_wash` (the only edit).
+
+Mutations, each proven red then reverted: reversing the order of the unmatched reasons on every second render fails; `cover_wash_filter` drawing from `random.randrange(6)` fails; leaving the token unmasked fails under a patched `TimestampSigner.get_timestamp` that signs a different second per render, while the masked test passes under that same patch.
+
+Validation: `pytest -q` -- **2961 passed**.
+
 ### 2026-10-22 - Log lines reach stdout as UTF-8
 
 Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
@@ -195,29 +223,3 @@ Deviations: `ruff format` collapsed the plan's `prelude` string layout; the Pope
 Mutations, each proven red then reverted: `os.system("")` re-added -> `SYSTEM_CALLS ['']`, test fails; `subprocess.run("", shell=True)` added -> `POPEN_CALLS [('',)]`, fails; `os.popen("").close()` added -> `POPEN_CALLS [('',)]`, fails. Test-first red against the unfixed `app.py`: `SHELL_CALLS ['']` (code phase). The frontend gate passed (48 checks, 78 runs).
 
 Validation: `pytest -q` -- **2960 passed**.
-
-### 2026-10-22 - The Last.fm pre-check timeout must be a positive number
-
-Side task, no batch tag: validating `LASTFM_PRECHECK_TIMEOUT_SECONDS` at startup, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: a bad timeout value should stop startup with the variable's name, not ship a form that can never pass or never stops waiting.
-
-What changed: `scrobblescope/config.py` gains `_positive_seconds(name, default)`, and `LASTFM_PRECHECK_TIMEOUT_SECONDS` is read through it. A blank or unset variable takes the default 5; zero, a negative number, `nan`, `inf` or text that is not a number raises `ValueError` naming the variable and the value at import. Why: zero makes every pre-check time out at once, so every form submission is refused "try again", and `nan` never compares greater than the elapsed time while `inf` removes the bound. `.env.example` documents the variable; SESSION_CONTEXT's Key runtime facts bullet states the rule. New `tests/test_config.py` (11 tests): the unset, blank and fractional-override cases, the default the caller passes (a `"7"` default, so a function that hard-codes 5 fails), six refused values each checked for the variable's name and the quoted value, and a child-process import test that checks the module constant itself refuses `0` (stderr names the variable and `ValueError`) and accepts `0.25`. The code-phase review's two minor findings were folded into these new tests (the caller-default test and the `ValueError` assertion); its third, a child-process check of `nan` and `inf`, is deferred because the wiring is shared with the `0` case. Test-module count 100 -> 101.
-
-Deviations: `ruff format` wrapped the constant's assignment over three lines; the two test additions above go beyond the plan's test block. Edited existing tests: none (the module is new).
-
-Mutations, each proven red then reverted: `value <= 0` -> `value < 0` fails the `0` case and the child-process test; dropping `not math.isfinite(value) or` fails the `nan`, `inf` and `five` cases; the constant back to a bare `float(os.getenv(...))` fails the child-process test; `or default` -> `or "5"` fails the caller-default test.
-
-Validation: `pytest -q` -- **2959 passed**.
-
-### 2026-10-22 - F-B22-3 moves to Batch 23 WP-3
-
-Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: ruling 2026-10-21 (Q1) -- Last.fm jobs keep the job ID as their capability, and export jobs, which hold an uploaded private history, are bound to the session that created them.
-
-What changed: `docs/agents/FINDINGS.md` F-B22-3 gains the ruling paragraph and a status line that names WP-3 (still open, P2; its shape is unchanged). The `release_checks` docstring in `scrobblescope/routes/api.py` now states the ruling instead of calling it an open question (docstring only, no code change). `BATCH23_DEFINITION.md` gets a `Scope amended 2026-10-21` header line and a WP-3 checklist item, "Export jobs belong to their session", with its acceptance. No work package is added. This lets WP-3 implement the binding without re-asking the owner.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2948 passed**.

@@ -98,9 +98,16 @@ def unmatched_data():
             400,
         )
 
-    unmatched_data = jobs.unmatched(job_id)
-    if unmatched_data is None:
+    job_context = jobs.context(job_id)
+    if (
+        job_context is None
+        or job_context.get("params", {}).get("mode") != jobs.MODE_ALBUM
+    ):
+        # A heatmap job has no unmatched report: refuse it as a missing job,
+        # in one read so the mode and the report come from the same record.
         return jsonify({"count": 0, "data": {}, "error": "Job not found."}), 404
+
+    unmatched_data = job_context["unmatched"]
 
     return jsonify({"count": len(unmatched_data), "data": unmatched_data})
 

@@ -9,6 +9,22 @@ Newest rotation first.
 
 ---
 
+### F-B23-50: `/heatmap_data` answered an album job with a 500, and `/api/unmatched` answered a heatmap job as valid -- RESOLVED
+
+`heatmap_data` (`scrobblescope/routes/heatmap_flow.py`) spreads `ctx["results"]` into its answer (`{"ready": True, **ctx["results"]}`), and an album job's results are a list of rows, so an album job id raised `TypeError` and answered 500 once the job finished; a running album job answered 202 and a failed one answered 200 with the error body. `unmatched_data` (`scrobblescope/routes/api.py`) read `jobs.unmatched(job_id)` and answered a heatmap job with 200 and an empty report. Fixed: both endpoints now refuse a job whose mode is not their own with the same 404 a missing job gets (the album pages and the release-check endpoint already followed that rule), and `unmatched_data` reads `jobs.context` once so the mode and the report come from one record. `/progress` stays shared by both modes on purpose, because `static/js/heatmap.js` polls it. The same mode check now appears inline at five code sites (the album pages' shared `_get_validated_job_context`, `_latest_heatmap_job`, `api.release_checks`, and these two), and F-B23-53's job read seam owns folding them into one.
+
+- [x] **Status:** resolved
+- **Completed:** 2026-10-22
+- Source: the 2026-10-21 architecture review (defects D1 and D3), re-checked 2026-10-21.
+
+### F-B23-48: `test_unmatched_view_coverless_rows_wear_their_albums_wash` compared whole pages that carry a timestamped CSRF token -- RESOLVED
+
+The test asserted that two `POST /unmatched_view` pages were byte-identical, but `templates/base.html` renders `<meta name="csrf-token" content="{{ csrf_token() }}">` and Flask-WTF signs that token with a timestamp, so two renders that straddle a second boundary differ there with no defect in the code. It failed this way in PR #262 CI on 2026-10-21 and passed on re-run; it was the only whole-page equality assertion in `tests/`. Fixed: the test now takes each page's own token from its csrf-token meta tag, replaces every occurrence of it in that page with a fixed placeholder, and asserts the two masked pages are equal, so only the clock-dependent part is excluded and row order or any other render nondeterminism still fails.
+
+- [x] **Status:** resolved
+- **Completed:** 2026-10-22
+- Source: PR #262 CI run and controller diagnosis, 2026-10-21.
+
 ### F-B23-3: the album pipeline runs the cache connection protocol itself -- RESOLVED
 
 `orchestrator.process_albums` opens the cache connection, holds it across

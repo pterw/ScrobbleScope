@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2961 tests across 101 tracked test modules.
+2968 tests across 101 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -481,8 +481,8 @@ Status: open (P2), Deezer only. Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
 `scrobblescope/routes/api.py` (`unmatched_data`, `progress`) and
 `scrobblescope/routes/heatmap_flow.py` (`heatmap_data`) accept `job_id` from
-a query parameter and look it up in the process-local `MemoryJobStore` (through `jobs.progress`,
-`jobs.unmatched` and `jobs.context`) with no
+a query parameter and look it up in the process-local `MemoryJobStore` (through `jobs.progress`
+and `jobs.context`) with no
 check that the requesting session originated that job. `jobs.create`
 (`scrobblescope/jobs.py`) generates `job_id = uuid4().hex` -- a
 128-bit unguessable value -- so the design already relies on the ID itself as

@@ -735,6 +735,41 @@ def test_unmatched_api_returns_data(client):
     assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
 
 
+def test_unmatched_api_refuses_a_heatmap_job(client):
+    """A heatmap job's id gets the missing-job 404, not an unmatched report."""
+    job_id = jobs.create(HEATMAP_JOB_PARAMS)
+    jobs.record_unmatched(
+        job_id,
+        "artist::album_key",
+        {"artist": "Radiohead", "album": "OK Computer", "reason": "x"},
+    )
+
+    response = client.get(f"/api/unmatched?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
+def test_unmatched_api_unknown_job(client):
+    """An id no job has gets the missing-job 404 and its exact body."""
+    response = client.get("/api/unmatched?job_id=does_not_exist")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
+def test_unmatched_api_refuses_a_job_of_another_mode(client):
+    """Only an album job has an unmatched report: any other mode is refused."""
+    job_id = jobs.create({"username": "testuser", "mode": "other"})
+    jobs.record_unmatched(
+        job_id,
+        "artist::album_key",
+        {"artist": "Radiohead", "album": "OK Computer", "reason": "x"},
+    )
+
+    response = client.get(f"/api/unmatched?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {"count": 0, "data": {}, "error": "Job not found."}
+
+
 # --- Release-check API tests ---
 
 
@@ -2193,6 +2228,36 @@ def test_heatmap_data_expired_job(client):
     assert data["error"] is True
 
 
+@pytest.mark.parametrize("state", ["running", "finished", "failed"])
+def test_heatmap_data_refuses_an_album_job(client, state):
+    """An album job's id gets the missing-job 404 in every state, never a 500."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    if state == "finished":
+        jobs.succeed(job_id, [{"artist": "Radiohead", "album": "Kid A"}], "Done!")
+    elif state == "failed":
+        jobs.fail(job_id, "lastfm_rate_limited")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {
+        "error": True,
+        "message": "Job not found or expired.",
+    }
+
+
+def test_heatmap_data_refuses_a_job_of_another_mode(client):
+    """Only a heatmap job is served: a finished job of any other mode is refused."""
+    job_id = jobs.create({"username": "testuser", "mode": "other"})
+    jobs.succeed(job_id, {"grid": []}, "Done!")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json() == {
+        "error": True,
+        "message": "Job not found or expired.",
+    }
+
+
 def test_heatmap_data_still_processing(client):
     """GET /heatmap_data for an in-progress job returns 202 with ready=false."""
     job_id = jobs.create(HEATMAP_JOB_PARAMS)
@@ -3282,12 +3347,13 @@ def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
     a no-provider row that asks for an artist portrait
     WHEN POST /unmatched_view is submitted twice
     THEN each placeholder carries the wash cover_wash_index picks for its own
-    album, two albums with different picks differ, and the second render
-    repeats the first.
+    album, two albums with different picks differ, and the second render is
+    the same page as the first once each page's own CSRF token is masked.
 
     Mutation: make the cover_wash filter return one fixed class and the
     different-albums assertion fails; revert a template placeholder to its
-    plain class and that row's assertion fails.
+    plain class and that row's assertion fails; make the wash random per
+    render, or reorder the rows between renders, and the page comparison fails.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
     rows = {
@@ -3314,8 +3380,19 @@ def test_unmatched_view_coverless_rows_wear_their_albums_wash(client):
     first = client.post("/unmatched_view", data={"job_id": job_id})
     second = client.post("/unmatched_view", data={"job_id": job_id})
     assert first.status_code == 200
+    assert second.status_code == 200
     first_html = first.data.decode("utf-8")
-    assert first_html == second.data.decode("utf-8")
+    second_html = second.data.decode("utf-8")
+
+    # base.html's CSRF meta token is signed with a timestamp, so two renders a
+    # second apart differ there by design. Mask each page's own token wherever
+    # it appears and compare everything else whole, so row order or any other
+    # render nondeterminism still fails.
+    def mask_csrf(page):
+        token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page).group(1)
+        return page.replace(token, "CSRF-TOKEN")
+
+    assert mask_csrf(second_html) == mask_csrf(first_html)
 
     picks = {}
     for number, title in enumerate(rows):
