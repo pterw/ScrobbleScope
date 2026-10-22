@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Plan the pre-Batch-23 side tasks
+
+Side task, no batch tag: the plan for the pre-Batch-23 side-task PR, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: "Cheap fixes first -- anything else that comes before the scope in the tranche should be filed as a potential finding/candidate. Goal is to finish the tranch and avoid scope creep"; on 2026-10-22 the side-task PR runs next and the Batch 23 WP-0 close-out runs "After the tranche, before WP-1".
+
+What changed: `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md` is committed with every fix its brief review asked for (one Important, twelve Minor: the Task 0 staging order for DOC001, corrected predictions for the planted defects, the archives in the staging lists, the canonical open-finding record, a self-contained Task 5 proof, ruff-formatted code blocks, and the frontend gate before Tasks 3, 4 and 6). PLAYBOOK Section 3 names the PR in the "Before WP-1" bullet and says the WP-0 close-out runs after the tranche, before WP-1; "Next action: WP-0 is next." is unchanged because WP-0 is still the next work package.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2948 passed**.
+
 ### 2026-10-21 - The PR template branch takes main after PRs #5 and #6
 
 Side task, no batch tag: merge of `origin/main` (3ddc650, PRs #261 and #262) into `chore/pr-template`, on `chore/pr-template`, a branch off `main`.

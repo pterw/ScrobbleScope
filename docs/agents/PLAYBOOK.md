@@ -168,6 +168,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Log lines reach stdout as UTF-8
+
+Side task, no batch tag: writing stdout as UTF-8 like stderr, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: the production log stream must never lose a line because of a listener's artist name.
+
+What changed: the stream setup block in `app.py` reconfigured only `sys.stderr` to UTF-8, while `logging.StreamHandler(sys.stdout)` is the production log channel (the file handler is ephemeral on Fly.io). It now loops over `(sys.stdout, sys.stderr)`. Why: when stdout is a pipe or a file (a redirected log, a process manager) Python uses the locale's code page, where a non-Latin artist name raised `UnicodeEncodeError` inside logging and the line was lost. The plan's wording blamed a Windows console; since PEP 528 a real console writes UTF-8, so the `app.py` comment and the test name say pipe or file under a legacy code page. `tests/test_app_factory.py` gains `test_a_log_line_reaches_stdout_whole_when_its_encoding_is_legacy`, which reuses `_import_app_in_child` with `PYTHONIOENCODING=cp1252`.
+
+Deviations: the test goes beyond the plan's block (owner rule: a wrong implementation must not pass): the child also writes the probe to `sys.stderr`, and the test asserts it arrives intact there, so the stderr half of the fix is pinned too; the test is renamed from `..._on_a_narrow_console` to match the corrected description. Edited existing tests: none.
+
+Mutations, each proven red then reverted: a loop over `(sys.stderr,)` only fails (the probe is missing from stdout, with a Logging error); a loop over `(sys.stdout,)` only fails (the probe is missing from stderr); `reconfigure(errors="replace")` with no encoding fails (the probe arrives as `?`). The frontend gate passed.
+
+Validation: `pytest -q` -- **2961 passed**.
+
 ### 2026-10-22 - Importing the app no longer runs a shell command
 
 Side task, no batch tag: removing the `os.system("")` call from `app.py`, on `fix/pre-batch23-side-tasks`, a branch off `main`.
@@ -203,18 +217,6 @@ Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/p
 Owner intent: ruling 2026-10-21 (Q1) -- Last.fm jobs keep the job ID as their capability, and export jobs, which hold an uploaded private history, are bound to the session that created them.
 
 What changed: `docs/agents/FINDINGS.md` F-B22-3 gains the ruling paragraph and a status line that names WP-3 (still open, P2; its shape is unchanged). The `release_checks` docstring in `scrobblescope/routes/api.py` now states the ruling instead of calling it an open question (docstring only, no code change). `BATCH23_DEFINITION.md` gets a `Scope amended 2026-10-21` header line and a WP-3 checklist item, "Export jobs belong to their session", with its acceptance. No work package is added. This lets WP-3 implement the binding without re-asking the owner.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2948 passed**.
-
-### 2026-10-22 - Plan the pre-Batch-23 side tasks
-
-Side task, no batch tag: the plan for the pre-Batch-23 side-task PR, on `fix/pre-batch23-side-tasks`, a branch off `main`.
-
-Owner intent: "Cheap fixes first -- anything else that comes before the scope in the tranche should be filed as a potential finding/candidate. Goal is to finish the tranch and avoid scope creep"; on 2026-10-22 the side-task PR runs next and the Batch 23 WP-0 close-out runs "After the tranche, before WP-1".
-
-What changed: `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md` is committed with every fix its brief review asked for (one Important, twelve Minor: the Task 0 staging order for DOC001, corrected predictions for the planted defects, the archives in the staging lists, the canonical open-finding record, a self-contained Task 5 proof, ruff-formatted code blocks, and the frontend gate before Tasks 3, 4 and 6). PLAYBOOK Section 3 names the PR in the "Before WP-1" bullet and says the WP-0 close-out runs after the tranche, before WP-1; "Next action: WP-0 is next." is unchanged because WP-0 is still the next work package.
 
 Deviations: none. Edited existing tests: none.
 

@@ -26,8 +26,14 @@ from scrobblescope.api_logging import RedactingFormatter
 
 csrf = CSRFProtect()
 
-if isinstance(sys.stderr, io.TextIOWrapper):
-    sys.stderr.reconfigure(encoding="utf-8")
+# stdout carries the production log stream and stderr carries tracebacks.
+# When stdout is a pipe or a file -- a redirected log, a process manager --
+# Python uses the locale's code page, where a listener's non-Latin artist name
+# raised UnicodeEncodeError inside logging and the line was lost, so both
+# write UTF-8 whatever the locale's encoding.
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper):
+        _stream.reconfigure(encoding="utf-8")
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
