@@ -124,7 +124,10 @@ See FINDINGS F-DOCSYNC-3.
   wait for the owner's screenshots, each with its own plan. A side-task PR of
   cheap fixes from the 2026-10-21 architecture review and the logging audit
   runs next (branch `fix/pre-batch23-side-tasks`, plan
-  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`); the
+  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`); a CI
+  change keeps Playwright's Ubuntu packages in the Actions cache so a slow
+  mirror cannot stall the gate (branch `ci/playwright-apt-cache`, plan
+  `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`); the
   documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
@@ -168,6 +171,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - Plan the CI package cache
+
+Side task, no batch tag: planning a CI cache for Playwright's Ubuntu packages, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again ("Yes, on the lasting fix. Worth doing"), so the packages `playwright install --with-deps` downloads are to be kept in the Actions cache.
+
+What changed: the plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md` is committed, and Section 3 names the branch and plan in the "Before WP-1" bullet. The plan carries every fix from its review: the cache is restored before the install and saved by its own step right after it (so a failed or cancelled later step cannot stop it filling), and its structural test asserts the direction of the seed and the copy-back on non-comment lines, proven against nine planted defects in scratch.
+
+Deviations: the plan uses `actions/cache/restore` and `actions/cache/save`, sub-actions of the `actions/cache@v6` already pinned (controller ruling). Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - Two of the new review findings say what the code does
 
 Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
@@ -205,17 +220,3 @@ Deviations: the plan's planted defect (a) predicted `running` gets 202 when the 
 Mutations, each proven red then reverted: mode check after the results branch (`finished` TypeError, `failed` 200 not 404); results-type guard instead of the mode check (`running`, `finished`, `failed` fail); `unmatched_data` mode clause deleted (heatmap job gets 200); `job_context is None or` removed (the unknown job raises AttributeError); `unmatched_data` denylist `== MODE_HEATMAP` (the other-mode job gets 200); `heatmap_data` denylist `== MODE_ALBUM` (the other-mode job gets 200). The frontend gate passed.
 
 Validation: `pytest -q` -- **2968 passed**.
-
-### 2026-10-22 - The coverless-wash route test no longer reads the clock
-
-Side task, no batch tag: making a flaky route test independent of the clock, on `fix/job-endpoint-modes`, a branch cut from the head of `fix/pre-batch23-side-tasks` (PR 2 of three stacked side-task PRs).
-
-Owner intent: a test that fails now and then with no defect in the code teaches the team to ignore red, and "a false green is worse than a true red", so the fix must not weaken what the test guards.
-
-What changed: `test_unmatched_view_coverless_rows_wear_their_albums_wash` asserted the two `POST /unmatched_view` pages byte-identical, but `templates/base.html` renders a CSRF meta token that Flask-WTF signs with a timestamp, so renders a second apart differ (PR #262 CI, 2026-10-21; filed and closed as F-B23-48). The test now also asserts the second status, then masks each page's own token (read from its `csrf-token` meta tag, every occurrence replaced by a fixed placeholder) and compares the two pages whole, so row order or any other render nondeterminism still fails. The per-row expected-wash assertions are unchanged. The docstring's THEN clause and Mutation paragraph are updated.
-
-Deviations: the plan's block compared only each row's artwork classes; the code review noted that lets row-order nondeterminism pass, and the controller ruled for the whole-page comparison with only the token masked. Edited existing tests: `test_unmatched_view_coverless_rows_wear_their_albums_wash` (the only edit).
-
-Mutations, each proven red then reverted: reversing the order of the unmatched reasons on every second render fails; `cover_wash_filter` drawing from `random.randrange(6)` fails; leaving the token unmasked fails under a patched `TimestampSigner.get_timestamp` that signs a different second per render, while the masked test passes under that same patch.
-
-Validation: `pytest -q` -- **2961 passed**.
