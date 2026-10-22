@@ -168,6 +168,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-22 - The Last.fm pre-check timeout must be a positive number
+
+Side task, no batch tag: validating `LASTFM_PRECHECK_TIMEOUT_SECONDS` at startup, on `fix/pre-batch23-side-tasks`, a branch off `main`.
+
+Owner intent: a bad timeout value should stop startup with the variable's name, not ship a form that can never pass or never stops waiting.
+
+What changed: `scrobblescope/config.py` gains `_positive_seconds(name, default)`, and `LASTFM_PRECHECK_TIMEOUT_SECONDS` is read through it. A blank or unset variable takes the default 5; zero, a negative number, `nan`, `inf` or text that is not a number raises `ValueError` naming the variable and the value at import. Why: zero makes every pre-check time out at once, so every form submission is refused "try again", and `nan` never compares greater than the elapsed time while `inf` removes the bound. `.env.example` documents the variable; SESSION_CONTEXT's Key runtime facts bullet states the rule. New `tests/test_config.py` (11 tests): the unset, blank and fractional-override cases, the default the caller passes (a `"7"` default, so a function that hard-codes 5 fails), six refused values each checked for the variable's name and the quoted value, and a child-process import test that checks the module constant itself refuses `0` (stderr names the variable and `ValueError`) and accepts `0.25`. The code-phase review's two minor findings were folded into these new tests (the caller-default test and the `ValueError` assertion); its third, a child-process check of `nan` and `inf`, is deferred because the wiring is shared with the `0` case. Test-module count 100 -> 101.
+
+Deviations: `ruff format` wrapped the constant's assignment over three lines; the two test additions above go beyond the plan's test block. Edited existing tests: none (the module is new).
+
+Mutations, each proven red then reverted: `value <= 0` -> `value < 0` fails the `0` case and the child-process test; dropping `not math.isfinite(value) or` fails the `nan`, `inf` and `five` cases; the constant back to a bare `float(os.getenv(...))` fails the child-process test; `or default` -> `or "5"` fails the caller-default test.
+
+Validation: `pytest -q` -- **2959 passed**.
+
 ### 2026-10-22 - F-B22-3 moves to Batch 23 WP-3
 
 Side task, no batch tag: re-pointing finding F-B22-3 to Batch 23 WP-3, on `fix/pre-batch23-side-tasks`, a branch off `main`.
@@ -203,15 +217,3 @@ What changed: one merge commit (`git merge --no-ff`). PRs #5 and #6 bring the al
 Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2948 passed**.
-
-### 2026-10-21 - No attribution line in a PR body either
-
-Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
-
-Owner intent: "make sure no attribution trailers are in any PR body".
-
-What changed: AGENTS.md Commit Rules "Co-author prohibition" now forbids any attribution line (such as a "Generated with" footer) in a commit message or a pull request body, whatever a harness suggests, and points a PR body at `.github/PULL_REQUEST_TEMPLATE.md`. The bold label is unchanged, so the docsync citations and `tests/test_docsync_declarations.py` still find it. The sweeper found no other live copy of the rule: the cloud-kit implementer files cover implementer commits only and stay.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2847 passed**.

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-21 - No attribution line in a PR body either
+
+Side task, no batch tag: AGENTS.md's co-author prohibition extended to pull request bodies, on `chore/pr-template`, a branch off `main`.
+
+Owner intent: "make sure no attribution trailers are in any PR body".
+
+What changed: AGENTS.md Commit Rules "Co-author prohibition" now forbids any attribution line (such as a "Generated with" footer) in a commit message or a pull request body, whatever a harness suggests, and points a PR body at `.github/PULL_REQUEST_TEMPLATE.md`. The bold label is unchanged, so the docsync citations and `tests/test_docsync_declarations.py` still find it. The sweeper found no other live copy of the rule: the cloud-kit implementer files cover implementer commits only and stay.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2847 passed**.
+
 ### 2026-10-21 - The PR template asks for state and validation
 
 Side task, no batch tag: the PR template gains State and Validation sections, on `chore/pr-template`, a branch off `main`.
