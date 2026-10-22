@@ -35,6 +35,9 @@ now account for it. No work package is added.
 **Scope amended 2026-10-20** (pre-Batch-23 tranche, PR #3): the album request
 module, the Last.fm pre-check and the admission module now exist, so WP-4
 reuses them instead of writing them. No work package is added.
+**Scope amended 2026-10-21** (owner ruling on F-B22-3): export jobs are bound to the
+session that created them (WP-3). Last.fm jobs keep the job ID as their capability.
+No work package is added.
 **Planning authority:** this definition owns batch scope, shared contracts
 and acceptance. Each WP gets a specialized plan before implementation,
 executed through subagent-driven development (SDD). Its approved plan owns
@@ -470,6 +473,13 @@ and the orchestrator never knows about zips.
   `spotify_id`, `album_url` and `album_image` fields as a Last.fm row.
   Acceptance adds: with the cache database missing, an export job completes
   from provider calls and records `db_cache_warning`.
+- [ ] **Export jobs belong to their session** (amended 2026-10-21, F-B22-3).
+  An export job's id is recorded in the creating session, and every endpoint
+  that reads a job (progress, results, unmatched, heatmap data, release
+  checks) refuses an export job whose id is not that session's, with the same
+  404 a missing job gets. Last.fm jobs are unchanged. Acceptance adds: an
+  export job's id read from a second client session gets 404 on each of those
+  endpoints.
 - **Acceptance:** `process_albums` receives the selection's eligible albums;
   `lastfm.fetch_scrobbles` is never called, proven by patching it to
   raise; an error reaches the job; the buffer is closed on every path,

@@ -500,8 +500,13 @@ endpoints also require the ID to match the requesting session's
 motivates this; filed for owner judgment, not because current behaviour is
 demonstrated wrong.
 
-Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
-2026-09-14.
+Owner ruling 2026-10-21 (Q1): Last.fm jobs keep the capability model -- the
+128-bit job ID is the bearer token, and their results are public listening
+data. Export jobs from Batch 23 hold an uploaded private history, so WP-3
+binds them to the session that created them. Re-pointed to Batch 23 WP-3.
+
+Status: open (P2), re-pointed to Batch 23 WP-3 (owner ruling 2026-10-21).
+Source: Graphify bot review, PR #232, 2026-09-14.
 
 ### F-B23-1: album calculation writes its exclusions into the job instead of returning them
 

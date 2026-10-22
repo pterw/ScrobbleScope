@@ -167,9 +167,9 @@ def release_checks():
     already answer this way.
 
     Ownership follows the same rule as every other job endpoint here -- the
-    128-bit job ID is the capability, with no session check. F-B22-3 records
-    that as an open question for the owner rather than a decision taken in
-    this endpoint alone.
+    128-bit job ID is the capability, with no session check. That is the
+    owner's ruling for Last.fm jobs (F-B22-3, 2026-10-21); Batch 23 WP-3
+    binds export jobs to their session.
     """
     job_id = request.args.get("job_id")
     if not job_id:
