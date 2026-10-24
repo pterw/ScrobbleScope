@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-23 - A finished run opens its results without a second line
+
+Side task, no batch tag: dropped the redundant "Opening your results..." details line from a finished album run, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the phase line already says the run is done, so a second line repeating it should go (2026-10-22). `static/js/loading.js`: `scheduleResultsRedirect` now takes an optional message and sets the details line only when one is given; the success path calls it with none and keeps the three-second reading delay, and a failure with no retry still says "Opening the results page...". New tests in `tests/frontend/test_heatmap_pure_functions.py` (`test_a_finished_album_run_opens_its_results_without_a_second_line`, `test_a_failed_run_with_no_retry_still_says_the_results_page_opens`, helper `_run_album_loading`) were proven red on the unchanged code and by three planted defects (old success call back, message ignored, `setTimeout` line dropped), each restored. Changes made at landing on the code review's findings: the no-retry test's expected string is written with the `\u2026` escape so the module stays ASCII (L5-1); the `setTimeout` stub records each callback with its delay and the tests assert the timer whose callback is `redirectToResults`, so a timer at 3000 ms that never redirects no longer passes (L5-2; proven by planting `setTimeout(function () {}, 3000)`, which fails both new tests). Carried Task 3 review note (L5-3): the docstring of `test_the_heatmap_copy_names_the_shade_the_grid_draws` now states the clause rule ("more", never "fewer" or "less"); docstring only. Deviations: none. Edited existing tests: `test_a_failed_album_run_is_announced_once_by_the_alert` (its markup moved unchanged to the module constant `ALBUM_LOADING_MARKUP`); `test_the_heatmap_copy_names_the_shade_the_grid_draws` (docstring only, L5-3). Validation: `pytest -q` -- **2974 passed**.
+
 ### 2026-10-23 - The unmatched-report links lose their arrows
 
 Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.

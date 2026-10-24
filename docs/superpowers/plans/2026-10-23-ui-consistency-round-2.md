@@ -38,11 +38,11 @@ Wave 0, serial, in MAIN.
 - Create: `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` (this plan, with the review fixes the dispatch names)
 - Modify: `docs/agents/PLAYBOOK.md` (Section 3, Section 4)
 
-- [ ] **Step 1:** Copy `.superpowers/sdd/2026-10-22-ui-round-2/plan-draft.md` to `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`, applying the review fixes named in the dispatch.
-- [ ] **Step 2:** PLAYBOOK Section 3, "Before WP-1" bullet: replace the sentence that begins "A side-task PR of cheap fixes from the 2026-10-21 architecture review and the logging audit runs next" (it ends "the documentation refresh merges last.") with: "A side-task PR of cheap fixes from the 2026-10-21 architecture review and the logging audit is done (branch `fix/pre-batch23-side-tasks`, plan `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`), and so is a CI change that keeps Playwright's Ubuntu packages in the Actions cache (branch `ci/playwright-apt-cache`, plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`). UI consistency round 2 runs now (branch `feat/ui-consistency-round-2`, plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`): the four changes the owner accepted in live mode, the two unmatched-report arrows and the loading page's redundant redirect line; the round's other backlog items wait for a later live session. The documentation refresh merges last." Leave every other sentence, and "**Next action:** WP-0 is next.", unchanged.
-- [ ] **Step 3:** Section 4 entry `### 2026-10-23 - Plan UI consistency round 2` (scope, the owner's 2026-10-23 rulings above, what the plan holds, deviations none, edited existing tests none).
-- [ ] **Step 4:** `git add docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` before `--fix`: DOC001 resolves Section 3's backticked paths through the index, so an unstaged plan file fails it.
-- [ ] **Step 5:** Commit procedure (R3; the browser gates are not needed for a docs-only commit); message `docs(plan): Plan UI consistency round 2`.
+- [x] **Step 1:** Copy `.superpowers/sdd/2026-10-22-ui-round-2/plan-draft.md` to `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`, applying the review fixes named in the dispatch.
+- [x] **Step 2:** PLAYBOOK Section 3, "Before WP-1" bullet: replace the sentence that begins "A side-task PR of cheap fixes from the 2026-10-21 architecture review and the logging audit runs next" (it ends "the documentation refresh merges last.") with: "A side-task PR of cheap fixes from the 2026-10-21 architecture review and the logging audit is done (branch `fix/pre-batch23-side-tasks`, plan `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`), and so is a CI change that keeps Playwright's Ubuntu packages in the Actions cache (branch `ci/playwright-apt-cache`, plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`). UI consistency round 2 runs now (branch `feat/ui-consistency-round-2`, plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`): the four changes the owner accepted in live mode, the two unmatched-report arrows and the loading page's redundant redirect line; the round's other backlog items wait for a later live session. The documentation refresh merges last." Leave every other sentence, and "**Next action:** WP-0 is next.", unchanged.
+- [x] **Step 3:** Section 4 entry `### 2026-10-23 - Plan UI consistency round 2` (scope, the owner's 2026-10-23 rulings above, what the plan holds, deviations none, edited existing tests none).
+- [x] **Step 4:** `git add docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` before `--fix`: DOC001 resolves Section 3's backticked paths through the index, so an unstaged plan file fails it.
+- [x] **Step 5:** Commit procedure (R3; the browser gates are not needed for a docs-only commit); message `docs(plan): Plan UI consistency round 2`.
 
 ---
 
@@ -66,9 +66,9 @@ Wave 1, code phase in `C:/ssw/u1`, then landing.
 
 Sweeper hits at origin/main (live) this task owns: `DESIGN.md:36`, `:42`, `:148`, `:157`, `:158`, `:165`, `:242`; `docs/design/RECONCILIATION.md:179`; `README.md:178`; `docs/agents/AGENT_NOTES.md:99`, `:109`; `scripts/dev/_frontend_gate_layout.py:27`; `static/css/tailwind.css:7`, `static/css/tailwind.src.css:24` (the WIP patch); `static/js/heatmap.js:615`; `tests/scripts/dev/test_tailwind_build_cli.py:163`. Leave, by ruling: `docs/design/README.md:89`, `:98`, `docs/design/reference/design-system-readme.md:40`, `docs/design/tokens/fonts.css:15`, `docs/design/tokens/typography.css:4`, `:15` (verbatim snapshot, R12; RECONCILIATION records the override); `tests/scripts/dev/test_frontend_gate_figures.py:19`, `:110` (a sample of a wrong, non-figure face; any serif stack serves); every point-in-time hit.
 
-- [ ] **Step 1: Edit the token lock test (red first).** In `test_theme_source_locks_the_batch_21_design_tokens`, replace the line `'--font-serif: "instrument-serif", "corporate-a", Georgia, serif;',` with `'--font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;',`.
+- [x] **Step 1: Edit the token lock test (red first).** In `test_theme_source_locks_the_batch_21_design_tokens`, replace the line `'--font-serif: "instrument-serif", "corporate-a", Georgia, serif;',` with `'--font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;',`.
 
-- [ ] **Step 2: Add the kit-coverage test** to `tests/scripts/dev/test_frontend_gate_layout.py` (add `import re` and `from pathlib import Path` if absent; import `REQUIRED_FONT_FAMILIES` from `scripts.dev._frontend_gate_layout`):
+- [x] **Step 2: Add the kit-coverage test** to `tests/scripts/dev/test_frontend_gate_layout.py` (add `import re` and `from pathlib import Path` if absent; import `REQUIRED_FONT_FAMILIES` from `scripts.dev._frontend_gate_layout`):
 
 ```python
 SOURCE_CSS = Path(__file__).resolve().parents[3] / "static" / "css" / "tailwind.src.css"
@@ -90,7 +90,7 @@ def test_the_kit_check_loads_the_first_face_of_every_font_token() -> None:
 
 (Check `parents[3]` resolves to the repository root; the five tokens are `--font-sans`, `--font-serif`, `--font-figure`, `--font-mono`, `--font-mono-narrow`; `--font-weight-*` values are unquoted and do not match.)
 
-- [ ] **Step 3: Extend the export header check.** In `check_heatmap_export_header_matches_page`, the `page.evaluate` also returns the page headline's computed family and the drawn headline's family with the leading size dropped:
+- [x] **Step 3: Extend the export header check.** In `check_heatmap_export_header_matches_page`, the `page.evaluate` also returns the page headline's computed family and the drawn headline's family with the leading size dropped:
 
 ```js
 pageHeadlineFont: headline ? getComputedStyle(headline).fontFamily : null,
@@ -126,13 +126,13 @@ The check calls `failures.extend(headline_font_failures(state["drawnHeadlineFont
 
 Add three tests to `tests/scripts/dev/test_frontend_gate_theme.py`: equal families written with different quoting and spacing pass (`headline_font_failures('"orpheuspro", Georgia, serif', "orpheuspro,Georgia,serif") == []`); a different family is reported with both names; a missing drawn font (`None` and `""`) is reported.
 
-- [ ] **Step 4: Prove red.** Run `PY -m pytest -q tests/scripts/dev/test_tailwind_build_cli.py tests/scripts/dev/test_frontend_gate_layout.py -p no:cacheprovider`: expect the token lock test FAIL (the source still has the old line) and the kit-coverage test PASS (at BASE, instrument-serif is listed). Run the `frontend-gate` (through the wrapper): expect `check_heatmap_export_header_matches_page` to fail with "saved heatmap header records no headline font" at each profile it runs. Quote the lines.
+- [x] **Step 4: Prove red.** Run `PY -m pytest -q tests/scripts/dev/test_tailwind_build_cli.py tests/scripts/dev/test_frontend_gate_layout.py -p no:cacheprovider`: expect the token lock test FAIL (the source still has the old line) and the kit-coverage test PASS (at BASE, instrument-serif is listed). Run the `frontend-gate` (through the wrapper): expect `check_heatmap_export_header_matches_page` to fail with "saved heatmap header records no headline font" at each profile it runs. Quote the lines.
 
-- [ ] **Step 5: Apply the WIP patch.** `git apply .superpowers/sdd/2026-10-22-ui-round-2/task-1-wip.patch` (absolute path from the code-phase worktree). Re-run the two pytest files: the token lock test PASSES and the kit-coverage test now FAILS (`['orpheuspro']` missing). Quote it.
+- [x] **Step 5: Apply the WIP patch.** `git apply .superpowers/sdd/2026-10-22-ui-round-2/task-1-wip.patch` (absolute path from the code-phase worktree). Re-run the two pytest files: the token lock test PASSES and the kit-coverage test now FAILS (`['orpheuspro']` missing). Quote it.
 
-- [ ] **Step 6: Add the family to the kit check.** In `REQUIRED_FONT_FAMILIES`, insert `"orpheuspro",` directly before `"instrument-serif",` (keep `akzidenz-grotesk-next-pro` first: `check_body_font` reads index 0; keep `instrument-serif`: it is still the serif's fallback, and its loss should still warn). Re-run: both PASS.
+- [x] **Step 6: Add the family to the kit check.** In `REQUIRED_FONT_FAMILIES`, insert `"orpheuspro",` directly before `"instrument-serif",` (keep `akzidenz-grotesk-next-pro` first: `check_body_font` reads index 0; keep `instrument-serif`: it is still the serif's fallback, and its loss should still warn). Re-run: both PASS.
 
-- [ ] **Step 7: Make the export follow the token.** In `static/js/heatmap.js`, where the export draws the headline, replace `ctx.font = '26px "instrument-serif", Georgia, serif';` with:
+- [x] **Step 7: Make the export follow the token.** In `static/js/heatmap.js`, where the export draws the headline, replace `ctx.font = '26px "instrument-serif", Georgia, serif';` with:
 
 ```js
     // The page's display serif, read from its token, so the saved image
@@ -145,14 +145,14 @@ Add three tests to `tests/scripts/dev/test_frontend_gate_theme.py`: equal famili
 
 and record it: `drawnHeader = { headline: header.headline, eyebrow: header.eyebrow, headlineFont: headlineFont };`. Run the `frontend-gate`: PASS. Planted defects, each run through the gate and reverted from a copy: (a) the old hard-coded string back -> the check fails naming `instrument-serif` against `orpheuspro`; (b) `ctx.font = '26px ' + ''` (an invalid font the canvas ignores) -> fails; (c) `headlineFont` dropped from `drawnHeader` -> "records no headline font".
 
-- [ ] **Step 8: Docs (R12).**
+- [x] **Step 8: Docs (R12).**
   - `DESIGN.md` frontmatter: `display` and `headline` `fontFamily: "orpheuspro, instrument-serif, Georgia, serif"`; `display` `letterSpacing: "0"`.
   - `DESIGN.md` Typography: `**Display Font:** \`orpheuspro\` (Orpheus Pro; \`instrument-serif\`, then Georgia, serif, as fallback)`. Hierarchy: Display reads `(400 weight, \`2rem\` to \`3rem\`, line-height \`1.05\`, tracking \`0\`; the empty-state titles keep \`-0.01em\`): Editorial hero phrases and main page banners (\`orpheuspro\`).`; Headline ends `(\`orpheuspro\`).` Role Segregation Rule: "Gotham gets the numbers, Orpheus Pro gets the words." Do's: "**Do** use \`orpheuspro\` strictly for display words and \`gotham\` strictly for display numbers."
   - `docs/design/RECONCILIATION.md`: the role-map row becomes `| \`--font-serif\` | orpheuspro, then instrument-serif | display words, 22px+ | orpheuspro 400 / 700 + italic 400; instrument-serif 400 + italic |`, and a new section `## 27. Orpheus Pro is the display serif, 2026-10-22` after section 26: the owner's words (I1 ruling above), the token, the hero's tracking 0, the export headline reading the token, and that `README.md`'s "Gotham gets the numbers, Instrument Serif gets the words" is overridden here. Section 27 also says the type mapping now departs from the snapshot README. In section 4 ("The type mapping"), the sentence "The repo takes the README families unchanged." becomes "The repo takes the README families, with one change: Orpheus Pro leads the serif token (section 27).".
   - `README.md` Typography row: `Adobe Fonts: Akzidenz-Grotesk Next, Orpheus Pro (Instrument Serif as its fallback), Gotham, Input Mono, Input Mono Narrow`.
   - `docs/agents/AGENT_NOTES.md`: "never Instrument Serif or any Adobe kit family" -> "never Orpheus Pro, Instrument Serif or any Adobe kit family"; "The owner accepts the Instrument Serif hero layout as AI-flavoured but fine" -> "The owner accepts the serif hero layout (Instrument Serif until 2026-10-22, Orpheus Pro since) as AI-flavoured but fine".
 
-- [ ] **Step 9:** Landing: Section 4 entry `### 2026-10-23 - Orpheus Pro becomes the display serif` (edited existing tests: `test_theme_source_locks_the_batch_21_design_tokens`); commit procedure with `frontend-gate`; message `feat(ui): Make Orpheus Pro the display serif`.
+- [x] **Step 9:** Landing: Section 4 entry `### 2026-10-23 - Orpheus Pro becomes the display serif` (edited existing tests: `test_theme_source_locks_the_batch_21_design_tokens`); commit procedure with `frontend-gate`; message `feat(ui): Make Orpheus Pro the display serif`.
 
 ---
 
@@ -172,7 +172,7 @@ Wave 2, code phase in `C:/ssw/u2` with Task 1's and Task 4's patches staged, the
 
 Sweeper hits: `docs/design/RECONCILIATION.md` section 26's deferral sentence (left as written; section 28 completes it); DESIGN.md Role Segregation Rule and Do's line (after Task 1's wording).
 
-- [ ] **Step 1: Write the judge's tests** in `tests/scripts/dev/test_frontend_gate_figures.py` (reuse its `FIGURE`, `SERIF` and `_reading`):
+- [x] **Step 1: Write the judge's tests** in `tests/scripts/dev/test_frontend_gate_figures.py` (reuse its `FIGURE`, `SERIF` and `_reading`):
 
 ```python
 def test_four_figure_face_stat_values_pass() -> None:
@@ -225,7 +225,7 @@ def test_a_serif_stat_value_fails_the_whole_check() -> None:
 
 Run them: FAIL (`AttributeError: ... stat_value_face_failures`). Quote it.
 
-- [ ] **Step 2: Write the judge.** Factor the reference check out of `figure_face_failures` into `_reference_failures(kpi: dict) -> list[str]` (the "no KPI value" and "heatmap KPI value is set in ..." messages, unchanged), call it from `figure_face_failures` (its tests stay green), and add:
+- [x] **Step 2: Write the judge.** Factor the reference check out of `figure_face_failures` into `_reference_failures(kpi: dict) -> list[str]` (the "no KPI value" and "heatmap KPI value is set in ..." messages, unchanged), call it from `figure_face_failures` (its tests stay green), and add:
 
 ```python
 #: The four Results stat values: total albums, top artist, scrobbles, unmatched.
@@ -259,15 +259,15 @@ def stat_value_face_failures(stats: dict, kpi: dict) -> list[str]:
 
 Call it in `check_results_play_count_uses_the_figure_face` right after the "on load" play-count reading: `failures.extend(stat_value_face_failures(page.evaluate(FACE_JS, [STAT_VALUES_SELECTOR, FIGURE_FONT_PROPERTY]), kpi))`. Update the module and check docstrings to say the check also reads the stat row (the registered name "results play count figure face" and the function name stay, so no registration test changes). Unit tests PASS.
 
-- [ ] **Step 2a: Teach the `_Page` fake the stat read.** Give the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` a `stats` constructor argument (default `_reading(count=4)`) that its `evaluate` returns when the selector is `figures.STAT_VALUES_SELECTOR`, before the play-reading branch. Run the file: the four tests that failed for the stat read (`test_the_check_passes_when_both_reads_agree_and_cleans_up`, `test_a_cell_rebuilt_by_a_sort_switch_is_judged_again`, `test_at_the_mobile_profile_a_spilling_count_fails_on_load_and_after_a_switch`, `test_at_a_desktop_width_the_fit_is_not_judged`) pass again with no edit to their own bodies.
+- [x] **Step 2a: Teach the `_Page` fake the stat read.** Give the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` a `stats` constructor argument (default `_reading(count=4)`) that its `evaluate` returns when the selector is `figures.STAT_VALUES_SELECTOR`, before the play-reading branch. Run the file: the four tests that failed for the stat read (`test_the_check_passes_when_both_reads_agree_and_cleans_up`, `test_a_cell_rebuilt_by_a_sort_switch_is_judged_again`, `test_at_the_mobile_profile_a_spilling_count_fails_on_load_and_after_a_switch`, `test_at_a_desktop_width_the_fit_is_not_judged`) pass again with no edit to their own bodies.
 
-- [ ] **Step 3: Prove the gate red.** Run the `frontend-gate` without the WIP patch: the check fails at each profile with four "results stat value N is set in 'orpheuspro,...' " lines. Quote one profile's lines.
+- [x] **Step 3: Prove the gate red.** Run the `frontend-gate` without the WIP patch: the check fails at each profile with four "results stat value N is set in 'orpheuspro,...' " lines. Quote one profile's lines.
 
-- [ ] **Step 4: Apply the WIP patch** with `git apply -3 .superpowers/sdd/2026-10-22-ui-round-2/task-2-wip.patch`. Run the `frontend-gate`: PASS. Planted defects through the gate, each reverted from a copy: (a) an inline `style="font-family: var(--font-serif)"` on `#stat-top-artist` -> one failure naming stat value 2; (b) `font-weight: var(--font-weight-bold)` in the `.results-stat-value > span` rule -> four weight-700 failures; (c) the `font-family` declaration deleted from the `.results-stat-value > span` rule -> four failures.
+- [x] **Step 4: Apply the WIP patch** with `git apply -3 .superpowers/sdd/2026-10-22-ui-round-2/task-2-wip.patch`. Run the `frontend-gate`: PASS. Planted defects through the gate, each reverted from a copy: (a) an inline `style="font-family: var(--font-serif)"` on `#stat-top-artist` -> one failure naming stat value 2; (b) `font-weight: var(--font-weight-bold)` in the `.results-stat-value > span` rule -> four weight-700 failures; (c) the `font-family` declaration deleted from the `.results-stat-value > span` rule -> four failures.
 
-- [ ] **Step 5: Docs (R12).** `DESIGN.md` Role Segregation Rule: after "Gotham gets the numbers, Orpheus Pro gets the words." add "One exception, the owner's choice (2026-10-22): the Results stat row sets all four values in Gotham Book with tabular figures, the Top Artist name included, so the row reads as one set of readouts." Do's line: append "(the Results stat row's Top Artist name is the one exception)". `docs/design/RECONCILIATION.md`: new section `## 28. The Results stat row is all figure face, 2026-10-22` after section 27: the owner's words ("For each span||stat, use Gotham Book."), the rule in `static/css/results.css` (`.results-stat-value > span`: `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged), that it overrides the snapshot's serif stat values, and that it carries out the move section 26 deferred ("The side rail's stat values are still serif utility classes ... belongs to a later round"); section 26 itself stays as written (a dated record).
+- [x] **Step 5: Docs (R12).** `DESIGN.md` Role Segregation Rule: after "Gotham gets the numbers, Orpheus Pro gets the words." add "One exception, the owner's choice (2026-10-22): the Results stat row sets all four values in Gotham Book with tabular figures, the Top Artist name included, so the row reads as one set of readouts." Do's line: append "(the Results stat row's Top Artist name is the one exception)". `docs/design/RECONCILIATION.md`: new section `## 28. The Results stat row is all figure face, 2026-10-22` after section 27: the owner's words ("For each span||stat, use Gotham Book."), the rule in `static/css/results.css` (`.results-stat-value > span`: `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged), that it overrides the snapshot's serif stat values, and that it carries out the move section 26 deferred ("The side rail's stat values are still serif utility classes ... belongs to a later round"); section 26 itself stays as written (a dated record).
 
-- [ ] **Step 6:** Landing: Section 4 entry `### 2026-10-23 - Results stat values take the figure face` (edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no test body changed); commit procedure with `frontend-gate` and `results-behavior`; message `feat(ui): Set the Results stat values in the figure face`.
+- [x] **Step 6:** Landing: Section 4 entry `### 2026-10-23 - Results stat values take the figure face` (edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no test body changed); commit procedure with `frontend-gate` and `results-behavior`; message `feat(ui): Set the Results stat values in the figure face`.
 
 ---
 
@@ -284,7 +284,7 @@ Wave 1, code phase in `C:/ssw/u3`, then landing.
 
 Verified fact: in `static/js/heatmap.js` (`rocketColor`, `countToNorm`) more plays render BRIGHTER (cream-gold), fewer near-black, zero days `--heatmap-empty`; the old lede ("The darker the square, the more you played") and preview ("darker means more") were backwards.
 
-- [ ] **Step 1: Write the tests** (add `import re`; `REPO_ROOT` comes from `tests.frontend.conftest`):
+- [x] **Step 1: Write the tests** (add `import re`; `REPO_ROOT` comes from `tests.frontend.conftest`):
 
 ```python
 INDEX_HTML = REPO_ROOT / "templates" / "index.html"
@@ -366,11 +366,11 @@ def test_the_preview_card_promises_only_figures_the_result_shows(js_page):
 
 (Place them after `test_kpi_blocks_render_the_published_figures_and_compute_nothing`, so `RENDER_KPIS_JS`, `_published` and `KPI_CASES` are defined above them. Check the lede regex against the real markup and adjust only the pattern if the eyebrow markup differs; say so in the report.)
 
-- [ ] **Step 2: Prove red.** `PY -m pytest -q tests/frontend/test_heatmap_pure_functions.py -k "shade_the_grid or promises_only" -p no:cacheprovider`: both FAIL against BASE (the lede and preview say "darker"; the preview lacks "current streak" and says "longest"). Quote the lines.
+- [x] **Step 2: Prove red.** `PY -m pytest -q tests/frontend/test_heatmap_pure_functions.py -k "shade_the_grid or promises_only" -p no:cacheprovider`: both FAIL against BASE (the lede and preview say "darker"; the preview lacks "current streak" and says "longest"). Quote the lines.
 
-- [ ] **Step 3: Apply the WIP patch** `task-3-wip.patch`. Re-run: both PASS. Planted defects, each reverted from a copy: (a) the preview's "Brighter squares" -> "Darker squares"; (b) the lede's "brighter for more plays" -> "darker for more plays"; (c) `ROCKET_STOPS` reversed in `static/js/heatmap.js` (temporary; the file is not in this task's Touches and must be byte-identical afterwards); (d) "current streak" -> "longest streak" in the Totals line; (e) "daily average" dropped from the Totals line. Each must fail one of the two tests.
+- [x] **Step 3: Apply the WIP patch** `task-3-wip.patch`. Re-run: both PASS. Planted defects, each reverted from a copy: (a) the preview's "Brighter squares" -> "Darker squares"; (b) the lede's "brighter for more plays" -> "darker for more plays"; (c) `ROCKET_STOPS` reversed in `static/js/heatmap.js` (temporary; the file is not in this task's Touches and must be byte-identical afterwards); (d) "current streak" -> "longest streak" in the Totals line; (e) "daily average" dropped from the Totals line. Each must fail one of the two tests.
 
-- [ ] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - The heatmap copy says what the grid draws` (edited existing tests: none); commit procedure with `frontend-gate`; message `feat(ui): Rewrite the heatmap preview and lede to match the grid`.
+- [x] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - The heatmap copy says what the grid draws` (edited existing tests: none); commit procedure with `frontend-gate`; message `feat(ui): Rewrite the heatmap preview and lede to match the grid`.
 
 ---
 
@@ -384,7 +384,7 @@ Wave 1, code phase in `C:/ssw/u4`, then landing.
 
 Sweeper hits (live): `templates/results.html:104` (`view breakdown →`), `templates/results.html:396` (`Open unmatched report →`). No doc or test quotes either text.
 
-- [ ] **Step 1: Write the test** in `tests/test_routes.py`, next to the other `_render_results` tests:
+- [x] **Step 1: Write the test** in `tests/test_routes.py`, next to the other `_render_results` tests:
 
 ```python
 def test_results_links_to_the_unmatched_report_read_as_words_alone(client):
@@ -407,11 +407,11 @@ def test_results_links_to_the_unmatched_report_read_as_words_alone(client):
 
 (Check that `url_for('main.unmatched_page')` renders `href="/unmatched"`; if it carries a query string, match `href="/unmatched[^"]*"` and say so. `templates/base.html` closes its site header with the only `</header>` on the page; check that is still true.)
 
-- [ ] **Step 2: Prove red.** `PY -m pytest -q tests/test_routes.py -k read_as_words_alone -p no:cacheprovider`: FAIL (`['view breakdown →', 'Open unmatched report →']`). Quote it.
+- [x] **Step 2: Prove red.** `PY -m pytest -q tests/test_routes.py -k read_as_words_alone -p no:cacheprovider`: FAIL (`['view breakdown →', 'Open unmatched report →']`). Quote it.
 
-- [ ] **Step 3: Remove the arrows.** `templates/results.html`: `view breakdown →</a>` -> `view breakdown</a>`; the side-rail link's text `Open unmatched report →` -> `Open unmatched report`. Re-run: PASS. Planted defects, each reverted: (a) `&rarr;` after either text; (b) the arrow in its own `<span aria-hidden="true">` -> both fail.
+- [x] **Step 3: Remove the arrows.** `templates/results.html`: `view breakdown →</a>` -> `view breakdown</a>`; the side-rail link's text `Open unmatched report →` -> `Open unmatched report`. Re-run: PASS. Planted defects, each reverted: (a) `&rarr;` after either text; (b) the arrow in its own `<span aria-hidden="true">` -> both fail.
 
-- [ ] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - The unmatched-report links lose their arrows` (edited existing tests: none); commit procedure with `frontend-gate` and `results-behavior`; message `feat(ui): Drop the arrows from the unmatched-report links`.
+- [x] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - The unmatched-report links lose their arrows` (edited existing tests: none); commit procedure with `frontend-gate` and `results-behavior`; message `feat(ui): Drop the arrows from the unmatched-report links`.
 
 ---
 
@@ -425,7 +425,7 @@ Wave 2, code phase in `C:/ssw/u5` with Task 3's patch staged, then landing after
 
 Sweeper hits (live): `static/js/loading.js:186`. `docs/design/designsystemaudit.md:984` is a dated audit (point-in-time): leave it.
 
-- [ ] **Step 1: Share the markup.** Move the album loading markup string out of `test_a_failed_album_run_is_announced_once_by_the_alert` into a module constant `ALBUM_LOADING_MARKUP` above it, unchanged, and pass the constant to `page.set_content` (an edit of an existing test: name it in the report and the Section 4 entry). Add:
+- [x] **Step 1: Share the markup.** Move the album loading markup string out of `test_a_failed_album_run_is_announced_once_by_the_alert` into a module constant `ALBUM_LOADING_MARKUP` above it, unchanged, and pass the constant to `page.set_content` (an edit of an existing test: name it in the report and the Section 4 entry). Add:
 
 ```python
 def _run_album_loading(js_browser, answer):
@@ -495,9 +495,9 @@ def test_a_failed_run_with_no_retry_still_says_the_results_page_opens(js_browser
 
 (Check how `loading-progress.js` renders a payload without a `phase` key; if the phase line does not take the message, assert what the page really shows a reader for a finished run and say so in the report. Do not stub `ScrobbleProgress`.)
 
-- [ ] **Step 2: Prove red.** `PY -m pytest -q tests/frontend/test_heatmap_pure_functions.py -k "album_run or failed_run" -p no:cacheprovider`: the finished-run test FAILS (`'Opening your results…' == ''`); the no-retry test and the existing alert test PASS. Quote the lines.
+- [x] **Step 2: Prove red.** `PY -m pytest -q tests/frontend/test_heatmap_pure_functions.py -k "album_run or failed_run" -p no:cacheprovider`: the finished-run test FAILS (`'Opening your results…' == ''`); the no-retry test and the existing alert test PASS. Quote the lines.
 
-- [ ] **Step 3: Drop the line.** In `static/js/loading.js`:
+- [x] **Step 3: Drop the line.** In `static/js/loading.js`:
 
 ```js
 /**
@@ -520,7 +520,7 @@ and on the success path, replace `if (!errorDetected) scheduleResultsRedirect('O
 
 Re-run: all three PASS. Planted defects, each reverted from a copy: (a) the old success call back -> the finished-run test fails; (b) `scheduleResultsRedirect` ignores its message -> the no-retry test fails; (c) the `setTimeout` line dropped -> both new tests fail (the wait times out).
 
-- [ ] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - A finished run opens its results without a second line` (edited existing tests: `test_a_failed_album_run_is_announced_once_by_the_alert`, markup moved to `ALBUM_LOADING_MARKUP` unchanged); commit procedure with `frontend-gate`; message `feat(ui): Drop the redundant redirect line from a finished run`.
+- [x] **Step 4:** Landing: Section 4 entry `### 2026-10-23 - A finished run opens its results without a second line` (edited existing tests: `test_a_failed_album_run_is_announced_once_by_the_alert`, markup moved to `ALBUM_LOADING_MARKUP` unchanged); commit procedure with `frontend-gate`; message `feat(ui): Drop the redundant redirect line from a finished run`.
 
 ---
 
@@ -545,3 +545,22 @@ Landings in MAIN, one at a time: T1, T3, T4, T2, T5. Each landing is followed by
 - Coverage: I1 -> Task 1; S1 -> Task 2; H2 + H4 -> Task 3; S2 -> Task 4; L1 -> Task 5; the handoff's follow-ups (DESIGN.md Typography and the Role Segregation exception, `REQUIRED_FONT_FAMILIES`, the serif-family and old-copy assertions, the colour-direction test) each sit in a task. The export canvas font is a sweeper find, folded into Task 1 because "This should replace the serif font globally".
 - Names used across tasks: `REQUIRED_FONT_FAMILIES`, `drawnHeader.headlineFont`, `stat_value_face_failures`, `_reference_failures`, `STAT_VALUES_SELECTOR`, `ALBUM_LOADING_MARKUP`, `_run_album_loading`.
 - Every new test fails against the tree without its change and for at least two other ways of breaking it (the planted defects listed in each task).
+
+## Outcome (2026-10-24)
+
+| Task | Commit | Landing extras |
+|---|---|---|
+| 0 | `626340e` | none |
+| 3 | `a657d6e` | L3-1: the shade clause must say "more", never "fewer" or "less" |
+| 4 | `0878dd1` | none |
+| 5 | `b7a0722` | L5-1 (ASCII escape); L5-2 (the 3000 ms callback is `window.redirectToResults`); L5-3 (shade-test docstring) |
+| 1 | `ff91283` | L1-1 (whole-list font comparison tests); L1-2 (wraps); L1-3 (`document.fonts.ready` awaited before the release-check check's first measurement; cause unproven); L1-4 (two corrections to Task 5's entry) |
+| 2 | `e27450b` | L2-1..L2-4 (`task-2-land-report.md`: the DESIGN.md sentence moved to the end of the paragraph; the wrong-count test parametrised over 0, 3 and 5; `_reference_failures(kpi, subject)` owns the empty-KPI message; the serif-stat test asserts the exact line), plus one extra test, `test_stat_values_without_a_heatmap_reference_are_reported` (a planted L2-3 wording defect turned no existing test red); L2-3 also moved the KPI reference check ahead of the "no play count" check in `figure_face_failures` (messages unchanged; with both faults at once the reference one is reported) |
+| F-B23-58 | `5858fa9` | filed for the frontend gate's intermittent failures |
+
+### Deviations
+
+- Landing order was T3, T4, T5, T1, T2 (controller ruling: land as accepted, T2 after T1 and T4, T5 after T3), not the plan's T1, T3, T4, T2, T5.
+- The owner's untracked plan `docs/superpowers/plans/2026-10-01-f-swe-7-utils-split.md` failed DOC010 in this worktree and was parked outside it for the round's commits (owner ruling 2026-10-23), restored afterwards.
+- The sweeper found the heatmap export's hard-coded `instrument-serif`, folded into Task 1.
+- F-B23-58 filed for intermittent gate failures.
