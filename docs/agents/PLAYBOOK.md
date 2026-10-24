@@ -175,6 +175,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-23 - The heatmap copy says what the grid draws
+
+Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the copy must describe the grid truthfully (the owner accepted the live UI on 2026-10-22 and 2026-10-23).
+
+What changed and why: the lede and the preview said darker meant more plays while `rocketColor` draws more plays brighter, and the preview promised a longest streak the result does not show. The lede, a dt/dd preview legend and its CSS (`static/css/heatmap.css`, `templates/index.html`, `templates/partials/_heatmap_form.html`) come from the owner's accepted WIP patch, unchanged. Two new tests in `tests/frontend/test_heatmap_pure_functions.py` compare the copy with the luminance the grid really draws and with the rendered KPI labels. Change made at landing on the code review's finding: `test_the_heatmap_copy_names_the_shade_the_grid_draws` also requires the clause that names the shade to tie it to more plays, because "Brighter squares mean fewer plays" named the right word in the wrong direction and passed; planting that in the preview, or "brighter for fewer plays" in the lede, now fails it.
+
+Deviations: none. Edited existing tests: none. Mutations: copy word swapped in either place, `ROCKET_STOPS` reversed, "current" -> "longest", "daily average" dropped, "more" -> "fewer" in either copy -- each fails one new test.
+
+Validation: `pytest -q` -- **2971 passed**.
+
 ### 2026-10-23 - Plan UI consistency round 2
 
 Side task, no batch tag: committing the plan for UI consistency round 2 and pointing Section 3 at it, on `feat/ui-consistency-round-2`, a branch off `main`.
@@ -210,15 +222,3 @@ What changed: `.github/workflows/test.yml` gains three steps around "Install Pla
 Deviations: none. Edited existing tests: none (one test added to `tests/test_ci_workflows.py`).
 
 Validation: `pytest -q` -- **2969 passed**.
-
-### 2026-10-22 - Plan the CI package cache
-
-Side task, no batch tag: planning a CI cache for Playwright's Ubuntu packages, on `ci/playwright-apt-cache`, a branch off `main`.
-
-Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again ("Yes, on the lasting fix. Worth doing"), so the packages `playwright install --with-deps` downloads are to be kept in the Actions cache.
-
-What changed: the plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md` is committed, and Section 3 names the branch and plan in the "Before WP-1" bullet. The plan carries every fix from its review: the cache is restored before the install and saved by its own step right after it (so a failed or cancelled later step cannot stop it filling), and its structural test asserts the direction of the seed and the copy-back on non-comment lines, proven against nine planted defects in scratch.
-
-Deviations: the plan uses `actions/cache/restore` and `actions/cache/save`, sub-actions of the `actions/cache@v6` already pinned (controller ruling). Edited existing tests: none.
-
-Validation: `pytest -q` -- **2968 passed**.

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Plan the CI package cache
+
+Side task, no batch tag: planning a CI cache for Playwright's Ubuntu packages, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again ("Yes, on the lasting fix. Worth doing"), so the packages `playwright install --with-deps` downloads are to be kept in the Actions cache.
+
+What changed: the plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md` is committed, and Section 3 names the branch and plan in the "Before WP-1" bullet. The plan carries every fix from its review: the cache is restored before the install and saved by its own step right after it (so a failed or cancelled later step cannot stop it filling), and its structural test asserts the direction of the seed and the copy-back on non-comment lines, proven against nine planted defects in scratch.
+
+Deviations: the plan uses `actions/cache/restore` and `actions/cache/save`, sub-actions of the `actions/cache@v6` already pinned (controller ruling). Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - Two of the new review findings say what the code does
 
 Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
