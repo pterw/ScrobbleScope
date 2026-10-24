@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - CI keeps Playwright's Ubuntu packages between runs
+
+Side task, no batch tag: caching the Ubuntu packages Playwright's browser install downloads, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again, so the packages are kept in the Actions cache.
+
+What changed: `.github/workflows/test.yml` gains three steps around "Install Playwright browser": "Read the runner image version" (for the cache key), "Restore Playwright system packages" (`actions/cache/restore@v6`) before it and "Save Playwright system packages" (`actions/cache/save@v6`, only on an exact-key miss) right after it, so a later failed step cannot prevent the save. The install step copies the cached packages into apt's archive directory first and back after, then runs `apt-get autoclean` to bound the cache. `tests/test_ci_workflows.py` gains a structural test of the step order, ids, key, paths, the save condition and the two copies, proven red against the unchanged workflow and against nine planted defects. F-B23-57 is filed as resolved in `docs/agents/FINDINGS.md`; its not-covered paragraph names a cache miss on a slow mirror, a newer package re-downloading until the key changes, and the pull-request cache scope.
+
+Deviations: none. Edited existing tests: none (one test added to `tests/test_ci_workflows.py`).
+
+Validation: `pytest -q` -- **2969 passed**.
+
 ### 2026-10-22 - Plan the CI package cache
 
 Side task, no batch tag: planning a CI cache for Playwright's Ubuntu packages, on `ci/playwright-apt-cache`, a branch off `main`.

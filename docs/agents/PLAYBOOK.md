@@ -175,6 +175,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-23 - The unmatched-report links lose their arrows
+
+Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: "The arrows should go." (2026-10-22). `templates/results.html`: "view breakdown" (under the Unmatched figure) lost its arrow and the side-rail "Open unmatched report" lost its arrow, so both read as plain words. New test `test_results_links_to_the_unmatched_report_read_as_words_alone` in `tests/test_routes.py` reads the two links' text after the site header and asserts exactly those words; proven red on the unchanged tree and by four planted defects (`&rarr;` after either text, an aria-hidden arrow span after either text), each restored. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2972 passed**.
+
 ### 2026-10-23 - The heatmap copy says what the grid draws
 
 Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.
@@ -208,17 +214,5 @@ Owner intent: the finding must not promise more than the cache delivers.
 What changed: the "Not covered" text of F-B23-57 in `docs/history/findings/FINDINGS_ARCHIVE.md` said a cache miss on a slow mirror waits once per runner image or dependency change. The save step runs after the install, so a run cancelled inside the install saves nothing and the next run waits again; the sentence now says so. Nothing else in the record or the archive changed.
 
 Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2969 passed**.
-
-### 2026-10-22 - CI keeps Playwright's Ubuntu packages between runs
-
-Side task, no batch tag: caching the Ubuntu packages Playwright's browser install downloads, on `ci/playwright-apt-cache`, a branch off `main`.
-
-Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again, so the packages are kept in the Actions cache.
-
-What changed: `.github/workflows/test.yml` gains three steps around "Install Playwright browser": "Read the runner image version" (for the cache key), "Restore Playwright system packages" (`actions/cache/restore@v6`) before it and "Save Playwright system packages" (`actions/cache/save@v6`, only on an exact-key miss) right after it, so a later failed step cannot prevent the save. The install step copies the cached packages into apt's archive directory first and back after, then runs `apt-get autoclean` to bound the cache. `tests/test_ci_workflows.py` gains a structural test of the step order, ids, key, paths, the save condition and the two copies, proven red against the unchanged workflow and against nine planted defects. F-B23-57 is filed as resolved in `docs/agents/FINDINGS.md`; its not-covered paragraph names a cache miss on a slow mirror, a newer package re-downloading until the key changes, and the pull-request cache scope.
-
-Deviations: none. Edited existing tests: none (one test added to `tests/test_ci_workflows.py`).
 
 Validation: `pytest -q` -- **2969 passed**.

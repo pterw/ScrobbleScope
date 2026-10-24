@@ -101,7 +101,7 @@
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
             </div>
-            <a href="{{ url_for('main.unmatched_page') }}" class="results-stat-caption text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown →</a>
+            <a href="{{ url_for('main.unmatched_page') }}" class="results-stat-caption text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown</a>
         </div>
     </div>
 
@@ -393,7 +393,7 @@
                         Review what fell short and why.
                     </p>
                     <a href="{{ url_for('main.unmatched_page') }}" class="inline-flex items-center text-xs font-sans text-[var(--color-primary)] hover:underline pt-1 font-normal">
-                        Open unmatched report →
+                        Open unmatched report
                     </a>
                 </div>
 
