@@ -10,6 +10,7 @@ from scripts.dev import _frontend_gate_theme, frontend_gate
 from scripts.dev._frontend_gate_theme import (
     check_theme_persistence,
     check_theme_survives_blocked_storage,
+    headline_font_failures,
 )
 from tests.scripts.dev.gate_parity import defined_names
 
@@ -26,7 +27,14 @@ CHECKS = (
     "check_heatmap_export_header_matches_page",
 )
 CONSTANTS = ("THEME_EXPRESSION", "SET_THEME_EXPRESSION", "FORBIDDEN_SURFACES")
-MOVED = (*CHECKS, *CONSTANTS, "_computed_colour", "_BLOCK_STORAGE")
+MOVED = (
+    *CHECKS,
+    *CONSTANTS,
+    "_computed_colour",
+    "_BLOCK_STORAGE",
+    "headline_font_failures",
+    "_plain_family",
+)
 REEXPORTED = (*CHECKS, *CONSTANTS)
 
 
@@ -88,3 +96,61 @@ def test_theme_persistence_check_restores_the_saved_preference() -> None:
         assert check_theme_persistence(page, "http://127.0.0.1:0") == []
 
     assert state == {"saved": "true", "theme": "dark"}
+
+
+def test_the_same_headline_family_passes_however_it_is_written() -> None:
+    """Quoting and spacing are not a different font."""
+    assert (
+        headline_font_failures(
+            '"orpheuspro", Georgia, serif', "orpheuspro,Georgia,serif"
+        )
+        == []
+    )
+
+
+def test_a_different_headline_family_is_reported_with_both_names() -> None:
+    failures = headline_font_failures(
+        '"instrument-serif", Georgia, serif', "orpheuspro, Georgia, serif"
+    )
+
+    assert len(failures) == 1
+    assert "instrument-serif" in failures[0]
+    assert "orpheuspro" in failures[0]
+
+
+def test_a_different_fallback_tail_is_a_different_headline_family() -> None:
+    """The whole list is compared: the same first face is not enough."""
+    failures = headline_font_failures(
+        '"orpheuspro", Georgia, serif', "orpheuspro, serif"
+    )
+
+    assert len(failures) == 1
+    assert "Georgia" in failures[0]
+    assert "orpheuspro, serif" in failures[0]
+
+
+@pytest.mark.parametrize("page_family", [None, ""])
+def test_a_drawn_headline_font_against_an_empty_page_family_is_reported(
+    page_family: str | None,
+) -> None:
+    failures = headline_font_failures("orpheuspro, serif", page_family)
+
+    assert len(failures) == 1
+    assert "orpheuspro" in failures[0]
+
+
+def test_single_and_double_quotes_are_the_same_headline_family() -> None:
+    assert (
+        headline_font_failures(
+            "'orpheuspro', 'instrument-serif', serif",
+            '"orpheuspro", "instrument-serif", serif',
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("drawn", [None, ""])
+def test_a_saved_header_with_no_headline_font_is_reported(drawn: str | None) -> None:
+    assert headline_font_failures(drawn, "orpheuspro, Georgia, serif") == [
+        "saved heatmap header records no headline font"
+    ]

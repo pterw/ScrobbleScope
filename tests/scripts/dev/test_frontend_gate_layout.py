@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from scripts.dev import _frontend_gate_layout, frontend_gate
 from scripts.dev._frontend_gate_layout import (
+    REQUIRED_FONT_FAMILIES,
     _check_desktop_scale_bounds,
     _headline_wrap_failures,
     _state_dimension_failures,
@@ -15,6 +18,8 @@ from scripts.dev._frontend_gate_layout import (
     check_shell_scales_with_text,
 )
 from tests.scripts.dev.gate_parity import defined_names
+
+SOURCE_CSS = Path(__file__).resolve().parents[3] / "static" / "css" / "tailwind.src.css"
 
 CHECKS = (
     "check_touch_targets",
@@ -533,3 +538,17 @@ def test_composition_bounds_detects_mobile_and_cap_drift() -> None:
         "/: mobile input lost its touch or text minimum",
         "/: form cap is 946px at a real 4K window, expected proportional 770px",
     ]
+
+
+def test_the_kit_check_loads_the_first_face_of_every_font_token() -> None:
+    """Every --font-* token's first family is one check_fonts asks the kit for.
+
+    check_fonts can only warn about a family it loads. A token whose primary
+    face is missing from REQUIRED_FONT_FAMILIES renders in its fallback with
+    no warning at all -- which is what a new display serif would do if the
+    list kept naming only the old one.
+    """
+    source = SOURCE_CSS.read_text(encoding="utf-8")
+    first_faces = re.findall(r'--font-[a-z-]+:\s*"([^"]+)"', source)
+    assert len(first_faces) == 5, first_faces
+    assert sorted(set(first_faces) - set(REQUIRED_FONT_FAMILIES)) == []

@@ -2706,6 +2706,24 @@ def _render_results(client, rows):
     return response.data.decode("utf-8")
 
 
+def test_results_links_to_the_unmatched_report_read_as_words_alone(client):
+    """
+    GIVEN a completed album job
+    WHEN the results page renders
+    THEN its two links to the unmatched report -- under the Unmatched figure
+         and in the side rail -- read "view breakdown" and "Open unmatched
+         report", with no arrow glyph or entity after them (owner,
+         2026-10-22: "The arrows should go").
+    """
+    page = _render_results(client, [_provider_row("spotify")])
+    # The site header links to the unmatched report on every page; only the
+    # Results page's own two links are under test.
+    body = page.split("</header>", 1)[1]
+    links = re.findall(r'<a [^>]*href="/unmatched"[^>]*>(.*?)</a>', body, re.S)
+    texts = [" ".join(re.sub(r"<[^>]+>", " ", text).split()) for text in links]
+    assert texts == ["view breakdown", "Open unmatched report"]
+
+
 def test_spotify_icon_files_are_served_byte_for_byte(client):
     """
     GIVEN the two official Spotify icon files under static/images/brand/spotify

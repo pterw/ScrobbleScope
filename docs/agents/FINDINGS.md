@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2969 tests across 101 tracked test modules.
+2994 tests across 101 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -249,6 +249,35 @@ Fix shape: the review's candidate 6. One poller module (endpoint, interval, a st
 When: its own frontend PR, with the frontend gate and the results behaviour tests.
 
 - [ ] **Status:** open (P2). Source: `docs/history/reports/architecture-review-2026-10-21.html`, triaged 2026-10-21.
+
+### F-B23-58: the frontend gate fails intermittently under load on this machine
+
+Three checks failed intermittently during UI consistency round 2 (PR #268, 2026-10-23), while
+several worktrees shared the browser-gate lock; each also passed on other runs of a tree holding the
+same change:
+
+- `shell text scaling [desktop]: raised TimeoutError: Page.goto: Timeout 10000ms exceeded`
+  (navigating to `/`), on the gate-runner's run at `b7a0722`; the one re-run at the same head passed
+  all 48 checks.
+- `release check disclosure [desktop]: a correction moved 2 row(s): ['fleetwood mac|rumours',
+  'radiohead|ok computer']`, in two code-phase worktrees that held the Orpheus Pro change (once in
+  three runs in one, twice in planted-defect runs in the other), never in the main worktree's
+  gate-runner runs. Both rows moving by the same amount suggested a late web-font swap above the
+  table; `ff91283` made the check await `document.fonts.ready` before its first row measurement, but
+  delaying the kit's font hosts did not reproduce the failure, so the cause is unproven.
+- `theme persistence [mobile]`: a toggle click TimeoutError, once, in a planted-defect run.
+
+A gate that fails for reasons outside the change it gates costs a re-run and invites "re-run until
+green", which is how a real failure gets waved through.
+
+Fix shape: record which check, profile and timing failed across runs before changing anything (the
+gate prints one line per failure; a run counter or timestamps would show whether the failures follow
+load). Candidates once measured: one retry of a navigation that times out, with the retry reported;
+for the release-check check, measure the row positions after layout settles twice in a row.
+
+When: its own frontend-gate PR; not before the failures are seen again with the timing recorded.
+
+- [ ] **Status:** open (P2). Source: UI consistency round 2 gate runs (PR #268), 2026-10-23.
 
 ### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
 

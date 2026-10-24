@@ -612,13 +612,22 @@
     // one ink. The export follows it, in the page's order and wording.
     var header = exportHeaderModel();
     ctx.fillStyle = resolvedColour('--color-base-content');
-    ctx.font = '26px "instrument-serif", Georgia, serif';
+    // The page's display serif, read from its token, so the saved image
+    // follows the page instead of naming a family of its own (it drew
+    // Instrument Serif after the page moved to Orpheus Pro, 2026-10-22).
+    ctx.font = '26px ' + getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-serif').trim();
+    var headlineFont = ctx.font;
     ctx.fillText(header.headline, EXPORT_PAD, EXPORT_PAD + 26);
 
     ctx.fillStyle = resolvedColour('--ss-text-muted');
     ctx.font = '13px "input-mono-narrow", "input-mono", monospace';
     ctx.fillText(header.eyebrow, EXPORT_PAD, EXPORT_PAD + 48);
-    drawnHeader = { headline: header.headline, eyebrow: header.eyebrow };
+    drawnHeader = {
+      headline: header.headline,
+      eyebrow: header.eyebrow,
+      headlineFont: headlineFont
+    };
 
     drawKpis(ctx, items, layout);
     drawnHeader.legend =

@@ -37,12 +37,12 @@
   <!-- Replaces the album mode filter tags. Says what the run produces, then
      shows the ramp it will be drawn on. -->
   <div class="hm-preview">
-    <span class="hm-preview__key">Your last 365 days, mapped day by day <span class="hm-preview__arrow" aria-hidden="true">↓</span></span>
-    <ul class="hm-preview__list">
-      <li>Scrobbles per day on a 7x52 grid -- darker means more</li>
-      <li>Total plays, daily average, and your longest streak</li>
-      <li>Your best listening day, highlighted</li>
-    </ul>
+    <p class="hm-preview__key">One square for each of your last 365 days</p>
+    <dl class="hm-preview__facts">
+      <div><dt>Shade</dt><dd>Brighter squares mean more plays that day.</dd></div>
+      <div><dt>Totals</dt><dd>Your scrobbles, daily average and current streak.</dd></div>
+      <div><dt>Best day</dt><dd>Your busiest day in those 365 days, with its date.</dd></div>
+    </dl>
     <span class="hm-preview__ramp" aria-hidden="true"></span>
   </div>
 </section>

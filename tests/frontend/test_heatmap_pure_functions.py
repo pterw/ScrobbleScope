@@ -14,12 +14,13 @@ computation is tested here, one layout, one arrow and one edge at a time.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
 
 from scrobblescope.listening_stats import heatmap_statistics
-from tests.frontend.conftest import HEATMAP_JS
+from tests.frontend.conftest import HEATMAP_JS, REPO_ROOT
 from tests.helpers import expected_kpi_blocks, kpi_payload, load_kpi_cases
 
 pytestmark = pytest.mark.browser
@@ -304,6 +305,16 @@ def test_arrow_key_target_ignores_other_keys(js_page, key):
 LOADING_PROGRESS_JS = HEATMAP_JS.parent / "loading-progress.js"
 LOADING_JS = HEATMAP_JS.parent / "loading.js"
 
+ALBUM_LOADING_MARKUP = """<!doctype html><html><body>
+            <div id="progress-track"><div id="progress-bar"></div></div>
+            <p id="step-text" role="status" aria-live="polite"></p>
+            <p id="step-details"></p>
+            <div id="error-container" role="alert" class="hidden">
+              <p id="error-text"></p></div>
+            <p id="error-source" class="hidden"></p>
+            <button id="retry-button" class="hidden"></button>
+            </body></html>"""
+
 
 def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
     """
@@ -315,17 +326,7 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
     """
     page = js_browser.new_page()
     try:
-        page.set_content(
-            """<!doctype html><html><body>
-            <div id="progress-track"><div id="progress-bar"></div></div>
-            <p id="step-text" role="status" aria-live="polite"></p>
-            <p id="step-details"></p>
-            <div id="error-container" role="alert" class="hidden">
-              <p id="error-text"></p></div>
-            <p id="error-source" class="hidden"></p>
-            <button id="retry-button" class="hidden"></button>
-            </body></html>"""
-        )
+        page.set_content(ALBUM_LOADING_MARKUP)
         page.evaluate(
             """() => {
               window.SCROBBLE = {job_id: 'abc'};
@@ -345,6 +346,83 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
         page.close()
     assert alert_text == "Spotify is not answering."
     assert phase_text == ""
+
+
+def _run_album_loading(js_browser, answer):
+    """Run loading.js against one /progress answer with timers recorded, not run.
+
+    Returns the details line, the phase line and the delays of the timers whose
+    callback is the redirect to the results page. Recording setTimeout keeps
+    the redirect from navigating away and shows the reading delay it scheduled.
+    """
+    page = js_browser.new_page()
+    try:
+        page.set_content(ALBUM_LOADING_MARKUP)
+        page.evaluate(
+            """(answer) => {
+              window.SCROBBLE = {job_id: 'abc'};
+              window.__scheduled = [];
+              window.setTimeout = (fn, ms) => {
+                window.__scheduled.push({ms, redirect: fn === window.redirectToResults});
+                return 0;
+              };
+              window.fetch = () => Promise.resolve({json: () => Promise.resolve(answer)});
+            }""",
+            answer,
+        )
+        page.add_script_tag(path=str(LOADING_PROGRESS_JS))
+        page.add_script_tag(path=str(LOADING_JS))
+        page.wait_for_function(
+            "() => window.__scheduled.some((t) => t.ms === 3000)", timeout=5000
+        )
+        return (
+            page.locator("#step-details").text_content(),
+            page.locator("#step-text").text_content(),
+            page.evaluate(
+                "() => window.__scheduled.filter((t) => t.redirect).map((t) => t.ms)"
+            ),
+        )
+    finally:
+        page.close()
+
+
+def test_a_finished_album_run_opens_its_results_without_a_second_line(js_browser):
+    """
+    GIVEN a /progress answer for a finished run (100%, no error)
+    WHEN loading.js renders it
+    THEN the phase line says the run is done, the details line under it stays
+         empty -- "Opening your results..." repeated what the phase line says
+         (owner, 2026-10-22) -- and the results page still opens after the
+         three-second reading delay.
+    """
+    done = "Done! Found 21 albums matching your criteria."
+    details, phase, redirect_delays = _run_album_loading(
+        js_browser, {"progress": 100, "message": done}
+    )
+    assert details == ""
+    assert phase == done
+    assert 3000 in redirect_delays
+
+
+def test_a_failed_run_with_no_retry_still_says_the_results_page_opens(js_browser):
+    """
+    GIVEN a /progress answer for a failure that cannot be retried
+    WHEN loading.js renders it
+    THEN the details line still says the results page is opening, and the
+         redirect waits the same three seconds: only the finished run's line
+         was redundant.
+    """
+    details, _, redirect_delays = _run_album_loading(
+        js_browser,
+        {
+            "error": True,
+            "retryable": False,
+            "progress": 40,
+            "message": "Last.fm failed.",
+        },
+    )
+    assert details == "Opening the results page\u2026"
+    assert 3000 in redirect_delays
 
 
 KPI_CASES = load_kpi_cases()
@@ -416,6 +494,101 @@ def test_kpi_blocks_render_the_published_figures_and_compute_nothing(js_page):
         {"label": "BEST DAY", "value": "9", "sub": "MAR 5"},
         {"label": "CURRENT STREAK", "value": "7", "sub": "DAYS"},
     ]
+
+
+INDEX_HTML = REPO_ROOT / "templates" / "index.html"
+HEATMAP_FORM_HTML = REPO_ROOT / "templates" / "partials" / "_heatmap_form.html"
+
+
+def _text(fragment: str) -> str:
+    """The words of an HTML fragment: tags dropped, whitespace collapsed."""
+    return " ".join(re.sub(r"<[^>]+>", " ", fragment).split())
+
+
+def _heatmap_lede() -> str:
+    """The heatmap-mode lede on the index page (the paragraph under its eyebrow)."""
+    source = INDEX_HTML.read_text(encoding="utf-8")
+    match = re.search(
+        r'Listening heatmap</p>\s*<p class="index-hero__lede">(.*?)</p>', source, re.S
+    )
+    assert match, "index.html has no heatmap-mode lede under its eyebrow"
+    return _text(match.group(1))
+
+
+def _preview_text() -> str:
+    """The words of the heatmap mode's preview card, up to its ramp."""
+    source = HEATMAP_FORM_HTML.read_text(encoding="utf-8")
+    match = re.search(
+        r'<div class="hm-preview">(.*?)<span class="hm-preview__ramp"', source, re.S
+    )
+    assert match, "_heatmap_form.html has no preview card"
+    return _text(match.group(1))
+
+
+#: Relative luminance (WCAG) of the colour the grid gives a quiet day and of
+#: the window's busiest day.
+SHADE_LUMINANCE_JS = """([quiet, busiest]) => {
+    const hooks = window.__scrobbleHeatmapTestHooks;
+    const luminance = (css) => {
+        const [r, g, b] = css.match(/\\d+/g).map(Number).map((v) => v / 255)
+            .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    return [quiet, busiest].map((n) => luminance(hooks.rocketColor(hooks.countToNorm(n, busiest))));
+}"""
+
+
+def test_the_heatmap_copy_names_the_shade_the_grid_draws(js_page):
+    """
+    GIVEN the colours the grid gives a quiet day and the window's busiest day
+    WHEN the index lede and the preview card describe the shading
+    THEN both name the direction the grid really draws -- "brighter" when the
+         busiest day is the lighter colour, "darker" when it is the darker one
+         -- and never the opposite word. The clause that names the shade also
+         says the busier days get it ("more"), never "fewer" or "less". The old
+         copy said darker meant more while rocketColor drew more plays
+         brighter, and nothing caught it.
+
+    Mutation: swap the word in either copy, or reverse ROCKET_STOPS, and this
+    fails.
+    """
+    quiet, busiest = js_page.evaluate(SHADE_LUMINANCE_JS, [1, 100])
+    assert quiet != busiest
+    true_word, false_word = (
+        ("brighter", "darker") if busiest > quiet else ("darker", "brighter")
+    )
+    for name, copy in (
+        ("heatmap lede", _heatmap_lede()),
+        ("preview card", _preview_text()),
+    ):
+        words = copy.lower()
+        assert false_word not in words, f"{name} says {false_word}: {copy!r}"
+        # The clause naming the shade must tie it to MORE plays: "brighter
+        # squares mean fewer plays" names the right word and the wrong
+        # direction.
+        clauses = [c for c in re.split(r"[.;:]", words) if true_word in c]
+        assert clauses, f"{name} does not say {true_word}: {copy!r}"
+        assert all(
+            re.search(r"\bmore\b", c) and not re.search(r"\b(fewer|less)\b", c)
+            for c in clauses
+        ), f"{name} does not tie {true_word} to more plays: {copy!r}"
+
+
+def test_the_preview_card_promises_only_figures_the_result_shows(js_page):
+    """
+    GIVEN the KPI labels a heatmap result renders
+    WHEN the mode's preview card says what a run produces
+    THEN it names each of them, and no streak the result does not show (the
+         old card promised a longest streak; the result shows the current one).
+    """
+    labels = [
+        block["label"].lower()
+        for block in js_page.evaluate(RENDER_KPIS_JS, _published(KPI_CASES[0]))
+    ]
+    preview = _preview_text().lower()
+    assert labels, "the KPI row rendered no blocks"
+    assert [label for label in labels if label not in preview] == []
+    assert "longest" not in preview
 
 
 def test_a_window_with_no_best_day_shows_no_date(js_page):

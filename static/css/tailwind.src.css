@@ -21,7 +21,7 @@
      display words, figure for display numbers, mono for inputs and tabular
      numbers, mono-narrow for letterspaced caps at 9-11px. */
    --font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;
-   --font-serif: "instrument-serif", "corporate-a", Georgia, serif;
+   --font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;
    --font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;
    --font-mono: "input-mono", "orator-std", ui-monospace, monospace;
    --font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;

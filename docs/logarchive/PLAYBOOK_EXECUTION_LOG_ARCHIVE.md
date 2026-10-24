@@ -9,6 +9,90 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-23 - A finished run opens its results without a second line
+
+Side task, no batch tag: dropped the redundant "Opening your results..." details line from a finished album run, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the phase line already says the run is done, so a second line repeating it should go (2026-10-22). `static/js/loading.js`: `scheduleResultsRedirect` now takes an optional message and sets the details line only when one is given; the success path calls it with none and keeps the three-second reading delay, and a failure with no retry still says "Opening the results page...". New tests in `tests/frontend/test_heatmap_pure_functions.py` (`test_a_finished_album_run_opens_its_results_without_a_second_line`, `test_a_failed_run_with_no_retry_still_says_the_results_page_opens`, helper `_run_album_loading`) were proven red on the unchanged code and by three planted defects (old success call back, message ignored, `setTimeout` line dropped), each restored. Changes made at landing on the code review's findings: the no-retry test's expected string is written with the `\u2026` escape so the module stays ASCII (L5-1); the `setTimeout` stub records each callback with its delay and the tests assert the timer whose callback is `redirectToResults`, so a timer at 3000 ms that never redirects no longer passes (L5-2; proven by planting `setTimeout(function () {}, 3000)`, which fails both new tests). Carried Task 3 review note (L5-3): the docstring of `test_the_heatmap_copy_names_the_shade_the_grid_draws` now states the clause rule ("more", never "fewer" or "less"); docstring only. Deviations: none. Edited existing tests: `test_a_failed_album_run_is_announced_once_by_the_alert` (its markup moved unchanged to the module constant `ALBUM_LOADING_MARKUP`); `test_the_heatmap_copy_names_the_shade_the_grid_draws` (docstring only, L5-3). Validation: `pytest -q` -- **2974 passed**.
+
+### 2026-10-23 - The unmatched-report links lose their arrows
+
+Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: "The arrows should go." (2026-10-22). `templates/results.html`: "view breakdown" (under the Unmatched figure) lost its arrow and the side-rail "Open unmatched report" lost its arrow, so both read as plain words. New test `test_results_links_to_the_unmatched_report_read_as_words_alone` in `tests/test_routes.py` reads the two links' text after the site header and asserts exactly those words; proven red on the unchanged tree and by four planted defects (`&rarr;` after either text, an aria-hidden arrow span after either text), each restored. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2972 passed**.
+
+### 2026-10-23 - The heatmap copy says what the grid draws
+
+Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the copy must describe the grid truthfully (the owner accepted the live UI on 2026-10-22 and 2026-10-23).
+
+What changed and why: the lede and the preview said darker meant more plays while `rocketColor` draws more plays brighter, and the preview promised a longest streak the result does not show. The lede, a dt/dd preview legend and its CSS (`static/css/heatmap.css`, `templates/index.html`, `templates/partials/_heatmap_form.html`) come from the owner's accepted WIP patch, unchanged. Two new tests in `tests/frontend/test_heatmap_pure_functions.py` compare the copy with the luminance the grid really draws and with the rendered KPI labels. Change made at landing on the code review's finding: `test_the_heatmap_copy_names_the_shade_the_grid_draws` also requires the clause that names the shade to tie it to more plays, because "Brighter squares mean fewer plays" named the right word in the wrong direction and passed; planting that in the preview, or "brighter for fewer plays" in the lede, now fails it.
+
+Deviations: none. Edited existing tests: none. Mutations: copy word swapped in either place, `ROCKET_STOPS` reversed, "current" -> "longest", "daily average" dropped, "more" -> "fewer" in either copy -- each fails one new test.
+
+Validation: `pytest -q` -- **2971 passed**.
+
+### 2026-10-23 - Plan UI consistency round 2
+
+Side task, no batch tag: committing the plan for UI consistency round 2 and pointing Section 3 at it, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent (2026-10-23): "the focus will be on folding in S2 and L1 with the uncommited current changes. Live work is to be deferred to a different session for later." On the Orpheus Pro change: "I took a look with the Orpheus Pro changes and they are good ... Likewise with the Results and error pages so no issues." And: "I would suggest having a draft PR with the same PR body as per the template and land commits there at the moment."
+
+What changed: `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` holds the plan: Task 1 makes Orpheus Pro the display serif (I1), Task 2 sets the Results stat values in the figure face (S1), Task 3 rewrites the heatmap preview and lede to match the grid (H2, H4), Task 4 drops the arrows from the two unmatched-report links (S2), Task 5 drops the redundant redirect line from a finished run (L1). The first three apply the changes the owner accepted in live mode on 2026-10-22, each only after its new tests are proven red. The plan carries the controller's rulings on its brief review (the unmatched-link test scoped past the site header, the `_Page` fake taught the stat read, a pure headline-font judge, and others). Section 3's "Before WP-1" bullet now says the pre-Batch-23 side-task PR and the Playwright package cache are done and that round 2 runs now; the other backlog items wait for a later live session.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
+### 2026-10-22 - F-B23-57 says what a cancelled run leaves behind
+
+Side task, no batch tag: correcting one sentence of the archived F-B23-57 record, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: the finding must not promise more than the cache delivers.
+
+What changed: the "Not covered" text of F-B23-57 in `docs/history/findings/FINDINGS_ARCHIVE.md` said a cache miss on a slow mirror waits once per runner image or dependency change. The save step runs after the install, so a run cancelled inside the install saves nothing and the next run waits again; the sentence now says so. Nothing else in the record or the archive changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
+### 2026-10-22 - CI keeps Playwright's Ubuntu packages between runs
+
+Side task, no batch tag: caching the Ubuntu packages Playwright's browser install downloads, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again, so the packages are kept in the Actions cache.
+
+What changed: `.github/workflows/test.yml` gains three steps around "Install Playwright browser": "Read the runner image version" (for the cache key), "Restore Playwright system packages" (`actions/cache/restore@v6`) before it and "Save Playwright system packages" (`actions/cache/save@v6`, only on an exact-key miss) right after it, so a later failed step cannot prevent the save. The install step copies the cached packages into apt's archive directory first and back after, then runs `apt-get autoclean` to bound the cache. `tests/test_ci_workflows.py` gains a structural test of the step order, ids, key, paths, the save condition and the two copies, proven red against the unchanged workflow and against nine planted defects. F-B23-57 is filed as resolved in `docs/agents/FINDINGS.md`; its not-covered paragraph names a cache miss on a slow mirror, a newer package re-downloading until the key changes, and the pull-request cache scope.
+
+Deviations: none. Edited existing tests: none (one test added to `tests/test_ci_workflows.py`).
+
+Validation: `pytest -q` -- **2969 passed**.
+
+### 2026-10-22 - Plan the CI package cache
+
+Side task, no batch tag: planning a CI cache for Playwright's Ubuntu packages, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again ("Yes, on the lasting fix. Worth doing"), so the packages `playwright install --with-deps` downloads are to be kept in the Actions cache.
+
+What changed: the plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md` is committed, and Section 3 names the branch and plan in the "Before WP-1" bullet. The plan carries every fix from its review: the cache is restored before the install and saved by its own step right after it (so a failed or cancelled later step cannot stop it filling), and its structural test asserts the direction of the seed and the copy-back on non-comment lines, proven against nine planted defects in scratch.
+
+Deviations: the plan uses `actions/cache/restore` and `actions/cache/save`, sub-actions of the `actions/cache@v6` already pinned (controller ruling). Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
+### 2026-10-22 - Two of the new review findings say what the code does
+
+Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
+
+Owner intent: the findings must say what the code does, so the two claims the review of the previous commit found wrong are corrected.
+
+What changed: `docs/agents/FINDINGS.md` only. F-B23-51 no longer says a Deezer outage hides the Last.fm page-loss detail on the loading page (the Deezer writer is guarded by a read of the existing value; only the Spotify writers overwrite it there, while Results keeps just the generic Last.fm sentence whenever any provider sentence is present). F-B23-52 no longer says the three writers use "the same keys": it now lists the keys all three share and the keys each adds, including that the Deezer literal also carries `album_image` and `spotify_id` (both None), as read from `partition_albums_by_threshold`, `_results.py` and `_deezer_fallback.py`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
 
 Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).
