@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-23 - The unmatched-report links lose their arrows
+
+Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: "The arrows should go." (2026-10-22). `templates/results.html`: "view breakdown" (under the Unmatched figure) lost its arrow and the side-rail "Open unmatched report" lost its arrow, so both read as plain words. New test `test_results_links_to_the_unmatched_report_read_as_words_alone` in `tests/test_routes.py` reads the two links' text after the site header and asserts exactly those words; proven red on the unchanged tree and by four planted defects (`&rarr;` after either text, an aria-hidden arrow span after either text), each restored. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2972 passed**.
+
 ### 2026-10-23 - The heatmap copy says what the grid draws
 
 Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.

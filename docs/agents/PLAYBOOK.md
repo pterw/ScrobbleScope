@@ -175,6 +175,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-24 - File the frontend gate's intermittent failures
+
+Side task, no batch tag: filed F-B23-58 for the frontend gate's intermittent failures, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: a gate that fails and then passes on the same tree should be written down with its evidence rather than waved through (the repository's flake rule). `docs/agents/FINDINGS.md` gains F-B23-58 (P2, Scaling roadmap, after F-B23-56) recording the three checks that failed once each during UI consistency round 2 (PR #268): `shell text scaling [desktop]` (a `Page.goto` timeout at `b7a0722`, passed on the one re-run), `release check disclosure [desktop]` (a correction moved 2 rows, only in the two code-phase worktrees that held the Orpheus Pro change; `ff91283` awaits `document.fonts.ready`, cause unproven) and `theme persistence [mobile]` (a toggle click timeout, once). The fix shape is to record check, profile and timing before changing the gate, so no gate code changed. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Results stat values take the figure face
 
 Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.
@@ -198,9 +204,3 @@ Deviations: none. Edited existing tests: `test_theme_source_locks_the_batch_21_d
 Side task, no batch tag: dropped the redundant "Opening your results..." details line from a finished album run, on `feat/ui-consistency-round-2`, a branch off `main`.
 
 Owner intent: the phase line already says the run is done, so a second line repeating it should go (2026-10-22). `static/js/loading.js`: `scheduleResultsRedirect` now takes an optional message and sets the details line only when one is given; the success path calls it with none and keeps the three-second reading delay, and a failure with no retry still says "Opening the results page...". New tests in `tests/frontend/test_heatmap_pure_functions.py` (`test_a_finished_album_run_opens_its_results_without_a_second_line`, `test_a_failed_run_with_no_retry_still_says_the_results_page_opens`, helper `_run_album_loading`) were proven red on the unchanged code and by three planted defects (old success call back, message ignored, `setTimeout` line dropped), each restored. Changes made at landing on the code review's findings: the no-retry test's expected string is written with the `\u2026` escape so the module stays ASCII (L5-1); the `setTimeout` stub records each callback with its delay and the tests assert the timer whose callback is `redirectToResults`, so a timer at 3000 ms that never redirects no longer passes (L5-2; proven by planting `setTimeout(function () {}, 3000)`, which fails both new tests). Carried Task 3 review note (L5-3): the docstring of `test_the_heatmap_copy_names_the_shade_the_grid_draws` now states the clause rule ("more", never "fewer" or "less"); docstring only. Deviations: none. Edited existing tests: `test_a_failed_album_run_is_announced_once_by_the_alert` (its markup moved unchanged to the module constant `ALBUM_LOADING_MARKUP`); `test_the_heatmap_copy_names_the_shade_the_grid_draws` (docstring only, L5-3). Validation: `pytest -q` -- **2974 passed**.
-
-### 2026-10-23 - The unmatched-report links lose their arrows
-
-Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.
-
-Owner intent: "The arrows should go." (2026-10-22). `templates/results.html`: "view breakdown" (under the Unmatched figure) lost its arrow and the side-rail "Open unmatched report" lost its arrow, so both read as plain words. New test `test_results_links_to_the_unmatched_report_read_as_words_alone` in `tests/test_routes.py` reads the two links' text after the site header and asserts exactly those words; proven red on the unchanged tree and by four planted defects (`&rarr;` after either text, an aria-hidden arrow span after either text), each restored. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2972 passed**.
