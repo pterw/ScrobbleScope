@@ -555,7 +555,7 @@ Landings in MAIN, one at a time: T1, T3, T4, T2, T5. Each landing is followed by
 | 4 | `0878dd1` | none |
 | 5 | `b7a0722` | L5-1 (ASCII escape); L5-2 (the 3000 ms callback is `window.redirectToResults`); L5-3 (shade-test docstring) |
 | 1 | `ff91283` | L1-1 (whole-list font comparison tests); L1-2 (wraps); L1-3 (`document.fonts.ready` awaited before the release-check check's first measurement; cause unproven); L1-4 (two corrections to Task 5's entry) |
-| 2 | `e27450b` | L2-1..L2-4 (`task-2-land-report.md`: the DESIGN.md sentence moved to the end of the paragraph; the wrong-count test parametrised over 0, 3 and 5; `_reference_failures(kpi, subject)` owns the empty-KPI message; the serif-stat test asserts the exact line), plus one extra test, `test_stat_values_without_a_heatmap_reference_are_reported` (a planted L2-3 wording defect turned no existing test red); L2-3 also moved the KPI reference check ahead of the "no play count" check in `figure_face_failures` (messages unchanged; with both faults at once the reference one is reported) |
+| 2 | `e27450b` | L2-1..L2-4 (the DESIGN.md sentence moved to the end of the paragraph; the wrong-count test parametrised over 0, 3 and 5; `_reference_failures(kpi, subject)` owns the empty-KPI message; the serif-stat test asserts the exact line), plus one extra test, `test_stat_values_without_a_heatmap_reference_are_reported` (a planted L2-3 wording defect turned no existing test red); L2-3 also moved the KPI reference check ahead of the "no play count" check in `figure_face_failures` (messages unchanged; with both faults at once the reference one is reported) |
 | F-B23-58 | `5858fa9` | filed for the frontend gate's intermittent failures |
 
 ### Deviations

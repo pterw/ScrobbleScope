@@ -252,8 +252,9 @@ When: its own frontend PR, with the frontend gate and the results behaviour test
 
 ### F-B23-58: the frontend gate fails intermittently under load on this machine
 
-Three checks failed once each and passed on a later run of the same tree, during UI consistency round
-2 (PR #268, 2026-10-23), while several worktrees shared the browser-gate lock:
+Three checks failed intermittently during UI consistency round 2 (PR #268, 2026-10-23), while
+several worktrees shared the browser-gate lock; each also passed on other runs of a tree holding the
+same change:
 
 - `shell text scaling [desktop]: raised TimeoutError: Page.goto: Timeout 10000ms exceeded`
   (navigating to `/`), on the gate-runner's run at `b7a0722`; the one re-run at the same head passed
