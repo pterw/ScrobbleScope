@@ -169,14 +169,15 @@ before asserting parity for any token.**
 
 ### The type mapping
 
-The repo takes the README families unchanged. The table below is now a
-role map, not a list of substitutions. Weights come from the verified kit
-list in the `tokens/fonts.css` header.
+The repo takes the README families, with one change: Orpheus Pro leads the
+serif token (section 27). The table below is now a role map, not a list of
+substitutions. Weights come from the verified kit list in the
+`tokens/fonts.css` header.
 
 | Token | Family | Role | Weights the kit serves |
 | --- | --- | --- | --- |
 | `--font-sans` | akzidenz-grotesk-next-pro | UI chrome, labels, body | 300 / 400 / 700 |
-| `--font-serif` | instrument-serif | display words, 22px+ | 400 + italic |
+| `--font-serif` | orpheuspro, then instrument-serif | display words, 22px+ | orpheuspro 400 / 700 + italic 400; instrument-serif 400 + italic |
 | `--font-figure` | gotham | display numbers, 18px+ | 400 / 700; Book only |
 | `--font-mono` | input-mono | form inputs, tabular numbers | 400 / 700 |
 | `--font-mono-narrow` | input-mono-narrow | letterspaced caps, 9-11px | 400 / 700 |
@@ -1173,3 +1174,23 @@ and rebuilt by `results.js` on a sort switch, and the rules are in a
 `max-width: 767.98px` media query only. Every other row, and every row at
 768px and up, keeps the full size. The gate check holds a four-digit count
 inside its cell at the mobile profile.
+
+## 27. Orpheus Pro is the display serif, 2026-10-22
+
+Owner ruling, 2026-10-22, after trying the change live: "The current UI
+changes are good". On 2026-10-23, with the Orpheus Pro faces in the page: "I
+took a look with the Orpheus Pro changes and they are good".
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them. `docs/design/README.md` says "Gotham gets the numbers,
+Instrument Serif gets the words"; in this repository Orpheus Pro gets the
+words. The type mapping now departs from the snapshot README in that one
+family (section 4).
+
+`--font-serif` is `"orpheuspro", "instrument-serif", "corporate-a", Georgia,
+serif`: Orpheus Pro leads, Instrument Serif stays as its fallback in the kit,
+so losing Orpheus Pro still shows a designed serif. The hero's letter-spacing
+is `0` (Orpheus Pro is not tracked in); the empty-state titles keep
+`-0.01em`. The heatmap's saved image no longer names a family of its own: it
+reads the headline font from `--font-serif`, and a frontend gate check holds
+the drawn family equal to the page headline's.

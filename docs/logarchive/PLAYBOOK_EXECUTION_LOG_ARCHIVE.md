@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-23 - Plan UI consistency round 2
+
+Side task, no batch tag: committing the plan for UI consistency round 2 and pointing Section 3 at it, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent (2026-10-23): "the focus will be on folding in S2 and L1 with the uncommited current changes. Live work is to be deferred to a different session for later." On the Orpheus Pro change: "I took a look with the Orpheus Pro changes and they are good ... Likewise with the Results and error pages so no issues." And: "I would suggest having a draft PR with the same PR body as per the template and land commits there at the moment."
+
+What changed: `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` holds the plan: Task 1 makes Orpheus Pro the display serif (I1), Task 2 sets the Results stat values in the figure face (S1), Task 3 rewrites the heatmap preview and lede to match the grid (H2, H4), Task 4 drops the arrows from the two unmatched-report links (S2), Task 5 drops the redundant redirect line from a finished run (L1). The first three apply the changes the owner accepted in live mode on 2026-10-22, each only after its new tests are proven red. The plan carries the controller's rulings on its brief review (the unmatched-link test scoped past the site header, the `_Page` fake taught the stat read, a pure headline-font judge, and others). Section 3's "Before WP-1" bullet now says the pre-Batch-23 side-task PR and the Playwright package cache are done and that round 2 runs now; the other backlog items wait for a later live session.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
 ### 2026-10-22 - F-B23-57 says what a cancelled run leaves behind
 
 Side task, no batch tag: correcting one sentence of the archived F-B23-57 record, on `ci/playwright-apt-cache`, a branch off `main`.

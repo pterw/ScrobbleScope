@@ -758,6 +758,27 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     return failures
 
 
+def _plain_family(value: str | None) -> str:
+    """A font-family list with quotes and spaces removed, for comparison."""
+    return (value or "").replace('"', "").replace("'", "").replace(" ", "")
+
+
+def headline_font_failures(drawn: str | None, page_family: str | None) -> list[str]:
+    """Judge the saved image's headline family against the page headline's.
+
+    The canvas names its font in a string of its own, so it kept drawing
+    Instrument Serif after the page moved to Orpheus Pro (2026-10-22).
+    """
+    if not drawn:
+        return ["saved heatmap header records no headline font"]
+    if _plain_family(drawn) != _plain_family(page_family):
+        return [
+            f"saved heatmap headline is set in {drawn!r}, "
+            f"the page headline in {page_family!r}"
+        ]
+    return []
+
+
 def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
     """The saved heatmap image states what the page states.
 
@@ -798,6 +819,10 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
                 return {
                     model,
                     pageHeadline: headline?.textContent.trim(),
+                    pageHeadlineFont: headline
+                        ? getComputedStyle(headline).fontFamily : null,
+                    drawnHeadlineFont: model?.headlineFont
+                        ? model.headlineFont.replace(/^\\s*[\\d.]+px\\s+/, '') : null,
                     pageEyebrow: eyebrow?.textContent.trim(),
                     username: document.querySelector('.heatmap-headline-username')
                         ?.textContent.trim(),
@@ -829,6 +854,9 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
         failures.append(
             f"saved heatmap headline drops the username {state['username']!r}"
         )
+    failures.extend(
+        headline_font_failures(state["drawnHeadlineFont"], state["pageHeadlineFont"])
+    )
     # The saved legend is a bare gradient without its captions: nothing in the
     # image then says which end of the ramp means more listening.
     caps = model.get("legend") or {}

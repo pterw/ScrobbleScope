@@ -24,6 +24,7 @@ FONTS_READY_EXPRESSION = "document.fonts.ready"
 #: Every family in the configured Adobe Fonts kit that the design system uses.
 REQUIRED_FONT_FAMILIES = (
     "akzidenz-grotesk-next-pro",
+    "orpheuspro",
     "instrument-serif",
     "gotham",
     "input-mono",

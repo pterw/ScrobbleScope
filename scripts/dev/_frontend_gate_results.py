@@ -584,6 +584,9 @@ def check_release_check_disclosure(page, base_url: str) -> list[str]:
                  ?.textContent || '').includes('1 of 2')""",
             timeout=10_000,
         )
+        # A web font landing late shifts every row by the same amount; that is
+        # not a correction, so measure only once the faces have settled.
+        probe.evaluate("async () => { await document.fonts.ready; }")
         before = _row_tops(probe)
         if corrected_key not in before:
             failures.append("results rows carry no data-album-key to address")

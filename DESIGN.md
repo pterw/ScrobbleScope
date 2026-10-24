@@ -33,13 +33,13 @@ colors:
   bad-dark: "#e07070"
 typography:
   display:
-    fontFamily: "instrument-serif, Georgia, serif"
+    fontFamily: "orpheuspro, instrument-serif, Georgia, serif"
     fontSize: "2rem"
     fontWeight: 400
     lineHeight: 1.05
-    letterSpacing: "-0.01em"
+    letterSpacing: "0"
   headline:
-    fontFamily: "instrument-serif, Georgia, serif"
+    fontFamily: "orpheuspro, instrument-serif, Georgia, serif"
     fontSize: "1.5rem"
     fontWeight: 400
     lineHeight: 1.15
@@ -145,7 +145,7 @@ The palette draws from classic printing inks and warm archival paper, accented b
 
 Type is served by Adobe Fonts kit `rwy8ghw`. Five distinct families each perform a single, non-negotiable duty.
 
-**Display Font:** `instrument-serif` (Georgia, serif fallback)
+**Display Font:** `orpheuspro` (Orpheus Pro; `instrument-serif`, then Georgia, serif, as fallback)
 **UI Body & Chrome Font:** `akzidenz-grotesk-next-pro` (ui-sans-serif, system-ui fallback)
 **Figure Font:** `gotham` (ui-sans-serif fallback, Book weight only)
 **Code & Data Mono:** `input-mono` (ui-monospace, monospace fallback)
@@ -154,15 +154,15 @@ Type is served by Adobe Fonts kit `rwy8ghw`. Five distinct families each perform
 **Character:** The pairing of an expressive literary serif with clinical Swiss grotesque and technical mono evokes a vintage monograph or catalog raisonee.
 
 ### Hierarchy
-- **Display** (400 weight, `2rem` to `3rem`, line-height `1.05`, tracking `-0.01em`): Editorial hero phrases and main page banners (`instrument-serif`).
-- **Headline** (400 weight, `1.5rem`, line-height `1.15`): Section headings and mode titles (`instrument-serif`).
+- **Display** (400 weight, `2rem` to `3rem`, line-height `1.05`, tracking `0`; the empty-state titles keep `-0.01em`): Editorial hero phrases and main page banners (`orpheuspro`).
+- **Headline** (400 weight, `1.5rem`, line-height `1.15`): Section headings and mode titles (`orpheuspro`).
 - **Title** (700 weight, `1rem`, line-height `1.25`): Card titles, form section labels, and modal headers (`akzidenz-grotesk-next-pro`).
 - **Body** (400 weight, `1rem`, line-height `1.5`): Paragraph descriptions, documentation, and error explanations (`akzidenz-grotesk-next-pro`). Max measure 65–75ch.
 - **Label / Eyebrow** (400 weight, `0.75rem` / 12px, line-height `1`, tracking `0.12em`, uppercase): Metadata tags, field labels, table headers, and status flags (`input-mono-narrow`).
 - **Figure Numerals** (400 weight, `1.125rem` to `2.5rem`, tabular): Large quantitative readouts, play counts, and hours listened (`gotham`).
 
 ### Named Rules
-**The Role Segregation Rule.** Gotham gets the numbers, Instrument Serif gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight.
+**The Role Segregation Rule.** Gotham gets the numbers, Orpheus Pro gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight.
 **The No-Medium Rule.** The Adobe kit serves weights 300, 400, and 700 only. Never use `font-weight: 500` or `font-weight: 600`. Hierarchy is established through scale, contrast, case, and tracking.
 **The Narrow Eyebrow Rule.** Anything letterspaced in uppercase between 9px and 12px must use `input-mono-narrow` to eliminate horizontal crowding and prevent field hint clipping.
 
@@ -239,7 +239,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 ## Do's and Don'ts
 
 ### Do:
-- **Do** use `instrument-serif` strictly for display words and `gotham` strictly for display numbers.
+- **Do** use `orpheuspro` strictly for display words and `gotham` strictly for display numbers.
 - **Do** author all font sizes, line heights, and layout spacing in `rem` units.
 - **Do** preserve 4.5:1 text contrast for all muted copy (`#6c6676` light, `#908a9a` dark).
 - **Do** keep cards and panels flat at rest with 1px hairline borders.

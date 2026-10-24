@@ -180,7 +180,7 @@ html {
   font-size: clamp(2rem, 6vw, 2.625rem);
   font-weight: var(--font-weight-normal);
   line-height: 1.05;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   color: var(--color-base-content);
   margin: 0 0 calc(0.5rem * var(--index-scale, 1));
 }
