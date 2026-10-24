@@ -123,9 +123,12 @@ function showFailure(message, source) {
   }
 }
 
-/** Explain the pending navigation and retain the three-second reading delay. */
+/**
+ * Keep the three-second reading delay, then open the results page. A message,
+ * when given, says why the page is moving on.
+ */
 function scheduleResultsRedirect(message) {
-  if (stepDetails) stepDetails.textContent = message;
+  if (message && stepDetails) stepDetails.textContent = message;
   setTimeout(redirectToResults, 3000);
 }
 
@@ -183,7 +186,9 @@ async function fetchProgress() {
       return;
     }
 
-    if (!errorDetected) scheduleResultsRedirect('Opening your results\u2026');
+    // The phase line already says the run is done; a second line saying the
+    // results are opening only repeated it (owner, 2026-10-22).
+    if (!errorDetected) scheduleResultsRedirect();
   } catch (error) {
     pollInFlight = false;
     console.error('Error fetching progress:', error);

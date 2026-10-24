@@ -305,6 +305,16 @@ def test_arrow_key_target_ignores_other_keys(js_page, key):
 LOADING_PROGRESS_JS = HEATMAP_JS.parent / "loading-progress.js"
 LOADING_JS = HEATMAP_JS.parent / "loading.js"
 
+ALBUM_LOADING_MARKUP = """<!doctype html><html><body>
+            <div id="progress-track"><div id="progress-bar"></div></div>
+            <p id="step-text" role="status" aria-live="polite"></p>
+            <p id="step-details"></p>
+            <div id="error-container" role="alert" class="hidden">
+              <p id="error-text"></p></div>
+            <p id="error-source" class="hidden"></p>
+            <button id="retry-button" class="hidden"></button>
+            </body></html>"""
+
 
 def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
     """
@@ -316,17 +326,7 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
     """
     page = js_browser.new_page()
     try:
-        page.set_content(
-            """<!doctype html><html><body>
-            <div id="progress-track"><div id="progress-bar"></div></div>
-            <p id="step-text" role="status" aria-live="polite"></p>
-            <p id="step-details"></p>
-            <div id="error-container" role="alert" class="hidden">
-              <p id="error-text"></p></div>
-            <p id="error-source" class="hidden"></p>
-            <button id="retry-button" class="hidden"></button>
-            </body></html>"""
-        )
+        page.set_content(ALBUM_LOADING_MARKUP)
         page.evaluate(
             """() => {
               window.SCROBBLE = {job_id: 'abc'};
@@ -346,6 +346,83 @@ def test_a_failed_album_run_is_announced_once_by_the_alert(js_browser):
         page.close()
     assert alert_text == "Spotify is not answering."
     assert phase_text == ""
+
+
+def _run_album_loading(js_browser, answer):
+    """Run loading.js against one /progress answer with timers recorded, not run.
+
+    Returns the details line, the phase line and the delays of the timers whose
+    callback is the redirect to the results page. Recording setTimeout keeps
+    the redirect from navigating away and shows the reading delay it scheduled.
+    """
+    page = js_browser.new_page()
+    try:
+        page.set_content(ALBUM_LOADING_MARKUP)
+        page.evaluate(
+            """(answer) => {
+              window.SCROBBLE = {job_id: 'abc'};
+              window.__scheduled = [];
+              window.setTimeout = (fn, ms) => {
+                window.__scheduled.push({ms, redirect: fn === window.redirectToResults});
+                return 0;
+              };
+              window.fetch = () => Promise.resolve({json: () => Promise.resolve(answer)});
+            }""",
+            answer,
+        )
+        page.add_script_tag(path=str(LOADING_PROGRESS_JS))
+        page.add_script_tag(path=str(LOADING_JS))
+        page.wait_for_function(
+            "() => window.__scheduled.some((t) => t.ms === 3000)", timeout=5000
+        )
+        return (
+            page.locator("#step-details").text_content(),
+            page.locator("#step-text").text_content(),
+            page.evaluate(
+                "() => window.__scheduled.filter((t) => t.redirect).map((t) => t.ms)"
+            ),
+        )
+    finally:
+        page.close()
+
+
+def test_a_finished_album_run_opens_its_results_without_a_second_line(js_browser):
+    """
+    GIVEN a /progress answer for a finished run (100%, no error)
+    WHEN loading.js renders it
+    THEN the phase line says the run is done, the details line under it stays
+         empty -- "Opening your results..." repeated what the phase line says
+         (owner, 2026-10-22) -- and the results page still opens after the
+         three-second reading delay.
+    """
+    done = "Done! Found 21 albums matching your criteria."
+    details, phase, redirect_delays = _run_album_loading(
+        js_browser, {"progress": 100, "message": done}
+    )
+    assert details == ""
+    assert phase == done
+    assert 3000 in redirect_delays
+
+
+def test_a_failed_run_with_no_retry_still_says_the_results_page_opens(js_browser):
+    """
+    GIVEN a /progress answer for a failure that cannot be retried
+    WHEN loading.js renders it
+    THEN the details line still says the results page is opening, and the
+         redirect waits the same three seconds: only the finished run's line
+         was redundant.
+    """
+    details, _, redirect_delays = _run_album_loading(
+        js_browser,
+        {
+            "error": True,
+            "retryable": False,
+            "progress": 40,
+            "message": "Last.fm failed.",
+        },
+    )
+    assert details == "Opening the results page\u2026"
+    assert 3000 in redirect_delays
 
 
 KPI_CASES = load_kpi_cases()
@@ -467,8 +544,10 @@ def test_the_heatmap_copy_names_the_shade_the_grid_draws(js_page):
     WHEN the index lede and the preview card describe the shading
     THEN both name the direction the grid really draws -- "brighter" when the
          busiest day is the lighter colour, "darker" when it is the darker one
-         -- and never the opposite word. The old copy said darker meant more
-         while rocketColor drew more plays brighter, and nothing caught it.
+         -- and never the opposite word. The clause that names the shade also
+         says the busier days get it ("more"), never "fewer" or "less". The old
+         copy said darker meant more while rocketColor drew more plays
+         brighter, and nothing caught it.
 
     Mutation: swap the word in either copy, or reverse ROCKET_STOPS, and this
     fails.

@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - F-B23-57 says what a cancelled run leaves behind
+
+Side task, no batch tag: correcting one sentence of the archived F-B23-57 record, on `ci/playwright-apt-cache`, a branch off `main`.
+
+Owner intent: the finding must not promise more than the cache delivers.
+
+What changed: the "Not covered" text of F-B23-57 in `docs/history/findings/FINDINGS_ARCHIVE.md` said a cache miss on a slow mirror waits once per runner image or dependency change. The save step runs after the install, so a run cancelled inside the install saves nothing and the next run waits again; the sentence now says so. Nothing else in the record or the archive changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
 ### 2026-10-22 - CI keeps Playwright's Ubuntu packages between runs
 
 Side task, no batch tag: caching the Ubuntu packages Playwright's browser install downloads, on `ci/playwright-apt-cache`, a branch off `main`.
