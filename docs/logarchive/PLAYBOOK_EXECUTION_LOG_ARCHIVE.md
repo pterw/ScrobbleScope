@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-22 - Two of the new review findings say what the code does
+
+Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
+
+Owner intent: the findings must say what the code does, so the two claims the review of the previous commit found wrong are corrected.
+
+What changed: `docs/agents/FINDINGS.md` only. F-B23-51 no longer says a Deezer outage hides the Last.fm page-loss detail on the loading page (the Deezer writer is guarded by a read of the existing value; only the Spotify writers overwrite it there, while Results keeps just the generic Last.fm sentence whenever any provider sentence is present). F-B23-52 no longer says the three writers use "the same keys": it now lists the keys all three share and the keys each adds, including that the Deezer literal also carries `album_image` and `spotify_id` (both None), as read from `partition_albums_by_threshold`, `_results.py` and `_deezer_fallback.py`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-22 - The 2026-10-21 architecture review is tracked with one finding per open item
 
 Side task, no batch tag: tracking the architecture review report and filing its open items as findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes` (PR 3 of three stacked side-task PRs).

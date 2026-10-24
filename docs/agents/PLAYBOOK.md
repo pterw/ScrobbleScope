@@ -123,12 +123,16 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-10-20-ui-consistency-round-1.md`); further rounds
   wait for the owner's screenshots, each with its own plan. A side-task PR of
   cheap fixes from the 2026-10-21 architecture review and the logging audit
-  runs next (branch `fix/pre-batch23-side-tasks`, plan
-  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`); a CI
-  change keeps Playwright's Ubuntu packages in the Actions cache so a slow
-  mirror cannot stall the gate (branch `ci/playwright-apt-cache`, plan
-  `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`); the
-  documentation refresh merges last.
+  is done (branch `fix/pre-batch23-side-tasks`, plan
+  `docs/superpowers/plans/2026-10-22-pre-batch23-side-tasks.md`), and so is a
+  CI change that keeps Playwright's Ubuntu packages in the Actions cache
+  (branch `ci/playwright-apt-cache`, plan
+  `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`). UI
+  consistency round 2 runs now (branch `feat/ui-consistency-round-2`, plan
+  `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`): the four
+  changes the owner accepted in live mode, the two unmatched-report arrows
+  and the loading page's redundant redirect line; the round's other backlog
+  items wait for a later live session. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -171,6 +175,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-23 - Plan UI consistency round 2
+
+Side task, no batch tag: committing the plan for UI consistency round 2 and pointing Section 3 at it, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent (2026-10-23): "the focus will be on folding in S2 and L1 with the uncommited current changes. Live work is to be deferred to a different session for later." On the Orpheus Pro change: "I took a look with the Orpheus Pro changes and they are good ... Likewise with the Results and error pages so no issues." And: "I would suggest having a draft PR with the same PR body as per the template and land commits there at the moment."
+
+What changed: `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md` holds the plan: Task 1 makes Orpheus Pro the display serif (I1), Task 2 sets the Results stat values in the figure face (S1), Task 3 rewrites the heatmap preview and lede to match the grid (H2, H4), Task 4 drops the arrows from the two unmatched-report links (S2), Task 5 drops the redundant redirect line from a finished run (L1). The first three apply the changes the owner accepted in live mode on 2026-10-22, each only after its new tests are proven red. The plan carries the controller's rulings on its brief review (the unmatched-link test scoped past the site header, the `_Page` fake taught the stat read, a pure headline-font judge, and others). Section 3's "Before WP-1" bullet now says the pre-Batch-23 side-task PR and the Playwright package cache are done and that round 2 runs now; the other backlog items wait for a later live session.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2969 passed**.
+
 ### 2026-10-22 - F-B23-57 says what a cancelled run leaves behind
 
 Side task, no batch tag: correcting one sentence of the archived F-B23-57 record, on `ci/playwright-apt-cache`, a branch off `main`.
@@ -204,17 +220,5 @@ Owner intent: a slow Ubuntu mirror must not stall the Quality Gate again ("Yes, 
 What changed: the plan `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md` is committed, and Section 3 names the branch and plan in the "Before WP-1" bullet. The plan carries every fix from its review: the cache is restored before the install and saved by its own step right after it (so a failed or cancelled later step cannot stop it filling), and its structural test asserts the direction of the seed and the copy-back on non-comment lines, proven against nine planted defects in scratch.
 
 Deviations: the plan uses `actions/cache/restore` and `actions/cache/save`, sub-actions of the `actions/cache@v6` already pinned (controller ruling). Edited existing tests: none.
-
-Validation: `pytest -q` -- **2968 passed**.
-
-### 2026-10-22 - Two of the new review findings say what the code does
-
-Side task, no batch tag: correcting two claims in the new review findings, on `docs/architecture-review-2026-10-21`, a branch cut from the head of `fix/job-endpoint-modes`.
-
-Owner intent: the findings must say what the code does, so the two claims the review of the previous commit found wrong are corrected.
-
-What changed: `docs/agents/FINDINGS.md` only. F-B23-51 no longer says a Deezer outage hides the Last.fm page-loss detail on the loading page (the Deezer writer is guarded by a read of the existing value; only the Spotify writers overwrite it there, while Results keeps just the generic Last.fm sentence whenever any provider sentence is present). F-B23-52 no longer says the three writers use "the same keys": it now lists the keys all three share and the keys each adds, including that the Deezer literal also carries `album_image` and `spotify_id` (both None), as read from `partition_albums_by_threshold`, `_results.py` and `_deezer_fallback.py`.
-
-Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2968 passed**.
