@@ -162,7 +162,7 @@ Type is served by Adobe Fonts kit `rwy8ghw`. Five distinct families each perform
 - **Figure Numerals** (400 weight, `1.125rem` to `2.5rem`, tabular): Large quantitative readouts, play counts, and hours listened (`gotham`).
 
 ### Named Rules
-**The Role Segregation Rule.** Gotham gets the numbers, Orpheus Pro gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight.
+**The Role Segregation Rule.** Gotham gets the numbers, Orpheus Pro gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight. One exception, the owner's choice (2026-10-22): the Results stat row sets all four values in Gotham Book with tabular figures, the Top Artist name included, so the row reads as one set of readouts.
 **The No-Medium Rule.** The Adobe kit serves weights 300, 400, and 700 only. Never use `font-weight: 500` or `font-weight: 600`. Hierarchy is established through scale, contrast, case, and tracking.
 **The Narrow Eyebrow Rule.** Anything letterspaced in uppercase between 9px and 12px must use `input-mono-narrow` to eliminate horizontal crowding and prevent field hint clipping.
 
@@ -239,7 +239,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 ## Do's and Don'ts
 
 ### Do:
-- **Do** use `orpheuspro` strictly for display words and `gotham` strictly for display numbers.
+- **Do** use `orpheuspro` strictly for display words and `gotham` strictly for display numbers (the Results stat row's Top Artist name is the one exception).
 - **Do** author all font sizes, line heights, and layout spacing in `rem` units.
 - **Do** preserve 4.5:1 text contrast for all muted copy (`#6c6676` light, `#908a9a` dark).
 - **Do** keep cards and panels flat at rest with 1px hairline borders.

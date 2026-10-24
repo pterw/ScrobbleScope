@@ -132,13 +132,56 @@ def test_a_missing_four_digit_count_fails_rather_than_passes() -> None:
     ]
 
 
+def test_four_figure_face_stat_values_pass() -> None:
+    assert figures.stat_value_face_failures(_reading(count=4), _reading()) == []
+
+
+def test_a_serif_stat_value_is_reported_by_its_position() -> None:
+    stats = _reading(count=4)
+    stats["faces"][1] = {"family": SERIF, "weight": "400"}  # the top artist
+    failures = figures.stat_value_face_failures(stats, _reading())
+    assert failures == [
+        f"results stat value 2 is set in {SERIF!r} at weight 400, "
+        f"expected {FIGURE!r} at weight 400"
+    ]
+
+
+def test_a_bold_stat_value_is_reported() -> None:
+    stats = _reading(count=4)
+    stats["faces"][3] = {"family": FIGURE, "weight": "700"}
+    failures = figures.stat_value_face_failures(stats, _reading())
+    assert failures == [
+        f"results stat value 4 is set in {FIGURE!r} at weight 700, "
+        f"expected {FIGURE!r} at weight 400"
+    ]
+
+
+@pytest.mark.parametrize("count", [0, 3, 5])
+def test_a_stat_row_with_the_wrong_number_of_values_is_reported(count: int) -> None:
+    failures = figures.stat_value_face_failures(_reading(count=count), _reading())
+    assert failures == [f"results stat row renders {count} values, expected 4"]
+
+
+def test_stat_values_without_a_heatmap_reference_are_reported() -> None:
+    failures = figures.stat_value_face_failures(_reading(count=4), _reading(count=0))
+    assert failures == ["heatmap renders no KPI value to compare the stat values with"]
+
+
+def test_stat_values_are_not_passed_against_a_reference_off_the_token() -> None:
+    kpi = _reading()
+    kpi["faces"] = [{"family": SERIF, "weight": "400"}]
+    failures = figures.stat_value_face_failures(_reading(family=SERIF, count=4), kpi)
+    assert len(failures) == 1 and "heatmap KPI value" in failures[0]
+
+
 class _Page:
     """A page stand-in: answers the face probe and records navigation."""
 
-    def __init__(self, kpi, plays, goto_fails=None, width=1280, fit=None):
+    def __init__(self, kpi, plays, goto_fails=None, width=1280, fit=None, stats=None):
         self.viewport_size = {"width": width, "height": 800}
         self.fit = fit or {"text": "8080", "right": 300.0, "limit": 302.0}
         self.kpi = kpi
+        self.stats = stats if stats is not None else _reading(count=4)
         self.plays = list(plays)
         self.goto_fails = goto_fails
         self.visited = []
@@ -162,6 +205,8 @@ class _Page:
 
     def evaluate(self, script, arg=None):
         if script == figures.FACE_JS:
+            if arg[0] == figures.STAT_VALUES_SELECTOR:
+                return self.stats
             return self.kpi if arg[0] == figures.KPI_SELECTOR else self.plays.pop(0)
         if script == figures.FIT_JS:
             return self.fit
@@ -193,6 +238,15 @@ def test_the_check_passes_when_both_reads_agree_and_cleans_up() -> None:
     jobs.delete.assert_any_call("results-job")
     jobs.delete.assert_any_call("heatmap-job")
     assert page.unrouted == page.routes
+
+
+def test_a_serif_stat_value_fails_the_whole_check() -> None:
+    """The stat read is wired into the check, not only judged in isolation."""
+    stats = _reading(count=4)
+    stats["faces"][1] = {"family": SERIF, "weight": "400"}
+    page = _Page(_reading(count=4), [_reading(), _reading()], stats=stats)
+    failures, _ = _run(page)
+    assert any("results stat value 2" in failure for failure in failures)
 
 
 def test_a_cell_rebuilt_by_a_sort_switch_is_judged_again() -> None:

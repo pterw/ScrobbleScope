@@ -1194,3 +1194,27 @@ is `0` (Orpheus Pro is not tracked in); the empty-state titles keep
 `-0.01em`. The heatmap's saved image no longer names a family of its own: it
 reads the headline font from `--font-serif`, and a frontend gate check holds
 the drawn family equal to the page headline's.
+
+## 28. The Results stat row is all figure face, 2026-10-22
+
+Owner words, 2026-10-22, trying the change live: "For each span||stat, use
+Gotham Book." The Results page's four stat values (total albums, top artist,
+scrobbles, unmatched) are the spans meant.
+
+The snapshot is frozen, so its words stay as they are and this section
+overrides them: the snapshot sets the stat values as serif display text. The
+rule is in `static/css/results.css`, on `.results-stat-value > span`:
+`--font-figure`, `--font-weight-normal` (Gotham Book, never bold),
+`font-variant-numeric: tabular-nums`, and `letter-spacing: normal`. The size
+and line height stay on the template's utilities, so every value keeps its
+size. The Top Artist name is a word, not a number, and it takes the figure
+face too: that is the one deliberate exception to the Role Segregation Rule in
+`DESIGN.md`, recorded there as the owner's choice, so the row reads as one set
+of readouts.
+
+This carries out the move section 26 deferred ("The side rail's stat values
+are still serif utility classes in `results.html`; moving them is a template
+change and belongs to a later round"). Section 26 stays as written, a dated
+record. `results.html` no longer puts `font-serif` on the four values, and the
+frontend gate check `check_results_play_count_uses_the_figure_face` also reads
+the four values against the heatmap KPI value, at every gate profile.

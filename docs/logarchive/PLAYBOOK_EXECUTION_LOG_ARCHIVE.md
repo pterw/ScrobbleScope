@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-23 - The heatmap copy says what the grid draws
+
+Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the copy must describe the grid truthfully (the owner accepted the live UI on 2026-10-22 and 2026-10-23).
+
+What changed and why: the lede and the preview said darker meant more plays while `rocketColor` draws more plays brighter, and the preview promised a longest streak the result does not show. The lede, a dt/dd preview legend and its CSS (`static/css/heatmap.css`, `templates/index.html`, `templates/partials/_heatmap_form.html`) come from the owner's accepted WIP patch, unchanged. Two new tests in `tests/frontend/test_heatmap_pure_functions.py` compare the copy with the luminance the grid really draws and with the rendered KPI labels. Change made at landing on the code review's finding: `test_the_heatmap_copy_names_the_shade_the_grid_draws` also requires the clause that names the shade to tie it to more plays, because "Brighter squares mean fewer plays" named the right word in the wrong direction and passed; planting that in the preview, or "brighter for fewer plays" in the lede, now fails it.
+
+Deviations: none. Edited existing tests: none. Mutations: copy word swapped in either place, `ROCKET_STOPS` reversed, "current" -> "longest", "daily average" dropped, "more" -> "fewer" in either copy -- each fails one new test.
+
+Validation: `pytest -q` -- **2971 passed**.
+
 ### 2026-10-23 - Plan UI consistency round 2
 
 Side task, no batch tag: committing the plan for UI consistency round 2 and pointing Section 3 at it, on `feat/ui-consistency-round-2`, a branch off `main`.

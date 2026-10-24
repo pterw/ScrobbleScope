@@ -170,9 +170,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* Every stat value, the top artist's name included, takes the figure
+       face the table's play counts use (Gotham Book, tabular figures), so
+       the four readouts and the table read as one system (owner's live pick,
+       2026-10-22). Size and line height stay on the template's utilities. */
+    font-family: var(--font-figure);
+    font-weight: var(--font-weight-normal);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: normal;
 }
 
-/* Match the deployed stat roles: mono labels, sans captions, serif values. */
+/* Stat roles: mono labels, sans captions, figure-face values (the values
+   rule sits with .results-stat-value > span above). */
 .results-stat-label {
     font-family: var(--font-mono);
     font-size: calc(0.6875rem * var(--results-scale));

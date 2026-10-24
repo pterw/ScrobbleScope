@@ -175,6 +175,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-24 - Results stat values take the figure face
+
+Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: "For each span||stat, use Gotham Book." (2026-10-22, accepted live). The four stat values (total albums, top artist, scrobbles, unmatched) lose `font-serif` in `templates/results.html`; `.results-stat-value > span` in `static/css/results.css` sets `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged. New frontend-gate judge `stat_value_face_failures` (`STAT_VALUES_SELECTOR`) in `scripts/dev/_frontend_gate_figures.py`, called from the existing check against the heatmap KPI reference. DESIGN.md Role Segregation Rule and Do's line name the Top Artist exception; `docs/design/RECONCILIATION.md` section 28 records it and completes the move section 26 deferred. Landing changes on the code review's findings: the DESIGN.md exception sentence moved to the end of the Role Segregation Rule paragraph; the wrong-count test is parametrised over 0, 3 and 5 values; `_reference_failures(kpi, subject)` is the one owner of the empty-KPI message (the duplicate guard in `figure_face_failures` is gone, messages unchanged), with a new test for the stat wording; the serif-stat test asserts the exact failure line. Deviations: none. Edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no existing test body changed. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Orpheus Pro becomes the display serif
 
 Side task, no batch tag: made Orpheus Pro the display serif, on `feat/ui-consistency-round-2`, a branch off `main`.
@@ -198,15 +204,3 @@ Owner intent: the phase line already says the run is done, so a second line repe
 Side task, no batch tag: removed the trailing arrows from the Results page's two unmatched-report links, on `feat/ui-consistency-round-2`, a branch off `main`.
 
 Owner intent: "The arrows should go." (2026-10-22). `templates/results.html`: "view breakdown" (under the Unmatched figure) lost its arrow and the side-rail "Open unmatched report" lost its arrow, so both read as plain words. New test `test_results_links_to_the_unmatched_report_read_as_words_alone` in `tests/test_routes.py` reads the two links' text after the site header and asserts exactly those words; proven red on the unchanged tree and by four planted defects (`&rarr;` after either text, an aria-hidden arrow span after either text), each restored. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2972 passed**.
-
-### 2026-10-23 - The heatmap copy says what the grid draws
-
-Side task, no batch tag: rewrote the heatmap index lede and preview card to say what the grid draws, on `feat/ui-consistency-round-2`, a branch off `main`.
-
-Owner intent: the copy must describe the grid truthfully (the owner accepted the live UI on 2026-10-22 and 2026-10-23).
-
-What changed and why: the lede and the preview said darker meant more plays while `rocketColor` draws more plays brighter, and the preview promised a longest streak the result does not show. The lede, a dt/dd preview legend and its CSS (`static/css/heatmap.css`, `templates/index.html`, `templates/partials/_heatmap_form.html`) come from the owner's accepted WIP patch, unchanged. Two new tests in `tests/frontend/test_heatmap_pure_functions.py` compare the copy with the luminance the grid really draws and with the rendered KPI labels. Change made at landing on the code review's finding: `test_the_heatmap_copy_names_the_shade_the_grid_draws` also requires the clause that names the shade to tie it to more plays, because "Brighter squares mean fewer plays" named the right word in the wrong direction and passed; planting that in the preview, or "brighter for fewer plays" in the lede, now fails it.
-
-Deviations: none. Edited existing tests: none. Mutations: copy word swapped in either place, `ROCKET_STOPS` reversed, "current" -> "longest", "daily average" dropped, "more" -> "fewer" in either copy -- each fails one new test.
-
-Validation: `pytest -q` -- **2971 passed**.
