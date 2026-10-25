@@ -27,7 +27,7 @@ from unittest.mock import patch
 
 from asyncpg.exceptions import InterfaceError
 
-#: The seven data columns of ``spotify_cache`` after the two key columns, in
+#: The nine data columns of ``spotify_cache`` after the two key columns, in
 #: the order ``cache.py``'s upsert passes its arrays.
 METADATA_FIELDS = (
     "spotify_id",
@@ -37,6 +37,8 @@ METADATA_FIELDS = (
     "provider",
     "provider_album_id",
     "provider_url",
+    "provider_artist",
+    "provider_title",
 )
 
 _ORIGINAL_FIELDS = ("mb_release_group", "original_release")

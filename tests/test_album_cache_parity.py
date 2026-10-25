@@ -193,6 +193,8 @@ async def test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matc
         "provider": "spotify",
         "provider_album_id": SPOTIFY_ID,
         "provider_url": SPOTIFY_URL,
+        "provider_artist": None,
+        "provider_title": None,
     }
     assert second == first
     (row,) = first

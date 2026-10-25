@@ -3,9 +3,16 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from scrobblescope.domain import normalize_name
+
 #: Spotify's classic album page. A cache row older than the provider columns
 #: carries no link, and a Spotify payload that names none falls back to this.
 SPOTIFY_ALBUM_URL = "https://open.spotify.com/album/{album_id}"
+
+#: What ``AlbumMetadata.match_for`` says about a cached row and a key.
+MATCH_FITS = "fits"
+MATCH_WRONG = "wrong"
+MATCH_UNSTAMPED = "unstamped"
 
 
 @dataclass(frozen=True)
@@ -13,7 +20,10 @@ class AlbumMetadata:
     """Album metadata from any enrichment provider (Spotify, Deezer, ...).
 
     ``track_durations`` holds seconds keyed by ``normalize_track_name``, the
-    shape ``_build_results`` already reads.
+    shape ``_build_results`` already reads. ``provider_artist`` and
+    ``provider_title`` are the names the provider itself gave the album (None
+    for a row written before they were stored); ``match_for`` compares them
+    with the key the row is cached under.
     """
 
     provider: str
@@ -22,6 +32,8 @@ class AlbumMetadata:
     release_date: str
     image_url: str | None
     track_durations: dict[str, int]
+    provider_artist: str | None = None
+    provider_title: str | None = None
 
     @property
     def spotify_id(self) -> str | None:
@@ -32,6 +44,22 @@ class AlbumMetadata:
         ``album_id``.
         """
         return self.album_id if self.provider == "spotify" else None
+
+    def match_for(self, key: tuple[str, str]) -> str:
+        """Say whether this row is the album ``key`` asks for.
+
+        The one place the re-verify rule lives. Any provider but Spotify is
+        ``MATCH_FITS`` (Deezer accepts a candidate only on an exact key match).
+        A Spotify row with either name missing is ``MATCH_UNSTAMPED``; with both
+        present it is ``MATCH_FITS`` when they normalize to ``key``, else
+        ``MATCH_WRONG``.
+        """
+        if self.provider != "spotify":
+            return MATCH_FITS
+        if self.provider_artist is None or self.provider_title is None:
+            return MATCH_UNSTAMPED
+        fits = normalize_name(self.provider_artist, self.provider_title) == key
+        return MATCH_FITS if fits else MATCH_WRONG
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> "AlbumMetadata | None":
@@ -71,4 +99,6 @@ class AlbumMetadata:
             release_date=row.get("release_date") or "",
             image_url=row.get("album_image_url"),
             track_durations=durations or {},
+            provider_artist=row.get("provider_artist"),
+            provider_title=row.get("provider_title"),
         )

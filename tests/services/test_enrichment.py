@@ -2,7 +2,13 @@ import dataclasses
 
 import pytest
 
-from scrobblescope.enrichment import SPOTIFY_ALBUM_URL, AlbumMetadata
+from scrobblescope.enrichment import (
+    MATCH_FITS,
+    MATCH_UNSTAMPED,
+    MATCH_WRONG,
+    SPOTIFY_ALBUM_URL,
+    AlbumMetadata,
+)
 
 
 def test_album_metadata_carries_its_provider_and_url():
@@ -159,4 +165,64 @@ def test_album_metadata_holds_album_facts_only():
         "release_date",
         "image_url",
         "track_durations",
+        "provider_artist",
+        "provider_title",
     }
+
+
+def test_a_row_reads_the_providers_own_names_and_a_row_without_them_reads_none():
+    """The two name columns land in their fields; a pre-migration row (columns
+    absent from the mapping) and a NULL both read as None."""
+    named = AlbumMetadata.from_row(
+        _row(provider_artist="Xiu Xiu", provider_title="A Promise")
+    )
+    absent = AlbumMetadata.from_row(_row())
+    null = AlbumMetadata.from_row(_row(provider_artist=None, provider_title=None))
+
+    assert (named.provider_artist, named.provider_title) == ("Xiu Xiu", "A Promise")
+    assert (absent.provider_artist, absent.provider_title) == (None, None)
+    assert (null.provider_artist, null.provider_title) == (None, None)
+
+
+_XIU_KEY = ("xiu xiu", "a promise")
+
+
+@pytest.mark.parametrize(
+    ("columns", "expected"),
+    [
+        (
+            {"provider_artist": "Xiu Xiu", "provider_title": "A Promise"},
+            MATCH_FITS,
+        ),
+        (
+            {"provider_artist": "Captain Beefheart", "provider_title": "Safe As Milk"},
+            MATCH_WRONG,
+        ),
+        (
+            {"provider_artist": "Xiu Xiu", "provider_title": "A Promise 2"},
+            MATCH_WRONG,
+        ),
+        ({"provider_artist": None, "provider_title": None}, MATCH_UNSTAMPED),
+        ({"provider_artist": "Xiu Xiu", "provider_title": None}, MATCH_UNSTAMPED),
+        ({"provider_artist": None, "provider_title": "A Promise"}, MATCH_UNSTAMPED),
+        (
+            {**_DEEZER_COLUMNS, "provider_artist": None, "provider_title": None},
+            MATCH_FITS,
+        ),
+    ],
+    ids=[
+        "names_equal_the_key",
+        "another_artists_album",
+        "a_sibling_title",
+        "no_names",
+        "no_title",
+        "no_artist",
+        "deezer_needs_no_names",
+    ],
+)
+def test_match_for_says_whether_a_cached_row_fits_its_key(columns, expected):
+    """A Spotify row fits only when its stored names normalize to the key; a
+    Spotify row with either name NULL is unstamped; any other provider fits."""
+    album = AlbumMetadata.from_row(_row(**columns))
+
+    assert album.match_for(_XIU_KEY) == expected

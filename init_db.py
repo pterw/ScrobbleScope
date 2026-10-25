@@ -57,6 +57,8 @@ async def _apply_schema(asyncpg, dsn):
                 ADD COLUMN IF NOT EXISTS provider TEXT,
                 ADD COLUMN IF NOT EXISTS provider_album_id TEXT,
                 ADD COLUMN IF NOT EXISTS provider_url TEXT,
+                ADD COLUMN IF NOT EXISTS provider_artist TEXT,
+                ADD COLUMN IF NOT EXISTS provider_title TEXT,
                 ALTER COLUMN spotify_id DROP NOT NULL
             """
         )

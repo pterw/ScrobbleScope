@@ -34,6 +34,16 @@ def test_adds_provider_columns_to_spotify_cache():
     )
 
 
+def test_adds_the_providers_own_names_to_spotify_cache():
+    constants = _string_constants()
+    for column in ("provider_artist", "provider_title"):
+        assert any(
+            "ALTER TABLE spotify_cache" in c
+            and f"ADD COLUMN IF NOT EXISTS {column} TEXT" in c
+            for c in constants
+        )
+
+
 def test_drops_not_null_on_spotify_id():
     constants = _string_constants()
     assert any(

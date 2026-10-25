@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Keep an identity for albums that normalize to nothing
+
+Side task, no batch tag: give an album whose title normalizes to nothing its own identity, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: albums named "?" or "EP" keyed as an empty album half in `normalize_name`, so any two such albums by one artist collided. `scrobblescope/domain.py::normalize_name` now falls back, when the cleaned and edition-stripped album is empty, to the raw text (NFKC, lowercase, whitespace collapsed) with "|" written as "%7c", so the key still splits cleanly in `format_album_key`. The artist half and every non-empty album key are unchanged. Docstrings of `normalize_name` and `format_album_key` say so. Cover wash for such albums changes (accepted). Added tests in `tests/test_domain.py`: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity`, `test_normalize_name_nonempty_remainder_keys_unchanged` (4 params) and `test_format_album_key_round_trips_empty_remainder_titles` (2 params).
+
+Deviations: none. Edited existing tests: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (the album half is now "ep", not empty; it still asserts that an artist named EP is kept and an album EP is stripped of the edition word, and its docstring was corrected).
+
+Validation: `pytest -q` -- **2883 passed**.
+
 ### 2026-10-25 - File the album-matching findings
 
 Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.

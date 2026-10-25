@@ -121,7 +121,7 @@ async def batch_lookup_metadata(conn, keys):
         """
         SELECT artist_norm, album_norm, spotify_id, release_date,
                album_image_url, track_durations, provider, provider_album_id,
-               provider_url
+               provider_url, provider_artist, provider_title
         FROM spotify_cache
         WHERE (artist_norm, album_norm) IN (
             SELECT unnest($1::text[]), unnest($2::text[])
@@ -187,15 +187,18 @@ async def batch_persist_metadata(conn, albums):
     providers = [m.provider for m in metadata]
     provider_album_ids = [m.album_id for m in metadata]
     provider_urls = [m.url for m in metadata]
+    provider_artists = [m.provider_artist for m in metadata]
+    provider_titles = [m.provider_title for m in metadata]
     await conn.execute(
         """
         INSERT INTO spotify_cache
             (artist_norm, album_norm, spotify_id, release_date,
              album_image_url, track_durations, provider, provider_album_id,
-             provider_url)
+             provider_url, provider_artist, provider_title)
         SELECT * FROM unnest(
             $1::text[], $2::text[], $3::text[], $4::text[],
-            $5::text[], $6::jsonb[], $7::text[], $8::text[], $9::text[]
+            $5::text[], $6::jsonb[], $7::text[], $8::text[], $9::text[],
+            $10::text[], $11::text[]
         )
         ON CONFLICT (artist_norm, album_norm) DO UPDATE SET
             spotify_id        = EXCLUDED.spotify_id,
@@ -205,6 +208,8 @@ async def batch_persist_metadata(conn, albums):
             provider          = EXCLUDED.provider,
             provider_album_id = EXCLUDED.provider_album_id,
             provider_url      = EXCLUDED.provider_url,
+            provider_artist   = EXCLUDED.provider_artist,
+            provider_title    = EXCLUDED.provider_title,
             updated_at        = NOW()
         """,
         artists,
@@ -216,6 +221,8 @@ async def batch_persist_metadata(conn, albums):
         providers,
         provider_album_ids,
         provider_urls,
+        provider_artists,
+        provider_titles,
     )
 
 
