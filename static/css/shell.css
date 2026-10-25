@@ -21,6 +21,10 @@
     --shell-accent: #6a4baf;
     --shell-accent-ink: #ffffff;
     --shell-border: rgba(26, 24, 32, 0.5);
+    /* Selected-option outline: the primary mixed toward the ground until
+       every surface a selected option sits on clears 4.5:1 (track, sunken
+       well, Results card and surface; RA2, one stronger outline). */
+    --shell-selected-outline: #775ab5;
     --shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);
     --shell-control-gap: 0.75rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
@@ -42,6 +46,7 @@
     --shell-accent: #b39dde;
     --shell-accent-ink: #0e0c12;
     --shell-border: rgba(241, 237, 228, 0.4);
+    --shell-selected-outline: #8a79ab;
 }
 
 /* ------------------------------------------------------------------ */
@@ -782,20 +787,25 @@ body {
   color: var(--color-base-content);
 }
 
+/* The selected option: soft tint, primary text (5.47:1 light, 6.38:1 dark on
+   the tint) and a 1px outline at just over 4.5:1 against the track
+   (--shell-selected-outline). The outline carries the state for WCAG 1.4.1
+   and 1.4.11; the tint alone is 1.11:1 and the text's shift from the
+   unselected ink is a hue change only. The index mode tabs and the Results
+   sort buttons share this look (owner, live session 2026-10-24). */
 .seg__radio:checked + .seg__option {
   background-color: var(--ss-accent-soft);
-  border-color: var(--color-primary);
-  color: var(--color-base-content);
+  border-color: var(--shell-selected-outline);
+  color: var(--color-primary);
   box-shadow: none;
 }
 
 /* The Results "Sort leaderboard" buttons are the same two states on button
    markup (results.js sets aria-pressed), so they take the same tokens here
    rather than a second copy of the look. The option text takes the body
-   token (>= 7:1 on the track); the selected chip takes the strongest ink,
-   the base-content token (>= 7:1 on the soft fill, and it keeps it on
-   hover; an unselected option deepens to it on hover), and a 1px primary border (>= 3:1 against the track), a lift of
-   the shipped muted text and the 1.1:1 chip (RECONCILIATION Section 20). */
+   token (>= 7:1 on the track); an unselected option deepens to the
+   base-content ink on hover. results.js toggles the soft-tint fill as a
+   utility class; the outline and ink come from here. */
 .metric-toggle-btn {
   border: 1px solid transparent;
   color: var(--ss-text-body);
@@ -806,8 +816,8 @@ body {
 }
 
 .metric-toggle-btn[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  color: var(--color-base-content);
+  border-color: var(--shell-selected-outline);
+  color: var(--color-primary);
 }
 
 .seg__radio:focus-visible + .seg__option {

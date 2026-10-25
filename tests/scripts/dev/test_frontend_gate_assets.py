@@ -6,32 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.dev import _frontend_gate_assets, frontend_gate
-from tests.scripts.dev.gate_parity import defined_names
-
-MOVED = (
-    "BOOTSTRAP_MARKER",
-    "TAILWIND_MARKER",
-    "_stylesheet_hrefs",
-    "check_stylesheet_isolation",
-)
-REEXPORTED = (
-    "BOOTSTRAP_MARKER",
-    "TAILWIND_MARKER",
-    "check_stylesheet_isolation",
-    "check_inline_marks_need_no_wrapper_list",
-)
-
-
-@pytest.mark.parametrize("name", MOVED)
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_assets)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_assets, name)
+from scripts.dev import _frontend_gate_assets
 
 
 def _page_with(hrefs: list[str]) -> MagicMock:

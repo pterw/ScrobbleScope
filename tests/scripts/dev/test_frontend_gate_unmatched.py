@@ -9,34 +9,7 @@ import pytest
 from scripts.dev import (
     _frontend_gate_results,
     _frontend_gate_unmatched,
-    frontend_gate,
 )
-from tests.scripts.dev.gate_parity import defined_names
-
-MOVED = (
-    "UNMATCHED_TWO_PANEL_MIN",
-    "UNMATCHED_SWEEP_WIDTHS",
-    "UNMATCHED_MIN_TITLE_WIDTH",
-    "_unmatched_panel_width_sweep",
-    "check_unmatched_report",
-)
-REEXPORTED = (
-    "UNMATCHED_TWO_PANEL_MIN",
-    "UNMATCHED_SWEEP_WIDTHS",
-    "UNMATCHED_MIN_TITLE_WIDTH",
-    "check_unmatched_report",
-)
-
-
-@pytest.mark.parametrize("name", MOVED)
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_unmatched)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_unmatched, name)
 
 
 def _sweeping_page(

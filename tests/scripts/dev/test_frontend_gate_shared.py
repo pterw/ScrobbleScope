@@ -13,26 +13,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts.dev import _frontend_gate_shared, frontend_gate
+from scripts.dev import _frontend_gate_shared
 from scripts.dev._frontend_gate_runtime import _launch_browser, _load_playwright
-from tests.scripts.dev.gate_parity import defined_names, gate_modules
+from tests.scripts.dev.gate_parity import gate_modules
 
-MOVED = (
-    "TOGGLE_TIMEOUT_MS",
-    "ERROR_PAGE_PATH",
-    "MIGRATED_PAGES",
-    "GATE_JOB_IDS",
-    "LEGACY_PAGES",
-    "ALL_PAGES",
-    "_reach_state",
-)
 SHARED_OBJECTS = ("MIGRATED_PAGES", "ALL_PAGES", "GATE_JOB_IDS")
-
-
-@pytest.mark.parametrize("name", MOVED)
-def test_the_shared_module_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_shared)
-    assert name not in defined_names(frontend_gate)
 
 
 @pytest.mark.parametrize("name", SHARED_OBJECTS)

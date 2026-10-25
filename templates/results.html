@@ -104,6 +104,8 @@
             <a href="{{ url_for('main.unmatched_page') }}" class="results-stat-caption text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown</a>
         </div>
     </div>
+    {# Shown by results.js while ranking by listening time leaves albums out. #}
+    <p class="results-partial-notice" id="playtime-hidden-note" role="status"{% if not untimed_count|default(0) %} hidden{% endif %}><span id="playtime-hidden-count">{{ untimed_count|default(0) }}</span> <span id="playtime-hidden-copy">{% if untimed_count|default(0) == 1 %}album with no listening time is hidden. Rank by track plays to show it.{% else %}albums with no listening time are hidden. Rank by track plays to show them.{% endif %}</span></p>
 
     <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
     <div class="results-filter-bar">
@@ -178,8 +180,10 @@
                     </thead>
                     <tbody class="divide-y divide-[var(--ss-border-default)]">
                         {% for album in album_list %}
-                        <tr class="hover:bg-[var(--ss-surface-card)] transition-colors"
-                            data-rank="{{ loop.index }}"
+                        {# Every row carries display_rank from the route (None: not ranked). #}
+                        {% set rank = album.display_rank %}
+                        <tr class="hover:bg-[var(--ss-surface-card)] transition-colors"{% if album.untimed %} hidden{% endif %}
+                            data-rank="{{ rank if rank is not none else '' }}"
                             data-album-key="{{ album|album_key }}"
                             data-album="{{ album.album }}"
                             data-artist="{{ album.artist }}"
@@ -196,11 +200,11 @@
                             <td class="py-3 px-3 md:px-4 text-center align-middle">
                                 {% if album.album_url %}
                                 <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on {{ album.provider|default('Spotify')|capitalize }}">
-                                    {{ "%02d" % loop.index }}
+                                    {{ "%02d" % rank if rank is not none else "" }}
                                 </a>
                                 {% else %}
                                 <span class="rank-num font-mono text-sm text-[var(--color-base-content)] font-normal">
-                                    {{ "%02d" % loop.index }}
+                                    {{ "%02d" % rank if rank is not none else "" }}
                                 </span>
                                 {% endif %}
                             </td>

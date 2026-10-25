@@ -266,6 +266,17 @@ confirm mocks were called):
 - `caplog` for warning/error log lines on failure paths.
 - Boundary inputs (zero, None, empty, missing keys) to hit fallback branches.
 
+**Lean suite** (owner rule, 2026-10-25: test for the *intended function*, not
+the *written function*; each test costs suite time):
+- One test per intended behaviour. Near-duplicates become one parametrized
+  test whose cases name the inputs that differ.
+- No test that pins wording, or a constant equal to the code's own value.
+- Module-layout ("parity") tests are not behaviour tests and are not added.
+  The gate module-shape family was removed on 2026-10-25 with the owner's
+  approval.
+- A fix round extends the existing test for that behaviour before it adds a
+  new one.
+
 ---
 
 ## Doc Sync Rules

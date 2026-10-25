@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.dev import _frontend_gate_colour, frontend_gate
+from scripts.dev import _frontend_gate_colour
 from scripts.dev._frontend_gate_colour import (
     _clamp_px,
     _composite_over,
@@ -158,10 +158,11 @@ class TestDividerContrastFailure:
     def test_passes_at_exactly_the_threshold(self):
         assert _divider_contrast_failure("light header", 3.0) is None
 
-    def test_reports_below_the_threshold(self):
-        message = _divider_contrast_failure("light header", 2.5)
+    @pytest.mark.parametrize(("ratio", "figure"), [(2.5, "2.50:1"), (2.9999, "3.00:1")])
+    def test_reports_below_the_threshold(self, ratio, figure):
+        message = _divider_contrast_failure("light header", ratio)
         assert message is not None
-        assert "2.50:1" in message
+        assert figure in message
         assert "3:1" in message
 
     def test_blames_the_token_it_was_given(self):
@@ -171,28 +172,6 @@ class TestDividerContrastFailure:
         assert message is not None
         assert "--ss-border-divider" in message
         assert "--shell-border" not in message
-
-
-class TestFacadeStillReExportsTheMovedHelpers:
-    """The split's real guarantee: no caller has to know it happened."""
-
-    @pytest.mark.parametrize(
-        "name",
-        [
-            "_clamp_px",
-            "_composite_over",
-            "_contrast_ratio",
-            "_divider_contrast_failure",
-            "_parse_rgb_string",
-            "_relative_luminance",
-            "_worst_divider_contrast",
-        ],
-    )
-    def test_name_resolves_through_the_gate_module(self, name: str):
-        # Identity, not callability: a facade exporting an unrelated function
-        # that happens to share the name would satisfy `callable()` while
-        # every caller reading the moved implementation's behaviour breaks.
-        assert getattr(frontend_gate, name) is getattr(_frontend_gate_colour, name)
 
 
 class TestColourSerializations:
@@ -279,108 +258,291 @@ class TestForbiddenSurfaceDetection:
 
 
 # Carried from test_frontend_gate.py when the colour tests were collected here.
-def test_parse_rgb_string_reads_rgb_and_rgba_forms() -> None:
-    """The parser must recover alpha when present and default it to opaque."""
-    assert _parse_rgb_string("rgb(26, 24, 32)") == (26.0, 24.0, 32.0, 1.0)
-    assert _parse_rgb_string("rgba(26, 24, 32, 0.5)") == (26.0, 24.0, 32.0, 0.5)
-
-
-def test_composite_over_blends_by_alpha() -> None:
-    """A translucent foreground must blend proportionally with its backdrop."""
-    # Half-alpha white over black must land exactly halfway, per channel.
-    assert _composite_over((255.0, 255.0, 255.0, 0.5), (0.0, 0.0, 0.0)) == (
-        127.5,
-        127.5,
-        127.5,
-    )
-    # An opaque foreground must pass through unchanged regardless of backdrop.
-    assert _composite_over((10.0, 20.0, 30.0, 1.0), (200.0, 200.0, 200.0)) == (
-        10.0,
-        20.0,
-        30.0,
-    )
-
-
 def test_relative_luminance_orders_black_grey_white() -> None:
-    """Luminance must be 0 for black, 1 for white, and monotonic between."""
+    """Luminance must be monotonic between black and white (anchors: see above)."""
     black = _relative_luminance((0.0, 0.0, 0.0))
     grey = _relative_luminance((128.0, 128.0, 128.0))
     white = _relative_luminance((255.0, 255.0, 255.0))
-    assert black == 0.0
-    assert white == 1.0
     assert black < grey < white
 
 
-def test_contrast_ratio_is_symmetric_and_maximal_for_black_on_white() -> None:
-    """Contrast ratio must not depend on argument order and must cap at 21:1."""
-    black = (0.0, 0.0, 0.0)
-    white = (255.0, 255.0, 255.0)
-    assert _contrast_ratio(black, white) == pytest.approx(21.0, abs=0.01)
-    assert _contrast_ratio(black, white) == _contrast_ratio(white, black)
-    # Identical colours never separate, so the ratio floors at 1:1.
-    assert _contrast_ratio(black, black) == 1.0
+# --- Segmented-control contrast gate (UI round 2 backlog, T1) ---------------
+
+LIGHT_TRACK = (240.0, 235.0, 224.0)
+DARK_TRACK = (24.0, 21.0, 32.0)
 
 
-def test_worst_divider_contrast_is_the_minimum_across_surfaces() -> None:
-    """A divider painted over several surfaces is only as good as the worst one."""
-    border = "rgba(26, 24, 32, 0.5)"
-    high_contrast_surface = "rgb(255, 255, 255)"
-    low_contrast_surface = "rgb(40, 38, 46)"
-    worst = _worst_divider_contrast(border, high_contrast_surface, low_contrast_surface)
-    against_low_only = _worst_divider_contrast(border, low_contrast_surface)
-    assert worst == pytest.approx(against_low_only)
-    assert worst < _worst_divider_contrast(border, high_contrast_surface)
+def _rgb(level: int) -> str:
+    return f"rgb({level}, {level}, {level})"
 
 
-def test_divider_contrast_failure_boundary_is_exactly_3_to_1() -> None:
-    """The 3:1 boundary must pass at 3.0 and fail just below it.
+def _grey_beside(background: tuple[float, float, float], floor: float, passes: bool):
+    """Return the grey nearest *floor* on the passing or the failing side."""
+    levels = [
+        (_contrast_ratio((level, level, level), background), level)
+        for level in range(256)
+    ]
+    if passes:
+        ratio, level = min(pair for pair in levels if pair[0] >= floor)
+    else:
+        ratio, level = max(pair for pair in levels if pair[0] < floor)
+    return _rgb(level), ratio
 
-    Repo rule: this must fail if `_divider_contrast_failure` is deleted or its
-    comparison is loosened (e.g. `> 3.0` instead of `>= 3.0`), so both sides of
-    the boundary are asserted rather than only the failing side.
+
+class _SegPage:
+    """A page whose paint depends on the theme the gate last set."""
+
+    def __init__(self, paints: dict[str, dict]) -> None:
+        self.paints = paints
+        self.theme = "light"
+
+    def evaluate(self, script, arg=None):
+        if script is _frontend_gate_colour.SEG_PAINT_JS:
+            return self.paints[self.theme]
+        if arg in ("light", "dark"):
+            self.theme = arg
+        elif "'light'" in script:
+            self.theme = "light"
+        return None
+
+
+def _paints(
+    light_border: str, dark_border: str, selected_text: str = "rgb(0, 0, 0)"
+) -> dict[str, dict]:
+    def paint(track, text, border, selected):
+        return {
+            "track": track,
+            "unselectedText": text,
+            "selectedText": selected,
+            "chip": "rgba(0, 0, 0, 0)",
+            "chipBorder": border,
+        }
+
+    return {
+        "light": paint(
+            "rgb(240, 235, 224)", "rgb(0, 0, 0)", light_border, selected_text
+        ),
+        "dark": paint(
+            "rgb(24, 21, 32)", "rgb(255, 255, 255)", dark_border, "rgb(255, 255, 255)"
+        ),
+    }
+
+
+def _seg_failures(monkeypatch, paints: dict[str, dict]) -> list[str]:
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u"}
+    return _frontend_gate_colour.seg_contrast_failures(
+        _SegPage(paints), "Test control", spec
+    )
+
+
+@pytest.mark.parametrize(
+    ("failing", "probe_floor", "probe_passes"),
+    [
+        # Just under 4.5:1 in one theme: only that theme fails.
+        (("light",), 4.5, False),
+        (("dark",), 4.5, False),
+        # A 3.5:1 boundary clears the old 3:1 floor but not 4.5:1, in both.
+        (("light", "dark"), 3.5, True),
+    ],
+)
+def test_seg_boundary_under_4_5_fails_in_the_themes_that_miss_it(
+    monkeypatch, failing, probe_floor, probe_passes
+) -> None:
+    tracks = {"light": LIGHT_TRACK, "dark": DARK_TRACK}
+    borders = {}
+    ratios = {}
+    for theme, track in tracks.items():
+        if theme in failing:
+            borders[theme], ratios[theme] = _grey_beside(
+                track, probe_floor, passes=probe_passes
+            )
+        else:
+            borders[theme] = _grey_beside(track, 4.5, passes=True)[0]
+    failures = _seg_failures(monkeypatch, _paints(borders["light"], borders["dark"]))
+    assert len(failures) == len(failing)
+    assert all(
+        f"{theme} theme" in line
+        and "chip boundary on track" in line
+        and f"{ratios[theme]:.2f}:1" in line
+        and "under 4.5:1" in line
+        for theme, line in zip(failing, failures, strict=True)
+    )
+
+
+def test_selected_text_floor_stays_4_5(monkeypatch) -> None:
+    good = _grey_beside(LIGHT_TRACK, 4.5, passes=True)[0]
+    border, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=True)
+    dark_border, _ = _grey_beside(DARK_TRACK, 4.5, passes=True)
+    assert _seg_failures(monkeypatch, _paints(border, dark_border, good)) == []
+    low, ratio = _grey_beside(LIGHT_TRACK, 4.5, passes=False)
+    failures = _seg_failures(monkeypatch, _paints(border, dark_border, low))
+    assert len(failures) == 1
+    assert "selected text on chip" in failures[0]
+    assert f"{ratio:.2f}:1" in failures[0]
+
+
+def _ok_paints() -> dict[str, dict]:
+    light, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=True)
+    dark, _ = _grey_beside(DARK_TRACK, 4.5, passes=True)
+    return _paints(light, dark)
+
+
+def test_missing_control_is_reported_in_both_themes(monkeypatch) -> None:
+    failures = _seg_failures(monkeypatch, {"light": None, "dark": None})
+    assert len(failures) == 2
+    assert all("Test control" in line for line in failures)
+    assert all("the control is missing" in line for line in failures)
+
+
+def test_translucent_chip_border_is_composited_over_the_track(monkeypatch) -> None:
+    # Opaque black and white clear 4.5:1 alone; at 30% alpha over the track
+    # they composite to a pale tint well under it.
+    paints = _ok_paints()
+    paints["light"]["chipBorder"] = "rgba(0, 0, 0, 0.3)"
+    paints["dark"]["chipBorder"] = "rgba(255, 255, 255, 0.3)"
+    failures = _seg_failures(monkeypatch, paints)
+    assert len(failures) == 2
+    assert all("chip boundary on track" in line for line in failures)
+
+
+# --- unselected_floor spec key (UI round 2 backlog, T8, RA1) -----------------
+
+
+def _muted_paints(cell: str = "unselectedText") -> dict[str, dict]:
+    """*cell* at about 5:1 on the track in both themes; the rest passes."""
+    paints = _ok_paints()
+    paints["light"][cell] = _grey_beside(LIGHT_TRACK, 5.0, passes=True)[0]
+    paints["dark"][cell] = _grey_beside(DARK_TRACK, 5.0, passes=True)[0]
+    return paints
+
+
+def _spec_failures(monkeypatch, paints: dict, **extra) -> list[str]:
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u", **extra}
+    return _frontend_gate_colour.seg_contrast_failures(
+        _SegPage(paints), "Test control", spec
+    )
+
+
+@pytest.mark.parametrize(
+    ("cell", "extra", "expected_failures"),
+    [
+        # Unselected text keeps the 7:1 floor unless the spec lowers it.
+        ("unselectedText", {}, 2),
+        ("unselectedText", {"unselected_floor": 4.5}, 0),
+        # Selected text is held to 4.5:1 whatever the unselected floor.
+        ("selectedText", {}, 0),
+    ],
+)
+def test_unselected_text_floor_is_7_to_1_by_default_and_selected_text_keeps_4_5(
+    monkeypatch, cell, extra, expected_failures
+) -> None:
+    failures = _spec_failures(monkeypatch, _muted_paints(cell), **extra)
+    assert len(failures) == expected_failures
+    assert all("option text on track" in line for line in failures)
+    assert all("under 7.0:1" in line for line in failures)
+
+
+def test_unselected_floor_does_not_lower_the_other_cells(monkeypatch) -> None:
+    paints = _muted_paints()
+    low, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=False)
+    paints["light"]["unselectedText"] = low
+    paints["light"]["selectedText"] = low
+    paints["light"]["chipBorder"] = low
+    failures = _spec_failures(monkeypatch, paints, unselected_floor=4.5)
+    cells = sorted(line.split(": ")[1].split(" is ")[0] for line in failures)
+    assert cells == [
+        "chip boundary on track",
+        "option text on track",
+        "selected text on chip",
+    ]
+    assert all("under 4.5:1" in line for line in failures)
+
+
+class _HoverPage:
+    """A page whose hover reads the same per-theme ink for each option."""
+
+    def __init__(self, ink: dict[str, dict[str, str]]) -> None:
+        self.ink = ink
+        self.theme = "light"
+        self.mouse = self
+
+    def move(self, *_args) -> None:
+        pass
+
+    def locator(self, selector):
+        class _Node:
+            def hover(self) -> None:
+                pass
+
+        return _Node()
+
+    def evaluate(self, script, arg=None):
+        if script is _frontend_gate_colour.SEG_PAINT_JS:
+            ink = self.ink[self.theme]
+            track = "rgb(240, 235, 224)" if self.theme == "light" else "rgb(24, 21, 32)"
+            return {
+                "track": track,
+                "unselectedText": ink["unselected"],
+                "selectedText": ink["selected"],
+                "chip": "rgba(0, 0, 0, 0)",
+                "chipBorder": "rgb(0, 0, 0)",
+            }
+        if arg in ("light", "dark"):
+            self.theme = arg
+        elif "'light'" in script:
+            self.theme = "light"
+        return None
+
+
+def _hover_failures(
+    monkeypatch, selected_ratio=None, unselected_ratio=5.0, **extra
+) -> list[str]:
+    """Hover failures for unselected ink at *unselected_ratio* (5:1 default).
+
+    Without *selected_ratio* the selected ink is full black or white.
     """
-    assert _divider_contrast_failure("light", 3.0) is None
-    assert _divider_contrast_failure("light", 4.5) is None
-    assert _divider_contrast_failure("light", 2.9999) is not None
-    failure = _divider_contrast_failure("light", 1.27)
-    assert failure == (
-        "/ light: --shell-border composites to 1.27:1 against its "
-        "adjacent surface, expected at least 3:1"
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    five_light = _grey_beside(LIGHT_TRACK, unselected_ratio, passes=True)[0]
+    five_dark = _grey_beside(DARK_TRACK, unselected_ratio, passes=True)[0]
+    selected_light, selected_dark = "rgb(0, 0, 0)", "rgb(255, 255, 255)"
+    if selected_ratio is not None:
+        passes = selected_ratio >= 4.5
+        selected_light = _grey_beside(LIGHT_TRACK, selected_ratio, passes=passes)[0]
+        selected_dark = _grey_beside(DARK_TRACK, selected_ratio, passes=passes)[0]
+    page = _HoverPage(
+        {
+            "light": {"unselected": five_light, "selected": selected_light},
+            "dark": {"unselected": five_dark, "selected": selected_dark},
+        }
     )
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u", **extra}
+    return _frontend_gate_colour.seg_hover_failures(page, "Test control", spec)
 
 
-def test_divider_contrast_failure_names_the_token_it_checks() -> None:
-    """A caller must be able to attribute a failure to a specific token.
-
-    F-B21-40: the same helper now checks both the shared --shell-border and
-    the index page's own --ss-border-divider. This must fail if the `token`
-    parameter is removed or its default silently changes, since a message
-    that always says "--shell-border" would misattribute a failing index
-    divider to the wrong token.
-    """
-    failure = _divider_contrast_failure(
-        "index divider light", 1.12, token="--ss-border-divider"
-    )
-    assert failure == (
-        "/ index divider light: --ss-border-divider composites to 1.12:1 "
-        "against its adjacent surface, expected at least 3:1"
-    )
-    # The default stays --shell-border for every existing caller.
-    assert _divider_contrast_failure("light", 1.27) == (
-        "/ light: --shell-border composites to 1.27:1 against its "
-        "adjacent surface, expected at least 3:1"
-    )
+def test_unselected_floor_4_5_accepts_hover_text_the_default_rejects(
+    monkeypatch,
+) -> None:
+    default = _hover_failures(monkeypatch)
+    assert len(default) == 2
+    assert all("hovered unselected option text on track" in line for line in default)
+    assert all("under 7.0:1" in line for line in default)
+    assert _hover_failures(monkeypatch, unselected_floor=4.5) == []
 
 
-def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
-    """`_clamp_px` must mirror CSS clamp(): floor, vw-scaled middle, ceiling."""
-    # Below the point where 2.96875vw reaches the 4.25rem floor.
-    assert _clamp_px(4.25, 2.96875, 4.75, 1000) == pytest.approx(4.25 * 16)
-    # At 1920px, 2.96875vw is still under the 4.75rem ceiling and over the
-    # 4.25rem floor at root 16px, so the floor still wins (matches the header
-    # bar's ruled 68px at a real 1080p window).
-    assert _clamp_px(4.25, 2.96875, 4.75, 1920) == pytest.approx(4.25 * 16)
-    # Above the point where the preferred value exceeds the ceiling.
-    assert _clamp_px(4.25, 2.96875, 4.75, 2560) == pytest.approx(4.75 * 16)
-    # A non-default root font size scales both bounds, not the vw term.
-    assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
+def test_hovered_selected_chip_text_under_4_5_is_named(monkeypatch) -> None:
+    failures = _hover_failures(monkeypatch, selected_ratio=4.0, unselected_floor=4.5)
+    assert len(failures) == 2
+    assert all("hovered selected chip text on chip" in line for line in failures)
+    assert all("under 4.5:1" in line for line in failures)
+
+
+def test_unselected_floor_does_not_lower_the_selected_chip_hover_floor(
+    monkeypatch,
+) -> None:
+    # 5:1 clears the chip's own 4.5:1 floor but not the 7:1 default for the
+    # unselected text: with the default floor in force and unselected ink at
+    # 8:1, the chip must not inherit the unselected floor.
+    failures = _hover_failures(monkeypatch, selected_ratio=5.0, unselected_ratio=8.0)
+    assert failures == []

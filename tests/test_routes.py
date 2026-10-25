@@ -13,9 +13,9 @@ from scrobblescope.domain import cover_wash_index, normalize_name
 from scrobblescope.orchestrator import background_task
 from scrobblescope.routes import (
     _PRIVATE_PROFILE_MESSAGE,
-    _filter_results_for_display,
     _get_filter_description,
     _group_unmatched_by_reason,
+    _mark_untimed_for_display,
 )
 from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
@@ -25,11 +25,10 @@ HEATMAP_JOB_PARAMS = {"username": "testuser", "mode": "heatmap"}
 #: Stands in for "the index page rendered" in the tests below.
 #:
 #: It used to be the form card's h2, "Filter Your Album Scrobbles!". WP-3
-#: removed that heading: the design's card carries no title, and the
-#: exclamation mark belongs to the old register. This is the page headline
-#: instead -- copy the index would be wrong without, which is what a marker
-#: has to be.
-INDEX_HEADLINE = b"Your top albums,"
+#: removed that heading, and the page headline that replaced it is copy the
+#: owner still revises (UI round 2, 2026-10-25). The marker is now the index
+#: grid, the root the index cannot render without and no error page carries.
+INDEX_HEADLINE = b'id="index-grid"'
 
 
 def test_home_page(client):
@@ -2309,30 +2308,38 @@ def test_heatmap_loading_whitespace_username(client):
 # --- Helper unit tests ---
 
 
-def test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime():
-    """Albums with play_time_seconds=0 must be dropped when sort_mode='playtime'.
+@pytest.mark.parametrize(
+    ("sort_mode", "durations", "untimed", "ranks"),
+    [
+        # Zero, missing and None are all durationless; the timed album ranks 1.
+        (
+            "playtime",
+            [0, 3600, "missing", None],
+            [True, False, True, True],
+            [None, 1, None, None],
+        ),
+        # Other sort modes rank every album, whatever its listening time.
+        ("playcount", [0, "missing"], [False, False], [1, 2]),
+    ],
+)
+def test_mark_untimed_for_display_marks_durationless_albums_only_when_sorting_by_playtime(
+    sort_mode, durations, untimed, ranks
+):
+    """Durationless albums are marked, not ranked, on a playtime sort only.
 
-    This is the key business rule: sorting by playtime with zero-duration albums
-    would produce misleading rankings. The filter must fire, not pass through.
+    Sorting by playtime with zero-duration albums would produce misleading
+    rankings. Every album stays in the list, in order.
     """
-    albums = [
-        {"artist": "A", "album": "X", "play_time_seconds": 0},
-        {"artist": "B", "album": "Y", "play_time_seconds": 3600},
-        {"artist": "C", "album": "Z"},  # missing key -- treated as 0
-    ]
-    result = _filter_results_for_display(albums, "playtime")
-    assert len(result) == 1
-    assert result[0]["artist"] == "B"
-
-
-def test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort():
-    """Albums without playtime data must NOT be filtered for non-playtime sort modes."""
-    albums = [
-        {"artist": "A", "album": "X", "play_time_seconds": 0},
-        {"artist": "B", "album": "Y"},  # missing key entirely
-    ]
-    result = _filter_results_for_display(albums, "playcount")
-    assert len(result) == 2
+    albums = []
+    for i, duration in enumerate(durations):
+        album = {"artist": "ABCD"[i], "album": "XYZW"[i]}
+        if duration != "missing":
+            album["play_time_seconds"] = duration
+        albums.append(album)
+    result = _mark_untimed_for_display(albums, sort_mode)
+    assert [a["artist"] for a in result] == list("ABCD"[: len(albums)])
+    assert [a["untimed"] for a in result] == untimed
+    assert [a["display_rank"] for a in result] == ranks
 
 
 def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
@@ -3573,15 +3580,14 @@ def test_scrobbles_figure_is_the_plays_of_the_albums_the_page_lists(client):
     assert _scrobbles_figure(_render_include_results(client)) == "200"
 
 
-def test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops(client):
+def test_scrobbles_figure_counts_albums_a_playtime_ranking_hides(client):
     """
     GIVEN a playtime-ranked run in which one album has no listening time
     WHEN the Results page renders
-    THEN that album is not listed, and its plays are not in Scrobbles: the
-    figure describes the rows on the page.
+    THEN that album is in the page as a hidden row, and its plays are in
+    Scrobbles: the figure describes the whole result.
 
-    Mutation: sum the stored rows before the playtime filter and the figure
-    reads 90.
+    Mutation: sum only the ranked rows and the figure reads 50.
     """
     rows = [
         {**_provider_row("spotify", 0), "play_count": 50},
@@ -3591,7 +3597,89 @@ def test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops(client):
     jobs.succeed(job_id, rows, "Done!")
     response = client.post("/results_complete", data={"job_id": job_id})
     assert response.status_code == 200
-    assert _scrobbles_figure(response.data.decode("utf-8")) == "50"
+    assert _scrobbles_figure(response.data.decode("utf-8")) == "90"
+
+
+def _render_sorted_results(client, rows, sort_mode):
+    """Render /results_complete for a finished job ranked by `sort_mode`."""
+    job_id = jobs.create({**TEST_JOB_PARAMS, "sort_mode": sort_mode})
+    jobs.succeed(job_id, rows, "Done!")
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    return response.data.decode("utf-8")
+
+
+def _result_rows(page):
+    """(hidden, data-rank, visible rank text) for each album row, in order."""
+    rows = []
+    pattern = r"(<tr [^>]*data-album-key[^>]*>)(.*?)</tr>"
+    for tag, body in re.findall(pattern, page, re.S):
+        rank = re.search(r'data-rank="(\d*)"', tag).group(1)
+        cell = re.search(r"rank-num[^>]*>\s*([^<]*?)\s*<", body).group(1)
+        rows.append((re.search(r"\shidden\s", tag) is not None, rank, cell))
+    return rows
+
+
+def _hidden_note(page):
+    """(hidden, count) of the listening-time hidden-count note."""
+    tag = re.search(r'<p [^>]*id="playtime-hidden-note"[^>]*>', page).group(0)
+    count = re.search(r'id="playtime-hidden-count">(\d+)<', page).group(1)
+    return (re.search(r"\shidden(\s|>)", tag) is not None, int(count))
+
+
+def _mixed_playtime_rows():
+    """Timed, zero, timed, missing: a gap sits between the ranked albums."""
+    rows = [{**_provider_row("spotify", i), "play_count": 50 - i} for i in range(4)]
+    rows[1]["play_time_seconds"] = 0
+    del rows[3]["play_time_seconds"]
+    return rows
+
+
+def test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows(client):
+    """
+    GIVEN a playtime job with two timed and two durationless albums
+    WHEN the Results page renders
+    THEN it holds four rows, the durationless two (between and after the
+    timed) hidden with empty rank cells, the timed two ranked 1 and 2 in
+    both data-rank and the visible cell; Total Albums reads 4 and the note is
+    shown with count 2.
+
+    Mutation: rank by loop.index and the ranks read 1, 2, 3, 4; drop the
+    hidden marker and the rows are not hidden; print loop.index in the
+    visible cell, or a value in a hidden row's cell, and the cell text fails.
+    """
+    page = _render_sorted_results(client, _mixed_playtime_rows(), "playtime")
+    assert _result_rows(page) == [
+        (False, "1", "01"),
+        (True, "", ""),
+        (False, "2", "02"),
+        (True, "", ""),
+    ]
+    assert re.search(r'id="stat-total-albums"[^>]*>4<', page)
+    assert _hidden_note(page) == (False, 2)
+
+
+def test_play_count_run_hides_no_row_and_hides_the_note(client):
+    """
+    GIVEN the same albums in a play-count job
+    WHEN the Results page renders
+    THEN none of the four rows is hidden and the note is hidden.
+    """
+    page = _render_sorted_results(client, _mixed_playtime_rows(), "playcount")
+    assert [hidden for hidden, _, _ in _result_rows(page)] == [False] * 4
+    assert _hidden_note(page)[0] is True
+
+
+def test_playtime_run_with_only_durationless_albums_renders_no_matches(client):
+    """
+    GIVEN a playtime job in which every album is durationless
+    WHEN the Results page renders
+    THEN no row is ranked, so the no-matches page shows.
+    """
+    rows = [{**_provider_row("spotify", i), "play_time_seconds": 0} for i in range(2)]
+    rows[1]["play_time_seconds"] = None
+    page = _render_sorted_results(client, rows, "playtime")
+    assert "data-album-key" not in page
 
 
 def test_scrobbles_stat_publishes_both_populations_for_the_albums_control(client):

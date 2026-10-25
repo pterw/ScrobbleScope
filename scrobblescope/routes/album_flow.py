@@ -48,18 +48,27 @@ def _extract_job_params(job_context):
     }
 
 
-def _filter_results_for_display(results_data, sort_mode):
-    """Remove albums with no play-time data when sorting by playtime.
+def _mark_untimed_for_display(results_data, sort_mode):
+    """Copy every album with the rank the page shows for it.
 
-    Albums without ``play_time_seconds`` would sort to zero and produce
-    misleading playtime rankings. All albums are kept for every other
-    sort mode.
+    Ranking by listening time leaves out albums with no listening time
+    (``play_time_seconds`` missing, None or <= 0): such a copy carries
+    ``untimed=True`` and ``display_rank=None``. The others are ranked 1..n
+    in order. Every album stays in the list, and every album is ranked for
+    every other sort mode. Mirrors the client rule in ``results.js``.
     """
-    return [
-        album
-        for album in results_data
-        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
-    ]
+    rows = []
+    rank = 0
+    for album in results_data:
+        untimed = sort_mode == "playtime" and not (
+            (album.get("play_time_seconds") or 0) > 0
+        )
+        if not untimed:
+            rank += 1
+        rows.append(
+            {**album, "untimed": untimed, "display_rank": None if untimed else rank}
+        )
+    return rows
 
 
 def _get_filter_description(release_scope, decade, release_year, listening_year):
@@ -240,9 +249,10 @@ def _render_results_page():
             202,
         )
 
-    filtered_results = _filter_results_for_display(results_data, sort_mode)
-    # The figures describe the rows this page lists, after every filter it
-    # applies, so they are computed here and not at job completion.
+    filtered_results = _mark_untimed_for_display(results_data, sort_mode)
+    untimed_count = sum(1 for a in filtered_results if a["untimed"])
+    # The figures describe the whole result, including albums a listening-time
+    # ranking hides, so they are computed here and not at job completion.
     play_stats = album_play_statistics(filtered_results)
 
     unmatched_count = len(job_context.get("unmatched", {}))
@@ -251,12 +261,14 @@ def _render_results_page():
         for item in job_context.get("unmatched", {}).values()
         if item.get("reason_code") == REASON_PROVIDER_UNAVAILABLE
     )
-    has_durations = any(a.get("play_time_seconds", 0) > 0 for a in (results_data or []))
+    has_durations = any(
+        (a.get("play_time_seconds") or 0) > 0 for a in (results_data or [])
+    )
     partial_notice, partial_notice_links_unmatched = _partial_run_notice(
         progress_payload.get("stats"), unchecked_count
     )
 
-    if not filtered_results:
+    if untimed_count == len(filtered_results):
         filter_description = _get_filter_description(
             release_scope, decade, release_year, year
         )
@@ -323,6 +335,7 @@ def _render_results_page():
         partial_notice_links_unmatched=partial_notice_links_unmatched,
         has_durations=has_durations,
         play_stats=play_stats,
+        untimed_count=untimed_count,
         include_unmatched=include_unmatched,
         unmatched_row_count=unmatched_row_count,
         unmatched_badges=unmatched_badges,

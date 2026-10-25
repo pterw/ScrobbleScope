@@ -128,11 +128,19 @@ See FINDINGS F-DOCSYNC-3.
   CI change that keeps Playwright's Ubuntu packages in the Actions cache
   (branch `ci/playwright-apt-cache`, plan
   `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`). UI
-  consistency round 2 runs now (branch `feat/ui-consistency-round-2`, plan
-  `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`): the four
-  changes the owner accepted in live mode, the two unmatched-report arrows
-  and the loading page's redundant redirect line; the round's other backlog
-  items wait for a later live session. The documentation refresh merges last.
+  consistency round 2 is done (PR #268, branch `feat/ui-consistency-round-2`,
+  plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
+  backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
+  in a live session and the accepted changes landed as they were made (PR
+  #269, out of draft). All fourteen tasks of the plan
+  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` have landed on
+  the same branch (the documentation, the gates that hold the accepted
+  changes, the F-B23-46 ranking rule and the stale-copy sweep), followed by a
+  test consolidation under the owner's lean-suite ruling. The final
+  verification gate passed on the branch; the PR merges once its review is
+  clean. The album-matching, cache re-verification and MusicBrainz fixes the session
+  found then go to a PR stacked on it (branch `fix/album-matching`, which
+  carries its own plan). The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -175,32 +183,44 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-24 - Record UI round 2's outcome in its plan
+### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
 
-Side task, no batch tag: recorded UI consistency round 2's outcome in its plan, on `feat/ui-consistency-round-2`, a branch off `main`.
+Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.
 
-Owner intent: the plan should say what landed, in what order and with which extras, so the round can be read from the plan alone. `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`: every step checkbox in Tasks 0-5 is ticked (the controller's "Final checks" boxes stay open), and a new `## Outcome (2026-10-24)` section lists each task's commit and landing extras, then the deviations (landing order T3, T4, T5, T1, T2 rather than the plan's order; the owner's f-swe-7 plan parked outside the worktree for the round's commits and restored; the heatmap export's hard-coded `instrument-serif` folded into Task 1; F-B23-58 filed). The Task 1 entry above gains the `MOVED` parity-tuple change in its "Edited existing tests" field (the Task 1 landing review's Minor 1); nothing else in that entry changed. On review a pointer to an untracked report was removed from the plan's Outcome section. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
 
-### 2026-10-24 - File the frontend gate's intermittent failures
+Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
 
-Side task, no batch tag: filed F-B23-58 for the frontend gate's intermittent failures, on `feat/ui-consistency-round-2`, a branch off `main`.
+Validation: `pytest -q` -- **2876 passed**.
 
-Owner intent: a gate that fails and then passes on the same tree should be written down with its evidence rather than waved through (the repository's flake rule). `docs/agents/FINDINGS.md` gains F-B23-58 (P2, Scaling roadmap, after F-B23-56) recording the three checks that failed intermittently during UI consistency round 2 (PR #268): `shell text scaling [desktop]` (a `Page.goto` timeout at `b7a0722`, passed on the one re-run), `release check disclosure [desktop]` (a correction moved 2 rows, only in the two code-phase worktrees that held the Orpheus Pro change; `ff91283` awaits `document.fonts.ready`, cause unproven) and `theme persistence [mobile]` (a toggle click timeout, once). The fix shape is to record check, profile and timing before changing the gate, so no gate code changed. The finding's opening sentence was corrected on review (the checks failed intermittently and passed on other runs of a tree holding the same change, not on a later run of the same tree). Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+### 2026-10-25 - UI round 2 backlog: plan A execution record closed
 
-### 2026-10-24 - Results stat values take the figure face
+Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
 
-Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.
+Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
 
-Owner intent: "For each span||stat, use Gotham Book." (2026-10-22, accepted live). The four stat values (total albums, top artist, scrobbles, unmatched) lose `font-serif` in `templates/results.html`; `.results-stat-value > span` in `static/css/results.css` sets `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged. New frontend-gate judge `stat_value_face_failures` (`STAT_VALUES_SELECTOR`) in `scripts/dev/_frontend_gate_figures.py`, called from the existing check against the heatmap KPI reference. DESIGN.md Role Segregation Rule and Do's line name the Top Artist exception; `docs/design/RECONCILIATION.md` section 28 records it and completes the move section 26 deferred. Landing changes on the code review's findings: the DESIGN.md exception sentence moved to the end of the Role Segregation Rule paragraph; the wrong-count test is parametrised over 0, 3 and 5 values; `_reference_failures(kpi, subject)` is the one owner of the empty-KPI message (the duplicate guard in `figure_face_failures` is gone, messages unchanged), with a new test for the stat wording; the serif-stat test asserts the exact failure line. Deviations: none. Edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no existing test body changed. Validation: `pytest -q` -- **2994 passed**.
+Deviations: none. Edited existing tests: none.
 
-### 2026-10-24 - Orpheus Pro becomes the display serif
+Validation: `pytest -q` -- **2876 passed**.
 
-Side task, no batch tag: made Orpheus Pro the display serif, on `feat/ui-consistency-round-2`, a branch off `main`.
+### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
 
-Owner intent: the UI changes accepted live on 2026-10-22 (Orpheus Pro as the words face) are kept and made honest.
+Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
 
-What changed and why: the `--font-serif` token now leads with `orpheuspro`, then `instrument-serif` (the owner's accepted WIP patch: `static/css/tailwind.src.css`, `static/css/tailwind.css`, `static/css/index.css`; the hero's letter-spacing is `0`). `REQUIRED_FONT_FAMILIES` in `scripts/dev/_frontend_gate_layout.py` names `orpheuspro` so a missing kit face warns, and a new test ties the first face of every `--font-*` token to that list. The heatmap's saved image reads its headline font from `--font-serif` instead of a hard-coded Instrument Serif (`static/js/heatmap.js`, recorded as `drawnHeader.headlineFont`), and `check_heatmap_export_header_matches_page` compares it with the page headline through the new `headline_font_failures`. DESIGN.md, `docs/design/RECONCILIATION.md` (new section 27, section 4 and the role map), README.md and `docs/agents/AGENT_NOTES.md` follow. Proven red on the unchanged tree and by three planted defects in `heatmap.js` (old hard-coded string, an invalid canvas font, `headlineFont` dropped), each restored.
+Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
 
-Changes made at landing: (L1-1) three more unit tests of `headline_font_failures` in `tests/scripts/dev/test_frontend_gate_theme.py` pin the whole-list comparison (a different fallback tail, an empty page family, single against double quotes); the first fails against a first-family-only `_plain_family` and passes on the real code. (L1-2) the new prose lines in RECONCILIATION.md and AGENT_NOTES.md are re-wrapped to each file's hard wrap and the `drawnHeader` literal in `heatmap.js` is split across lines; no behaviour change. (L1-3) `check_release_check_disclosure` in `scripts/dev/_frontend_gate_results.py` now awaits `document.fonts.ready` before its first row measurement, so a late web-font swap of the serif results headline (which moves every row by the same amount) is not read as a correction moving rows; the diagnosis is unproven, because delaying the kit's font responses in a scratch copy did not reproduce the intermittent "a correction moved 2 row(s)" failure, and the await is kept because it is correct regardless. (L1-4) correction carried from Task 5's landing review: the entry "A finished run opens its results without a second line" wrote a literal ellipsis character (now the `\u2026` escape) and its edited-tests field now also names `test_the_heatmap_copy_names_the_shade_the_grid_draws`.
+Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
 
-Deviations: none. Edited existing tests: `test_theme_source_locks_the_batch_21_design_tokens`; the `MOVED` parity tuple in `tests/scripts/dev/test_frontend_gate_theme.py` (two names added, `headline_font_failures` and `_plain_family`, which adds two cases to `test_the_slice_defines_the_name`). Validation: `pytest -q` -- **2985 passed**.
+Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
+
+Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.

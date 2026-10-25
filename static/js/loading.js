@@ -26,9 +26,8 @@ const retryButton = document.getElementById('retry-button');
 const liveStatsContainer = document.getElementById('live-stats');
 const statScrobbles = document.getElementById('stat-scrobbles');
 const statPages = document.getElementById('stat-pages');
-const statAlbums = document.getElementById('stat-albums');
-const statCache = document.getElementById('stat-cache');
-const statSpotify = document.getElementById('stat-spotify');
+const statCacheHits = document.getElementById('stat-cache-hits');
+const statToSearch = document.getElementById('stat-to-search');
 
 let errorDetected = false;
 let latestAppliedPollSeq = 0;
@@ -57,16 +56,13 @@ function updateLiveStats(stats) {
   const hasAny = [
     revealStat(statScrobbles, stats.total_scrobbles),
     revealStat(statPages, stats.pages_fetched),
-    revealStat(statAlbums, stats.albums_passing_filter),
-    revealStat(statSpotify, stats.spotify_matched)
+    // Cache hits and albums to search split the albums that passed the
+    // thresholds, so no two figures in the row repeat each other.
+    revealStat(statCacheHits, stats.cache_hits),
+    revealStat(statToSearch, stats.albums_to_search)
   ].some(Boolean);
 
   if (hasAny) liveStatsContainer.classList.remove('hidden');
-
-  if (stats.cache_hits && statCache) {
-    statCache.textContent = `${Number(stats.cache_hits).toLocaleString()} albums loaded from cache`;
-    statCache.classList.remove('hidden');
-  }
 
   const partialWarning = document.getElementById('partial-warning');
   const partialWarningText = document.getElementById('partial-warning-text');
@@ -208,8 +204,11 @@ async function fetchProgress() {
   }
 }
 
+// replace(), not assign(): the finished loading page leaves history, so Back
+// from the results goes to the form instead of reloading a done job that
+// redirects forward again (owner, 2026-10-25).
 function redirectToResults() {
-  window.location.assign('/results');
+  window.location.replace('/results');
 }
 
 function retryCurrentSearch() {
