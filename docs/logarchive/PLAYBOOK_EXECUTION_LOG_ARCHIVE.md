@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: the loading page's stats, Back and entrance
+
+Side task, no batch tag: relabelled the loading page's last two stats, took the finished page out of history and gave the stats an entrance, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "Albums passing" and "Spotify matched" are unclear and showed the same number (backlog L2); one should be "Cache hits" and the other must not duplicate it (2026-10-25); Back from the results should not land on the loading page; the stats should not just appear. The old pair duplicated because "matched" counted every album given metadata from the cache, Spotify or Deezer, and Spotify search accepted its first result, so nearly all of them matched (that search defect is for the plan). `scrobblescope/orchestrator/__init__.py` records `albums_to_search` (the cache misses) beside `cache_hits` at the cache split; together they make up the albums that passed the thresholds. `templates/loading.html` and `static/js/loading.js` show "Cache hits" and "Albums to search" (first "Albums searched"; renamed because the figure is known before the search ends) and drop the separate "albums loaded from cache" line. `redirectToResults` uses `location.replace`, so Back from the results reaches the form instead of a finished loading page that sent the listener forward again. `static/css/loading.css`: each stat rises 0.375rem and fades in over 360ms as its first figure arrives, 50ms apart when they arrive together; reduced motion shows them at once. The backend still records `albums_passing_filter` and `spotify_matched` for other readers. Deviations: landed before its plan. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the expanded form keeps clear of the header
 
 Side task, no batch tag: stopped the fully expanded index form pressing its mode switch against the header, on `feat/ui-round-2-backlog`, a branch off `main`.

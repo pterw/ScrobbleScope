@@ -118,11 +118,11 @@ sequenceDiagram
                         Orch->>Spotify: Fetch token
                         alt Token fetch fails (a non-200 answer, a timeout, or a refused connection)
                             Orch->>Jobs: record_stat(partial_data_warning) and record_partial_source(provider)
-                            Note over Orch,Spotify: No search or detail call; every miss goes to Deezer
+                            Note over Orch,Spotify: No search or detail call. Every miss goes to Deezer
                         else Token acquired
                             Orch->>Spotify: Search albums
                             Spotify-->>Orch: Spotify IDs, search misses, or searches it could not answer (429, 5xx, timeout)
-                            Note over Orch: An unanswered album degrades to Deezer; the siblings carry on
+                            Note over Orch: An unanswered album degrades to Deezer. The siblings carry on
                             Orch->>Jobs: Progress 20%-40%
                             opt At least one album matched
                                 Orch->>Spotify: Batch-fetch matched album details

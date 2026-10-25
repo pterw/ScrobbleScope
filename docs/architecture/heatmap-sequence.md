@@ -91,7 +91,7 @@ sequenceDiagram
             end
             opt Unhandled exception anywhere above
                 Heatmap->>Jobs: fail(classified code, else internal_error)
-                Note over Heatmap,Jobs: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls, by exception type and never by message text; an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's fallback is the same (see the Top Albums sequence)
+                Note over Heatmap,Jobs: Classifies via errors.classify_exception_to_error_code (e.g. a Last.fm 404 -> user_not_found), the classifier the album pipeline also calls, by exception type and never by message text, and an unrecognized fault is ours and prevents the polling client from hanging. The album pipeline's fallback is the same (see the Top Albums sequence)
             end
             Heatmap->>Worker: release_job_slot()
             Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block
