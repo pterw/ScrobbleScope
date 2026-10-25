@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Space MusicBrainz requests 1.1s apart
+
+Side task, no batch tag: space MusicBrainz request starts 1.1s apart (D5, RB6), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: MusicBrainz's policy is 1 request per second, and the throttle started requests exactly 1.000s apart, which left no margin. `MUSICBRAINZ_REQUESTS_PER_SECOND` (an integer) is replaced by the float setting `MUSICBRAINZ_MIN_INTERVAL_SECONDS` (default 1.1, read through `_positive_seconds` so 0, negative and nan are refused), and `_MUSICBRAINZ_THROTTLE` is now `_GlobalThrottle(1, MUSICBRAINZ_MIN_INTERVAL_SECONDS)`; `_GlobalThrottle` and the other providers are unchanged. The old variable is ignored: setting it logs one import-time warning on `scrobblescope.config` naming the new variable. If Fly secrets set the old variable, it now only logs that warning. New tests: `test_global_throttles_space_request_starts_by_their_interval` (MusicBrainz 1.1 and Spotify 1/rate, controlled clock), `test_musicbrainz_limiter_uses_the_musicbrainz_throttle`, and `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` (child-process import; one fix round after review made it also assert the throttle's spacing equals the setting, so a hard-coded 1.1 fails).
+
+Deviations: none. This task landed after Tasks 5 and 3 (disjoint files). The policy quotes of "1 req/s" in `musicbrainz.py`, `release_checks.py`, `docs/agents/runtime-system.md` and `tests/test_release_checks.py` stay: they cite the policy, not the enforced spacing. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2905 passed**.
+
 ### 2026-10-25 - Wait and retry when MusicBrainz throttles
 
 Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.

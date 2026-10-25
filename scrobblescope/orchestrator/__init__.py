@@ -139,6 +139,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                     spotify_id_to_original_data,
                     _search_miss_keys,
                     unanswered_keys,
+                    shared_id_requests,
                 ) = await _run_spotify_search_phase(
                     job_id, session, cache_misses, token, search_semaphore
                 )
@@ -161,6 +162,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                         spotify_id_to_original_data,
                         cache_hits,
                         detail_unavailable_keys=detail_unavailable_keys,
+                        shared_id_requests=shared_id_requests,
                     )
                     if detail_unavailable_keys and not unanswered_keys:
                         jobs.record_stat(

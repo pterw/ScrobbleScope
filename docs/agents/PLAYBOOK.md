@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Give requests sharing a Spotify ID their own metadata
+
+Side task, no batch tag: two requests that resolve to one Spotify ID each get their own metadata (D2, RB3), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a collaboration credited under two artists produced two keys mapped to one Spotify ID; the second overwrote the first in the ID-to-key map, so the loser fell to Deezer. `_run_spotify_search_phase` now returns a fifth element, `shared_id_requests` (the extra requests after the first for a mapped ID), and logs one count-only warning. `_run_spotify_batch_detail_phase` takes it and builds metadata per key with `album_metadata_from_details(spotify_id, details, key)`, filing each in `cache_hits` and `new_metadata` so each stored credit matches its own key; when an ID is unanswered, the extras join `detail_unavailable_keys`. `_fetch_spotify_misses` unpacks five values and passes the mapping. One fix round after review added a test guarding the `_fetch_spotify_misses` wiring and a privacy assertion on the warning (no names, no key parts). Recorded, not fixed: the warning fires once per extra request, which no three-key case pins.
+
+Deviations: none. Task 9 (`AlbumCache.lookup` drops a mismatched row) landed first; the files are disjoint and the patch applied cleanly on it. Findings are not closed here; Task 11 closes them.
+
+Edited existing tests: `test_run_spotify_search_phase_all_misses_returns_empty_maps` (also asserts `shared_id_requests == {}`) and `test_spotify_search_unanswered_album_does_not_cancel_its_siblings` (unpacks five values). New: `test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata`, `test_unanswered_details_for_a_shared_spotify_id_mark_every_key`, `test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id`.
+
+Validation: `pytest -q` -- **2932 passed**.
+
 ### 2026-10-25 - Treat a cached row naming another album as a miss
 
 Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
@@ -218,13 +230,3 @@ Deviations: the two columns are folded into the existing `ALTER TABLE spotify_ca
 Edited existing tests: `test_album_metadata_holds_album_facts_only` (field-set pin gains the two names), `test_batch_lookup_metadata_returns_albums_with_their_provider_columns` (row, expected and SQL carry the names), `test_batch_persist_metadata_writes_a_spotify_id_to_both_columns` (asserts the two name arrays and the two `EXCLUDED` assignments), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` (the stored-row shape in the parity test gains the two None fields).
 
 Validation: `pytest -q` -- **2914 passed**.
-
-### 2026-10-25 - Space MusicBrainz requests 1.1s apart
-
-Side task, no batch tag: space MusicBrainz request starts 1.1s apart (D5, RB6), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: MusicBrainz's policy is 1 request per second, and the throttle started requests exactly 1.000s apart, which left no margin. `MUSICBRAINZ_REQUESTS_PER_SECOND` (an integer) is replaced by the float setting `MUSICBRAINZ_MIN_INTERVAL_SECONDS` (default 1.1, read through `_positive_seconds` so 0, negative and nan are refused), and `_MUSICBRAINZ_THROTTLE` is now `_GlobalThrottle(1, MUSICBRAINZ_MIN_INTERVAL_SECONDS)`; `_GlobalThrottle` and the other providers are unchanged. The old variable is ignored: setting it logs one import-time warning on `scrobblescope.config` naming the new variable. If Fly secrets set the old variable, it now only logs that warning. New tests: `test_global_throttles_space_request_starts_by_their_interval` (MusicBrainz 1.1 and Spotify 1/rate, controlled clock), `test_musicbrainz_limiter_uses_the_musicbrainz_throttle`, and `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` (child-process import; one fix round after review made it also assert the throttle's spacing equals the setting, so a hard-coded 1.1 fails).
-
-Deviations: none. This task landed after Tasks 5 and 3 (disjoint files). The policy quotes of "1 req/s" in `musicbrainz.py`, `release_checks.py`, `docs/agents/runtime-system.md` and `tests/test_release_checks.py` stay: they cite the policy, not the enforced spacing. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2905 passed**.

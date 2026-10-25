@@ -438,6 +438,7 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
             id_to_data,
             search_miss_keys,
             unanswered_keys,
+            shared_id_requests,
         ) = await _run_spotify_search_phase(
             job_id, session, cache_misses, "fake_token", semaphore
         )
@@ -446,6 +447,7 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
     assert id_to_data == {}
     assert search_miss_keys == {("artist1", "album1"), ("artist2", "album2")}
     assert unanswered_keys == set()
+    assert shared_id_requests == {}
     mock_unmatched.assert_not_called()
 
 
@@ -647,6 +649,7 @@ async def test_spotify_search_unanswered_album_does_not_cancel_its_siblings():
             _id_to_data,
             miss_keys,
             unanswered_keys,
+            _shared,
         ) = await _run_spotify_search_phase(
             job_id, MagicMock(), misses, "tok", asyncio.Semaphore(5)
         )
@@ -1562,3 +1565,154 @@ async def test_spotify_no_match_for_every_album_and_deezer_unable_to_answer_succ
     assert jobs.context(job_id)["results"] == []
     codes = {v["reason_code"] for v in jobs.unmatched(job_id).values()}
     assert codes == {"provider_unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata(caplog):
+    """
+    GIVEN a collaboration album credited to A and B, requested under both
+    (A, title) and (B, title), so one search returns the same id for both
+    WHEN the search and detail phases run for real
+    THEN both keys land in cache_hits and new_metadata, each row's stored
+    credit is the artist that matched its own key (so ``match_for`` fits),
+    and one warning names no album.
+    """
+    from scrobblescope.domain import normalize_name
+    from scrobblescope.enrichment import MATCH_FITS
+    from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
+    from scrobblescope.spotify import AlbumDetails
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    key_a = normalize_name("Duo A", "Secret Title")
+    key_b = normalize_name("Duo B", "Secret Title")
+    misses = {key_a: {"who": "a"}, key_b: {"who": "b"}}
+    details = {
+        "name": "Secret Title",
+        "artists": [{"name": "Duo A"}, {"name": "Duo B"}],
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        return "sp-shared"
+
+    async def batch(session, ids, token, semaphore=None, on_fallback=None):
+        return AlbumDetails({"sp-shared": details})
+
+    cache_hits = {}
+    with (
+        patch("scrobblescope.orchestrator.search_for_spotify_album_id", search),
+        patch("scrobblescope.orchestrator.fetch_spotify_album_details_batch", batch),
+        caplog.at_level(logging.WARNING),
+    ):
+        (
+            id_to_key,
+            id_to_data,
+            _miss,
+            _unanswered,
+            shared,
+        ) = await _run_spotify_search_phase(
+            job_id, MagicMock(), misses, "tok", asyncio.Semaphore(5)
+        )
+        new_metadata = await _run_spotify_batch_detail_phase(
+            job_id,
+            MagicMock(),
+            list(id_to_data),
+            "tok",
+            id_to_key,
+            id_to_data,
+            cache_hits,
+            shared_id_requests=shared,
+        )
+
+    assert set(cache_hits) == set(new_metadata) == {key_a, key_b}
+    assert new_metadata[key_a].provider_artist == "Duo A"
+    assert new_metadata[key_b].provider_artist == "Duo B"
+    for key in (key_a, key_b):
+        assert new_metadata[key].match_for(key) == MATCH_FITS
+    assert {cache_hits[k]["original"]["who"] for k in cache_hits} == {"a", "b"}
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    text = warnings[0].lower()
+    for named in ("secret", "duo a", "duo b", *key_a, *key_b):
+        assert named not in text
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id():
+    """
+    GIVEN two requested keys whose searches resolve to one Spotify id
+    WHEN _fetch_spotify_misses runs end to end
+    THEN both keys come back with metadata, so the shared-id requests the
+    search phase reports reach the detail phase.
+    """
+    from scrobblescope.domain import normalize_name
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+    from scrobblescope.spotify import AlbumDetails
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    key_a = normalize_name("Duo A", "Shared Title")
+    key_b = normalize_name("Duo B", "Shared Title")
+    cache_misses = {
+        key_a: {"original_artist": "Duo A", "original_album": "Shared Title"},
+        key_b: {"original_artist": "Duo B", "original_album": "Shared Title"},
+    }
+    details = {
+        "name": "Shared Title",
+        "artists": [{"name": "Duo A"}, {"name": "Duo B"}],
+    }
+
+    async def search(session, artist, album, token, semaphore=None):
+        return "sp-shared"
+
+    async def batch(session, ids, token, semaphore=None, on_fallback=None):
+        return AlbumDetails({"sp-shared": details})
+
+    cache_hits = {}
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=AsyncMock(),
+        ),
+        patch("scrobblescope.orchestrator.search_for_spotify_album_id", search),
+        patch("scrobblescope.orchestrator.fetch_spotify_album_details_batch", batch),
+    ):
+        await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
+
+    assert set(cache_hits) == {key_a, key_b}
+
+
+@pytest.mark.asyncio
+async def test_unanswered_details_for_a_shared_spotify_id_mark_every_key():
+    """
+    GIVEN two keys share one Spotify id and its details go unanswered
+    WHEN the batch detail phase runs
+    THEN both keys are in detail_unavailable_keys.
+    """
+    from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
+    from scrobblescope.spotify import AlbumDetails
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    first, extra = ("a", "t"), ("b", "t")
+
+    async def batch(session, ids, token, semaphore=None, on_fallback=None):
+        return AlbumDetails({}, unanswered={"sp-1"})
+
+    unavailable = set()
+    with patch("scrobblescope.orchestrator.fetch_spotify_album_details_batch", batch):
+        await _run_spotify_batch_detail_phase(
+            job_id,
+            MagicMock(),
+            ["sp-1"],
+            "tok",
+            {"sp-1": first},
+            {"sp-1": {}},
+            {},
+            detail_unavailable_keys=unavailable,
+            shared_id_requests={"sp-1": [(extra, {})]},
+        )
+
+    assert unavailable == {first, extra}

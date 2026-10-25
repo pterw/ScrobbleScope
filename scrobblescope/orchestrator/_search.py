@@ -30,7 +30,11 @@ async def _run_spotify_search_phase(
     """Parallel Spotify search for all cache misses.
 
     Reports progress in the 20-40% range. Returns (spotify_id_to_key,
-    spotify_id_to_original_data, search_miss_keys, unanswered_keys). A search
+    spotify_id_to_original_data, search_miss_keys, unanswered_keys,
+    shared_id_requests). ``shared_id_requests`` is
+    ``{spotify_id: [(key, data), ...]}``: every request after the first for
+    an ID that is already mapped (a collaboration album credited under two
+    artists), so no key is dropped. A search
     miss is not registered as unmatched here: Deezer gets one fallback
     attempt first (Batch 22 WP-1 Task 5), so the caller owns the final
     unmatched write once every provider has had its turn. A search Spotify
@@ -93,14 +97,23 @@ async def _run_spotify_search_phase(
     spotify_id_to_original_data = {}
     search_miss_keys = set()
     unanswered_keys = set()
+    shared_id_requests = {}
     for key, spotify_id, data, answered in search_results:
         if not answered:
             unanswered_keys.add(key)
+        elif spotify_id in spotify_id_to_key:
+            shared_id_requests.setdefault(spotify_id, []).append((key, data))
         elif spotify_id:
             spotify_id_to_key[spotify_id] = key
             spotify_id_to_original_data[spotify_id] = data
         else:
             search_miss_keys.add(key)
+
+    if shared_id_requests:
+        logging.warning(
+            f"{sum(len(v) for v in shared_id_requests.values())} album requests "
+            "share a Spotify ID with another request; each keeps its own metadata"
+        )
 
     search_duration = time.time() - search_start_time
     logging.info(
@@ -114,4 +127,5 @@ async def _run_spotify_search_phase(
         spotify_id_to_original_data,
         search_miss_keys,
         unanswered_keys,
+        shared_id_requests,
     )
