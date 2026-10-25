@@ -138,9 +138,10 @@ See FINDINGS F-DOCSYNC-3.
   changes, the F-B23-46 ranking rule and the stale-copy sweep), followed by a
   test consolidation under the owner's lean-suite ruling. PR #269 merged
   into `main` (merge commit `997f7584`) and is deployed. The album-matching,
-  cache re-verification and MusicBrainz fixes run now on `fix/album-matching`
+  cache re-verification and MusicBrainz fixes are on `fix/album-matching`
   (PR #270, plan `docs/superpowers/plans/2026-10-25-album-matching.md`),
-  based on `main`. The documentation refresh merges last.
+  based on `main`: every plan task has landed there and the six findings it
+  files are closed, and the PR waits on the owner's real run and review. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -183,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Close the album-matching findings
+
+Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
 
 Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
@@ -216,17 +229,5 @@ Owner intent: Codacy flagged `credits = item.get("artists") ...` in `scrobblesco
 Deviations: none.
 
 Edited existing tests: none.
-
-Validation: `pytest -q` -- **2932 passed**.
-
-### 2026-10-25 - Give requests sharing a Spotify ID their own metadata
-
-Side task, no batch tag: two requests that resolve to one Spotify ID each get their own metadata (D2, RB3), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: a collaboration credited under two artists produced two keys mapped to one Spotify ID; the second overwrote the first in the ID-to-key map, so the loser fell to Deezer. `_run_spotify_search_phase` now returns a fifth element, `shared_id_requests` (the extra requests after the first for a mapped ID), and logs one count-only warning. `_run_spotify_batch_detail_phase` takes it and builds metadata per key with `album_metadata_from_details(spotify_id, details, key)`, filing each in `cache_hits` and `new_metadata` so each stored credit matches its own key; when an ID is unanswered, the extras join `detail_unavailable_keys`. `_fetch_spotify_misses` unpacks five values and passes the mapping. One fix round after review added a test guarding the `_fetch_spotify_misses` wiring and a privacy assertion on the warning (no names, no key parts). Recorded, not fixed: the warning fires once per extra request, which no three-key case pins.
-
-Deviations: none. Task 9 (`AlbumCache.lookup` drops a mismatched row) landed first; the files are disjoint and the patch applied cleanly on it. Findings are not closed here; Task 11 closes them.
-
-Edited existing tests: `test_run_spotify_search_phase_all_misses_returns_empty_maps` (also asserts `shared_id_requests == {}`) and `test_spotify_search_unanswered_album_does_not_cancel_its_siblings` (unpacks five values). New: `test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata`, `test_unanswered_details_for_a_shared_spotify_id_mark_every_key`, `test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id`.
 
 Validation: `pytest -q` -- **2932 passed**.

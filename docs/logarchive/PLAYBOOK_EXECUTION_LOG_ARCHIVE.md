@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Give requests sharing a Spotify ID their own metadata
+
+Side task, no batch tag: two requests that resolve to one Spotify ID each get their own metadata (D2, RB3), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a collaboration credited under two artists produced two keys mapped to one Spotify ID; the second overwrote the first in the ID-to-key map, so the loser fell to Deezer. `_run_spotify_search_phase` now returns a fifth element, `shared_id_requests` (the extra requests after the first for a mapped ID), and logs one count-only warning. `_run_spotify_batch_detail_phase` takes it and builds metadata per key with `album_metadata_from_details(spotify_id, details, key)`, filing each in `cache_hits` and `new_metadata` so each stored credit matches its own key; when an ID is unanswered, the extras join `detail_unavailable_keys`. `_fetch_spotify_misses` unpacks five values and passes the mapping. One fix round after review added a test guarding the `_fetch_spotify_misses` wiring and a privacy assertion on the warning (no names, no key parts). Recorded, not fixed: the warning fires once per extra request, which no three-key case pins.
+
+Deviations: none. Task 9 (`AlbumCache.lookup` drops a mismatched row) landed first; the files are disjoint and the patch applied cleanly on it. Findings are not closed here; Task 11 closes them.
+
+Edited existing tests: `test_run_spotify_search_phase_all_misses_returns_empty_maps` (also asserts `shared_id_requests == {}`) and `test_spotify_search_unanswered_album_does_not_cancel_its_siblings` (unpacks five values). New: `test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata`, `test_unanswered_details_for_a_shared_spotify_id_mark_every_key`, `test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id`.
+
+Validation: `pytest -q` -- **2932 passed**.
+
 ### 2026-10-25 - Treat a cached row naming another album as a miss
 
 Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
