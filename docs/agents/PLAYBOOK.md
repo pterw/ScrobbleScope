@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Replace vacuous shell and results checks with behaviour checks
+
+Side task, no batch tag: replace four vacuous shell and results checks with behaviour checks, on `test/lean-suite-vacuous`, a branch off `main`.
+
+Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The inline-mark test passed `0 == 0` on a page that lost its header logo; it now also asserts at least one mark renders. The release-check poller test only grepped the script text, so a `skipped` job polled every 2 s forever and still passed; it is deleted and `ResultsBehaviorTests` gains a Chromium test that counts requests over 20 s of frozen-clock time (`running` keeps polling, `done`, `skipped`, `error` and an unknown status stop after one reply). The rotating-card test only checked that a height was written, on markup where both candidates were the same height; it now uses differing candidates and asserts the reserved height is at least the tall one's (80 px). The framework test lost its unreachable Bootstrap branch (every template is in `MIGRATED`) and a stale comment.
+
+Deviations: none. Red proofs used scratch edits, restored byte-identical: base.html header mark removed (7 of 8 pages failed), `'skipped'` added to `LIVE_STATES` (`11 != 1`), `Math.max` to `Math.min` in results-spotlight.js (`0.0 not >= 80`). The suite count falls by one (the deleted test).
+
+Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
+
+Validation: `pytest -q` -- **2953 passed**.
+
 ### 2026-10-25 - Make two vacuous domain checks honest
 
 Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
@@ -219,15 +231,3 @@ Deviations: none.
 Edited existing tests: none. The `_StampingSpotify` fake gained a `trips` option, and its search now refuses at entry on a tripped breaker as the real search does; the existing tests that use it never trip it and still pass unchanged.
 
 Validation: `pytest -q` -- **2954 passed**.
-
-### 2026-10-25 - Make the non-Latin normalization test honest
-
-Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
-
-Deviations: none.
-
-Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
-
-Validation: `pytest -q` -- **2952 passed**.

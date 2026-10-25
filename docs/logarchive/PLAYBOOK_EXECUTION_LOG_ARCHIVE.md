@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Make the non-Latin normalization test honest
+
+Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
+
+Validation: `pytest -q` -- **2952 passed**.
+
 ### 2026-10-25 - Keep album keys stable under repeated normalization
 
 Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
