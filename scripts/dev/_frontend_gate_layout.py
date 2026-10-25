@@ -88,6 +88,16 @@ EXPANDED_GAP_FLOOR_REM = 1.5
 #: expanded form's floor stays 0.25rem, it is not raised).
 SHORT_WINDOW_TOP_REM = 0.25
 
+#: The strip's row layout is `@container (width < 26em)` in static/css/index.css.
+#: The em is the strip wrap's computed font size (1.25rem * --index-scale), so
+#: the threshold is 26 * that size in px, not 26 of the term's.
+STRIP_ROW_QUERY_EM = 26
+
+#: Viewport widths the hero strip is judged at: the desktop range (the last
+#: four are the headline's), a narrow column (900, 1100), and the hidden cut
+#: below 860px (859, 390).
+STRIP_WIDTHS = (900, 1100, 1200, 1500, 1920, 2560, 859, 390)
+
 #: Used for a page with nothing to drive.
 DEFAULT_STATES = (("as loaded", ()),)
 
@@ -1158,6 +1168,71 @@ def _headline_wrap_failures(probe, width: int) -> list[str]:
     return failures
 
 
+def _measure_strip(probe, mode: str) -> dict:
+    """Read the mode's hero strip: container, items and terms."""
+    probe.locator(f"#mode-tab-{mode}").click()
+    marks = probe.locator(f'[data-mode-marks="{mode}"].is-active')
+    marks.wait_for(state="attached")
+    return marks.evaluate(
+        """node => {
+            const shown = getComputedStyle(node).display !== 'none';
+            const wrap = node.closest('.index-hero__marks-wrap');
+            const items = shown ? [...node.querySelectorAll('li')] : [];
+            const terms = shown
+                ? [...node.querySelectorAll('.index-hero__strip-term')] : [];
+            return {
+                displayed: shown,
+                containerWidth: wrap.getBoundingClientRect().width,
+                wrapFontPx: parseFloat(getComputedStyle(wrap).fontSize),
+                itemTops: items.map(item => item.getBoundingClientRect().top),
+                itemLefts: items.map(item => item.getBoundingClientRect().left),
+                termHeights: terms.map(term => term.getBoundingClientRect().height),
+                termLineHeight: terms.length
+                    ? parseFloat(getComputedStyle(terms[0]).lineHeight) : 0,
+            };
+        }"""
+    )
+
+
+def _strip_layout_failures(mode: str, width: int, measured: dict) -> list[str]:
+    """Judge the hero strip: hidden below 860px, else columns or rows, no wrap."""
+    shown = measured["displayed"]
+    if width < 860:
+        return [f"/: {mode} strip is displayed at {width}px"] if shown else []
+    if not shown:
+        return [f"/: {mode} strip is not displayed at {width}px"]
+    tops, lefts = measured["itemTops"], measured["itemLefts"]
+    if len(tops) < 3 or len(lefts) < 3:
+        return [f"/: {mode} strip has fewer than three items at {width}px"]
+    line_height = measured["termLineHeight"]
+    numeric = isinstance(line_height, (int, float)) and line_height > 0
+    if not measured["termHeights"] or not numeric:
+        return [f"/: {mode} strip has no measurable term at {width}px"]
+    failures = []
+    threshold = STRIP_ROW_QUERY_EM * measured["wrapFontPx"]
+    columns = measured["containerWidth"] >= threshold
+    same_tops = max(tops) - min(tops) <= 0.5
+    same_lefts = max(lefts) - min(lefts) <= 0.5
+    rising_tops = all(b > a for a, b in zip(tops, tops[1:], strict=False))
+    rising_lefts = all(b > a for a, b in zip(lefts, lefts[1:], strict=False))
+    if columns and not (same_tops and rising_lefts):
+        failures.append(
+            f"/: {mode} strip is not three columns at {width}px "
+            f"(container {measured['containerWidth']:.0f}px, columns from "
+            f"{threshold:.0f}px)"
+        )
+    if not columns and not (rising_tops and same_lefts):
+        failures.append(
+            f"/: {mode} strip is not stacked rows at {width}px "
+            f"(container {measured['containerWidth']:.0f}px, rows below "
+            f"{threshold:.0f}px)"
+        )
+    limit = measured["termLineHeight"] * 1.2
+    if any(height > limit for height in measured["termHeights"]):
+        failures.append(f"/: {mode} strip term wraps at {width}px")
+    return failures
+
+
 def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
     """Exercise readable narrow headlines, expanded states and wide touch growth.
 
@@ -1179,6 +1254,14 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
             probe.goto(f"{base_url}/", wait_until="load")
             probe.evaluate(FONTS_READY_EXPRESSION)
             failures.extend(_headline_wrap_failures(probe, width))
+        for width in STRIP_WIDTHS:
+            probe.set_viewport_size({"width": width, "height": 900})
+            probe.goto(f"{base_url}/", wait_until="load")
+            probe.evaluate(FONTS_READY_EXPRESSION)
+            for mode in ("album", "heatmap"):
+                failures.extend(
+                    _strip_layout_failures(mode, width, _measure_strip(probe, mode))
+                )
         widths = {}
         for width, height in ((1920, 945), (2560, 1305)):
             probe.set_viewport_size({"width": width, "height": height})

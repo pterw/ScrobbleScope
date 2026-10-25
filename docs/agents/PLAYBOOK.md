@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: gate the hero strip
+
+Side task, no batch tag: gate the hero strip's layout, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: keep the strip from regressing after the container-query fix. `scripts/dev/_frontend_gate_layout.py` gains `STRIP_ROW_QUERY_EM` (26, mirroring `@container (width < 26em)`), `_measure_strip` and the pure `_strip_layout_failures`, called from `_check_desktop_scale_bounds` beside the headline-wrap check for both modes at 900, 1100, 1200, 1500, 1920 and 2560 (900px height): three columns or stacked rows by 26 x the strip wrap's computed font size, and no wrapped term (height over 1.2 x line height). At 859 and 390 the lists must be hidden. The helper fails closed on a thin measurement (fewer than three items, or no measurable term or line height), and the sweep is pinned to its widths and 900px height by a test. The strip had no gate: the columns/rows switch is a container query and the mobile cut a viewport rule, and terms wrapped unnoticed up to 1179px. The 859/390 failures report under the `[desktop]` profile label because the sweep runs inside the desktop check (RA15, accepted).
+
+Deviations: none. Edited existing test: `test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context` (its stub now serves a strip measure and its expected failure list gains the strip line, so removing the strip call fails it).
+
+Validation: `pytest -q` -- **3047 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: hidden-count note
 
 Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +219,3 @@ Owner intent: a form with every option open must not leave the mode switch pinne
 Deviations: per ruling RA11, `_expanded_placement_failures` takes a keyword-only `short_window=False` flag beyond the plan's frozen `(label, measured)` interface; the two-argument call keeps its meaning (the roomy window). Edited existing tests: none (`HELPERS` tuple extended).
 
 Validation: `pytest -q` -- **3026 passed**.
-
-### 2026-10-25 - UI round 2 backlog: RECONCILIATION records the overrides
-
-Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RECONCILIATION.md`, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: keep the override list true to what ships (the snapshot stays verbatim, so its overrides live here). Section 20 and the "Segmented control look" row still stated the superseded primary border and base-content ink as current; they now mark the first look superseded and state the shipped tint, primary text and `#775ab5` / `#8a79ab` outline. New Section 29 records the hero strip (R4, the container query, R7), the expanded-form placement (R3), the loading stats (R5), the selected-option look and its two owner exceptions (RA1, RA2), and the AA goal (RA4), citing the landed commits. The "Heatmap H1 copy" row now reads "Your 365 days *mapped by day.*" and a row records the album headline and lede copy.
-
-Deviations: per ruling RA10, the top-table row "Index hero: capability marks" is trimmed to the hero strip only (the outline token and loading labels live in Section 29 and the segmented-control row) and moved to after the Section 24 row; Section 29 also cites T1's commit `406e9b74` beside the RA2 token raise. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3016 passed**.

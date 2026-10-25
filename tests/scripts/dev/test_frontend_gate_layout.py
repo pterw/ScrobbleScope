@@ -14,6 +14,7 @@ from scripts.dev._frontend_gate_layout import (
     _check_desktop_scale_bounds,
     _headline_wrap_failures,
     _state_dimension_failures,
+    _strip_layout_failures,
     _touch_minimum_failures,
     check_shell_scales_with_text,
 )
@@ -58,6 +59,8 @@ HELPERS = (
     "_mobile_header_failures",
     "_state_dimension_failures",
     "_headline_wrap_failures",
+    "_measure_strip",
+    "_strip_layout_failures",
     "_check_desktop_scale_bounds",
 )
 REEXPORTED = (*CHECKS, *CONSTANTS)
@@ -236,6 +239,36 @@ def test_state_dimension_failures_reports_only_material_fixed_viewport_changes()
     ]
 
 
+def _strip_measure(
+    *,
+    columns: bool = True,
+    container: float = 800,
+    font: float = 20,
+    term_heights=(23, 23, 23),
+    displayed: bool = True,
+) -> dict:
+    """A strip measurement; columns share a top, rows share a left."""
+    if not displayed:
+        return {
+            "displayed": False,
+            "containerWidth": container,
+            "wrapFontPx": font,
+            "itemTops": [],
+            "itemLefts": [],
+            "termHeights": [],
+            "termLineHeight": 0,
+        }
+    return {
+        "displayed": True,
+        "containerWidth": container,
+        "wrapFontPx": font,
+        "itemTops": [100, 100, 100] if columns else [100, 160, 220],
+        "itemLefts": [10, 260, 510] if columns else [10, 10, 10],
+        "termHeights": list(term_heights),
+        "termLineHeight": 23,
+    }
+
+
 def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> None:
     """The boundary probe must report real wrapping and release its context."""
     assert _touch_minimum_failures(
@@ -263,7 +296,18 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
         a real per-width failure instead of a single hard-coded boundary check.
         """
         locator = MagicMock()
-        if selector.endswith(" h1"):
+        if "data-mode-marks" in selector:
+            mode = "heatmap" if '"heatmap"' in selector else "album"
+            width = current_width["value"]
+            locator.evaluate.return_value = _strip_measure(
+                displayed=width >= 860,
+                container=400 if width < 1100 else 800,
+                columns=width >= 1100,
+                term_heights=(23, 46, 23)
+                if (mode, width) == ("heatmap", 1100)
+                else (23, 23, 23),
+            )
+        elif selector.endswith(" h1"):
             wraps = current_width["value"] == 1200
             locator.evaluate.return_value = (
                 {"height": 50, "lineHeight": 20}
@@ -315,9 +359,12 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
     # width (1500), and both real profiles above it (1920, 2560); only the
     # 1200px case wraps here, so the aggregate below proves the loop reports
     # per-width, not just the first width it tries.
+    # The strip sweep adds 900/1100 (narrow column) and the hidden cut at
+    # 859/390; only the heatmap strip at 1100px wraps a term here.
     assert _check_desktop_scale_bounds(page, "http://local") == [
         "/: album headline wraps at 1200px",
         "/: heatmap headline wraps at 1200px",
+        "/: heatmap strip term wraps at 1100px",
     ]
     page.context.browser.new_context.assert_called_once_with(has_touch=True)
     context.close.assert_called_once()
@@ -741,3 +788,190 @@ def test_the_kit_check_loads_the_first_face_of_every_font_token() -> None:
     first_faces = re.findall(r'--font-[a-z-]+:\s*"([^"]+)"', source)
     assert len(first_faces) == 5, first_faces
     assert sorted(set(first_faces) - set(REQUIRED_FONT_FAMILIES)) == []
+
+
+def test_strip_passes_three_columns_when_the_container_is_wide() -> None:
+    assert _strip_layout_failures("album", 1920, _strip_measure()) == []
+
+
+def test_strip_passes_stacked_rows_when_the_container_is_narrow() -> None:
+    narrow = _strip_measure(columns=False, container=400)
+    assert _strip_layout_failures("heatmap", 1100, narrow) == []
+
+
+def test_strip_names_the_mode_and_width_of_a_wrapped_term() -> None:
+    wrapped = _strip_measure(term_heights=(23, 46, 23))
+    assert _strip_layout_failures("heatmap", 1500, wrapped) == [
+        "/: heatmap strip term wraps at 1500px"
+    ]
+    # Up to 1.2 line heights is still one line.
+    one_line = _strip_measure(term_heights=(27, 23, 23))
+    assert _strip_layout_failures("heatmap", 1500, one_line) == []
+
+
+def test_strip_in_rows_where_the_container_allows_columns_fails() -> None:
+    rows = _strip_measure(columns=False, container=800)
+    assert _strip_layout_failures("album", 1920, rows) == [
+        "/: album strip is not three columns at 1920px "
+        "(container 800px, columns from 520px)"
+    ]
+
+
+def test_strip_in_columns_where_the_container_is_narrow_fails() -> None:
+    columns = _strip_measure(columns=True, container=400)
+    assert _strip_layout_failures("heatmap", 1100, columns) == [
+        "/: heatmap strip is not stacked rows at 1100px "
+        "(container 400px, rows below 520px)"
+    ]
+
+
+def test_strip_container_at_exactly_26_em_is_columns() -> None:
+    exactly = {"container": 26 * 18.5, "font": 18.5}
+    assert _strip_layout_failures("album", 1200, _strip_measure(**exactly)) == []
+    rows = _strip_measure(columns=False, **exactly)
+    assert _strip_layout_failures("album", 1200, rows) == [
+        "/: album strip is not three columns at 1200px "
+        "(container 481px, columns from 481px)"
+    ]
+    below = _strip_measure(columns=False, container=26 * 18.5 - 0.1, font=18.5)
+    assert _strip_layout_failures("album", 1200, below) == []
+
+
+def test_strip_threshold_uses_the_wrap_font_size_not_the_term_size() -> None:
+    # 600px wide: columns at a 20px em (threshold 520), rows at a 24px em (624).
+    assert _strip_layout_failures("album", 1200, _strip_measure(container=600)) == []
+    big_em = _strip_measure(container=600, font=24)
+    assert _strip_layout_failures("album", 1200, big_em) == [
+        "/: album strip is not stacked rows at 1200px "
+        "(container 600px, rows below 624px)"
+    ]
+
+
+def test_strip_hidden_below_860_passes_and_displayed_at_859_fails() -> None:
+    hidden = _strip_measure(displayed=False)
+    assert _strip_layout_failures("album", 859, hidden) == []
+    assert _strip_layout_failures("heatmap", 390, hidden) == []
+    assert _strip_layout_failures("heatmap", 859, _strip_measure()) == [
+        "/: heatmap strip is displayed at 859px"
+    ]
+    assert _strip_layout_failures("album", 390, _strip_measure()) == [
+        "/: album strip is displayed at 390px"
+    ]
+
+
+def test_strip_hidden_at_860_and_above_fails() -> None:
+    hidden = _strip_measure(displayed=False)
+    assert _strip_layout_failures("album", 860, hidden) == [
+        "/: album strip is not displayed at 860px"
+    ]
+
+
+def _strip_axes(**override) -> dict:
+    """A wide columns measurement with only the named axes replaced."""
+    return {**_strip_measure(), **override}
+
+
+def _rows_axes(**override) -> dict:
+    """A narrow rows measurement with only the named axes replaced."""
+    return {**_strip_measure(columns=False, container=400), **override}
+
+
+def test_strip_columns_need_equal_tops_and_rising_lefts_each_on_their_own() -> None:
+    equal_lefts = _strip_axes(itemLefts=[10, 10, 10])
+    offset_tops = _strip_axes(itemTops=[100, 102, 100])
+    flat_step = _strip_axes(itemLefts=[10, 260, 260])
+    for broken in (equal_lefts, offset_tops, flat_step):
+        assert _strip_layout_failures("album", 1920, broken) == [
+            "/: album strip is not three columns at 1920px "
+            "(container 800px, columns from 520px)"
+        ]
+    within_tolerance = _strip_axes(itemTops=[100, 100.4, 100])
+    assert _strip_layout_failures("album", 1920, within_tolerance) == []
+
+
+def test_strip_rows_need_rising_tops_and_equal_lefts_each_on_their_own() -> None:
+    equal_tops = _rows_axes(itemTops=[100, 100, 100])
+    rising_lefts = _rows_axes(itemLefts=[10, 60, 110])
+    offset_lefts = _rows_axes(itemLefts=[10, 12, 10])
+    flat_step = _rows_axes(itemTops=[100, 160, 160])
+    for broken in (equal_tops, rising_lefts, offset_lefts, flat_step):
+        assert _strip_layout_failures("heatmap", 1100, broken) == [
+            "/: heatmap strip is not stacked rows at 1100px "
+            "(container 400px, rows below 520px)"
+        ]
+    within_tolerance = _rows_axes(itemLefts=[10, 10.4, 10])
+    assert _strip_layout_failures("heatmap", 1100, within_tolerance) == []
+
+
+def test_strip_term_wrap_limit_is_1_2_line_heights_not_more() -> None:
+    wrapped = _strip_measure(term_heights=(23, 23 * 1.3, 23))
+    assert _strip_layout_failures("album", 1500, wrapped) == [
+        "/: album strip term wraps at 1500px"
+    ]
+    at_limit = _strip_measure(term_heights=(23, 23 * 1.2, 23))
+    assert _strip_layout_failures("album", 1500, at_limit) == []
+
+
+@pytest.mark.parametrize(
+    ("override", "problem"),
+    [
+        ({"itemTops": [100, 100], "itemLefts": [10, 260]}, "fewer than three items"),
+        ({"itemTops": [], "itemLefts": []}, "fewer than three items"),
+        ({"termHeights": []}, "no measurable term"),
+        ({"termLineHeight": float("nan")}, "no measurable term"),
+        ({"termLineHeight": "normal"}, "no measurable term"),
+        ({"termLineHeight": 0}, "no measurable term"),
+    ],
+)
+def test_strip_fails_closed_on_a_thin_measurement(override, problem) -> None:
+    assert _strip_layout_failures("heatmap", 1200, _strip_axes(**override)) == [
+        f"/: heatmap strip has {problem} at 1200px"
+    ]
+
+
+def test_strip_sweep_visits_every_width_at_900px_with_a_fresh_page_load(
+    monkeypatch,
+) -> None:
+    """Hidden-cut widths 859 and 390 stay in the sweep; each is loaded, then measured."""
+    events: list[tuple] = []
+    context = MagicMock()
+    probe = context.new_page.return_value
+    page = MagicMock()
+    page.context.browser.new_context.return_value = context
+    probe.set_viewport_size.side_effect = lambda size: events.append(
+        ("viewport", size["width"], size["height"])
+    )
+    probe.goto.side_effect = lambda *args, **kwargs: events.append(("goto",))
+    probe.evaluate.side_effect = lambda script: (
+        events.append(("fonts",))
+        if script == frontend_gate.FONTS_READY_EXPRESSION
+        else {}
+    )
+
+    def measure(_probe, mode: str) -> dict:
+        events.append(("measure", mode))
+        return _strip_measure()
+
+    monkeypatch.setattr(_frontend_gate_layout, "_measure_strip", measure)
+    monkeypatch.setattr(_frontend_gate_layout, "_headline_wrap_failures", lambda *_: [])
+
+    # The stub shows the strip at every width, so each sub-860 width reports it.
+    assert _check_desktop_scale_bounds(page, "http://local") == [
+        "/: album strip is displayed at 859px",
+        "/: heatmap strip is displayed at 859px",
+        "/: album strip is displayed at 390px",
+        "/: heatmap strip is displayed at 390px",
+    ]
+    expected = [
+        step
+        for width in (900, 1100, 1200, 1500, 1920, 2560, 859, 390)
+        for step in (
+            ("viewport", width, 900),
+            ("goto",),
+            ("fonts",),
+            ("measure", "album"),
+            ("measure", "heatmap"),
+        )
+    ]
+    start = events.index(expected[0])
+    assert events[start : start + len(expected)] == expected
