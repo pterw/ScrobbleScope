@@ -1,0 +1,24 @@
+# Graphify exclusion rules (gitignore syntax, last-match-wins).
+# .gitignore is read first; this file can only exclude MORE.
+# Goal: keep code + active operational docs; drop archived prose,
+# plans, reports, and binary assets that add noise without edges.
+
+# --- Archived history (closed batches, old reports, execution logs) ---
+docs/history/
+docs/logarchive/
+
+# --- Plans and specs (prose, not structurally connected to code) ---
+docs/superpowers/plans/
+docs/superpowers/specs/
+docs/superpowers/handoffs/
+
+# --- One-off audits and scratch ---
+docs/2026-09-14-open-code-review-audit.md
+progress_copy.md
+
+# --- Binary assets (no LLM key to extract meaning) ---
+docs/images/
+static/images/
+
+# --- GitHub config (PR templates, bot instructions -- not code structure) ---
+.github/

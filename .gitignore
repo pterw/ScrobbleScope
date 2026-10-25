@@ -150,3 +150,17 @@ docs/agents/*
 .docsync.lock
 .docsync.journal
 *.docsync-stage
+
+# Owner-local files: handoffs, scratch copies, exported reports, personal
+# agent skills. They live in the owner's checkout only and are never
+# repository content.
+docs/superpowers/handoffs/scrobblescope-handoff-*.md
+docs/superpowers/handoffs/scratchpad_owner.md
+/progress_copy.md
+docs/superpowers/plans/plan.md
+docs/superpowers/plans/architecture-review-*.html
+docs/history/reports/*.htm
+docs/history/reports/Architecture Review*.html
+docs/history/reports/CONTROL_PLANE_AUDIT_2026-09-15.md
+docs/2026-09-14-open-code-review-audit.md
+.github/skills/

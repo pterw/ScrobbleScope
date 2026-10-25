@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Close the album-matching findings
+
+Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
 
 Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.

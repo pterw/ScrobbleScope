@@ -141,7 +141,7 @@ See FINDINGS F-DOCSYNC-3.
   cache re-verification and MusicBrainz fixes are on `fix/album-matching`
   (PR #270, plan `docs/superpowers/plans/2026-10-25-album-matching.md`),
   based on `main`: every plan task has landed there and the six findings it
-  files are closed, and the PR waits on the owner's real run and review. The documentation refresh merges last.
+  files are closed. PR #270 merged into `main` (merge commit `4a2d2406`) and is deployed. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Ignore the owner's local files
+
+Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
+
+Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
+
+Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Share one Spotify breaker across a job's phases
 
 Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
@@ -219,15 +231,3 @@ Deviations: none.
 Edited existing tests: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity` now expects `^^` for "||" where it expected `%7c%7c`; it still asserts distinct, non-empty, pipe-free keys. Added `test_normalize_name_is_idempotent`.
 
 Validation: `pytest -q` -- **2952 passed**.
-
-### 2026-10-25 - Close the album-matching findings
-
-Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
-
-Deviations: none.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.
