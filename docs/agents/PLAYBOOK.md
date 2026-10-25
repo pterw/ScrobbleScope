@@ -180,6 +180,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: server listening-time rule
+
+Side task, no batch tag: apply the listening-time ranking rule on the server, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3, RA5): a run started in listening-time mode shows the same leaderboard as a page switched to it, and switching to track plays brings the untimed albums back. `_filter_results_for_display` no longer drops rows; `_mark_untimed_for_display` in `scrobblescope/routes/album_flow.py` returns copies carrying `untimed` and `display_rank` (None when untimed, else 1..n skipping them). Durationless means `play_time_seconds` missing, None or <= 0 (RA6: None no longer raises a TypeError). `templates/results.html` renders untimed rows with `hidden` and an empty `data-rank` and rank cell, and shows `#playtime-hidden-note` with N when N > 0, using the same singular/plural copy as `results.js` (RA13). Total Albums, Top artist and Scrobbles are built from the whole result (RA3). The no-matches page stays for a run where every album is untimed. F-B23-46 stays open until the client half and its agreement test land.
+
+Deviations: `scrobblescope/routes/__init__.py` (outside the plan's Touches) re-exports the renamed helper, forced by the rename. `tests/test_template_shell.py` (RA17) gains `display_rank: 1` on its two fixture rows, because the template reads `display_rank` with no `loop.index` fallback. Review fix round (RA17): the route tests read the visible rank cell and a gap between ranked rows.
+
+Edited existing tests: `test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime` became `test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime` and `test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort` became `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort`, because the helper marks rows instead of removing them (same rule, same three durationless forms); `test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` became `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` (90, not 50), because the dropped album is now a hidden row and the figure describes the whole result.
+
+Validation: `pytest -q` -- **3064 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: gate the mode switch
 
 Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -207,15 +219,5 @@ Side task, no batch tag: show how many albums listening-time ranking leaves out 
 Owner intent (R6, RA3): a listener who ranks by listening time should see why albums vanish and how to get them back. `templates/results.html` gains `#playtime-hidden-note` (hidden by default, with `#playtime-hidden-count` and `#playtime-hidden-copy`) after the stat grid, reusing the existing partial-notice style, so nothing moves on load. `applyRowState` in `static/js/results.js` now counts the rows the rule drops, excluding rows Hide already hides, and shows or hides the note with that count; the toast on switching to listening time gains the count when it is above 0. Copy is the owner's choice (RA13, "Count first"): note "N albums with no listening time are hidden. Rank by track plays to show them." (N = 1: "1 album with no listening time is hidden. Rank by track plays to show it."); toast "Leaderboard ranked by Spotify listening time. N albums with no listening time are hidden." (N = 1: "1 album with no listening time is hidden."); with N = 0 and on plays the toast is the existing sentence alone, with one singular/plural switch in `results.js`. New tests in `scripts/dev/results_behavior_tests.py` read the integer and the `hidden` state, never the wording: the count and toast for two durationless rows, the plain path with none, Hide-hidden rows not counted, and the live Hide path refreshing the note at N = 0 and N = 1 (RA14). F-B23-46 stays open: the server half that renders the note on a run started in playtime mode is T10's, and T11b closes it.
 
 Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3026 passed**.
-
-### 2026-10-25 - UI round 2 backlog: client listening-time rule
-
-Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (R6): ranking the Results page by listening time drops albums with no listening time and renumbers the rest, and ranking by track plays brings them back. `applyRowState` in `static/js/results.js` now sets each row's hidden state as one decision (Hide on an unmatched row, or listening-time ranking on a row whose `data-play-time-seconds` is not above 0), clears `data-rank` and the rank cell of hidden rows, and renumbers the rest 1..n; `setLeaderboardMetric` and `setUnmatchedHidden` both call it, so a metric switch never reveals what Hide hides and never hides what Hide shows. The header figures count rows not hidden by Hide, so Total Albums, Top artist and Scrobbles still describe the whole result (RA3). The CSV exporter already skips hidden rows, so it lists only the ranked rows. New tests in `scripts/dev/results_behavior_tests.py` cover the drop and restore, the Hide round trip, the CSV and the header figures. This does not close F-B23-46: the server half (T10) and the hidden-count note (T7b) follow, and the toast text is unchanged here.
-
-Deviations: none. Edited existing test: `test_sort_updates_order_ranks_metrics_and_accessibility` (the durationless row "C" is now hidden and unranked in listening time, visible ranks `["1","2"]`, back at rank 3 on plays).
 
 Validation: `pytest -q` -- **3026 passed**.
