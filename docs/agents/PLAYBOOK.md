@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
+
+Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". The section gains a short "Lean suite" list: one test per intended behaviour, near-duplicates become one parametrized test, no test that pins wording or a constant equal to the code, module-layout ("parity") tests are not added (the gate family was removed on 2026-10-25 with the owner's approval), and a fix round extends an existing test before adding one. The existing "Near-duplicate" forbidden pattern is not repeated. No other section changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: plan A execution record
 
 Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +219,3 @@ Owner intent (RA20): "avoid repeatedly testing the same behaviour"; "Keep things
 Deviations: none. Edited existing tests: the four `test_loading_stats_*` tests in `test_orchestrator_process_albums.py` (one kept as the parametrized test, three merged into it), `test_export_header_model_uppercases_only_when_the_css_says_to` (parametrized, absorbing `test_export_header_model_leaves_text_as_written_without_text_transform`) and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` (parametrized).
 
 Validation: `pytest -q` -- **2873 passed**.
-
-### 2026-10-25 - UI round 2 backlog: test consolidation, route tests
-
-Side task, no batch tag: merge repeated rank and render tests in `tests/test_routes.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Merged: `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort` is now a case of the parametrized `test_mark_untimed_for_display_marks_durationless_albums_only_when_sorting_by_playtime` (renamed from `..._when_sorting_by_playtime`), which keeps both the playtime and the non-playtime case. Removed: `test_playtime_run_treats_missing_none_and_zero_as_durationless`; its missing, None and zero forms are covered by the same parametrized helper test and its page cells by `test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows`. RA17's page-level rank-cell guard stays in that last test (timed rows read 1 and 2 around a durationless row, hidden rows' cells empty); it lost only its Scrobbles assertion, which `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` owns. `test_play_count_run_ranks_every_album_and_hides_the_note` is renamed `test_play_count_run_hides_no_row_and_hides_the_note` and no longer re-reads rank cells (the helper test owns the ranking). `test_playtime_run_with_only_durationless_albums_renders_no_matches` keeps its no-rows assertion and drops the `"No Albums Found"` wording pin.
-
-Deviations: none. Edited existing tests: the five named above (one merged, one removed, three edited or renamed).
-
-Validation: `pytest -q` -- **2872 passed**.
