@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: plan A execution record closed
+
+Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
 
 Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.

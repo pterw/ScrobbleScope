@@ -1,6 +1,9 @@
+import pytest
+
 from scrobblescope.domain import (
     COVER_WASH_COUNT,
     cover_wash_index,
+    format_album_key,
     normalize_name,
     normalize_track_name,
 )
@@ -137,11 +140,57 @@ def test_normalize_name_ep_preserved_in_artist_stripped_from_album():
     """
     GIVEN an artist literally named 'EP' and an album literally titled 'EP'
     WHEN normalize_name is called
-    THEN the artist key retains 'ep' while the album key is stripped to ''.
+    THEN the artist key retains 'ep' and the album, which would strip to
+    nothing, keys on its own text instead of collapsing to ''.
     """
     artist, album = normalize_name("EP", "EP")
     assert artist == "ep"
-    assert album == ""
+    assert album == "ep"
+
+
+def test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity():
+    """
+    GIVEN titles that normalize to nothing ('?', '!', 'EP', '||')
+    WHEN normalize_name is called for one artist
+    THEN each album half is non-empty, different titles get different keys,
+    and no half contains the wire separator '|'.
+    """
+    keys = {t: normalize_name("bassvictim", t) for t in ("?", "!", "EP", "||")}
+    assert all(album for _, album in keys.values())
+    assert len({album for _, album in keys.values()}) == len(keys)
+    assert all("|" not in half for key in keys.values() for half in key)
+    assert normalize_name("a", "||")[1] == "%7c%7c"
+
+
+@pytest.mark.parametrize(
+    ("artist", "album", "expected"),
+    [
+        ("Radiohead", "OK Computer (Deluxe Edition)", ("radiohead", "ok computer")),
+        ("Bass", "Basspunk 2", ("bass", "basspunk 2")),
+        ("宇多田ヒカル", "初恋", ("宇多田ヒカル", "初恋")),
+        ("New Edition", "Heart Break", ("new edition", "heart break")),
+    ],
+)
+def test_normalize_name_nonempty_remainder_keys_unchanged(artist, album, expected):
+    """
+    GIVEN a title whose edition-word-stripped text is not empty
+    WHEN normalize_name is called
+    THEN the key is the cleaned, stripped text exactly as before.
+    """
+    assert normalize_name(artist, album) == expected
+
+
+@pytest.mark.parametrize("album", ["?", "EP"])
+def test_format_album_key_round_trips_empty_remainder_titles(album):
+    """
+    GIVEN an album whose title normalizes to nothing
+    WHEN its key is formatted for the wire and split on '|'
+    THEN the two halves come back unchanged.
+    """
+    key = normalize_name("gapyear", album)
+    wire = format_album_key(key)
+    assert wire.count("|") == 1
+    assert tuple(wire.split("|")) == key
 
 
 def test_normalize_name_no_collision_after_artist_fix():

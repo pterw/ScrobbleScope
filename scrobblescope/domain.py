@@ -13,6 +13,10 @@ def normalize_name(artist, album):
     the album string only. The artist string receives only punctuation
     normalization so that proper nouns like 'New Edition' or 'Bonus' are
     not corrupted by the metadata filter.
+
+    An album that cleans to nothing ("?", "EP") keys on its own lowercased
+    text with whitespace collapsed and "|" written "%7c", so it keeps a
+    distinct, non-empty, pipe-free identity.
     """
     # Applied to album only -- these are release-metadata suffixes, not artist names.
     # Applying them to the artist string would corrupt proper nouns (e.g. the R&B
@@ -49,7 +53,15 @@ def normalize_name(artist, album):
         # 4. re-join into a string and remove any excess whitespace.
         return " ".join(filtered_words).strip()
 
-    return clean(artist), clean(album, album_metadata_words)
+    album_norm = clean(album, album_metadata_words)
+    if not album_norm:
+        # A title that is only punctuation or edition words ("?", "EP") would
+        # key as "" and collide with every other such title by the artist.
+        # Key it on its own NFKC-lowercased text instead; "|" is escaped so the
+        # wire key from format_album_key still splits on exactly one pipe.
+        raw = unicodedata.normalize("NFKC", album).lower()
+        album_norm = " ".join(raw.split()).replace("|", "%7c")
+    return clean(artist), album_norm
 
 
 def format_album_key(normalized_key):
@@ -60,9 +72,10 @@ def format_album_key(normalized_key):
     by construction rather than by two call sites spelling the join the same
     way.
 
-    The separator is safe because ``normalize_name`` replaces every ASCII
-    punctuation character with a space, so neither half can contain a pipe
-    and the split back into two names is unambiguous.
+    The separator is safe because neither half of a ``normalize_name`` key can
+    contain a pipe: punctuation becomes a space, and an album that cleans to
+    nothing keys on its raw text with every pipe written ``%7c``. The split
+    back into two names is unambiguous.
     """
     artist_norm, album_norm = normalized_key
     return f"{artist_norm}|{album_norm}"

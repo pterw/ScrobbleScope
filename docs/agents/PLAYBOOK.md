@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Keep an identity for albums that normalize to nothing
+
+Side task, no batch tag: give an album whose title normalizes to nothing its own identity, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: albums named "?" or "EP" keyed as an empty album half in `normalize_name`, so any two such albums by one artist collided. `scrobblescope/domain.py::normalize_name` now falls back, when the cleaned and edition-stripped album is empty, to the raw text (NFKC, lowercase, whitespace collapsed) with "|" written as "%7c", so the key still splits cleanly in `format_album_key`. The artist half and every non-empty album key are unchanged. Docstrings of `normalize_name` and `format_album_key` say so. Cover wash for such albums changes (accepted). Added tests in `tests/test_domain.py`: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity`, `test_normalize_name_nonempty_remainder_keys_unchanged` (4 params) and `test_format_album_key_round_trips_empty_remainder_titles` (2 params).
+
+Deviations: none. Edited existing tests: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (the album half is now "ep", not empty; it still asserts that an artist named EP is kept and an album EP is stripped of the edition word, and its docstring was corrected).
+
+Validation: `pytest -q` -- **2883 passed**.
+
 ### 2026-10-25 - File the album-matching findings
 
 Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.
@@ -206,15 +216,5 @@ Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan
 Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
 
 Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: plan A execution record closed
-
-Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
-
-Deviations: none. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2876 passed**.
