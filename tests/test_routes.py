@@ -2308,34 +2308,38 @@ def test_heatmap_loading_whitespace_username(client):
 # --- Helper unit tests ---
 
 
-def test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime():
-    """Albums with no listening time are marked, not ranked, on a playtime sort.
+@pytest.mark.parametrize(
+    ("sort_mode", "durations", "untimed", "ranks"),
+    [
+        # Zero, missing and None are all durationless; the timed album ranks 1.
+        (
+            "playtime",
+            [0, 3600, "missing", None],
+            [True, False, True, True],
+            [None, 1, None, None],
+        ),
+        # Other sort modes rank every album, whatever its listening time.
+        ("playcount", [0, "missing"], [False, False], [1, 2]),
+    ],
+)
+def test_mark_untimed_for_display_marks_durationless_albums_only_when_sorting_by_playtime(
+    sort_mode, durations, untimed, ranks
+):
+    """Durationless albums are marked, not ranked, on a playtime sort only.
 
     Sorting by playtime with zero-duration albums would produce misleading
-    rankings. The three durationless forms (zero, missing, None) are marked
-    and the timed album is ranked 1; every album stays in the list.
+    rankings. Every album stays in the list, in order.
     """
-    albums = [
-        {"artist": "A", "album": "X", "play_time_seconds": 0},
-        {"artist": "B", "album": "Y", "play_time_seconds": 3600},
-        {"artist": "C", "album": "Z"},  # missing key
-        {"artist": "D", "album": "W", "play_time_seconds": None},
-    ]
-    result = _mark_untimed_for_display(albums, "playtime")
-    assert [a["artist"] for a in result] == ["A", "B", "C", "D"]
-    assert [a["untimed"] for a in result] == [True, False, True, True]
-    assert [a["display_rank"] for a in result] == [None, 1, None, None]
-
-
-def test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort():
-    """Albums without playtime data are all ranked for other sort modes."""
-    albums = [
-        {"artist": "A", "album": "X", "play_time_seconds": 0},
-        {"artist": "B", "album": "Y"},  # missing key entirely
-    ]
-    result = _mark_untimed_for_display(albums, "playcount")
-    assert [a["untimed"] for a in result] == [False, False]
-    assert [a["display_rank"] for a in result] == [1, 2]
+    albums = []
+    for i, duration in enumerate(durations):
+        album = {"artist": "ABCD"[i], "album": "XYZW"[i]}
+        if duration != "missing":
+            album["play_time_seconds"] = duration
+        albums.append(album)
+    result = _mark_untimed_for_display(albums, sort_mode)
+    assert [a["artist"] for a in result] == list("ABCD"[: len(albums)])
+    assert [a["untimed"] for a in result] == untimed
+    assert [a["display_rank"] for a in result] == ranks
 
 
 def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
@@ -3637,13 +3641,12 @@ def test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows(client):
     WHEN the Results page renders
     THEN it holds four rows, the durationless two (between and after the
     timed) hidden with empty rank cells, the timed two ranked 1 and 2 in
-    both data-rank and the visible cell; Total Albums reads 4, Scrobbles sums all four, and
-    the note is shown with count 2.
+    both data-rank and the visible cell; Total Albums reads 4 and the note is
+    shown with count 2.
 
     Mutation: rank by loop.index and the ranks read 1, 2, 3, 4; drop the
     hidden marker and the rows are not hidden; print loop.index in the
-    visible cell, or a value in a hidden row's cell, and the cell text fails; build play_stats from the
-    ranked rows only and Scrobbles reads 99 not 194.
+    visible cell, or a value in a hidden row's cell, and the cell text fails.
     """
     page = _render_sorted_results(client, _mixed_playtime_rows(), "playtime")
     assert _result_rows(page) == [
@@ -3653,18 +3656,17 @@ def test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows(client):
         (True, "", ""),
     ]
     assert re.search(r'id="stat-total-albums"[^>]*>4<', page)
-    assert _scrobbles_figure(page) == "194"
     assert _hidden_note(page) == (False, 2)
 
 
-def test_play_count_run_ranks_every_album_and_hides_the_note(client):
+def test_play_count_run_hides_no_row_and_hides_the_note(client):
     """
     GIVEN the same albums in a play-count job
     WHEN the Results page renders
-    THEN four rows are ranked 1..4, none hidden, and the note is hidden.
+    THEN none of the four rows is hidden and the note is hidden.
     """
     page = _render_sorted_results(client, _mixed_playtime_rows(), "playcount")
-    assert _result_rows(page) == [(False, str(n), f"{n:02d}") for n in (1, 2, 3, 4)]
+    assert [hidden for hidden, _, _ in _result_rows(page)] == [False] * 4
     assert _hidden_note(page)[0] is True
 
 
@@ -3677,29 +3679,7 @@ def test_playtime_run_with_only_durationless_albums_renders_no_matches(client):
     rows = [{**_provider_row("spotify", i), "play_time_seconds": 0} for i in range(2)]
     rows[1]["play_time_seconds"] = None
     page = _render_sorted_results(client, rows, "playtime")
-    assert "No Albums Found" in page
     assert "data-album-key" not in page
-
-
-def test_playtime_run_treats_missing_none_and_zero_as_durationless(client):
-    """
-    GIVEN a playtime job whose albums carry play_time_seconds missing, None, 0
-    and 600
-    WHEN the Results page renders
-    THEN only the 600 album is ranked, and the note counts the other three.
-    """
-    rows = [_provider_row("spotify", i) for i in range(4)]
-    del rows[0]["play_time_seconds"]
-    rows[1]["play_time_seconds"] = None
-    rows[2]["play_time_seconds"] = 0
-    page = _render_sorted_results(client, rows, "playtime")
-    assert _result_rows(page) == [
-        (True, "", ""),
-        (True, "", ""),
-        (True, "", ""),
-        (False, "1", "01"),
-    ]
-    assert _hidden_note(page) == (False, 3)
 
 
 def test_scrobbles_stat_publishes_both_populations_for_the_albums_control(client):

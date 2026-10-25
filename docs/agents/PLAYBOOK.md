@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: test consolidation, route tests
+
+Side task, no batch tag: merge repeated rank and render tests in `tests/test_routes.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Merged: `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort` is now a case of the parametrized `test_mark_untimed_for_display_marks_durationless_albums_only_when_sorting_by_playtime` (renamed from `..._when_sorting_by_playtime`), which keeps both the playtime and the non-playtime case. Removed: `test_playtime_run_treats_missing_none_and_zero_as_durationless`; its missing, None and zero forms are covered by the same parametrized helper test and its page cells by `test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows`. RA17's page-level rank-cell guard stays in that last test (timed rows read 1 and 2 around a durationless row, hidden rows' cells empty); it lost only its Scrobbles assertion, which `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` owns. `test_play_count_run_ranks_every_album_and_hides_the_note` is renamed `test_play_count_run_hides_no_row_and_hides_the_note` and no longer re-reads rank cells (the helper test owns the ranking). `test_playtime_run_with_only_durationless_albums_renders_no_matches` keeps its no-rows assertion and drops the `"No Albums Found"` wording pin.
+
+Deviations: none. Edited existing tests: the five named above (one merged, one removed, three edited or renamed).
+
+Validation: `pytest -q` -- **2872 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: test consolidation, results browser tests
 
 Side task, no batch tag: merge repeated tests in `scripts/dev/results_behavior_tests.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +219,3 @@ Owner intent (R6): a run started in listening-time mode and a page switched to i
 Deviations: the fixture gives all four albums one artist, because Top Artist follows the first row and legitimately differs between the two paths; this is filed as F-B23-64 (open, P3, owner ruling RA21), and the fixture comment names it. Edited existing tests: none.
 
 Validation: `pytest -q` -- **3067 passed**.
-
-### 2026-10-25 - UI round 2 backlog: listening-time ranking documented
-
-Side task, no batch tag: document the listening-time ranking rule in `DESIGN.md` and close F-B23-46, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (R6, RA3, RA5): albums with no listening time should not rank under listening time, and the design record should say so. `DESIGN.md` gains a "Results Row: Listening-Time Ranking" section after the unmatched variant: the rule, renumbered ranks, header figures that keep describing the whole result (the Hide control recomputes them as it always has, RA18), the note and toast that give the hidden count, the return of the albums under track plays, and one rule on the server and in the browser. F-B23-46 moves from `docs/agents/FINDINGS.md` to the archive as resolved, naming T7 `7e529efc`, T7b `2115e858` and T10 `078ef258`.
-
-Deviations: a sibling `###` section rather than a bullet, because Components holds the unmatched variant as a section. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3064 passed**.
