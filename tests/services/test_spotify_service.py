@@ -1449,6 +1449,24 @@ async def test_one_jobs_tripped_breaker_does_not_stop_a_concurrent_job():
     assert session_b.get.call_count == 1
 
 
+def test_a_nested_job_breaker_block_shares_the_outer_breaker():
+    """
+    GIVEN a spotify_job_breaker block that has tripped its breaker
+    WHEN another block opens inside it, and again after the outer one ends
+    THEN the inner block yields the same, still tripped breaker, and a fresh
+    outer block gets a new, untripped one.
+    """
+    with spotify_job_breaker() as outer:
+        outer.trip("test")
+        with spotify_job_breaker() as inner:
+            assert inner is outer
+            assert inner.tripped
+        assert outer.tripped
+    with spotify_job_breaker() as fresh:
+        assert fresh is not outer
+        assert not fresh.tripped
+
+
 @pytest.mark.asyncio
 async def test_outside_a_job_breaker_an_over_cap_429_skips_nothing():
     """

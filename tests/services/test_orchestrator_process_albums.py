@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrobblescope import jobs
+from scrobblescope import jobs, spotify
 from scrobblescope.cache import AlbumCache, open_album_cache
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
@@ -1327,19 +1327,25 @@ class _StampingSpotify:
     *unanswered* is reported as one Spotify could not answer.
     """
 
-    def __init__(self, details=None, unanswered=(), token="tok"):
+    def __init__(self, details=None, unanswered=(), token="tok", trips=False):
         self.details = details or {}
         self.unanswered = unanswered
         self.token = token
+        self.trips = trips
         self.calls = []
         self.searches = 0
 
     async def fetch(self, _session, ids, _token, **_kwargs):
         self.calls.append(list(ids))
+        if self.trips:
+            # What the real call does on a Retry-After above the cap.
+            spotify._job_breaker.get().trip("test: Retry-After above the cap")
+            return AlbumDetails({}, list(ids))
         answered = {i: self.details[i] for i in ids if i in self.details}
         return AlbumDetails(answered, [i for i in ids if i in self.unanswered])
 
     async def search(self, *_args, **_kwargs):
+        spotify._check_breaker()  # the real search refuses at entry when tripped
         self.searches += 1
 
     def patches(self):
@@ -1507,3 +1513,53 @@ async def test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_a
     assert cached[key].album_id == "sp0"
     assert after == before
     assert inserts == []
+
+
+@pytest.mark.asyncio
+async def test_a_breaker_tripped_while_stamping_stops_the_jobs_searches():
+    """
+    GIVEN one old cached Spotify row and one cache miss, and the stamping
+    details call trips the job's Spotify breaker
+    WHEN process_albums runs
+    THEN the miss makes no Spotify search request and goes to Deezer: the
+    job has one breaker across its phases.
+    """
+    fake = _StampingSpotify(trips=True)
+    filtered = {
+        key: {
+            "play_count": 20,
+            "track_counts": {"t": 5},
+            "original_artist": key[0],
+            "original_album": key[1],
+        }
+        for key in [("artist 0", "album 0"), ("artist 9", "album 9")]
+    }
+    deezer_search = AsyncMock(return_value="dz1")
+    deezer_album = AsyncMock(
+        return_value=AlbumMetadata(
+            provider="deezer",
+            album_id="dz1",
+            url="https://www.deezer.com/album/dz1",
+            release_date="2025-02-02",
+            image_url="https://cdn.example/dz.jpg",
+            track_durations={"t": 200},
+        )
+    )
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    first, second, third, fourth = fake.patches()
+    with (
+        fake_postgres() as db,
+        first,
+        second,
+        third,
+        fourth,
+        patch("scrobblescope.orchestrator.search_deezer_album", deezer_search),
+        patch("scrobblescope.orchestrator.fetch_deezer_album", deezer_album),
+    ):
+        _seed_unstamped(db, 1)
+        await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    assert fake.searches == 0
+    assert [call.args[1:] for call in deezer_search.call_args_list] == [
+        ("artist 9", "album 9")
+    ]

@@ -141,7 +141,7 @@ See FINDINGS F-DOCSYNC-3.
   cache re-verification and MusicBrainz fixes are on `fix/album-matching`
   (PR #270, plan `docs/superpowers/plans/2026-10-25-album-matching.md`),
   based on `main`: every plan task has landed there and the six findings it
-  files are closed, and the PR waits on the owner's real run and review. The documentation refresh merges last.
+  files are closed. PR #270 merged into `main` (merge commit `4a2d2406`) and is deployed. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -196,38 +196,38 @@ Edited existing tests: none.
 
 Validation: `pytest -q` -- **2941 passed**.
 
-### 2026-10-25 - Close the album-matching findings
+### 2026-10-25 - Share one Spotify breaker across a job's phases
 
-Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
+Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
 
-Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
+Owner intent: a Retry-After above the cap seen while stamping old cached rows tripped only the stamping breaker, so the job's cache misses then searched Spotify as if nothing had happened. `process_albums` now opens one `spotify_job_breaker()` block around the cache lookup, the partition and the miss fetch, and `spotify_job_breaker()` yields the already active breaker unchanged when it is nested (no new breaker, no reset, no log), so the inner blocks in the stamping and the miss fetch reuse the job's. A different job runs in its own context and still gets its own breaker. New tests: `test_a_breaker_tripped_while_stamping_stops_the_jobs_searches` (red before: the miss searched Spotify) and `test_a_nested_job_breaker_block_shares_the_outer_breaker`.
 
 Deviations: none.
 
-Edited existing tests: none.
+Edited existing tests: none. The `_StampingSpotify` fake gained a `trips` option, and its search now refuses at entry on a tripped breaker as the real search does; the existing tests that use it never trip it and still pass unchanged.
 
-Validation: `pytest -q` -- **2941 passed**.
+Validation: `pytest -q` -- **2954 passed**.
 
-### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
+### 2026-10-25 - Make the non-Latin normalization test honest
 
-Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
+Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
 
-Owner intent: keep the docs true after PR #270's code changes. Spotify's album search asks for 5 candidates and keeps only an exact title and credited-artist match, a cached Spotify row whose stored names fit another album is dropped as a miss, an older row without names is checked once by its cached ID, two albums sharing a Spotify ID each get their own metadata, and the correction worker starts MusicBrainz requests about 1.1 seconds apart (policy: one per second). Edited: `README.md` (Top Albums feature, listening-time rule and limitation, spotlight artist match, the 1.1 second spacing in four places including the flowchart edge, one cached-match limitation), `docs/architecture/top-albums-sequence.md` (cache lookup and search steps, shared-ID sentence), `docs/architecture/runtime-system.md` (edge label, cache-hit sentence), `docs/agents/AGENT_NOTES.md` (`updated_at` on a stamped row), and the comment in `static/js/results-release-checks.js`. Mermaid blocks edited: the README Architecture flowchart (`flowchart TB` edge to the correction worker), the `top-albums-sequence.md` sequenceDiagram, the `runtime-system.md` MusicBrainzClient edge.
+Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
 
-Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
+Deviations: none.
 
-Edited existing tests: none.
+Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
 
-Validation: `pytest -q` -- **2941 passed**.
+Validation: `pytest -q` -- **2952 passed**.
 
-### 2026-10-25 - Check an old cached Spotify row by its ID once
+### 2026-10-25 - Keep album keys stable under repeated normalization
 
-Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.
+Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
 
-Owner intent: an old cached row carries no provider names, so a wrong match could not be told from a right one. A job now fetches the unstamped Spotify rows by their cached ID (Get Several Albums, chunks of 20 under `spotify_job_breaker`, never Search), keeps and persists the ones whose names fit the request key, and sends the rest to a miss. When Spotify cannot answer (no token, an unanswered ID) or the cache write fails, the row is used unchanged and not rewritten. One counts-only log line reports kept, stamped, dropped and unanswered. The code is in `scrobblescope/orchestrator/_cache.py`. A fix round added the persist-failure case after review.
+Owner intent: both provider searches normalize the key they are given again, so a key must come back unchanged. The empty-remainder fallback wrote each pipe as `%7c`, and a second pass turned `%7c` into `7c`, so an album titled "|" (or "EP |") could never match. The fallback now writes each pipe as `^`, which is ASCII punctuation, so the fallback text stays made of punctuation, whitespace and edition words only and a second normalization returns it unchanged. The docstrings of `normalize_name` and `format_album_key` say so. No live doc stated the old escape.
 
-Deviations: none from the brief. Accepted review Minor items, not fixed: (1) the use of `spotify_job_breaker` in the stamping fetch has no test; (2) `on_fallback` is not passed to the details batch call, so the single-album fallback is not warned about in this path; (3) the older-row parity test now asserts values from the stamped details, and ID de-duplication before chunking is untested; (4) an unexpected exception in the stamping fetch is not caught and would fail the job rather than fail open.
+Deviations: none.
 
-Edited existing tests: `test_process_albums_cache_hit_skips_spotify`, `test_process_albums_applies_cached_original_release_before_filtering`, `test_process_albums_records_provider_date_on_an_uncorrected_exclusion`, `test_process_albums_partial_cache_token_failure_uses_cached_results` and the `_split_stats` helper (feeds `test_loading_stats_split_the_passed_albums_into_hits_and_misses`) in `tests/services/test_orchestrator_process_albums.py`, and `test_fetch_and_process_loading_stats_count_only_albums_that_passed` in `tests/services/test_orchestrator_fetch_and_process.py`: seeded Spotify rows now carry `provider_artist`/`provider_title` fitting the key. In `tests/test_album_cache_parity.py` the `_spotify()` fake now details each album with name and credit (new `CREDITS` map), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` expects the stored names, and `test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_link` uses `_spotify()` instead of `_providers_forbidden()` because an old row is now stamped by one details call (the intended RB1 change); `test_a_search_costs_one_connection...` and `test_a_musicbrainz_finding...` pass through the fake change only. Each still asserts what it meant. Fix round: new case `persist_fails` added to `test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer`.
+Edited existing tests: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity` now expects `^^` for "||" where it expected `%7c%7c`; it still asserts distinct, non-empty, pipe-free keys. Added `test_normalize_name_is_idempotent`.
 
-Validation: `pytest -q` -- **2941 passed**.
+Validation: `pytest -q` -- **2952 passed**.
