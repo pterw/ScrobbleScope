@@ -180,6 +180,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: loading stats and Back test
+
+Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the 2026-10-25 loading page changes (two stat tiles, Back from the results reaching the form) were not held by any test, so a swapped key or a return to `location.assign` would pass. Two tests in `tests/frontend/test_heatmap_pure_functions.py`: one drives a `/progress` answer with both figures (12 and 30 fill their own tiles) and one with `cache_hits` alone (the second tile stays hidden); the other loads the page from a routed URL, lets the scheduled redirect run and asserts the page is at `/results` with `history.length` unchanged. The shared loading markup gained the stats container and two tiles; label wording is not pinned. Two planted defects in `static/js/loading.js` (`location.assign` in `redirectToResults`, the Cache hits tile reading `albums_to_search`) each turned one test red, then the file was restored byte-identical. Deviations: none. Edited existing tests: none (the shared markup constant was extended). Validation: `pytest -q` -- **3001 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: loading stats proof
 
 Side task, no batch tag: tests proving `cache_hits + albums_to_search` equals the albums that passed the thresholds, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -197,9 +203,3 @@ Owner intent: the diagrams explain the pipelines to people, and three `Note` lin
 Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: the live session's changes landed before their plan so the state was safe; the plan now covers what they still owe. `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` (written by a plan-writer agent, reviewed twice, approved at the second review): DESIGN.md and RECONCILIATION updates, gates that hold the selected-option look at 4.5:1 on every surface (one firmer outline token, `#775ab5` light and `#8a79ab` dark), the mode switch's muted label held at 4.5:1 (owner: "goal is to be AA compliant throughout"), the expanded-form placement, the hero strip and the loading page's stats and Back, and F-B23-46 by the owner's rule (a listening-time ranking hides albums with no listening time, track plays restores them, the header keeps whole-result figures and a note says how many are hidden). Two review Minors on its Task 10 are carried into that task's brief at dispatch. Deviations: the plan follows the commits it documents instead of preceding them, at the owner's request. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
-
-Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.

@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
+
+Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
 
 Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
