@@ -128,11 +128,12 @@ See FINDINGS F-DOCSYNC-3.
   CI change that keeps Playwright's Ubuntu packages in the Actions cache
   (branch `ci/playwright-apt-cache`, plan
   `docs/superpowers/plans/2026-10-22-ci-playwright-apt-cache.md`). UI
-  consistency round 2 runs now (branch `feat/ui-consistency-round-2`, plan
-  `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`): the four
-  changes the owner accepted in live mode, the two unmatched-report arrows
-  and the loading page's redundant redirect line; the round's other backlog
-  items wait for a later live session. The documentation refresh merges last.
+  consistency round 2 is done (PR #268, branch `feat/ui-consistency-round-2`,
+  plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
+  backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
+  in a live session, the accepted changes land as they are made, and a plan
+  written afterwards covers their documentation, gates and the album-search
+  fix the session found. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -175,6 +176,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: the index hero
+
+Side task, no batch tag: landed the index hero changes the owner accepted in the round 2 backlog's live session, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the `§ 01/02/03` lists "feel generic and AI-directed" and should earn their place (backlog I3, H3); the album lede was "lacking" (I2); the heatmap headline "one grid." was "bland" (H1), and the owner later ruled out a comma followed by a one-word punch and "this past year" (the heatmap counts back 365 days from today). `templates/index.html`: both mark lists become a three-column strip, each item a serif term with a line icon (calendar, clock, document; grid, sliders, document) over one plain description; the album lede and both headlines take the accepted copy. `static/css/index.css`: the strip's rules replace the numbered-list rules, the strip sits 0.5rem under the lede, the ledes widen to 48ch with `text-wrap: pretty`, and where the hero column is narrow (windows up to about 1180px) each strip item becomes a row because terms wrapped there. That is a container query on the strip's wrapper in `em` of the term size, not a second viewport breakpoint: docsync's "single 860px breakpoint" declaration (DOC009) holds. The strip stays hidden below 860px (owner ruling). `static/js/heatmap.js`: one comment no longer calls the lists "§". Deviations: the changes landed before their plan, at the owner's request, so the session's state is safe; the plan follows. Edited existing tests: `tests/test_routes.py` `INDEX_HEADLINE` marks the index by `id="index-grid"` instead of headline copy the owner still revises. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Record UI round 2's outcome in its plan
 
 Side task, no batch tag: recorded UI consistency round 2's outcome in its plan, on `feat/ui-consistency-round-2`, a branch off `main`.
@@ -192,15 +199,3 @@ Owner intent: a gate that fails and then passes on the same tree should be writt
 Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.
 
 Owner intent: "For each span||stat, use Gotham Book." (2026-10-22, accepted live). The four stat values (total albums, top artist, scrobbles, unmatched) lose `font-serif` in `templates/results.html`; `.results-stat-value > span` in `static/css/results.css` sets `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged. New frontend-gate judge `stat_value_face_failures` (`STAT_VALUES_SELECTOR`) in `scripts/dev/_frontend_gate_figures.py`, called from the existing check against the heatmap KPI reference. DESIGN.md Role Segregation Rule and Do's line name the Top Artist exception; `docs/design/RECONCILIATION.md` section 28 records it and completes the move section 26 deferred. Landing changes on the code review's findings: the DESIGN.md exception sentence moved to the end of the Role Segregation Rule paragraph; the wrong-count test is parametrised over 0, 3 and 5 values; `_reference_failures(kpi, subject)` is the one owner of the empty-KPI message (the duplicate guard in `figure_face_failures` is gone, messages unchanged), with a new test for the stat wording; the serif-stat test asserts the exact failure line. Deviations: none. Edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no existing test body changed. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-24 - Orpheus Pro becomes the display serif
-
-Side task, no batch tag: made Orpheus Pro the display serif, on `feat/ui-consistency-round-2`, a branch off `main`.
-
-Owner intent: the UI changes accepted live on 2026-10-22 (Orpheus Pro as the words face) are kept and made honest.
-
-What changed and why: the `--font-serif` token now leads with `orpheuspro`, then `instrument-serif` (the owner's accepted WIP patch: `static/css/tailwind.src.css`, `static/css/tailwind.css`, `static/css/index.css`; the hero's letter-spacing is `0`). `REQUIRED_FONT_FAMILIES` in `scripts/dev/_frontend_gate_layout.py` names `orpheuspro` so a missing kit face warns, and a new test ties the first face of every `--font-*` token to that list. The heatmap's saved image reads its headline font from `--font-serif` instead of a hard-coded Instrument Serif (`static/js/heatmap.js`, recorded as `drawnHeader.headlineFont`), and `check_heatmap_export_header_matches_page` compares it with the page headline through the new `headline_font_failures`. DESIGN.md, `docs/design/RECONCILIATION.md` (new section 27, section 4 and the role map), README.md and `docs/agents/AGENT_NOTES.md` follow. Proven red on the unchanged tree and by three planted defects in `heatmap.js` (old hard-coded string, an invalid canvas font, `headlineFont` dropped), each restored.
-
-Changes made at landing: (L1-1) three more unit tests of `headline_font_failures` in `tests/scripts/dev/test_frontend_gate_theme.py` pin the whole-list comparison (a different fallback tail, an empty page family, single against double quotes); the first fails against a first-family-only `_plain_family` and passes on the real code. (L1-2) the new prose lines in RECONCILIATION.md and AGENT_NOTES.md are re-wrapped to each file's hard wrap and the `drawnHeader` literal in `heatmap.js` is split across lines; no behaviour change. (L1-3) `check_release_check_disclosure` in `scripts/dev/_frontend_gate_results.py` now awaits `document.fonts.ready` before its first row measurement, so a late web-font swap of the serif results headline (which moves every row by the same amount) is not read as a correction moving rows; the diagnosis is unproven, because delaying the kit's font responses in a scratch copy did not reproduce the intermittent "a correction moved 2 row(s)" failure, and the await is kept because it is correct regardless. (L1-4) correction carried from Task 5's landing review: the entry "A finished run opens its results without a second line" wrote a literal ellipsis character (now the `\u2026` escape) and its edited-tests field now also names `test_the_heatmap_copy_names_the_shade_the_grid_draws`.
-
-Deviations: none. Edited existing tests: `test_theme_source_locks_the_batch_21_design_tokens`; the `MOVED` parity tuple in `tests/scripts/dev/test_frontend_gate_theme.py` (two names added, `headline_font_failures` and `_plain_family`, which adds two cases to `test_the_slice_defines_the_name`). Validation: `pytest -q` -- **2985 passed**.

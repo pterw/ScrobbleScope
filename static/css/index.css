@@ -192,28 +192,37 @@ html {
 }
 
 .index-hero__lede {
-  max-width: 40ch;
+  max-width: 48ch;
   font-size: max(0.875rem, calc(var(--text-body) * var(--index-scale, 1)));
   line-height: 1.55;
   color: var(--ss-text-body);
   margin: 0 0 calc(1.5rem * var(--index-scale, 1));
+  text-wrap: pretty;
 }
 
 /* The wrapper holds both marks lists in the same grid track. Neither list
    shifts layout when switching modes; only opacity and visibility change. */
 .index-hero__marks-wrap {
   display: grid;
+  /* The strip's row layout below is a container query on this width; the
+     font size is the term size, so its em threshold tracks --index-scale. */
+  container-type: inline-size;
+  font-size: calc(1.25rem * var(--index-scale, 1));
 }
 
-/* Three capability marks. Styled as numbered specification pointers. */
+/* Three capability marks per mode, as a three-column index strip (owner,
+   live session 2026-10-24): a term over one plain line each, with a hairline
+   rule in place of the old section numbers. The strip sits close under the
+   lede (owner, 2026-10-24); the lede's own bottom margin is most of the gap. */
 .index-hero__marks {
   grid-area: 1 / 1;
   list-style: none;
-  margin: 0;
+  margin: calc(0.5rem * var(--index-scale, 1)) 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: calc(0.625rem * var(--index-scale, 1));
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 44rem;
+  border-top: 1px solid color-mix(in srgb, var(--ss-border-divider) 55%, transparent);
   opacity: 0;
   visibility: hidden;
   transition:
@@ -228,23 +237,78 @@ html {
 }
 
 .index-hero__marks li {
-  font-family: var(--font-mono-narrow);
-  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
-  letter-spacing: 0.04em;
-  color: var(--ss-text-muted);
-  display: inline-flex;
-  align-items: center;
+  padding: calc(0.875rem * var(--index-scale, 1)) calc(1.25rem * var(--index-scale, 1)) 0 0;
 }
 
-/* Tinted primary — 70% primary mixed against the card surface so the
-   number reads at mid-weight without a synthesised bold. Both themes
-   follow from the token; no separate dark-mode rule needed. */
-.index-hero__mark-num {
-  display: inline-block;
-  font-family: var(--font-mono-narrow);
-  font-weight: var(--font-weight-bold);
-  color: color-mix(in srgb, var(--color-primary) 70%, var(--ss-surface-card));
-  margin-right: calc(0.45rem * var(--index-scale, 1));
+.index-hero__marks li + li {
+  padding-left: calc(1.25rem * var(--index-scale, 1));
+  border-left: 1px solid color-mix(in srgb, var(--ss-border-divider) 35%, transparent);
+}
+
+/* Each term leads with a line icon in its own ink (owner, live session
+   2026-10-24): calendar, clock and document; grid, sliders and document. */
+.index-hero__strip-term {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  font-family: var(--font-serif);
+  font-size: calc(1.25rem * var(--index-scale, 1));
+  line-height: 1.15;
+  color: var(--ss-text-body);
+  margin-bottom: calc(0.375rem * var(--index-scale, 1));
+}
+
+.index-hero__strip-icon {
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: translateY(-0.04em);
+}
+
+.index-hero__strip-desc {
+  display: block;
+  font-size: max(0.8125rem, calc(0.875rem * var(--index-scale, 1)));
+  line-height: 1.45;
+  color: var(--ss-text-body);
+  text-wrap: pretty;
+}
+
+/* A narrow hero column cannot hold three columns: terms wrapped ("No
+   settings" up to a 1179px window) and descriptions ran six lines. Each item
+   then becomes a row, term on the left and description beside it. This is a
+   container query, not a second viewport breakpoint: the wrap's font size is
+   the term size, so 26em means "narrower than 26 terms' worth", which tracks
+   --index-scale (measured 2026-10-25: terms wrap below a ratio of about 23,
+   1179px windows sit at 24.9, 1200px and wider at 30 or more). Below 860px
+   the strip is hidden (owner, 2026-10-24: keep the mobile cut). The wrap
+   declares the container and its font size above. */
+@container (width < 26em) {
+  .index-hero__marks {
+    grid-template-columns: 1fr;
+  }
+
+  .index-hero__marks li,
+  .index-hero__marks li + li {
+    display: grid;
+    grid-template-columns: 8.5rem 1fr;
+    align-items: baseline;
+    gap: 0 1rem;
+    padding: 0.625rem 0;
+    border-left: 0;
+  }
+
+  .index-hero__marks li + li {
+    border-top: 1px solid color-mix(in srgb, var(--ss-border-divider) 35%, transparent);
+  }
+
+  .index-hero__strip-term {
+    margin-bottom: 0;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -361,7 +425,7 @@ html {
 }
 
 /* ------------------------------------------------------------------ */
-/* Card                                                                */
+/* Card                                                               */
 /* ------------------------------------------------------------------ */
 /* Border-defined, never shadow-defined. Cards in this system are an edge on
    a warm surface, with no drop shadow at all.

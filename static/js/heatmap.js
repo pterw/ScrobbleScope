@@ -698,7 +698,7 @@
     heatmapSection = document.getElementById('heatmap-form-section');
     indexGrid      = document.getElementById('index-grid');
     heroBlocks     = document.querySelectorAll('[data-mode-hero]');
-    // [data-mode-marks] holds the two § mark lists that crossfade alongside
+    // [data-mode-marks] holds the two mark lists that crossfade alongside
     // the hero copy. Both sets live in the same grid track; only the active
     // one is visible at a time -- same mechanism as heroBlocks.
     marksBlocks    = document.querySelectorAll('[data-mode-marks]');

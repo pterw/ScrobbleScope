@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-24 - Orpheus Pro becomes the display serif
+
+Side task, no batch tag: made Orpheus Pro the display serif, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the UI changes accepted live on 2026-10-22 (Orpheus Pro as the words face) are kept and made honest.
+
+What changed and why: the `--font-serif` token now leads with `orpheuspro`, then `instrument-serif` (the owner's accepted WIP patch: `static/css/tailwind.src.css`, `static/css/tailwind.css`, `static/css/index.css`; the hero's letter-spacing is `0`). `REQUIRED_FONT_FAMILIES` in `scripts/dev/_frontend_gate_layout.py` names `orpheuspro` so a missing kit face warns, and a new test ties the first face of every `--font-*` token to that list. The heatmap's saved image reads its headline font from `--font-serif` instead of a hard-coded Instrument Serif (`static/js/heatmap.js`, recorded as `drawnHeader.headlineFont`), and `check_heatmap_export_header_matches_page` compares it with the page headline through the new `headline_font_failures`. DESIGN.md, `docs/design/RECONCILIATION.md` (new section 27, section 4 and the role map), README.md and `docs/agents/AGENT_NOTES.md` follow. Proven red on the unchanged tree and by three planted defects in `heatmap.js` (old hard-coded string, an invalid canvas font, `headlineFont` dropped), each restored.
+
+Changes made at landing: (L1-1) three more unit tests of `headline_font_failures` in `tests/scripts/dev/test_frontend_gate_theme.py` pin the whole-list comparison (a different fallback tail, an empty page family, single against double quotes); the first fails against a first-family-only `_plain_family` and passes on the real code. (L1-2) the new prose lines in RECONCILIATION.md and AGENT_NOTES.md are re-wrapped to each file's hard wrap and the `drawnHeader` literal in `heatmap.js` is split across lines; no behaviour change. (L1-3) `check_release_check_disclosure` in `scripts/dev/_frontend_gate_results.py` now awaits `document.fonts.ready` before its first row measurement, so a late web-font swap of the serif results headline (which moves every row by the same amount) is not read as a correction moving rows; the diagnosis is unproven, because delaying the kit's font responses in a scratch copy did not reproduce the intermittent "a correction moved 2 row(s)" failure, and the await is kept because it is correct regardless. (L1-4) correction carried from Task 5's landing review: the entry "A finished run opens its results without a second line" wrote a literal ellipsis character (now the `\u2026` escape) and its edited-tests field now also names `test_the_heatmap_copy_names_the_shade_the_grid_draws`.
+
+Deviations: none. Edited existing tests: `test_theme_source_locks_the_batch_21_design_tokens`; the `MOVED` parity tuple in `tests/scripts/dev/test_frontend_gate_theme.py` (two names added, `headline_font_failures` and `_plain_family`, which adds two cases to `test_the_slice_defines_the_name`). Validation: `pytest -q` -- **2985 passed**.
+
 ### 2026-10-23 - A finished run opens its results without a second line
 
 Side task, no batch tag: dropped the redundant "Opening your results..." details line from a finished album run, on `feat/ui-consistency-round-2`, a branch off `main`.

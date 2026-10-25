@@ -25,11 +25,10 @@ HEATMAP_JOB_PARAMS = {"username": "testuser", "mode": "heatmap"}
 #: Stands in for "the index page rendered" in the tests below.
 #:
 #: It used to be the form card's h2, "Filter Your Album Scrobbles!". WP-3
-#: removed that heading: the design's card carries no title, and the
-#: exclamation mark belongs to the old register. This is the page headline
-#: instead -- copy the index would be wrong without, which is what a marker
-#: has to be.
-INDEX_HEADLINE = b"Your top albums,"
+#: removed that heading, and the page headline that replaced it is copy the
+#: owner still revises (UI round 2, 2026-10-25). The marker is now the index
+#: grid, the root the index cannot render without and no error page carries.
+INDEX_HEADLINE = b'id="index-grid"'
 
 
 def test_home_page(client):
