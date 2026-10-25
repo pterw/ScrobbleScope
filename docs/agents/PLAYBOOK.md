@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: plan A execution record
+
+Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "Make sure that the plans are being followed and marking where they are finished when things arrive and deviations." The plan's acceptance boxes are ticked for Tasks 1-11 (Task 11b has none), each backed by its land report and an approving review; Task 12 stays open. The plan gains an "Execution record (2026-10-25)" section: a table of task, commit, review rounds and deviation ruling ids (RA6-RA21), plus the landing-order changes (RA9, RA10), the `short_window` interface extension (RA11), Task 10's two edits outside its Touches, the owner copy (RA13), F-B23-46 resolved and F-B23-64 filed, the lean-suite consolidation (RA20, 3067 to 2876 tests) and what still has to run (Task 12, the final gates). Docs only; the plan is a point-in-time record, so no live prose changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: test consolidation, gate unit tests
 
 Side task, no batch tag: merge duplicate and near-duplicate tests in the four frontend-gate unit-test files (`test_frontend_gate_colour.py`, `_forms.py`, `_include.py`, `_layout.py`), on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +219,3 @@ Owner intent (RA20): "test for *intended function*, not *written function* and a
 Deviations: none. Edited existing tests: the five named above (one merged, one removed, three edited or renamed).
 
 Validation: `pytest -q` -- **2872 passed**.
-
-### 2026-10-25 - UI round 2 backlog: test consolidation, results browser tests
-
-Side task, no batch tag: merge repeated tests in `scripts/dev/results_behavior_tests.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". Three tests drove the same untimed-and-not-unmatched hidden-note counter through different Hide and ranking orders; they are now three cases of one subTest test, `test_hidden_note_counts_only_rows_the_ranking_alone_drops`, so both callers of the counter (the Hide click after ranking, the listening-time click after Hide) stay guarded while ranked by listening time (RA14). The sort test's loop now runs in `subTest(mode=...)` with a case tuple that carries the other mode, which removes its if/else branch; its assertions are unchanged. The toast assertion of the first merged test is not repeated here: `test_hidden_note_and_toast_carry_the_count_of_dropped_albums` guards the toast.
-
-Deviations: the CSV test `test_csv_while_ranked_by_listening_time_lists_only_ranked_rows` was kept, not merged: its fixture is the only one with matched rows the listening-time rule drops, so a merge would lose that case. Edited existing tests: `test_hidden_note_does_not_count_rows_hide_already_hides` (renamed `test_hidden_note_counts_only_rows_the_ranking_alone_drops`), `test_hide_toggled_while_ranked_by_listening_time_refreshes_the_note` and `test_hide_toggled_on_listening_time_lowers_the_count_to_one` (merged into it), `test_sort_updates_order_ranks_metrics_and_accessibility`. The script is not collected by pytest, so the count is unchanged.
-
-Validation: `pytest -q` -- **2873 passed**.
