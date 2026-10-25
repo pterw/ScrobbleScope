@@ -132,13 +132,13 @@ See FINDINGS F-DOCSYNC-3.
   plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
   backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
   in a live session and the accepted changes landed as they were made (PR
-  #269, draft). All the tasks of the plan
-  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` except the last
-  have landed on the same branch (the documentation, the gates that hold the
-  accepted changes and the F-B23-46 ranking rule), followed by a test
-  consolidation under the owner's lean-suite ruling. The stale-copy sweep
-  (plan Task 12) and the final gates remain before the PR leaves draft. The
-  album-matching, cache re-verification and MusicBrainz fixes the session
+  #269, out of draft). All fourteen tasks of the plan
+  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` have landed on
+  the same branch (the documentation, the gates that hold the accepted
+  changes, the F-B23-46 ranking rule and the stale-copy sweep), followed by a
+  test consolidation under the owner's lean-suite ruling. The final
+  verification gate passed on the branch; the PR merges once its review is
+  clean. The album-matching, cache re-verification and MusicBrainz fixes the session
   found then go to a PR stacked on it (branch `fix/album-matching`, which
   carries its own plan). The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
+
+Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
+
+Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: plan A execution record closed
 
 Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -210,16 +220,6 @@ Validation: `pytest -q` -- **2876 passed**.
 Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
-
-Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". The section gains a short "Lean suite" list: one test per intended behaviour, near-duplicates become one parametrized test, no test that pins wording or a constant equal to the code, module-layout ("parity") tests are not added (the gate family was removed on 2026-10-25 with the owner's approval), and a fix round extends an existing test before adding one. The existing "Near-duplicate" forbidden pattern is not repeated. No other section changed.
 
 Deviations: none. Edited existing tests: none.
 

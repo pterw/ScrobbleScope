@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
+
+Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". The section gains a short "Lean suite" list: one test per intended behaviour, near-duplicates become one parametrized test, no test that pins wording or a constant equal to the code, module-layout ("parity") tests are not added (the gate family was removed on 2026-10-25 with the owner's approval), and a fix round extends an existing test before adding one. The existing "Near-duplicate" forbidden pattern is not repeated. No other section changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: plan A execution record
 
 Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
