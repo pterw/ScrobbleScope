@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: hidden-count note
+
+Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3): a listener who ranks by listening time should see why albums vanish and how to get them back. `templates/results.html` gains `#playtime-hidden-note` (hidden by default, with `#playtime-hidden-count` and `#playtime-hidden-copy`) after the stat grid, reusing the existing partial-notice style, so nothing moves on load. `applyRowState` in `static/js/results.js` now counts the rows the rule drops, excluding rows Hide already hides, and shows or hides the note with that count; the toast on switching to listening time gains the count when it is above 0. Copy is the owner's choice (RA13, "Count first"): note "N albums with no listening time are hidden. Rank by track plays to show them." (N = 1: "1 album with no listening time is hidden. Rank by track plays to show it."); toast "Leaderboard ranked by Spotify listening time. N albums with no listening time are hidden." (N = 1: "1 album with no listening time is hidden."); with N = 0 and on plays the toast is the existing sentence alone, with one singular/plural switch in `results.js`. New tests in `scripts/dev/results_behavior_tests.py` read the integer and the `hidden` state, never the wording: the count and toast for two durationless rows, the plain path with none, Hide-hidden rows not counted, and the live Hide path refreshing the note at N = 0 and N = 1 (RA14). F-B23-46 stays open: the server half that renders the note on a run started in playtime mode is T10's, and T11b closes it.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3026 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: client listening-time rule
 
 Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `feat/ui-round-2-backlog`, a branch off `main`.

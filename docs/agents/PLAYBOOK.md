@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: listening-time ranking documented
+
+Side task, no batch tag: document the listening-time ranking rule in `DESIGN.md` and close F-B23-46, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3, RA5): albums with no listening time should not rank under listening time, and the design record should say so. `DESIGN.md` gains a "Results Row: Listening-Time Ranking" section after the unmatched variant: the rule, renumbered ranks, header figures that keep describing the whole result (the Hide control recomputes them as it always has, RA18), the note and toast that give the hidden count, the return of the albums under track plays, and one rule on the server and in the browser. F-B23-46 moves from `docs/agents/FINDINGS.md` to the archive as resolved, naming T7 `7e529efc`, T7b `2115e858` and T10 `078ef258`.
+
+Deviations: a sibling `###` section rather than a bullet, because Components holds the unmatched variant as a section. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3064 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: server listening-time rule
 
 Side task, no batch tag: apply the listening-time ranking rule on the server, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -211,13 +221,3 @@ Owner intent: keep the strip from regressing after the container-query fix. `scr
 Deviations: none. Edited existing test: `test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context` (its stub now serves a strip measure and its expected failure list gains the strip line, so removing the strip call fails it).
 
 Validation: `pytest -q` -- **3047 passed**.
-
-### 2026-10-25 - UI round 2 backlog: hidden-count note
-
-Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (R6, RA3): a listener who ranks by listening time should see why albums vanish and how to get them back. `templates/results.html` gains `#playtime-hidden-note` (hidden by default, with `#playtime-hidden-count` and `#playtime-hidden-copy`) after the stat grid, reusing the existing partial-notice style, so nothing moves on load. `applyRowState` in `static/js/results.js` now counts the rows the rule drops, excluding rows Hide already hides, and shows or hides the note with that count; the toast on switching to listening time gains the count when it is above 0. Copy is the owner's choice (RA13, "Count first"): note "N albums with no listening time are hidden. Rank by track plays to show them." (N = 1: "1 album with no listening time is hidden. Rank by track plays to show it."); toast "Leaderboard ranked by Spotify listening time. N albums with no listening time are hidden." (N = 1: "1 album with no listening time is hidden."); with N = 0 and on plays the toast is the existing sentence alone, with one singular/plural switch in `results.js`. New tests in `scripts/dev/results_behavior_tests.py` read the integer and the `hidden` state, never the wording: the count and toast for two durationless rows, the plain path with none, Hide-hidden rows not counted, and the live Hide path refreshing the note at N = 0 and N = 1 (RA14). F-B23-46 stays open: the server half that renders the note on a run started in playtime mode is T10's, and T11b closes it.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3026 passed**.

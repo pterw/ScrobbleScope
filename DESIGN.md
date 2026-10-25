@@ -235,6 +235,12 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Row:** plain rank and title, no link; the cover slot is the two-tone wash with initials; under the artist a small mono marker in the provider-badge slot says "Not Found" or "Unavailable" in the body ink token; the release cell reads "unknown" in the same token until MusicBrainz finds the original release, then shows it as YYYY-MM (filled in place while the check runs, rendered by the server after it ends).
 - **Unmatched albums control:** "Unmatched albums" (Hide / Include, Include selected on an include run) sits under the Sort leaderboard control. Hide hides those rows, ranks and totals recompute, and Listening Time is enabled; Include returns them and Listening Time is dimmed again with its reason.
 
+### Results Row: Listening-Time Ranking
+- **Rule:** while the Results page ranks by listening time, an album with no listening time (none or zero) is dropped from the ranking and its row is hidden. The remaining rows are renumbered 1..n in the rank column. Ranking by track plays brings the dropped albums back with their play-count ranks.
+- **Header figures:** Total Albums, Top artist and Scrobbles keep describing the whole result under either ranking; the Unmatched albums Hide control recomputes them as it always has.
+- **Note and toast:** a short note under the stats grid states how many albums with no listening time are hidden, and the toast on switching to listening time names the same count. Neither shows when no album is dropped or when ranking by track plays.
+- **One rule, two places:** the server applies it when a run starts in listening-time mode and the browser applies it when the page is switched, so both show the same leaderboard. Rows hidden by the Unmatched albums control stay hidden whatever the ranking.
+
 ### Heatmap Grid
 - **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
