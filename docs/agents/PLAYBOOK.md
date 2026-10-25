@@ -131,9 +131,13 @@ See FINDINGS F-DOCSYNC-3.
   consistency round 2 is done (PR #268, branch `feat/ui-consistency-round-2`,
   plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
   backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
-  in a live session, the accepted changes land as they are made, and a plan
-  written afterwards covers their documentation, gates and the album-search
-  fix the session found. The documentation refresh merges last.
+  in a live session and the accepted changes landed as they were made (PR
+  #269, draft). Their documentation, the gates that hold them and the
+  F-B23-46 ranking rule follow the plan
+  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` on the same
+  branch. The album-matching, cache re-verification and MusicBrainz fixes the
+  session found go to a PR stacked on it (branch `fix/album-matching`, which
+  carries its own plan). The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -176,6 +180,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Plan the UI round 2 backlog follow-through
+
+Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the live session's changes landed before their plan so the state was safe; the plan now covers what they still owe. `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` (written by a plan-writer agent, reviewed twice, approved at the second review): DESIGN.md and RECONCILIATION updates, gates that hold the selected-option look at 4.5:1 on every surface (one firmer outline token, `#775ab5` light and `#8a79ab` dark), the mode switch's muted label held at 4.5:1 (owner: "goal is to be AA compliant throughout"), the expanded-form placement, the hero strip and the loading page's stats and Back, and F-B23-46 by the owner's rule (a listening-time ranking hides albums with no listening time, track plays restores them, the header keeps whole-result figures and a note says how many are hidden). Two review Minors on its Task 10 are carried into that task's brief at dispatch. Deviations: the plan follows the commits it documents instead of preceding them, at the owner's request. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
 
 Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -193,9 +203,3 @@ The gate's "large display scale parity" check failed twice at `4c0c744`. First, 
 Side task, no batch tag: relabelled the loading page's last two stats, took the finished page out of history and gave the stats an entrance, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: "Albums passing" and "Spotify matched" are unclear and showed the same number (backlog L2); one should be "Cache hits" and the other must not duplicate it (2026-10-25); Back from the results should not land on the loading page; the stats should not just appear. The old pair duplicated because "matched" counted every album given metadata from the cache, Spotify or Deezer, and Spotify search accepted its first result, so nearly all of them matched (that search defect is for the plan). `scrobblescope/orchestrator/__init__.py` records `albums_to_search` (the cache misses) beside `cache_hits` at the cache split; together they make up the albums that passed the thresholds. `templates/loading.html` and `static/js/loading.js` show "Cache hits" and "Albums to search" (first "Albums searched"; renamed because the figure is known before the search ends) and drop the separate "albums loaded from cache" line. `redirectToResults` uses `location.replace`, so Back from the results reaches the form instead of a finished loading page that sent the listener forward again. `static/css/loading.css`: each stat rises 0.375rem and fades in over 360ms as its first figure arrives, 50ms apart when they arrive together; reduced motion shows them at once. The backend still records `albums_passing_filter` and `spotify_matched` for other readers. Deviations: landed before its plan. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - UI round 2 backlog: the expanded form keeps clear of the header
-
-Side task, no batch tag: stopped the fully expanded index form pressing its mode switch against the header, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: "the card itself is in the middle ... the mode tabs however, aren't accounted for" (backlog I4, 2026-10-25, from a 1920x1063 screenshot with every option open). `positionForm` in `static/js/index.js` always lifted the centred composition 2.5rem, so with everything open it hit its 0.25rem floor: 4px above the switch, 47px below the card. The lift now gives way first, never taking the gap above the switch below 1.5rem: measured 24px above and 27px below at 1920x1063 expanded, 24px and 63px at 1440x900; collapsed forms are unchanged (115px and 195px at 1920x1063). A window too short for the expanded form still scrolls with the 0.25rem floor; whether to raise it is open for the owner. The function's comment avoids the word daisyUI uses for its tab component, because Tailwind scans `static/js` for class names and that word generated daisyUI's tab styles into the compiled stylesheet. Deviations: landed before its plan; DESIGN.md's Fixed Composition Rule still describes the fixed lift, for the plan's docs task. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
