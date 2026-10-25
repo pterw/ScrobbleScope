@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Store the provider's own names and add match_for
+
+Side task, no batch tag: store the artist and title the provider returned beside each cached album, and add `AlbumMetadata.match_for(key)`, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: the cache keyed rows by the request's names, so a wrong Spotify match was indistinguishable from a right one. `spotify_cache` gains nullable `provider_artist` and `provider_title`; `AlbumMetadata` carries them (default None, still frozen), `from_row` reads them, `batch_lookup_metadata` selects them and `batch_persist_metadata` writes them (new array params $10 and $11, existing indexes unchanged). `match_for(key)` is the single re-verify rule (`MATCH_FITS`, `MATCH_WRONG`, `MATCH_UNSTAMPED`) for later tasks; `enrichment.py` now imports `normalize_name` from `domain`. The schema ships through `init_db.py` (the Fly release command) with no manual DB step, no data migration and no purge. Old rows read as unstamped (Spotify) or fits (Deezer). No behaviour change yet: nothing calls `match_for`, and `album_metadata_from_details` still leaves the names None (Tasks 7 and 10 fill them).
+
+Deviations: the two columns are folded into the existing `ALTER TABLE spotify_cache ... ADD COLUMN IF NOT EXISTS` statement rather than a separate one (idempotent, judged so by review; keeps the statement count so `tests/test_init_db.py` needed no edit). Fix round 1: review found that dropping a name column from the upsert's `DO UPDATE SET` list left every test green; the persist-SQL test now requires both `EXCLUDED` assignments (the fake Postgres has no ON CONFLICT handling, so a round trip is not possible).
+
+Edited existing tests: `test_album_metadata_holds_album_facts_only` (field-set pin gains the two names), `test_batch_lookup_metadata_returns_albums_with_their_provider_columns` (row, expected and SQL carry the names), `test_batch_persist_metadata_writes_a_spotify_id_to_both_columns` (asserts the two name arrays and the two `EXCLUDED` assignments), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` (the stored-row shape in the parity test gains the two None fields).
+
+Validation: `pytest -q` -- **2914 passed**.
+
 ### 2026-10-25 - Space MusicBrainz requests 1.1s apart
 
 Side task, no batch tag: space MusicBrainz request starts 1.1s apart (D5, RB6), on `fix/album-matching`, stacked on PR #269.

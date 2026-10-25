@@ -339,10 +339,10 @@ def matching_credit(item, key):
     ``artists`` fields do not match and never raise. Returns None for no match.
     """
     title = item.get("name") if isinstance(item, dict) else None
-    credits = item.get("artists") if isinstance(item, dict) else None
-    if not isinstance(title, str) or not isinstance(credits, list):
+    credited_artists = item.get("artists") if isinstance(item, dict) else None
+    if not isinstance(title, str) or not isinstance(credited_artists, list):
         return None
-    for credit in credits:
+    for credit in credited_artists:
         name = credit.get("name") if isinstance(credit, dict) else None
         if isinstance(name, str) and normalize_name(name, title) == key:
             return name
