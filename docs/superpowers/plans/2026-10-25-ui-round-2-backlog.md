@@ -659,16 +659,16 @@ and section 20 (T5), `DESIGN.md` lines 174, 181 and 226 (T4), the `shell.css` to
 `docs/design/designsystemaudit.md`, `docs/history/`, `docs/logarchive/`, dated PLAYBOOK entries,
 `docs/superpowers/`.
 
-**Acceptance:** [ ] every remaining hit is listed in the entry as point-in-time; [ ] `--check` exits 0;
-[ ] the final full gates (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`)
+**Acceptance:** [x] every remaining hit is listed in the entry as point-in-time; [x] `--check` exits 0;
+[x] the final full gates (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`)
 pass on the branch head before the controller pushes.
 
 ---
 
 ## Execution record (2026-10-25)
 
-Written when thirteen of the fourteen tasks had landed on `feat/ui-round-2-backlog` (PR #269, draft).
-Task 12 and the final verification gate are still to run, so their boxes stay open. Review rounds count
+Written when all fourteen tasks had landed on `feat/ui-round-2-backlog` (PR #269, draft). The final
+verification gate is recorded in PR #269's "Validation at this head". Review rounds count
 the sdd-reviewer passes on the task (2 means a fix round and a re-review). Ruling ids are from
 `plan-rulings-r1.md` in the SDD workspace. Boxes are ticked only where a land report and an approving
 review back the acceptance.
@@ -683,17 +683,18 @@ review back the acceptance.
 | 6 expanded-form placement gate | `a43e1fd9` | 2 | keyword-only `short_window` accepted as the frozen signature (RA11); tests-only fix round (RA12) |
 | 7 client listening-time rule | `7e529efc` | 1 | none |
 | 7b hidden-count note and toast | `2115e858` | 2 | owner chose the "count first" copy (RA13); fix round adds the live Hide-path test (RA14) |
-| 9 hero strip gate | `e67ad8c4` | 2 | fix round pins the measured widths and isolates each sub-condition (RA15); landed before T8, the reverse of the listed order |
+| 9 hero strip gate | `e67ad8c4` | 2 | fix round pins the measured widths and isolates each sub-condition (RA15); landed before T8, which the Dispatch section allows (T7b, T8 and T9 land in any order) |
 | 8 mode switch gate | `ae7e09fb` | 2 | fix round covers the wiring, the hover rows and the 4.5 floor (RA16) |
 | 10 server listening-time rule | `078ef258` | 2 | `None` play time treated as durationless (RA6); fix round reads the visible rank cell (RA17); edits outside Touches: `scrobblescope/routes/__init__.py` and `tests/test_template_shell.py` |
 | 11b document the rule, close F-B23-46 | `4d80fcab` | 1 | Header figures bullet agrees with the Hide line, archive entry in the archive's form (RA18); landed before T11 |
 | 11 both paths agree | `6f5801e1` | 2 | fixture orders timed albums differently by plays and by time (RA19); F-B23-64 filed (RA21) |
+| 12 sweep for stale copies | `269433d2` | controller sweep | none |
 
 Cross-cutting notes:
 
 - Landing order. RA9 landed T2, T3 and T4 first as separate commits, then T1 alone with its own gate
-  run. RA10 put T5 after T1. T9 landed before T8 and T11b before T11, with no ruling (each pair
-  was independent).
+  run. RA10 put T5 after T1. T9 landed before T8, which needed no ruling: the Dispatch section lets T7b, T8 and T9 land in any
+  order. T11b landed before T11 on a controller call (docs only, landed while T11 had a fix round).
 - Frozen interface. RA11 extended `_expanded_placement_failures(label, measured, *, short_window=False)`;
   the two-argument call keeps its meaning.
 - Out-of-Touches edits. Only T10 had them (see its row); both are named in its PLAYBOOK entry.
@@ -709,5 +710,6 @@ Cross-cutting notes:
   `tests/test_routes.py`, `3de18538` parametrizes the loading and heatmap near-duplicates, and
   `bc2168f4` consolidates the gate unit tests by behaviour. The behaviours the
   RA8-RA19 fix rounds named stay guarded by at least one test each (RA20).
-- Still to run. Task 12 (the stale-copy sweep, serial) and the final gate run on the branch head
-  (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`) before the PR leaves draft.
+- Final gate. All fourteen tasks have landed. The final gate run on the branch head (suite,
+  `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`) is recorded in PR #269's
+  "Validation at this head".

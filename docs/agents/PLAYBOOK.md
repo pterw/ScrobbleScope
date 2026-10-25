@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: plan A execution record closed
+
+Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
 
 Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -210,16 +220,6 @@ Validation: `pytest -q` -- **2876 passed**.
 Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". The section gains a short "Lean suite" list: one test per intended behaviour, near-duplicates become one parametrized test, no test that pins wording or a constant equal to the code, module-layout ("parity") tests are not added (the gate family was removed on 2026-10-25 with the owner's approval), and a fix round extends an existing test before adding one. The existing "Near-duplicate" forbidden pattern is not repeated. No other section changed.
-
-Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: plan A execution record
-
-Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: "Make sure that the plans are being followed and marking where they are finished when things arrive and deviations." The plan's acceptance boxes are ticked for Tasks 1-11 (Task 11b has none), each backed by its land report and an approving review; Task 12 stays open. The plan gains an "Execution record (2026-10-25)" section: a table of task, commit, review rounds and deviation ruling ids (RA6-RA21), plus the landing-order changes (RA9, RA10), the `short_window` interface extension (RA11), Task 10's two edits outside its Touches, the owner copy (RA13), F-B23-46 resolved and F-B23-64 filed, the lean-suite consolidation (RA20, 3067 to 2876 tests) and what still has to run (Task 12, the final gates). Docs only; the plan is a point-in-time record, so no live prose changed.
 
 Deviations: none. Edited existing tests: none.
 

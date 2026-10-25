@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: plan A execution record
+
+Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "Make sure that the plans are being followed and marking where they are finished when things arrive and deviations." The plan's acceptance boxes are ticked for Tasks 1-11 (Task 11b has none), each backed by its land report and an approving review; Task 12 stays open. The plan gains an "Execution record (2026-10-25)" section: a table of task, commit, review rounds and deviation ruling ids (RA6-RA21), plus the landing-order changes (RA9, RA10), the `short_window` interface extension (RA11), Task 10's two edits outside its Touches, the owner copy (RA13), F-B23-46 resolved and F-B23-64 filed, the lean-suite consolidation (RA20, 3067 to 2876 tests) and what still has to run (Task 12, the final gates). Docs only; the plan is a point-in-time record, so no live prose changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: test consolidation, gate unit tests
 
 Side task, no batch tag: merge duplicate and near-duplicate tests in the four frontend-gate unit-test files (`test_frontend_gate_colour.py`, `_forms.py`, `_include.py`, `_layout.py`), on `feat/ui-round-2-backlog`, a branch off `main`.
