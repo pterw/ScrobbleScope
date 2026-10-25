@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-24 - File the frontend gate's intermittent failures
+
+Side task, no batch tag: filed F-B23-58 for the frontend gate's intermittent failures, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: a gate that fails and then passes on the same tree should be written down with its evidence rather than waved through (the repository's flake rule). `docs/agents/FINDINGS.md` gains F-B23-58 (P2, Scaling roadmap, after F-B23-56) recording the three checks that failed intermittently during UI consistency round 2 (PR #268): `shell text scaling [desktop]` (a `Page.goto` timeout at `b7a0722`, passed on the one re-run), `release check disclosure [desktop]` (a correction moved 2 rows, only in the two code-phase worktrees that held the Orpheus Pro change; `ff91283` awaits `document.fonts.ready`, cause unproven) and `theme persistence [mobile]` (a toggle click timeout, once). The fix shape is to record check, profile and timing before changing the gate, so no gate code changed. The finding's opening sentence was corrected on review (the checks failed intermittently and passed on other runs of a tree holding the same change, not on a later run of the same tree). Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Results stat values take the figure face
 
 Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.

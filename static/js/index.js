@@ -602,10 +602,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const formComposition = document.querySelector('.index-form__inner');
   const header = document.querySelector('.site-header');
 
-  /** Lift the centred composition by 2.5rem, bounded below the document header.
-   * Measure content rather than a presumed browser-chrome height. Expanded
-   * forms keep their scale and scroll naturally only when the content cannot
-   * fit. Observe the inner composition so changing its margins cannot loop.
+  /** Lift the centred composition by up to 2.5rem, bounded below the header.
+   * The lift gives way first as space runs out: it never takes the gap above
+   * the mode switch below 1.5rem, so a fully expanded form falls back to plain
+   * centring instead of pressing the switch against the header (owner, live
+   * session 2026-10-25: 4px above it, 47px below the card at 1920x1063).
+   * Tailwind scans this file for class names, so these comments avoid the
+   * word daisyUI uses for its tab component. Measure content rather than a
+   * presumed browser-chrome height.
+   * Expanded forms keep their scale and scroll naturally only when the
+   * content cannot fit. Observe the inner composition so changing its
+   * margins cannot loop.
    */
   function positionForm() {
     if (!matchMedia('(min-width: 860px)').matches) return;
@@ -613,7 +620,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!height) return;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
     const available = window.innerHeight - header.getBoundingClientRect().height;
-    const top = Math.max(0.25 * rem, (available - height) / 2 - 2.5 * rem);
+    const centred = (available - height) / 2;
+    const lift = Math.min(2.5 * rem, Math.max(0, centred - 1.5 * rem));
+    const top = Math.max(0.25 * rem, centred - lift);
     formWell.style.setProperty('--index-form-top', `${top}px`);
     formWell.classList.add('is-positioned');
   }

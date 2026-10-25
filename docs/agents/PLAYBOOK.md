@@ -176,6 +176,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: the expanded form keeps clear of the header
+
+Side task, no batch tag: stopped the fully expanded index form pressing its mode switch against the header, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "the card itself is in the middle ... the mode tabs however, aren't accounted for" (backlog I4, 2026-10-25, from a 1920x1063 screenshot with every option open). `positionForm` in `static/js/index.js` always lifted the centred composition 2.5rem, so with everything open it hit its 0.25rem floor: 4px above the switch, 47px below the card. The lift now gives way first, never taking the gap above the switch below 1.5rem: measured 24px above and 27px below at 1920x1063 expanded, 24px and 63px at 1440x900; collapsed forms are unchanged (115px and 195px at 1920x1063). A window too short for the expanded form still scrolls with the 0.25rem floor; whether to raise it is open for the owner. The function's comment avoids the word daisyUI uses for its tab component, because Tailwind scans `static/js` for class names and that word generated daisyUI's tab styles into the compiled stylesheet. Deviations: landed before its plan; DESIGN.md's Fixed Composition Rule still describes the fixed lift, for the plan's docs task. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: one selected-option look
 
 Side task, no batch tag: gave the mode switch and every segmented control one selected-option look, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -193,9 +199,3 @@ Owner intent: the `§ 01/02/03` lists "feel generic and AI-directed" and should 
 Side task, no batch tag: recorded UI consistency round 2's outcome in its plan, on `feat/ui-consistency-round-2`, a branch off `main`.
 
 Owner intent: the plan should say what landed, in what order and with which extras, so the round can be read from the plan alone. `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`: every step checkbox in Tasks 0-5 is ticked (the controller's "Final checks" boxes stay open), and a new `## Outcome (2026-10-24)` section lists each task's commit and landing extras, then the deviations (landing order T3, T4, T5, T1, T2 rather than the plan's order; the owner's f-swe-7 plan parked outside the worktree for the round's commits and restored; the heatmap export's hard-coded `instrument-serif` folded into Task 1; F-B23-58 filed). The Task 1 entry above gains the `MOVED` parity-tuple change in its "Edited existing tests" field (the Task 1 landing review's Minor 1); nothing else in that entry changed. On review a pointer to an untracked report was removed from the plan's Outcome section. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-24 - File the frontend gate's intermittent failures
-
-Side task, no batch tag: filed F-B23-58 for the frontend gate's intermittent failures, on `feat/ui-consistency-round-2`, a branch off `main`.
-
-Owner intent: a gate that fails and then passes on the same tree should be written down with its evidence rather than waved through (the repository's flake rule). `docs/agents/FINDINGS.md` gains F-B23-58 (P2, Scaling roadmap, after F-B23-56) recording the three checks that failed intermittently during UI consistency round 2 (PR #268): `shell text scaling [desktop]` (a `Page.goto` timeout at `b7a0722`, passed on the one re-run), `release check disclosure [desktop]` (a correction moved 2 rows, only in the two code-phase worktrees that held the Orpheus Pro change; `ff91283` awaits `document.fonts.ready`, cause unproven) and `theme persistence [mobile]` (a toggle click timeout, once). The fix shape is to record check, profile and timing before changing the gate, so no gate code changed. The finding's opening sentence was corrected on review (the checks failed intermittently and passed on other runs of a tree holding the same change, not on a later run of the same tree). Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
