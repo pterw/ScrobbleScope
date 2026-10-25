@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: test consolidation, orchestrator and loading tests
+
+Side task, no batch tag: merge near-duplicate orchestrator loading-stats tests and heatmap loading tests into parametrized tests, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Four loading-stats tests in `tests/services/test_orchestrator_process_albums.py` differed only in inputs, so `test_loading_stats_split_the_passed_albums_into_hits_and_misses` now runs them as four cases (mixed, unmatched_miss, all_cached, database_unavailable); `db_cache_enabled` is asserted equal to the database availability in each case, so the database-less case is the only False one. In `tests/frontend/test_heatmap_pure_functions.py`, the two export-header tests are two cases (uppercase, no text-transform) of `test_export_header_model_uppercases_only_when_the_css_says_to`, and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` runs its two payloads (both_keys, to_search_absent) as two cases. Every case is kept.
+
+Deviations: none. Edited existing tests: the four `test_loading_stats_*` tests in `test_orchestrator_process_albums.py` (one kept as the parametrized test, three merged into it), `test_export_header_model_uppercases_only_when_the_css_says_to` (parametrized, absorbing `test_export_header_model_leaves_text_as_written_without_text_transform`) and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` (parametrized).
+
+Validation: `pytest -q` -- **2873 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: test consolidation, route tests
 
 Side task, no batch tag: merge repeated rank and render tests in `tests/test_routes.py`, on `feat/ui-round-2-backlog`, a branch off `main`.

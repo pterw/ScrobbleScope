@@ -132,11 +132,14 @@ See FINDINGS F-DOCSYNC-3.
   plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
   backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
   in a live session and the accepted changes landed as they were made (PR
-  #269, draft). Their documentation, the gates that hold them and the
-  F-B23-46 ranking rule follow the plan
-  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` on the same
-  branch. The album-matching, cache re-verification and MusicBrainz fixes the
-  session found go to a PR stacked on it (branch `fix/album-matching`, which
+  #269, draft). All the tasks of the plan
+  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` except the last
+  have landed on the same branch (the documentation, the gates that hold the
+  accepted changes and the F-B23-46 ranking rule), followed by a test
+  consolidation under the owner's lean-suite ruling. The stale-copy sweep
+  (plan Task 12) and the final gates remain before the PR leaves draft. The
+  album-matching, cache re-verification and MusicBrainz fixes the session
+  found then go to a PR stacked on it (branch `fix/album-matching`, which
   carries its own plan). The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
@@ -180,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
+
+Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
 
 Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +222,3 @@ Owner intent (RA20): "test for *intended function*, not *written function* and a
 Deviations: the sweep test no longer asserts the per-width fresh page load order. Two Minor review notes accepted under RA20, no change: the default token (`--shell-border`) of `_divider_contrast_failure` is no longer asserted, and "every width at or above 860 is measured" is no longer guarded. Edited existing tests: those named above.
 
 Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: test consolidation, orchestrator and loading tests
-
-Side task, no batch tag: merge near-duplicate orchestrator loading-stats tests and heatmap loading tests into parametrized tests, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA20): "avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Four loading-stats tests in `tests/services/test_orchestrator_process_albums.py` differed only in inputs, so `test_loading_stats_split_the_passed_albums_into_hits_and_misses` now runs them as four cases (mixed, unmatched_miss, all_cached, database_unavailable); `db_cache_enabled` is asserted equal to the database availability in each case, so the database-less case is the only False one. In `tests/frontend/test_heatmap_pure_functions.py`, the two export-header tests are two cases (uppercase, no text-transform) of `test_export_header_model_uppercases_only_when_the_css_says_to`, and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` runs its two payloads (both_keys, to_search_absent) as two cases. Every case is kept.
-
-Deviations: none. Edited existing tests: the four `test_loading_stats_*` tests in `test_orchestrator_process_albums.py` (one kept as the parametrized test, three merged into it), `test_export_header_model_uppercases_only_when_the_css_says_to` (parametrized, absorbing `test_export_header_model_leaves_text_as_written_without_text_transform`) and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` (parametrized).
-
-Validation: `pytest -q` -- **2873 passed**.
