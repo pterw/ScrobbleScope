@@ -637,6 +637,119 @@ class ResultsBehaviorTests(unittest.TestCase):
         self.page.locator("#toggle-sort-plays").click()
         self.assertEqual(self.stats(), matched_only)
 
+    def note_run(self, specs):
+        """Load results.js over (album, plays, seconds, unmatched) rows with the
+        hidden-count note, Hide/Include and a toast container."""
+        self.page.emulate_media(reduced_motion="reduce")
+        rows = "".join(
+            f'<tr data-rank="{n}" data-album="{name}" data-play-count="{plays}" '
+            f'data-play-time-seconds="{seconds}" data-unmatched="{unmatched}">'
+            f'<td><span class="rank-num">{n:02d}</span></td>'
+            '<td class="metric-value-cell"></td></tr>'
+            for n, (name, plays, seconds, unmatched) in enumerate(specs, 1)
+        )
+        self.start(
+            "results.js",
+            '<div id="toastContainer"></div>'
+            '<p id="playtime-hidden-note" hidden>'
+            '<span id="playtime-hidden-count">0</span>'
+            '<span id="playtime-hidden-copy"></span></p>'
+            '<button id="toggle-sort-plays"></button>'
+            '<button id="toggle-sort-playtime" data-has-durations="true"></button>'
+            '<span id="metric-header-label"></span>'
+            '<input type="radio" id="results_albums_matched" name="results_albums">'
+            '<label for="results_albums_matched">Hide</label>'
+            '<input type="radio" id="results_albums_all" name="results_albums" checked>'
+            '<label for="results_albums_all">Include</label>'
+            '<table id="results-table"><tbody>' + rows + "</tbody></table>",
+            {"year": 2025},
+        )
+
+    def note_state(self):
+        """[note hidden, integer in the note, integers in the latest toast]."""
+        return self.page.evaluate(
+            "() => { const toasts = document.querySelectorAll('#toastContainer > div');"
+            " const last = toasts[toasts.length - 1];"
+            " return [document.getElementById('playtime-hidden-note').hidden,"
+            " document.getElementById('playtime-hidden-count').textContent,"
+            " (last.textContent.match(/\\d+/g) || [])]; }"
+        )
+
+    def test_hidden_note_and_toast_carry_the_count_of_dropped_albums(self):
+        """Two albums without a listening time: ranking by listening time shows
+        the note with 2 and a toast holding 2; ranking by plays hides the note
+        and the toast holds no count."""
+        self.note_run([("A", "9", "50", ""), ("B", "8", "0", ""), ("C", "7", "", "")])
+        self.page.locator("#toggle-sort-playtime").click()
+        hidden, count, toast = self.note_state()
+        self.assertFalse(hidden)
+        self.assertEqual(count, "2")
+        self.assertEqual(toast, ["2"])
+        self.page.locator("#toggle-sort-plays").click()
+        hidden, _, toast = self.note_state()
+        self.assertTrue(hidden)
+        self.assertEqual(toast, [])
+
+    def test_hidden_note_stays_hidden_when_every_album_has_a_listening_time(self):
+        """Nothing is dropped, so the note stays hidden and the toast has no count."""
+        self.note_run([("A", "9", "50", ""), ("B", "8", "40", "")])
+        self.page.locator("#toggle-sort-playtime").click()
+        hidden, _, toast = self.note_state()
+        self.assertTrue(hidden)
+        self.assertEqual(toast, [])
+
+    def test_hidden_note_does_not_count_rows_hide_already_hides(self):
+        """With Hide chosen, a durationless unmatched row is Hide's, not the
+        ranking's: the count is the one durationless matched row."""
+        self.note_run(
+            [
+                ("A", "9", "50", ""),
+                ("B", "8", "0", ""),
+                ("Lost", "7", "", "no_spotify_match"),
+            ]
+        )
+        self.page.locator("label[for=results_albums_matched]").click()
+        self.page.locator("#toggle-sort-playtime").click()
+        hidden, count, toast = self.note_state()
+        self.assertFalse(hidden)
+        self.assertEqual(count, "1")
+        self.assertEqual(toast, ["1"])
+
+    def test_hide_toggled_while_ranked_by_listening_time_refreshes_the_note(self):
+        """Ranked by listening time with Include, two rows are dropped. Hide
+        takes both (both are unmatched), so nothing is left to drop and the
+        note hides."""
+        self.note_run(
+            [
+                ("A", "9", "50", ""),
+                ("B", "8", "0", "no_spotify_match"),
+                ("Lost", "7", "", "no_spotify_match"),
+            ]
+        )
+        self.page.locator("#toggle-sort-playtime").click()
+        hidden, count, _ = self.note_state()
+        self.assertEqual((hidden, count), (False, "2"))
+        self.page.locator("label[for=results_albums_matched]").click()
+        hidden, count, _ = self.note_state()
+        self.assertEqual((hidden, count), (True, "0"))
+
+    def test_hide_toggled_on_listening_time_lowers_the_count_to_one(self):
+        """One durationless matched row and one unmatched: Hide leaves a count
+        of 1 (singular case renders its integer), Include restores 2."""
+        self.note_run(
+            [
+                ("A", "9", "50", ""),
+                ("B", "8", "0", ""),
+                ("Lost", "7", "", "no_spotify_match"),
+            ]
+        )
+        self.page.locator("#toggle-sort-playtime").click()
+        hidden, count, _ = self.note_state()
+        self.assertEqual((hidden, count), (False, "2"))
+        self.page.locator("label[for=results_albums_matched]").click()
+        hidden, count, _ = self.note_state()
+        self.assertEqual((hidden, count), (False, "1"))
+
     def tooltip(self):
         """Expose the Spotify hint through two actual focusable album links."""
         self.start(

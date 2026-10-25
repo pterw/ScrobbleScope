@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: one stronger selected outline
+
+Side task, no batch tag: `--shell-selected-outline` set to `#775ab5` (light) and `#8a79ab` (dark) and both selected-boundary gates raised from 3:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: one stronger outline that every selected-option boundary gate holds at AA (ruling RA2). The token and `SEG_BOUNDARY_FLOOR` / `INCLUDE_BOUNDARY_FLOOR` changed together, because the old token measured 4.40:1 dark and 4.37:1 light on the Results card (the plan's 4.24:1 is the old dark token on base-200) and would fail a 4.5 floor; the new values clear 4.5:1 on the track, the sunken well, the card and the results surface. The `shell.css` comment and the two gate docstrings were rewritten. New stub-page tests for `seg_contrast_failures` and `card_boundary_failures` (floor value, per-theme failure, fail-closed missing control, translucent border compositing, unselected 7:1 against selected 4.5:1) in `test_frontend_gate_colour.py` and a new `test_frontend_gate_include.py`; six hand mutations were killed. Token RED in the browser gate: floors at 4.5 with the old tokens failed at 4.40:1 and 4.37:1 on the card; GREEN with the new values.
+
+Deviations: none beyond the measured card figures above. Edited existing tests: none (new tests appended to `test_frontend_gate_colour.py`).
+
+Validation: `pytest -q` -- **3016 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: DESIGN.md states what ships
 
 Side task, no batch tag: DESIGN.md corrections so it says what the UI round 2 ships, on `feat/ui-round-2-backlog`, a branch off `main`.

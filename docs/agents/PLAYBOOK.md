@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: hidden-count note
+
+Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3): a listener who ranks by listening time should see why albums vanish and how to get them back. `templates/results.html` gains `#playtime-hidden-note` (hidden by default, with `#playtime-hidden-count` and `#playtime-hidden-copy`) after the stat grid, reusing the existing partial-notice style, so nothing moves on load. `applyRowState` in `static/js/results.js` now counts the rows the rule drops, excluding rows Hide already hides, and shows or hides the note with that count; the toast on switching to listening time gains the count when it is above 0. Copy is the owner's choice (RA13, "Count first"): note "N albums with no listening time are hidden. Rank by track plays to show them." (N = 1: "1 album with no listening time is hidden. Rank by track plays to show it."); toast "Leaderboard ranked by Spotify listening time. N albums with no listening time are hidden." (N = 1: "1 album with no listening time is hidden."); with N = 0 and on plays the toast is the existing sentence alone, with one singular/plural switch in `results.js`. New tests in `scripts/dev/results_behavior_tests.py` read the integer and the `hidden` state, never the wording: the count and toast for two durationless rows, the plain path with none, Hide-hidden rows not counted, and the live Hide path refreshing the note at N = 0 and N = 1 (RA14). F-B23-46 stays open: the server half that renders the note on a run started in playtime mode is T10's, and T11b closes it.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3026 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: client listening-time rule
 
 Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -207,15 +217,5 @@ Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RE
 Owner intent: keep the override list true to what ships (the snapshot stays verbatim, so its overrides live here). Section 20 and the "Segmented control look" row still stated the superseded primary border and base-content ink as current; they now mark the first look superseded and state the shipped tint, primary text and `#775ab5` / `#8a79ab` outline. New Section 29 records the hero strip (R4, the container query, R7), the expanded-form placement (R3), the loading stats (R5), the selected-option look and its two owner exceptions (RA1, RA2), and the AA goal (RA4), citing the landed commits. The "Heatmap H1 copy" row now reads "Your 365 days *mapped by day.*" and a row records the album headline and lede copy.
 
 Deviations: per ruling RA10, the top-table row "Index hero: capability marks" is trimmed to the hero strip only (the outline token and loading labels live in Section 29 and the segmented-control row) and moved to after the Section 24 row; Section 29 also cites T1's commit `406e9b74` beside the RA2 token raise. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3016 passed**.
-
-### 2026-10-25 - UI round 2 backlog: one stronger selected outline
-
-Side task, no batch tag: `--shell-selected-outline` set to `#775ab5` (light) and `#8a79ab` (dark) and both selected-boundary gates raised from 3:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: one stronger outline that every selected-option boundary gate holds at AA (ruling RA2). The token and `SEG_BOUNDARY_FLOOR` / `INCLUDE_BOUNDARY_FLOOR` changed together, because the old token measured 4.40:1 dark and 4.37:1 light on the Results card (the plan's 4.24:1 is the old dark token on base-200) and would fail a 4.5 floor; the new values clear 4.5:1 on the track, the sunken well, the card and the results surface. The `shell.css` comment and the two gate docstrings were rewritten. New stub-page tests for `seg_contrast_failures` and `card_boundary_failures` (floor value, per-theme failure, fail-closed missing control, translucent border compositing, unselected 7:1 against selected 4.5:1) in `test_frontend_gate_colour.py` and a new `test_frontend_gate_include.py`; six hand mutations were killed. Token RED in the browser gate: floors at 4.5 with the old tokens failed at 4.40:1 and 4.37:1 on the card; GREEN with the new values.
-
-Deviations: none beyond the measured card figures above. Edited existing tests: none (new tests appended to `test_frontend_gate_colour.py`).
 
 Validation: `pytest -q` -- **3016 passed**.

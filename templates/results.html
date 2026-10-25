@@ -104,6 +104,8 @@
             <a href="{{ url_for('main.unmatched_page') }}" class="results-stat-caption text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown</a>
         </div>
     </div>
+    {# Shown by results.js while ranking by listening time leaves albums out. #}
+    <p class="results-partial-notice" id="playtime-hidden-note" role="status" hidden><span id="playtime-hidden-count">0</span> <span id="playtime-hidden-copy">albums with no listening time are hidden. Rank by track plays to show them.</span></p>
 
     <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
     <div class="results-filter-bar">
