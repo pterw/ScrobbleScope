@@ -384,3 +384,163 @@ def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
     assert _clamp_px(4.25, 2.96875, 4.75, 2560) == pytest.approx(4.75 * 16)
     # A non-default root font size scales both bounds, not the vw term.
     assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
+
+
+# --- Segmented-control contrast gate (UI round 2 backlog, T1) ---------------
+
+LIGHT_TRACK = (240.0, 235.0, 224.0)
+DARK_TRACK = (24.0, 21.0, 32.0)
+
+
+def _rgb(level: int) -> str:
+    return f"rgb({level}, {level}, {level})"
+
+
+def _grey_beside(background: tuple[float, float, float], floor: float, passes: bool):
+    """Return the grey nearest *floor* on the passing or the failing side."""
+    levels = [
+        (_contrast_ratio((level, level, level), background), level)
+        for level in range(256)
+    ]
+    if passes:
+        ratio, level = min(pair for pair in levels if pair[0] >= floor)
+    else:
+        ratio, level = max(pair for pair in levels if pair[0] < floor)
+    return _rgb(level), ratio
+
+
+class _SegPage:
+    """A page whose paint depends on the theme the gate last set."""
+
+    def __init__(self, paints: dict[str, dict]) -> None:
+        self.paints = paints
+        self.theme = "light"
+
+    def evaluate(self, script, arg=None):
+        if script is _frontend_gate_colour.SEG_PAINT_JS:
+            return self.paints[self.theme]
+        if arg in ("light", "dark"):
+            self.theme = arg
+        elif "'light'" in script:
+            self.theme = "light"
+        return None
+
+
+def _paints(
+    light_border: str, dark_border: str, selected_text: str = "rgb(0, 0, 0)"
+) -> dict[str, dict]:
+    def paint(track, text, border, selected):
+        return {
+            "track": track,
+            "unselectedText": text,
+            "selectedText": selected,
+            "chip": "rgba(0, 0, 0, 0)",
+            "chipBorder": border,
+        }
+
+    return {
+        "light": paint(
+            "rgb(240, 235, 224)", "rgb(0, 0, 0)", light_border, selected_text
+        ),
+        "dark": paint(
+            "rgb(24, 21, 32)", "rgb(255, 255, 255)", dark_border, "rgb(255, 255, 255)"
+        ),
+    }
+
+
+def _seg_failures(monkeypatch, paints: dict[str, dict]) -> list[str]:
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u"}
+    return _frontend_gate_colour.seg_contrast_failures(
+        _SegPage(paints), "Test control", spec
+    )
+
+
+def test_seg_boundary_at_the_floor_passes_in_both_themes(monkeypatch) -> None:
+    light, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=True)
+    dark, _ = _grey_beside(DARK_TRACK, 4.5, passes=True)
+    assert _seg_failures(monkeypatch, _paints(light, dark)) == []
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_seg_boundary_just_under_4_5_fails_in_that_theme_alone(
+    monkeypatch, theme
+) -> None:
+    track = LIGHT_TRACK if theme == "light" else DARK_TRACK
+    low, ratio = _grey_beside(track, 4.5, passes=False)
+    ok = {
+        "light": _grey_beside(LIGHT_TRACK, 4.5, passes=True)[0],
+        "dark": _grey_beside(DARK_TRACK, 4.5, passes=True)[0],
+    }
+    ok[theme] = low
+    failures = _seg_failures(monkeypatch, _paints(ok["light"], ok["dark"]))
+    assert len(failures) == 1
+    assert "Test control" in failures[0]
+    assert f"{theme} theme" in failures[0]
+    assert "chip boundary on track" in failures[0]
+    assert f"{ratio:.2f}:1" in failures[0]
+    assert "under 4.5:1" in failures[0]
+
+
+def test_seg_boundary_at_3_5_fails_because_the_floor_is_no_longer_3(
+    monkeypatch,
+) -> None:
+    light, _ = _grey_beside(LIGHT_TRACK, 3.5, passes=True)
+    dark, _ = _grey_beside(DARK_TRACK, 3.5, passes=True)
+    failures = _seg_failures(monkeypatch, _paints(light, dark))
+    assert len(failures) == 2
+    assert all("chip boundary on track" in line for line in failures)
+
+
+def test_selected_text_floor_stays_4_5(monkeypatch) -> None:
+    good = _grey_beside(LIGHT_TRACK, 4.5, passes=True)[0]
+    border, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=True)
+    dark_border, _ = _grey_beside(DARK_TRACK, 4.5, passes=True)
+    assert _seg_failures(monkeypatch, _paints(border, dark_border, good)) == []
+    low, ratio = _grey_beside(LIGHT_TRACK, 4.5, passes=False)
+    failures = _seg_failures(monkeypatch, _paints(border, dark_border, low))
+    assert len(failures) == 1
+    assert "selected text on chip" in failures[0]
+    assert f"{ratio:.2f}:1" in failures[0]
+
+
+def _ok_paints() -> dict[str, dict]:
+    light, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=True)
+    dark, _ = _grey_beside(DARK_TRACK, 4.5, passes=True)
+    return _paints(light, dark)
+
+
+def test_missing_control_is_reported_in_both_themes(monkeypatch) -> None:
+    failures = _seg_failures(monkeypatch, {"light": None, "dark": None})
+    assert len(failures) == 2
+    assert all("Test control" in line for line in failures)
+    assert all("the control is missing" in line for line in failures)
+
+
+def test_unselected_text_holds_the_7_to_1_floor_while_selected_text_keeps_4_5(
+    monkeypatch,
+) -> None:
+    five, ratio = _grey_beside(LIGHT_TRACK, 5.0, passes=True)
+    assert 4.5 < ratio < 7.0
+    paints = _ok_paints()
+    paints["light"]["unselectedText"] = five
+    failures = _seg_failures(monkeypatch, paints)
+    assert len(failures) == 1
+    assert "option text on track" in failures[0]
+    assert "light theme" in failures[0]
+    assert "under 7.0:1" in failures[0]
+
+    paints = _ok_paints()
+    paints["light"]["selectedText"] = five
+    assert _seg_failures(monkeypatch, paints) == []
+
+
+def test_translucent_chip_border_is_composited_over_the_track(monkeypatch) -> None:
+    # Opaque black and white clear 4.5:1 alone; at 30% alpha over the track
+    # they composite to a pale tint well under it.
+    paints = _ok_paints()
+    paints["light"]["chipBorder"] = "rgba(0, 0, 0, 0.3)"
+    paints["dark"]["chipBorder"] = "rgba(255, 255, 255, 0.3)"
+    failures = _seg_failures(monkeypatch, paints)
+    assert len(failures) == 2
+    assert all("chip boundary on track" in line for line in failures)

@@ -198,9 +198,10 @@ def _divider_contrast_failure(
 
 
 #: The owner's ruling: 4.5 is a floor, not a goal. Option text aims for 7:1
-#: (AAA); the selected chip's boundary is a non-text boundary, held at 3:1.
+#: (AAA); the selected chip's boundary is a non-text boundary, held at 4.5:1
+#: (RA2, one stronger outline: the token clears 4.5:1 on every surface).
 SEG_TEXT_FLOOR = 7.0
-SEG_BOUNDARY_FLOOR = 3.0
+SEG_BOUNDARY_FLOOR = 4.5
 
 #: The selected option's text is the primary on its soft chip, 5.47:1 light and
 #: 6.38:1 dark: an owner exception to the 7:1 aim (2026-10-25, UI round 2
@@ -255,7 +256,7 @@ def seg_contrast_cells(page, spec: dict) -> dict | None:
 
 
 def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
-    """Hold a segmented control at 7:1 option text and a 3:1 chip boundary.
+    """Hold a segmented control at 7:1 option text and a 4.5:1 chip boundary.
 
     Runs in both themes and restores light. The options take a 0.2s colour
     transition, so the read waits it out.

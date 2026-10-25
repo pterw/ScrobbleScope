@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Repair the two pipeline sequence diagrams
+
+Side task, no batch tag: repaired the Mermaid renders of the two pipeline sequence diagrams, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the diagrams explain the pipelines to people, and three `Note` lines held a semicolon, which ends a statement in a Mermaid sequence diagram and broke both renders. The owner's edits replace each semicolon with a full stop or a comma, meaning unchanged: one note in `docs/architecture/heatmap-sequence.md`, two in `docs/architecture/top-albums-sequence.md`. Both diagrams render valid in the Mermaid validator, and no Mermaid block under `docs/architecture/` holds a semicolon. No check was added: the owner keeps the diagrams as reading material, not a gate. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - Plan the UI round 2 backlog follow-through
 
 Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
