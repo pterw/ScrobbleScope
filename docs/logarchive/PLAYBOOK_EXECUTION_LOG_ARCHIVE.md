@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: DESIGN.md states what ships
+
+Side task, no batch tag: DESIGN.md corrections so it says what the UI round 2 ships, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the design doc must describe the shipped UI, not the first selected-chip look. Changed in `DESIGN.md` only: the selected option is soft tint, primary text (5.47:1 light, 6.38:1 dark, held at the 4.5:1 AA floor by owner exception) with a 1px `--shell-selected-outline` outline (5.01:1 light, 5.00:1 dark against the track); the stale 6.06/8.14/14.81/13.04 figures are gone; the index mode switch keeps its muted unselected label (5.17:1 light, 5.82:1 dark, a second owner exception); the Fixed Composition Rule states the 2.5rem lift that gives way first, the 1.5rem floor above the mode switch, the plain-centring fallback, the 0.25rem header floor and scrolling in short windows; new bullets for the hero strip and the loading stats. Figures recomputed from the tokens.
+
+Deviations: the Loading Stats bullet names the tiles in the shipped order (Scrobbles and Pages fetched, then Cache hits and Albums to search, as in `templates/loading.html`), per ruling RA7, where the plan wrote "Pages fetched and Scrobbles". Edited existing tests: none.
+
+Validation: `pytest -q` -- **3001 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: loading stats and Back test
 
 Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.

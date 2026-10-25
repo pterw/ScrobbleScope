@@ -466,11 +466,13 @@ class ResultsBehaviorTests(unittest.TestCase):
         )
 
     def test_sort_updates_order_ranks_metrics_and_accessibility(self):
-        """Both modes update canonical ranks and selected state, including zeros."""
+        """Both modes update canonical ranks and selected state; the durationless
+        row C is dropped from the listening-time ranking and back at rank 3 on
+        plays."""
         self.leaderboard()
-        for mode, expected in [
-            ("playtime", ["B", "A", "C"]),
-            ("plays", ["A", "B", "C"]),
+        for mode, expected, ranks, cells in [
+            ("playtime", ["B", "A", "C"], ["1", "2"], ["01", "02"]),
+            ("plays", ["A", "B", "C"], ["1", "2", "3"], ["01", "02", "03"]),
         ]:
             self.page.locator(f"#toggle-sort-{mode}").click()
             rows = self.page.locator("tbody tr")
@@ -478,11 +480,16 @@ class ResultsBehaviorTests(unittest.TestCase):
                 rows.evaluate_all("rows => rows.map(r => r.dataset.album)"), expected
             )
             self.assertEqual(
-                rows.evaluate_all("rows => rows.map(r => r.dataset.rank)"),
-                ["1", "2", "3"],
+                self.page.locator("tbody tr:not([hidden])").evaluate_all(
+                    "rows => rows.map(r => r.dataset.rank)"
+                ),
+                ranks,
             )
             self.assertEqual(
-                self.page.locator(".rank-num").all_text_contents(), ["01", "02", "03"]
+                self.page.locator(
+                    "tbody tr:not([hidden]) .rank-num"
+                ).all_text_contents(),
+                cells,
             )
             self.assertEqual(
                 self.page.locator(f"#toggle-sort-{mode}").get_attribute("aria-pressed"),
@@ -500,6 +507,135 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator(".metric-value-cell").all_text_contents(),
             ["100", "20", "0"],
         )
+
+    # Listening-time rule fixture: matched rows with and without a time (empty,
+    # "0", missing attribute) and two unmatched rows, ranked by play count.
+    TIMED_ROWS = (
+        ("Alpha", "50", "3000", ""),
+        ("Lost One", "45", "0", "no_spotify_match"),
+        ("Beta", "40", "2000", ""),
+        ("Zero", "38", "0", ""),
+        ("Empty", "36", "", ""),
+        ("Missing", "34", None, ""),
+        ("Gamma", "30", "1000", ""),
+        ("Lost Two", "20", None, "provider_unavailable"),
+    )
+
+    def timed_run(self):
+        """Load results.js over TIMED_ROWS with Hide/Include, stats and CSV."""
+        self.page.emulate_media(reduced_motion="reduce")
+        rows = ""
+        for number, (name, plays, seconds, unmatched) in enumerate(self.TIMED_ROWS, 1):
+            time_attr = (
+                "" if seconds is None else f' data-play-time-seconds="{seconds}"'
+            )
+            rows += (
+                f'<tr data-rank="{number}" data-album="{name}" '
+                f'data-artist="{name} Band" data-play-count="{plays}"{time_attr} '
+                f'data-play-time="{name} time" data-provider="" '
+                f'data-unmatched="{unmatched}">'
+                f'<td><span class="rank-num">{number:02d}</span></td>'
+                '<td class="metric-value-cell"></td></tr>'
+            )
+        self.start(
+            "results.js",
+            '<div id="toastContainer"></div><button id="export-csv"></button>'
+            '<span id="stat-total-albums">8</span>'
+            '<span id="stat-scrobbles" data-plays-listed="300" '
+            'data-plays-matched="250">300</span>'
+            '<span id="stat-top-artist">Alpha Band</span>'
+            '<button id="toggle-sort-plays"></button>'
+            '<button id="toggle-sort-playtime" data-has-durations="true"></button>'
+            '<span id="metric-header-label"></span>'
+            '<input type="radio" id="results_albums_matched" name="results_albums">'
+            '<label for="results_albums_matched">Hide</label>'
+            '<input type="radio" id="results_albums_all" name="results_albums" checked>'
+            '<label for="results_albums_all">Include</label>'
+            '<table id="results-table"><tbody>' + rows + "</tbody></table>",
+            {"year": 2025, "username": "u"},
+        )
+
+    def ranks(self):
+        """Every row's [album, data-rank, rank cell text, hidden] in DOM order."""
+        return self.page.locator("tbody tr").evaluate_all(
+            "rows => rows.map(r => [r.dataset.album, r.dataset.rank,"
+            " r.querySelector('.rank-num').textContent, r.hidden])"
+        )
+
+    def test_listening_time_ranking_drops_untimed_rows_and_plays_restores_them(self):
+        """Ranked by listening time, a row whose time is empty, "0" or absent
+        is hidden with an empty rank and the rest are ranked 1..n; ranked by
+        plays every row is back, ranked by play count."""
+        self.timed_run()
+        self.page.locator("#toggle-sort-playtime").click()
+        rows = self.ranks()
+        self.assertEqual(
+            [r for r in rows if not r[3]],
+            [
+                ["Alpha", "1", "01", False],
+                ["Beta", "2", "02", False],
+                ["Gamma", "3", "03", False],
+            ],
+        )
+        for name in ("Lost One", "Zero", "Empty", "Missing", "Lost Two"):
+            self.assertIn([name, "", "", True], rows)
+
+        self.page.locator("#toggle-sort-plays").click()
+        names = ["Alpha", "Lost One", "Beta", "Zero", "Empty", "Missing", "Gamma"]
+        names.append("Lost Two")
+        self.assertEqual(
+            self.ranks(),
+            [[name, str(n), f"{n:02d}", False] for n, name in enumerate(names, 1)],
+        )
+
+    def test_listening_time_rule_never_reveals_what_hide_hides(self):
+        """With Hide chosen, plays -> playtime -> plays keeps the unmatched rows
+        hidden and brings the matched untimed rows back; the rule neither
+        overrides Hide nor leaves its own hiding behind."""
+        self.timed_run()
+        self.page.locator("label[for=results_albums_matched]").click()
+        matched = ["Alpha", "Beta", "Zero", "Empty", "Missing", "Gamma"]
+
+        def shown():
+            return [r[0] for r in self.ranks() if not r[3]]
+
+        self.assertEqual(shown(), matched)
+        self.page.locator("#toggle-sort-playtime").click()
+        self.assertEqual(shown(), ["Alpha", "Beta", "Gamma"])
+        self.page.locator("#toggle-sort-plays").click()
+        self.assertEqual(shown(), matched)
+        self.assertEqual(
+            [r[1] for r in self.ranks() if not r[3]], ["1", "2", "3", "4", "5", "6"]
+        )
+        self.assertEqual([r[0] for r in self.ranks() if r[3]], ["Lost One", "Lost Two"])
+
+    def test_csv_while_ranked_by_listening_time_lists_only_ranked_rows(self):
+        """The export under listening time holds the ranked rows with ranks
+        1..n and none of the dropped ones."""
+        self.timed_run()
+        self.page.locator("#toggle-sort-playtime").click()
+        with self.page.expect_download() as shown:
+            self.page.locator("#export-csv").click()
+        lines = Path(shown.value.path()).read_text(encoding="utf-8").splitlines()
+        self.assertEqual(
+            [line.split(",")[:2] for line in lines[1:]],
+            [['"1"', '"Alpha"'], ['"2"', '"Beta"'], ['"3"', '"Gamma"']],
+        )
+
+    def test_header_figures_ignore_the_listening_time_rule(self):
+        """Total Albums, Top artist and Scrobbles read the same before
+        switching, ranked by listening time and after switching back, with
+        Include and with Hide (which counts rows, not ranked rows)."""
+        self.timed_run()
+        every = ["8", "300", "Alpha Band"]
+        self.assertEqual(self.stats(), every)
+        self.page.locator("#toggle-sort-playtime").click()
+        self.assertEqual(self.stats(), every)
+        self.page.locator("label[for=results_albums_matched]").click()
+        matched_only = ["6", "250", "Alpha Band"]
+        self.assertEqual(self.stats(), matched_only)
+        self.page.locator("#toggle-sort-plays").click()
+        self.assertEqual(self.stats(), matched_only)
 
     def tooltip(self):
         """Expose the Spotify hint through two actual focusable album links."""

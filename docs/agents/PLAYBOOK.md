@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: client listening-time rule
+
+Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6): ranking the Results page by listening time drops albums with no listening time and renumbers the rest, and ranking by track plays brings them back. `applyRowState` in `static/js/results.js` now sets each row's hidden state as one decision (Hide on an unmatched row, or listening-time ranking on a row whose `data-play-time-seconds` is not above 0), clears `data-rank` and the rank cell of hidden rows, and renumbers the rest 1..n; `setLeaderboardMetric` and `setUnmatchedHidden` both call it, so a metric switch never reveals what Hide hides and never hides what Hide shows. The header figures count rows not hidden by Hide, so Total Albums, Top artist and Scrobbles still describe the whole result (RA3). The CSV exporter already skips hidden rows, so it lists only the ranked rows. New tests in `scripts/dev/results_behavior_tests.py` cover the drop and restore, the Hide round trip, the CSV and the header figures. This does not close F-B23-46: the server half (T10) and the hidden-count note (T7b) follow, and the toast text is unchanged here.
+
+Deviations: none. Edited existing test: `test_sort_updates_order_ranks_metrics_and_accessibility` (the durationless row "C" is now hidden and unranked in listening time, visible ranks `["1","2"]`, back at rank 3 on plays).
+
+Validation: `pytest -q` -- **3026 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: gate the expanded form's placement
 
 Side task, no batch tag: gate the expanded form's placement in the layout gate, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,13 +219,3 @@ Owner intent: one stronger outline that every selected-option boundary gate hold
 Deviations: none beyond the measured card figures above. Edited existing tests: none (new tests appended to `test_frontend_gate_colour.py`).
 
 Validation: `pytest -q` -- **3016 passed**.
-
-### 2026-10-25 - UI round 2 backlog: DESIGN.md states what ships
-
-Side task, no batch tag: DESIGN.md corrections so it says what the UI round 2 ships, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: the design doc must describe the shipped UI, not the first selected-chip look. Changed in `DESIGN.md` only: the selected option is soft tint, primary text (5.47:1 light, 6.38:1 dark, held at the 4.5:1 AA floor by owner exception) with a 1px `--shell-selected-outline` outline (5.01:1 light, 5.00:1 dark against the track); the stale 6.06/8.14/14.81/13.04 figures are gone; the index mode switch keeps its muted unselected label (5.17:1 light, 5.82:1 dark, a second owner exception); the Fixed Composition Rule states the 2.5rem lift that gives way first, the 1.5rem floor above the mode switch, the plain-centring fallback, the 0.25rem header floor and scrolling in short windows; new bullets for the hero strip and the loading stats. Figures recomputed from the tokens.
-
-Deviations: the Loading Stats bullet names the tiles in the shipped order (Scrobbles and Pages fetched, then Cache hits and Albums to search, as in `templates/loading.html`), per ruling RA7, where the plan wrote "Pages fetched and Scrobbles". Edited existing tests: none.
-
-Validation: `pytest -q` -- **3001 passed**.
