@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Ignore the owner's local files
+
+Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
+
+Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
+
+Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Close the album-matching findings
 
 Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
@@ -219,15 +231,3 @@ Deviations: none from the brief. Accepted review Minor items, not fixed: (1) the
 Edited existing tests: `test_process_albums_cache_hit_skips_spotify`, `test_process_albums_applies_cached_original_release_before_filtering`, `test_process_albums_records_provider_date_on_an_uncorrected_exclusion`, `test_process_albums_partial_cache_token_failure_uses_cached_results` and the `_split_stats` helper (feeds `test_loading_stats_split_the_passed_albums_into_hits_and_misses`) in `tests/services/test_orchestrator_process_albums.py`, and `test_fetch_and_process_loading_stats_count_only_albums_that_passed` in `tests/services/test_orchestrator_fetch_and_process.py`: seeded Spotify rows now carry `provider_artist`/`provider_title` fitting the key. In `tests/test_album_cache_parity.py` the `_spotify()` fake now details each album with name and credit (new `CREDITS` map), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` expects the stored names, and `test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_link` uses `_spotify()` instead of `_providers_forbidden()` because an old row is now stamped by one details call (the intended RB1 change); `test_a_search_costs_one_connection...` and `test_a_musicbrainz_finding...` pass through the fake change only. Each still asserts what it meant. Fix round: new case `persist_fails` added to `test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer`.
 
 Validation: `pytest -q` -- **2941 passed**.
-
-### 2026-10-25 - Stop shadowing the credits builtin
-
-Side task, no batch tag: rename the `credits` local in `matching_credit` (Codacy finding on PR #270, Pylint W0622 redefined-builtin), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: Codacy flagged `credits = item.get("artists") ...` in `scrobblescope/spotify.py` as shadowing the `credits` builtin that `site` installs; it was introduced by the exact-match search change. The local is now `credited_artists`, used only inside `matching_credit`. Rename only, no behaviour change. A grep for `credits`, `copyright`, `license`, `exit` and `quit` assignments in `scrobblescope` found no other shadowing local.
-
-Deviations: none.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2932 passed**.
