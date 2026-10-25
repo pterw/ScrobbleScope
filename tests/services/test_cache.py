@@ -371,6 +371,45 @@ async def test_what_persist_writes_lookup_reads_back(album):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("columns", "returned"),
+    [
+        (
+            {"provider": "spotify", "provider_artist": "Captain Beefheart"}
+            | {"provider_title": "Safe As Milk"},
+            False,
+        ),
+        (
+            {"provider": "spotify", "provider_artist": "Xiu Xiu"}
+            | {"provider_title": "A Promise"},
+            True,
+        ),
+        ({"provider": "spotify"}, True),
+        ({"provider": "deezer"}, True),
+    ],
+    ids=["names_of_another_album", "names_fit_the_key", "unstamped", "deezer"],
+)
+async def test_a_spotify_row_naming_another_album_is_a_miss(columns, returned, caplog):
+    """A cached Spotify row whose provider names do not fit its key is dropped,
+    so the album is searched again; fitting, unstamped and Deezer rows stay."""
+    key = ("xiu xiu", "a promise")
+    with fake_postgres() as db:
+        db.seed_metadata(
+            *key,
+            release_date="2004",
+            spotify_id="id1",
+            provider_album_id="id1",
+            **columns,
+        )
+        async with open_album_cache() as album_cache:
+            with caplog.at_level(logging.INFO):
+                hits = await album_cache.lookup([key])
+
+    assert (key in hits) is returned
+    assert ("Dropped 1 cached" in caplog.text) is (not returned)
+
+
+@pytest.mark.asyncio
 async def test_a_stored_row_naming_no_provider_album_is_a_miss_not_an_album():
     """A row with no provider and no album id is left out of a lookup."""
     with fake_postgres() as db:

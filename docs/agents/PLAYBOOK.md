@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Treat a cached row naming another album as a miss
+
+Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a row stored under "xiu xiu|a promise" could hold another album's ID (the old unchecked search), and until now it was served for 30 days. `lookup` now drops every hit whose `match_for(key)` is `MATCH_WRONG` and logs one INFO line with the count only, so the album is searched again and the existing upsert overwrites the row with stamped names. `MATCH_FITS` and `MATCH_UNSTAMPED` rows (including pre-migration Spotify rows with NULL names, and Deezer rows) are returned as before; `lookup_failed` and the fail-open path are unchanged. A dropped hit is not counted in `db_cache_lookup_hits`.
+
+Deviations: none. Landed before Task 8 (disjoint files: Task 8 touches the orchestrator search and details modules; Task 8 was still in review).
+
+Edited existing tests: none. The `_spotify` helper in `tests/test_album_cache_parity.py` gained an optional `credit` argument (details carry name and artists); no existing test changed. New: `test_a_spotify_row_naming_another_album_is_a_miss` (parametrized) in `tests/services/test_cache.py` and `test_a_cached_row_naming_another_album_is_searched_again_and_overwritten` in `tests/test_album_cache_parity.py`.
+
+Validation: `pytest -q` -- **2929 passed**.
+
 ### 2026-10-25 - Accept only an exact album match in Spotify search
 
 Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.
@@ -216,13 +228,3 @@ Owner intent: MusicBrainz's policy is 1 request per second, and the throttle sta
 Deviations: none. This task landed after Tasks 5 and 3 (disjoint files). The policy quotes of "1 req/s" in `musicbrainz.py`, `release_checks.py`, `docs/agents/runtime-system.md` and `tests/test_release_checks.py` stay: they cite the policy, not the enforced spacing. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2905 passed**.
-
-### 2026-10-25 - Wait and retry when MusicBrainz throttles
-
-Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: `scrobblescope/musicbrainz.py::search_once` treated a 429 as a final "no match" (which then got cached) and waited a fixed second on a 503 (F-B23-62). Both statuses (`_RATE_LIMIT_STATUS = (429, 503)`) now honour `Retry-After` through `parse_retry_after`, else back off `2**attempt` plus a small hash-based jitter (as `spotify.py` does). Exhausted retries raise `musicbrainz_rate_limited` (header seen) or `musicbrainz_unavailable` (none) and cache nothing; a `Retry-After` over the cap raises at once without sleeping. Other 5xx retries and non-200 4xx no-match are unchanged. One fix round after review added 503 coverage to the header, exhaustion and over-cap tests (parametrized, no new tests).
-
-Deviations: this task landed after Task 5 (disjoint files). F-B23-62 is not closed here; Task 11 closes the findings. The test module imports `_check_candidate` from `scrobblescope.release_checks`. Edited existing tests: `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now asserts `musicbrainz_unavailable`, docstring updated, response `headers = {}`) and `test_lookup_retries_on_503_then_succeeds` (response `headers = {}`; the sleep assertion pins the first exponential wait, 1 <= wait < 1.2, instead of `await_count >= 1`), the other 503 retry tests were checked and needed no change.
-
-Validation: `pytest -q` -- **2899 passed**.

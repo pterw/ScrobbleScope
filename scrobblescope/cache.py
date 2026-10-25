@@ -10,7 +10,7 @@ except ImportError:
     asyncpg = None
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_DAYS
-from scrobblescope.enrichment import AlbumMetadata
+from scrobblescope.enrichment import MATCH_WRONG, AlbumMetadata
 from scrobblescope.utils import log_failure
 
 # Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
@@ -324,6 +324,9 @@ class AlbumCache:
     async def lookup(self, keys):
         """Return cached ``AlbumMetadata`` for *keys*, then clear stale rows.
 
+        A Spotify row whose provider names do not fit its key is left out (a
+        miss); an unstamped or non-Spotify row is returned.
+
         Returns {} when the cache is disabled or the read fails (every album is
         then a miss and the providers answer). A schema that is out of date
         gets its own remediation text: until it is fixed every read misses.
@@ -347,6 +350,15 @@ class AlbumCache:
                     "DB lookup failed, proceeding without cache", logging.WARNING
                 )
             hits = {}
+        # A row whose provider names do not fit its key is another album's: a
+        # miss, searched again and overwritten by the upsert.
+        fitting = {k: v for k, v in hits.items() if v.match_for(k) != MATCH_WRONG}
+        if len(fitting) < len(hits):
+            logging.info(
+                f"Dropped {len(hits) - len(fitting)} cached albums "
+                "whose provider names do not fit the key"
+            )
+        hits = fitting
         # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
         await cleanup_stale_metadata(self._conn)
         return hits

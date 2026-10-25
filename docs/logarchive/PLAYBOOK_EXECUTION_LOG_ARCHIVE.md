@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Wait and retry when MusicBrainz throttles
+
+Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `scrobblescope/musicbrainz.py::search_once` treated a 429 as a final "no match" (which then got cached) and waited a fixed second on a 503 (F-B23-62). Both statuses (`_RATE_LIMIT_STATUS = (429, 503)`) now honour `Retry-After` through `parse_retry_after`, else back off `2**attempt` plus a small hash-based jitter (as `spotify.py` does). Exhausted retries raise `musicbrainz_rate_limited` (header seen) or `musicbrainz_unavailable` (none) and cache nothing; a `Retry-After` over the cap raises at once without sleeping. Other 5xx retries and non-200 4xx no-match are unchanged. One fix round after review added 503 coverage to the header, exhaustion and over-cap tests (parametrized, no new tests).
+
+Deviations: this task landed after Task 5 (disjoint files). F-B23-62 is not closed here; Task 11 closes the findings. The test module imports `_check_candidate` from `scrobblescope.release_checks`. Edited existing tests: `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now asserts `musicbrainz_unavailable`, docstring updated, response `headers = {}`) and `test_lookup_retries_on_503_then_succeeds` (response `headers = {}`; the sleep assertion pins the first exponential wait, 1 <= wait < 1.2, instead of `await_count >= 1`), the other 503 retry tests were checked and needed no change.
+
+Validation: `pytest -q` -- **2899 passed**.
+
 ### 2026-10-25 - Check the artist name the spotlight search returns
 
 Side task, no batch tag: make the artist spotlight check the name Spotify returns, on `fix/album-matching`, stacked on PR #269.
