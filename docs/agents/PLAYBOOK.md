@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: DESIGN.md states what ships
+
+Side task, no batch tag: DESIGN.md corrections so it says what the UI round 2 ships, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the design doc must describe the shipped UI, not the first selected-chip look. Changed in `DESIGN.md` only: the selected option is soft tint, primary text (5.47:1 light, 6.38:1 dark, held at the 4.5:1 AA floor by owner exception) with a 1px `--shell-selected-outline` outline (5.01:1 light, 5.00:1 dark against the track); the stale 6.06/8.14/14.81/13.04 figures are gone; the index mode switch keeps its muted unselected label (5.17:1 light, 5.82:1 dark, a second owner exception); the Fixed Composition Rule states the 2.5rem lift that gives way first, the 1.5rem floor above the mode switch, the plain-centring fallback, the 0.25rem header floor and scrolling in short windows; new bullets for the hero strip and the loading stats. Figures recomputed from the tokens.
+
+Deviations: the Loading Stats bullet names the tiles in the shipped order (Scrobbles and Pages fetched, then Cache hits and Albums to search, as in `templates/loading.html`), per ruling RA7, where the plan wrote "Pages fetched and Scrobbles". Edited existing tests: none.
+
+Validation: `pytest -q` -- **3001 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: loading stats and Back test
 
 Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -197,9 +207,3 @@ Owner intent: the loading page's two figures, Cache hits and Albums to search, m
 Side task, no batch tag: repaired the Mermaid renders of the two pipeline sequence diagrams, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: the diagrams explain the pipelines to people, and three `Note` lines held a semicolon, which ends a statement in a Mermaid sequence diagram and broke both renders. The owner's edits replace each semicolon with a full stop or a comma, meaning unchanged: one note in `docs/architecture/heatmap-sequence.md`, two in `docs/architecture/top-albums-sequence.md`. Both diagrams render valid in the Mermaid validator, and no Mermaid block under `docs/architecture/` holds a semicolon. No check was added: the owner keeps the diagrams as reading material, not a gate. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - Plan the UI round 2 backlog follow-through
-
-Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: the live session's changes landed before their plan so the state was safe; the plan now covers what they still owe. `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` (written by a plan-writer agent, reviewed twice, approved at the second review): DESIGN.md and RECONCILIATION updates, gates that hold the selected-option look at 4.5:1 on every surface (one firmer outline token, `#775ab5` light and `#8a79ab` dark), the mode switch's muted label held at 4.5:1 (owner: "goal is to be AA compliant throughout"), the expanded-form placement, the hero strip and the loading page's stats and Back, and F-B23-46 by the owner's rule (a listening-time ranking hides albums with no listening time, track plays restores them, the header keeps whole-result figures and a note says how many are hidden). Two review Minors on its Task 10 are carried into that task's brief at dispatch. Deviations: the plan follows the commits it documents instead of preceding them, at the owner's request. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
