@@ -176,6 +176,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
+
+Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
 
 Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -193,9 +199,3 @@ Owner intent: "Albums passing" and "Spotify matched" are unclear and showed the 
 Side task, no batch tag: stopped the fully expanded index form pressing its mode switch against the header, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: "the card itself is in the middle ... the mode tabs however, aren't accounted for" (backlog I4, 2026-10-25, from a 1920x1063 screenshot with every option open). `positionForm` in `static/js/index.js` always lifted the centred composition 2.5rem, so with everything open it hit its 0.25rem floor: 4px above the switch, 47px below the card. The lift now gives way first, never taking the gap above the switch below 1.5rem: measured 24px above and 27px below at 1920x1063 expanded, 24px and 63px at 1440x900; collapsed forms are unchanged (115px and 195px at 1920x1063). A window too short for the expanded form still scrolls with the 0.25rem floor; whether to raise it is open for the owner. The function's comment avoids the word daisyUI uses for its tab component, because Tailwind scans `static/js` for class names and that word generated daisyUI's tab styles into the compiled stylesheet. Deviations: landed before its plan; DESIGN.md's Fixed Composition Rule still describes the fixed lift, for the plan's docs task. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - UI round 2 backlog: one selected-option look
-
-Side task, no batch tag: gave the mode switch and every segmented control one selected-option look, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: drop the segments' strong outline and keep the controls consistent, "so long as it is WCAG 2.x compliant" (2026-10-24/25, decided in the live session after trying a solid fill, which read as busy). The controller measured the mode switch's old look as failing WCAG 1.4.11: its soft tint is 1.11:1 light and 1.28:1 dark against the track, and its violet label only a hue shift from the grey one. `static/css/shell.css`: a new `--shell-selected-outline` token per theme (`#7d61b7` light, 4.60:1 against the track; `#8373a3` dark, 4.58:1), the primary mixed toward the page ground until it clears 4.5:1 as the owner asked; the checked `.seg__option` and the pressed `.metric-toggle-btn` take the soft tint, that 1px outline and primary text (5.47:1 light, 6.38:1 dark on the tint). `static/css/index.css`: `.mode-pill.active` takes the same three, with a `Highlight` border under forced colours. This covers the index's Rank by and Unmatched albums controls and the Results page's Unmatched albums control and Sort leaderboard buttons. Deviations: landed before its plan (see the entry below); `docs/design/RECONCILIATION.md` section 20 and DESIGN.md's Segmented Controls still give the old outline's figures, for the plan's docs task. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.

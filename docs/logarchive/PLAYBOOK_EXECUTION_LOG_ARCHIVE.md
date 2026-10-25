@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: one selected-option look
+
+Side task, no batch tag: gave the mode switch and every segmented control one selected-option look, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: drop the segments' strong outline and keep the controls consistent, "so long as it is WCAG 2.x compliant" (2026-10-24/25, decided in the live session after trying a solid fill, which read as busy). The controller measured the mode switch's old look as failing WCAG 1.4.11: its soft tint is 1.11:1 light and 1.28:1 dark against the track, and its violet label only a hue shift from the grey one. `static/css/shell.css`: a new `--shell-selected-outline` token per theme (`#7d61b7` light, 4.60:1 against the track; `#8373a3` dark, 4.58:1), the primary mixed toward the page ground until it clears 4.5:1 as the owner asked; the checked `.seg__option` and the pressed `.metric-toggle-btn` take the soft tint, that 1px outline and primary text (5.47:1 light, 6.38:1 dark on the tint). `static/css/index.css`: `.mode-pill.active` takes the same three, with a `Highlight` border under forced colours. This covers the index's Rank by and Unmatched albums controls and the Results page's Unmatched albums control and Sort leaderboard buttons. Deviations: landed before its plan (see the entry below); `docs/design/RECONCILIATION.md` section 20 and DESIGN.md's Segmented Controls still give the old outline's figures, for the plan's docs task. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the index hero
 
 Side task, no batch tag: landed the index hero changes the owner accepted in the round 2 backlog's live session, on `feat/ui-round-2-backlog`, a branch off `main`.

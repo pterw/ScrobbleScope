@@ -202,9 +202,11 @@ def _divider_contrast_failure(
 SEG_TEXT_FLOOR = 7.0
 SEG_BOUNDARY_FLOOR = 3.0
 
-#: The selected option's text takes the base-content ink on its soft chip, so
-#: it is held at 7:1 as well (primary on the chip was 5.47:1 light, 6.38:1 dark).
-SEG_SELECTED_TEXT_FLOOR = 7.0
+#: The selected option's text is the primary on its soft chip, 5.47:1 light and
+#: 6.38:1 dark: an owner exception to the 7:1 aim (2026-10-25, UI round 2
+#: backlog: "Keep primary, lower the gate"), held at the 4.5:1 AA floor. The
+#: chip's 1px outline at 4.5:1 carries the selected state.
+SEG_SELECTED_TEXT_FLOOR = 4.5
 
 #: Takes {track, selected, unselected} selectors; returns the painted colours.
 SEG_PAINT_JS = """spec => {
@@ -291,10 +293,11 @@ def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
 
 
 def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
-    """Hold hovered segment text at 7:1: the unselected option, then the chip.
+    """Hold hovered segment text: the unselected option at 7:1, then the chip.
 
     Hovering an unselected option deepens its ink to the base-content token,
-    and the checked chip keeps its own ink on hover. Both are measured in both
+    and the checked chip keeps its own ink on hover, held at the selected-text
+    floor (SEG_SELECTED_TEXT_FLOOR). Both are measured in both
     themes against the surface each text sits on, after the colour
     transition, and the pointer is moved away and light restored.
     """
@@ -305,9 +308,9 @@ def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
                 "(t) => document.documentElement.setAttribute('data-theme', t)",
                 theme,
             )
-            for state, key, surface in (
-                ("unselected option", "unselected", "track"),
-                ("selected chip", "selected", "chip"),
+            for state, key, surface, floor in (
+                ("unselected option", "unselected", "track", SEG_TEXT_FLOOR),
+                ("selected chip", "selected", "chip", SEG_SELECTED_TEXT_FLOOR),
             ):
                 page.locator(spec[key]).hover()
                 wait_for_settled(page, spec[key])
@@ -327,10 +330,10 @@ def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
                     "unselectedText" if key == "unselected" else "selectedText"
                 ]
                 ratio = _contrast_ratio(_parse_rgb_string(text)[:3], ground)
-                if ratio < SEG_TEXT_FLOOR:
+                if ratio < floor:
                     failures.append(
                         f"/ {label}, {theme} theme: hovered {state} text on "
-                        f"{surface} is {ratio:.2f}:1, under {SEG_TEXT_FLOOR}:1"
+                        f"{surface} is {ratio:.2f}:1, under {floor}:1"
                     )
     finally:
         page.mouse.move(0, 0)
