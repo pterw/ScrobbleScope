@@ -18,63 +18,8 @@ from scripts.dev._frontend_gate_layout import (
     _touch_minimum_failures,
     check_shell_scales_with_text,
 )
-from tests.scripts.dev.gate_parity import defined_names
 
 SOURCE_CSS = Path(__file__).resolve().parents[3] / "static" / "css" / "tailwind.src.css"
-
-CHECKS = (
-    "check_touch_targets",
-    "check_fonts",
-    "check_body_font",
-    "check_shell_scales_with_text",
-    "check_large_display_scale_parity",
-    "check_destination_empty_states",
-)
-CONSTANTS = (
-    "FONTS_READY_EXPRESSION",
-    "REQUIRED_FONT_FAMILIES",
-    "MIN_TOUCH_TARGET_PX",
-    "INTERACTIVE_SELECTOR",
-    "TOUCH_TARGET_STATES",
-    "DEFAULT_STATES",
-)
-HELPERS = (
-    "_small_targets",
-    "_measure_scale_dimensions",
-    "_measure_wide_layout",
-    "_measure_zoom_and_transform",
-    "_measure_fixed_state",
-    "_measure_mobile_headers",
-    "_measure_enlarged_root",
-    "_composition_bounds_failures",
-    "_expected_scaled_dimension",
-    "_scale_dimension_failures",
-    "_wide_layout_failures",
-    "_form_centring_failures",
-    "_measure_expanded_placement",
-    "_expanded_placement_failures",
-    "_header_geometry_failures",
-    "_scale_mechanism_failures",
-    "_touch_minimum_failures",
-    "_mobile_header_failures",
-    "_state_dimension_failures",
-    "_headline_wrap_failures",
-    "_measure_strip",
-    "_strip_layout_failures",
-    "_check_desktop_scale_bounds",
-)
-REEXPORTED = (*CHECKS, *CONSTANTS)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS, *HELPERS))
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_layout)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_layout, name)
 
 
 def test_text_scaling_check_restores_the_page_root() -> None:

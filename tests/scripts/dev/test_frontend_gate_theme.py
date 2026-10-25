@@ -6,47 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.dev import _frontend_gate_theme, frontend_gate
 from scripts.dev._frontend_gate_theme import (
     check_theme_persistence,
     check_theme_survives_blocked_storage,
     headline_font_failures,
 )
-from tests.scripts.dev.gate_parity import defined_names
-
-CHECKS = (
-    "check_divider_contrast",
-    "check_theme_tokens",
-    "check_index_design_tokens",
-    "check_theme_persistence",
-    "check_theme_reattaches_to_system",
-    "check_index_entrance_motion",
-    "check_mark_follows_theme",
-    "check_theme_survives_blocked_storage",
-    "check_heatmap_zero_cells_follow_theme",
-    "check_heatmap_export_header_matches_page",
-)
-CONSTANTS = ("THEME_EXPRESSION", "SET_THEME_EXPRESSION", "FORBIDDEN_SURFACES")
-MOVED = (
-    *CHECKS,
-    *CONSTANTS,
-    "_computed_colour",
-    "_BLOCK_STORAGE",
-    "headline_font_failures",
-    "_plain_family",
-)
-REEXPORTED = (*CHECKS, *CONSTANTS)
-
-
-@pytest.mark.parametrize("name", MOVED)
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_theme)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_theme, name)
 
 
 def test_blocked_storage_probe_closes_context_when_page_creation_fails() -> None:

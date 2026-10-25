@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: gate the mode switch
+
+Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA1, "Keep muted, gate at 4.5"): keep the muted unselected label on the mode switch and hold it at 4.5:1 while the other segmented controls stay at 7:1. `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` take an optional `unselected_floor` spec key (default `SEG_TEXT_FLOOR`, 7.0) that replaces the floor for the unselected option text and the unselected-hover cell only. `scripts/dev/_frontend_gate_forms.py` adds `MODE_SWITCH_SEG` and `mode_switch_failures`, called from `check_include_unmatched_control`: it measures Top albums selected and Heatmap selected (a real click on `#mode-tab-heatmap`, restored to Top albums in a `finally`) in both themes, covering option text, selected text, chip boundary and both hover cells.
+
+Deviations: the measure hangs off `check_include_unmatched_control` because `frontend_gate.py` is outside the task's files. Review fix round (RA16): added a stub-page test that the include check runs the mode-switch measure, tests for the hover measure, the selected-chip hover row and the selected-chip hover floor staying at the default, and a restore-on-error test. No test that predates this task is edited. Of this task's own first-phase tests, `test_mode_switch_failures_restore_top_albums_and_keep_light_clear` gains `assert failures` and `test_mode_switch_spec_holds_only_the_unselected_cell_at_4_5`, added by this task's own first phase, was removed (RA16 (f): it pinned a constant equal to the code).
+
+Validation: `pytest -q` -- **3060 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: gate the hero strip
 
 Side task, no batch tag: gate the hero strip's layout, on `feat/ui-round-2-backlog`, a branch off `main`.

@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: test consolidation, parity family
+
+Side task, no batch tag: remove the frontend gate's module-shape parity tests, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): cut repeated and written-function tests to save suite time; the owner approved this removal outright: "you have permission for the parity family to save that 5% of suite time". This reverses the post-split parity guard added under F-B21-51, which checked that every name a gate slice moved out of `scripts/dev/frontend_gate.py` is still defined in its slice and still resolves through the gate module. Those tests are gone from the nine slice files (`test_the_slice_defines_the_name`, `test_the_name_resolves_through_the_gate_module`), from `test_frontend_gate_colour.py` (`TestFacadeStillReExportsTheMovedHelpers`) and from `test_frontend_gate_shared.py` (`test_the_shared_module_defines_the_name`), with the name lists and imports only they used. Collected cases in the eleven edited files plus `test_frontend_gate_split.py` fall from 501 to 307 (-194); the suite falls from 3067 to 2873. Every behaviour test, `tests/scripts/dev/gate_parity.py` and `test_frontend_gate_split.py` (the split's own check) stay.
+
+Deviations: none. Edited existing tests: removed `test_the_slice_defines_the_name` and `test_the_name_resolves_through_the_gate_module` (in the assets, forms, heatmap_access, layout, pipeline, runtime, spotlight_photo, theme and unmatched gate test files), `TestFacadeStillReExportsTheMovedHelpers` and `test_the_shared_module_defines_the_name`.
+
+Validation: `pytest -q` -- **2873 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: ranking agreement test
 
 Side task, no batch tag: a browser test that a listening-time run and a switched play-count page agree, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -211,13 +221,3 @@ Deviations: `scrobblescope/routes/__init__.py` (outside the plan's Touches) re-e
 Edited existing tests: `test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime` became `test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime` and `test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort` became `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort`, because the helper marks rows instead of removing them (same rule, same three durationless forms); `test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` became `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` (90, not 50), because the dropped album is now a hidden row and the figure describes the whole result.
 
 Validation: `pytest -q` -- **3064 passed**.
-
-### 2026-10-25 - UI round 2 backlog: gate the mode switch
-
-Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA1, "Keep muted, gate at 4.5"): keep the muted unselected label on the mode switch and hold it at 4.5:1 while the other segmented controls stay at 7:1. `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` take an optional `unselected_floor` spec key (default `SEG_TEXT_FLOOR`, 7.0) that replaces the floor for the unselected option text and the unselected-hover cell only. `scripts/dev/_frontend_gate_forms.py` adds `MODE_SWITCH_SEG` and `mode_switch_failures`, called from `check_include_unmatched_control`: it measures Top albums selected and Heatmap selected (a real click on `#mode-tab-heatmap`, restored to Top albums in a `finally`) in both themes, covering option text, selected text, chip boundary and both hover cells.
-
-Deviations: the measure hangs off `check_include_unmatched_control` because `frontend_gate.py` is outside the task's files. Review fix round (RA16): added a stub-page test that the include check runs the mode-switch measure, tests for the hover measure, the selected-chip hover row and the selected-chip hover floor staying at the default, and a restore-on-error test. No test that predates this task is edited. Of this task's own first-phase tests, `test_mode_switch_failures_restore_top_albums_and_keep_light_clear` gains `assert failures` and `test_mode_switch_spec_holds_only_the_unselected_cell_at_4_5`, added by this task's own first phase, was removed (RA16 (f): it pinned a constant equal to the code).
-
-Validation: `pytest -q` -- **3060 passed**.

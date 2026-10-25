@@ -7,53 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scripts.dev import _frontend_gate_pipeline, frontend_gate
+from scripts.dev import _frontend_gate_pipeline
 from scripts.dev._frontend_gate_pipeline import (
     _assert_loading_progress_state,
     _parse_matrix_scalex,
     check_pipeline_state_machines,
 )
-from tests.scripts.dev.gate_parity import defined_names
-
-CHECKS = (
-    "check_loading_composition",
-    "check_pipeline_state_machines",
-    "check_artist_spotlight_rotation",
-)
-CONSTANTS = (
-    "ALBUM_PROGRESS_TRACK",
-    "ALBUM_PROGRESS_BAR",
-    "ALBUM_PROGRESS_TEXT",
-    "HEATMAP_PROGRESS_TRACK",
-    "HEATMAP_PROGRESS_BAR",
-    "HEATMAP_PROGRESS_TEXT",
-    "FETCHING_SCROBBLES",
-    "COUNTING_SCROBBLES",
-    "PAGE_23_OF_102",
-    "PAGE_90_OF_100",
-)
-HELPERS = (
-    "_parse_matrix_scalex",
-    "_assert_loading_progress_state",
-    "_exercise_loading_progress_phases",
-    "_check_phase_repository_isolation",
-    "_exercise_counted_progress",
-    "_exercise_album_progress",
-    "_exercise_heatmap_progress",
-    "_exercise_replaced_job_progress",
-    "_exercise_pipeline_state_machines",
-)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS, *HELPERS))
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_pipeline)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS))
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_pipeline, name)
 
 
 def test_pipeline_state_machine_uses_a_disposable_page() -> None:
