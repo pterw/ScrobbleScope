@@ -98,24 +98,22 @@ def _remove_eyebrows(js_page) -> None:
     )
 
 
-def test_export_header_model_uppercases_only_when_the_css_says_to(js_page):
-    _insert_eyebrow(js_page, "text-transform:uppercase")
+@pytest.mark.parametrize(
+    ("style", "expected"),
+    [
+        ("text-transform:uppercase", "TEST EYEBROW"),
+        ("", "test eyebrow"),  # no transform: text as written
+    ],
+)
+def test_export_header_model_uppercases_only_when_the_css_says_to(
+    js_page, style, expected
+):
+    _insert_eyebrow(js_page, style)
     try:
         model = js_page.evaluate(
             "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
         )
-        assert model["eyebrow"] == "TEST EYEBROW"
-    finally:
-        _remove_eyebrows(js_page)
-
-
-def test_export_header_model_leaves_text_as_written_without_text_transform(js_page):
-    _insert_eyebrow(js_page, "")
-    try:
-        model = js_page.evaluate(
-            "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
-        )
-        assert model["eyebrow"] == "test eyebrow"
+        assert model["eyebrow"] == expected
     finally:
         _remove_eyebrows(js_page)
 
@@ -459,19 +457,24 @@ def _stat_tiles(js_browser, stats):
         page.close()
 
 
-def test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent(js_browser):
+@pytest.mark.parametrize(
+    ("stats", "expected"),
+    [
+        ({"cache_hits": 12, "albums_to_search": 30}, [["12", True], ["30", True]]),
+        ({"cache_hits": 12}, [["12", True], ["0", False]]),  # key absent: hidden
+    ],
+    ids=["both_keys", "to_search_absent"],
+)
+def test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent(
+    js_browser, stats, expected
+):
     """
-    GIVEN /progress answers carrying cache_hits and albums_to_search, then one
-          carrying cache_hits alone
-    WHEN loading.js renders their stats
-    THEN the cache-hits tile shows 12 and the to-search tile 30; with
-         albums_to_search missing, the first tile shows and the second stays
-         hidden -- so each tile reads its own key.
+    GIVEN a /progress answer carrying cache_hits and, or not, albums_to_search
+    WHEN loading.js renders its stats
+    THEN each tile shows its own key's figure, and a tile whose key is absent
+         stays hidden.
     """
-    both = _stat_tiles(js_browser, {"cache_hits": 12, "albums_to_search": 30})
-    only_hits = _stat_tiles(js_browser, {"cache_hits": 12})
-    assert both == [["12", True], ["30", True]]
-    assert only_hits == [["12", True], ["0", False]]
+    assert _stat_tiles(js_browser, stats) == expected
 
 
 def test_the_finished_runs_redirect_replaces_the_loading_entry_in_history(js_browser):

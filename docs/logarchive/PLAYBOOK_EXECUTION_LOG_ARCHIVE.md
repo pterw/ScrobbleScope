@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: ranking agreement test
+
+Side task, no batch tag: a browser test that a listening-time run and a switched play-count page agree, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6): a run started in listening-time mode and a page switched to it show the same leaderboard. `tests/frontend/test_results_ranking_agreement.py` renders one four-album fixture (two timed, one at 0 seconds, one with no key) as a playtime run and as a play-count run, loads both Flask pages in Chromium (static files served with `page.route`), switches the play-count page through the real toggle, and compares the visible (album, rank) sequence, the Total Albums, Top Artist and Scrobbles text, the hidden-count integer and the CSV rows. It also checks that switching to track plays restores all four albums and that switching back reproduces the first list. The fixture orders timed albums differently by time and by plays, so a client that ranks by the wrong metric fails. Hand-applied defects (the server rendering untimed rows without `hidden`, the client skipping the renumber, the client ranking by plays in listening-time mode) each turn all three tests red.
+
+Deviations: the fixture gives all four albums one artist, because Top Artist follows the first row and legitimately differs between the two paths; this is filed as F-B23-64 (open, P3, owner ruling RA21), and the fixture comment names it. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3067 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: listening-time ranking documented
 
 Side task, no batch tag: document the listening-time ranking rule in `DESIGN.md` and close F-B23-46, on `feat/ui-round-2-backlog`, a branch off `main`.

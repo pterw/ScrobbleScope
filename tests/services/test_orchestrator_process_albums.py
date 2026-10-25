@@ -1262,50 +1262,40 @@ async def _split_stats(passed, cached, *, db_available=True, matched=()):
 
 
 @pytest.mark.asyncio
-async def test_loading_stats_split_the_passed_albums_into_hits_and_misses():
-    """A mixed run records the cache split, and the two figures add up to the
-    albums that passed the thresholds, whatever the search later finds."""
-    passed = _passed("one", "two", "three", "four", "five")
-    cached = [("one", "one"), ("two", "two")]
+@pytest.mark.parametrize(
+    ("names", "cached", "matched", "db_available", "hits", "to_search"),
+    [
+        # a mixed run; the search outcome does not change the figures
+        (
+            ("one", "two", "three", "four", "five"),
+            ("one", "two"),
+            {("three", "three")},
+            True,
+            2,
+            3,
+        ),
+        # an album that ends unmatched still counts as an album to search
+        (("one", "two"), ("one",), (), True, 1, 1),
+        (("one", "two"), ("one", "two"), (), True, 2, 0),  # all cached
+        (("one", "two", "three"), (), (), False, 0, 3),  # no DB: no hits
+    ],
+    ids=["mixed", "unmatched_miss", "all_cached", "database_unavailable"],
+)
+async def test_loading_stats_split_the_passed_albums_into_hits_and_misses(
+    names, cached, matched, db_available, hits, to_search
+):
+    """The cache split is known before the search: hits and albums to search
+    add up to the albums that passed, whatever the search later finds."""
+    passed = _passed(*names)
 
-    stats = await _split_stats(passed, cached, matched={("three", "three")})
+    stats = await _split_stats(
+        passed,
+        [(name, name) for name in cached],
+        matched=matched,
+        db_available=db_available,
+    )
 
-    assert stats["cache_hits"] == 2
-    assert stats["albums_to_search"] == 3
+    assert stats["db_cache_enabled"] is db_available
+    assert stats["cache_hits"] == hits
+    assert stats["albums_to_search"] == to_search
     assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
-
-
-@pytest.mark.asyncio
-async def test_loading_stats_count_an_unmatched_miss_as_an_album_to_search():
-    """The figure is known before the search; an album that ends unmatched
-    does not subtract from it."""
-    passed = _passed("one", "two")
-
-    stats = await _split_stats(passed, [("one", "one")])
-
-    assert stats["albums_to_search"] == 1
-    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
-
-
-@pytest.mark.asyncio
-async def test_loading_stats_with_every_album_cached_nothing_is_searched():
-    """All cached: nothing to search, and the figures still add up."""
-    passed = _passed("one", "two")
-
-    stats = await _split_stats(passed, list(passed))
-
-    assert stats["cache_hits"] == 2
-    assert stats["albums_to_search"] == 0
-    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
-
-
-@pytest.mark.asyncio
-async def test_loading_stats_with_the_database_unavailable_search_every_album():
-    """No cache connection means no hits; every passed album is searched."""
-    passed = _passed("one", "two", "three")
-
-    stats = await _split_stats(passed, [], db_available=False)
-
-    assert stats["db_cache_enabled"] is False
-    assert stats["cache_hits"] == 0
-    assert stats["albums_to_search"] == len(passed)
