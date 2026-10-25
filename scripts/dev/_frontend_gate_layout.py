@@ -73,6 +73,21 @@ TOUCH_TARGET_STATES = {
     ),
 }
 
+#: The owner's "every option open": decade scope chosen, thresholds disclosed.
+EXPANDED_STATE_ACTIONS = (
+    ("select", "#release_scope", "decade"),
+    ("click", ".disclosure__summary"),
+)
+
+#: Smallest gap, in rem, between the header and the mode switch when the form
+#: is expanded and the window has room. Mirrors `positionForm` in
+#: static/js/index.js (the lift never leaves less than 1.5rem above the switch).
+EXPANDED_GAP_FLOOR_REM = 1.5
+
+#: Where the form's top falls in a window too short for the gap above (R3: the
+#: expanded form's floor stays 0.25rem, it is not raised).
+SHORT_WINDOW_TOP_REM = 0.25
+
 #: Used for a page with nothing to drive.
 DEFAULT_STATES = (("as loaded", ()),)
 
@@ -539,6 +554,32 @@ def _measure_enlarged_root(page, base_url) -> float:
     return root_measurement
 
 
+def _measure_expanded_placement(page, base_url, width: int, height: int) -> dict:
+    """Open every option (decade scope, thresholds) and read where the form sits."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    _reach_state(page, EXPANDED_STATE_ACTIONS)
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    return page.evaluate(
+        """() => {
+            const header = document.querySelector('.site-header');
+            const well = document.querySelector('.index-form');
+            const inner = document.querySelector('.index-form__inner');
+            const tabs = document.querySelector('.mode-tabs');
+            return {
+                rootFontSize: parseFloat(
+                    getComputedStyle(document.documentElement).fontSize
+                ),
+                gapAboveSwitch: tabs.getBoundingClientRect().top
+                    - header.getBoundingClientRect().bottom,
+                formInnerTop: inner.getBoundingClientRect().top,
+                wellTop: well.getBoundingClientRect().top,
+            };
+        }"""
+    )
+
+
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     """Prove the shared wide-desktop scale, capped form, and equal gutters.
 
@@ -635,6 +676,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             for state, actions in fixed_states.items()
         }
         root_measurement = _measure_enlarged_root(page, base_url)
+        _measure_scale_dimensions(page, base_url, {}, 1920, 1063)
+        collapsed_layout = _measure_wide_layout(page)
+        expanded_full = _measure_expanded_placement(page, base_url, 1920, 1063)
+        expanded_short = _measure_expanded_placement(page, base_url, 1920, 700)
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -701,6 +746,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     )
     failures.extend(_wide_layout_failures(layouts))
     failures.extend(_form_centring_failures("1080p", layouts["1080p"]))
+    failures.extend(_form_centring_failures("1920x1063", collapsed_layout))
+    failures.extend(_expanded_placement_failures("1920x1063", expanded_full))
+    failures.extend(
+        _expanded_placement_failures("1920x700", expanded_short, short_window=True)
+    )
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
@@ -887,13 +937,47 @@ def _wide_layout_failures(layouts) -> list[str]:
     return failures
 
 
+def _expanded_placement_failures(
+    label: str, measured, *, short_window: bool = False
+) -> list[str]:
+    """Judge where the expanded form sits (every option open).
+
+    With room, the header-to-mode-switch gap must be at least
+    `EXPANDED_GAP_FLOOR_REM` (1px tolerance). In a short window
+    (`short_window=True`) the gap cannot be had; the form's top must then fall
+    to exactly `SHORT_WINDOW_TOP_REM` below the well top (1px tolerance), so
+    the floor is neither raised nor undercut.
+    """
+    rem = measured["rootFontSize"]
+    if short_window:
+        top = measured["formInnerTop"] - measured["wellTop"]
+        expected = SHORT_WINDOW_TOP_REM * rem
+        if abs(top - expected) > 1:
+            return [
+                f"/: expanded form top is {top:.1f}px below the well at {label}, "
+                f"expected the {SHORT_WINDOW_TOP_REM}rem floor ({expected:.1f}px)"
+            ]
+        return []
+    gap = measured["gapAboveSwitch"]
+    floor = EXPANDED_GAP_FLOOR_REM * rem
+    if gap < floor - 1:
+        return [
+            f"/: expanded form leaves {gap:.1f}px between the header and the "
+            f"mode switch at {label}, expected at least "
+            f"{EXPANDED_GAP_FLOOR_REM}rem ({floor:.1f}px)"
+        ]
+    return []
+
+
 def _form_centring_failures(label: str, layout) -> list[str]:
     """Fail when the form is pinned or off-centre in its default state.
 
     `positionForm` in static/js/index.js places the composition at
-    `max(0.25rem, (available - height) / 2 - 2.5rem)` below the header. While
-    the centring term governs, the space left below the composition exceeds
-    the space above it by exactly twice that 2.5rem lift:
+    `max(0.25rem, centred - lift)` below the header, where
+    `centred = (available - height) / 2` and the lift is graduated:
+    `min(2.5rem, max(0, centred - 1.5rem))`. A collapsed form has room, so it
+    keeps the full 2.5rem lift. While that governs, the space left below the
+    composition exceeds the space above it by exactly twice the lift:
     below - above = available - height - 2 * top = 2 * 2.5rem = 5rem. The
     check holds that difference to 2px (the sub-pixel rounding of the two
     rects). When the card grows past the point where the centring term drops

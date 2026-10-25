@@ -50,6 +50,8 @@ HELPERS = (
     "_scale_dimension_failures",
     "_wide_layout_failures",
     "_form_centring_failures",
+    "_measure_expanded_placement",
+    "_expanded_placement_failures",
     "_header_geometry_failures",
     "_scale_mechanism_failures",
     "_touch_minimum_failures",
@@ -436,6 +438,193 @@ def test_form_centring_reports_a_card_off_the_centring_rule() -> None:
     assert len(failures) == 1
     assert "off-centre at 1080p" in failures[0]
     assert "76.0px above the card and 116.0px below" in failures[0]
+
+
+def _expanded(gap: float = 24, top: float = 24, root: float = 16) -> dict:
+    """An expanded-form measurement; the gap and top are in px."""
+    return {
+        "rootFontSize": root,
+        "gapAboveSwitch": gap,
+        "formInnerTop": 76 + top,
+        "wellTop": 76,
+    }
+
+
+def test_expanded_placement_holds_the_gap_above_the_switch_inclusively() -> None:
+    """24px at root 16 (1.5rem) passes, 4px fails, 22.9px fails, 23.1px passes."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    assert check("1920x1063", _expanded(gap=24)) == []
+    assert check("1920x1063", _expanded(gap=23.1)) == []
+    failures = check("1920x1063", _expanded(gap=22.9))
+    assert len(failures) == 1 and "1920x1063" in failures[0]
+    failures = check("1920x1063", _expanded(gap=4))
+    assert len(failures) == 1 and "4.0px" in failures[0]
+
+
+def test_expanded_placement_floor_follows_the_root_font_size() -> None:
+    """The 1.5rem floor is relative: 24px is short at a 20px root (30px)."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    assert check("1920x1063", _expanded(gap=24, root=20)) != []
+    assert check("1920x1063", _expanded(gap=30, root=20)) == []
+
+
+def test_short_window_form_top_stays_on_the_quarter_rem_floor() -> None:
+    """A short window puts the form 0.25rem below the well; raising it fails."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    assert check("1920x700", _expanded(gap=4, top=4), short_window=True) == []
+    failures = check("1920x700", _expanded(gap=24, top=24), short_window=True)
+    assert len(failures) == 1 and "1920x700" in failures[0]
+    assert check("1920x700", _expanded(gap=0, top=0), short_window=True) != []
+
+
+def test_short_window_form_top_tolerance_is_one_pixel_either_side() -> None:
+    """1px off the 4px floor passes; 2px off fails, above and below."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    for top in (3, 4.9, 5):
+        assert check("1920x700", _expanded(top=top), short_window=True) == []
+    for top in (2, 6):
+        assert check("1920x700", _expanded(top=top), short_window=True) != []
+
+
+def test_expanded_measurement_opens_decade_scope_and_thresholds(monkeypatch) -> None:
+    """The measurement asks for the expanded state and returns the page reading."""
+    module = _frontend_gate_layout
+    calls = []
+    monkeypatch.setattr(module, "_reach_state", lambda *a: calls.append(a))
+    monkeypatch.setattr(module, "wait_for_settled", lambda _page: None)
+    page = MagicMock()
+
+    result = module._measure_expanded_placement(page, "http://local", 1920, 700)
+
+    page.set_viewport_size.assert_called_once_with({"width": 1920, "height": 700})
+    assert calls == [
+        (
+            page,
+            (
+                ("select", "#release_scope", "decade"),
+                ("click", ".disclosure__summary"),
+            ),
+        )
+    ]
+    assert result is page.evaluate.return_value
+
+
+def test_collapsed_form_keeps_the_full_lift_and_a_shorter_lift_fails() -> None:
+    """The collapsed form keeps the 2.5rem lift; a 1.5rem lift is off-centre."""
+    full = _centred_layout()
+    assert _frontend_gate_layout._form_centring_failures("1920x1063", full) == []
+    # A 1.5rem lift puts the card 16px lower: above 72, below 120 (gap 48, not 80).
+    short_lift = dict(full, formInnerTop=148, formInnerBottom=825)
+    failures = _frontend_gate_layout._form_centring_failures("1920x1063", short_lift)
+    assert len(failures) == 1 and "off-centre at 1920x1063" in failures[0]
+
+
+def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
+    """Run the scale-parity check with the 1920x1063 / 1920x700 expanded stubs."""
+    module = _frontend_gate_layout
+    measured_at = []
+
+    def expanded(_page, _url, width, height):
+        measured_at.append((width, height))
+        return full if (width, height) == (1920, 1063) else short
+
+    header_px = module._clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20)
+    root_width = 27.5 * 20 * ((900 - header_px) / ((42.0625 + 4) * 20))
+    state = {"dimensions": {}, "documentHeight": 2000, "viewportHeight": 945}
+    monkeypatch.setattr(module, "_measure_expanded_placement", expanded)
+    last_window = []
+
+    def scale_dimensions(_page, _url, _selectors, width, height):
+        last_window[:] = [(width, height)]
+        return _all_named()
+
+    def wide_layout(_page):
+        # Only the collapsed 1920x1063 window is off the centring rule.
+        if last_window == [(1920, 1063)]:
+            return dict(_centred_layout(), formInnerTop=152, formInnerBottom=829)
+        return _centred_layout()
+
+    monkeypatch.setattr(module, "_measure_scale_dimensions", scale_dimensions)
+    monkeypatch.setattr(module, "_measure_wide_layout", wide_layout)
+    monkeypatch.setattr(module, "_measure_zoom_and_transform", lambda _page: [])
+    monkeypatch.setattr(module, "_measure_mobile_headers", lambda *a: {})
+    monkeypatch.setattr(module, "_measure_fixed_state", lambda *a: state)
+    monkeypatch.setattr(module, "_measure_enlarged_root", lambda *a: root_width)
+    monkeypatch.setattr(module, "_check_desktop_scale_bounds", lambda *a: [])
+    for judge in (
+        "_scale_dimension_failures",
+        "_composition_bounds_failures",
+        "_wide_layout_failures",
+        "_header_geometry_failures",
+        "_scale_mechanism_failures",
+        "_state_dimension_failures",
+    ):
+        monkeypatch.setattr(module, judge, lambda *a, **k: [])
+    page = MagicMock()
+    page.evaluate.return_value = {"factor": "", "columns": 1}
+
+    failures = module.check_large_display_scale_parity(page, "http://local")
+
+    assert (1920, 1063) in measured_at and (1920, 700) in measured_at
+    return failures
+
+
+FULL_GAP_LINE = (
+    "/: expanded form leaves 4.0px between the header and the mode switch "
+    "at 1920x1063, expected at least 1.5rem (24.0px)"
+)
+SHORT_TOP_LINE = (
+    "/: expanded form top is 24.0px below the well at 1920x700, "
+    "expected the 0.25rem floor (4.0px)"
+)
+
+
+def test_large_display_check_reports_a_small_expanded_gap_at_1920x1063(
+    monkeypatch,
+) -> None:
+    """Only the roomy window fails: its gap is judged, the short one passes."""
+    failures = _run_large_display_check(
+        monkeypatch,
+        full=_expanded(gap=4, top=10),
+        short=_expanded(gap=30, top=4),
+    )
+    assert len(failures) == 2
+    assert "off-centre at 1920x1063" in failures[0]
+    assert failures[1] == FULL_GAP_LINE
+
+
+def test_large_display_check_reports_a_raised_form_top_at_1920x700(
+    monkeypatch,
+) -> None:
+    """Only the short window fails: dropping its call or mislabelling it shows."""
+    failures = _run_large_display_check(
+        monkeypatch,
+        full=_expanded(gap=30, top=10),
+        short=_expanded(gap=4, top=24),
+    )
+    assert len(failures) == 2
+    assert "off-centre at 1920x1063" in failures[0]
+    assert failures[1] == SHORT_TOP_LINE
+
+
+def _all_named() -> dict:
+    """Every selector the scale-parity check names, measured as empty."""
+    names = (
+        "hero composition",
+        "form composition",
+        "wordmark",
+        "headline",
+        "form",
+        "submit",
+        "field",
+        "label",
+        "theme control",
+        "input",
+        "mode tab",
+        "page navigation",
+        "header bar",
+    )
+    return {name: {} for name in names}
 
 
 def test_header_geometry_retains_clamps_gaps_and_wrap_thresholds() -> None:

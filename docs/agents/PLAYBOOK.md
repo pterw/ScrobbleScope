@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: gate the expanded form's placement
+
+Side task, no batch tag: gate the expanded form's placement in the layout gate, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: a form with every option open must not leave the mode switch pinned under the header, and a short window must keep the 0.25rem top floor (R3). The graduated lift (`2609f1f`) had no gate, so the old formula (4px gap) passed unnoticed. `check_large_display_scale_parity` now measures the expanded form (decade scope chosen, thresholds open) at 1920x1063, where the gap above the mode switch must be at least 1.5rem (1px tolerance), and at 1920x700, where the form top must sit exactly 0.25rem below the well top. It also re-runs the collapsed centring check at 1920x1063, and the `_form_centring_failures` docstring now describes the graduated lift (collapsed forms keep the full 2.5rem lift). New pure `_expanded_placement_failures` and `_measure_expanded_placement` in `scripts/dev/_frontend_gate_layout.py`; `_expanded_placement_failures` is listed in `HELPERS` of the test module. Stub-page tests cover both viewports and the state asked of `_reach_state`.
+
+Deviations: per ruling RA11, `_expanded_placement_failures` takes a keyword-only `short_window=False` flag beyond the plan's frozen `(label, measured)` interface; the two-argument call keeps its meaning (the roomy window). Edited existing tests: none (`HELPERS` tuple extended).
+
+Validation: `pytest -q` -- **3026 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: RECONCILIATION records the overrides
 
 Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RECONCILIATION.md`, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -209,9 +219,3 @@ Owner intent: the design doc must describe the shipped UI, not the first selecte
 Deviations: the Loading Stats bullet names the tiles in the shipped order (Scrobbles and Pages fetched, then Cache hits and Albums to search, as in `templates/loading.html`), per ruling RA7, where the plan wrote "Pages fetched and Scrobbles". Edited existing tests: none.
 
 Validation: `pytest -q` -- **3001 passed**.
-
-### 2026-10-25 - UI round 2 backlog: loading stats and Back test
-
-Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: the 2026-10-25 loading page changes (two stat tiles, Back from the results reaching the form) were not held by any test, so a swapped key or a return to `location.assign` would pass. Two tests in `tests/frontend/test_heatmap_pure_functions.py`: one drives a `/progress` answer with both figures (12 and 30 fill their own tiles) and one with `cache_hits` alone (the second tile stays hidden); the other loads the page from a routed URL, lets the scheduled redirect run and asserts the page is at `/results` with `history.length` unchanged. The shared loading markup gained the stats container and two tiles; label wording is not pinned. Two planted defects in `static/js/loading.js` (`location.assign` in `redirectToResults`, the Cache hits tile reading `albums_to_search`) each turned one test red, then the file was restored byte-identical. Deviations: none. Edited existing tests: none (the shared markup constant was extended). Validation: `pytest -q` -- **3001 passed**.
