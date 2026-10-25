@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: gate the expanded form's placement
+
+Side task, no batch tag: gate the expanded form's placement in the layout gate, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: a form with every option open must not leave the mode switch pinned under the header, and a short window must keep the 0.25rem top floor (R3). The graduated lift (`2609f1f`) had no gate, so the old formula (4px gap) passed unnoticed. `check_large_display_scale_parity` now measures the expanded form (decade scope chosen, thresholds open) at 1920x1063, where the gap above the mode switch must be at least 1.5rem (1px tolerance), and at 1920x700, where the form top must sit exactly 0.25rem below the well top. It also re-runs the collapsed centring check at 1920x1063, and the `_form_centring_failures` docstring now describes the graduated lift (collapsed forms keep the full 2.5rem lift). New pure `_expanded_placement_failures` and `_measure_expanded_placement` in `scripts/dev/_frontend_gate_layout.py`; `_expanded_placement_failures` is listed in `HELPERS` of the test module. Stub-page tests cover both viewports and the state asked of `_reach_state`.
+
+Deviations: per ruling RA11, `_expanded_placement_failures` takes a keyword-only `short_window=False` flag beyond the plan's frozen `(label, measured)` interface; the two-argument call keeps its meaning (the roomy window). Edited existing tests: none (`HELPERS` tuple extended).
+
+Validation: `pytest -q` -- **3026 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: RECONCILIATION records the overrides
 
 Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RECONCILIATION.md`, on `feat/ui-round-2-backlog`, a branch off `main`.

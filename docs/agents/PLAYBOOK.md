@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: gate the mode switch
+
+Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA1, "Keep muted, gate at 4.5"): keep the muted unselected label on the mode switch and hold it at 4.5:1 while the other segmented controls stay at 7:1. `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` take an optional `unselected_floor` spec key (default `SEG_TEXT_FLOOR`, 7.0) that replaces the floor for the unselected option text and the unselected-hover cell only. `scripts/dev/_frontend_gate_forms.py` adds `MODE_SWITCH_SEG` and `mode_switch_failures`, called from `check_include_unmatched_control`: it measures Top albums selected and Heatmap selected (a real click on `#mode-tab-heatmap`, restored to Top albums in a `finally`) in both themes, covering option text, selected text, chip boundary and both hover cells.
+
+Deviations: the measure hangs off `check_include_unmatched_control` because `frontend_gate.py` is outside the task's files. Review fix round (RA16): added a stub-page test that the include check runs the mode-switch measure, tests for the hover measure, the selected-chip hover row and the selected-chip hover floor staying at the default, and a restore-on-error test. No test that predates this task is edited. Of this task's own first-phase tests, `test_mode_switch_failures_restore_top_albums_and_keep_light_clear` gains `assert failures` and `test_mode_switch_spec_holds_only_the_unselected_cell_at_4_5`, added by this task's own first phase, was removed (RA16 (f): it pinned a constant equal to the code).
+
+Validation: `pytest -q` -- **3060 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: gate the hero strip
 
 Side task, no batch tag: gate the hero strip's layout, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -207,15 +217,5 @@ Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `
 Owner intent (R6): ranking the Results page by listening time drops albums with no listening time and renumbers the rest, and ranking by track plays brings them back. `applyRowState` in `static/js/results.js` now sets each row's hidden state as one decision (Hide on an unmatched row, or listening-time ranking on a row whose `data-play-time-seconds` is not above 0), clears `data-rank` and the rank cell of hidden rows, and renumbers the rest 1..n; `setLeaderboardMetric` and `setUnmatchedHidden` both call it, so a metric switch never reveals what Hide hides and never hides what Hide shows. The header figures count rows not hidden by Hide, so Total Albums, Top artist and Scrobbles still describe the whole result (RA3). The CSV exporter already skips hidden rows, so it lists only the ranked rows. New tests in `scripts/dev/results_behavior_tests.py` cover the drop and restore, the Hide round trip, the CSV and the header figures. This does not close F-B23-46: the server half (T10) and the hidden-count note (T7b) follow, and the toast text is unchanged here.
 
 Deviations: none. Edited existing test: `test_sort_updates_order_ranks_metrics_and_accessibility` (the durationless row "C" is now hidden and unranked in listening time, visible ranks `["1","2"]`, back at rank 3 on plays).
-
-Validation: `pytest -q` -- **3026 passed**.
-
-### 2026-10-25 - UI round 2 backlog: gate the expanded form's placement
-
-Side task, no batch tag: gate the expanded form's placement in the layout gate, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: a form with every option open must not leave the mode switch pinned under the header, and a short window must keep the 0.25rem top floor (R3). The graduated lift (`2609f1f`) had no gate, so the old formula (4px gap) passed unnoticed. `check_large_display_scale_parity` now measures the expanded form (decade scope chosen, thresholds open) at 1920x1063, where the gap above the mode switch must be at least 1.5rem (1px tolerance), and at 1920x700, where the form top must sit exactly 0.25rem below the well top. It also re-runs the collapsed centring check at 1920x1063, and the `_form_centring_failures` docstring now describes the graduated lift (collapsed forms keep the full 2.5rem lift). New pure `_expanded_placement_failures` and `_measure_expanded_placement` in `scripts/dev/_frontend_gate_layout.py`; `_expanded_placement_failures` is listed in `HELPERS` of the test module. Stub-page tests cover both viewports and the state asked of `_reach_state`.
-
-Deviations: per ruling RA11, `_expanded_placement_failures` takes a keyword-only `short_window=False` flag beyond the plan's frozen `(label, measured)` interface; the two-argument call keeps its meaning (the roomy window). Edited existing tests: none (`HELPERS` tuple extended).
 
 Validation: `pytest -q` -- **3026 passed**.

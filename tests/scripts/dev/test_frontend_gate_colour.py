@@ -544,3 +544,137 @@ def test_translucent_chip_border_is_composited_over_the_track(monkeypatch) -> No
     failures = _seg_failures(monkeypatch, paints)
     assert len(failures) == 2
     assert all("chip boundary on track" in line for line in failures)
+
+
+# --- unselected_floor spec key (UI round 2 backlog, T8, RA1) -----------------
+
+
+def _muted_paints() -> dict[str, dict]:
+    """Unselected text at about 5:1 on the track in both themes; rest passes."""
+    paints = _ok_paints()
+    paints["light"]["unselectedText"] = _grey_beside(LIGHT_TRACK, 5.0, passes=True)[0]
+    paints["dark"]["unselectedText"] = _grey_beside(DARK_TRACK, 5.0, passes=True)[0]
+    return paints
+
+
+def _spec_failures(monkeypatch, paints: dict, **extra) -> list[str]:
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u", **extra}
+    return _frontend_gate_colour.seg_contrast_failures(
+        _SegPage(paints), "Test control", spec
+    )
+
+
+def test_unselected_floor_4_5_accepts_muted_text_the_default_rejects(
+    monkeypatch,
+) -> None:
+    paints = _muted_paints()
+    default = _spec_failures(monkeypatch, paints)
+    assert len(default) == 2
+    assert all("option text on track" in line for line in default)
+    assert all("under 7.0:1" in line for line in default)
+    assert _spec_failures(monkeypatch, paints, unselected_floor=4.5) == []
+
+
+def test_unselected_floor_does_not_lower_the_other_cells(monkeypatch) -> None:
+    paints = _muted_paints()
+    low, _ = _grey_beside(LIGHT_TRACK, 4.5, passes=False)
+    paints["light"]["unselectedText"] = low
+    paints["light"]["selectedText"] = low
+    paints["light"]["chipBorder"] = low
+    failures = _spec_failures(monkeypatch, paints, unselected_floor=4.5)
+    cells = sorted(line.split(": ")[1].split(" is ")[0] for line in failures)
+    assert cells == [
+        "chip boundary on track",
+        "option text on track",
+        "selected text on chip",
+    ]
+    assert all("under 4.5:1" in line for line in failures)
+
+
+class _HoverPage:
+    """A page whose hover reads the same per-theme ink for each option."""
+
+    def __init__(self, ink: dict[str, dict[str, str]]) -> None:
+        self.ink = ink
+        self.theme = "light"
+        self.mouse = self
+
+    def move(self, *_args) -> None:
+        pass
+
+    def locator(self, selector):
+        class _Node:
+            def hover(self) -> None:
+                pass
+
+        return _Node()
+
+    def evaluate(self, script, arg=None):
+        if script is _frontend_gate_colour.SEG_PAINT_JS:
+            ink = self.ink[self.theme]
+            track = "rgb(240, 235, 224)" if self.theme == "light" else "rgb(24, 21, 32)"
+            return {
+                "track": track,
+                "unselectedText": ink["unselected"],
+                "selectedText": ink["selected"],
+                "chip": "rgba(0, 0, 0, 0)",
+                "chipBorder": "rgb(0, 0, 0)",
+            }
+        if arg in ("light", "dark"):
+            self.theme = arg
+        elif "'light'" in script:
+            self.theme = "light"
+        return None
+
+
+def _hover_failures(
+    monkeypatch, selected_ratio=None, unselected_ratio=5.0, **extra
+) -> list[str]:
+    """Hover failures for unselected ink at *unselected_ratio* (5:1 default).
+
+    Without *selected_ratio* the selected ink is full black or white.
+    """
+    monkeypatch.setattr(_frontend_gate_colour, "wait_for_settled", lambda *a, **k: None)
+    five_light = _grey_beside(LIGHT_TRACK, unselected_ratio, passes=True)[0]
+    five_dark = _grey_beside(DARK_TRACK, unselected_ratio, passes=True)[0]
+    selected_light, selected_dark = "rgb(0, 0, 0)", "rgb(255, 255, 255)"
+    if selected_ratio is not None:
+        passes = selected_ratio >= 4.5
+        selected_light = _grey_beside(LIGHT_TRACK, selected_ratio, passes=passes)[0]
+        selected_dark = _grey_beside(DARK_TRACK, selected_ratio, passes=passes)[0]
+    page = _HoverPage(
+        {
+            "light": {"unselected": five_light, "selected": selected_light},
+            "dark": {"unselected": five_dark, "selected": selected_dark},
+        }
+    )
+    spec = {"track": ".t", "selected": ".s", "unselected": ".u", **extra}
+    return _frontend_gate_colour.seg_hover_failures(page, "Test control", spec)
+
+
+def test_unselected_floor_4_5_accepts_hover_text_the_default_rejects(
+    monkeypatch,
+) -> None:
+    default = _hover_failures(monkeypatch)
+    assert len(default) == 2
+    assert all("hovered unselected option text on track" in line for line in default)
+    assert all("under 7.0:1" in line for line in default)
+    assert _hover_failures(monkeypatch, unselected_floor=4.5) == []
+
+
+def test_hovered_selected_chip_text_under_4_5_is_named(monkeypatch) -> None:
+    failures = _hover_failures(monkeypatch, selected_ratio=4.0, unselected_floor=4.5)
+    assert len(failures) == 2
+    assert all("hovered selected chip text on chip" in line for line in failures)
+    assert all("under 4.5:1" in line for line in failures)
+
+
+def test_unselected_floor_does_not_lower_the_selected_chip_hover_floor(
+    monkeypatch,
+) -> None:
+    # 5:1 clears the chip's own 4.5:1 floor but not the 7:1 default for the
+    # unselected text: with the default floor in force and unselected ink at
+    # 8:1, the chip must not inherit the unselected floor.
+    failures = _hover_failures(monkeypatch, selected_ratio=5.0, unselected_ratio=8.0)
+    assert failures == []

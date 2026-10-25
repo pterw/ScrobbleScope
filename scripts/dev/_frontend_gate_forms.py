@@ -36,6 +36,35 @@ HIDDEN_ON_LOAD = {
 }
 
 
+#: The index mode switch (RA1): its unselected label keeps the muted ink, so
+#: the gate holds that one cell (text and hover) at 4.5:1, not 7:1.
+MODE_SWITCH_SEG = {
+    "track": ".mode-tabs",
+    "selected": ".mode-pill.active",
+    "unselected": ".mode-pill:not(.active)",
+    "unselected_floor": 4.5,
+}
+
+
+def mode_switch_failures(page) -> list[str]:
+    """Hold the mode switch like a segmented control, for both selected states.
+
+    Top albums is selected as loaded; Heatmap is selected by a real click on its
+    tab, and Top albums is clicked back afterwards, even if a measure raises.
+    """
+    failures = []
+    try:
+        for state, tab in (("Top albums", None), ("Heatmap", "#mode-tab-heatmap")):
+            if tab:
+                page.locator(tab).click()
+            label = f"Mode switch ({state} selected)"
+            failures.extend(seg_contrast_failures(page, label, MODE_SWITCH_SEG))
+            failures.extend(seg_hover_failures(page, label, MODE_SWITCH_SEG))
+    finally:
+        page.locator("#mode-tab-album").click()
+    return failures
+
+
 def check_validation_feedback(page, base_url: str) -> list[str]:
     """Typing clears a validation message that is already on screen.
 
@@ -113,7 +142,8 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
     Also asserts that the group is announced (the browser's own accessible
     names and description), that the dimmed Play time option reads differently
     from an enabled one under forced colours (GrayText), and that the help
-    text keeps 7:1 on the card in both themes.
+    text keeps 7:1 on the card in both themes. It also runs the mode switch
+    measure (mode_switch_failures) on the same page, in both selected states.
     """
     failures = []
     page.goto(f"{base_url}/", wait_until="load")
@@ -156,6 +186,8 @@ def check_include_unmatched_control(page, base_url: str) -> list[str]:
                     },
                 )
             )
+
+    failures.extend(mode_switch_failures(page))
 
     info = page.evaluate(
         """() => {
