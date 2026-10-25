@@ -15,8 +15,10 @@ def normalize_name(artist, album):
     not corrupted by the metadata filter.
 
     An album that cleans to nothing ("?", "EP") keys on its own lowercased
-    text with whitespace collapsed and "|" written "%7c", so it keeps a
-    distinct, non-empty, pipe-free identity.
+    text with whitespace collapsed and "|" written "^", so it keeps a
+    distinct, non-empty, pipe-free identity. "^" is ASCII punctuation, so
+    that text is made only of punctuation, whitespace and edition words and
+    normalizing a key again returns it unchanged.
     """
     # Applied to album only -- these are release-metadata suffixes, not artist names.
     # Applying them to the artist string would corrupt proper nouns (e.g. the R&B
@@ -60,7 +62,7 @@ def normalize_name(artist, album):
         # Key it on its own NFKC-lowercased text instead; "|" is escaped so the
         # wire key from format_album_key still splits on exactly one pipe.
         raw = unicodedata.normalize("NFKC", album).lower()
-        album_norm = " ".join(raw.split()).replace("|", "%7c")
+        album_norm = " ".join(raw.split()).replace("|", "^")
     return clean(artist), album_norm
 
 
@@ -74,7 +76,7 @@ def format_album_key(normalized_key):
 
     The separator is safe because neither half of a ``normalize_name`` key can
     contain a pipe: punctuation becomes a space, and an album that cleans to
-    nothing keys on its raw text with every pipe written ``%7c``. The split
+    nothing keys on its raw text with every pipe written ``^``. The split
     back into two names is unambiguous.
     """
     artist_norm, album_norm = normalized_key

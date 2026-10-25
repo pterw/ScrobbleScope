@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Stop shadowing the credits builtin
+
+Side task, no batch tag: rename the `credits` local in `matching_credit` (Codacy finding on PR #270, Pylint W0622 redefined-builtin), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: Codacy flagged `credits = item.get("artists") ...` in `scrobblescope/spotify.py` as shadowing the `credits` builtin that `site` installs; it was introduced by the exact-match search change. The local is now `credited_artists`, used only inside `matching_credit`. Rename only, no behaviour change. A grep for `credits`, `copyright`, `license`, `exit` and `quit` assignments in `scrobblescope` found no other shadowing local.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2932 passed**.
+
 ### 2026-10-25 - Give requests sharing a Spotify ID their own metadata
 
 Side task, no batch tag: two requests that resolve to one Spotify ID each get their own metadata (D2, RB3), on `fix/album-matching`, stacked on PR #269.

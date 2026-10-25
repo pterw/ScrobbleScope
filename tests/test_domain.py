@@ -159,7 +159,34 @@ def test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity():
     assert all(album for _, album in keys.values())
     assert len({album for _, album in keys.values()}) == len(keys)
     assert all("|" not in half for key in keys.values() for half in key)
-    assert normalize_name("a", "||")[1] == "%7c%7c"
+    assert normalize_name("a", "||")[1] == "^^"
+
+
+@pytest.mark.parametrize(
+    ("artist", "album"),
+    [
+        ("Radiohead", "OK Computer (Deluxe Edition)"),
+        ("Bass", "Basspunk 2"),
+        ("宇多田ヒカル", "初恋"),
+        ("New Edition", "Heart Break"),
+        ("New Edition", "Collector's Edition"),
+        ("Artist", "|"),
+        ("Artist", "EP |"),
+        ("Artist", "||"),
+        ("Artist", "?"),
+        ("Artist", "EP"),
+        ("Artist", "!!!"),
+    ],
+)
+def test_normalize_name_is_idempotent(artist, album):
+    """
+    GIVEN any artist and album
+    WHEN the normalized key is normalized again
+    THEN it comes back unchanged, because both provider searches re-normalize
+    the key they are given and a key that drifts can never match.
+    """
+    key = normalize_name(artist, album)
+    assert normalize_name(*key) == key
 
 
 @pytest.mark.parametrize(
