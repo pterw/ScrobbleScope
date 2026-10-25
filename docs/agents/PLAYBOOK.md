@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Check an old cached Spotify row by its ID once
+
+Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: an old cached row carries no provider names, so a wrong match could not be told from a right one. A job now fetches the unstamped Spotify rows by their cached ID (Get Several Albums, chunks of 20 under `spotify_job_breaker`, never Search), keeps and persists the ones whose names fit the request key, and sends the rest to a miss. When Spotify cannot answer (no token, an unanswered ID) or the cache write fails, the row is used unchanged and not rewritten. One counts-only log line reports kept, stamped, dropped and unanswered. The code is in `scrobblescope/orchestrator/_cache.py`. A fix round added the persist-failure case after review.
+
+Deviations: none from the brief. Accepted review Minor items, not fixed: (1) the use of `spotify_job_breaker` in the stamping fetch has no test; (2) `on_fallback` is not passed to the details batch call, so the single-album fallback is not warned about in this path; (3) the older-row parity test now asserts values from the stamped details, and ID de-duplication before chunking is untested; (4) an unexpected exception in the stamping fetch is not caught and would fail the job rather than fail open.
+
+Edited existing tests: `test_process_albums_cache_hit_skips_spotify`, `test_process_albums_applies_cached_original_release_before_filtering`, `test_process_albums_records_provider_date_on_an_uncorrected_exclusion`, `test_process_albums_partial_cache_token_failure_uses_cached_results` and the `_split_stats` helper (feeds `test_loading_stats_split_the_passed_albums_into_hits_and_misses`) in `tests/services/test_orchestrator_process_albums.py`, and `test_fetch_and_process_loading_stats_count_only_albums_that_passed` in `tests/services/test_orchestrator_fetch_and_process.py`: seeded Spotify rows now carry `provider_artist`/`provider_title` fitting the key. In `tests/test_album_cache_parity.py` the `_spotify()` fake now details each album with name and credit (new `CREDITS` map), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` expects the stored names, and `test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_link` uses `_spotify()` instead of `_providers_forbidden()` because an old row is now stamped by one details call (the intended RB1 change); `test_a_search_costs_one_connection...` and `test_a_musicbrainz_finding...` pass through the fake change only. Each still asserts what it meant. Fix round: new case `persist_fails` added to `test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer`.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Stop shadowing the credits builtin
 
 Side task, no batch tag: rename the `credits` local in `matching_credit` (Codacy finding on PR #270, Pylint W0622 redefined-builtin), on `fix/album-matching`, stacked on PR #269.
@@ -218,15 +230,3 @@ Deviations: none. Landed before Task 8 (disjoint files: Task 8 touches the orche
 Edited existing tests: none. The `_spotify` helper in `tests/test_album_cache_parity.py` gained an optional `credit` argument (details carry name and artists); no existing test changed. New: `test_a_spotify_row_naming_another_album_is_a_miss` (parametrized) in `tests/services/test_cache.py` and `test_a_cached_row_naming_another_album_is_searched_again_and_overwritten` in `tests/test_album_cache_parity.py`.
 
 Validation: `pytest -q` -- **2929 passed**.
-
-### 2026-10-25 - Accept only an exact album match in Spotify search
-
-Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: `search_for_spotify_album_id` took `items[0]` unchecked, so a missing album got another album (wrong track list, "0 secs"). It now asks for 5 hits (`limit` 5) and returns the first whose credited artist and title normalize to the request key; otherwise None. New pure `matching_credit(item, key)` does the comparison (a non-dict hit or non-text field returns None, never raises). `album_metadata_from_details` takes `key` (default None) and stamps `provider_artist` and `provider_title` from the credit that matched, else leaves both None and, given a key, logs one warning line with no names; `orchestrator/_details.py` passes the key. Fix round 1: review found that comparing the title alone went unnoticed, so the exact-match test gains a same-title, different-artist case. The sequence-diagram and README wording for the search step follow in Task 11 (RB13, RB14); F-B23-59 is closed by Task 11, not here.
-
-Deviations: none.
-
-Edited existing tests: `test_search_for_spotify_album_id_retries_429_then_returns_id`, `test_search_succeeds_on_first_try` and `test_search_retries_a_malformed_retry_after` (their fake bodies gain the name and artists a real hit carries), and the helper `_ok_search` (now takes artist and album; callers pass the request's own names: `test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_one`, the newer-cached-token 401 test, `test_an_answer_between_refusals_keeps_the_breaker_closed`, `test_a_call_given_a_stale_token_sends_the_valid_cached_one_first`, `test_an_expired_cached_token_is_not_adopted`, `test_concurrent_rejections_of_one_token_cost_one_token_request`).
-
-Validation: `pytest -q` -- **2924 passed**.

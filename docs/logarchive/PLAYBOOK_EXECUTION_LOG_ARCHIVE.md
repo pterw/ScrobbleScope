@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Accept only an exact album match in Spotify search
+
+Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `search_for_spotify_album_id` took `items[0]` unchecked, so a missing album got another album (wrong track list, "0 secs"). It now asks for 5 hits (`limit` 5) and returns the first whose credited artist and title normalize to the request key; otherwise None. New pure `matching_credit(item, key)` does the comparison (a non-dict hit or non-text field returns None, never raises). `album_metadata_from_details` takes `key` (default None) and stamps `provider_artist` and `provider_title` from the credit that matched, else leaves both None and, given a key, logs one warning line with no names; `orchestrator/_details.py` passes the key. Fix round 1: review found that comparing the title alone went unnoticed, so the exact-match test gains a same-title, different-artist case. The sequence-diagram and README wording for the search step follow in Task 11 (RB13, RB14); F-B23-59 is closed by Task 11, not here.
+
+Deviations: none.
+
+Edited existing tests: `test_search_for_spotify_album_id_retries_429_then_returns_id`, `test_search_succeeds_on_first_try` and `test_search_retries_a_malformed_retry_after` (their fake bodies gain the name and artists a real hit carries), and the helper `_ok_search` (now takes artist and album; callers pass the request's own names: `test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_one`, the newer-cached-token 401 test, `test_an_answer_between_refusals_keeps_the_breaker_closed`, `test_a_call_given_a_stale_token_sends_the_valid_cached_one_first`, `test_an_expired_cached_token_is_not_adopted`, `test_concurrent_rejections_of_one_token_cost_one_token_request`).
+
+Validation: `pytest -q` -- **2924 passed**.
+
 ### 2026-10-25 - Store the provider's own names and add match_for
 
 Side task, no batch tag: store the artist and title the provider returned beside each cached album, and add `AlbumMetadata.match_for(key)`, on `fix/album-matching`, stacked on PR #269.

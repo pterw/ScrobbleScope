@@ -12,6 +12,7 @@ from scrobblescope.orchestrator._cache import (
     _lookup_cached_metadata,
     _persist_new_metadata,
 )
+from scrobblescope.spotify import AlbumDetails
 from tests.album_metadata import spotify_metadata
 from tests.fake_postgres import fake_postgres
 from tests.helpers import SPOTIFY_ALBUM_DETAILS_MOCK, TEST_JOB_PARAMS
@@ -41,6 +42,8 @@ async def test_process_albums_cache_hit_skips_spotify():
             "1997-06-16",
             "https://img.example.com/ok.jpg",
             {"paranoid android": 383, "karma police": 264},
+            provider_artist="Radiohead",
+            provider_title="OK Computer",
         )
     }
 
@@ -101,6 +104,8 @@ async def test_process_albums_applies_cached_original_release_before_filtering()
             "2011-01-31",
             "https://img.example.com/rumours.jpg",
             {"dreams": 257},
+            provider_artist="Fleetwood Mac",
+            provider_title="Rumours",
         )
     }
     cached_original_release = {
@@ -172,6 +177,8 @@ async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion(
             "2011-01-31",
             "https://img.example.com/rumours.jpg",
             {"dreams": 257},
+            provider_artist="Fleetwood Mac",
+            provider_title="Rumours",
         )
     }
     mock_conn = AsyncMock()
@@ -506,6 +513,8 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
             "1997-06-16",
             "https://img.example.com/ok.jpg",
             {"paranoid android": 383, "karma police": 264},
+            provider_artist="Radiohead",
+            provider_title="OK Computer",
         )
     }
 
@@ -1230,7 +1239,10 @@ async def _split_stats(passed, cached, *, db_available=True, matched=()):
         patch(
             "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
-            return_value={key: spotify_metadata() for key in cached},
+            return_value={
+                key: spotify_metadata(provider_artist=key[0], provider_title=key[1])
+                for key in cached
+            },
         ),
         patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(
@@ -1299,3 +1311,199 @@ async def test_loading_stats_split_the_passed_albums_into_hits_and_misses(
     assert stats["cache_hits"] == hits
     assert stats["albums_to_search"] == to_search
     assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
+
+
+###############################################################################
+# Stamping: an old cached Spotify row is checked by its cached ID once (RB1)  #
+###############################################################################
+
+
+class _StampingSpotify:
+    """Fakes for the stamping call. Records every ID list it was asked for.
+
+    It accepts any batch size, so an oversized batch is seen by the test's own
+    assertion, not refused by the fake. *details* maps a Spotify ID to its
+    album object; an ID it lacks is answered with nothing, and an ID in
+    *unanswered* is reported as one Spotify could not answer.
+    """
+
+    def __init__(self, details=None, unanswered=(), token="tok"):
+        self.details = details or {}
+        self.unanswered = unanswered
+        self.token = token
+        self.calls = []
+        self.searches = 0
+
+    async def fetch(self, _session, ids, _token, **_kwargs):
+        self.calls.append(list(ids))
+        answered = {i: self.details[i] for i in ids if i in self.details}
+        return AlbumDetails(answered, [i for i in ids if i in self.unanswered])
+
+    async def search(self, *_args, **_kwargs):
+        self.searches += 1
+
+    def patches(self):
+        return (
+            patch(
+                "scrobblescope.orchestrator.fetch_spotify_access_token",
+                new_callable=AsyncMock,
+                return_value=self.token,
+            ),
+            patch(
+                "scrobblescope.orchestrator.create_optimized_session",
+                side_effect=lambda: _session_ctx(),
+            ),
+            patch(
+                "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+                side_effect=self.fetch,
+            ),
+            patch(
+                "scrobblescope.orchestrator.search_for_spotify_album_id",
+                side_effect=self.search,
+            ),
+        )
+
+
+def _credit(artist, title):
+    """A Spotify album object crediting *artist* for *title*."""
+    return {"name": title, "artists": [{"name": artist}]}
+
+
+def _seed_unstamped(db, count):
+    """Seed *count* old Spotify rows (an ID, no names); return their keys."""
+    keys = [(f"artist {i}", f"album {i}") for i in range(count)]
+    for i, key in enumerate(keys):
+        db.seed_metadata(
+            *key, spotify_id=f"sp{i}", provider="spotify", provider_album_id=f"sp{i}"
+        )
+    return keys
+
+
+async def _stamping_lookup(db, fake, keys):
+    """Run the job's cache lookup against *db* with *fake* as Spotify."""
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    first, second, third, fourth = fake.patches()
+    with fake_postgres(db), first, second, third, fourth:
+        async with open_album_cache() as album_cache:
+            cached = await _lookup_cached_metadata(album_cache, job_id, keys)
+    return job_id, cached
+
+
+@pytest.mark.asyncio
+async def test_an_unstamped_row_that_fits_is_kept_stamped_and_not_checked_again():
+    """
+    GIVEN an old cached Spotify row and details crediting the key's own album
+    WHEN the lookup runs, then runs again
+    THEN the row keeps its ID, is returned with its names and persisted with
+    them, and the second lookup makes no Spotify call.
+    """
+    fake = _StampingSpotify({"sp0": _credit("Artist 0", "Album 0")})
+    with fake_postgres() as db:
+        (key,) = _seed_unstamped(db, 1)
+        job_id, cached = await _stamping_lookup(db, fake, [key])
+        stored = dict(db.metadata[key])
+        _, again = await _stamping_lookup(db, fake, [key])
+
+    assert cached[key].album_id == "sp0"
+    assert (cached[key].provider_artist, cached[key].provider_title) == (
+        "Artist 0",
+        "Album 0",
+    )
+    assert (stored["spotify_id"], stored["provider_artist"]) == ("sp0", "Artist 0")
+    assert jobs.progress(job_id)["stats"]["db_cache_lookup_hits"] == 1
+    assert again[key].provider_title == "Album 0"
+    assert fake.calls == [["sp0"]]
+    assert fake.searches == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "details",
+    [
+        {"sp0": _credit("Captain Beefheart", "Safe As Milk")},
+        {},
+    ],
+    ids=["names_of_another_album", "details_empty"],
+)
+async def test_an_unstamped_row_that_does_not_fit_is_a_miss(details):
+    """
+    GIVEN an old cached Spotify row whose ID now details another album, or
+    nothing
+    WHEN the lookup runs
+    THEN the key is a miss (removed, not counted as a hit, left unrewritten)
+    so it is searched again.
+    """
+    fake = _StampingSpotify(details)
+    with fake_postgres() as db:
+        (key,) = _seed_unstamped(db, 1)
+        before = dict(db.metadata[key])
+        job_id, cached = await _stamping_lookup(db, fake, [key])
+        after = dict(db.metadata[key])
+
+    assert cached == {}
+    assert jobs.progress(job_id)["stats"]["db_cache_lookup_hits"] == 0
+    assert after == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("rows", "chunks"),
+    [(120, [20] * 6), (21, [20, 1]), (20, [20])],
+    ids=["120_rows", "21_rows", "20_rows"],
+)
+async def test_unstamped_rows_are_checked_in_calls_of_at_most_20_ids(rows, chunks):
+    """
+    GIVEN many old cached Spotify rows
+    WHEN the lookup runs
+    THEN Spotify is asked for their IDs in ceil(N/20) calls, none carrying
+    more than 20 IDs (Get Several Albums refuses more), and never searched.
+    """
+    fake = _StampingSpotify(
+        {f"sp{i}": _credit(f"Artist {i}", f"Album {i}") for i in range(rows)}
+    )
+    with fake_postgres() as db:
+        keys = _seed_unstamped(db, rows)
+        _, cached = await _stamping_lookup(db, fake, keys)
+
+    assert sorted(len(call) for call in fake.calls) == sorted(chunks)
+    assert max(len(call) for call in fake.calls) <= 20
+    assert fake.searches == 0
+    assert len(cached) == rows
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outage", ["no_token", "unanswered", "persist_fails"])
+async def test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer(
+    outage,
+):
+    """
+    GIVEN an old cached Spotify row and no Spotify token, or details it could
+    not answer for, or details that fit but a failing cache write
+    WHEN the lookup runs
+    THEN the row stays in the result as it was (unstamped, not dropped) and
+    nothing is persisted, so a later job tries again.
+    """
+    fake = {
+        "no_token": _StampingSpotify(token=None),
+        "unanswered": _StampingSpotify(unanswered={"sp0"}),
+        "persist_fails": _StampingSpotify({"sp0": _credit("Artist 0", "Album 0")}),
+    }[outage]
+    failing_write = patch(
+        "scrobblescope.cache.batch_persist_metadata",
+        new=AsyncMock(side_effect=RuntimeError("write fault")),
+    )
+    with fake_postgres() as db:
+        (key,) = _seed_unstamped(db, 1)
+        before = dict(db.metadata[key])
+        if outage == "persist_fails":
+            with failing_write:
+                _, cached = await _stamping_lookup(db, fake, [key])
+        else:
+            _, cached = await _stamping_lookup(db, fake, [key])
+        after = dict(db.metadata[key])
+        inserts = [s for s in db.statements if s[0] == "INSERT"]
+
+    assert cached[key].provider_artist is None
+    assert cached[key].album_id == "sp0"
+    assert after == before
+    assert inserts == []

@@ -106,21 +106,36 @@ def _session_ctx():
     return ctx
 
 
+#: The names Spotify credits each fake album with, by Spotify id.
+CREDITS = {
+    "sp-radiohead": ("Radiohead", "OK Computer"),
+    "sp-mitski": ("Mitski", "Laurel Hell"),
+    "sp9": ("Radiohead", "OK Computer"),
+}
+
+
 @contextmanager
 def _spotify(release_date="1997-06-16", credit=None):
     """Spotify matches every album (id ``sp-<artist>``) and details it.
 
-    With *credit* the details carry the album's name and that credited artist,
-    so the stored row is stamped with the provider's own names."""
-    details = {**SPOTIFY_DETAILS, "release_date": release_date}
-    if credit:
-        details |= {"name": "OK Computer", "artists": [{"name": credit}]}
+    The details carry the album's name and its credited artist, so the stored
+    row is stamped with the provider's own names. *credit* overrides the
+    credited artist."""
 
     async def search(session, artist, album, token, semaphore=None):
         return f"sp-{artist}"
 
     async def batch(session, ids, token, semaphore=None, on_fallback=None):
-        return {spotify_id: details for spotify_id in ids}
+        def named(spotify_id):
+            artist, title = CREDITS[spotify_id]
+            return {
+                **SPOTIFY_DETAILS,
+                "release_date": release_date,
+                "name": title,
+                "artists": [{"name": credit or artist}],
+            }
+
+        return {spotify_id: named(spotify_id) for spotify_id in ids}
 
     with (
         patch(ORCH + "fetch_spotify_access_token", AsyncMock(return_value="tok")),
@@ -198,8 +213,8 @@ async def test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matc
         "provider": "spotify",
         "provider_album_id": SPOTIFY_ID,
         "provider_url": SPOTIFY_URL,
-        "provider_artist": None,
-        "provider_title": None,
+        "provider_artist": "Radiohead",
+        "provider_title": "OK Computer",
     }
     assert second == first
     (row,) = first
@@ -259,7 +274,7 @@ async def test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_li
     """
     GIVEN a cached row from before the provider columns, or one the migration
     backfilled with no link
-    WHEN a search reads it
+    WHEN a search reads it (and Spotify confirms the cached id, which stamps it)
     THEN it is a Spotify album and its link is Spotify's classic album page.
     """
     with fake_postgres() as db:
@@ -270,7 +285,7 @@ async def test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_li
             track_durations=DURATIONS,
             **columns,
         )
-        with _providers_forbidden():
+        with _spotify():
             _, results = await _search()
 
     (row,) = results
