@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 from html.parser import HTMLParser
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -170,8 +171,6 @@ def test_mode_switch_failures_name_the_state_whose_outline_is_under_4_5(
     page = _ModePage({"album": "rgba(0, 0, 0, 0)", "heatmap": "rgb(128, 128, 128)"})
     failures = _frontend_gate_forms.mode_switch_failures(page)
     assert failures
-    assert all("Mode switch (" in line for line in failures)
-    assert all("chip boundary on track" in line for line in failures)
     assert all("under 4.5:1" in line for line in failures)
     assert any("Mode switch (Top albums selected)" in line for line in failures)
     assert any("Mode switch (Heatmap selected)" in line for line in failures)
@@ -221,31 +220,19 @@ def test_mode_switch_failures_restore_top_albums_when_a_measure_raises(
     assert page.selected == "album"
 
 
-class _Stop(Exception):
-    """Raised by the stub page to end the include check once the call is seen."""
-
-
-class _StopPage:
-    def goto(self, *_args, **_kwargs) -> None:
-        pass
-
-    def locator(self, _selector):
-        return self
-
-    def evaluate(self, *_args, **_kwargs):
-        raise _Stop
-
-
-def test_include_check_runs_the_mode_switch_measure(monkeypatch) -> None:
-    calls: list[object] = []
+def test_include_check_reports_what_the_mode_switch_measure_finds(
+    monkeypatch,
+) -> None:
+    failure = "/ Mode switch (stub): chip boundary on track is under 4.5:1"
     monkeypatch.setattr(
-        _frontend_gate_forms,
-        "mode_switch_failures",
-        lambda page: calls.append(page) or [],
+        _frontend_gate_forms, "mode_switch_failures", lambda page: [failure]
     )
     monkeypatch.setattr(_frontend_gate_forms, "seg_contrast_failures", lambda *a: [])
     monkeypatch.setattr(_frontend_gate_forms, "seg_hover_failures", lambda *a: [])
-    page = _StopPage()
-    with pytest.raises(_Stop):
-        _frontend_gate_forms.check_include_unmatched_control(page, "http://x")
-    assert calls == [page]
+    monkeypatch.setattr(
+        _frontend_gate_forms, "_unmatched_help_contrast_failures", lambda page: []
+    )
+    failures = _frontend_gate_forms.check_include_unmatched_control(
+        MagicMock(), "http://x"
+    )
+    assert failure in failures

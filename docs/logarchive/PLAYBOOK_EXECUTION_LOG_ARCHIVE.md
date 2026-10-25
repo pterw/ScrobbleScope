@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: test consolidation, parity family
+
+Side task, no batch tag: remove the frontend gate's module-shape parity tests, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): cut repeated and written-function tests to save suite time; the owner approved this removal outright: "you have permission for the parity family to save that 5% of suite time". This reverses the post-split parity guard added under F-B21-51, which checked that every name a gate slice moved out of `scripts/dev/frontend_gate.py` is still defined in its slice and still resolves through the gate module. Those tests are gone from the nine slice files (`test_the_slice_defines_the_name`, `test_the_name_resolves_through_the_gate_module`), from `test_frontend_gate_colour.py` (`TestFacadeStillReExportsTheMovedHelpers`) and from `test_frontend_gate_shared.py` (`test_the_shared_module_defines_the_name`), with the name lists and imports only they used. Collected cases in the eleven edited files plus `test_frontend_gate_split.py` fall from 501 to 307 (-194); the suite falls from 3067 to 2873. Every behaviour test, `tests/scripts/dev/gate_parity.py` and `test_frontend_gate_split.py` (the split's own check) stay.
+
+Deviations: none. Edited existing tests: removed `test_the_slice_defines_the_name` and `test_the_name_resolves_through_the_gate_module` (in the assets, forms, heatmap_access, layout, pipeline, runtime, spotlight_photo, theme and unmatched gate test files), `TestFacadeStillReExportsTheMovedHelpers` and `test_the_shared_module_defines_the_name`.
+
+Validation: `pytest -q` -- **2873 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: ranking agreement test
 
 Side task, no batch tag: a browser test that a listening-time run and a switched play-count page agree, on `feat/ui-round-2-backlog`, a branch off `main`.

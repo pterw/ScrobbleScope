@@ -54,37 +54,35 @@ def _failures(monkeypatch, borders: dict[str, str]) -> list[str]:
     return include.card_boundary_failures(page)
 
 
-def test_card_boundary_at_the_floor_passes_in_both_themes(monkeypatch) -> None:
-    borders = {t: _grey_beside(CARDS[t], 4.5, passes=True)[0] for t in CARDS}
-    assert _failures(monkeypatch, borders) == []
-
-
-def test_card_boundary_of_4_63_passes_in_both_themes(monkeypatch) -> None:
-    borders = {t: _grey_beside(CARDS[t], 4.63, passes=True)[0] for t in CARDS}
-    assert _failures(monkeypatch, borders) == []
-
-
-@pytest.mark.parametrize("theme", ["light", "dark"])
-def test_card_boundary_just_under_4_5_fails_in_that_theme_alone(
-    monkeypatch, theme
+@pytest.mark.parametrize(
+    ("failing", "probe_floor", "probe_passes"),
+    [
+        # Just under 4.5:1 in one theme: only that theme fails, the other
+        # (a grey at the floor) passes.
+        (("light",), 4.5, False),
+        (("dark",), 4.5, False),
+        # A 3.5:1 boundary clears the old 3:1 floor but not 4.5:1, in both.
+        (("light", "dark"), 3.5, True),
+    ],
+)
+def test_card_boundary_under_4_5_fails_in_the_themes_that_miss_it(
+    monkeypatch, failing, probe_floor, probe_passes
 ) -> None:
     borders = {t: _grey_beside(CARDS[t], 4.5, passes=True)[0] for t in CARDS}
-    borders[theme], ratio = _grey_beside(CARDS[theme], 4.5, passes=False)
+    ratios = {}
+    for theme in failing:
+        borders[theme], ratios[theme] = _grey_beside(
+            CARDS[theme], probe_floor, passes=probe_passes
+        )
     failures = _failures(monkeypatch, borders)
-    assert len(failures) == 1
-    assert f"{theme} theme" in failures[0]
-    assert "against the card" in failures[0]
-    assert f"{ratio:.2f}:1" in failures[0]
-    assert "under 4.5:1" in failures[0]
-
-
-def test_card_boundary_at_3_5_fails_because_the_floor_is_no_longer_3(
-    monkeypatch,
-) -> None:
-    borders = {t: _grey_beside(CARDS[t], 3.5, passes=True)[0] for t in CARDS}
-    failures = _failures(monkeypatch, borders)
-    assert len(failures) == 2
-    assert all("under 4.5:1" in line for line in failures)
+    assert len(failures) == len(failing)
+    assert all(
+        f"{theme} theme" in line
+        and "against the card" in line
+        and f"{ratios[theme]:.2f}:1" in line
+        and "under 4.5:1" in line
+        for theme, line in zip(failing, failures, strict=True)
+    )
 
 
 class _NoSelectedPage:
