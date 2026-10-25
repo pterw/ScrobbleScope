@@ -1,3 +1,4 @@
+import logging
 import math
 import os
 
@@ -67,13 +68,23 @@ DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
 DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))
 DEEZER_DETAIL_RETRIES = int(os.getenv("DEEZER_DETAIL_RETRIES", "3"))
 
-# MusicBrainz: 1 request/second per IP, and its policy requires a contact --
-# an email address or a URL -- in every request's User-Agent. With no contact
+# MusicBrainz: its policy allows 1 request/second per IP and requires a
+# contact -- an email address or a URL -- in every request's User-Agent. The
+# spacing this app enforces between request starts is
+# MUSICBRAINZ_MIN_INTERVAL_SECONDS (default 1.1, a margin over the policy
+# figure so jitter cannot put two starts inside one second). With no contact
 # configured, the client stays disabled rather than send requests that break
 # that policy and risk the IP being throttled or blocked.
 MUSICBRAINZ_CONTACT = os.getenv("MUSICBRAINZ_CONTACT")
 MUSICBRAINZ_ENABLED = os.getenv("MUSICBRAINZ_ENABLED", "true").lower() == "true"
-MUSICBRAINZ_REQUESTS_PER_SECOND = int(os.getenv("MUSICBRAINZ_REQUESTS_PER_SECOND", "1"))
+MUSICBRAINZ_MIN_INTERVAL_SECONDS = _positive_seconds(
+    "MUSICBRAINZ_MIN_INTERVAL_SECONDS", "1.1"
+)
+if "MUSICBRAINZ_REQUESTS_PER_SECOND" in os.environ:
+    logging.getLogger(__name__).warning(
+        "MUSICBRAINZ_REQUESTS_PER_SECOND is ignored; "
+        "set MUSICBRAINZ_MIN_INTERVAL_SECONDS (seconds between requests) instead."
+    )
 MUSICBRAINZ_SEARCH_RETRIES = int(os.getenv("MUSICBRAINZ_SEARCH_RETRIES", "3"))
 MUSICBRAINZ_CHECKS_PER_JOB = int(os.getenv("MUSICBRAINZ_CHECKS_PER_JOB", "60"))
 

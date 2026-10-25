@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Space MusicBrainz requests 1.1s apart
+
+Side task, no batch tag: space MusicBrainz request starts 1.1s apart (D5, RB6), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: MusicBrainz's policy is 1 request per second, and the throttle started requests exactly 1.000s apart, which left no margin. `MUSICBRAINZ_REQUESTS_PER_SECOND` (an integer) is replaced by the float setting `MUSICBRAINZ_MIN_INTERVAL_SECONDS` (default 1.1, read through `_positive_seconds` so 0, negative and nan are refused), and `_MUSICBRAINZ_THROTTLE` is now `_GlobalThrottle(1, MUSICBRAINZ_MIN_INTERVAL_SECONDS)`; `_GlobalThrottle` and the other providers are unchanged. The old variable is ignored: setting it logs one import-time warning on `scrobblescope.config` naming the new variable. If Fly secrets set the old variable, it now only logs that warning. New tests: `test_global_throttles_space_request_starts_by_their_interval` (MusicBrainz 1.1 and Spotify 1/rate, controlled clock), `test_musicbrainz_limiter_uses_the_musicbrainz_throttle`, and `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` (child-process import; one fix round after review made it also assert the throttle's spacing equals the setting, so a hard-coded 1.1 fails).
+
+Deviations: none. This task landed after Tasks 5 and 3 (disjoint files). The policy quotes of "1 req/s" in `musicbrainz.py`, `release_checks.py`, `docs/agents/runtime-system.md` and `tests/test_release_checks.py` stay: they cite the policy, not the enforced spacing. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2905 passed**.
+
 ### 2026-10-25 - Wait and retry when MusicBrainz throttles
 
 Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.
@@ -212,13 +222,3 @@ Owner intent: albums named "?" or "EP" keyed as an empty album half in `normaliz
 Deviations: none. Edited existing tests: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (the album half is now "ep", not empty; it still asserts that an artist named EP is kept and an album EP is stripped of the edition word, and its docstring was corrected).
 
 Validation: `pytest -q` -- **2883 passed**.
-
-### 2026-10-25 - File the album-matching findings
-
-Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.
-
-Owner intent: the plan (`docs/superpowers/plans/2026-10-25-album-matching.md`) fixes problems the owner's real runs showed on 2026-10-25, and each later commit needs an open finding to close. `docs/agents/FINDINGS.md` now holds F-B23-59 (Spotify album search takes the first result unchecked), F-B23-60 (two albums sharing a Spotify ID overwrite each other; still reachable through collaboration albums), F-B23-61 (an album named "?" or "EP" normalizes to an empty key), F-B23-62 (a MusicBrainz 429 is cached as a final "no match", the P2 that corrupts a cache) and F-B23-63 (MusicBrainz request starts exactly 1.000s apart, P3). The artist spotlight's unchecked first result stays F-B23-26, open. Each names its function and one real case. Only `docs/agents/FINDINGS.md` and this log changed; no code or test.
-
-Deviations: F-B23-64 was already taken (filed on PR #269), so the plan's IDs 59 to 63 were confirmed free in both the active file and the archive; F-B23-26 was not edited because the plan does not change its fix. Edited existing tests: none by this commit; the plan's later commits edit these existing tests, each named in its own entry: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (Task 2), `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now `musicbrainz_unavailable`, response `headers = {}`) and the 503 retry tests that assert a fixed sleep, all in `tests/services/test_musicbrainz_service.py` (Task 3), and the search fakes in `tests/services/test_spotify_service.py` (Task 7).
-
-Validation: `pytest -q` -- **2876 passed**.

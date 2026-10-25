@@ -74,3 +74,42 @@ def test_the_precheck_timeout_is_read_through_the_validator():
     accepted = _import_config_in_child("0.25")
     assert accepted.returncode == 0, accepted.stderr
     assert accepted.stdout.strip() == "0.25"
+
+
+MB_INTERVAL = "MUSICBRAINZ_MIN_INTERVAL_SECONDS"
+MB_OLD_RATE = "MUSICBRAINZ_REQUESTS_PER_SECOND"
+
+
+@pytest.mark.parametrize(
+    "env, expected_interval, expected_warnings",
+    [
+        ({}, "1.1", 0),
+        ({MB_INTERVAL: "2.0"}, "2.0", 0),
+        ({MB_OLD_RATE: "5"}, "1.1", 1),
+    ],
+)
+def test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored(
+    env, expected_interval, expected_warnings
+):
+    """The interval setting (default 1.1s) sets the spacing; the old rate setting
+    changes nothing and logs one warning naming the new variable."""
+    base = {k: v for k, v in os.environ.items() if k not in (MB_INTERVAL, MB_OLD_RATE)}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from scrobblescope import config, utils; "
+            f"print(config.{MB_INTERVAL}); "
+            "print(utils._MUSICBRAINZ_THROTTLE._min_interval)",
+        ],
+        cwd=REPO_ROOT,
+        env={**base, **env},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    # The throttle's real spacing follows the setting, not just the config value.
+    assert result.stdout.split() == [expected_interval, expected_interval]
+    assert result.stderr.count(MB_OLD_RATE) == expected_warnings
+    assert result.stderr.count(MB_INTERVAL) == expected_warnings

@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - File the album-matching findings
+
+Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.
+
+Owner intent: the plan (`docs/superpowers/plans/2026-10-25-album-matching.md`) fixes problems the owner's real runs showed on 2026-10-25, and each later commit needs an open finding to close. `docs/agents/FINDINGS.md` now holds F-B23-59 (Spotify album search takes the first result unchecked), F-B23-60 (two albums sharing a Spotify ID overwrite each other; still reachable through collaboration albums), F-B23-61 (an album named "?" or "EP" normalizes to an empty key), F-B23-62 (a MusicBrainz 429 is cached as a final "no match", the P2 that corrupts a cache) and F-B23-63 (MusicBrainz request starts exactly 1.000s apart, P3). The artist spotlight's unchecked first result stays F-B23-26, open. Each names its function and one real case. Only `docs/agents/FINDINGS.md` and this log changed; no code or test.
+
+Deviations: F-B23-64 was already taken (filed on PR #269), so the plan's IDs 59 to 63 were confirmed free in both the active file and the archive; F-B23-26 was not edited because the plan does not change its fix. Edited existing tests: none by this commit; the plan's later commits edit these existing tests, each named in its own entry: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (Task 2), `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now `musicbrainz_unavailable`, response `headers = {}`) and the 503 retry tests that assert a fixed sleep, all in `tests/services/test_musicbrainz_service.py` (Task 3), and the search fakes in `tests/services/test_spotify_service.py` (Task 7).
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - Plan album matching and cache re-verification
 
 Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
