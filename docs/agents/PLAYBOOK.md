@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
+
+Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
+
+Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
+
+Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
 
 Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -210,15 +222,5 @@ Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui
 Owner intent: "Make sure that the plans are being followed and marking where they are finished when things arrive and deviations." The plan's acceptance boxes are ticked for Tasks 1-11 (Task 11b has none), each backed by its land report and an approving review; Task 12 stays open. The plan gains an "Execution record (2026-10-25)" section: a table of task, commit, review rounds and deviation ruling ids (RA6-RA21), plus the landing-order changes (RA9, RA10), the `short_window` interface extension (RA11), Task 10's two edits outside its Touches, the owner copy (RA13), F-B23-46 resolved and F-B23-64 filed, the lean-suite consolidation (RA20, 3067 to 2876 tests) and what still has to run (Task 12, the final gates). Docs only; the plan is a point-in-time record, so no live prose changed.
 
 Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: test consolidation, gate unit tests
-
-Side task, no batch tag: merge duplicate and near-duplicate tests in the four frontend-gate unit-test files (`test_frontend_gate_colour.py`, `_forms.py`, `_include.py`, `_layout.py`), on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Colour: the seven "Carried from test_frontend_gate.py" duplicates (parse_rgb_string, composite_over, contrast_ratio symmetry, worst divider contrast, the 3:1 boundary, the divider token name, clamp_px) are removed, each verified against its surviving class test (`TestParseRgbString`, `TestCompositeOver`, `TestContrastRatio`, `TestWorstDividerContrast`, `TestDividerContrastFailure`, `TestClampPx`); 2.9999 became a case of `test_reports_below_the_threshold`. `test_seg_boundary_at_the_floor_passes_in_both_themes` is removed (`test_selected_text_floor_stays_4_5` and the other-theme half of the under-4.5 cases guard it); the 3.5 case is merged into the renamed `test_seg_boundary_under_4_5_fails_in_the_themes_that_miss_it`; the two unselected-floor tests are one parametrized `test_unselected_text_floor_is_7_to_1_by_default_and_selected_text_keeps_4_5`. The luminance test keeps only the ordering claim. Forms: the mode-switch failure test keeps both state labels and the figure; `test_include_check_runs_the_mode_switch_measure` is now `test_include_check_reports_what_the_mode_switch_measure_finds` and asserts a stubbed failure reaches the returned list (it fails if the `mode_switch_failures` call is removed). Include: the at-the-floor and 4.63 pass tests are removed (each just-under case asserts the other theme passes); the 3.5 case is merged into the renamed `test_card_boundary_under_4_5_fails_in_the_themes_that_miss_it`, keeping the "against the card" fragment. Layout: `test_collapsed_form_keeps_the_full_lift_and_a_shorter_lift_fails` is removed (the form-centring tests guard the same rule); the short-window pair, the 1920x700 and 1920x1063 large-display pair, the strip pass pair and fail pair, and the 879 and 892 loops are parametrized (each case still fails if its own viewport or cell is dropped); the 860 pair is `test_strip_display_follows_the_860_cut`; the sweep test is `test_strip_sweep_reaches_the_widths_below_the_860_cut` and asserts the four sub-860 lines without an event log; the decade-scope test asserts only the reach state.
-
-Deviations: the sweep test no longer asserts the per-width fresh page load order. Two Minor review notes accepted under RA20, no change: the default token (`--shell-border`) of `_divider_contrast_failure` is no longer asserted, and "every width at or above 860 is measured" is no longer guarded. Edited existing tests: those named above.
 
 Validation: `pytest -q` -- **2876 passed**.

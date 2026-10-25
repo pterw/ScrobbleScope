@@ -111,7 +111,7 @@ sequenceDiagram
                         Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)
                     end
                     Orch->>Orch: Partition cache hits and misses (runs with or without a connection)
-                    Orch->>Jobs: record_stat(cache_hits)
+                    Orch->>Jobs: record_stat(cache_hits, albums_to_search)
 
                     alt Cache misses exist
                         Note over Orch,Jobs: Every partial_data_warning below (token, search, details, Deezer fallback) also calls record_partial_source(provider)
