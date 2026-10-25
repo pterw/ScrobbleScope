@@ -11,19 +11,6 @@ from scrobblescope.enrichment import (
 )
 
 
-def test_album_metadata_carries_its_provider_and_url():
-    meta = AlbumMetadata(
-        provider="deezer",
-        album_id="6237061",
-        url="https://www.deezer.com/album/6237061",
-        release_date="1977-02-04",
-        image_url="https://cdn.example/cover.jpg",
-        track_durations={"dreams": 260},
-    )
-    assert meta.provider == "deezer"
-    assert meta.url == "https://www.deezer.com/album/6237061"
-
-
 def _row(**overrides):
     """A modern spotify_cache row for a Spotify album; override columns freely."""
     row = {

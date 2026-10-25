@@ -164,8 +164,9 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
         selection, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
     result = selection.eligible
 
-    artist_keys = {v["original_artist"] for v in result.values()}
-    assert "Artist X" not in artist_keys
+    assert [v["original_artist"] for v in result.values()] == ["Artist Y"]
+    assert next(iter(result.values()))["play_count"] == 10
+    assert selection.exclusions == {}
 
 
 @pytest.mark.asyncio
