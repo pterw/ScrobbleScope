@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
+
+Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: keep the docs true after PR #270's code changes. Spotify's album search asks for 5 candidates and keeps only an exact title and credited-artist match, a cached Spotify row whose stored names fit another album is dropped as a miss, an older row without names is checked once by its cached ID, two albums sharing a Spotify ID each get their own metadata, and the correction worker starts MusicBrainz requests about 1.1 seconds apart (policy: one per second). Edited: `README.md` (Top Albums feature, listening-time rule and limitation, spotlight artist match, the 1.1 second spacing in four places including the flowchart edge, one cached-match limitation), `docs/architecture/top-albums-sequence.md` (cache lookup and search steps, shared-ID sentence), `docs/architecture/runtime-system.md` (edge label, cache-hit sentence), `docs/agents/AGENT_NOTES.md` (`updated_at` on a stamped row), and the comment in `static/js/results-release-checks.js`. Mermaid blocks edited: the README Architecture flowchart (`flowchart TB` edge to the correction worker), the `top-albums-sequence.md` sequenceDiagram, the `runtime-system.md` MusicBrainzClient edge.
+
+Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Check an old cached Spotify row by its ID once
 
 Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.

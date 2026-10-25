@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Share one Spotify breaker across a job's phases
+
+Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a Retry-After above the cap seen while stamping old cached rows tripped only the stamping breaker, so the job's cache misses then searched Spotify as if nothing had happened. `process_albums` now opens one `spotify_job_breaker()` block around the cache lookup, the partition and the miss fetch, and `spotify_job_breaker()` yields the already active breaker unchanged when it is nested (no new breaker, no reset, no log), so the inner blocks in the stamping and the miss fetch reuse the job's. A different job runs in its own context and still gets its own breaker. New tests: `test_a_breaker_tripped_while_stamping_stops_the_jobs_searches` (red before: the miss searched Spotify) and `test_a_nested_job_breaker_block_shares_the_outer_breaker`.
+
+Deviations: none.
+
+Edited existing tests: none. The `_StampingSpotify` fake gained a `trips` option, and its search now refuses at entry on a tripped breaker as the real search does; the existing tests that use it never trip it and still pass unchanged.
+
+Validation: `pytest -q` -- **2954 passed**.
+
 ### 2026-10-25 - Make the non-Latin normalization test honest
 
 Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
@@ -215,18 +227,6 @@ Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the 
 Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
 
 Deviations: none.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.
-
-### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
-
-Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: keep the docs true after PR #270's code changes. Spotify's album search asks for 5 candidates and keeps only an exact title and credited-artist match, a cached Spotify row whose stored names fit another album is dropped as a miss, an older row without names is checked once by its cached ID, two albums sharing a Spotify ID each get their own metadata, and the correction worker starts MusicBrainz requests about 1.1 seconds apart (policy: one per second). Edited: `README.md` (Top Albums feature, listening-time rule and limitation, spotlight artist match, the 1.1 second spacing in four places including the flowchart edge, one cached-match limitation), `docs/architecture/top-albums-sequence.md` (cache lookup and search steps, shared-ID sentence), `docs/architecture/runtime-system.md` (edge label, cache-hit sentence), `docs/agents/AGENT_NOTES.md` (`updated_at` on a stamped row), and the comment in `static/js/results-release-checks.js`. Mermaid blocks edited: the README Architecture flowchart (`flowchart TB` edge to the correction worker), the `top-albums-sequence.md` sequenceDiagram, the `runtime-system.md` MusicBrainzClient edge.
-
-Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
 
 Edited existing tests: none.
 

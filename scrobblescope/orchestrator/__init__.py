@@ -232,39 +232,43 @@ async def process_albums(
         # Phase 1: DB Batch Lookup
         # =============================================================
         jobs.record_stat(job_id, "db_cache_enabled", album_cache.enabled)
-        cached_metadata = await _lookup_cached_metadata(
-            album_cache, job_id, list(filtered_albums.keys())
-        )
+        # One Spotify breaker for the whole job: the lookup's stamping calls
+        # and the miss fetch share its verdict.
+        with spotify_job_breaker():
+            cached_metadata = await _lookup_cached_metadata(
+                album_cache, job_id, list(filtered_albums.keys())
+            )
 
-        # =============================================================
-        # Phase 2: Partition into cache hits and misses
-        # =============================================================
-        cache_hits = {}  # key -> {"cached": AlbumMetadata, "original": original_data}
-        cache_misses = {}  # key -> original_data
+            # =========================================================
+            # Phase 2: Partition into cache hits and misses
+            # =========================================================
+            cache_hits = {}  # key -> {"cached": AlbumMetadata, "original": ...}
+            cache_misses = {}  # key -> original_data
 
-        for key, original_data in filtered_albums.items():
-            if key in cached_metadata:
-                cache_hits[key] = {
-                    "cached": cached_metadata[key],
-                    "original": original_data,
-                }
-            else:
-                cache_misses[key] = original_data
+            for key, original_data in filtered_albums.items():
+                if key in cached_metadata:
+                    cache_hits[key] = {
+                        "cached": cached_metadata[key],
+                        "original": original_data,
+                    }
+                else:
+                    cache_misses[key] = original_data
 
-        db_hit_count = len(cache_hits)
-        jobs.record_stat(job_id, "cache_hits", db_hit_count)
-        # The loading page shows these two side by side: together they make up
-        # every album that passed the thresholds, and neither repeats the other.
-        # Known here, before the search, so it counts albums still to search.
-        jobs.record_stat(job_id, "albums_to_search", len(cache_misses))
-        logging.info(
-            f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses"
-        )
+            db_hit_count = len(cache_hits)
+            jobs.record_stat(job_id, "cache_hits", db_hit_count)
+            # The loading page shows these two side by side: together they
+            # make up every album that passed the thresholds, and neither
+            # repeats the other. Known here, before the search, so it counts
+            # albums still to search.
+            jobs.record_stat(job_id, "albums_to_search", len(cache_misses))
+            logging.info(
+                f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses"
+            )
 
-        # =============================================================
-        # Phase 3: Spotify fetch for misses only
-        # =============================================================
-        new_metadata = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
+            # =========================================================
+            # Phase 3: Spotify fetch for misses only
+            # =========================================================
+            new_metadata = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
 
         # =============================================================
         # Phase 4: DB Batch Persist

@@ -102,7 +102,13 @@ def spotify_job_breaker():
     their signatures and every task the job spawns inside the block shares the
     job's breaker, while a concurrent job, on its own loop and context, has
     its own. Outside a block there is no breaker and nothing is skipped.
+    Blocks nest: one opened inside another yields the outer block's breaker
+    unchanged, so a job's phases share one verdict.
     """
+    active = _job_breaker.get()
+    if active is not None:
+        yield active
+        return
     breaker = SpotifyBreaker()
     reset_token = _job_breaker.set(breaker)
     try:
