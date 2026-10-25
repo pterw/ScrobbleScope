@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Keep album keys stable under repeated normalization
+
+Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: both provider searches normalize the key they are given again, so a key must come back unchanged. The empty-remainder fallback wrote each pipe as `%7c`, and a second pass turned `%7c` into `7c`, so an album titled "|" (or "EP |") could never match. The fallback now writes each pipe as `^`, which is ASCII punctuation, so the fallback text stays made of punctuation, whitespace and edition words only and a second normalization returns it unchanged. The docstrings of `normalize_name` and `format_album_key` say so. No live doc stated the old escape.
+
+Deviations: none.
+
+Edited existing tests: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity` now expects `^^` for "||" where it expected `%7c%7c`; it still asserts distinct, non-empty, pipe-free keys. Added `test_normalize_name_is_idempotent`.
+
+Validation: `pytest -q` -- **2952 passed**.
+
 ### 2026-10-25 - Close the album-matching findings
 
 Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
