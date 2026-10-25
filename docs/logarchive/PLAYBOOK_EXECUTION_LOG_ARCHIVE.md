@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: server listening-time rule
+
+Side task, no batch tag: apply the listening-time ranking rule on the server, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3, RA5): a run started in listening-time mode shows the same leaderboard as a page switched to it, and switching to track plays brings the untimed albums back. `_filter_results_for_display` no longer drops rows; `_mark_untimed_for_display` in `scrobblescope/routes/album_flow.py` returns copies carrying `untimed` and `display_rank` (None when untimed, else 1..n skipping them). Durationless means `play_time_seconds` missing, None or <= 0 (RA6: None no longer raises a TypeError). `templates/results.html` renders untimed rows with `hidden` and an empty `data-rank` and rank cell, and shows `#playtime-hidden-note` with N when N > 0, using the same singular/plural copy as `results.js` (RA13). Total Albums, Top artist and Scrobbles are built from the whole result (RA3). The no-matches page stays for a run where every album is untimed. F-B23-46 stays open until the client half and its agreement test land.
+
+Deviations: `scrobblescope/routes/__init__.py` (outside the plan's Touches) re-exports the renamed helper, forced by the rename. `tests/test_template_shell.py` (RA17) gains `display_rank: 1` on its two fixture rows, because the template reads `display_rank` with no `loop.index` fallback. Review fix round (RA17): the route tests read the visible rank cell and a gap between ranked rows.
+
+Edited existing tests: `test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime` became `test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime` and `test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort` became `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort`, because the helper marks rows instead of removing them (same rule, same three durationless forms); `test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` became `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` (90, not 50), because the dropped album is now a hidden row and the figure describes the whole result.
+
+Validation: `pytest -q` -- **3064 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: gate the mode switch
 
 Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.

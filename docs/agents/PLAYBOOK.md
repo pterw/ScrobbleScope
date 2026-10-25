@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: test consolidation, results browser tests
+
+Side task, no batch tag: merge repeated tests in `scripts/dev/results_behavior_tests.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". Three tests drove the same untimed-and-not-unmatched hidden-note counter through different Hide and ranking orders; they are now three cases of one subTest test, `test_hidden_note_counts_only_rows_the_ranking_alone_drops`, so both callers of the counter (the Hide click after ranking, the listening-time click after Hide) stay guarded while ranked by listening time (RA14). The sort test's loop now runs in `subTest(mode=...)` with a case tuple that carries the other mode, which removes its if/else branch; its assertions are unchanged. The toast assertion of the first merged test is not repeated here: `test_hidden_note_and_toast_carry_the_count_of_dropped_albums` guards the toast.
+
+Deviations: the CSV test `test_csv_while_ranked_by_listening_time_lists_only_ranked_rows` was kept, not merged: its fixture is the only one with matched rows the listening-time rule drops, so a merge would lose that case. Edited existing tests: `test_hidden_note_does_not_count_rows_hide_already_hides` (renamed `test_hidden_note_counts_only_rows_the_ranking_alone_drops`), `test_hide_toggled_while_ranked_by_listening_time_refreshes_the_note` and `test_hide_toggled_on_listening_time_lowers_the_count_to_one` (merged into it), `test_sort_updates_order_ranks_metrics_and_accessibility`. The script is not collected by pytest, so the count is unchanged.
+
+Validation: `pytest -q` -- **2873 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: test consolidation, parity family
 
 Side task, no batch tag: remove the frontend gate's module-shape parity tests, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -207,17 +217,5 @@ Side task, no batch tag: document the listening-time ranking rule in `DESIGN.md`
 Owner intent (R6, RA3, RA5): albums with no listening time should not rank under listening time, and the design record should say so. `DESIGN.md` gains a "Results Row: Listening-Time Ranking" section after the unmatched variant: the rule, renumbered ranks, header figures that keep describing the whole result (the Hide control recomputes them as it always has, RA18), the note and toast that give the hidden count, the return of the albums under track plays, and one rule on the server and in the browser. F-B23-46 moves from `docs/agents/FINDINGS.md` to the archive as resolved, naming T7 `7e529efc`, T7b `2115e858` and T10 `078ef258`.
 
 Deviations: a sibling `###` section rather than a bullet, because Components holds the unmatched variant as a section. Edited existing tests: none.
-
-Validation: `pytest -q` -- **3064 passed**.
-
-### 2026-10-25 - UI round 2 backlog: server listening-time rule
-
-Side task, no batch tag: apply the listening-time ranking rule on the server, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent (R6, RA3, RA5): a run started in listening-time mode shows the same leaderboard as a page switched to it, and switching to track plays brings the untimed albums back. `_filter_results_for_display` no longer drops rows; `_mark_untimed_for_display` in `scrobblescope/routes/album_flow.py` returns copies carrying `untimed` and `display_rank` (None when untimed, else 1..n skipping them). Durationless means `play_time_seconds` missing, None or <= 0 (RA6: None no longer raises a TypeError). `templates/results.html` renders untimed rows with `hidden` and an empty `data-rank` and rank cell, and shows `#playtime-hidden-note` with N when N > 0, using the same singular/plural copy as `results.js` (RA13). Total Albums, Top artist and Scrobbles are built from the whole result (RA3). The no-matches page stays for a run where every album is untimed. F-B23-46 stays open until the client half and its agreement test land.
-
-Deviations: `scrobblescope/routes/__init__.py` (outside the plan's Touches) re-exports the renamed helper, forced by the rename. `tests/test_template_shell.py` (RA17) gains `display_rank: 1` on its two fixture rows, because the template reads `display_rank` with no `loop.index` fallback. Review fix round (RA17): the route tests read the visible rank cell and a gap between ranked rows.
-
-Edited existing tests: `test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime` became `test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime` and `test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort` became `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort`, because the helper marks rows instead of removing them (same rule, same three durationless forms); `test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` became `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` (90, not 50), because the dropped album is now a hidden row and the figure describes the whole result.
 
 Validation: `pytest -q` -- **3064 passed**.
