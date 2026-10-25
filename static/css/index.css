@@ -403,11 +403,21 @@ html {
   color: var(--color-primary);
 }
 
-.mode-pill.active {
+/* The segmented controls' selected look from shell.css (owner, 2026-10-24):
+   soft tint, primary text, and the 4.5:1 outline that carries the state;
+   the tint alone is 1.11:1 against the track. */
+.mode-pill.active,
+.mode-pill.active:hover {
   background-color: var(--ss-accent-soft);
-  border-color: transparent;
+  border-color: var(--shell-selected-outline);
   color: var(--color-primary);
   box-shadow: none;
+}
+
+@media (forced-colors: active) {
+  .mode-pill.active {
+    border-color: Highlight;
+  }
 }
 
 /* The small square is a placeholder mark, not an icon set. The heatmap tab

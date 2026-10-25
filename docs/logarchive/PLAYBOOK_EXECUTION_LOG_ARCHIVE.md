@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-24 - Results stat values take the figure face
+
+Side task, no batch tag: set the four Results stat values in the figure face, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: "For each span||stat, use Gotham Book." (2026-10-22, accepted live). The four stat values (total albums, top artist, scrobbles, unmatched) lose `font-serif` in `templates/results.html`; `.results-stat-value > span` in `static/css/results.css` sets `--font-figure`, `--font-weight-normal`, tabular figures, size unchanged. New frontend-gate judge `stat_value_face_failures` (`STAT_VALUES_SELECTOR`) in `scripts/dev/_frontend_gate_figures.py`, called from the existing check against the heatmap KPI reference. DESIGN.md Role Segregation Rule and Do's line name the Top Artist exception; `docs/design/RECONCILIATION.md` section 28 records it and completes the move section 26 deferred. Landing changes on the code review's findings: the DESIGN.md exception sentence moved to the end of the Role Segregation Rule paragraph; the wrong-count test is parametrised over 0, 3 and 5 values; `_reference_failures(kpi, subject)` is the one owner of the empty-KPI message (the duplicate guard in `figure_face_failures` is gone, messages unchanged), with a new test for the stat wording; the serif-stat test asserts the exact failure line. Deviations: none. Edited existing tests: the `_Page` fake in `tests/scripts/dev/test_frontend_gate_figures.py` (answers the stat selector); no existing test body changed. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Orpheus Pro becomes the display serif
 
 Side task, no batch tag: made Orpheus Pro the display serif, on `feat/ui-consistency-round-2`, a branch off `main`.
