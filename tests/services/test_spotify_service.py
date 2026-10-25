@@ -463,17 +463,20 @@ async def test_search_succeeds_on_first_try():
 async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist):
     """Both lookup paths preserve sparse-field fallbacks and image metadata."""
     response = AsyncMock(status=200)
-    response.json.return_value = artist if by_id else {"artists": {"items": [artist]}}
+    requested = artist.get("name", "Requested")
+    # A name search only accepts a hit that carries the requested name.
+    hit = {"name": requested, **artist}
+    response.json.return_value = artist if by_id else {"artists": {"items": [hit]}}
     session = MagicMock()
     session.get.return_value = make_response_context(response)
     with patch(
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
     ):
         result = await fetch_spotify_artist_spotlight(
-            session, "Requested", "requested-id" if by_id else None, "token"
+            session, requested, "requested-id" if by_id else None, "token"
         )
     assert result == {
-        "name": artist.get("name", "Requested"),
+        "name": requested,
         "artist_id": artist.get("id", "requested-id" if by_id else None),
         "image_url": "photo" if artist else None,
         "spotify_url": "link" if artist else None,
@@ -481,7 +484,7 @@ async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("items", [[], [{"name": "Search match"}]])
+@pytest.mark.parametrize("items", [[], [{"name": "Requested"}]])
 async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
     """An unsuccessful ID lookup searches by name, including no-match results."""
     failed = AsyncMock(status=404)
@@ -500,7 +503,7 @@ async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
         )
     assert result == (
         {
-            "name": "Search match",
+            "name": "Requested",
             "artist_id": None,
             "image_url": None,
             "spotify_url": None,
@@ -509,6 +512,51 @@ async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
         else None
     )
     assert session.get.call_args.kwargs["params"]["q"] == "artist:Requested"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("requested", "hit_names", "expected"),
+    [
+        ("ear", ["ear-something", "ear2"], None),
+        ("ear", ["ear-something", "ear"], "ear"),
+        ("Beyonce", ["BEYONCE"], "BEYONCE"),
+        ("!!!", ["???"], None),
+    ],
+)
+async def test_artist_spotlight_name_search_checks_the_returned_name(
+    requested, hit_names, expected
+):
+    """A name search takes the first hit whose normalized name equals the request.
+
+    Five hits are asked for; a punctuation-only request matches nothing.
+    """
+    response = AsyncMock(status=200)
+    response.json.return_value = {
+        "artists": {"items": [{"name": name, "id": name} for name in hit_names]}
+    }
+    session = MagicMock()
+    session.get.return_value = make_response_context(response)
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(session, requested, token="t")
+    assert (result or {}).get("name") == expected
+    assert session.get.call_args.kwargs["params"]["limit"] == 5
+
+
+@pytest.mark.asyncio
+async def test_artist_spotlight_id_lookup_skips_the_name_check():
+    """An explicit artist ID returns its hit whatever the artist is called."""
+    response = AsyncMock(status=200)
+    response.json.return_value = {"id": "x", "name": "Other"}
+    session = MagicMock()
+    session.get.return_value = make_response_context(response)
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(session, "Requested", "x", "t")
+    assert result["name"] == "Other"
 
 
 @pytest.mark.asyncio

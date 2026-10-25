@@ -17,7 +17,7 @@ from scrobblescope.config import (
     SPOTIFY_SEARCH_RETRIES,
     spotify_token_cache,
 )
-from scrobblescope.domain import normalize_track_name
+from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.enrichment import SPOTIFY_ALBUM_URL, AlbumMetadata
 from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
@@ -667,7 +667,9 @@ def _artist_spotlight_details(artist, artist_name=None, artist_id=None):
 async def _request_spotlight_artist(session, headers, artist_name, artist_id):
     """Look up by ID, falling back to name after an unsuccessful HTTP response.
 
-    Return None for unsuccessful or empty searches. Transport and decoding
+    A name search accepts the first of five hits whose normalized name equals
+    the requested one; a name that normalizes to "" matches nothing.
+    Return None for unsuccessful or unmatched searches. Transport and decoding
     exceptions propagate to the caller's shared logging and fallback boundary.
     """
     if artist_id:
@@ -678,15 +680,16 @@ async def _request_spotlight_artist(session, headers, artist_name, artist_id):
                     await response.json(), artist_name, artist_id
                 )
     if artist_name:
-        params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 1}
+        params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 5}
         async with session.get(
             "https://api.spotify.com/v1/search", params=params, headers=headers
         ) as response:
             if response.status == 200:
                 data = await response.json()
-                items = data.get("artists", {}).get("items", [])
-                if items:
-                    return _artist_spotlight_details(items[0], artist_name)
+                wanted = normalize_name(artist_name, "")[0]
+                for item in data.get("artists", {}).get("items", []):
+                    if wanted and normalize_name(item.get("name", ""), "")[0] == wanted:
+                        return _artist_spotlight_details(item, artist_name)
     return None
 
 
