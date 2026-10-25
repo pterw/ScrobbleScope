@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Treat a cached row naming another album as a miss
+
+Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a row stored under "xiu xiu|a promise" could hold another album's ID (the old unchecked search), and until now it was served for 30 days. `lookup` now drops every hit whose `match_for(key)` is `MATCH_WRONG` and logs one INFO line with the count only, so the album is searched again and the existing upsert overwrites the row with stamped names. `MATCH_FITS` and `MATCH_UNSTAMPED` rows (including pre-migration Spotify rows with NULL names, and Deezer rows) are returned as before; `lookup_failed` and the fail-open path are unchanged. A dropped hit is not counted in `db_cache_lookup_hits`.
+
+Deviations: none. Landed before Task 8 (disjoint files: Task 8 touches the orchestrator search and details modules; Task 8 was still in review).
+
+Edited existing tests: none. The `_spotify` helper in `tests/test_album_cache_parity.py` gained an optional `credit` argument (details carry name and artists); no existing test changed. New: `test_a_spotify_row_naming_another_album_is_a_miss` (parametrized) in `tests/services/test_cache.py` and `test_a_cached_row_naming_another_album_is_searched_again_and_overwritten` in `tests/test_album_cache_parity.py`.
+
+Validation: `pytest -q` -- **2929 passed**.
+
 ### 2026-10-25 - Accept only an exact album match in Spotify search
 
 Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.

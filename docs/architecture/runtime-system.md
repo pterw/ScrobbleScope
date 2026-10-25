@@ -126,7 +126,7 @@ flowchart LR
     LastFMClient -->|HTTPS| LastFMAPI[(Last.fm API)]
     SpotifyClient -->|HTTPS| SpotifyAPI[(Spotify API)]
     DeezerClient -->|HTTPS| DeezerAPI[(Deezer API)]
-    MusicBrainzClient -->|HTTPS, 1 req/s| MusicBrainzAPI[(MusicBrainz API)]
+    MusicBrainzClient -->|HTTPS, 1.1 s apart| MusicBrainzAPI[(MusicBrainz API)]
     Cache -->|asyncpg| Postgres[(PostgreSQL<br/>spotify_cache,<br/>original_release_cache)]
 
     subgraph Deploy[Fly.io deployment]
@@ -209,7 +209,8 @@ silent:
 - **How an album gets its release date, in one place.** The date is decided
   in four steps, and this bullet is the only full account of them. (1) The
   metadata cache is read first: a cached row already holds `release_date` and
-  skips every provider call. The cache is optional at runtime: when the
+  skips the provider search. (A row stored before provider names were kept
+  costs one Spotify details call, once, to check it fits its album.) The cache is optional at runtime: when the
   database is missing or does not answer, `open_album_cache` yields a
   disabled cache and every album is a miss. (2) For each miss, Spotify is
   searched, then its album details are fetched. (3) An album Spotify could not

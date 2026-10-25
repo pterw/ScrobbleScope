@@ -103,8 +103,10 @@ next.
 ### Top Albums
 
 - Fetch scrobbles for a listening year and enrich albums with release dates,
-  artwork, and track runtimes from Spotify, falling back to Deezer for
-  whatever Spotify cannot match or detail. Each album links to its own
+  artwork, and track runtimes from Spotify. Spotify's match is exact: its
+  title and one credited artist must equal the request, so a missing album is
+  never swapped for a neighbour. Deezer covers whatever Spotify cannot match
+  or detail. Each album links to its own
   provider's page. Spotify content is attributed with Spotify's official
   icon on the Results and Unmatched pages and on the artist spotlight; a
   row from any other provider carries a small text badge naming it.
@@ -113,8 +115,9 @@ next.
 - Choose minimum track plays and unique tracks per album; the defaults are
   10 plays and 3 unique tracks. Limit the number of albums returned.
 - Switch the leaderboard between track plays and estimated listening time
-  without submitting another search. Listening time depends on available
-  Spotify track durations.
+  without submitting another search. Ranking by listening time leaves out
+  albums with no listening time, and a note under the leaderboard says how
+  many; ranking by track plays shows them again.
 - Keep the albums Spotify and Deezer cannot match with the "Unmatched albums"
   choice beside "Show" on the search form (Hide or Include), so your total
   plays are counted whether or not an album could be identified. Those albums
@@ -204,7 +207,7 @@ date, artwork, and track runtimes: Spotify answers first, and Deezer
 covers whatever Spotify cannot match or detail, so one provider's outage
 no longer empties a result. Both providers date a remaster by its reissue,
 so a separate MusicBrainz pass corrects release years to the original --
-slowly, at one request per second, and therefore after the results are
+slowly, about 1.1 seconds apart, and therefore after the results are
 already on screen rather than before. A Heatmap job aggregates Last.fm
 history directly and skips enrichment. An optional PostgreSQL cache
 remembers provider metadata and every correction across restarts, so the
@@ -229,7 +232,7 @@ flowchart TB
     Cache -->|hit| Build
     Build --> Results[[Results page]]
 
-    Build -.->|queued, never awaited| Checks[Correction worker<br/>1 request per second]
+    Build -.->|queued, never awaited| Checks[Correction worker<br/>about 1.1 seconds apart]
     Checks -.-> MusicBrainz[MusicBrainz<br/>original release date]
     MusicBrainz -.-> Cache
     Checks -.->|marks rows in place| Results
@@ -309,7 +312,7 @@ That has three consequences visible throughout the architecture:
    in the first render.
 8. **The page renders, and the corrections keep arriving.** A single
    process-wide worker asks MusicBrainz for the original release date of each
-   album the cache does not know yet, at one request per second, capped per
+   album the cache does not know yet, about 1.1 seconds apart, capped per
    job. The results page polls for its findings and marks corrected rows in
    place. Nothing re-sorts while you are reading; albums that now qualify are
    announced with a reload link. Every finding is written to the cache,
@@ -510,8 +513,9 @@ fresh search does. It issues a separate request scoped to that sample, each boun
 own preload together, so one hung request or one hung photo cannot keep the
 card hidden; the client preloads and waits for every response (and its
 photo) to settle, then rotates only the candidates whose Spotify artist
-photo was confirmed and actually loaded. A candidate with no confirmed
-photo, a request that times out, or a photo that fails to load or never
+photo was confirmed and actually loaded. The artist Spotify returns must
+match the requested name, or the card stays hidden for that artist. A
+candidate with no confirmed photo, a request that times out, or a photo that fails to load or never
 finishes loading within that same budget is dropped, and if none is
 confirmed the card stays hidden -- there is no album-art fallback and no
 faked photo. The photo itself is shown whole (`object-fit: contain`,
@@ -811,7 +815,8 @@ reason the old single-provider pipeline still worked.
 **Release years are corrected to the original.** Spotify and Deezer date a
 remaster by its reissue, while a year filter means the year the album first
 came out. MusicBrainz carries the original on the release group, and a
-background pass applies it at one request per second, so it never delays a
+background pass applies it about 1.1 seconds apart (MusicBrainz asks for
+one request per second, and the gap leaves headroom), so it never delays a
 result. A corrected row stays where it is, marked, and nothing re-sorts under
 you. Every finding is cached, including "checked, nothing found".
 
@@ -866,7 +871,10 @@ streaks with your busiest weekday and hour.
 - A result set lives in server memory for two idle hours and does not survive
   a restart or a redeploy. The metadata cache is the only durable store.
 - Estimated listening time depends on track durations a provider supplied;
-  an album with none is ranked by play count only.
+  ranking by listening time leaves out an album with none, and a note says
+  how many. Ranking by track plays shows it.
+- A cached Spotify match is re-checked against the album it was stored for;
+  one that names a different album is discarded and searched again.
 - The heatmap covers the last 365 days in UTC, including today. It is bounded
   by Last.fm's rate limit rather than by anything in this application, which
   is why it takes as long as it does.

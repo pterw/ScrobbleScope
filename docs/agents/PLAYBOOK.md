@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
+
+Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: keep the docs true after PR #270's code changes. Spotify's album search asks for 5 candidates and keeps only an exact title and credited-artist match, a cached Spotify row whose stored names fit another album is dropped as a miss, an older row without names is checked once by its cached ID, two albums sharing a Spotify ID each get their own metadata, and the correction worker starts MusicBrainz requests about 1.1 seconds apart (policy: one per second). Edited: `README.md` (Top Albums feature, listening-time rule and limitation, spotlight artist match, the 1.1 second spacing in four places including the flowchart edge, one cached-match limitation), `docs/architecture/top-albums-sequence.md` (cache lookup and search steps, shared-ID sentence), `docs/architecture/runtime-system.md` (edge label, cache-hit sentence), `docs/agents/AGENT_NOTES.md` (`updated_at` on a stamped row), and the comment in `static/js/results-release-checks.js`. Mermaid blocks edited: the README Architecture flowchart (`flowchart TB` edge to the correction worker), the `top-albums-sequence.md` sequenceDiagram, the `runtime-system.md` MusicBrainzClient edge.
+
+Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Check an old cached Spotify row by its ID once
 
 Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.
@@ -218,15 +230,3 @@ Deviations: none. Task 9 (`AlbumCache.lookup` drops a mismatched row) landed fir
 Edited existing tests: `test_run_spotify_search_phase_all_misses_returns_empty_maps` (also asserts `shared_id_requests == {}`) and `test_spotify_search_unanswered_album_does_not_cancel_its_siblings` (unpacks five values). New: `test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata`, `test_unanswered_details_for_a_shared_spotify_id_mark_every_key`, `test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id`.
 
 Validation: `pytest -q` -- **2932 passed**.
-
-### 2026-10-25 - Treat a cached row naming another album as a miss
-
-Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: a row stored under "xiu xiu|a promise" could hold another album's ID (the old unchecked search), and until now it was served for 30 days. `lookup` now drops every hit whose `match_for(key)` is `MATCH_WRONG` and logs one INFO line with the count only, so the album is searched again and the existing upsert overwrites the row with stamped names. `MATCH_FITS` and `MATCH_UNSTAMPED` rows (including pre-migration Spotify rows with NULL names, and Deezer rows) are returned as before; `lookup_failed` and the fail-open path are unchanged. A dropped hit is not counted in `db_cache_lookup_hits`.
-
-Deviations: none. Landed before Task 8 (disjoint files: Task 8 touches the orchestrator search and details modules; Task 8 was still in review).
-
-Edited existing tests: none. The `_spotify` helper in `tests/test_album_cache_parity.py` gained an optional `credit` argument (details carry name and artists); no existing test changed. New: `test_a_spotify_row_naming_another_album_is_a_miss` (parametrized) in `tests/services/test_cache.py` and `test_a_cached_row_naming_another_album_is_searched_again_and_overwritten` in `tests/test_album_cache_parity.py`.
-
-Validation: `pytest -q` -- **2929 passed**.
