@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: loading stats proof
+
+Side task, no batch tag: tests proving `cache_hits + albums_to_search` equals the albums that passed the thresholds, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the loading page's two figures, Cache hits and Albums to search, must add up to the albums being processed. Five tests, no source change: four at `process_albums` (mixed cached and missing, an unmatched miss still counts as an album to search, all cached, database unavailable) and one through `fetch_and_process_albums` with an album under the thresholds, where the sum is the albums that passed, not the albums fetched. Each ran through the job store, and two planted defects in the orchestrator (`len(cache_misses) + 1`, the `albums_to_search` line dropped) turned all five red, then the source was restored byte-identical. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2999 passed**.
+
 ### 2026-10-25 - Repair the two pipeline sequence diagrams
 
 Side task, no batch tag: repaired the Mermaid renders of the two pipeline sequence diagrams, on `feat/ui-round-2-backlog`, a branch off `main`.

@@ -35,18 +35,20 @@ The owner-approved overrides currently recorded are:
 | Heatmap result measure | Centred, capped at 1100px | The base/mobile measure remains `73rem`; from 860px upward the centred stage uses `84vw`, capped at `120rem`. The authored SVG geometry stays unchanged and scales with the frame. | The fixed snapshot cap produced only a 1100px frame and 16.6px rendered cells in a realistic 1920x945 content box. Owner review selected the wider result while retaining a finite measure. |
 | Heatmap headline username | Purple italic accent | The username inherits the headline's neutral serif colour and normal style. | It is result data rather than a link or control; owner review found the accent treatment distracting. |
 | Loading progress signal | A progress bar | One slim determinate hairline; the pinwheel is status motion only | Owner decision, `17ca9eb`; the "exactly one progress signal" rule is preserved, the hairline is that signal |
-| Heatmap H1 copy | "A year of listening, *one grid.*" | "Your last 365 days, *one grid.*" | Owner copy change, `17ca9eb` |
+| Heatmap H1 copy | "A year of listening, *one grid.*" | "Your 365 days *mapped by day.*" (was "Your last 365 days, *one grid.*" from `17ca9eb`) | Owner copy change accepted in the live session, `50211a7` and `922700f`, Section 29 |
+| Album headline and lede copy | h1 with one italic accent clause and a 14px body paragraph; the kit's wording is not binding | h1 "The albums you gave *the most hours.*" (was "Your top albums, *any year or decade.*"); lede "ScrobbleScope ranks the albums you played most in a year, straight from your public Last.fm history. Keep that year's releases or any era, rank by plays or listening time, and see why any album was left out." | Owner copy accepted in the live session, `50211a7`, Section 29 |
 | Heatmap mode card copy | "The heatmap always covers the last 365 days. No other settings." | "Your listening heatmap covers the last 365 days." | Owner copy change, `17ca9eb` |
 | Release filter label | "Album release filter" | "Release filter" | Owner review, WP-4 |
 | Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
 | Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 | Heatmap mobile grid | Four stacked, season-labelled 13-week strips at the same cell size | `renderHeatmapMobile()` picks 10-28 columns and 18-28px cells from container width, one sequential grid | Owner ruling 2026-09-23 (`F-B21-19`, Q12 = a) |
 | Index card: Unmatched albums control | The card lists "Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100)" | An "Unmatched albums" segmented control (Hide / Include) shares one row with the Show select, in equal halves from 860px and stacked below it; its help line is visible only while Include is chosen; the Play time segment can be disabled | Owner rulings 2026-09-30 and 2026-10-20, Sections 20 and 22 |
-| Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1), the selected chip gains a 1px primary border (6.06:1 / 8.14:1) and base-content text (14.81:1 / 13.04:1, was primary at 5.47:1 / 6.38:1), and unselected hover takes base-content instead of primary; one shared rule serves Rank by, both unmatched-albums controls and the Results Sort leaderboard buttons | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20 |
+| Segmented control look | Option text in the muted token, a soft accent chip with no outline (5.17:1 / 5.82:1 text, 1.11:1 / 1.28:1 chip edge, light / dark) | Option text in the body token (8.71:1 / 10.61:1); the selected chip keeps its soft tint and primary text (5.47:1 / 6.38:1, held at 4.5:1 by owner exception) and gains a 1px outline from `--shell-selected-outline` (`#775ab5` / `#8a79ab`, 5.01:1 / 5.00:1 on the track); unselected hover takes base-content instead of primary; one shared rule serves Rank by, the mode switch, both unmatched-albums controls and the Results Sort leaderboard buttons. The first look (primary border, base-content text) is superseded | Owner rulings 2026-10-01 "The 4.5 is a floor not a goal" and "Precisely use what exists; segmented control", Section 20; later rulings, Section 29 |
 | Results: unmatched albums | AlbumRow links to Spotify or is plain, covers are washes, the side column has no albums control, the stat block counts matched albums | An include run lists unmatched albums with a Not Found / Unavailable marker, a release that reads "unknown" until MusicBrainz finds the original release and then shows it as YYYY-MM (section 25), and the cover wash; Total Albums reads "listed"; the Sort leaderboard card gains an "Unmatched albums" segmented control (Hide / Include, section 22); the `.seg` and `.seg__option` rules live in `shell.css` | Owner ruling 2026-09-30, Section 21 |
 | Results: play count face | `AlbumRow.d.ts`: "Mono value -- play count" | The Results table's play count is set in `--font-figure` (Gotham) at weight 400, like a heatmap KPI value; listening time stays mono-narrow | Owner ruling 2026-10-20 (tranche design, "UI PR (#7)"), Section 26 |
 | Results: the unmatched control's help line and Hide toast | Help: "Hide removes the unmatched listens so the leaderboard can be ranked by listening time."; toast: "Unmatched albums hidden; listening time is available." (Sections 21, 22) | The listening-time promise appears only when the run has durations; without them the help reads "Hide removes the unmatched listens from the leaderboard." and the toast "Unmatched albums hidden." | The controller's browser check on seeded jobs, 2026-10-20, Section 23 |
 | Unmatched page: the count line and group notes | "N albums left out of your results" for every run | On an include run the line names both groups ("L albums listed in your results without a match, K left out") and the No match found and Could not be checked groups say their albums are in the results; every other run and group is unchanged | Owner ruling 2026-10-20 "Split the count (Recommended)", Section 24 |
+| Index hero: capability marks | "a row of three mono capability marks each prefixed with a purple `->`" | A strip of three columns per mode, a serif term with a line icon over one plain description; a container query (`width < 26em`) turns it into rows in a narrow hero column; hidden below 860px | Owner ruling "keep the mobile cut" (R4), Section 29 |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
@@ -929,15 +931,16 @@ it. The owner's rulings "The 4.5 is a floor not a goal" and "Precisely use what
 exists; segmented control" were met by lifting the one shared rule, not by
 styling the new controls apart. In `shell.css` the unselected option text now
 takes `--ss-text-body` (8.71:1 light, 10.61:1 dark on the track), and the
-selected chip keeps its soft accent fill, gains a 1px `--color-primary` border
-(6.06:1 light, 8.14:1 dark against the track; the border is transparent on
-every option so no option changes size; under forced colours it is
-`Highlight`) and takes `--color-base-content` text, the strongest ink token
-(14.81:1 light, 13.04:1 dark on the chip; primary text on the chip was 5.47:1
-and 6.38:1, under the 7:1 aim). Selection is carried by ink, fill and border
-together, and the checked chip keeps that ink on hover. An unselected option
-deepens to `--color-base-content` on hover (it was `--color-primary`, 6.06:1
-on the track in light) and the dimmed disabled state is unchanged. It applies to
+selected chip keeps its soft accent fill. The first shipped look, a 1px
+`--color-primary` border (6.06:1 light, 8.14:1 dark against the track) with
+`--color-base-content` text (14.81:1 light, 13.04:1 dark on the chip), is
+**superseded** by Section 29: the chip now takes primary text and a 1px
+outline from `--shell-selected-outline`, and the border is transparent on
+every option so no option changes size (under forced colours it is
+`Highlight`). Selection is carried by ink, fill and outline together, and the
+checked chip keeps that ink on hover. An unselected option deepens to
+`--color-base-content` on hover (it was `--color-primary`) and the dimmed
+disabled state is unchanged. It applies to
 every instance: "Rank by", the index "Albums" control, the Results "Albums"
 control and the Results "Sort leaderboard" buttons (`.metric-toggle-btn`,
 button markup that takes the same tokens through `aria-pressed`, which
@@ -1218,3 +1221,67 @@ change and belongs to a later round"). Section 26 stays as written, a dated
 record. `results.html` no longer puts `font-serif` on the four values, and the
 frontend gate check `check_results_play_count_uses_the_figure_face` also reads
 the four values against the heatmap KPI value, at every gate profile.
+
+## 29. The UI round 2 backlog: hero strip, form placement, loading stats, selected look, 2026-10-25
+
+Owner rulings and words from the live session of 2026-10-24 and 2026-10-25,
+recorded in the plan `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`.
+The snapshot is frozen, so its words stay as they are and this section
+overrides them.
+
+**The hero strip replaces the capability marks.** `docs/design/README.md`
+(left column) specifies "a row of three mono capability marks each prefixed
+with a purple `->`". The index hero now ships a strip of three columns per
+mode: a serif term with a line icon over one plain description (`50211a7`,
+`922700f`). The album and heatmap lists each have three items and the active
+mode's list is shown. Owner ruling, 2026-10-24, "keep the mobile cut": the
+strip stays hidden below 860px (ruling R4). A narrow hero column cannot hold
+three columns, so the strip becomes rows through a container query,
+`@container (width < 26em)` in `static/css/index.css`. The em is the strip
+wrap's own font size, so the threshold counts term widths and tracks
+`--index-scale`. It is not a second viewport breakpoint: 860px stays the only
+one (docsync DOC009, ruling R7). The headline and lede copy changed with it;
+see the top table.
+
+**The expanded form keeps clear of the header.** With every option open the
+form's fixed 2.5rem upward lift left the mode switch 4px under the header
+while the card had 47px below it at 1920x1063 (`2609f1f`). The lift now gives
+way first and never takes the gap above the mode switch below 1.5rem, so an
+expanded form falls back to plain centring: measured 24px above the mode
+switch and 27px below the card at 1920x1063. Collapsed forms keep the full
+lift. In a short window the form's top floor stays 0.25rem (ruling R3).
+The "hero and form use `1.075`" composition in the top table is unchanged.
+
+**The loading stats.** The loading page's stat labels are "Cache hits" and
+"Albums to search" (they were "Albums passing" and "Spotify matched", which
+showed the same number), and the finished page replaces itself with the
+results through `location.replace`, so Back reaches the form (`4c0c744`,
+ruling R5).
+
+**The selected-option look.** On every control (the index mode switch, Rank
+by, the Unmatched albums controls on the index and Results pages and the
+Results Sort leaderboard) the selected option is a soft tint, primary text and
+a 1px outline from `--shell-selected-outline` (`f2bec89`, ruling R1). It
+overrides the first look recorded in Section 20 and the top table. Two owner
+exceptions to the 7:1 aim apply:
+
+- Selected-option text is held at 4.5:1, not 7:1 (`b6feb13`, ruling R2,
+  "Keep primary, lower the gate"): 5.47:1 light, 6.38:1 dark on the tint.
+- The mode switch's unselected label keeps the muted token (ruling RA1,
+  "Keep muted, gate at 4.5"): 5.17:1 light, 5.82:1 dark on its track. The
+  segmented controls' unselected text stays at 7:1 (8.71:1 and 10.61:1).
+
+**The outline token is raised.** `--shell-selected-outline` becomes `#775ab5`
+light and `#8a79ab` dark (ruling RA2, "One stronger outline"; this plan's
+Task 1, commit `406e9b74`), replacing `#7d61b7` and `#8373a3`. Measured, light: 5.01:1 on the
+track, 4.51:1 sunken, 5.01:1 on the card and 4.76:1 on the Results surface;
+dark: 5.00:1, 4.57:1, 4.63:1 and 4.80:1. One token, so every selected-option
+boundary gate, on the index and Results pages and in both themes, holds
+4.5:1, including the Results card in dark (4.63:1; the old token measured
+4.37:1 light and 4.40:1 dark there in the live gate).
+
+**The accessibility goal.** Owner, 2026-10-25 (ruling RA4): "goal is to be AA
+compliant throughout which it should be. AAA is a bit too challenging
+throughout." New gate lines hold 4.5:1 for text and 3:1 for non-text unless
+a ruling sets more; existing 7:1 gates are lowered only where a ruling names
+the cell (RA1 alone).

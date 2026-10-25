@@ -180,6 +180,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: RECONCILIATION records the overrides
+
+Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RECONCILIATION.md`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: keep the override list true to what ships (the snapshot stays verbatim, so its overrides live here). Section 20 and the "Segmented control look" row still stated the superseded primary border and base-content ink as current; they now mark the first look superseded and state the shipped tint, primary text and `#775ab5` / `#8a79ab` outline. New Section 29 records the hero strip (R4, the container query, R7), the expanded-form placement (R3), the loading stats (R5), the selected-option look and its two owner exceptions (RA1, RA2), and the AA goal (RA4), citing the landed commits. The "Heatmap H1 copy" row now reads "Your 365 days *mapped by day.*" and a row records the album headline and lede copy.
+
+Deviations: per ruling RA10, the top-table row "Index hero: capability marks" is trimmed to the hero strip only (the outline token and loading labels live in Section 29 and the segmented-control row) and moved to after the Section 24 row; Section 29 also cites T1's commit `406e9b74` beside the RA2 token raise. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3016 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: one stronger selected outline
 
 Side task, no batch tag: `--shell-selected-outline` set to `#775ab5` (light) and `#8a79ab` (dark) and both selected-boundary gates raised from 3:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -205,9 +215,3 @@ Validation: `pytest -q` -- **3001 passed**.
 Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner intent: the 2026-10-25 loading page changes (two stat tiles, Back from the results reaching the form) were not held by any test, so a swapped key or a return to `location.assign` would pass. Two tests in `tests/frontend/test_heatmap_pure_functions.py`: one drives a `/progress` answer with both figures (12 and 30 fill their own tiles) and one with `cache_hits` alone (the second tile stays hidden); the other loads the page from a routed URL, lets the scheduled redirect run and asserts the page is at `/results` with `history.length` unchanged. The shared loading markup gained the stats container and two tiles; label wording is not pinned. Two planted defects in `static/js/loading.js` (`location.assign` in `redirectToResults`, the Cache hits tile reading `albums_to_search`) each turned one test red, then the file was restored byte-identical. Deviations: none. Edited existing tests: none (the shared markup constant was extended). Validation: `pytest -q` -- **3001 passed**.
-
-### 2026-10-25 - UI round 2 backlog: loading stats proof
-
-Side task, no batch tag: tests proving `cache_hits + albums_to_search` equals the albums that passed the thresholds, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: the loading page's two figures, Cache hits and Albums to search, must add up to the albums being processed. Five tests, no source change: four at `process_albums` (mixed cached and missing, an unmatched miss still counts as an album to search, all cached, database unavailable) and one through `fetch_and_process_albums` with an album under the thresholds, where the sum is the albums that passed, not the albums fetched. Each ran through the job store, and two planted defects in the orchestrator (`len(cache_misses) + 1`, the `albums_to_search` line dropped) turned all five red, then the source was restored byte-identical. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2999 passed**.
