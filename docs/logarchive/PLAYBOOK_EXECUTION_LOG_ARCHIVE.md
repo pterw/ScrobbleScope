@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
+
+Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+The gate's "large display scale parity" check failed twice at `4c0c744`. First, the hero composition was 948.1px tall at 4K against a proportional 837.6px: the strip's `max-width: 44rem` in `static/css/index.css` was the one hero dimension not multiplied by `--index-scale`, so as the type grew the descriptions wrapped onto more lines (3, 2, 2 at 1080p; 5, 3, 4 at 4K). It now scales, and the hero measures 837px at 4K with the same wrapping at 1080p, 1440p and 4K. Second, the heatmap headline wrapped at 1200px (and at 1500px on CI's fonts). Owner ruling (2026-10-25): it reads "Your 365 days *mapped by day.*" in `templates/index.html`, shorter than the album headline, which fits at both widths. `config/docsync.toml`: the "heatmap window length" site in that template now reads the headline's `Your (\d+) days`, since "last 365 days" no longer appears there. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the loading page's stats, Back and entrance
 
 Side task, no batch tag: relabelled the loading page's last two stats, took the finished page out of history and gave the stats an entrance, on `feat/ui-round-2-backlog`, a branch off `main`.

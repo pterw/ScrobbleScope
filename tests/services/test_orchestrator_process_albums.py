@@ -1189,3 +1189,123 @@ async def test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows()
     healthy = await stats_after(fail=False)
     assert healthy["db_cache_persisted"] == 1
     assert "db_cache_warning" not in healthy
+
+
+###############################################################################
+# Loading-page stats: cache_hits + albums_to_search = albums that passed      #
+###############################################################################
+
+
+def _passed(*names):
+    """Threshold-passed albums, keyed the way process_albums receives them."""
+    return {
+        (name, name): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": name.title(),
+            "original_album": name.title(),
+        }
+        for name in names
+    }
+
+
+async def _split_stats(passed, cached, *, db_available=True, matched=()):
+    """Run process_albums; return the stats the job store recorded.
+
+    *cached* are the keys the DB cache answers; *matched* are the keys Spotify
+    finds on search. Every other missed album ends unmatched.
+    """
+
+    async def search(_session, artist, _album, _token, semaphore=None):
+        return "sp1" if (artist.lower(), artist.lower()) in matched else None
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    conn = AsyncMock() if db_available else None
+    with (
+        patch(
+            "scrobblescope.cache.get_db_connection",
+            new_callable=AsyncMock,
+            return_value=conn,
+        ),
+        patch(
+            "scrobblescope.cache.batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={key: spotify_metadata() for key in cached},
+        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            side_effect=search,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        await process_albums(job_id, passed, 2025, "playcount", "same")
+    return jobs.progress(job_id)["stats"]
+
+
+@pytest.mark.asyncio
+async def test_loading_stats_split_the_passed_albums_into_hits_and_misses():
+    """A mixed run records the cache split, and the two figures add up to the
+    albums that passed the thresholds, whatever the search later finds."""
+    passed = _passed("one", "two", "three", "four", "five")
+    cached = [("one", "one"), ("two", "two")]
+
+    stats = await _split_stats(passed, cached, matched={("three", "three")})
+
+    assert stats["cache_hits"] == 2
+    assert stats["albums_to_search"] == 3
+    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
+
+
+@pytest.mark.asyncio
+async def test_loading_stats_count_an_unmatched_miss_as_an_album_to_search():
+    """The figure is known before the search; an album that ends unmatched
+    does not subtract from it."""
+    passed = _passed("one", "two")
+
+    stats = await _split_stats(passed, [("one", "one")])
+
+    assert stats["albums_to_search"] == 1
+    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
+
+
+@pytest.mark.asyncio
+async def test_loading_stats_with_every_album_cached_nothing_is_searched():
+    """All cached: nothing to search, and the figures still add up."""
+    passed = _passed("one", "two")
+
+    stats = await _split_stats(passed, list(passed))
+
+    assert stats["cache_hits"] == 2
+    assert stats["albums_to_search"] == 0
+    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)
+
+
+@pytest.mark.asyncio
+async def test_loading_stats_with_the_database_unavailable_search_every_album():
+    """No cache connection means no hits; every passed album is searched."""
+    passed = _passed("one", "two", "three")
+
+    stats = await _split_stats(passed, [], db_available=False)
+
+    assert stats["db_cache_enabled"] is False
+    assert stats["cache_hits"] == 0
+    assert stats["albums_to_search"] == len(passed)

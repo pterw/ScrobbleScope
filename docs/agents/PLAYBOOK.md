@@ -180,6 +180,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - UI round 2 backlog: loading stats proof
+
+Side task, no batch tag: tests proving `cache_hits + albums_to_search` equals the albums that passed the thresholds, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the loading page's two figures, Cache hits and Albums to search, must add up to the albums being processed. Five tests, no source change: four at `process_albums` (mixed cached and missing, an unmatched miss still counts as an album to search, all cached, database unavailable) and one through `fetch_and_process_albums` with an album under the thresholds, where the sum is the albums that passed, not the albums fetched. Each ran through the job store, and two planted defects in the orchestrator (`len(cache_misses) + 1`, the `albums_to_search` line dropped) turned all five red, then the source was restored byte-identical. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2999 passed**.
+
 ### 2026-10-25 - Repair the two pipeline sequence diagrams
 
 Side task, no batch tag: repaired the Mermaid renders of the two pipeline sequence diagrams, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -197,9 +203,3 @@ Owner intent: the live session's changes landed before their plan so the state w
 Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
-
-Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-The gate's "large display scale parity" check failed twice at `4c0c744`. First, the hero composition was 948.1px tall at 4K against a proportional 837.6px: the strip's `max-width: 44rem` in `static/css/index.css` was the one hero dimension not multiplied by `--index-scale`, so as the type grew the descriptions wrapped onto more lines (3, 2, 2 at 1080p; 5, 3, 4 at 4K). It now scales, and the hero measures 837px at 4K with the same wrapping at 1080p, 1440p and 4K. Second, the heatmap headline wrapped at 1200px (and at 1500px on CI's fonts). Owner ruling (2026-10-25): it reads "Your 365 days *mapped by day.*" in `templates/index.html`, shorter than the album headline, which fits at both widths. `config/docsync.toml`: the "heatmap window length" site in that template now reads the headline's `Your (\d+) days`, since "last 365 days" no longer appears there. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
