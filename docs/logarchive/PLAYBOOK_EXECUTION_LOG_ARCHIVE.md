@@ -9,6 +9,234 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
+
+Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
+
+Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". The section gains a short "Lean suite" list: one test per intended behaviour, near-duplicates become one parametrized test, no test that pins wording or a constant equal to the code, module-layout ("parity") tests are not added (the gate family was removed on 2026-10-25 with the owner's approval), and a fix round extends an existing test before adding one. The existing "Near-duplicate" forbidden pattern is not repeated. No other section changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: plan A execution record
+
+Side task, no batch tag: record in plan A (`docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md`) which tasks landed, in which commits and with which deviations, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "Make sure that the plans are being followed and marking where they are finished when things arrive and deviations." The plan's acceptance boxes are ticked for Tasks 1-11 (Task 11b has none), each backed by its land report and an approving review; Task 12 stays open. The plan gains an "Execution record (2026-10-25)" section: a table of task, commit, review rounds and deviation ruling ids (RA6-RA21), plus the landing-order changes (RA9, RA10), the `short_window` interface extension (RA11), Task 10's two edits outside its Touches, the owner copy (RA13), F-B23-46 resolved and F-B23-64 filed, the lean-suite consolidation (RA20, 3067 to 2876 tests) and what still has to run (Task 12, the final gates). Docs only; the plan is a point-in-time record, so no live prose changed.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: test consolidation, gate unit tests
+
+Side task, no batch tag: merge duplicate and near-duplicate tests in the four frontend-gate unit-test files (`test_frontend_gate_colour.py`, `_forms.py`, `_include.py`, `_layout.py`), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Colour: the seven "Carried from test_frontend_gate.py" duplicates (parse_rgb_string, composite_over, contrast_ratio symmetry, worst divider contrast, the 3:1 boundary, the divider token name, clamp_px) are removed, each verified against its surviving class test (`TestParseRgbString`, `TestCompositeOver`, `TestContrastRatio`, `TestWorstDividerContrast`, `TestDividerContrastFailure`, `TestClampPx`); 2.9999 became a case of `test_reports_below_the_threshold`. `test_seg_boundary_at_the_floor_passes_in_both_themes` is removed (`test_selected_text_floor_stays_4_5` and the other-theme half of the under-4.5 cases guard it); the 3.5 case is merged into the renamed `test_seg_boundary_under_4_5_fails_in_the_themes_that_miss_it`; the two unselected-floor tests are one parametrized `test_unselected_text_floor_is_7_to_1_by_default_and_selected_text_keeps_4_5`. The luminance test keeps only the ordering claim. Forms: the mode-switch failure test keeps both state labels and the figure; `test_include_check_runs_the_mode_switch_measure` is now `test_include_check_reports_what_the_mode_switch_measure_finds` and asserts a stubbed failure reaches the returned list (it fails if the `mode_switch_failures` call is removed). Include: the at-the-floor and 4.63 pass tests are removed (each just-under case asserts the other theme passes); the 3.5 case is merged into the renamed `test_card_boundary_under_4_5_fails_in_the_themes_that_miss_it`, keeping the "against the card" fragment. Layout: `test_collapsed_form_keeps_the_full_lift_and_a_shorter_lift_fails` is removed (the form-centring tests guard the same rule); the short-window pair, the 1920x700 and 1920x1063 large-display pair, the strip pass pair and fail pair, and the 879 and 892 loops are parametrized (each case still fails if its own viewport or cell is dropped); the 860 pair is `test_strip_display_follows_the_860_cut`; the sweep test is `test_strip_sweep_reaches_the_widths_below_the_860_cut` and asserts the four sub-860 lines without an event log; the decade-scope test asserts only the reach state.
+
+Deviations: the sweep test no longer asserts the per-width fresh page load order. Two Minor review notes accepted under RA20, no change: the default token (`--shell-border`) of `_divider_contrast_failure` is no longer asserted, and "every width at or above 860 is measured" is no longer guarded. Edited existing tests: those named above.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: test consolidation, orchestrator and loading tests
+
+Side task, no batch tag: merge near-duplicate orchestrator loading-stats tests and heatmap loading tests into parametrized tests, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Four loading-stats tests in `tests/services/test_orchestrator_process_albums.py` differed only in inputs, so `test_loading_stats_split_the_passed_albums_into_hits_and_misses` now runs them as four cases (mixed, unmatched_miss, all_cached, database_unavailable); `db_cache_enabled` is asserted equal to the database availability in each case, so the database-less case is the only False one. In `tests/frontend/test_heatmap_pure_functions.py`, the two export-header tests are two cases (uppercase, no text-transform) of `test_export_header_model_uppercases_only_when_the_css_says_to`, and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` runs its two payloads (both_keys, to_search_absent) as two cases. Every case is kept.
+
+Deviations: none. Edited existing tests: the four `test_loading_stats_*` tests in `test_orchestrator_process_albums.py` (one kept as the parametrized test, three merged into it), `test_export_header_model_uppercases_only_when_the_css_says_to` (parametrized, absorbing `test_export_header_model_leaves_text_as_written_without_text_transform`) and `test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent` (parametrized).
+
+Validation: `pytest -q` -- **2873 passed**.
+
+### 2026-10-25 - UI round 2 backlog: test consolidation, route tests
+
+Side task, no batch tag: merge repeated rank and render tests in `tests/test_routes.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour"; "Keep things cheap and narrow". Merged: `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort` is now a case of the parametrized `test_mark_untimed_for_display_marks_durationless_albums_only_when_sorting_by_playtime` (renamed from `..._when_sorting_by_playtime`), which keeps both the playtime and the non-playtime case. Removed: `test_playtime_run_treats_missing_none_and_zero_as_durationless`; its missing, None and zero forms are covered by the same parametrized helper test and its page cells by `test_playtime_run_keeps_durationless_albums_as_hidden_unranked_rows`. RA17's page-level rank-cell guard stays in that last test (timed rows read 1 and 2 around a durationless row, hidden rows' cells empty); it lost only its Scrobbles assertion, which `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` owns. `test_play_count_run_ranks_every_album_and_hides_the_note` is renamed `test_play_count_run_hides_no_row_and_hides_the_note` and no longer re-reads rank cells (the helper test owns the ranking). `test_playtime_run_with_only_durationless_albums_renders_no_matches` keeps its no-rows assertion and drops the `"No Albums Found"` wording pin.
+
+Deviations: none. Edited existing tests: the five named above (one merged, one removed, three edited or renamed).
+
+Validation: `pytest -q` -- **2872 passed**.
+
+### 2026-10-25 - UI round 2 backlog: test consolidation, results browser tests
+
+Side task, no batch tag: merge repeated tests in `scripts/dev/results_behavior_tests.py`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): "test for *intended function*, not *written function* and avoid repeatedly testing the same behaviour". Three tests drove the same untimed-and-not-unmatched hidden-note counter through different Hide and ranking orders; they are now three cases of one subTest test, `test_hidden_note_counts_only_rows_the_ranking_alone_drops`, so both callers of the counter (the Hide click after ranking, the listening-time click after Hide) stay guarded while ranked by listening time (RA14). The sort test's loop now runs in `subTest(mode=...)` with a case tuple that carries the other mode, which removes its if/else branch; its assertions are unchanged. The toast assertion of the first merged test is not repeated here: `test_hidden_note_and_toast_carry_the_count_of_dropped_albums` guards the toast.
+
+Deviations: the CSV test `test_csv_while_ranked_by_listening_time_lists_only_ranked_rows` was kept, not merged: its fixture is the only one with matched rows the listening-time rule drops, so a merge would lose that case. Edited existing tests: `test_hidden_note_does_not_count_rows_hide_already_hides` (renamed `test_hidden_note_counts_only_rows_the_ranking_alone_drops`), `test_hide_toggled_while_ranked_by_listening_time_refreshes_the_note` and `test_hide_toggled_on_listening_time_lowers_the_count_to_one` (merged into it), `test_sort_updates_order_ranks_metrics_and_accessibility`. The script is not collected by pytest, so the count is unchanged.
+
+Validation: `pytest -q` -- **2873 passed**.
+
+### 2026-10-25 - UI round 2 backlog: test consolidation, parity family
+
+Side task, no batch tag: remove the frontend gate's module-shape parity tests, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA20): cut repeated and written-function tests to save suite time; the owner approved this removal outright: "you have permission for the parity family to save that 5% of suite time". This reverses the post-split parity guard added under F-B21-51, which checked that every name a gate slice moved out of `scripts/dev/frontend_gate.py` is still defined in its slice and still resolves through the gate module. Those tests are gone from the nine slice files (`test_the_slice_defines_the_name`, `test_the_name_resolves_through_the_gate_module`), from `test_frontend_gate_colour.py` (`TestFacadeStillReExportsTheMovedHelpers`) and from `test_frontend_gate_shared.py` (`test_the_shared_module_defines_the_name`), with the name lists and imports only they used. Collected cases in the eleven edited files plus `test_frontend_gate_split.py` fall from 501 to 307 (-194); the suite falls from 3067 to 2873. Every behaviour test, `tests/scripts/dev/gate_parity.py` and `test_frontend_gate_split.py` (the split's own check) stay.
+
+Deviations: none. Edited existing tests: removed `test_the_slice_defines_the_name` and `test_the_name_resolves_through_the_gate_module` (in the assets, forms, heatmap_access, layout, pipeline, runtime, spotlight_photo, theme and unmatched gate test files), `TestFacadeStillReExportsTheMovedHelpers` and `test_the_shared_module_defines_the_name`.
+
+Validation: `pytest -q` -- **2873 passed**.
+
+### 2026-10-25 - UI round 2 backlog: ranking agreement test
+
+Side task, no batch tag: a browser test that a listening-time run and a switched play-count page agree, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6): a run started in listening-time mode and a page switched to it show the same leaderboard. `tests/frontend/test_results_ranking_agreement.py` renders one four-album fixture (two timed, one at 0 seconds, one with no key) as a playtime run and as a play-count run, loads both Flask pages in Chromium (static files served with `page.route`), switches the play-count page through the real toggle, and compares the visible (album, rank) sequence, the Total Albums, Top Artist and Scrobbles text, the hidden-count integer and the CSV rows. It also checks that switching to track plays restores all four albums and that switching back reproduces the first list. The fixture orders timed albums differently by time and by plays, so a client that ranks by the wrong metric fails. Hand-applied defects (the server rendering untimed rows without `hidden`, the client skipping the renumber, the client ranking by plays in listening-time mode) each turn all three tests red.
+
+Deviations: the fixture gives all four albums one artist, because Top Artist follows the first row and legitimately differs between the two paths; this is filed as F-B23-64 (open, P3, owner ruling RA21), and the fixture comment names it. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3067 passed**.
+
+### 2026-10-25 - UI round 2 backlog: listening-time ranking documented
+
+Side task, no batch tag: document the listening-time ranking rule in `DESIGN.md` and close F-B23-46, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3, RA5): albums with no listening time should not rank under listening time, and the design record should say so. `DESIGN.md` gains a "Results Row: Listening-Time Ranking" section after the unmatched variant: the rule, renumbered ranks, header figures that keep describing the whole result (the Hide control recomputes them as it always has, RA18), the note and toast that give the hidden count, the return of the albums under track plays, and one rule on the server and in the browser. F-B23-46 moves from `docs/agents/FINDINGS.md` to the archive as resolved, naming T7 `7e529efc`, T7b `2115e858` and T10 `078ef258`.
+
+Deviations: a sibling `###` section rather than a bullet, because Components holds the unmatched variant as a section. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3064 passed**.
+
+### 2026-10-25 - UI round 2 backlog: server listening-time rule
+
+Side task, no batch tag: apply the listening-time ranking rule on the server, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3, RA5): a run started in listening-time mode shows the same leaderboard as a page switched to it, and switching to track plays brings the untimed albums back. `_filter_results_for_display` no longer drops rows; `_mark_untimed_for_display` in `scrobblescope/routes/album_flow.py` returns copies carrying `untimed` and `display_rank` (None when untimed, else 1..n skipping them). Durationless means `play_time_seconds` missing, None or <= 0 (RA6: None no longer raises a TypeError). `templates/results.html` renders untimed rows with `hidden` and an empty `data-rank` and rank cell, and shows `#playtime-hidden-note` with N when N > 0, using the same singular/plural copy as `results.js` (RA13). Total Albums, Top artist and Scrobbles are built from the whole result (RA3). The no-matches page stays for a run where every album is untimed. F-B23-46 stays open until the client half and its agreement test land.
+
+Deviations: `scrobblescope/routes/__init__.py` (outside the plan's Touches) re-exports the renamed helper, forced by the rename. `tests/test_template_shell.py` (RA17) gains `display_rank: 1` on its two fixture rows, because the template reads `display_rank` with no `loop.index` fallback. Review fix round (RA17): the route tests read the visible rank cell and a gap between ranked rows.
+
+Edited existing tests: `test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime` became `test_mark_untimed_for_display_marks_durationless_albums_when_sorting_by_playtime` and `test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort` became `test_mark_untimed_for_display_ranks_every_album_for_non_playtime_sort`, because the helper marks rows instead of removing them (same rule, same three durationless forms); `test_scrobbles_figure_leaves_out_albums_a_playtime_ranking_drops` became `test_scrobbles_figure_counts_albums_a_playtime_ranking_hides` (90, not 50), because the dropped album is now a hidden row and the figure describes the whole result.
+
+Validation: `pytest -q` -- **3064 passed**.
+
+### 2026-10-25 - UI round 2 backlog: gate the mode switch
+
+Side task, no batch tag: gate the index mode switch like the segmented controls, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (RA1, "Keep muted, gate at 4.5"): keep the muted unselected label on the mode switch and hold it at 4.5:1 while the other segmented controls stay at 7:1. `seg_contrast_failures` and `seg_hover_failures` in `scripts/dev/_frontend_gate_colour.py` take an optional `unselected_floor` spec key (default `SEG_TEXT_FLOOR`, 7.0) that replaces the floor for the unselected option text and the unselected-hover cell only. `scripts/dev/_frontend_gate_forms.py` adds `MODE_SWITCH_SEG` and `mode_switch_failures`, called from `check_include_unmatched_control`: it measures Top albums selected and Heatmap selected (a real click on `#mode-tab-heatmap`, restored to Top albums in a `finally`) in both themes, covering option text, selected text, chip boundary and both hover cells.
+
+Deviations: the measure hangs off `check_include_unmatched_control` because `frontend_gate.py` is outside the task's files. Review fix round (RA16): added a stub-page test that the include check runs the mode-switch measure, tests for the hover measure, the selected-chip hover row and the selected-chip hover floor staying at the default, and a restore-on-error test. No test that predates this task is edited. Of this task's own first-phase tests, `test_mode_switch_failures_restore_top_albums_and_keep_light_clear` gains `assert failures` and `test_mode_switch_spec_holds_only_the_unselected_cell_at_4_5`, added by this task's own first phase, was removed (RA16 (f): it pinned a constant equal to the code).
+
+Validation: `pytest -q` -- **3060 passed**.
+
+### 2026-10-25 - UI round 2 backlog: gate the hero strip
+
+Side task, no batch tag: gate the hero strip's layout, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: keep the strip from regressing after the container-query fix. `scripts/dev/_frontend_gate_layout.py` gains `STRIP_ROW_QUERY_EM` (26, mirroring `@container (width < 26em)`), `_measure_strip` and the pure `_strip_layout_failures`, called from `_check_desktop_scale_bounds` beside the headline-wrap check for both modes at 900, 1100, 1200, 1500, 1920 and 2560 (900px height): three columns or stacked rows by 26 x the strip wrap's computed font size, and no wrapped term (height over 1.2 x line height). At 859 and 390 the lists must be hidden. The helper fails closed on a thin measurement (fewer than three items, or no measurable term or line height), and the sweep is pinned to its widths and 900px height by a test. The strip had no gate: the columns/rows switch is a container query and the mobile cut a viewport rule, and terms wrapped unnoticed up to 1179px. The 859/390 failures report under the `[desktop]` profile label because the sweep runs inside the desktop check (RA15, accepted).
+
+Deviations: none. Edited existing test: `test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context` (its stub now serves a strip measure and its expected failure list gains the strip line, so removing the strip call fails it).
+
+Validation: `pytest -q` -- **3047 passed**.
+
+### 2026-10-25 - UI round 2 backlog: hidden-count note
+
+Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6, RA3): a listener who ranks by listening time should see why albums vanish and how to get them back. `templates/results.html` gains `#playtime-hidden-note` (hidden by default, with `#playtime-hidden-count` and `#playtime-hidden-copy`) after the stat grid, reusing the existing partial-notice style, so nothing moves on load. `applyRowState` in `static/js/results.js` now counts the rows the rule drops, excluding rows Hide already hides, and shows or hides the note with that count; the toast on switching to listening time gains the count when it is above 0. Copy is the owner's choice (RA13, "Count first"): note "N albums with no listening time are hidden. Rank by track plays to show them." (N = 1: "1 album with no listening time is hidden. Rank by track plays to show it."); toast "Leaderboard ranked by Spotify listening time. N albums with no listening time are hidden." (N = 1: "1 album with no listening time is hidden."); with N = 0 and on plays the toast is the existing sentence alone, with one singular/plural switch in `results.js`. New tests in `scripts/dev/results_behavior_tests.py` read the integer and the `hidden` state, never the wording: the count and toast for two durationless rows, the plain path with none, Hide-hidden rows not counted, and the live Hide path refreshing the note at N = 0 and N = 1 (RA14). F-B23-46 stays open: the server half that renders the note on a run started in playtime mode is T10's, and T11b closes it.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3026 passed**.
+
+### 2026-10-25 - UI round 2 backlog: client listening-time rule
+
+Side task, no batch tag: client half of the listening-time rule (F-B23-46), on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent (R6): ranking the Results page by listening time drops albums with no listening time and renumbers the rest, and ranking by track plays brings them back. `applyRowState` in `static/js/results.js` now sets each row's hidden state as one decision (Hide on an unmatched row, or listening-time ranking on a row whose `data-play-time-seconds` is not above 0), clears `data-rank` and the rank cell of hidden rows, and renumbers the rest 1..n; `setLeaderboardMetric` and `setUnmatchedHidden` both call it, so a metric switch never reveals what Hide hides and never hides what Hide shows. The header figures count rows not hidden by Hide, so Total Albums, Top artist and Scrobbles still describe the whole result (RA3). The CSV exporter already skips hidden rows, so it lists only the ranked rows. New tests in `scripts/dev/results_behavior_tests.py` cover the drop and restore, the Hide round trip, the CSV and the header figures. This does not close F-B23-46: the server half (T10) and the hidden-count note (T7b) follow, and the toast text is unchanged here.
+
+Deviations: none. Edited existing test: `test_sort_updates_order_ranks_metrics_and_accessibility` (the durationless row "C" is now hidden and unranked in listening time, visible ranks `["1","2"]`, back at rank 3 on plays).
+
+Validation: `pytest -q` -- **3026 passed**.
+
+### 2026-10-25 - UI round 2 backlog: gate the expanded form's placement
+
+Side task, no batch tag: gate the expanded form's placement in the layout gate, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: a form with every option open must not leave the mode switch pinned under the header, and a short window must keep the 0.25rem top floor (R3). The graduated lift (`2609f1f`) had no gate, so the old formula (4px gap) passed unnoticed. `check_large_display_scale_parity` now measures the expanded form (decade scope chosen, thresholds open) at 1920x1063, where the gap above the mode switch must be at least 1.5rem (1px tolerance), and at 1920x700, where the form top must sit exactly 0.25rem below the well top. It also re-runs the collapsed centring check at 1920x1063, and the `_form_centring_failures` docstring now describes the graduated lift (collapsed forms keep the full 2.5rem lift). New pure `_expanded_placement_failures` and `_measure_expanded_placement` in `scripts/dev/_frontend_gate_layout.py`; `_expanded_placement_failures` is listed in `HELPERS` of the test module. Stub-page tests cover both viewports and the state asked of `_reach_state`.
+
+Deviations: per ruling RA11, `_expanded_placement_failures` takes a keyword-only `short_window=False` flag beyond the plan's frozen `(label, measured)` interface; the two-argument call keeps its meaning (the roomy window). Edited existing tests: none (`HELPERS` tuple extended).
+
+Validation: `pytest -q` -- **3026 passed**.
+
+### 2026-10-25 - UI round 2 backlog: RECONCILIATION records the overrides
+
+Side task, no batch tag: record the round 2 backlog overrides in `docs/design/RECONCILIATION.md`, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: keep the override list true to what ships (the snapshot stays verbatim, so its overrides live here). Section 20 and the "Segmented control look" row still stated the superseded primary border and base-content ink as current; they now mark the first look superseded and state the shipped tint, primary text and `#775ab5` / `#8a79ab` outline. New Section 29 records the hero strip (R4, the container query, R7), the expanded-form placement (R3), the loading stats (R5), the selected-option look and its two owner exceptions (RA1, RA2), and the AA goal (RA4), citing the landed commits. The "Heatmap H1 copy" row now reads "Your 365 days *mapped by day.*" and a row records the album headline and lede copy.
+
+Deviations: per ruling RA10, the top-table row "Index hero: capability marks" is trimmed to the hero strip only (the outline token and loading labels live in Section 29 and the segmented-control row) and moved to after the Section 24 row; Section 29 also cites T1's commit `406e9b74` beside the RA2 token raise. Edited existing tests: none.
+
+Validation: `pytest -q` -- **3016 passed**.
+
+### 2026-10-25 - UI round 2 backlog: one stronger selected outline
+
+Side task, no batch tag: `--shell-selected-outline` set to `#775ab5` (light) and `#8a79ab` (dark) and both selected-boundary gates raised from 3:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: one stronger outline that every selected-option boundary gate holds at AA (ruling RA2). The token and `SEG_BOUNDARY_FLOOR` / `INCLUDE_BOUNDARY_FLOOR` changed together, because the old token measured 4.40:1 dark and 4.37:1 light on the Results card (the plan's 4.24:1 is the old dark token on base-200) and would fail a 4.5 floor; the new values clear 4.5:1 on the track, the sunken well, the card and the results surface. The `shell.css` comment and the two gate docstrings were rewritten. New stub-page tests for `seg_contrast_failures` and `card_boundary_failures` (floor value, per-theme failure, fail-closed missing control, translucent border compositing, unselected 7:1 against selected 4.5:1) in `test_frontend_gate_colour.py` and a new `test_frontend_gate_include.py`; six hand mutations were killed. Token RED in the browser gate: floors at 4.5 with the old tokens failed at 4.40:1 and 4.37:1 on the card; GREEN with the new values.
+
+Deviations: none beyond the measured card figures above. Edited existing tests: none (new tests appended to `test_frontend_gate_colour.py`).
+
+Validation: `pytest -q` -- **3016 passed**.
+
+### 2026-10-25 - UI round 2 backlog: DESIGN.md states what ships
+
+Side task, no batch tag: DESIGN.md corrections so it says what the UI round 2 ships, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the design doc must describe the shipped UI, not the first selected-chip look. Changed in `DESIGN.md` only: the selected option is soft tint, primary text (5.47:1 light, 6.38:1 dark, held at the 4.5:1 AA floor by owner exception) with a 1px `--shell-selected-outline` outline (5.01:1 light, 5.00:1 dark against the track); the stale 6.06/8.14/14.81/13.04 figures are gone; the index mode switch keeps its muted unselected label (5.17:1 light, 5.82:1 dark, a second owner exception); the Fixed Composition Rule states the 2.5rem lift that gives way first, the 1.5rem floor above the mode switch, the plain-centring fallback, the 0.25rem header floor and scrolling in short windows; new bullets for the hero strip and the loading stats. Figures recomputed from the tokens.
+
+Deviations: the Loading Stats bullet names the tiles in the shipped order (Scrobbles and Pages fetched, then Cache hits and Albums to search, as in `templates/loading.html`), per ruling RA7, where the plan wrote "Pages fetched and Scrobbles". Edited existing tests: none.
+
+Validation: `pytest -q` -- **3001 passed**.
+
+### 2026-10-25 - UI round 2 backlog: loading stats and Back test
+
+Side task, no batch tag: browser tests for the loading page's Cache hits and Albums to search tiles and its history-replacing redirect, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the 2026-10-25 loading page changes (two stat tiles, Back from the results reaching the form) were not held by any test, so a swapped key or a return to `location.assign` would pass. Two tests in `tests/frontend/test_heatmap_pure_functions.py`: one drives a `/progress` answer with both figures (12 and 30 fill their own tiles) and one with `cache_hits` alone (the second tile stays hidden); the other loads the page from a routed URL, lets the scheduled redirect run and asserts the page is at `/results` with `history.length` unchanged. The shared loading markup gained the stats container and two tiles; label wording is not pinned. Two planted defects in `static/js/loading.js` (`location.assign` in `redirectToResults`, the Cache hits tile reading `albums_to_search`) each turned one test red, then the file was restored byte-identical. Deviations: none. Edited existing tests: none (the shared markup constant was extended). Validation: `pytest -q` -- **3001 passed**.
+
+### 2026-10-25 - UI round 2 backlog: loading stats proof
+
+Side task, no batch tag: tests proving `cache_hits + albums_to_search` equals the albums that passed the thresholds, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the loading page's two figures, Cache hits and Albums to search, must add up to the albums being processed. Five tests, no source change: four at `process_albums` (mixed cached and missing, an unmatched miss still counts as an album to search, all cached, database unavailable) and one through `fetch_and_process_albums` with an album under the thresholds, where the sum is the albums that passed, not the albums fetched. Each ran through the job store, and two planted defects in the orchestrator (`len(cache_misses) + 1`, the `albums_to_search` line dropped) turned all five red, then the source was restored byte-identical. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2999 passed**.
+
+### 2026-10-25 - Repair the two pipeline sequence diagrams
+
+Side task, no batch tag: repaired the Mermaid renders of the two pipeline sequence diagrams, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the diagrams explain the pipelines to people, and three `Note` lines held a semicolon, which ends a statement in a Mermaid sequence diagram and broke both renders. The owner's edits replace each semicolon with a full stop or a comma, meaning unchanged: one note in `docs/architecture/heatmap-sequence.md`, two in `docs/architecture/top-albums-sequence.md`. Both diagrams render valid in the Mermaid validator, and no Mermaid block under `docs/architecture/` holds a semicolon. No check was added: the owner keeps the diagrams as reading material, not a gate. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
+### 2026-10-25 - Plan the UI round 2 backlog follow-through
+
+Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the live session's changes landed before their plan so the state was safe; the plan now covers what they still owe. `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` (written by a plan-writer agent, reviewed twice, approved at the second review): DESIGN.md and RECONCILIATION updates, gates that hold the selected-option look at 4.5:1 on every surface (one firmer outline token, `#775ab5` light and `#8a79ab` dark), the mode switch's muted label held at 4.5:1 (owner: "goal is to be AA compliant throughout"), the expanded-form placement, the hero strip and the loading page's stats and Back, and F-B23-46 by the owner's rule (a listening-time ranking hides albums with no listening time, track plays restores them, the header keeps whole-result figures and a note says how many are hidden). Two review Minors on its Task 10 are carried into that task's brief at dispatch. Deviations: the plan follows the commits it documents instead of preceding them, at the owner's request. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
+### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
+
+Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.
+
+### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
+
+Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+The gate's "large display scale parity" check failed twice at `4c0c744`. First, the hero composition was 948.1px tall at 4K against a proportional 837.6px: the strip's `max-width: 44rem` in `static/css/index.css` was the one hero dimension not multiplied by `--index-scale`, so as the type grew the descriptions wrapped onto more lines (3, 2, 2 at 1080p; 5, 3, 4 at 4K). It now scales, and the hero measures 837px at 4K with the same wrapping at 1080p, 1440p and 4K. Second, the heatmap headline wrapped at 1200px (and at 1500px on CI's fonts). Owner ruling (2026-10-25): it reads "Your 365 days *mapped by day.*" in `templates/index.html`, shorter than the album headline, which fits at both widths. `config/docsync.toml`: the "heatmap window length" site in that template now reads the headline's `Your (\d+) days`, since "last 365 days" no longer appears there. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: the loading page's stats, Back and entrance
 
 Side task, no batch tag: relabelled the loading page's last two stats, took the finished page out of history and gave the stats an entrance, on `feat/ui-round-2-backlog`, a branch off `main`.

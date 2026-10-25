@@ -280,6 +280,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * One hidden state per row: Hide takes the unmatched rows out, and ranking
+     * by listening time drops any row without a listening time (R6). Hidden
+     * rows carry no rank; the rest are ranked 1..n in their current order.
+     */
+    function applyRowState(rows, mode, hideUnmatched) {
+        let dropped = 0;
+        rows.forEach(row => {
+            const unmatched = hideUnmatched && Boolean(row.dataset.unmatched);
+            const untimed = mode === 'playtime' && !(Number(row.dataset.playTimeSeconds) > 0);
+            row.hidden = unmatched || untimed;
+            if (untimed && !unmatched) dropped += 1;
+            if (row.hidden) {
+                row.dataset.rank = '';
+                const rank = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
+                if (rank) rank.textContent = '';
+            }
+        });
+        renumberRows(rows.filter(row => !row.hidden));
+        showHiddenNote(dropped);
+        return dropped;
+    }
+
+    /** The note counts the albums the listening-time ranking leaves out. */
+    function showHiddenNote(count) {
+        const note = document.getElementById('playtime-hidden-note');
+        if (!note) return;
+        const figure = document.getElementById('playtime-hidden-count');
+        if (figure) figure.textContent = String(count);
+        const copy = document.getElementById('playtime-hidden-copy');
+        if (copy) {
+            copy.textContent = count === 1
+                ? 'album with no listening time is hidden. Rank by track plays to show it.'
+                : 'albums with no listening time are hidden. Rank by track plays to show them.';
+        }
+        note.hidden = count < 1;
+    }
+
     /** Reorder existing rows and update their visible and exported ranks together. */
     function setLeaderboardMetric(mode, showNotification = true) {
         const table = document.getElementById('results-table');
@@ -298,8 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(row);
             renderMetric(row, mode);
         });
-        // Rows hidden by "Hide" take no rank.
-        renumberRows(rows.filter(row => !row.hidden));
+        const dropped = applyRowState(rows, mode, Boolean(document.getElementById('results_albums_matched')?.checked));
         const label = document.getElementById('metric-header-label');
         if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
         const subtitle = document.getElementById('results-ranking-subtitle');
@@ -319,8 +356,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         if (showNotification) {
+            const hiddenCount = dropped === 1
+                ? ' 1 album with no listening time is hidden.'
+                : (dropped > 1 ? ` ${dropped} albums with no listening time are hidden.` : '');
             showToast(mode === 'playtime'
-                ? 'Leaderboard ranked by Spotify listening time.'
+                ? `Leaderboard ranked by Spotify listening time.${hiddenCount}`
                 : 'Leaderboard ranked by track play count.');
         }
     }
@@ -410,11 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Restored rows have no listening time, so go back to play count first.
         if (!hidden && table.dataset.metric === 'playtime') setLeaderboardMetric('plays', false);
         const rows = Array.from(tbody.querySelectorAll('tr'));
-        rows.forEach(row => {
-            if (row.dataset.unmatched) row.hidden = hidden;
-        });
-        const visible = rows.filter(row => !row.hidden);
-        renumberRows(visible);
+        applyRowState(rows, table.dataset.metric, hidden);
+        // The header describes the whole result, whatever the ranking drops.
+        const visible = rows.filter(row => !(hidden && row.dataset.unmatched));
 
         const totalAlbums = document.getElementById('stat-total-albums');
         if (totalAlbums) totalAlbums.textContent = visible.length.toLocaleString('en-US');

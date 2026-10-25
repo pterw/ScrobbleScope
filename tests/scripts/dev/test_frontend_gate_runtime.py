@@ -18,35 +18,6 @@ from scripts.dev._frontend_gate_runtime import (
 )
 from tests.scripts.dev.gate_parity import defined_names
 
-MOVED = (
-    "SETUP_COMMAND",
-    "install_cdn_routes",
-    "_SERVE_APP_LOCK",
-    "FrontendGateError",
-    "_load_playwright",
-    "_launch_browser",
-    "serve_app",
-)
-REEXPORTED = (
-    "SETUP_COMMAND",
-    "install_cdn_routes",
-    "FrontendGateError",
-    "_load_playwright",
-    "_launch_browser",
-    "serve_app",
-)
-
-
-@pytest.mark.parametrize("name", MOVED)
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_runtime)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_runtime, name)
-
 
 def test_the_environment_bootstrap_stays_in_the_facade() -> None:
     # Trap 4: the bootstrap must run before any sibling imports scrobblescope.

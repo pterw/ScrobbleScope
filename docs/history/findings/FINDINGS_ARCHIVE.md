@@ -3326,6 +3326,24 @@ did not emit screenshots in the sandbox. For future UI-heavy batches, enable
 a Browser/Playwright MCP path if available. No new Python or Node package is
 recommended solely for visual QA.
 
+### F-B23-46: the Listening Time toggle's durationless rows -- RESOLVED
+
+A Results page switched to Listening Time in the browser ranks matched albums with no Spotify duration last, shown as a dash, while a run that starts in playtime mode drops them server-side (`_filter_results_for_display`), so the same listener sees two different leaderboards for the "same" ranking. This is pre-existing on `main` for play-count runs (`setLeaderboardMetric` sorts every row), and is now also reached after Hide on an include run. What would close it: one rule for both paths (hide durationless rows while the client metric is playtime, with renumbering, or keep them server-side too), decided in the UI-consistency PR.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by the owner's 2026-10-25 rule: while the Results page ranks by
+listening time, albums with no listening time (none or zero) are dropped
+from the ranking with ranks renumbered, and they come back when ranking
+by track plays; the same rule runs server-side and client-side. Ruling
+RA3: Total Albums, Top artist and Scrobbles keep describing the whole
+result, and a note and the toast state how many albums are hidden.
+Ruling RA5: a run started in playtime mode renders those albums hidden
+(`_mark_untimed_for_display`), so switching to track plays brings them
+back. Fixed by T7 `7e529efc` (browser rule), T7b `2115e858` (note and
+toast) and T10 `078ef258` (server). Documented in `DESIGN.md`.
+Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
+
 ### Load test data (2026-03-04, local) -- HISTORICAL RECORD
 
 Test environment: Flask dev server (Werkzeug, threaded), local `ss-postgres`

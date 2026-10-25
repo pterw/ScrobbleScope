@@ -198,9 +198,10 @@ def _divider_contrast_failure(
 
 
 #: The owner's ruling: 4.5 is a floor, not a goal. Option text aims for 7:1
-#: (AAA); the selected chip's boundary is a non-text boundary, held at 3:1.
+#: (AAA); the selected chip's boundary is a non-text boundary, held at 4.5:1
+#: (RA2, one stronger outline: the token clears 4.5:1 on every surface).
 SEG_TEXT_FLOOR = 7.0
-SEG_BOUNDARY_FLOOR = 3.0
+SEG_BOUNDARY_FLOOR = 4.5
 
 #: The selected option's text is the primary on its soft chip, 5.47:1 light and
 #: 6.38:1 dark: an owner exception to the 7:1 aim (2026-10-25, UI round 2
@@ -255,11 +256,14 @@ def seg_contrast_cells(page, spec: dict) -> dict | None:
 
 
 def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
-    """Hold a segmented control at 7:1 option text and a 3:1 chip boundary.
+    """Hold a segmented control at 7:1 option text and a 4.5:1 chip boundary.
 
     Runs in both themes and restores light. The options take a 0.2s colour
-    transition, so the read waits it out.
+    transition, so the read waits it out. The optional spec key
+    ``unselected_floor`` replaces the 7:1 floor for the unselected option text
+    alone (RA1: the mode switch's muted label is held at 4.5:1).
     """
+    unselected_floor = spec.get("unselected_floor", SEG_TEXT_FLOOR)
     failures = []
     try:
         for theme in ("light", "dark"):
@@ -275,7 +279,7 @@ def seg_contrast_failures(page, label: str, spec: dict) -> list[str]:
                 )
                 continue
             floors = {
-                "option text on track": SEG_TEXT_FLOOR,
+                "option text on track": unselected_floor,
                 "selected text on chip": SEG_SELECTED_TEXT_FLOOR,
                 "chip boundary on track": SEG_BOUNDARY_FLOOR,
             }
@@ -299,8 +303,10 @@ def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
     and the checked chip keeps its own ink on hover, held at the selected-text
     floor (SEG_SELECTED_TEXT_FLOOR). Both are measured in both
     themes against the surface each text sits on, after the colour
-    transition, and the pointer is moved away and light restored.
+    transition, and the pointer is moved away and light restored. The spec key
+    ``unselected_floor`` replaces the unselected option's floor (RA1).
     """
+    unselected_floor = spec.get("unselected_floor", SEG_TEXT_FLOOR)
     failures = []
     try:
         for theme in ("light", "dark"):
@@ -309,7 +315,7 @@ def seg_hover_failures(page, label: str, spec: dict) -> list[str]:
                 theme,
             )
             for state, key, surface, floor in (
-                ("unselected option", "unselected", "track", SEG_TEXT_FLOOR),
+                ("unselected option", "unselected", "track", unselected_floor),
                 ("selected chip", "selected", "chip", SEG_SELECTED_TEXT_FLOOR),
             ):
                 page.locator(spec[key]).hover()

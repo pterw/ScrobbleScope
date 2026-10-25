@@ -14,62 +14,12 @@ from scripts.dev._frontend_gate_layout import (
     _check_desktop_scale_bounds,
     _headline_wrap_failures,
     _state_dimension_failures,
+    _strip_layout_failures,
     _touch_minimum_failures,
     check_shell_scales_with_text,
 )
-from tests.scripts.dev.gate_parity import defined_names
 
 SOURCE_CSS = Path(__file__).resolve().parents[3] / "static" / "css" / "tailwind.src.css"
-
-CHECKS = (
-    "check_touch_targets",
-    "check_fonts",
-    "check_body_font",
-    "check_shell_scales_with_text",
-    "check_large_display_scale_parity",
-    "check_destination_empty_states",
-)
-CONSTANTS = (
-    "FONTS_READY_EXPRESSION",
-    "REQUIRED_FONT_FAMILIES",
-    "MIN_TOUCH_TARGET_PX",
-    "INTERACTIVE_SELECTOR",
-    "TOUCH_TARGET_STATES",
-    "DEFAULT_STATES",
-)
-HELPERS = (
-    "_small_targets",
-    "_measure_scale_dimensions",
-    "_measure_wide_layout",
-    "_measure_zoom_and_transform",
-    "_measure_fixed_state",
-    "_measure_mobile_headers",
-    "_measure_enlarged_root",
-    "_composition_bounds_failures",
-    "_expected_scaled_dimension",
-    "_scale_dimension_failures",
-    "_wide_layout_failures",
-    "_form_centring_failures",
-    "_header_geometry_failures",
-    "_scale_mechanism_failures",
-    "_touch_minimum_failures",
-    "_mobile_header_failures",
-    "_state_dimension_failures",
-    "_headline_wrap_failures",
-    "_check_desktop_scale_bounds",
-)
-REEXPORTED = (*CHECKS, *CONSTANTS)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS, *HELPERS))
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_layout)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", REEXPORTED)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_layout, name)
 
 
 def test_text_scaling_check_restores_the_page_root() -> None:
@@ -234,6 +184,36 @@ def test_state_dimension_failures_reports_only_material_fixed_viewport_changes()
     ]
 
 
+def _strip_measure(
+    *,
+    columns: bool = True,
+    container: float = 800,
+    font: float = 20,
+    term_heights=(23, 23, 23),
+    displayed: bool = True,
+) -> dict:
+    """A strip measurement; columns share a top, rows share a left."""
+    if not displayed:
+        return {
+            "displayed": False,
+            "containerWidth": container,
+            "wrapFontPx": font,
+            "itemTops": [],
+            "itemLefts": [],
+            "termHeights": [],
+            "termLineHeight": 0,
+        }
+    return {
+        "displayed": True,
+        "containerWidth": container,
+        "wrapFontPx": font,
+        "itemTops": [100, 100, 100] if columns else [100, 160, 220],
+        "itemLefts": [10, 260, 510] if columns else [10, 10, 10],
+        "termHeights": list(term_heights),
+        "termLineHeight": 23,
+    }
+
+
 def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> None:
     """The boundary probe must report real wrapping and release its context."""
     assert _touch_minimum_failures(
@@ -261,7 +241,18 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
         a real per-width failure instead of a single hard-coded boundary check.
         """
         locator = MagicMock()
-        if selector.endswith(" h1"):
+        if "data-mode-marks" in selector:
+            mode = "heatmap" if '"heatmap"' in selector else "album"
+            width = current_width["value"]
+            locator.evaluate.return_value = _strip_measure(
+                displayed=width >= 860,
+                container=400 if width < 1100 else 800,
+                columns=width >= 1100,
+                term_heights=(23, 46, 23)
+                if (mode, width) == ("heatmap", 1100)
+                else (23, 23, 23),
+            )
+        elif selector.endswith(" h1"):
             wraps = current_width["value"] == 1200
             locator.evaluate.return_value = (
                 {"height": 50, "lineHeight": 20}
@@ -313,9 +304,12 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
     # width (1500), and both real profiles above it (1920, 2560); only the
     # 1200px case wraps here, so the aggregate below proves the loop reports
     # per-width, not just the first width it tries.
+    # The strip sweep adds 900/1100 (narrow column) and the hidden cut at
+    # 859/390; only the heatmap strip at 1100px wraps a term here.
     assert _check_desktop_scale_bounds(page, "http://local") == [
         "/: album headline wraps at 1200px",
         "/: heatmap headline wraps at 1200px",
+        "/: heatmap strip term wraps at 1100px",
     ]
     page.context.browser.new_context.assert_called_once_with(has_touch=True)
     context.close.assert_called_once()
@@ -438,6 +432,176 @@ def test_form_centring_reports_a_card_off_the_centring_rule() -> None:
     assert "76.0px above the card and 116.0px below" in failures[0]
 
 
+def _expanded(gap: float = 24, top: float = 24, root: float = 16) -> dict:
+    """An expanded-form measurement; the gap and top are in px."""
+    return {
+        "rootFontSize": root,
+        "gapAboveSwitch": gap,
+        "formInnerTop": 76 + top,
+        "wellTop": 76,
+    }
+
+
+def test_expanded_placement_holds_the_gap_above_the_switch_inclusively() -> None:
+    """24px at root 16 (1.5rem) passes, 4px fails, 22.9px fails, 23.1px passes."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    assert check("1920x1063", _expanded(gap=24)) == []
+    assert check("1920x1063", _expanded(gap=23.1)) == []
+    failures = check("1920x1063", _expanded(gap=22.9))
+    assert len(failures) == 1 and "1920x1063" in failures[0]
+    failures = check("1920x1063", _expanded(gap=4))
+    assert len(failures) == 1 and "4.0px" in failures[0]
+
+
+def test_expanded_placement_floor_follows_the_root_font_size() -> None:
+    """The 1.5rem floor is relative: 24px is short at a 20px root (30px)."""
+    check = _frontend_gate_layout._expanded_placement_failures
+    assert check("1920x1063", _expanded(gap=24, root=20)) != []
+    assert check("1920x1063", _expanded(gap=30, root=20)) == []
+
+
+@pytest.mark.parametrize(
+    ("gap", "top", "passes"),
+    [
+        # The form sits 0.25rem (4px) below the well; 1px either side is fine.
+        (4, 4, True),
+        (24, 3, True),
+        (24, 4.9, True),
+        (24, 5, True),
+        # Raised higher, or off by 2px either way, fails.
+        (24, 24, False),
+        (0, 0, False),
+        (24, 2, False),
+        (24, 6, False),
+    ],
+)
+def test_short_window_form_top_stays_on_the_quarter_rem_floor(gap, top, passes) -> None:
+    check = _frontend_gate_layout._expanded_placement_failures
+    failures = check("1920x700", _expanded(gap=gap, top=top), short_window=True)
+    assert (failures == []) == passes
+    assert all("1920x700" in line for line in failures)
+
+
+def test_expanded_measurement_opens_decade_scope_and_thresholds(monkeypatch) -> None:
+    """The measurement asks the page for the expanded state."""
+    module = _frontend_gate_layout
+    calls = []
+    monkeypatch.setattr(module, "_reach_state", lambda *a: calls.append(a))
+    monkeypatch.setattr(module, "wait_for_settled", lambda _page: None)
+    page = MagicMock()
+
+    module._measure_expanded_placement(page, "http://local", 1920, 700)
+
+    assert calls == [
+        (
+            page,
+            (
+                ("select", "#release_scope", "decade"),
+                ("click", ".disclosure__summary"),
+            ),
+        )
+    ]
+
+
+def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
+    """Run the scale-parity check with the 1920x1063 / 1920x700 expanded stubs."""
+    module = _frontend_gate_layout
+    measured_at = []
+
+    def expanded(_page, _url, width, height):
+        measured_at.append((width, height))
+        return full if (width, height) == (1920, 1063) else short
+
+    header_px = module._clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20)
+    root_width = 27.5 * 20 * ((900 - header_px) / ((42.0625 + 4) * 20))
+    state = {"dimensions": {}, "documentHeight": 2000, "viewportHeight": 945}
+    monkeypatch.setattr(module, "_measure_expanded_placement", expanded)
+    last_window = []
+
+    def scale_dimensions(_page, _url, _selectors, width, height):
+        last_window[:] = [(width, height)]
+        return _all_named()
+
+    def wide_layout(_page):
+        # Only the collapsed 1920x1063 window is off the centring rule.
+        if last_window == [(1920, 1063)]:
+            return dict(_centred_layout(), formInnerTop=152, formInnerBottom=829)
+        return _centred_layout()
+
+    monkeypatch.setattr(module, "_measure_scale_dimensions", scale_dimensions)
+    monkeypatch.setattr(module, "_measure_wide_layout", wide_layout)
+    monkeypatch.setattr(module, "_measure_zoom_and_transform", lambda _page: [])
+    monkeypatch.setattr(module, "_measure_mobile_headers", lambda *a: {})
+    monkeypatch.setattr(module, "_measure_fixed_state", lambda *a: state)
+    monkeypatch.setattr(module, "_measure_enlarged_root", lambda *a: root_width)
+    monkeypatch.setattr(module, "_check_desktop_scale_bounds", lambda *a: [])
+    for judge in (
+        "_scale_dimension_failures",
+        "_composition_bounds_failures",
+        "_wide_layout_failures",
+        "_header_geometry_failures",
+        "_scale_mechanism_failures",
+        "_state_dimension_failures",
+    ):
+        monkeypatch.setattr(module, judge, lambda *a, **k: [])
+    page = MagicMock()
+    page.evaluate.return_value = {"factor": "", "columns": 1}
+
+    failures = module.check_large_display_scale_parity(page, "http://local")
+
+    assert (1920, 1063) in measured_at and (1920, 700) in measured_at
+    return failures
+
+
+FULL_GAP_LINE = (
+    "/: expanded form leaves 4.0px between the header and the mode switch "
+    "at 1920x1063, expected at least 1.5rem (24.0px)"
+)
+SHORT_TOP_LINE = (
+    "/: expanded form top is 24.0px below the well at 1920x700, "
+    "expected the 0.25rem floor (4.0px)"
+)
+
+
+@pytest.mark.parametrize(
+    ("full", "short", "line"),
+    [
+        # Only the roomy window fails: its gap is judged, the short one passes.
+        (_expanded(gap=4, top=10), _expanded(gap=30, top=4), FULL_GAP_LINE),
+        # Only the short window fails: its form top is judged, not its gap.
+        (_expanded(gap=30, top=10), _expanded(gap=4, top=24), SHORT_TOP_LINE),
+    ],
+    ids=["small-gap-at-1920x1063", "raised-top-at-1920x700"],
+)
+def test_large_display_check_reports_the_window_that_misses_its_floor(
+    monkeypatch, full, short, line
+) -> None:
+    failures = _run_large_display_check(monkeypatch, full=full, short=short)
+    assert len(failures) == 2
+    assert "off-centre at 1920x1063" in failures[0]
+    assert failures[1] == line
+
+
+def _all_named() -> dict:
+    """Every selector the scale-parity check names, measured as empty."""
+    names = (
+        "hero composition",
+        "form composition",
+        "wordmark",
+        "headline",
+        "form",
+        "submit",
+        "field",
+        "label",
+        "theme control",
+        "input",
+        "mode tab",
+        "page navigation",
+        "header bar",
+    )
+    return {name: {} for name in names}
+
+
 def test_header_geometry_retains_clamps_gaps_and_wrap_thresholds() -> None:
     """Measured floors and ceilings pass; every header contract still reports drift."""
     sizes = {
@@ -552,3 +716,189 @@ def test_the_kit_check_loads_the_first_face_of_every_font_token() -> None:
     first_faces = re.findall(r'--font-[a-z-]+:\s*"([^"]+)"', source)
     assert len(first_faces) == 5, first_faces
     assert sorted(set(first_faces) - set(REQUIRED_FONT_FAMILIES)) == []
+
+
+@pytest.mark.parametrize(
+    ("mode", "width", "measure"),
+    [
+        ("album", 1920, _strip_measure()),
+        ("heatmap", 1100, _strip_measure(columns=False, container=400)),
+    ],
+    ids=["three-columns-when-wide", "stacked-rows-when-narrow"],
+)
+def test_strip_passes_the_form_its_container_calls_for(mode, width, measure) -> None:
+    assert _strip_layout_failures(mode, width, measure) == []
+
+
+def test_strip_names_the_mode_and_width_of_a_wrapped_term() -> None:
+    wrapped = _strip_measure(term_heights=(23, 46, 23))
+    assert _strip_layout_failures("heatmap", 1500, wrapped) == [
+        "/: heatmap strip term wraps at 1500px"
+    ]
+    # Up to 1.2 line heights is still one line.
+    one_line = _strip_measure(term_heights=(27, 23, 23))
+    assert _strip_layout_failures("heatmap", 1500, one_line) == []
+
+
+@pytest.mark.parametrize(
+    ("mode", "width", "measure", "message"),
+    [
+        (
+            "album",
+            1920,
+            _strip_measure(columns=False, container=800),
+            "/: album strip is not three columns at 1920px "
+            "(container 800px, columns from 520px)",
+        ),
+        (
+            "heatmap",
+            1100,
+            _strip_measure(columns=True, container=400),
+            "/: heatmap strip is not stacked rows at 1100px "
+            "(container 400px, rows below 520px)",
+        ),
+    ],
+    ids=["rows-where-columns-fit", "columns-where-rows-are-needed"],
+)
+def test_strip_in_the_wrong_form_for_its_container_fails(
+    mode, width, measure, message
+) -> None:
+    assert _strip_layout_failures(mode, width, measure) == [message]
+
+
+def test_strip_container_at_exactly_26_em_is_columns() -> None:
+    exactly = {"container": 26 * 18.5, "font": 18.5}
+    assert _strip_layout_failures("album", 1200, _strip_measure(**exactly)) == []
+    rows = _strip_measure(columns=False, **exactly)
+    assert _strip_layout_failures("album", 1200, rows) == [
+        "/: album strip is not three columns at 1200px "
+        "(container 481px, columns from 481px)"
+    ]
+    below = _strip_measure(columns=False, container=26 * 18.5 - 0.1, font=18.5)
+    assert _strip_layout_failures("album", 1200, below) == []
+
+
+def test_strip_threshold_uses_the_wrap_font_size_not_the_term_size() -> None:
+    # 600px wide: columns at a 20px em (threshold 520), rows at a 24px em (624).
+    assert _strip_layout_failures("album", 1200, _strip_measure(container=600)) == []
+    big_em = _strip_measure(container=600, font=24)
+    assert _strip_layout_failures("album", 1200, big_em) == [
+        "/: album strip is not stacked rows at 1200px "
+        "(container 600px, rows below 624px)"
+    ]
+
+
+def test_strip_display_follows_the_860_cut() -> None:
+    hidden = _strip_measure(displayed=False)
+    assert _strip_layout_failures("album", 859, hidden) == []
+    assert _strip_layout_failures("heatmap", 390, hidden) == []
+    assert _strip_layout_failures("heatmap", 859, _strip_measure()) == [
+        "/: heatmap strip is displayed at 859px"
+    ]
+    assert _strip_layout_failures("album", 390, _strip_measure()) == [
+        "/: album strip is displayed at 390px"
+    ]
+    assert _strip_layout_failures("album", 860, hidden) == [
+        "/: album strip is not displayed at 860px"
+    ]
+
+
+def _strip_axes(**override) -> dict:
+    """A wide columns measurement with only the named axes replaced."""
+    return {**_strip_measure(), **override}
+
+
+def _rows_axes(**override) -> dict:
+    """A narrow rows measurement with only the named axes replaced."""
+    return {**_strip_measure(columns=False, container=400), **override}
+
+
+COLUMNS_BROKEN = (
+    "/: album strip is not three columns at 1920px "
+    "(container 800px, columns from 520px)"
+)
+ROWS_BROKEN = (
+    "/: heatmap strip is not stacked rows at 1100px (container 400px, rows below 520px)"
+)
+
+
+@pytest.mark.parametrize(
+    ("measure", "failures"),
+    [
+        (_strip_axes(itemLefts=[10, 10, 10]), [COLUMNS_BROKEN]),
+        (_strip_axes(itemTops=[100, 102, 100]), [COLUMNS_BROKEN]),
+        (_strip_axes(itemLefts=[10, 260, 260]), [COLUMNS_BROKEN]),
+        (_strip_axes(itemTops=[100, 100.4, 100]), []),
+    ],
+    ids=["equal-lefts", "offset-tops", "flat-step", "tops-within-tolerance"],
+)
+def test_strip_columns_need_equal_tops_and_rising_lefts_each_on_their_own(
+    measure, failures
+) -> None:
+    assert _strip_layout_failures("album", 1920, measure) == failures
+
+
+@pytest.mark.parametrize(
+    ("measure", "failures"),
+    [
+        (_rows_axes(itemTops=[100, 100, 100]), [ROWS_BROKEN]),
+        (_rows_axes(itemLefts=[10, 60, 110]), [ROWS_BROKEN]),
+        (_rows_axes(itemLefts=[10, 12, 10]), [ROWS_BROKEN]),
+        (_rows_axes(itemTops=[100, 160, 160]), [ROWS_BROKEN]),
+        (_rows_axes(itemLefts=[10, 10.4, 10]), []),
+    ],
+    ids=[
+        "equal-tops",
+        "rising-lefts",
+        "offset-lefts",
+        "flat-step",
+        "lefts-within-tolerance",
+    ],
+)
+def test_strip_rows_need_rising_tops_and_equal_lefts_each_on_their_own(
+    measure, failures
+) -> None:
+    assert _strip_layout_failures("heatmap", 1100, measure) == failures
+
+
+def test_strip_term_wrap_limit_is_1_2_line_heights_not_more() -> None:
+    wrapped = _strip_measure(term_heights=(23, 23 * 1.3, 23))
+    assert _strip_layout_failures("album", 1500, wrapped) == [
+        "/: album strip term wraps at 1500px"
+    ]
+    at_limit = _strip_measure(term_heights=(23, 23 * 1.2, 23))
+    assert _strip_layout_failures("album", 1500, at_limit) == []
+
+
+@pytest.mark.parametrize(
+    ("override", "problem"),
+    [
+        ({"itemTops": [100, 100], "itemLefts": [10, 260]}, "fewer than three items"),
+        ({"itemTops": [], "itemLefts": []}, "fewer than three items"),
+        ({"termHeights": []}, "no measurable term"),
+        ({"termLineHeight": float("nan")}, "no measurable term"),
+        ({"termLineHeight": "normal"}, "no measurable term"),
+        ({"termLineHeight": 0}, "no measurable term"),
+    ],
+)
+def test_strip_fails_closed_on_a_thin_measurement(override, problem) -> None:
+    assert _strip_layout_failures("heatmap", 1200, _strip_axes(**override)) == [
+        f"/: heatmap strip has {problem} at 1200px"
+    ]
+
+
+def test_strip_sweep_reaches_the_widths_below_the_860_cut(monkeypatch) -> None:
+    """Widths 859 and 390 stay in the sweep: a strip shown there is reported."""
+    page = MagicMock()
+    monkeypatch.setattr(
+        _frontend_gate_layout, "_measure_strip", lambda *_: _strip_measure()
+    )
+    monkeypatch.setattr(_frontend_gate_layout, "_headline_wrap_failures", lambda *_: [])
+
+    # The stub shows the strip at every width, so each sub-860 width reports it.
+    assert _check_desktop_scale_bounds(page, "http://local") == [
+        "/: album strip is displayed at 859px",
+        "/: heatmap strip is displayed at 859px",
+        "/: album strip is displayed at 390px",
+        "/: heatmap strip is displayed at 390px",
+    ]

@@ -204,12 +204,12 @@ card boundary is 4.24:1 and a 4.5 floor would fail. Other rules that read the va
 **Tests** (run `test_frontend_gate_colour.py`, `test_frontend_gate_include.py`,
 `test_frontend_gate_split.py`): stub pages whose `evaluate` returns canned paints per theme (patch
 `wait_for_settled` / `_set_theme` as the neighbours do), asserting on the returned failure lines.
-- [ ] `seg_contrast_failures`: outline at 5.00 dark and 5.01 light passes; 4.49 fails in each theme
+- [x] `seg_contrast_failures`: outline at 5.00 dark and 5.01 light passes; 4.49 fails in each theme
       alone, and the message names the cell, the theme and "4.5:1".
-- [ ] An outline at 3.5 (above the old floor) fails: guards the floor value, not just the comparison.
-- [ ] `card_boundary_failures`: 4.63 on the card passes in dark; 4.49 fails and 3.5 fails, and the
+- [x] An outline at 3.5 (above the old floor) fails: guards the floor value, not just the comparison.
+- [x] `card_boundary_failures`: 4.63 on the card passes in dark; 4.49 fails and 3.5 fails, and the
       message names the card and "4.5:1".
-- [ ] Selected text at 4.49 fails and at 4.5 passes (the R2 floor is not loosened by this task).
+- [x] Selected text at 4.49 fails and at 4.5 passes (the R2 floor is not loosened by this task).
 
 RED/GREEN for the token (code phase, through the wrapper): with only the two floors raised and the old
 dark token, `frontend-gate` must report the card boundary at 4.24:1 under 4.5:1; with the RA2 values it
@@ -237,13 +237,13 @@ filtering happens upstream of `process_albums`, so the sum is proved at both lev
 the file's neighbours do (`jobs.create`, then read the recorded stats), not by mocking `record_stat`.
 
 **Tests** (run both files):
-- [ ] `process_albums`, mixed run (some cached, some missing): `cache_hits == hits`,
+- [x] `process_albums`, mixed run (some cached, some missing): `cache_hits == hits`,
       `albums_to_search == misses`, sum == input size.
-- [ ] A missed album that ends unmatched still counts in `albums_to_search` (the figure is known before
+- [x] A missed album that ends unmatched still counts in `albums_to_search` (the figure is known before
       the search; unmatched does not subtract).
-- [ ] All cached: `albums_to_search == 0` and the sum still holds. Database unavailable: `cache_hits ==
+- [x] All cached: `albums_to_search == 0` and the sum still holds. Database unavailable: `cache_hits ==
       0`, `albums_to_search ==` all.
-- [ ] Through `fetch_and_process_albums` (in `..._fetch_and_process.py`, beside
+- [x] Through `fetch_and_process_albums` (in `..._fetch_and_process.py`, beside
       `test_fetch_and_process_retains_all_below_threshold_albums`): with one album under the
       thresholds, `cache_hits + albums_to_search` equals the albums that passed, not the albums
       fetched.
@@ -267,15 +267,15 @@ changes in the patch.
 
 **Behaviour.** Extend the loading markup in that section with the two stat tiles and the stats
 container (ids frozen above, `hidden` class as in `templates/loading.html`), then:
-- [ ] A `/progress` answer carrying `cache_hits: 12, albums_to_search: 30` reveals both tiles showing
+- [x] A `/progress` answer carrying `cache_hits: 12, albums_to_search: 30` reveals both tiles showing
       "12" and "30"; an answer carrying `cache_hits` but not `albums_to_search` shows the first tile
       and leaves the second hidden (one test: the positive and the negative together, so it fails if
       either tile reads the wrong key).
-- [ ] The finished run's redirect replaces the loading entry in history: after the scheduled redirect
+- [x] The finished run's redirect replaces the loading entry in history: after the scheduled redirect
       runs, the page is at `/results` and `history.length` is unchanged (serve `/results` with
       `page.route`, load the loading page from a routed URL rather than `set_content` so history is
       real). `location.assign` must fail this test.
-- [ ] Label wording ("Cache hits", "Albums to search") is not pinned here; a wording-only assertion
+- [x] Label wording ("Cache hits", "Albums to search") is not pinned here; a wording-only assertion
       fails the Test Quality Rules. The behaviour guarded is which figure fills which tile.
 
 Planted defects: `window.location.assign('/results')` back in `redirectToResults` (in
@@ -319,10 +319,10 @@ Planted defects: `window.location.assign('/results')` back in `redirectToResults
 **Tests:** none to write. Run `tests/test_design_snapshot.py` and `tests/test_docsync_*.py` files that
 read DESIGN.md (`git grep -l "DESIGN.md" tests/`).
 
-**Acceptance:** [ ] `grep -nE "6\.06|8\.14|14\.81|13\.04|40ch|§|Albums passing|Spotify matched"
+**Acceptance:** [x] `grep -nE "6\.06|8\.14|14\.81|13\.04|40ch|§|Albums passing|Spotify matched"
 DESIGN.md` has no hit that states a current outline or ink figure (6.06 / 8.14 may appear only as the
-mode switch's primary hover text, if stated, recomputed); [ ] every figure is recomputed from the tokens
-(`#6a4baf`, `#775ab5`, `#8a79ab` etc.), not copied; [ ] `python scripts/doc_state_sync.py --check`
+mode switch's primary hover text, if stated, recomputed); [x] every figure is recomputed from the tokens
+(`#6a4baf`, `#775ab5`, `#8a79ab` etc.), not copied; [x] `python scripts/doc_state_sync.py --check`
 exits 0 on the tree.
 
 ---
@@ -353,9 +353,9 @@ exits 0 on the tree.
 
 **Tests:** run the docsync tests that read this file (`git grep -l "RECONCILIATION" tests/`).
 
-**Acceptance:** [ ] no live statement of 6.06/8.14 as the current outline, nor of `#7d61b7` /
-`#8373a3` as the current token; [ ] "hero and form use `1.075`" intact; [ ] section 29 cites the
-commit hashes and the owner quotes verbatim; [ ] `doc_state_sync.py --check` exits 0.
+**Acceptance:** [x] no live statement of 6.06/8.14 as the current outline, nor of `#7d61b7` /
+`#8373a3` as the current token; [x] "hero and form use `1.075`" intact; [x] section 29 cites the
+commit hashes and the owner quotes verbatim; [x] `doc_state_sync.py --check` exits 0.
 
 ---
 
@@ -379,11 +379,11 @@ the test module (the parity test requires it).
 
 **Tests** (run `tests/scripts/dev/test_frontend_gate_layout.py`, `test_frontend_gate_manifest.py`,
 `test_frontend_gate_split.py`):
-- [ ] gap 24px at root 16 passes; gap 4px fails; gap exactly 24px passes and 22.9px fails (inclusive
+- [x] gap 24px at root 16 passes; gap 4px fails; gap exactly 24px passes and 22.9px fails (inclusive
       floor with tolerance).
-- [ ] short window: top == 4px passes, top 24px fails (the floor was raised).
-- [ ] the collapsed state with the 2.5rem lift passes; a collapsed form lifted by only 1.5rem fails.
-- [ ] wiring: a stub-page test drives the function that calls the helper (mirror how the neighbouring
+- [x] short window: top == 4px passes, top 24px fails (the floor was raised).
+- [x] the collapsed state with the 2.5rem lift passes; a collapsed form lifted by only 1.5rem fails.
+- [x] wiring: a stub-page test drives the function that calls the helper (mirror how the neighbouring
       tests drive `_form_centring_failures`' caller) with a page whose measure returns a 4px gap at
       1920x1063 and asserts the returned failure line names that viewport; it fails if the call or
       the measure is removed.
@@ -420,12 +420,12 @@ R6 behaviour (C hidden and unranked in the playtime ranking, the visible ranks r
 only and equal `["1","2"]`, back at rank 3 on plays).
 
 **Tests** (run `scripts/dev/results_behavior_tests.py` through the wrapper):
-- [ ] playtime: durationless rows (empty, "0", missing attribute) hidden, with empty rank, and not
+- [x] playtime: durationless rows (empty, "0", missing attribute) hidden, with empty rank, and not
       ranked; plays: all back, ranked by plays.
-- [ ] Hide interaction: with unmatched rows hidden, round-tripping plays -> playtime -> plays leaves
+- [x] Hide interaction: with unmatched rows hidden, round-tripping plays -> playtime -> plays leaves
       unmatched rows hidden and matched durationless rows restored.
-- [ ] CSV export while ranked by listening time lists only the ranked rows with ranks 1..n.
-- [ ] Header figures: Total Albums, Top artist and Scrobbles read the same text before switching, in
+- [x] CSV export while ranked by listening time lists only the ranked rows with ranks 1..n.
+- [x] Header figures: Total Albums, Top artist and Scrobbles read the same text before switching, in
       listening-time ranking and after switching back (the rule changes none of them).
 
 Planted defects (restore byte-identical): skip the renumber after the rule; set `hidden` without
@@ -457,10 +457,10 @@ fixture rather than the real template, the fixture gains the same two elements i
 assertion on the toast the count changes (none expected: the sentence is kept).
 
 **Tests** (run `scripts/dev/results_behavior_tests.py` through the wrapper):
-- [ ] Two durationless rows: switching to listening time shows the note with count "2" and a toast
+- [x] Two durationless rows: switching to listening time shows the note with count "2" and a toast
       that contains "2"; switching to plays hides the note and the toast has no count.
-- [ ] No durationless rows: the note stays hidden and the toast is the plain sentence.
-- [ ] A durationless unmatched row hidden by Hide is not counted (N excludes it).
+- [x] No durationless rows: the note stays hidden and the toast is the plain sentence.
+- [x] A durationless unmatched row hidden by Hide is not counted (N excludes it).
 No wording is pinned; the assertions read the count's integer and the `hidden` state.
 
 Planted defects: count includes Hide-hidden rows; note not hidden on plays; toast omits the count.
@@ -492,11 +492,11 @@ muted label measures 5.17 / 5.82, the primary hover about 6.06 / 8.14). If a mea
 return NEEDS_CONTEXT with the figure; do not lower the key.
 
 **Tests** (run the colour and forms test files):
-- [ ] `unselected_floor: 4.5` accepts unselected text at 5.17 that the default rejects, in the option
+- [x] `unselected_floor: 4.5` accepts unselected text at 5.17 that the default rejects, in the option
       text cell and in the hover cell; omitting the key keeps 7.0 (stub pages).
-- [ ] the spec's selectors are the ones `templates/index.html` renders (read the template, assert each
+- [x] the spec's selectors are the ones `templates/index.html` renders (read the template, assert each
       selector matches the expected node count: guards a renamed class).
-- [ ] the gate function lists "Mode switch" failures when the selected outline is below 4.5 (stub
+- [x] the gate function lists "Mode switch" failures when the selected outline is below 4.5 (stub
       page).
 
 Planted defects: ignore `unselected_floor` in `seg_contrast_failures`; ignore it in
@@ -527,11 +527,11 @@ STRIP_ROW_QUERY_EM * wrapFontPx`, rows (tops strictly increasing, lefts equal) o
 below 860 the lists are not displayed. Add the helper to `HELPERS`.
 
 **Tests** (run the three layout/manifest/split test files):
-- [ ] three equal tops at wide width pass; a wrapped term (height 2 lines) fails and names the mode and
+- [x] three equal tops at wide width pass; a wrapped term (height 2 lines) fails and names the mode and
       width; rows when wide enough for columns fail; columns when narrow fail.
-- [ ] hidden below 860 passes; displayed at 859 fails.
-- [ ] boundary: `containerWidth` exactly `26 * wrapFontPx` is columns.
-- [ ] wiring: a stub-page test drives `_check_desktop_scale_bounds` (as the neighbouring headline-wrap
+- [x] hidden below 860 passes; displayed at 859 fails.
+- [x] boundary: `containerWidth` exactly `26 * wrapFontPx` is columns.
+- [x] wiring: a stub-page test drives `_check_desktop_scale_bounds` (as the neighbouring headline-wrap
       wiring test does) with a measure returning a wrapped term and asserts the failure line; it fails
       if the call is removed.
 
@@ -575,12 +575,12 @@ A playtime run stores `include_unmatched=False` (the form), so N never overlaps 
   and name any further test asserting a dropped album is absent from the page.
 
 **Tests** (run `tests/test_routes.py`):
-- [ ] A seeded playtime job with two timed and two durationless albums: the HTML holds four rows, the
+- [x] A seeded playtime job with two timed and two durationless albums: the HTML holds four rows, the
       two durationless carry `hidden`, the visible ranks are 1 and 2, Total Albums reads 4 and
       Scrobbles is the sum of all four, and the note is shown with count 2.
-- [ ] The same job in play-count mode: four rows, none hidden, ranks 1..4, the note hidden.
-- [ ] A playtime job where every album is durationless renders the no-matches page.
-- [ ] An album with `play_time_seconds` missing, None and 0 are all treated as durationless.
+- [x] The same job in play-count mode: four rows, none hidden, ranks 1..4, the note hidden.
+- [x] A playtime job where every album is durationless renders the no-matches page.
+- [x] An album with `play_time_seconds` missing, None and 0 are all treated as durationless.
 
 Planted defects: rank by `loop.index` again; drop the `hidden` marker; build `play_stats` from the
 ranked rows only.
@@ -602,11 +602,11 @@ play-count run. Each HTML is loaded into the `js_browser` harness (static script
 `page.route`, spotlight and other network calls aborted); the play-count page is switched to listening
 time through the real toggle button. If the harness cannot load the Flask HTML, return NEEDS_CONTEXT
 with the obstacle; do not weaken the test into a markup check.
-- [ ] The two pages show the same visible `(album, rank)` sequence, the same Total Albums, Top artist
+- [x] The two pages show the same visible `(album, rank)` sequence, the same Total Albums, Top artist
       and Scrobbles text (whole-result figures, RA3) and the same hidden-count note (integer).
-- [ ] Switching the playtime-started page to track plays brings all four albums back, ranked by plays
+- [x] Switching the playtime-started page to track plays brings all four albums back, ranked by plays
       (needs T10), and switching it back reproduces the first list.
-- [ ] CSV export from both pages produces the same rows.
+- [x] CSV export from both pages produces the same rows.
 
 Planted defects (restore): server renders the durationless rows without `hidden`; client skips the
 renumber; each turns an agreement test red.
@@ -659,6 +659,57 @@ and section 20 (T5), `DESIGN.md` lines 174, 181 and 226 (T4), the `shell.css` to
 `docs/design/designsystemaudit.md`, `docs/history/`, `docs/logarchive/`, dated PLAYBOOK entries,
 `docs/superpowers/`.
 
-**Acceptance:** [ ] every remaining hit is listed in the entry as point-in-time; [ ] `--check` exits 0;
-[ ] the final full gates (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`)
+**Acceptance:** [x] every remaining hit is listed in the entry as point-in-time; [x] `--check` exits 0;
+[x] the final full gates (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`)
 pass on the branch head before the controller pushes.
+
+---
+
+## Execution record (2026-10-25)
+
+Written when all fourteen tasks had landed on `feat/ui-round-2-backlog` (PR #269, draft). The final
+verification gate is recorded in PR #269's "Validation at this head". Review rounds count
+the sdd-reviewer passes on the task (2 means a fix round and a re-review). Ruling ids are from
+`plan-rulings-r1.md` in the SDD workspace. Boxes are ticked only where a land report and an approving
+review back the acceptance.
+
+| Task | Commit | Review rounds | Deviations (ruling id) |
+|---|---|---|---|
+| 2 loading stats at the orchestrator | `172e9847` | 1 | landed before T1 (RA9) |
+| 3 loading page stats and Back test | `8d81dabb` | 1 | landed before T1 (RA9) |
+| 4 DESIGN.md says what ships | `4ce36534` | 1 | Loading Stats bullet names the tiles in the shipped order (RA7); landed before T1 (RA9) |
+| 1 one stronger outline | `406e9b74` | 2 | tests-only fix round before landing (RA8); landed alone after T2-T4 (RA9) |
+| 5 RECONCILIATION.md overrides | `ee999e3f` | 1 | landed after T1 so the token is not stated ahead of shell.css (RA10); top-table row trimmed to the hero strip and section 29 cites the T1 commit |
+| 6 expanded-form placement gate | `a43e1fd9` | 2 | keyword-only `short_window` accepted as the frozen signature (RA11); tests-only fix round (RA12) |
+| 7 client listening-time rule | `7e529efc` | 1 | none |
+| 7b hidden-count note and toast | `2115e858` | 2 | owner chose the "count first" copy (RA13); fix round adds the live Hide-path test (RA14) |
+| 9 hero strip gate | `e67ad8c4` | 2 | fix round pins the measured widths and isolates each sub-condition (RA15); landed before T8, which the Dispatch section allows (T7b, T8 and T9 land in any order) |
+| 8 mode switch gate | `ae7e09fb` | 2 | fix round covers the wiring, the hover rows and the 4.5 floor (RA16) |
+| 10 server listening-time rule | `078ef258` | 2 | `None` play time treated as durationless (RA6); fix round reads the visible rank cell (RA17); edits outside Touches: `scrobblescope/routes/__init__.py` and `tests/test_template_shell.py` |
+| 11b document the rule, close F-B23-46 | `4d80fcab` | 1 | Header figures bullet agrees with the Hide line, archive entry in the archive's form (RA18); landed before T11 |
+| 11 both paths agree | `6f5801e1` | 2 | fixture orders timed albums differently by plays and by time (RA19); F-B23-64 filed (RA21) |
+| 12 sweep for stale copies | `269433d2` | controller sweep | none |
+
+Cross-cutting notes:
+
+- Landing order. RA9 landed T2, T3 and T4 first as separate commits, then T1 alone with its own gate
+  run. RA10 put T5 after T1. T9 landed before T8, which needed no ruling: the Dispatch section lets T7b, T8 and T9 land in any
+  order. T11b landed before T11 on a controller call (docs only, landed while T11 had a fix round).
+- Frozen interface. RA11 extended `_expanded_placement_failures(label, measured, *, short_window=False)`;
+  the two-argument call keeps its meaning.
+- Out-of-Touches edits. Only T10 had them (see its row); both are named in its PLAYBOOK entry.
+- Owner copy. RA13 fixed the T7b note and toast wording; the owner picked it from the options offered.
+- Findings. F-B23-46 (untimed albums in a listening-time ranking) is resolved by T7, T7b, T10 and
+  closed to the archive by T11b. F-B23-64 (the Results "Top Artist" follows the first ranked row, so a
+  run started by listening time can name a different artist) was filed at T11's landing (RA21); plan B's
+  F-B23-59..63 are reserved.
+- Test consolidation. After the owner's lean-suite ruling (RA20: "test for intended function, not
+  written function", no repeated tests of one behaviour) five more commits cut the suite from 3067 to
+  2876 tests: `6ab9ec8f` drops the gate module-shape parity family, `8e21a608` merges the
+  hidden-note count tests, `f1e9705c` consolidates duplicate rank and render tests in
+  `tests/test_routes.py`, `3de18538` parametrizes the loading and heatmap near-duplicates, and
+  `bc2168f4` consolidates the gate unit tests by behaviour. The behaviours the
+  RA8-RA19 fix rounds named stay guarded by at least one test each (RA20).
+- Final gate. All fourteen tasks have landed. The final gate run on the branch head (suite,
+  `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`) is recorded in PR #269's
+  "Validation at this head".

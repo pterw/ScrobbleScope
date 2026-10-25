@@ -26,9 +26,9 @@ from scrobblescope.domain import normalize_name
 #: 4.5:1 floor is not a goal (2026-09-30).
 INCLUDE_TEXT_FLOOR = 7.0
 
-#: The selected option's border against the card around the control: the
-#: non-text contrast floor.
-INCLUDE_BOUNDARY_FLOOR = 3.0
+#: The selected option's border against the card around the control: 4.5:1,
+#: the same outline token as the segmented controls (RA2).
+INCLUDE_BOUNDARY_FLOOR = 4.5
 
 #: The two widths the page must fit without a horizontal scrollbar.
 INCLUDE_OVERFLOW_WIDTHS = (390, 1280)
@@ -146,7 +146,7 @@ def text_contrast_failures(page, label: str, selector: str, count: int) -> list[
 
 
 def card_boundary_failures(page) -> list[str]:
-    """Hold the Unmatched albums control's selected border at 3:1 against the card."""
+    """Hold the Unmatched albums control's selected border at 4.5:1 against the card."""
     failures = []
     try:
         for theme in ("light", "dark"):

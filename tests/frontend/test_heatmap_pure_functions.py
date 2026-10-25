@@ -98,24 +98,22 @@ def _remove_eyebrows(js_page) -> None:
     )
 
 
-def test_export_header_model_uppercases_only_when_the_css_says_to(js_page):
-    _insert_eyebrow(js_page, "text-transform:uppercase")
+@pytest.mark.parametrize(
+    ("style", "expected"),
+    [
+        ("text-transform:uppercase", "TEST EYEBROW"),
+        ("", "test eyebrow"),  # no transform: text as written
+    ],
+)
+def test_export_header_model_uppercases_only_when_the_css_says_to(
+    js_page, style, expected
+):
+    _insert_eyebrow(js_page, style)
     try:
         model = js_page.evaluate(
             "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
         )
-        assert model["eyebrow"] == "TEST EYEBROW"
-    finally:
-        _remove_eyebrows(js_page)
-
-
-def test_export_header_model_leaves_text_as_written_without_text_transform(js_page):
-    _insert_eyebrow(js_page, "")
-    try:
-        model = js_page.evaluate(
-            "() => window.__scrobbleHeatmapTestHooks.exportHeaderModel()"
-        )
-        assert model["eyebrow"] == "test eyebrow"
+        assert model["eyebrow"] == expected
     finally:
         _remove_eyebrows(js_page)
 
@@ -313,6 +311,10 @@ ALBUM_LOADING_MARKUP = """<!doctype html><html><body>
               <p id="error-text"></p></div>
             <p id="error-source" class="hidden"></p>
             <button id="retry-button" class="hidden"></button>
+            <div class="hidden" id="live-stats">
+              <div class="loading-stat hidden"><strong id="stat-cache-hits">0</strong></div>
+              <div class="loading-stat hidden"><strong id="stat-to-search">0</strong></div>
+            </div>
             </body></html>"""
 
 
@@ -423,6 +425,101 @@ def test_a_failed_run_with_no_retry_still_says_the_results_page_opens(js_browser
     )
     assert details == "Opening the results page\u2026"
     assert 3000 in redirect_delays
+
+
+def _stat_tiles(js_browser, stats):
+    """Render one /progress answer's stats; return (value, shown) per stat tile."""
+    page = js_browser.new_page()
+    try:
+        page.set_content(ALBUM_LOADING_MARKUP)
+        page.evaluate(
+            """(stats) => {
+              window.SCROBBLE = {job_id: 'abc'};
+              window.setTimeout = () => 0;
+              window.fetch = () => Promise.resolve({json: () => Promise.resolve(
+                {progress: 50, stats})});
+            }""",
+            stats,
+        )
+        page.add_script_tag(path=str(LOADING_PROGRESS_JS))
+        page.add_script_tag(path=str(LOADING_JS))
+        page.wait_for_function(
+            "() => !document.getElementById('live-stats').classList.contains('hidden')"
+        )
+        return page.evaluate(
+            """() => ['stat-cache-hits', 'stat-to-search'].map((id) => {
+              const el = document.getElementById(id);
+              return [el.textContent,
+                      !el.closest('.loading-stat').classList.contains('hidden')];
+            })"""
+        )
+    finally:
+        page.close()
+
+
+@pytest.mark.parametrize(
+    ("stats", "expected"),
+    [
+        ({"cache_hits": 12, "albums_to_search": 30}, [["12", True], ["30", True]]),
+        ({"cache_hits": 12}, [["12", True], ["0", False]]),  # key absent: hidden
+    ],
+    ids=["both_keys", "to_search_absent"],
+)
+def test_each_loading_stat_tile_shows_its_own_figure_and_only_when_sent(
+    js_browser, stats, expected
+):
+    """
+    GIVEN a /progress answer carrying cache_hits and, or not, albums_to_search
+    WHEN loading.js renders its stats
+    THEN each tile shows its own key's figure, and a tile whose key is absent
+         stays hidden.
+    """
+    assert _stat_tiles(js_browser, stats) == expected
+
+
+def test_the_finished_runs_redirect_replaces_the_loading_entry_in_history(js_browser):
+    """
+    GIVEN a loading page reached through a real navigation, with a finished run
+    WHEN the scheduled redirect to the results page runs
+    THEN the page is at /results and history holds no extra entry, so Back
+         from the results reaches the form instead of the done job (owner,
+         2026-10-25).
+    """
+    page = js_browser.new_page()
+    try:
+        page.route(
+            "http://loading.test/**",
+            lambda route: route.fulfill(
+                content_type="text/html",
+                body=(
+                    ALBUM_LOADING_MARKUP
+                    if route.request.url.endswith("/loading")
+                    else "<!doctype html><title>x</title>"
+                ),
+            ),
+        )
+        page.goto("http://loading.test/form")
+        page.goto("http://loading.test/loading")
+        before = page.evaluate("() => history.length")
+        page.evaluate(
+            """() => {
+              window.SCROBBLE = {job_id: 'abc'};
+              window.setTimeout = (fn) => { window.__redirect = fn; return 0; };
+              window.fetch = () => Promise.resolve({json: () => Promise.resolve(
+                {progress: 100, message: 'Done'})});
+            }"""
+        )
+        page.add_script_tag(path=str(LOADING_PROGRESS_JS))
+        page.add_script_tag(path=str(LOADING_JS))
+        page.wait_for_function("() => typeof window.__redirect === 'function'")
+        with page.expect_navigation(url="http://loading.test/results"):
+            page.evaluate("() => window.__redirect()")
+        after = page.evaluate("() => history.length")
+        path = page.evaluate("() => location.pathname")
+    finally:
+        page.close()
+    assert path == "/results"
+    assert after == before
 
 
 KPI_CASES = load_kpi_cases()

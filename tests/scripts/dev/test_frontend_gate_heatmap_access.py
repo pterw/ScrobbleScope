@@ -9,33 +9,8 @@ import pytest
 from scripts.dev import (
     _frontend_gate_heatmap_access,
     _frontend_gate_shared,
-    frontend_gate,
 )
 from scripts.dev._frontend_gate_heatmap_access import _expected_cell_label
-from tests.scripts.dev.gate_parity import defined_names
-
-CHECKS = (
-    "check_heatmap_cells_are_keyboard_accessible",
-    "check_heatmap_document_listeners_attach_once",
-    "check_heatmap_focus_survives_breakpoint",
-    "check_heatmap_touch_swipe_scrolls_and_tap_shows_tooltip",
-    "check_heatmap_tooltip_has_one_owner",
-)
-CONSTANTS = ("HEATMAP_PATH",)
-HELPERS = ("_expected_cell_label",)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS, *HELPERS))
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_heatmap_access)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", CHECKS)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    # Only the check itself is re-exported by frontend_gate.py's one-line
-    # registration import; HEATMAP_PATH stays private to this slice.
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_heatmap_access, name)
 
 
 @pytest.mark.parametrize(

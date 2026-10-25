@@ -132,13 +132,15 @@ See FINDINGS F-DOCSYNC-3.
   plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
   backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
   in a live session and the accepted changes landed as they were made (PR
-  #269, draft). Their documentation, the gates that hold them and the
-  F-B23-46 ranking rule follow the plan
-  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` on the same
-  branch. The album-matching, cache re-verification and MusicBrainz fixes the
-  session found go to a PR stacked on it (branch `fix/album-matching`, plan
-  `docs/superpowers/plans/2026-10-25-album-matching.md`), which runs now and
-  merges after #269. The documentation refresh merges last.
+  #269). All fourteen tasks of the plan
+  `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` have landed on
+  the same branch (the documentation, the gates that hold the accepted
+  changes, the F-B23-46 ranking rule and the stale-copy sweep), followed by a
+  test consolidation under the owner's lean-suite ruling. PR #269 merged
+  into `main` (merge commit `997f7584`) and is deployed. The album-matching,
+  cache re-verification and MusicBrainz fixes run now on `fix/album-matching`
+  (PR #270, plan `docs/superpowers/plans/2026-10-25-album-matching.md`),
+  based on `main`. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -187,20 +189,34 @@ Side task, no batch tag: committed the plan for the album-matching fixes, on `fi
 
 Owner intent: the owner's real runs on 2026-10-25 showed albums with plays but "0 secs" of listening time, which the session traced to Spotify album search accepting its first result unchecked, a second album silently taking a shared Spotify ID, and album names such as "?" and "EP" normalizing to nothing; and asked for MusicBrainz headroom ("since release checks run in the background it costs nothing") and rate-limit retries. `docs/superpowers/plans/2026-10-25-album-matching.md` (written by a plan-writer agent, reviewed three times, both findings of the last review checked by the controller): Spotify search takes the exact-match rule Deezer already uses over five candidates, any credited artist counts, a shared ID gives every request its own metadata, an empty-normalizing title keeps its raw identity, cached Spotify matches are re-verified on read by looking up their cached ID (two new nullable cache columns through `init_db.py`), MusicBrainz waits about 1.1s between request starts and treats 429 and 503 alike (Retry-After, else exponential backoff with jitter, never a cached "no match"), and F-B23-26 (the artist spotlight's unchecked first result) is fixed the same way. Deviations: none. Edited existing tests: none by this commit; the plan names each later edit. Validation: `pytest -q` -- **2994 passed**.
 
-### 2026-10-25 - Plan the UI round 2 backlog follow-through
+### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
 
-Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
+Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.
 
-Owner intent: the live session's changes landed before their plan so the state was safe; the plan now covers what they still owe. `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` (written by a plan-writer agent, reviewed twice, approved at the second review): DESIGN.md and RECONCILIATION updates, gates that hold the selected-option look at 4.5:1 on every surface (one firmer outline token, `#775ab5` light and `#8a79ab` dark), the mode switch's muted label held at 4.5:1 (owner: "goal is to be AA compliant throughout"), the expanded-form placement, the hero strip and the loading page's stats and Back, and F-B23-46 by the owner's rule (a listening-time ranking hides albums with no listening time, track plays restores them, the header keeps whole-result figures and a note says how many are hidden). Two review Minors on its Task 10 are carried into that task's brief at dispatch. Deviations: the plan follows the commits it documents instead of preceding them, at the owner's request. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
 
-### 2026-10-25 - UI round 2 backlog: the frontend gate's selected-text floor
+Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
 
-Side task, no batch tag: lowered the frontend gate's floor for selected-option text from 7:1 to 4.5:1, on `feat/ui-round-2-backlog`, a branch off `main`.
+Validation: `pytest -q` -- **2876 passed**.
 
-Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on the violet selected text (5.47:1 light, 6.38:1 dark on the soft tint): "Keep primary, lower the gate", chosen over a deeper violet that reaches 7:1 (`#583f8e` light, `#baa7df` dark). `scripts/dev/_frontend_gate_colour.py`: `SEG_SELECTED_TEXT_FLOOR` is 4.5 with the ruling in its comment, and `seg_hover_failures` holds a hovered selected chip to that floor instead of the 7:1 `SEG_TEXT_FLOOR`, which still holds unselected option text and its hover. The chip boundary stays at 3:1 (the outline measures 4.60:1 and 4.58:1). This is an exception to the owner's 2026-09-30 ruling that 4.5 is a floor, not a goal, for this one cell. It lands alone because it changes a script that decides a gate. Deviations: none. Edited existing tests: none (no unit test covers these two functions). Validation: `pytest -q` -- **2994 passed**.
+### 2026-10-25 - UI round 2 backlog: plan A execution record closed
 
-### 2026-10-25 - UI round 2 backlog: the hero scales again and the heatmap headline fits
+Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
 
-Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
+Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
 
-The gate's "large display scale parity" check failed twice at `4c0c744`. First, the hero composition was 948.1px tall at 4K against a proportional 837.6px: the strip's `max-width: 44rem` in `static/css/index.css` was the one hero dimension not multiplied by `--index-scale`, so as the type grew the descriptions wrapped onto more lines (3, 2, 2 at 1080p; 5, 3, 4 at 4K). It now scales, and the hero measures 837px at 4K with the same wrapping at 1080p, 1440p and 4K. Second, the heatmap headline wrapped at 1200px (and at 1500px on CI's fonts). Owner ruling (2026-10-25): it reads "Your 365 days *mapped by day.*" in `templates/index.html`, shorter than the album headline, which fits at both widths. `config/docsync.toml`: the "heatmap window length" site in that template now reads the headline's `Your (\d+) days`, since "last 365 days" no longer appears there. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
+
+Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
+
+Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
+
+Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.

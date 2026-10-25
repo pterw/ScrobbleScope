@@ -1189,3 +1189,113 @@ async def test_a_failed_persist_is_reported_as_a_warning_not_as_persisted_rows()
     healthy = await stats_after(fail=False)
     assert healthy["db_cache_persisted"] == 1
     assert "db_cache_warning" not in healthy
+
+
+###############################################################################
+# Loading-page stats: cache_hits + albums_to_search = albums that passed      #
+###############################################################################
+
+
+def _passed(*names):
+    """Threshold-passed albums, keyed the way process_albums receives them."""
+    return {
+        (name, name): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": name.title(),
+            "original_album": name.title(),
+        }
+        for name in names
+    }
+
+
+async def _split_stats(passed, cached, *, db_available=True, matched=()):
+    """Run process_albums; return the stats the job store recorded.
+
+    *cached* are the keys the DB cache answers; *matched* are the keys Spotify
+    finds on search. Every other missed album ends unmatched.
+    """
+
+    async def search(_session, artist, _album, _token, semaphore=None):
+        return "sp1" if (artist.lower(), artist.lower()) in matched else None
+
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    conn = AsyncMock() if db_available else None
+    with (
+        patch(
+            "scrobblescope.cache.get_db_connection",
+            new_callable=AsyncMock,
+            return_value=conn,
+        ),
+        patch(
+            "scrobblescope.cache.batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={key: spotify_metadata() for key in cached},
+        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            side_effect=lambda: _session_ctx(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            side_effect=search,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={"sp1": SPOTIFY_ALBUM_DETAILS_MOCK},
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        await process_albums(job_id, passed, 2025, "playcount", "same")
+    return jobs.progress(job_id)["stats"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("names", "cached", "matched", "db_available", "hits", "to_search"),
+    [
+        # a mixed run; the search outcome does not change the figures
+        (
+            ("one", "two", "three", "four", "five"),
+            ("one", "two"),
+            {("three", "three")},
+            True,
+            2,
+            3,
+        ),
+        # an album that ends unmatched still counts as an album to search
+        (("one", "two"), ("one",), (), True, 1, 1),
+        (("one", "two"), ("one", "two"), (), True, 2, 0),  # all cached
+        (("one", "two", "three"), (), (), False, 0, 3),  # no DB: no hits
+    ],
+    ids=["mixed", "unmatched_miss", "all_cached", "database_unavailable"],
+)
+async def test_loading_stats_split_the_passed_albums_into_hits_and_misses(
+    names, cached, matched, db_available, hits, to_search
+):
+    """The cache split is known before the search: hits and albums to search
+    add up to the albums that passed, whatever the search later finds."""
+    passed = _passed(*names)
+
+    stats = await _split_stats(
+        passed,
+        [(name, name) for name in cached],
+        matched=matched,
+        db_available=db_available,
+    )
+
+    assert stats["db_cache_enabled"] is db_available
+    assert stats["cache_hits"] == hits
+    assert stats["albums_to_search"] == to_search
+    assert stats["cache_hits"] + stats["albums_to_search"] == len(passed)

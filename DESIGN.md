@@ -172,13 +172,15 @@ The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at
 
 ### Desktop & Mobile Grid
 - **Desktop Index Stage:** Asymmetric two-column composition (`3fr 4fr`). The left hero stage hosts the editorial title and brand lockup with generous padding (`3.5rem`). The right sunken well hosts the configuration form (capped at `27.5rem` base, positioned up to `2.5rem` above centre with header clearance).
+- **Index Hero Strip:** Under the lede, each mode has a three-column strip: a serif term with a line icon over one plain description, divided by hairline rules. One container query turns the strip into rows when its column is narrower than 26 term widths (`26em`). The strip is hidden below `860px`. The lede is capped at `48ch` and wrapped `pretty`.
+- **Loading Stats:** Scrobbles and Pages fetched, then Cache hits and Albums to search (together the albums that passed the thresholds). Each rises into place on arrival. The finished page replaces itself (`location.replace`), so Back reaches the form.
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
 - **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
 - **Mobile Navigation:** At mobile viewports, destination pills organize in a single line across the header width with zero horizontal scrollbars, preserving the 44px minimum touch target height; the theme toggle sits below page content.
 - **Document Header:** The navbar scrolls out of view with the document. The Results side rail remains sticky with its own top gap (owner screenshot clarification, 2026-09-10).
 
 ### Named Rules
-**The Fixed Composition Rule.** The desktop index retains its window-derived scale as disclosures open. The complete form sits up to 2.5rem above centre with 0.25rem header clearance, adding natural document height when it cannot fit.
+**The Fixed Composition Rule.** The desktop index retains its window-derived scale as disclosures open. The complete form sits up to 2.5rem above centre. The lift gives way first and never takes the gap above the mode switch under 1.5rem; a form too tall for that falls back to plain centring. The floor under the header stays 0.25rem, and a window too short for the expanded form scrolls.
 **The Relative Unit Rule.** All typographic and spacing dimensions are authored in `rem` so that user browser zoom and font-scaling preserve proportional layout harmony.
 
 ## Elevation & Depth
@@ -223,7 +225,8 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 
 ### Segmented Controls & Mode Tabs
 - **Track:** Page canvas background (`--color-base-100`: `#faf7f0` / `#0e0c12`), 1px hairline border, 8px radius (`--radius-sm`), 3px internal padding at scale 1. The contrast figures below are measured on this fill.
-- **Option text and selected chip (lifted, `docs/design/RECONCILIATION.md` section 20):** unselected option text takes the body ink token (8.71:1 light, 10.61:1 dark on the track); the selected chip keeps its soft accent fill, has a 1px primary border (6.06:1 light, 8.14:1 dark against the track, `Highlight` under forced colours) and takes the base-content ink (14.81:1 light, 13.04:1 dark on the chip), which it keeps on hover; an unselected option deepens to the same base-content ink on hover (no new token). The selected chip carries no `--ss-shadow-chip` elevation. One rule in `static/css/shell.css` serves "Rank by", both unmatched-albums controls and the Results "Sort leaderboard" buttons.
+- **Option text and selected option (lifted, `docs/design/RECONCILIATION.md` section 20):** the goal is WCAG AA throughout (4.5:1 for text, 3:1 for non-text); the 7:1 figures below are the aim for unselected text, not a gate for every cell. Unselected option text takes the body ink token (8.71:1 light, 10.61:1 dark on the track). The selected option is a soft accent tint with primary text (5.47:1 light, 6.38:1 dark on the tint, held at the 4.5:1 AA floor by owner exception) and a 1px outline from `--shell-selected-outline` (`#775ab5` 5.01:1 light, `#8a79ab` 5.00:1 dark against the track, and at least 4.5:1 on every surface a selected option sits on; `Highlight` under forced colours). An unselected option deepens to the base-content ink on hover (no new token). The selected option carries no `--ss-shadow-chip` elevation. One rule in `static/css/shell.css` serves "Rank by", both unmatched-albums controls and the Results "Sort leaderboard" buttons.
+- **Index mode switch:** shares the selected look above. Its unselected label is the muted token (`#6c6676` 5.17:1 light, `#908a9a` 5.82:1 dark on the track) and its hover is the primary colour; the gate holds that one cell at 4.5:1 by a second owner exception.
 - **Disabled Segment:** Kept visible and dimmed to 40% opacity, never removed; the help under the Show row states the reason.
 - **Unmatched albums control:** the index card's "Unmatched albums" field (Hide / Include, `name="include_unmatched"`, values 0 / 1; it shares a row with "Show" in equal halves from 860px and stacks below it, and its help line is visible only while Include is chosen) and the Results side rail's "Unmatched albums" control (Hide / Include, `name="results_albums"`) are two-option segmented controls of native radios. The option rules live in `static/css/shell.css` so both pages share them. Help text under them takes the body ink token (7:1 or better), not the muted one. The kit's Switch has no shipped instance: the app's two-state idioms are the header's Light / Dark pill and this segmented control (`docs/design/RECONCILIATION.md` section 20).
 
@@ -231,6 +234,12 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **When:** an include run (the index card's "Unmatched albums" control set to Include) lists albums Spotify and Deezer could not match. They are ranked by play count only.
 - **Row:** plain rank and title, no link; the cover slot is the two-tone wash with initials; under the artist a small mono marker in the provider-badge slot says "Not Found" or "Unavailable" in the body ink token; the release cell reads "unknown" in the same token until MusicBrainz finds the original release, then shows it as YYYY-MM (filled in place while the check runs, rendered by the server after it ends).
 - **Unmatched albums control:** "Unmatched albums" (Hide / Include, Include selected on an include run) sits under the Sort leaderboard control. Hide hides those rows, ranks and totals recompute, and Listening Time is enabled; Include returns them and Listening Time is dimmed again with its reason.
+
+### Results Row: Listening-Time Ranking
+- **Rule:** while the Results page ranks by listening time, an album with no listening time (none or zero) is dropped from the ranking and its row is hidden. The remaining rows are renumbered 1..n in the rank column. Ranking by track plays brings the dropped albums back with their play-count ranks.
+- **Header figures:** Total Albums, Top artist and Scrobbles keep describing the whole result under either ranking; the Unmatched albums Hide control recomputes them as it always has.
+- **Note and toast:** a short note under the stats grid states how many albums with no listening time are hidden, and the toast on switching to listening time names the same count. Neither shows when no album is dropped or when ranking by track plays.
+- **One rule, two places:** the server applies it when a run starts in listening-time mode and the browser applies it when the page is switched, so both show the same leaderboard. Rows hidden by the Unmatched albums control stay hidden whatever the ranking.
 
 ### Heatmap Grid
 - **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.

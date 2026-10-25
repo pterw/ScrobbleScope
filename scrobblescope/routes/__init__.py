@@ -317,17 +317,17 @@ from scrobblescope.routes import (  # noqa: E402,F401
     precheck,
 )
 from scrobblescope.routes.album_flow import (  # noqa: E402
-    _filter_results_for_display,
     _get_filter_description,
+    _mark_untimed_for_display,
 )
 
 __all__ = [
     "_check_profile_is_public",
     "album_key_filter",
     "_check_user_exists",
-    "_filter_results_for_display",
     "_get_filter_description",
     "_group_unmatched_by_reason",
+    "_mark_untimed_for_display",
     "acquire_job_slot",
     "bp",
     "fetch_spotify_access_token",

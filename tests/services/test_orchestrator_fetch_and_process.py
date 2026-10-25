@@ -11,6 +11,7 @@ from scrobblescope.orchestrator import (
     _process_filtered_albums,
     background_task,
 )
+from tests.album_metadata import spotify_metadata
 from tests.helpers import TEST_JOB_PARAMS, lastfm_albums
 
 
@@ -197,6 +198,85 @@ async def test_fetch_and_process_retains_all_below_threshold_albums():
     assert progress["progress"] == 100
     assert progress["error"] is False
     mock_process.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_loading_stats_count_only_albums_that_passed():
+    """
+    GIVEN three albums fetched, one of them under the thresholds
+    WHEN _fetch_and_process runs the real process_albums
+    THEN cache_hits + albums_to_search equals the two albums that passed, not
+    the three fetched.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+
+    def album(name):
+        return {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": name.title(),
+            "original_album": name.title(),
+        }
+
+    eligible = {("cached", "cached"): album("cached"), ("new", "new"): album("new")}
+    under = {
+        "artist": "Low",
+        "album": "Low",
+        "play_count": 2,
+        "track_count": 1,
+        "failed_thresholds": ["plays", "tracks"],
+        "min_plays": 10,
+        "min_tracks": 3,
+        "reason_code": "below_threshold",
+        "reason": "below the thresholds",
+    }
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=AsyncMock())
+    session.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=lastfm_albums(eligible, {("low", "low"): under}),
+        ),
+        patch(
+            "scrobblescope.cache.get_db_connection",
+            new_callable=AsyncMock,
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "scrobblescope.cache.batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={("cached", "cached"): spotify_metadata()},
+        ),
+        patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=session,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        await _fetch_and_process(job_id, "flounder14", 2025, "playcount", "same")
+
+    stats = jobs.progress(job_id)["stats"]
+    assert stats["cache_hits"] == 1
+    assert stats["albums_to_search"] == 1
+    assert stats["cache_hits"] + stats["albums_to_search"] == len(eligible)
 
 
 @pytest.mark.asyncio

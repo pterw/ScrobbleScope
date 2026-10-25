@@ -781,7 +781,7 @@
       hero.classList.toggle('is-active', isActive);
       hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    // The § marks lists crossfade in lock-step with the hero copy.
+    // The hero strip term lists (data-mode-marks) crossfade in lock-step with the hero copy.
     if (marksBlocks) {
       marksBlocks.forEach(function (marks) {
         var isActive = marks.getAttribute('data-mode-marks') === mode;

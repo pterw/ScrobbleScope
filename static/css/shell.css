@@ -21,10 +21,10 @@
     --shell-accent: #6a4baf;
     --shell-accent-ink: #ffffff;
     --shell-border: rgba(26, 24, 32, 0.5);
-    /* Selected-option outline: the primary mixed toward the page ground until
-       it sits just over 4.5:1 against it (87% here, 4.60:1; 71% in dark,
-       4.58:1). The owner asked for 4.5:1, softer than the full primary. */
-    --shell-selected-outline: #7d61b7;
+    /* Selected-option outline: the primary mixed toward the ground until
+       every surface a selected option sits on clears 4.5:1 (track, sunken
+       well, Results card and surface; RA2, one stronger outline). */
+    --shell-selected-outline: #775ab5;
     --shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);
     --shell-control-gap: 0.75rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
@@ -46,7 +46,7 @@
     --shell-accent: #b39dde;
     --shell-accent-ink: #0e0c12;
     --shell-border: rgba(241, 237, 228, 0.4);
-    --shell-selected-outline: #8373a3;
+    --shell-selected-outline: #8a79ab;
 }
 
 /* ------------------------------------------------------------------ */

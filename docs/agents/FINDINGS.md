@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2994 tests across 101 tracked test modules.
+2876 tests across 103 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -887,17 +887,17 @@ The moved-out correction note (`release-check-note`, `is-release-corrected`) on 
 
 - [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330657188), 2026-10-20, controller trace.
 
-### F-B23-46: the Listening Time toggle's durationless rows
-
-A Results page switched to Listening Time in the browser ranks matched albums with no Spotify duration last, shown as a dash, while a run that starts in playtime mode drops them server-side (`_filter_results_for_display`), so the same listener sees two different leaderboards for the "same" ranking. This is pre-existing on `main` for play-count runs (`setLeaderboardMetric` sorts every row), and is now also reached after Hide on an include run. What would close it: one rule for both paths (hide durationless rows while the client metric is playtime, with renumbering, or keep them server-side too), decided in the UI-consistency PR.
-
-- [ ] **Status:** open (P3). Source: Codex review on PR #256 (comment 4330862249), 2026-10-20, controller trace.
-
 ### F-B23-47: `test_job_threads_can_share_the_token_state_dict_without_error` can fail when run beside other test files
 
 The test in `tests/services/test_spotify_service.py` runs eight threads at a one-microsecond switch interval and asserts on garbage collection and on a remaining count, so its outcome depends on thread timing. It failed once during PR #5 Task 2's run, alongside `tests/services/test_enrichment.py` and the cache test files, and passed alone and in the full suite. Task 2's reviewer judged it a microsecond switch-interval thread race that is flaky by design and unrelated to the diff. No fix in PR #5. What would close it: assert only what the threads guarantee (no exception, a consistent dict) and move the garbage-collection and remaining-count checks to a deterministic test.
 
 - [ ] **Status:** open (P3). Source: PR #5 Task 2 run and review, 2026-10-21.
+
+### F-B23-64: three rules decide the "top artist" on the Results page
+
+The Results header's Top Artist is the artist of the first row in the run's ranking (`album_list[0].artist` in `templates/results.html`), so a run started in listening-time mode can name a different artist than the same run switched to listening time in the browser. `static/js/results.js` recomputes it from the first visible row only when Hide is toggled, not on a metric switch. The spotlight card below ranks artists by total scrobbles across albums (`select_spotlight_artists` in `scrobblescope/spotlight.py`), so the page holds three rules for "top artist". What would close it: the owner picks one rule, and the template, the script and the spotlight read it from one place.
+
+- [ ] **Status:** open (P3, low); the product rule is the owner's to decide; no fix in PR #269. Source: T11's agreement test (`tests/frontend/test_results_ranking_agreement.py`), whose fixture gives every album one artist for this reason; owner ruling RA21, 2026-10-25 ("File it, it's trivial for now").
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

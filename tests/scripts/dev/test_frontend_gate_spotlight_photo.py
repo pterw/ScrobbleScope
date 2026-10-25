@@ -9,32 +9,7 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-from scripts.dev import _frontend_gate_spotlight_photo, frontend_gate
-from tests.scripts.dev.gate_parity import defined_names
-
-CHECKS = (
-    "check_artist_spotlight_photo_has_no_crop_overlay_or_animation",
-    "check_artist_spotlight_card_hidden_with_no_photo",
-)
-CONSTANTS = (
-    "RESULTS_PATH",
-    "SQUARE_PHOTO_DATA_URL",
-)
-HELPERS = (
-    "_seed_spotlight_job",
-    "_install_spotlight_fetch_mock",
-)
-
-
-@pytest.mark.parametrize("name", (*CHECKS, *CONSTANTS, *HELPERS))
-def test_the_slice_defines_the_name(name: str) -> None:
-    assert name in defined_names(_frontend_gate_spotlight_photo)
-    assert name not in defined_names(frontend_gate)
-
-
-@pytest.mark.parametrize("name", CHECKS)
-def test_the_name_resolves_through_the_gate_module(name: str) -> None:
-    assert getattr(frontend_gate, name) is getattr(_frontend_gate_spotlight_photo, name)
+from scripts.dev import _frontend_gate_spotlight_photo
 
 
 def test_results_path_is_the_migrated_results_route() -> None:

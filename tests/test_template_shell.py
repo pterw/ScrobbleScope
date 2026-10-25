@@ -867,6 +867,7 @@ def _results_html(app, **overrides) -> str:
         "release_date": "2011-01-24",
         "album_url": "https://example.com/album",
         "provider": "spotify",
+        "display_rank": 1,
         "_normalized_key": normalize_name("Fleetwood Mac", "Rumours"),
     }
     context = {
@@ -906,6 +907,7 @@ def test_a_row_without_a_normalized_key_renders_an_empty_album_key(app) -> None:
                 "album": "Rumours",
                 "play_count": 42,
                 "release_date": "2011-01-24",
+                "display_rank": 1,
             }
         ],
     )
