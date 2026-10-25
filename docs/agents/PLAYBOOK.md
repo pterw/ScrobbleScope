@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Make the non-Latin normalization test honest
+
+Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
+
+Validation: `pytest -q` -- **2952 passed**.
+
 ### 2026-10-25 - Keep album keys stable under repeated normalization
 
 Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
@@ -217,17 +229,5 @@ Owner intent: keep the docs true after PR #270's code changes. Spotify's album s
 Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
 
 Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.
-
-### 2026-10-25 - Check an old cached Spotify row by its ID once
-
-Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: an old cached row carries no provider names, so a wrong match could not be told from a right one. A job now fetches the unstamped Spotify rows by their cached ID (Get Several Albums, chunks of 20 under `spotify_job_breaker`, never Search), keeps and persists the ones whose names fit the request key, and sends the rest to a miss. When Spotify cannot answer (no token, an unanswered ID) or the cache write fails, the row is used unchanged and not rewritten. One counts-only log line reports kept, stamped, dropped and unanswered. The code is in `scrobblescope/orchestrator/_cache.py`. A fix round added the persist-failure case after review.
-
-Deviations: none from the brief. Accepted review Minor items, not fixed: (1) the use of `spotify_job_breaker` in the stamping fetch has no test; (2) `on_fallback` is not passed to the details batch call, so the single-album fallback is not warned about in this path; (3) the older-row parity test now asserts values from the stamped details, and ID de-duplication before chunking is untested; (4) an unexpected exception in the stamping fetch is not caught and would fail the job rather than fail open.
-
-Edited existing tests: `test_process_albums_cache_hit_skips_spotify`, `test_process_albums_applies_cached_original_release_before_filtering`, `test_process_albums_records_provider_date_on_an_uncorrected_exclusion`, `test_process_albums_partial_cache_token_failure_uses_cached_results` and the `_split_stats` helper (feeds `test_loading_stats_split_the_passed_albums_into_hits_and_misses`) in `tests/services/test_orchestrator_process_albums.py`, and `test_fetch_and_process_loading_stats_count_only_albums_that_passed` in `tests/services/test_orchestrator_fetch_and_process.py`: seeded Spotify rows now carry `provider_artist`/`provider_title` fitting the key. In `tests/test_album_cache_parity.py` the `_spotify()` fake now details each album with name and credit (new `CREDITS` map), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` expects the stored names, and `test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_link` uses `_spotify()` instead of `_providers_forbidden()` because an old row is now stamped by one details call (the intended RB1 change); `test_a_search_costs_one_connection...` and `test_a_musicbrainz_finding...` pass through the fake change only. Each still asserts what it meant. Fix round: new case `persist_fails` added to `test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer`.
 
 Validation: `pytest -q` -- **2941 passed**.

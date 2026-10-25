@@ -249,13 +249,15 @@ def test_normalize_name_and_track_name_agree_on_non_latin():
     its tracks would normalize to '', causing playtime to be 0 and the album
     to be excluded by the min_tracks filter.
     """
-    artist_key, album_key = normalize_name("BABYMETAL", "BABYMETAL")
-    assert len(artist_key) > 0
+    title = "\u30ae\u30df\u30c1\u30e7\u30b3\uff01\uff01"
+    expected = "\u30ae\u30df\u30c1\u30e7\u30b3"
 
-    track_key = normalize_track_name("\u30ae\u30df\u30c1\u30e7\u30b3\uff01\uff01")
-    assert len(track_key) > 0, (
-        "Non-Latin track names must survive normalization; "
-        "empty string means NFKD+ascii-encode regression has been reintroduced."
+    _, album_key = normalize_name("BABYMETAL", title)
+    track_key = normalize_track_name(title)
+
+    assert album_key == track_key == expected, (
+        "Non-Latin album and track names must survive normalization and agree; "
+        "a mismatch means the NFKD+ascii-encode regression has been reintroduced."
     )
 
 
