@@ -52,13 +52,13 @@
         <span class="loading-stat__label">Pages fetched</span>
         <strong class="loading-stat__value" id="stat-pages">0</strong>
       </div>
-      <div class="loading-stat hidden" data-stat="albums">
-        <span class="loading-stat__label">Albums passing</span>
-        <strong class="loading-stat__value" id="stat-albums">0</strong>
+      <div class="loading-stat hidden" data-stat="cache-hits">
+        <span class="loading-stat__label">Cache hits</span>
+        <strong class="loading-stat__value" id="stat-cache-hits">0</strong>
       </div>
-      <div class="loading-stat hidden" data-stat="spotify">
-        <span class="loading-stat__label">Spotify matched</span>
-        <strong class="loading-stat__value" id="stat-spotify">0</strong>
+      <div class="loading-stat hidden" data-stat="to-search">
+        <span class="loading-stat__label">Albums to search</span>
+        <strong class="loading-stat__value" id="stat-to-search">0</strong>
       </div>
     </div>
 
@@ -82,7 +82,6 @@
       <li>&ge;{{ min_tracks|default('3') }} tracks</li>
     </ul>
 
-    <p class="loading-cache hidden" id="stat-cache"></p>
     <p class="loading-error-source hidden" id="error-source"></p>
     <a class="ss-btn loading-back" href="/">Cancel and return home</a>
   </section>

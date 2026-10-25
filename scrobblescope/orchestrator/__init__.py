@@ -251,6 +251,10 @@ async def process_albums(
 
         db_hit_count = len(cache_hits)
         jobs.record_stat(job_id, "cache_hits", db_hit_count)
+        # The loading page shows these two side by side: together they make up
+        # every album that passed the thresholds, and neither repeats the other.
+        # Known here, before the search, so it counts albums still to search.
+        jobs.record_stat(job_id, "albums_to_search", len(cache_misses))
         logging.info(
             f"Cache partition: {db_hit_count} hits, {len(cache_misses)} misses"
         )

@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-24 - Record UI round 2's outcome in its plan
+
+Side task, no batch tag: recorded UI consistency round 2's outcome in its plan, on `feat/ui-consistency-round-2`, a branch off `main`.
+
+Owner intent: the plan should say what landed, in what order and with which extras, so the round can be read from the plan alone. `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`: every step checkbox in Tasks 0-5 is ticked (the controller's "Final checks" boxes stay open), and a new `## Outcome (2026-10-24)` section lists each task's commit and landing extras, then the deviations (landing order T3, T4, T5, T1, T2 rather than the plan's order; the owner's f-swe-7 plan parked outside the worktree for the round's commits and restored; the heatmap export's hard-coded `instrument-serif` folded into Task 1; F-B23-58 filed). The Task 1 entry above gains the `MOVED` parity-tuple change in its "Edited existing tests" field (the Task 1 landing review's Minor 1); nothing else in that entry changed. On review a pointer to an untracked report was removed from the plan's Outcome section. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - File the frontend gate's intermittent failures
 
 Side task, no batch tag: filed F-B23-58 for the frontend gate's intermittent failures, on `feat/ui-consistency-round-2`, a branch off `main`.
