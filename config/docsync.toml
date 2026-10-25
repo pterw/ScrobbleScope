@@ -522,9 +522,11 @@ file = "static/js/heatmap.js"
 pattern = 'LAST (\d+) DAYS'
 expect = "365"
 
+# The heatmap headline, "Your 365 days mapped by day." (owner, 2026-10-25;
+# it read "Your last 365 days" before).
 [[value.sites]]
 file = "templates/index.html"
-pattern = 'last (\d+) days'
+pattern = 'Your (\d+) days'
 expect = "365"
 
 [[value.sites]]

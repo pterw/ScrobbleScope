@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: the index hero
+
+Side task, no batch tag: landed the index hero changes the owner accepted in the round 2 backlog's live session, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: the `§ 01/02/03` lists "feel generic and AI-directed" and should earn their place (backlog I3, H3); the album lede was "lacking" (I2); the heatmap headline "one grid." was "bland" (H1), and the owner later ruled out a comma followed by a one-word punch and "this past year" (the heatmap counts back 365 days from today). `templates/index.html`: both mark lists become a three-column strip, each item a serif term with a line icon (calendar, clock, document; grid, sliders, document) over one plain description; the album lede and both headlines take the accepted copy. `static/css/index.css`: the strip's rules replace the numbered-list rules, the strip sits 0.5rem under the lede, the ledes widen to 48ch with `text-wrap: pretty`, and where the hero column is narrow (windows up to about 1180px) each strip item becomes a row because terms wrapped there. That is a container query on the strip's wrapper in `em` of the term size, not a second viewport breakpoint: docsync's "single 860px breakpoint" declaration (DOC009) holds. The strip stays hidden below 860px (owner ruling). `static/js/heatmap.js`: one comment no longer calls the lists "§". Deviations: the changes landed before their plan, at the owner's request, so the session's state is safe; the plan follows. Edited existing tests: `tests/test_routes.py` `INDEX_HEADLINE` marks the index by `id="index-grid"` instead of headline copy the owner still revises. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-24 - Record UI round 2's outcome in its plan
 
 Side task, no batch tag: recorded UI consistency round 2's outcome in its plan, on `feat/ui-consistency-round-2`, a branch off `main`.

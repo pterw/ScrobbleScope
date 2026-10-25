@@ -221,7 +221,9 @@ html {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  max-width: 44rem;
+  /* Scaled like every other hero dimension: a fixed cap made the
+     descriptions wrap more as the type grew (large display scale parity). */
+  max-width: calc(44rem * var(--index-scale, 1));
   border-top: 1px solid color-mix(in srgb, var(--ss-border-divider) 55%, transparent);
   opacity: 0;
   visibility: hidden;
