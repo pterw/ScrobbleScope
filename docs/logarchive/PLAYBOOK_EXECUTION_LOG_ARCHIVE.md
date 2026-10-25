@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
+
+Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
+
+Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
+
+Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
 
 Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.

@@ -279,6 +279,51 @@ When: its own frontend-gate PR; not before the failures are seen again with the 
 
 - [ ] **Status:** open (P2). Source: UI consistency round 2 gate runs (PR #268), 2026-10-23.
 
+### F-B23-59: Spotify album search takes the first result without checking the artist or title
+
+`search_for_spotify_album_id` (`scrobblescope/spotify.py`) sends `limit: 3` and returns `items[0].get("id")` with no artist or title check, where `search_deezer_album` (`scrobblescope/deezer.py`) accepts a candidate only when `normalize_name` of its artist and title equals that of the request. Real cases from the owner's runs: an album Spotify lacks got another album (Xiu Xiu "A Promise" got Captain Beefheart's "Safe As Milk", 1967), and a sibling ranked higher won ("audio stars" got "audio stars 2", "Basspunk" got "Basspunk 2", bassvictim's "?" got "Forever"). The wrong track list matches no scrobble, so `aggregate_albums` totals 0 seconds and the album shows "0 secs".
+
+Fix direction: ask for five candidates and accept one only when any credited artist and the title both equal the request under `normalize_name`; no match falls to Deezer.
+
+- [ ] **Status:** open (P2)
+Source: owner's real runs, 2026-10-25
+
+### F-B23-60: two albums that resolve to one Spotify ID overwrite each other in the search phase
+
+`_run_spotify_search_phase` (`scrobblescope/orchestrator/_search.py`) writes `spotify_id_to_key[spotify_id] = key` and `spotify_id_to_original_data[spotify_id] = data`, so a second key with the same ID replaces the first silently and the loser falls to Deezer. It stays reachable once D1 is fixed: a collaboration album credited to [A, B] matches key (A, title) and key (B, title), so a Last.fm library that holds scrobbles under both artist names sends two keys to one ID.
+
+Fix direction: log one warning (operation and count only) when an ID is shared, never drop a key, and build the metadata once per requesting key so each key's stored provider artist is the credit that matched it.
+
+- [ ] **Status:** open (P2)
+Source: owner's real runs, 2026-10-25
+
+### F-B23-61: an album named "?" or "EP" normalizes to an empty key
+
+`normalize_name` (`scrobblescope/domain.py`) replaces ASCII punctuation with spaces and strips the album edition words (including "ep") from the album only, so the albums "?" and "EP" both normalize to `""`. Matching on `""` would accept any other empty-normalizing title by that artist, and two such albums by one artist share one key in the cache, the grouping and the wire key. Real case: bassvictim's "?" (see F-B23-59).
+
+Fix direction: when the cleaned album text is empty, key on the title's NFKC-lowercased text with whitespace collapsed and `|` written `%7c`; every existing non-empty key stays unchanged, and rows stored under the empty key age out by the TTL.
+
+- [ ] **Status:** open (P2)
+Source: owner's real runs, 2026-10-25
+
+### F-B23-62: a MusicBrainz 429 is cached as a final "no match"
+
+`lookup_original_release.search_once` (`scrobblescope/musicbrainz.py`) retries a 503 (fixed 1s sleep) and other 5xx, but a 429 reaches the `status != 200` branch and returns `(None, None, True)`, which `release_checks` caches as a terminal "no match". Any album that meets a rate-limit response during a release check is recorded as having no original release until the cache row expires.
+
+Fix direction: treat 429 and 503 alike, wait the `Retry-After` header (bounded) or a short default and retry; when retries run out, report the service unavailable and cache nothing.
+
+- [ ] **Status:** open (P2)
+Source: owner's real runs, 2026-10-25
+
+### F-B23-63: MusicBrainz request starts are exactly 1.000s apart
+
+`_MUSICBRAINZ_THROTTLE` (`scrobblescope/utils.py`) is built from `MUSICBRAINZ_REQUESTS_PER_SECOND`, read in `scrobblescope/config.py` as `int(... "1")`, so `_min_interval` is `1.0 / 1` and requests start exactly 1.000s apart, the edge of MusicBrainz's published limit; clock jitter or a second process tips it into a 429 (F-B23-62). Release checks run in the background, so extra spacing costs the user nothing.
+
+Fix direction: space request starts 1.1s apart, with the setting no longer an integer.
+
+- [ ] **Status:** open (P3)
+Source: owner's real runs, 2026-10-25
+
 ### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
 
 `check_retired` (`scripts/docsync/declarations.py`) compares a raw file line

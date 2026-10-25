@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - File the album-matching findings
+
+Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.
+
+Owner intent: the plan (`docs/superpowers/plans/2026-10-25-album-matching.md`) fixes problems the owner's real runs showed on 2026-10-25, and each later commit needs an open finding to close. `docs/agents/FINDINGS.md` now holds F-B23-59 (Spotify album search takes the first result unchecked), F-B23-60 (two albums sharing a Spotify ID overwrite each other; still reachable through collaboration albums), F-B23-61 (an album named "?" or "EP" normalizes to an empty key), F-B23-62 (a MusicBrainz 429 is cached as a final "no match", the P2 that corrupts a cache) and F-B23-63 (MusicBrainz request starts exactly 1.000s apart, P3). The artist spotlight's unchecked first result stays F-B23-26, open. Each names its function and one real case. Only `docs/agents/FINDINGS.md` and this log changed; no code or test.
+
+Deviations: F-B23-64 was already taken (filed on PR #269), so the plan's IDs 59 to 63 were confirmed free in both the active file and the archive; F-B23-26 was not edited because the plan does not change its fix. Edited existing tests: none by this commit; the plan's later commits edit these existing tests, each named in its own entry: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (Task 2), `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now `musicbrainz_unavailable`, response `headers = {}`) and the 503 retry tests that assert a fixed sleep, all in `tests/services/test_musicbrainz_service.py` (Task 3), and the search fakes in `tests/services/test_spotify_service.py` (Task 7).
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - Plan album matching and cache re-verification
 
 Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
@@ -206,17 +216,5 @@ Side task, no batch tag: record Task 12 and correct the landing-order note in pl
 Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
 
 Deviations: none. Edited existing tests: none.
-
-Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
-
-Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
-
-Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
-
-Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
 
 Validation: `pytest -q` -- **2876 passed**.
