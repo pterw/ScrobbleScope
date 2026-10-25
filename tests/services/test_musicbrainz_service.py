@@ -4,13 +4,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from scrobblescope.config import APP_USER_AGENT
+from scrobblescope.config import APP_USER_AGENT, MAX_RETRY_AFTER_SECONDS
 from scrobblescope.errors import ProviderError
 from scrobblescope.musicbrainz import (
     _build_release_group_query,
     _musicbrainz_headers,
     lookup_original_release,
 )
+from scrobblescope.release_checks import _check_candidate
 from tests.helpers import NoopAsyncContext, make_response_context
 
 
@@ -192,6 +193,7 @@ async def test_lookup_retries_on_503_then_succeeds():
     session = MagicMock()
     resp_busy = AsyncMock()
     resp_busy.status = 503
+    resp_busy.headers = {}
     resp_ok = AsyncMock()
     resp_ok.status = 200
     resp_ok.json = AsyncMock(
@@ -230,7 +232,9 @@ async def test_lookup_retries_on_503_then_succeeds():
     assert result == ("rg-rumours", "1977-02-04")
     assert session.get.call_count == 2
     assert limiter.__aenter__.await_count == 2
-    assert mock_sleep.await_count >= 1
+    # No Retry-After: the first backoff is 2 ** 0 seconds plus bounded jitter.
+    (waited,), _ = mock_sleep.await_args
+    assert 1 <= waited < 1.2
 
 
 @pytest.mark.asyncio
@@ -379,14 +383,16 @@ async def test_lookup_failure_lines_carry_no_album_or_artist(caplog):
 @pytest.mark.asyncio
 async def test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match():
     """
-    GIVEN MusicBrainz answers 503 (its rate-limit signal) on every attempt
+    GIVEN MusicBrainz answers 503 with no Retry-After on every attempt
     WHEN lookup_original_release runs
-    THEN it raises ProviderError musicbrainz_rate_limited; (None, None) is a
+    THEN it raises ProviderError musicbrainz_unavailable (nothing said how
+    long to wait, so it is an outage, not a rate limit); (None, None) is a
     cacheable "no match" and a throttled call must never pass for one.
     """
     session = MagicMock()
     resp = AsyncMock()
     resp.status = 503
+    resp.headers = {}
     session.get.return_value = make_response_context(resp)
 
     with (
@@ -401,7 +407,7 @@ async def test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match():
         with pytest.raises(ProviderError) as excinfo:
             await lookup_original_release(session, "Artist", "Album", retries=2)
 
-    assert excinfo.value.code == "musicbrainz_rate_limited"
+    assert excinfo.value.code == "musicbrainz_unavailable"
 
 
 @pytest.mark.asyncio
@@ -432,3 +438,167 @@ async def test_lookup_raises_unavailable_on_a_5xx_not_a_cacheable_no_match():
 
     assert excinfo.value.code == "musicbrainz_unavailable"
     assert session.get.call_count == 2
+
+
+_RG_RUMOURS = {
+    "release-groups": [
+        {
+            "id": "rg-rumours",
+            "title": "Rumours",
+            "score": 100,
+            "first-release-date": "1977-02-04",
+            "artist-credit": [{"name": "Fleetwood Mac"}],
+        }
+    ]
+}
+
+
+def _answer(status, headers=None, body=None):
+    resp = AsyncMock()
+    resp.status = status
+    resp.headers = headers or {}
+    resp.json = AsyncMock(return_value=body if body is not None else {})
+    return make_response_context(resp)
+
+
+def _lookup_patches():
+    return (
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_ENABLED", True),
+        patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", "me@example.com"),
+        patch(
+            "scrobblescope.musicbrainz.get_musicbrainz_limiter",
+            return_value=NoopAsyncContext(),
+        ),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_lookup_waits_the_retry_after_header_then_matches(status):
+    """
+    GIVEN MusicBrainz answers 429 or 503 with Retry-After: 2 and then a match
+    WHEN lookup_original_release runs
+    THEN it waits the header's seconds (plus bounded jitter) and returns the
+    match, rather than caching the 429 as "no match".
+    """
+    session = MagicMock()
+    session.get.side_effect = [
+        _answer(status, {"Retry-After": "2"}),
+        _answer(200, body=_RG_RUMOURS),
+    ]
+    p1, p2, p3 = _lookup_patches()
+    with p1, p2, p3, patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await lookup_original_release(session, "Fleetwood Mac", "Rumours")
+
+    assert result == ("rg-rumours", "1977-02-04")
+    (waited,), _ = mock_sleep.await_args
+    assert 2 <= waited < 2.2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_lookup_backs_off_exponentially_without_a_retry_after(status):
+    """
+    GIVEN MusicBrainz answers 429 or 503 with no Retry-After twice, then 200
+    WHEN lookup_original_release runs
+    THEN each wait is longer than the last (2 ** attempt plus bounded
+    jitter) and the match is returned.
+    """
+    session = MagicMock()
+    session.get.side_effect = [
+        _answer(status),
+        _answer(status),
+        _answer(200, body=_RG_RUMOURS),
+    ]
+    p1, p2, p3 = _lookup_patches()
+    with p1, p2, p3, patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        result = await lookup_original_release(
+            session, "Fleetwood Mac", "Rumours", retries=3
+        )
+
+    assert result == ("rg-rumours", "1977-02-04")
+    first, second = (call.args[0] for call in mock_sleep.await_args_list)
+    assert 1 <= first < 1.2
+    assert 2 <= second < 2.2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status, headers, code",
+    [
+        (429, {"Retry-After": "1"}, "musicbrainz_rate_limited"),
+        (503, {"Retry-After": "1"}, "musicbrainz_rate_limited"),
+        (429, {}, "musicbrainz_unavailable"),
+        (503, {}, "musicbrainz_unavailable"),
+    ],
+)
+async def test_exhausted_throttling_raises_and_caches_nothing(status, headers, code):
+    """
+    GIVEN MusicBrainz answers 429 or 503 on every attempt
+    WHEN lookup_original_release runs, and then a release check drives it
+    THEN it raises rate_limited only when a Retry-After was sent (else
+    unavailable), and the release check writes nothing to the
+    original-release cache.
+    """
+    session = MagicMock()
+    session.get.side_effect = lambda *a, **k: _answer(status, headers)
+    candidate = {
+        "key": ("artist", "album"),
+        "artist": "Artist",
+        "album": "Album",
+        "kind": "other",
+    }
+    state = {"checked": 0}
+    p1, p2, p3 = _lookup_patches()
+    with p1, p2, p3, patch("asyncio.sleep", new_callable=AsyncMock):
+        with pytest.raises(ProviderError) as excinfo:
+            await lookup_original_release(session, "Artist", "Album", retries=2)
+        with patch(
+            "scrobblescope.release_checks.batch_persist_original_release",
+            new_callable=AsyncMock,
+        ) as persist:
+            await _check_candidate(session, MagicMock(), "job", candidate, {}, state)
+
+    assert excinfo.value.code == code
+    persist.assert_not_awaited()
+    assert state["checked"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 503])
+async def test_retry_after_over_the_cap_raises_at_once_without_sleeping(status):
+    """
+    GIVEN MusicBrainz answers 429 or 503 with a Retry-After above the cap
+    WHEN lookup_original_release runs
+    THEN it raises musicbrainz_rate_limited on the first answer and sleeps
+    not at all.
+    """
+    session = MagicMock()
+    session.get.side_effect = lambda *a, **k: _answer(
+        status, {"Retry-After": str(MAX_RETRY_AFTER_SECONDS + 1)}
+    )
+    p1, p2, p3 = _lookup_patches()
+    with p1, p2, p3, patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with pytest.raises(ProviderError) as excinfo:
+            await lookup_original_release(session, "Artist", "Album", retries=3)
+
+    assert excinfo.value.code == "musicbrainz_rate_limited"
+    assert session.get.call_count == 1
+    mock_sleep.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_lookup_treats_a_404_as_a_definite_no_match():
+    """
+    GIVEN MusicBrainz answers 404
+    WHEN lookup_original_release runs
+    THEN it returns (None, None) after one request: a plain 4xx is an answer.
+    """
+    session = MagicMock()
+    session.get.side_effect = lambda *a, **k: _answer(404)
+    p1, p2, p3 = _lookup_patches()
+    with p1, p2, p3, patch("asyncio.sleep", new_callable=AsyncMock):
+        result = await lookup_original_release(session, "Artist", "Album")
+
+    assert result == (None, None)
+    assert session.get.call_count == 1

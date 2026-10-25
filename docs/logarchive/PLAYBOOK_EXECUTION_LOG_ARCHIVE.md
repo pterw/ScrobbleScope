@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Plan album matching and cache re-verification
+
+Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
+
+Owner intent: the owner's real runs on 2026-10-25 showed albums with plays but "0 secs" of listening time, which the session traced to Spotify album search accepting its first result unchecked, a second album silently taking a shared Spotify ID, and album names such as "?" and "EP" normalizing to nothing; and asked for MusicBrainz headroom ("since release checks run in the background it costs nothing") and rate-limit retries. `docs/superpowers/plans/2026-10-25-album-matching.md` (written by a plan-writer agent, reviewed three times, both findings of the last review checked by the controller): Spotify search takes the exact-match rule Deezer already uses over five candidates, any credited artist counts, a shared ID gives every request its own metadata, an empty-normalizing title keeps its raw identity, cached Spotify matches are re-verified on read by looking up their cached ID (two new nullable cache columns through `init_db.py`), MusicBrainz waits about 1.1s between request starts and treats 429 and 503 alike (Retry-After, else exponential backoff with jitter, never a cached "no match"), and F-B23-26 (the artist spotlight's unchecked first result) is fixed the same way. Deviations: none. Edited existing tests: none by this commit; the plan names each later edit. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
 
 Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.

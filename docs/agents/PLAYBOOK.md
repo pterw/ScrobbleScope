@@ -183,6 +183,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Wait and retry when MusicBrainz throttles
+
+Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `scrobblescope/musicbrainz.py::search_once` treated a 429 as a final "no match" (which then got cached) and waited a fixed second on a 503 (F-B23-62). Both statuses (`_RATE_LIMIT_STATUS = (429, 503)`) now honour `Retry-After` through `parse_retry_after`, else back off `2**attempt` plus a small hash-based jitter (as `spotify.py` does). Exhausted retries raise `musicbrainz_rate_limited` (header seen) or `musicbrainz_unavailable` (none) and cache nothing; a `Retry-After` over the cap raises at once without sleeping. Other 5xx retries and non-200 4xx no-match are unchanged. One fix round after review added 503 coverage to the header, exhaustion and over-cap tests (parametrized, no new tests).
+
+Deviations: this task landed after Task 5 (disjoint files). F-B23-62 is not closed here; Task 11 closes the findings. The test module imports `_check_candidate` from `scrobblescope.release_checks`. Edited existing tests: `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now asserts `musicbrainz_unavailable`, docstring updated, response `headers = {}`) and `test_lookup_retries_on_503_then_succeeds` (response `headers = {}`; the sleep assertion pins the first exponential wait, 1 <= wait < 1.2, instead of `await_count >= 1`), the other 503 retry tests were checked and needed no change.
+
+Validation: `pytest -q` -- **2899 passed**.
+
 ### 2026-10-25 - Check the artist name the spotlight search returns
 
 Side task, no batch tag: make the artist spotlight check the name Spotify returns, on `fix/album-matching`, stacked on PR #269.
@@ -212,9 +222,3 @@ Owner intent: the plan (`docs/superpowers/plans/2026-10-25-album-matching.md`) f
 Deviations: F-B23-64 was already taken (filed on PR #269), so the plan's IDs 59 to 63 were confirmed free in both the active file and the archive; F-B23-26 was not edited because the plan does not change its fix. Edited existing tests: none by this commit; the plan's later commits edit these existing tests, each named in its own entry: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (Task 2), `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now `musicbrainz_unavailable`, response `headers = {}`) and the 503 retry tests that assert a fixed sleep, all in `tests/services/test_musicbrainz_service.py` (Task 3), and the search fakes in `tests/services/test_spotify_service.py` (Task 7).
 
 Validation: `pytest -q` -- **2876 passed**.
-
-### 2026-10-25 - Plan album matching and cache re-verification
-
-Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
-
-Owner intent: the owner's real runs on 2026-10-25 showed albums with plays but "0 secs" of listening time, which the session traced to Spotify album search accepting its first result unchecked, a second album silently taking a shared Spotify ID, and album names such as "?" and "EP" normalizing to nothing; and asked for MusicBrainz headroom ("since release checks run in the background it costs nothing") and rate-limit retries. `docs/superpowers/plans/2026-10-25-album-matching.md` (written by a plan-writer agent, reviewed three times, both findings of the last review checked by the controller): Spotify search takes the exact-match rule Deezer already uses over five candidates, any credited artist counts, a shared ID gives every request its own metadata, an empty-normalizing title keeps its raw identity, cached Spotify matches are re-verified on read by looking up their cached ID (two new nullable cache columns through `init_db.py`), MusicBrainz waits about 1.1s between request starts and treats 429 and 503 alike (Retry-After, else exponential backoff with jitter, never a cached "no match"), and F-B23-26 (the artist spotlight's unchecked first result) is fixed the same way. Deviations: none. Edited existing tests: none by this commit; the plan names each later edit. Validation: `pytest -q` -- **2994 passed**.
