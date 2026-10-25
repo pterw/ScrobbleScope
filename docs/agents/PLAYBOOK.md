@@ -136,8 +136,9 @@ See FINDINGS F-DOCSYNC-3.
   F-B23-46 ranking rule follow the plan
   `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` on the same
   branch. The album-matching, cache re-verification and MusicBrainz fixes the
-  session found go to a PR stacked on it (branch `fix/album-matching`, which
-  carries its own plan). The documentation refresh merges last.
+  session found go to a PR stacked on it (branch `fix/album-matching`, plan
+  `docs/superpowers/plans/2026-10-25-album-matching.md`), which runs now and
+  merges after #269. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -180,6 +181,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Plan album matching and cache re-verification
+
+Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
+
+Owner intent: the owner's real runs on 2026-10-25 showed albums with plays but "0 secs" of listening time, which the session traced to Spotify album search accepting its first result unchecked, a second album silently taking a shared Spotify ID, and album names such as "?" and "EP" normalizing to nothing; and asked for MusicBrainz headroom ("since release checks run in the background it costs nothing") and rate-limit retries. `docs/superpowers/plans/2026-10-25-album-matching.md` (written by a plan-writer agent, reviewed three times, both findings of the last review checked by the controller): Spotify search takes the exact-match rule Deezer already uses over five candidates, any credited artist counts, a shared ID gives every request its own metadata, an empty-normalizing title keeps its raw identity, cached Spotify matches are re-verified on read by looking up their cached ID (two new nullable cache columns through `init_db.py`), MusicBrainz waits about 1.1s between request starts and treats 429 and 503 alike (Retry-After, else exponential backoff with jitter, never a cached "no match"), and F-B23-26 (the artist spotlight's unchecked first result) is fixed the same way. Deviations: none. Edited existing tests: none by this commit; the plan names each later edit. Validation: `pytest -q` -- **2994 passed**.
+
 ### 2026-10-25 - Plan the UI round 2 backlog follow-through
 
 Side task, no batch tag: committed the plan for the UI round 2 backlog's follow-through, on `feat/ui-round-2-backlog`, a branch off `main`.
@@ -197,9 +204,3 @@ Owner ruling (2026-10-25), asked after the gate failed 28 checks at `4c0c744` on
 Side task, no batch tag: fixed the two layout failures the frontend gate and CI found at PR #269's first head, on `feat/ui-round-2-backlog`, a branch off `main`.
 
 The gate's "large display scale parity" check failed twice at `4c0c744`. First, the hero composition was 948.1px tall at 4K against a proportional 837.6px: the strip's `max-width: 44rem` in `static/css/index.css` was the one hero dimension not multiplied by `--index-scale`, so as the type grew the descriptions wrapped onto more lines (3, 2, 2 at 1080p; 5, 3, 4 at 4K). It now scales, and the hero measures 837px at 4K with the same wrapping at 1080p, 1440p and 4K. Second, the heatmap headline wrapped at 1200px (and at 1500px on CI's fonts). Owner ruling (2026-10-25): it reads "Your 365 days *mapped by day.*" in `templates/index.html`, shorter than the album headline, which fits at both widths. `config/docsync.toml`: the "heatmap window length" site in that template now reads the headline's `Your (\d+) days`, since "last 365 days" no longer appears there. Deviations: none. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
-
-### 2026-10-25 - UI round 2 backlog: the loading page's stats, Back and entrance
-
-Side task, no batch tag: relabelled the loading page's last two stats, took the finished page out of history and gave the stats an entrance, on `feat/ui-round-2-backlog`, a branch off `main`.
-
-Owner intent: "Albums passing" and "Spotify matched" are unclear and showed the same number (backlog L2); one should be "Cache hits" and the other must not duplicate it (2026-10-25); Back from the results should not land on the loading page; the stats should not just appear. The old pair duplicated because "matched" counted every album given metadata from the cache, Spotify or Deezer, and Spotify search accepted its first result, so nearly all of them matched (that search defect is for the plan). `scrobblescope/orchestrator/__init__.py` records `albums_to_search` (the cache misses) beside `cache_hits` at the cache split; together they make up the albums that passed the thresholds. `templates/loading.html` and `static/js/loading.js` show "Cache hits" and "Albums to search" (first "Albums searched"; renamed because the figure is known before the search ends) and drop the separate "albums loaded from cache" line. `redirectToResults` uses `location.replace`, so Back from the results reaches the form instead of a finished loading page that sent the listener forward again. `static/css/loading.css`: each stat rises 0.375rem and fades in over 360ms as its first figure arrives, 50ms apart when they arrive together; reduced motion shows them at once. The backend still records `albums_passing_filter` and `spotify_matched` for other readers. Deviations: landed before its plan. Edited existing tests: none. Validation: `pytest -q` -- **2994 passed**.
