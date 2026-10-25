@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - UI round 2 backlog: gate the hero strip
+
+Side task, no batch tag: gate the hero strip's layout, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: keep the strip from regressing after the container-query fix. `scripts/dev/_frontend_gate_layout.py` gains `STRIP_ROW_QUERY_EM` (26, mirroring `@container (width < 26em)`), `_measure_strip` and the pure `_strip_layout_failures`, called from `_check_desktop_scale_bounds` beside the headline-wrap check for both modes at 900, 1100, 1200, 1500, 1920 and 2560 (900px height): three columns or stacked rows by 26 x the strip wrap's computed font size, and no wrapped term (height over 1.2 x line height). At 859 and 390 the lists must be hidden. The helper fails closed on a thin measurement (fewer than three items, or no measurable term or line height), and the sweep is pinned to its widths and 900px height by a test. The strip had no gate: the columns/rows switch is a container query and the mobile cut a viewport rule, and terms wrapped unnoticed up to 1179px. The 859/390 failures report under the `[desktop]` profile label because the sweep runs inside the desktop check (RA15, accepted).
+
+Deviations: none. Edited existing test: `test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context` (its stub now serves a strip measure and its expected failure list gains the strip line, so removing the strip call fails it).
+
+Validation: `pytest -q` -- **3047 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: hidden-count note
 
 Side task, no batch tag: show how many albums listening-time ranking leaves out (F-B23-46, client half of the note), on `feat/ui-round-2-backlog`, a branch off `main`.
