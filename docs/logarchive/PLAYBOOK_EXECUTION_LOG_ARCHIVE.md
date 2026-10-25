@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Share one Spotify breaker across a job's phases
+
+Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a Retry-After above the cap seen while stamping old cached rows tripped only the stamping breaker, so the job's cache misses then searched Spotify as if nothing had happened. `process_albums` now opens one `spotify_job_breaker()` block around the cache lookup, the partition and the miss fetch, and `spotify_job_breaker()` yields the already active breaker unchanged when it is nested (no new breaker, no reset, no log), so the inner blocks in the stamping and the miss fetch reuse the job's. A different job runs in its own context and still gets its own breaker. New tests: `test_a_breaker_tripped_while_stamping_stops_the_jobs_searches` (red before: the miss searched Spotify) and `test_a_nested_job_breaker_block_shares_the_outer_breaker`.
+
+Deviations: none.
+
+Edited existing tests: none. The `_StampingSpotify` fake gained a `trips` option, and its search now refuses at entry on a tripped breaker as the real search does; the existing tests that use it never trip it and still pass unchanged.
+
+Validation: `pytest -q` -- **2954 passed**.
+
+### 2026-10-25 - Make the non-Latin normalization test honest
+
+Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
+
+Deviations: none.
+
+Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
+
+Validation: `pytest -q` -- **2952 passed**.
+
+### 2026-10-25 - Keep album keys stable under repeated normalization
+
+Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: both provider searches normalize the key they are given again, so a key must come back unchanged. The empty-remainder fallback wrote each pipe as `%7c`, and a second pass turned `%7c` into `7c`, so an album titled "|" (or "EP |") could never match. The fallback now writes each pipe as `^`, which is ASCII punctuation, so the fallback text stays made of punctuation, whitespace and edition words only and a second normalization returns it unchanged. The docstrings of `normalize_name` and `format_album_key` say so. No live doc stated the old escape.
+
+Deviations: none.
+
+Edited existing tests: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity` now expects `^^` for "||" where it expected `%7c%7c`; it still asserts distinct, non-empty, pipe-free keys. Added `test_normalize_name_is_idempotent`.
+
+Validation: `pytest -q` -- **2952 passed**.
+
 ### 2026-10-25 - Close the album-matching findings
 
 Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.

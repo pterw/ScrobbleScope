@@ -261,14 +261,31 @@ class ResultsBehaviorTests(unittest.TestCase):
     def test_a_rotating_card_reserves_its_tallest_height(self):
         """The counterpart of the reduced-motion case: a card that rotates
         holds the tallest candidate's height, so the rail below never moves."""
-        self.spotlight()
-        self.settle_two_candidates()
-        self.assertNotEqual(
-            self.page.locator("#artist-spotlight-card").evaluate(
-                "el => el.style.minHeight"
-            ),
-            "",
+        self.spotlight(
+            markup=self.LINK_LAYOUT_MARKUP,
+            artists=[
+                {
+                    "name": "One",
+                    "scrobbles": 5,
+                    "album_count": 1,
+                    "play_time_seconds": 0,
+                    "play_time": "",
+                },
+                {
+                    "name": "Two",
+                    "scrobbles": 5,
+                    "album_count": 1,
+                    "play_time_seconds": 60,
+                    "play_time": "1m",
+                },
+            ],
         )
+        self.settle_two_candidates()
+        reserved = self.page.locator("#artist-spotlight-card").evaluate(
+            "el => el.style.minHeight"
+        )
+        # Candidate Two (name 20px + 60px badge) is the tall one; Math.min reserves ~42px.
+        self.assertGreaterEqual(float(reserved.removesuffix("px")), 80)
 
     def test_a_pointer_resting_on_a_card_shown_under_it_pauses_the_rotation(self):
         """A card that first appears under a still pointer is held: the
@@ -1030,6 +1047,47 @@ class ResultsBehaviorTests(unittest.TestCase):
             [line.split(",")[0] for line in lines[1:]], ['"1"', '"2"', '"3"']
         )
         self.assertNotIn("Lost", "\n".join(lines))
+
+    def polls_in_twenty_seconds(self, status):
+        """Requests results-release-checks.js makes in 20 s when every reply says `status`."""
+        self.page.evaluate(
+            """status => {
+                window.calls = 0;
+                window.fetch = () => {
+                    window.calls += 1;
+                    return Promise.resolve({
+                        ok: true,
+                        json: () => Promise.resolve(
+                            {status, checked: 1, total: 2, moved_in: 0, albums: []}),
+                    });
+                };
+            }""",
+            status,
+        )
+        self.start(
+            "results-release-checks.js",
+            '<div id="release-check-bar" data-job-id="j"><span id="release-check-status">'
+            '</span></div><table id="results-table"><tbody></tbody></table>',
+            {},
+        )
+        flush = "async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); }"
+        self.page.evaluate(flush)
+        for _ in range(10):
+            self.page.clock.run_for(2000)
+            self.page.evaluate(flush)
+        return self.page.evaluate("window.calls")
+
+    def test_the_release_check_poller_stops_on_every_status_that_is_not_live(self):
+        """Only pending and running keep polling; done, skipped, error and a
+        status nobody has heard of end the loop after the one reply."""
+        self.assertGreater(
+            self.polls_in_twenty_seconds("running"), 5
+        )  # the loop does run
+        for status in ("done", "skipped", "error", "something-new"):
+            with self.subTest(status=status):
+                self.page.close()
+                self.setUp()  # a fresh page: the previous poller's timer must not leak in
+                self.assertEqual(self.polls_in_twenty_seconds(status), 1)
 
     def release_check_run(self, albums):
         """Load results-release-checks.js into an include run's rows and answer

@@ -33,12 +33,18 @@ def test_normalize_name_remastered_suffix():
 
 def test_normalize_name_unicode_preserved():
     """
-    GIVEN artist/album names with non-Latin characters
+    GIVEN artist and album names with accented Latin letters
     WHEN normalize_name is called
-    THEN the Unicode characters should be preserved (not stripped to ASCII).
+    THEN both halves keep the accented letters (not stripped to ASCII).
+
+    Non-Latin scripts are guarded by the katakana and Japanese-row tests below;
+    this one covers precomposed diacritics.
     """
-    artist, album = normalize_name("Björk", "Homogenic")
-    assert "björk" in artist
+    assert normalize_name("Björk", "Debut") == ("björk", "debut")
+    assert normalize_name("Sigur Rós", "Ágætis Byrjun") == (
+        "sigur rós",
+        "ágætis byrjun",
+    )
 
 
 def test_normalize_track_name_strips_punctuation():
@@ -279,12 +285,13 @@ def test_cover_wash_index_is_pinned_across_processes():
 def test_cover_wash_index_is_stable_and_ignores_spelling_noise():
     """
     GIVEN one album spelled with different case, punctuation and edition tags
-    WHEN cover_wash_index is called repeatedly
+    WHEN cover_wash_index is called for each spelling
     THEN it returns one index, so the Results and Unmatched pages agree.
+
+    Stability across calls and processes is guarded by the pinned-literals test above.
     """
     plain = cover_wash_index("the beatles", "let it be")
     assert plain == cover_wash_index("The Beatles.", "Let It Be (Deluxe Edition)")
-    assert {cover_wash_index("the beatles", "let it be") for _ in range(5)} == {plain}
 
 
 def test_cover_wash_index_spreads_albums_over_every_wash():

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -27,13 +28,15 @@ async def test_cleanup_stale_metadata_issues_delete():
     mock_conn = AsyncMock()
     mock_conn.execute.return_value = "DELETE 3"
 
-    await cleanup_stale_metadata(mock_conn)
+    with patch("scrobblescope.cache.METADATA_CACHE_TTL_DAYS", 17):
+        await cleanup_stale_metadata(mock_conn)
 
     mock_conn.execute.assert_awaited_once()
     sql, ttl = mock_conn.execute.call_args[0]
-    assert "DELETE FROM spotify_cache" in sql
-    assert "updated_at" in sql
-    assert isinstance(ttl, int) and ttl > 0
+    assert re.sub(r"\s+", " ", sql).strip() == (
+        "DELETE FROM spotify_cache WHERE updated_at < NOW() - make_interval(days => $1)"
+    )
+    assert ttl == 17
 
 
 @pytest.mark.asyncio

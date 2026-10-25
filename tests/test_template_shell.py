@@ -92,7 +92,7 @@ TEMPLATE_CONTEXT = {
     "unmatched_empty.html": {},
 }
 
-#: Pages migrated to Tailwind. Every other page must still carry Bootstrap.
+#: Pages migrated to Tailwind (every page in TEMPLATE_CONTEXT).
 MIGRATED = {
     "error.html",
     "heatmap_empty.html",
@@ -218,10 +218,7 @@ def test_each_page_loads_the_framework_its_markup_is_written_for(app, template):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
     sheets = " ".join(_stylesheets(html)).lower()
-    if template in MIGRATED:
-        assert TAILWIND in sheets and BOOTSTRAP not in sheets
-    else:
-        assert BOOTSTRAP in sheets and TAILWIND not in sheets
+    assert TAILWIND in sheets and BOOTSTRAP not in sheets
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
@@ -518,6 +515,9 @@ def test_every_inline_mark_is_wrapped_for_the_css_animation(app, template):
     marks = html.count("ss-mark")
     bar_groups = html.count('id="horizontal_bars"')
 
+    assert bar_groups >= 1, (
+        f"{template} renders no mark at all; the header lockup is missing"
+    )
     assert marks == bar_groups, (
         f"{template} renders {bar_groups} bar group(s) but {marks} ss-mark "
         f"wrapper(s); an unwrapped mark is frozen with no error"
@@ -939,26 +939,6 @@ def test_the_release_check_bar_is_absent_when_there_is_nothing_to_check(app) -> 
         app, release_check={"status": "skipped", "checked": 0, "total": 0}
     )
     assert 'id="release-check-bar"' not in _results_html(app)
-
-
-def test_the_release_check_poller_stops_on_every_terminal_state() -> None:
-    """Polling forever against a finished job is the failure mode here.
-
-    The endpoint answers `done`, `skipped`, and `error`, and Task 10 chose
-    `error` precisely so an unrecognised status stops the loop too. The
-    script must therefore continue on the two live states only, never stop
-    on a list of terminal ones it could fall off the end of.
-    """
-    script = (
-        Path(__file__).resolve().parents[1]
-        / "static"
-        / "js"
-        / "results-release-checks.js"
-    ).read_text(encoding="utf-8")
-
-    assert "'pending'" in script and "'running'" in script
-    assert "visibilitychange" in script
-    assert "setInterval(" not in script, "F-B21-33: overlapping interval polls"
 
 
 def test_cover_wash_count_matches_the_stylesheets():
