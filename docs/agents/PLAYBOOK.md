@@ -132,15 +132,16 @@ See FINDINGS F-DOCSYNC-3.
   plan `docs/superpowers/plans/2026-10-23-ui-consistency-round-2.md`). Its
   backlog runs now on `feat/ui-round-2-backlog`: the owner settles each item
   in a live session and the accepted changes landed as they were made (PR
-  #269, out of draft). All fourteen tasks of the plan
+  #269). All fourteen tasks of the plan
   `docs/superpowers/plans/2026-10-25-ui-round-2-backlog.md` have landed on
   the same branch (the documentation, the gates that hold the accepted
   changes, the F-B23-46 ranking rule and the stale-copy sweep), followed by a
-  test consolidation under the owner's lean-suite ruling. The final
-  verification gate passed on the branch; the PR merges once its review is
-  clean. The album-matching, cache re-verification and MusicBrainz fixes the session
-  found then go to a PR stacked on it (branch `fix/album-matching`, which
-  carries its own plan). The documentation refresh merges last.
+  test consolidation under the owner's lean-suite ruling. PR #269 merged
+  into `main` (merge commit `997f7584`) and is deployed. The album-matching,
+  cache re-verification and MusicBrainz fixes are on `fix/album-matching`
+  (PR #270, plan `docs/superpowers/plans/2026-10-25-album-matching.md`),
+  based on `main`: every plan task has landed there and the six findings it
+  files are closed, and the PR waits on the owner's real run and review. The documentation refresh merges last.
 - **Batch 23 close-out obligation:** WP-7 includes the deferred Batch 21
   frontend and accessibility audit; the batch cannot close without it.
 - **What PR #245 ships (owner ruling 2026-09-29):** the WP-0 foundation and
@@ -183,44 +184,50 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
+### 2026-10-25 - Share one Spotify breaker across a job's phases
 
-Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.
+Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
 
-Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
+Owner intent: a Retry-After above the cap seen while stamping old cached rows tripped only the stamping breaker, so the job's cache misses then searched Spotify as if nothing had happened. `process_albums` now opens one `spotify_job_breaker()` block around the cache lookup, the partition and the miss fetch, and `spotify_job_breaker()` yields the already active breaker unchanged when it is nested (no new breaker, no reset, no log), so the inner blocks in the stamping and the miss fetch reuse the job's. A different job runs in its own context and still gets its own breaker. New tests: `test_a_breaker_tripped_while_stamping_stops_the_jobs_searches` (red before: the miss searched Spotify) and `test_a_nested_job_breaker_block_shares_the_outer_breaker`.
 
-Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
+Deviations: none.
 
-Validation: `pytest -q` -- **2876 passed**.
+Edited existing tests: none. The `_StampingSpotify` fake gained a `trips` option, and its search now refuses at entry on a tripped breaker as the real search does; the existing tests that use it never trip it and still pass unchanged.
 
-### 2026-10-25 - UI round 2 backlog: plan A execution record closed
+Validation: `pytest -q` -- **2954 passed**.
 
-Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
+### 2026-10-25 - Make the non-Latin normalization test honest
 
-Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
+Side task, no batch tag: make `test_normalize_name_and_track_name_agree_on_non_latin` check what its name says, on `fix/album-matching`, stacked on PR #269.
 
-Deviations: none. Edited existing tests: none.
+Owner intent: the owner found the docstring claimed Japanese katakana while the album half normalized the Latin title "BABYMETAL", `album_key` was never asserted and the artist half's length check held for any implementation. The test now passes the katakana title as the album too and asserts the album key and the track key are equal to each other and to the katakana text with the full-width exclamation marks stripped (`\u` escapes, ASCII-only source). Proof it is no longer vacuous: a scratch edit of `normalize_name` that dropped non-ASCII characters from the album made it fail; restored byte-identical, it passes. No production code changed.
 
-Validation: `pytest -q` -- **2876 passed**.
+Deviations: none.
 
-### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
+Edited existing tests: `test_normalize_name_and_track_name_agree_on_non_latin`, which still guards the NFKD + ascii-encode regression.
 
-Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
+Validation: `pytest -q` -- **2952 passed**.
 
-Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
+### 2026-10-25 - Keep album keys stable under repeated normalization
 
-Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
+Side task, no batch tag: fix the Codex review P2 on PR #270, where `normalize_name` was not idempotent, on `fix/album-matching`, stacked on PR #269.
 
-Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+Owner intent: both provider searches normalize the key they are given again, so a key must come back unchanged. The empty-remainder fallback wrote each pipe as `%7c`, and a second pass turned `%7c` into `7c`, so an album titled "|" (or "EP |") could never match. The fallback now writes each pipe as `^`, which is ASCII punctuation, so the fallback text stays made of punctuation, whitespace and edition words only and a second normalization returns it unchanged. The docstrings of `normalize_name` and `format_album_key` say so. No live doc stated the old escape.
 
-Validation: `pytest -q` -- **2876 passed**.
+Deviations: none.
 
-### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
+Edited existing tests: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity` now expects `^^` for "||" where it expected `%7c%7c`; it still asserts distinct, non-empty, pipe-free keys. Added `test_normalize_name_is_idempotent`.
 
-Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
+Validation: `pytest -q` -- **2952 passed**.
 
-Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
+### 2026-10-25 - Close the album-matching findings
 
-Deviations: none. Edited existing tests: none.
+Side task, no batch tag: close F-B23-26 and F-B23-59 to F-B23-63 and update the Section 3 sentence for PR #270, on `fix/album-matching`, stacked on PR #269.
 
-Validation: `pytest -q` -- **2876 passed**.
+Owner intent: each finding the album-matching plan files is closed with the commit that fixed it: F-B23-26 (`7aeafa90`), F-B23-59 (`2561e4cd`, with the cached wrong matches clearing on read by `f546a0bf`, `4892ca8a` and `1cc4d33d`), F-B23-60 (`3c2694c3`), F-B23-61 (`0237a840`), F-B23-62 (`5d9e561a`) and F-B23-63 (`2b7e95ad`). Section 3 now says every plan task has landed on PR #270 and the PR waits on the owner's real run and review, because it is not merged.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.

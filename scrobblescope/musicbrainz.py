@@ -22,11 +22,17 @@ from scrobblescope.config import (
 )
 from scrobblescope.domain import normalize_name
 from scrobblescope.errors import provider_failure
-from scrobblescope.utils import get_musicbrainz_limiter, retry_with_semaphore
+from scrobblescope.utils import (
+    get_musicbrainz_limiter,
+    parse_retry_after,
+    retry_with_semaphore,
+)
 
 _MIN_MATCH_SCORE = 90
 _SEARCH_URL = "https://musicbrainz.org/ws/2/release-group/"
-_RATE_LIMIT_STATUS = 503
+# MusicBrainz signals throttling with 503 (its documented answer) and, from
+# some proxies, 429. Both wait out Retry-After when sent, else back off.
+_RATE_LIMIT_STATUS = (429, 503)
 
 # Lucene query-syntax special characters that must be escaped in a search
 # term: https://lucene.apache.org/core/.../QueryParserSyntax.html
@@ -114,13 +120,20 @@ async def lookup_original_release(
     headers = _musicbrainz_headers()
     limiter = get_musicbrainz_limiter()
 
+    def jitter(attempt):
+        return (abs(hash((artist, album, attempt))) % 200) / 1000.0
+
     async def search_once():
         async with limiter:
             async with session.get(
                 _SEARCH_URL, params=params, headers=headers
             ) as response:
-                if response.status == _RATE_LIMIT_STATUS:
-                    return None, 1, False
+                if response.status in _RATE_LIMIT_STATUS:
+                    # None without a header: the helper's backoff runs.
+                    retry_after = parse_retry_after(
+                        response.headers.get("Retry-After"), default=None
+                    )
+                    return None, retry_after, False
                 if response.status >= 500:
                     # An outage, not an answer: retried, then raised as
                     # musicbrainz_unavailable, never cached as "no match".
@@ -144,7 +157,8 @@ async def lookup_original_release(
         get_retry_after=lambda t: t[1],
         extract_result=lambda t: t[0],
         default=None,
-        backoff=1,
+        backoff=lambda attempt: 2**attempt + jitter(attempt),
+        jitter=jitter,
         error_label="musicbrainz.lookup",
         failure=provider_failure("musicbrainz"),
     )

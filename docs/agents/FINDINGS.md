@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2876 tests across 103 tracked test modules.
+2954 tests across 103 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -762,12 +762,6 @@ to this finding.
 `static/js/heatmap.js` `renderHeatmapMobile` reads `gridContainer.clientWidth` while `#heatmap-result` is still `hidden`, so the width is 0 and the fallback `innerWidth - 48` guess is used: at 390px the strip draws 14 columns of about 19px scaled into a 277px box, and after any breakpoint round trip it draws 12 columns of 22px. The padding-aware sizing and its comment ("sized to what is left inside it") never run on first render. Separately `handleResize` re-renders only when `innerWidth` crosses 860px, so rotating 390 to 844 stretches the strip to about 50px cells, and opening at 844 then rotating to 390 gives 28 columns of 10px, under `MOBILE_MIN_CELL_SIZE` and any tap target. Reproduced in Chromium and Firefox. Fix: measure after the frame is visible (or from a laid-out ancestor minus the frame and grid padding), drop the guess, and re-render through `rerenderKeepingFocus` whenever the computed column count differs from the rendered one. It is a layout change, not a fix-wave one.
 
 - [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-9.
-
-### F-B23-26: the artist spotlight can show another artist's photo and link under the Last.fm name
-
-`scrobblescope/spotify.py` `_request_spotlight_artist` asks Spotify for `limit: 1` and returns `items[0]` with no name check, and neither `static/js/results-spotlight.js` `hydrateCandidate` nor `static/js/unmatched.js` `fetchArtistImage` compares `data.name` with the requested artist. A Last.fm artist Spotify does not know (a local band, a misspelling) gets the closest other artist: the card shows that photo with the alt text "Photograph of <Last.fm name>" and a link to the other artist's page. With the album-cover fallback gone, this is the only photo source, and the card treats the result as a confirmed photo. Reproduced with the API mocked to return a different name; how often it happens against the live API is unmeasured. Fix: the route returns the hit only when `normalize_name` of its name equals that of the requested artist, else null `image_url` and `spotify_url`.
-
-- [ ] **Status:** open (P2). Source: third review of PR #245 (2026-09-29), S2-12.
 
 ### F-B23-32: provider URLs reach href and src unchecked
 

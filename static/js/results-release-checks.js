@@ -1,7 +1,7 @@
 // Live original-release corrections, disclosed without moving the page.
 //
 // The correction worker (scrobblescope/release_checks.py) asks MusicBrainz for
-// each album's original release date at one request per second, long after the
+// each album's original release date, about 1.1 seconds apart, long after the
 // table is on screen. This script polls GET /api/release_checks and discloses
 // what it finds. The owner's ruling governs every choice here: results render
 // at once, corrections land live, a corrected row stays where it is, and the

@@ -17,7 +17,7 @@ from scrobblescope.config import (
     SPOTIFY_SEARCH_RETRIES,
     spotify_token_cache,
 )
-from scrobblescope.domain import normalize_track_name
+from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.enrichment import SPOTIFY_ALBUM_URL, AlbumMetadata
 from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
@@ -102,7 +102,13 @@ def spotify_job_breaker():
     their signatures and every task the job spawns inside the block shares the
     job's breaker, while a concurrent job, on its own loop and context, has
     its own. Outside a block there is no breaker and nothing is skipped.
+    Blocks nest: one opened inside another yields the outer block's breaker
+    unchanged, so a job's phases share one verdict.
     """
+    active = _job_breaker.get()
+    if active is not None:
+        yield active
+        return
     breaker = SpotifyBreaker()
     reset_token = _job_breaker.set(breaker)
     try:
@@ -330,10 +336,33 @@ async def _request_token():
     return None
 
 
+def matching_credit(item, key):
+    """Return the credited artist whose name makes ``item`` equal ``key``.
+
+    ``key`` is a ``normalize_name`` pair. An album matches when some credited
+    artist, with the album's title, normalizes to it (Spotify lists every
+    credit; Deezer only the primary). Missing or non-text ``name`` or
+    ``artists`` fields do not match and never raise. Returns None for no match.
+    """
+    title = item.get("name") if isinstance(item, dict) else None
+    credited_artists = item.get("artists") if isinstance(item, dict) else None
+    if not isinstance(title, str) or not isinstance(credited_artists, list):
+        return None
+    for credit in credited_artists:
+        name = credit.get("name") if isinstance(credit, dict) else None
+        if isinstance(name, str) and normalize_name(name, title) == key:
+            return name
+    return None
+
+
 async def search_for_spotify_album_id(session, artist, album, token, semaphore=None):
     """
     Searches Spotify for a single album and returns its Spotify ID, or None
-    when Spotify answered and had no match.
+    when Spotify answered and had no exact match.
+
+    The first of the five hits, in Spotify's order, that
+    ``matching_credit`` accepts for this artist and album wins; a sibling
+    such as "Album 2" or an unrelated album is a miss, not a match.
     Optimized: Uses relaxed query first (faster, higher success rate).
 
     A search Spotify could not answer is not a miss: a 429 (or a Retry-After
@@ -351,7 +380,8 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
     _check_breaker()
     bearer = _Bearer(token)
     # Use relaxed query directly - it has better success rate and avoids double-search
-    params = {"q": f"{artist} {album}", "type": "album", "limit": 3}
+    params = {"q": f"{artist} {album}", "type": "album", "limit": 5}
+    key = normalize_name(artist, album)
     limiter = get_spotify_limiter()
 
     async def attempt():
@@ -387,8 +417,9 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
                 _note_answer()
                 data = await response.json()
                 items = data.get("albums", {}).get("items", [])
-                if items:
-                    return items[0].get("id"), None, True
+                for item in items:
+                    if matching_credit(item, key) is not None:
+                        return item.get("id"), None, True
 
                 return None, None, True
 
@@ -621,7 +652,7 @@ async def fetch_spotify_album_details_batch(
     )
 
 
-def album_metadata_from_details(spotify_id, details):
+def album_metadata_from_details(spotify_id, details, key=None):
     """Translate one Spotify album object into the provider contract.
 
     The one place the application reads Spotify's album JSON. The
@@ -633,12 +664,19 @@ def album_metadata_from_details(spotify_id, details):
     Args:
         spotify_id: The album id Spotify issued.
         details: One album object from Get Album or Get Several Albums.
+        key: The ``normalize_name`` pair the album was requested under. When
+            given, ``provider_artist`` is the credit that matches it and
+            ``provider_title`` the album's name; with no key, or no matching
+            credit, both stay None (unstamped, fail closed).
 
     Returns:
         AlbumMetadata with ``provider="spotify"`` and track durations in
         whole seconds, keyed by ``normalize_track_name``.
     """
     images = details.get("images") or [{}]
+    credit = matching_credit(details, key) if key is not None else None
+    if key is not None and credit is None:
+        logging.warning("Spotify album details matched no credited artist")
     return AlbumMetadata(
         provider="spotify",
         album_id=spotify_id,
@@ -650,6 +688,8 @@ def album_metadata_from_details(spotify_id, details):
             normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
             for t in details.get("tracks", {}).get("items", [])
         },
+        provider_artist=credit,
+        provider_title=details["name"] if credit is not None else None,
     )
 
 
@@ -667,7 +707,9 @@ def _artist_spotlight_details(artist, artist_name=None, artist_id=None):
 async def _request_spotlight_artist(session, headers, artist_name, artist_id):
     """Look up by ID, falling back to name after an unsuccessful HTTP response.
 
-    Return None for unsuccessful or empty searches. Transport and decoding
+    A name search accepts the first of five hits whose normalized name equals
+    the requested one; a name that normalizes to "" matches nothing.
+    Return None for unsuccessful or unmatched searches. Transport and decoding
     exceptions propagate to the caller's shared logging and fallback boundary.
     """
     if artist_id:
@@ -678,15 +720,16 @@ async def _request_spotlight_artist(session, headers, artist_name, artist_id):
                     await response.json(), artist_name, artist_id
                 )
     if artist_name:
-        params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 1}
+        params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 5}
         async with session.get(
             "https://api.spotify.com/v1/search", params=params, headers=headers
         ) as response:
             if response.status == 200:
                 data = await response.json()
-                items = data.get("artists", {}).get("items", [])
-                if items:
-                    return _artist_spotlight_details(items[0], artist_name)
+                wanted = normalize_name(artist_name, "")[0]
+                for item in data.get("artists", {}).get("items", []):
+                    if wanted and normalize_name(item.get("name", ""), "")[0] == wanted:
+                        return _artist_spotlight_details(item, artist_name)
     return None
 
 

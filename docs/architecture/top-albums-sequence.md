@@ -105,7 +105,8 @@ sequenceDiagram
                             Orch->>Jobs: record_stat(db_cache_warning), cached metadata stays empty
                             Note over Orch,Cache: Fail-open -- every album becomes a miss, persistence still allowed
                         else Lookup succeeds
-                            Cache-->>Orch: Matching in-TTL rows only
+                            Cache-->>Orch: In-TTL rows only, minus any Spotify row whose stored provider names fit another album (dropped as a miss)
+                            Orch->>Spotify: Older rows with no stored names are checked once by their cached ID, kept and stamped if they fit, otherwise a miss
                             Orch->>Jobs: record_stat(db_cache_lookup_hits)
                         end
                         Cache->>Cache: Clean stale rows inside lookup (both lookup outcomes)
@@ -120,8 +121,8 @@ sequenceDiagram
                             Orch->>Jobs: record_stat(partial_data_warning) and record_partial_source(provider)
                             Note over Orch,Spotify: No search or detail call. Every miss goes to Deezer
                         else Token acquired
-                            Orch->>Spotify: Search albums
-                            Spotify-->>Orch: Spotify IDs, search misses, or searches it could not answer (429, 5xx, timeout)
+                            Orch->>Spotify: Search albums, asking for 5 candidates each
+                            Spotify-->>Orch: Spotify IDs for an exact title and credited-artist match only, search misses, or searches it could not answer (429, 5xx, timeout)
                             Note over Orch: An unanswered album degrades to Deezer. The siblings carry on
                             Orch->>Jobs: Progress 20%-40%
                             opt At least one album matched
@@ -288,7 +289,9 @@ missing afterwards is computed as `cache_misses` minus `cache_hits`, so a
 search miss and a detail failure converge on the same Deezer pass rather than
 being retried separately. Persistence happens in the caller (Phase 4) after
 that call returns, which is why the diagram shows it after Deezer: one row set
-is written for both providers, not one per provider.
+is written for both providers, not one per provider. Two albums that resolve
+to the same Spotify ID each get their own metadata, built from the one details
+answer, so neither inherits the other's names.
 
 `SpotifyUnavailableError` is raised on three conditions together -- Spotify
 gave nothing for every miss (no token, or every miss either a search it did not

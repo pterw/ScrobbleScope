@@ -34,6 +34,8 @@ async def test_batch_lookup_metadata_returns_albums_with_their_provider_columns(
                 "provider": "deezer",
                 "provider_album_id": "6237061",
                 "provider_url": "https://www.deezer.com/album/6237061",
+                "provider_artist": "Grey Orton",
+                "provider_title": "Rumours",
             }
         ]
     )
@@ -44,6 +46,8 @@ async def test_batch_lookup_metadata_returns_albums_with_their_provider_columns(
     assert "provider" in fetch_sql
     assert "provider_album_id" in fetch_sql
     assert "provider_url" in fetch_sql
+    assert "provider_artist" in fetch_sql
+    assert "provider_title" in fetch_sql
     assert result == {
         ("grey orton", "rumours"): AlbumMetadata(
             provider="deezer",
@@ -52,6 +56,8 @@ async def test_batch_lookup_metadata_returns_albums_with_their_provider_columns(
             release_date="1977-02-04",
             image_url="https://cdn.example/cover.jpg",
             track_durations={},
+            provider_artist="Grey Orton",
+            provider_title="Rumours",
         )
     }
 
@@ -131,11 +137,23 @@ async def test_batch_persist_metadata_writes_a_spotify_id_to_both_columns():
     """A Spotify album's id goes to spotify_id and provider_album_id, and its
     link is stored rather than left NULL."""
     mock_conn = AsyncMock()
-    albums = {("artist1", "album1"): spotify_metadata("sp1")}
+    albums = {
+        ("artist1", "album1"): spotify_metadata(
+            "sp1", provider_artist="Artist1", provider_title="Album1"
+        )
+    }
 
     await batch_persist_metadata(mock_conn, albums)
 
     call_args = mock_conn.execute.call_args[0]
+    assert "provider_artist" in call_args[0]
+    assert "provider_title" in call_args[0]
+    # A re-searched row must overwrite its old names, so both columns have to
+    # be in the upsert's update list.
+    assert "provider_artist   = EXCLUDED.provider_artist" in call_args[0]
+    assert "provider_title    = EXCLUDED.provider_title" in call_args[0]
+    assert call_args[10] == ["Artist1"]
+    assert call_args[11] == ["Album1"]
     assert call_args[3] == ["sp1"]
     assert call_args[7] == ["spotify"]
     assert call_args[8] == ["sp1"]
@@ -350,6 +368,45 @@ async def test_what_persist_writes_lookup_reads_back(album):
             assert await album_cache.lookup([KEY]) == {KEY: album}
 
     assert (album_cache.lookup_failed, album_cache.persist_failed) == (False, False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("columns", "returned"),
+    [
+        (
+            {"provider": "spotify", "provider_artist": "Captain Beefheart"}
+            | {"provider_title": "Safe As Milk"},
+            False,
+        ),
+        (
+            {"provider": "spotify", "provider_artist": "Xiu Xiu"}
+            | {"provider_title": "A Promise"},
+            True,
+        ),
+        ({"provider": "spotify"}, True),
+        ({"provider": "deezer"}, True),
+    ],
+    ids=["names_of_another_album", "names_fit_the_key", "unstamped", "deezer"],
+)
+async def test_a_spotify_row_naming_another_album_is_a_miss(columns, returned, caplog):
+    """A cached Spotify row whose provider names do not fit its key is dropped,
+    so the album is searched again; fitting, unstamped and Deezer rows stay."""
+    key = ("xiu xiu", "a promise")
+    with fake_postgres() as db:
+        db.seed_metadata(
+            *key,
+            release_date="2004",
+            spotify_id="id1",
+            provider_album_id="id1",
+            **columns,
+        )
+        async with open_album_cache() as album_cache:
+            with caplog.at_level(logging.INFO):
+                hits = await album_cache.lookup([key])
+
+    assert (key in hits) is returned
+    assert ("Dropped 1 cached" in caplog.text) is (not returned)
 
 
 @pytest.mark.asyncio

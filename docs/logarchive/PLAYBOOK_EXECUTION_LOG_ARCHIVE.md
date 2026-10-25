@@ -9,6 +9,188 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Describe exact album matching and the MusicBrainz spacing
+
+Side task, no batch tag: sweep the live prose for the album-matching behaviour and the MusicBrainz request spacing, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: keep the docs true after PR #270's code changes. Spotify's album search asks for 5 candidates and keeps only an exact title and credited-artist match, a cached Spotify row whose stored names fit another album is dropped as a miss, an older row without names is checked once by its cached ID, two albums sharing a Spotify ID each get their own metadata, and the correction worker starts MusicBrainz requests about 1.1 seconds apart (policy: one per second). Edited: `README.md` (Top Albums feature, listening-time rule and limitation, spotlight artist match, the 1.1 second spacing in four places including the flowchart edge, one cached-match limitation), `docs/architecture/top-albums-sequence.md` (cache lookup and search steps, shared-ID sentence), `docs/architecture/runtime-system.md` (edge label, cache-hit sentence), `docs/agents/AGENT_NOTES.md` (`updated_at` on a stamped row), and the comment in `static/js/results-release-checks.js`. Mermaid blocks edited: the README Architecture flowchart (`flowchart TB` edge to the correction worker), the `top-albums-sequence.md` sequenceDiagram, the `runtime-system.md` MusicBrainzClient edge.
+
+Deviations: none. The MusicBrainz policy lines, other providers' rates and dated entries were left as they are.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
+### 2026-10-25 - Check an old cached Spotify row by its ID once
+
+Side task, no batch tag: rows cached before the provider-name columns are checked once by their cached Spotify ID (RB1), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: an old cached row carries no provider names, so a wrong match could not be told from a right one. A job now fetches the unstamped Spotify rows by their cached ID (Get Several Albums, chunks of 20 under `spotify_job_breaker`, never Search), keeps and persists the ones whose names fit the request key, and sends the rest to a miss. When Spotify cannot answer (no token, an unanswered ID) or the cache write fails, the row is used unchanged and not rewritten. One counts-only log line reports kept, stamped, dropped and unanswered. The code is in `scrobblescope/orchestrator/_cache.py`. A fix round added the persist-failure case after review.
+
+Deviations: none from the brief. Accepted review Minor items, not fixed: (1) the use of `spotify_job_breaker` in the stamping fetch has no test; (2) `on_fallback` is not passed to the details batch call, so the single-album fallback is not warned about in this path; (3) the older-row parity test now asserts values from the stamped details, and ID de-duplication before chunking is untested; (4) an unexpected exception in the stamping fetch is not caught and would fail the job rather than fail open.
+
+Edited existing tests: `test_process_albums_cache_hit_skips_spotify`, `test_process_albums_applies_cached_original_release_before_filtering`, `test_process_albums_records_provider_date_on_an_uncorrected_exclusion`, `test_process_albums_partial_cache_token_failure_uses_cached_results` and the `_split_stats` helper (feeds `test_loading_stats_split_the_passed_albums_into_hits_and_misses`) in `tests/services/test_orchestrator_process_albums.py`, and `test_fetch_and_process_loading_stats_count_only_albums_that_passed` in `tests/services/test_orchestrator_fetch_and_process.py`: seeded Spotify rows now carry `provider_artist`/`provider_title` fitting the key. In `tests/test_album_cache_parity.py` the `_spotify()` fake now details each album with name and credit (new `CREDITS` map), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` expects the stored names, and `test_an_older_spotify_row_reads_as_a_spotify_album_with_the_classic_link` uses `_spotify()` instead of `_providers_forbidden()` because an old row is now stamped by one details call (the intended RB1 change); `test_a_search_costs_one_connection...` and `test_a_musicbrainz_finding...` pass through the fake change only. Each still asserts what it meant. Fix round: new case `persist_fails` added to `test_unstamped_rows_stay_unchanged_and_unwritten_when_spotify_cannot_answer`.
+
+Validation: `pytest -q` -- **2941 passed**.
+
+### 2026-10-25 - Stop shadowing the credits builtin
+
+Side task, no batch tag: rename the `credits` local in `matching_credit` (Codacy finding on PR #270, Pylint W0622 redefined-builtin), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: Codacy flagged `credits = item.get("artists") ...` in `scrobblescope/spotify.py` as shadowing the `credits` builtin that `site` installs; it was introduced by the exact-match search change. The local is now `credited_artists`, used only inside `matching_credit`. Rename only, no behaviour change. A grep for `credits`, `copyright`, `license`, `exit` and `quit` assignments in `scrobblescope` found no other shadowing local.
+
+Deviations: none.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2932 passed**.
+
+### 2026-10-25 - Give requests sharing a Spotify ID their own metadata
+
+Side task, no batch tag: two requests that resolve to one Spotify ID each get their own metadata (D2, RB3), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a collaboration credited under two artists produced two keys mapped to one Spotify ID; the second overwrote the first in the ID-to-key map, so the loser fell to Deezer. `_run_spotify_search_phase` now returns a fifth element, `shared_id_requests` (the extra requests after the first for a mapped ID), and logs one count-only warning. `_run_spotify_batch_detail_phase` takes it and builds metadata per key with `album_metadata_from_details(spotify_id, details, key)`, filing each in `cache_hits` and `new_metadata` so each stored credit matches its own key; when an ID is unanswered, the extras join `detail_unavailable_keys`. `_fetch_spotify_misses` unpacks five values and passes the mapping. One fix round after review added a test guarding the `_fetch_spotify_misses` wiring and a privacy assertion on the warning (no names, no key parts). Recorded, not fixed: the warning fires once per extra request, which no three-key case pins.
+
+Deviations: none. Task 9 (`AlbumCache.lookup` drops a mismatched row) landed first; the files are disjoint and the patch applied cleanly on it. Findings are not closed here; Task 11 closes them.
+
+Edited existing tests: `test_run_spotify_search_phase_all_misses_returns_empty_maps` (also asserts `shared_id_requests == {}`) and `test_spotify_search_unanswered_album_does_not_cancel_its_siblings` (unpacks five values). New: `test_two_requests_sharing_a_spotify_id_each_get_their_own_metadata`, `test_unanswered_details_for_a_shared_spotify_id_mark_every_key`, `test_fetch_spotify_misses_credits_every_key_sharing_a_spotify_id`.
+
+Validation: `pytest -q` -- **2932 passed**.
+
+### 2026-10-25 - Treat a cached row naming another album as a miss
+
+Side task, no batch tag: `AlbumCache.lookup` drops a cached Spotify row whose stored provider names do not fit its key (R2, RB1), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: a row stored under "xiu xiu|a promise" could hold another album's ID (the old unchecked search), and until now it was served for 30 days. `lookup` now drops every hit whose `match_for(key)` is `MATCH_WRONG` and logs one INFO line with the count only, so the album is searched again and the existing upsert overwrites the row with stamped names. `MATCH_FITS` and `MATCH_UNSTAMPED` rows (including pre-migration Spotify rows with NULL names, and Deezer rows) are returned as before; `lookup_failed` and the fail-open path are unchanged. A dropped hit is not counted in `db_cache_lookup_hits`.
+
+Deviations: none. Landed before Task 8 (disjoint files: Task 8 touches the orchestrator search and details modules; Task 8 was still in review).
+
+Edited existing tests: none. The `_spotify` helper in `tests/test_album_cache_parity.py` gained an optional `credit` argument (details carry name and artists); no existing test changed. New: `test_a_spotify_row_naming_another_album_is_a_miss` (parametrized) in `tests/services/test_cache.py` and `test_a_cached_row_naming_another_album_is_searched_again_and_overwritten` in `tests/test_album_cache_parity.py`.
+
+Validation: `pytest -q` -- **2929 passed**.
+
+### 2026-10-25 - Accept only an exact album match in Spotify search
+
+Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `search_for_spotify_album_id` took `items[0]` unchecked, so a missing album got another album (wrong track list, "0 secs"). It now asks for 5 hits (`limit` 5) and returns the first whose credited artist and title normalize to the request key; otherwise None. New pure `matching_credit(item, key)` does the comparison (a non-dict hit or non-text field returns None, never raises). `album_metadata_from_details` takes `key` (default None) and stamps `provider_artist` and `provider_title` from the credit that matched, else leaves both None and, given a key, logs one warning line with no names; `orchestrator/_details.py` passes the key. Fix round 1: review found that comparing the title alone went unnoticed, so the exact-match test gains a same-title, different-artist case. The sequence-diagram and README wording for the search step follow in Task 11 (RB13, RB14); F-B23-59 is closed by Task 11, not here.
+
+Deviations: none.
+
+Edited existing tests: `test_search_for_spotify_album_id_retries_429_then_returns_id`, `test_search_succeeds_on_first_try` and `test_search_retries_a_malformed_retry_after` (their fake bodies gain the name and artists a real hit carries), and the helper `_ok_search` (now takes artist and album; callers pass the request's own names: `test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_one`, the newer-cached-token 401 test, `test_an_answer_between_refusals_keeps_the_breaker_closed`, `test_a_call_given_a_stale_token_sends_the_valid_cached_one_first`, `test_an_expired_cached_token_is_not_adopted`, `test_concurrent_rejections_of_one_token_cost_one_token_request`).
+
+Validation: `pytest -q` -- **2924 passed**.
+
+### 2026-10-25 - Store the provider's own names and add match_for
+
+Side task, no batch tag: store the artist and title the provider returned beside each cached album, and add `AlbumMetadata.match_for(key)`, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: the cache keyed rows by the request's names, so a wrong Spotify match was indistinguishable from a right one. `spotify_cache` gains nullable `provider_artist` and `provider_title`; `AlbumMetadata` carries them (default None, still frozen), `from_row` reads them, `batch_lookup_metadata` selects them and `batch_persist_metadata` writes them (new array params $10 and $11, existing indexes unchanged). `match_for(key)` is the single re-verify rule (`MATCH_FITS`, `MATCH_WRONG`, `MATCH_UNSTAMPED`) for later tasks; `enrichment.py` now imports `normalize_name` from `domain`. The schema ships through `init_db.py` (the Fly release command) with no manual DB step, no data migration and no purge. Old rows read as unstamped (Spotify) or fits (Deezer). No behaviour change yet: nothing calls `match_for`, and `album_metadata_from_details` still leaves the names None (Tasks 7 and 10 fill them).
+
+Deviations: the two columns are folded into the existing `ALTER TABLE spotify_cache ... ADD COLUMN IF NOT EXISTS` statement rather than a separate one (idempotent, judged so by review; keeps the statement count so `tests/test_init_db.py` needed no edit). Fix round 1: review found that dropping a name column from the upsert's `DO UPDATE SET` list left every test green; the persist-SQL test now requires both `EXCLUDED` assignments (the fake Postgres has no ON CONFLICT handling, so a round trip is not possible).
+
+Edited existing tests: `test_album_metadata_holds_album_facts_only` (field-set pin gains the two names), `test_batch_lookup_metadata_returns_albums_with_their_provider_columns` (row, expected and SQL carry the names), `test_batch_persist_metadata_writes_a_spotify_id_to_both_columns` (asserts the two name arrays and the two `EXCLUDED` assignments), `test_a_spotify_album_is_stored_as_album_facts_and_a_repeat_search_matches_it` (the stored-row shape in the parity test gains the two None fields).
+
+Validation: `pytest -q` -- **2914 passed**.
+
+### 2026-10-25 - Space MusicBrainz requests 1.1s apart
+
+Side task, no batch tag: space MusicBrainz request starts 1.1s apart (D5, RB6), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: MusicBrainz's policy is 1 request per second, and the throttle started requests exactly 1.000s apart, which left no margin. `MUSICBRAINZ_REQUESTS_PER_SECOND` (an integer) is replaced by the float setting `MUSICBRAINZ_MIN_INTERVAL_SECONDS` (default 1.1, read through `_positive_seconds` so 0, negative and nan are refused), and `_MUSICBRAINZ_THROTTLE` is now `_GlobalThrottle(1, MUSICBRAINZ_MIN_INTERVAL_SECONDS)`; `_GlobalThrottle` and the other providers are unchanged. The old variable is ignored: setting it logs one import-time warning on `scrobblescope.config` naming the new variable. If Fly secrets set the old variable, it now only logs that warning. New tests: `test_global_throttles_space_request_starts_by_their_interval` (MusicBrainz 1.1 and Spotify 1/rate, controlled clock), `test_musicbrainz_limiter_uses_the_musicbrainz_throttle`, and `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` (child-process import; one fix round after review made it also assert the throttle's spacing equals the setting, so a hard-coded 1.1 fails).
+
+Deviations: none. This task landed after Tasks 5 and 3 (disjoint files). The policy quotes of "1 req/s" in `musicbrainz.py`, `release_checks.py`, `docs/agents/runtime-system.md` and `tests/test_release_checks.py` stay: they cite the policy, not the enforced spacing. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2905 passed**.
+
+### 2026-10-25 - Wait and retry when MusicBrainz throttles
+
+Side task, no batch tag: make the MusicBrainz lookup wait and retry on a 429 or 503 instead of caching a false "no match", on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `scrobblescope/musicbrainz.py::search_once` treated a 429 as a final "no match" (which then got cached) and waited a fixed second on a 503 (F-B23-62). Both statuses (`_RATE_LIMIT_STATUS = (429, 503)`) now honour `Retry-After` through `parse_retry_after`, else back off `2**attempt` plus a small hash-based jitter (as `spotify.py` does). Exhausted retries raise `musicbrainz_rate_limited` (header seen) or `musicbrainz_unavailable` (none) and cache nothing; a `Retry-After` over the cap raises at once without sleeping. Other 5xx retries and non-200 4xx no-match are unchanged. One fix round after review added 503 coverage to the header, exhaustion and over-cap tests (parametrized, no new tests).
+
+Deviations: this task landed after Task 5 (disjoint files). F-B23-62 is not closed here; Task 11 closes the findings. The test module imports `_check_candidate` from `scrobblescope.release_checks`. Edited existing tests: `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now asserts `musicbrainz_unavailable`, docstring updated, response `headers = {}`) and `test_lookup_retries_on_503_then_succeeds` (response `headers = {}`; the sleep assertion pins the first exponential wait, 1 <= wait < 1.2, instead of `await_count >= 1`), the other 503 retry tests were checked and needed no change.
+
+Validation: `pytest -q` -- **2899 passed**.
+
+### 2026-10-25 - Check the artist name the spotlight search returns
+
+Side task, no batch tag: make the artist spotlight check the name Spotify returns, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `scrobblescope/spotify.py::_request_spotlight_artist` searched `artist:<name>` with `limit: 1` and returned the first hit unchecked, so a short name such as "ear" could show another artist's photo (F-B23-26 / D6). The name-search path now asks for `limit: 5` and returns the first hit whose `normalize_name(hit, "")[0]` equals that of the requested name (case and punctuation ignored). It returns `None` when no hit matches, or when the requested name normalizes to empty ("!!!"), so `/api/artist_spotlight` answers its existing null-image payload. The `artist_id` path is unchanged. New tests: `test_artist_spotlight_name_search_checks_the_returned_name` (4 cases) and `test_artist_spotlight_id_lookup_skips_the_name_check`.
+
+Deviations: this task landed before Tasks 3 and 4 of the plan (disjoint files; those are in fix rounds). F-B23-26 is not closed here; Task 11 closes the findings. Edited existing tests: `test_artist_spotlight_parses_details_and_missing_fields` (the search hit now carries the requested name) and `test_artist_spotlight_falls_back_from_failed_id_lookup` (the hit is named "Requested", not "Search match"); same assertions.
+
+Validation: `pytest -q` -- **2888 passed**.
+
+### 2026-10-25 - Keep an identity for albums that normalize to nothing
+
+Side task, no batch tag: give an album whose title normalizes to nothing its own identity, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: albums named "?" or "EP" keyed as an empty album half in `normalize_name`, so any two such albums by one artist collided. `scrobblescope/domain.py::normalize_name` now falls back, when the cleaned and edition-stripped album is empty, to the raw text (NFKC, lowercase, whitespace collapsed) with "|" written as "%7c", so the key still splits cleanly in `format_album_key`. The artist half and every non-empty album key are unchanged. Docstrings of `normalize_name` and `format_album_key` say so. Cover wash for such albums changes (accepted). Added tests in `tests/test_domain.py`: `test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity`, `test_normalize_name_nonempty_remainder_keys_unchanged` (4 params) and `test_format_album_key_round_trips_empty_remainder_titles` (2 params).
+
+Deviations: none. Edited existing tests: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (the album half is now "ep", not empty; it still asserts that an artist named EP is kept and an album EP is stripped of the edition word, and its docstring was corrected).
+
+Validation: `pytest -q` -- **2883 passed**.
+
+### 2026-10-25 - File the album-matching findings
+
+Side task, no batch tag: file the five album-matching findings that the plan's later commits cite, on `fix/album-matching`, based on `main`.
+
+Owner intent: the plan (`docs/superpowers/plans/2026-10-25-album-matching.md`) fixes problems the owner's real runs showed on 2026-10-25, and each later commit needs an open finding to close. `docs/agents/FINDINGS.md` now holds F-B23-59 (Spotify album search takes the first result unchecked), F-B23-60 (two albums sharing a Spotify ID overwrite each other; still reachable through collaboration albums), F-B23-61 (an album named "?" or "EP" normalizes to an empty key), F-B23-62 (a MusicBrainz 429 is cached as a final "no match", the P2 that corrupts a cache) and F-B23-63 (MusicBrainz request starts exactly 1.000s apart, P3). The artist spotlight's unchecked first result stays F-B23-26, open. Each names its function and one real case. Only `docs/agents/FINDINGS.md` and this log changed; no code or test.
+
+Deviations: F-B23-64 was already taken (filed on PR #269), so the plan's IDs 59 to 63 were confirmed free in both the active file and the archive; F-B23-26 was not edited because the plan does not change its fix. Edited existing tests: none by this commit; the plan's later commits edit these existing tests, each named in its own entry: `tests/test_domain.py::test_normalize_name_ep_preserved_in_artist_stripped_from_album` (Task 2), `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now `musicbrainz_unavailable`, response `headers = {}`) and the 503 retry tests that assert a fixed sleep, all in `tests/services/test_musicbrainz_service.py` (Task 3), and the search fakes in `tests/services/test_spotify_service.py` (Task 7).
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - Plan album matching and cache re-verification
+
+Side task, no batch tag: committed the plan for the album-matching fixes, on `fix/album-matching`, a branch stacked on `feat/ui-round-2-backlog` (PR #269).
+
+Owner intent: the owner's real runs on 2026-10-25 showed albums with plays but "0 secs" of listening time, which the session traced to Spotify album search accepting its first result unchecked, a second album silently taking a shared Spotify ID, and album names such as "?" and "EP" normalizing to nothing; and asked for MusicBrainz headroom ("since release checks run in the background it costs nothing") and rate-limit retries. `docs/superpowers/plans/2026-10-25-album-matching.md` (written by a plan-writer agent, reviewed three times, both findings of the last review checked by the controller): Spotify search takes the exact-match rule Deezer already uses over five candidates, any credited artist counts, a shared ID gives every request its own metadata, an empty-normalizing title keeps its raw identity, cached Spotify matches are re-verified on read by looking up their cached ID (two new nullable cache columns through `init_db.py`), MusicBrainz waits about 1.1s between request starts and treats 429 and 503 alike (Retry-After, else exponential backoff with jitter, never a cached "no match"), and F-B23-26 (the artist spotlight's unchecked first result) is fixed the same way. Deviations: none. Edited existing tests: none by this commit; the plan names each later edit. Validation: `pytest -q` -- **2994 passed**.
+
+### 2026-10-25 - UI round 2 backlog: Section 3 marks plan A finished
+
+Side task, no batch tag: make PLAYBOOK Section 3 agree with Section 4 about plan A, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: Section 3 and Section 4 must agree (AGENTS.md "Mid-batch handoff discipline"). Codex review round 1 on PR #269 (P1) found the Section 3 bullet still saying the PR is a draft with Task 12 and the final gates outstanding, while Section 4 records Task 12 done and the final verification gate passed at 4ef0e0af. The bullet now says PR #269 is out of draft, all fourteen tasks have landed, the final gate passed and the PR merges once its review is clean.
+
+Deviations: this is the one exception to leaving Section 3 alone for this branch, by controller ruling; only that bullet's sentences changed. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: plan A execution record closed
+
+Side task, no batch tag: record Task 12 and correct the landing-order note in plan A's execution record, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "keep commits atomic and well-scoped", so the record is its own commit after the sweep fixes (`269433d2`). The record now says all fourteen tasks landed and points the final verification gate at PR #269's "Validation at this head". The landing-order note is corrected: T9 landing before T8 needed no ruling, because the plan's Dispatch section lets T7b, T8 and T9 land in any order, and T11b landing before T11 was a controller call (docs only, landed while T11 had a fix round). A Task 12 row is added, and Task 12's three acceptance boxes are ticked: the remaining sweep hits are listed in the `269433d2` entry as judged current or point-in-time, `--check` exits 0, and for this commit all five gates passed (suite, `frontend-gate`, `results-behavior`, `pre-commit`, `docsync-check`).
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: hero strip and albums-to-search stale copies
+
+Side task, no batch tag: fix the two live stale copies the Task 12 sweep found, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: plan A's closing sweep for copies still describing the pre-round-2 behaviour. The controller ran the sweep at `4f659b7b` over every term in Task 12 plus `cache_hits`, `albums_to_search` and `section marks`. Two hits were live: the `static/js/heatmap.js` comment that called the term lists "section marks" (they are now the hero strip, `data-mode-marks`), and the cache-split message in `docs/architecture/top-albums-sequence.md`, which named only `cache_hits` although the orchestrator records `cache_hits` and then `albums_to_search` there. Comment and diagram text only, no code.
+
+Judged current or point-in-time and left alone: `DESIGN.md` (:183 the 2.5rem lift, :228 the AA floor), `docs/design/RECONCILIATION.md` (:38, :39, :46, :1256, :1269, :1272, :1276 current or history; :935-936 marked superseded), `static/css/shell.css` (:790, :806), `scripts/dev/_frontend_gate_colour.py` (:206, :263, :300), the "Spotify matched" reasons in `_deezer_fallback.py` and `_details.py`, `scrobblescope/orchestrator/__init__.py:59`, `plays.py:207` (`albums_passing_filter`, a job stat the loading page does not show), `stat-cache-hits` (the current id), `templates/heatmap_empty.html:16` and `templates/partials/_heatmap_form.html:40` (current copy), `config/docsync.toml:526`, every `cache_hits` line in code, `.claude/SESSION_CONTEXT.md`, `docs/agents/FINDINGS.md`, `scripts/testing/smoke_cache_check.py`, and every SVG path-data hit.
+
+Deviations: none; no prose was added below the diagram, none describes the loading stats. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
+### 2026-10-25 - UI round 2 backlog: Section 3 and session context refresh
+
+Side task, no batch tag: refresh PLAYBOOK Section 3's round-2 backlog sentences and the session context, on `feat/ui-round-2-backlog`, a branch off `main`.
+
+Owner intent: "PLAYBOOK.md and SESSION_CONTEXT need to be refreshed". Section 3 now says all the tasks of plan A except the stale-copy sweep (Task 12) have landed on the branch (PR #269, draft) with a test consolidation, that the sweep and the final gates remain before the PR leaves draft, and that the stacked album-matching PR follows. SESSION_CONTEXT's "Last updated" is 2026-10-25. The tracked test-module count moved from 101 to 103 in both copies (SESSION_CONTEXT Section 1 and the FINDINGS.md header, F-DOCSYNC-23), measured the way that finding describes: `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'`. The machine-managed sections were left to `doc_state_sync.py --fix`.
+
+Deviations: none. Edited existing tests: none.
+
+Validation: `pytest -q` -- **2876 passed**.
+
 ### 2026-10-25 - UI round 2 backlog: AGENTS.md lean-suite rules
 
 Side task, no batch tag: add the owner's lean-suite rule to AGENTS.md "Test Quality Rules", on `feat/ui-round-2-backlog`, a branch off `main`.

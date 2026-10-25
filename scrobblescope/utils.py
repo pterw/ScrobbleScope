@@ -17,7 +17,7 @@ from scrobblescope.config import (
     DEEZER_REQUESTS_PER_SECOND,
     LASTFM_REQUESTS_PER_SECOND,
     MAX_RETRY_AFTER_SECONDS,
-    MUSICBRAINZ_REQUESTS_PER_SECOND,
+    MUSICBRAINZ_MIN_INTERVAL_SECONDS,
     REQUEST_CACHE_TIMEOUT,
     SPOTIFY_REQUESTS_PER_SECOND,
 )
@@ -90,7 +90,7 @@ class _ThrottledLimiter:
 _LASTFM_THROTTLE = _GlobalThrottle(LASTFM_REQUESTS_PER_SECOND)
 _SPOTIFY_THROTTLE = _GlobalThrottle(SPOTIFY_REQUESTS_PER_SECOND)
 _DEEZER_THROTTLE = _GlobalThrottle(DEEZER_REQUESTS_PER_SECOND)
-_MUSICBRAINZ_THROTTLE = _GlobalThrottle(MUSICBRAINZ_REQUESTS_PER_SECOND)
+_MUSICBRAINZ_THROTTLE = _GlobalThrottle(1, MUSICBRAINZ_MIN_INTERVAL_SECONDS)
 
 
 def _get_loop_limiter(cache, rate, period):
@@ -168,18 +168,17 @@ def get_deezer_limiter():
 def get_musicbrainz_limiter():
     """Return a throttled rate limiter for MusicBrainz API calls.
 
-    Official limit: 1 request/second per IP, enforced process-wide -- the
-    global throttle is what makes this process-wide rather than per-loop,
-    since the correction worker (a single dedicated thread) is not the only
-    possible caller. Runtime value comes from MUSICBRAINZ_REQUESTS_PER_SECOND.
+    MusicBrainz's policy is 1 request/second per IP. Request starts are
+    spaced MUSICBRAINZ_MIN_INTERVAL_SECONDS apart (default 1.1s, a margin
+    over the policy), enforced process-wide -- the global throttle is what
+    makes this process-wide rather than per-loop, since the correction
+    worker (a single dedicated thread) is not the only possible caller.
     Source: https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting
 
     Returns a _ThrottledLimiter that enforces a global cross-thread rate
     cap via _MUSICBRAINZ_THROTTLE, then delegates to a per-loop AsyncLimiter.
     """
-    loop_limiter = _get_loop_limiter(
-        _MUSICBRAINZ_LIMITERS, MUSICBRAINZ_REQUESTS_PER_SECOND, 1
-    )
+    loop_limiter = _get_loop_limiter(_MUSICBRAINZ_LIMITERS, 1, 1)
     return _ThrottledLimiter(_MUSICBRAINZ_THROTTLE, loop_limiter)
 
 

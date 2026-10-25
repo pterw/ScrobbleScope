@@ -1,6 +1,9 @@
+import pytest
+
 from scrobblescope.domain import (
     COVER_WASH_COUNT,
     cover_wash_index,
+    format_album_key,
     normalize_name,
     normalize_track_name,
 )
@@ -137,11 +140,84 @@ def test_normalize_name_ep_preserved_in_artist_stripped_from_album():
     """
     GIVEN an artist literally named 'EP' and an album literally titled 'EP'
     WHEN normalize_name is called
-    THEN the artist key retains 'ep' while the album key is stripped to ''.
+    THEN the artist key retains 'ep' and the album, which would strip to
+    nothing, keys on its own text instead of collapsing to ''.
     """
     artist, album = normalize_name("EP", "EP")
     assert artist == "ep"
-    assert album == ""
+    assert album == "ep"
+
+
+def test_normalize_name_empty_remainder_keeps_distinct_pipe_free_identity():
+    """
+    GIVEN titles that normalize to nothing ('?', '!', 'EP', '||')
+    WHEN normalize_name is called for one artist
+    THEN each album half is non-empty, different titles get different keys,
+    and no half contains the wire separator '|'.
+    """
+    keys = {t: normalize_name("bassvictim", t) for t in ("?", "!", "EP", "||")}
+    assert all(album for _, album in keys.values())
+    assert len({album for _, album in keys.values()}) == len(keys)
+    assert all("|" not in half for key in keys.values() for half in key)
+    assert normalize_name("a", "||")[1] == "^^"
+
+
+@pytest.mark.parametrize(
+    ("artist", "album"),
+    [
+        ("Radiohead", "OK Computer (Deluxe Edition)"),
+        ("Bass", "Basspunk 2"),
+        ("宇多田ヒカル", "初恋"),
+        ("New Edition", "Heart Break"),
+        ("New Edition", "Collector's Edition"),
+        ("Artist", "|"),
+        ("Artist", "EP |"),
+        ("Artist", "||"),
+        ("Artist", "?"),
+        ("Artist", "EP"),
+        ("Artist", "!!!"),
+    ],
+)
+def test_normalize_name_is_idempotent(artist, album):
+    """
+    GIVEN any artist and album
+    WHEN the normalized key is normalized again
+    THEN it comes back unchanged, because both provider searches re-normalize
+    the key they are given and a key that drifts can never match.
+    """
+    key = normalize_name(artist, album)
+    assert normalize_name(*key) == key
+
+
+@pytest.mark.parametrize(
+    ("artist", "album", "expected"),
+    [
+        ("Radiohead", "OK Computer (Deluxe Edition)", ("radiohead", "ok computer")),
+        ("Bass", "Basspunk 2", ("bass", "basspunk 2")),
+        ("宇多田ヒカル", "初恋", ("宇多田ヒカル", "初恋")),
+        ("New Edition", "Heart Break", ("new edition", "heart break")),
+    ],
+)
+def test_normalize_name_nonempty_remainder_keys_unchanged(artist, album, expected):
+    """
+    GIVEN a title whose edition-word-stripped text is not empty
+    WHEN normalize_name is called
+    THEN the key is the cleaned, stripped text exactly as before.
+    """
+    assert normalize_name(artist, album) == expected
+
+
+@pytest.mark.parametrize("album", ["?", "EP"])
+def test_format_album_key_round_trips_empty_remainder_titles(album):
+    """
+    GIVEN an album whose title normalizes to nothing
+    WHEN its key is formatted for the wire and split on '|'
+    THEN the two halves come back unchanged.
+    """
+    key = normalize_name("gapyear", album)
+    wire = format_album_key(key)
+    assert wire.count("|") == 1
+    assert tuple(wire.split("|")) == key
 
 
 def test_normalize_name_no_collision_after_artist_fix():
@@ -173,13 +249,15 @@ def test_normalize_name_and_track_name_agree_on_non_latin():
     its tracks would normalize to '', causing playtime to be 0 and the album
     to be excluded by the min_tracks filter.
     """
-    artist_key, album_key = normalize_name("BABYMETAL", "BABYMETAL")
-    assert len(artist_key) > 0
+    title = "\u30ae\u30df\u30c1\u30e7\u30b3\uff01\uff01"
+    expected = "\u30ae\u30df\u30c1\u30e7\u30b3"
 
-    track_key = normalize_track_name("\u30ae\u30df\u30c1\u30e7\u30b3\uff01\uff01")
-    assert len(track_key) > 0, (
-        "Non-Latin track names must survive normalization; "
-        "empty string means NFKD+ascii-encode regression has been reintroduced."
+    _, album_key = normalize_name("BABYMETAL", title)
+    track_key = normalize_track_name(title)
+
+    assert album_key == track_key == expected, (
+        "Non-Latin album and track names must survive normalization and agree; "
+        "a mismatch means the NFKD+ascii-encode regression has been reintroduced."
     )
 
 

@@ -248,7 +248,11 @@ async def test_fetch_and_process_loading_stats_count_only_albums_that_passed():
         patch(
             "scrobblescope.cache.batch_lookup_metadata",
             new_callable=AsyncMock,
-            return_value={("cached", "cached"): spotify_metadata()},
+            return_value={
+                ("cached", "cached"): spotify_metadata(
+                    provider_artist="cached", provider_title="cached"
+                )
+            },
         ),
         patch("scrobblescope.cache.batch_persist_metadata", new_callable=AsyncMock),
         patch(

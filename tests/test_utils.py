@@ -5,7 +5,8 @@ import time
 
 import pytest
 
-from scrobblescope.config import APP_USER_AGENT
+from scrobblescope import utils
+from scrobblescope.config import APP_USER_AGENT, SPOTIFY_REQUESTS_PER_SECOND
 from scrobblescope.utils import (
     REQUEST_CACHE,
     _cache_lock,
@@ -17,6 +18,7 @@ from scrobblescope.utils import (
     format_seconds_mobile,
     get_cached_response,
     get_lastfm_limiter,
+    get_musicbrainz_limiter,
     run_async_in_thread,
     set_cached_response,
 )
@@ -143,6 +145,41 @@ def test_global_throttle_serializes_rapid_calls():
     assert all(w > 0 for w in waits[1:])
     for i in range(1, len(waits) - 1):
         assert waits[i + 1] > waits[i]
+
+
+@pytest.mark.parametrize(
+    "throttle_name, expected_interval",
+    [
+        ("_MUSICBRAINZ_THROTTLE", 1.1),
+        ("_SPOTIFY_THROTTLE", 1.0 / SPOTIFY_REQUESTS_PER_SECOND),
+    ],
+)
+def test_global_throttles_space_request_starts_by_their_interval(
+    monkeypatch, throttle_name, expected_interval
+):
+    """
+    GIVEN a provider throttle and a controlled clock
+    WHEN two calls reserve a start at the same instant
+    THEN the second is told to wait the provider's interval: MusicBrainz
+    starts are at least 1.1s apart (a margin over its 1/s policy), while
+    Spotify's spacing stays its integer-rate interval.
+    """
+    throttle = getattr(utils, throttle_name)
+    monkeypatch.setattr(throttle, "_next_allowed", 0.0)
+    monkeypatch.setattr(utils.time, "time", lambda: 1000.0)
+
+    assert throttle.next_wait() == 0.0
+    assert throttle.next_wait() == pytest.approx(expected_interval)
+
+
+def test_musicbrainz_limiter_uses_the_musicbrainz_throttle():
+    """get_musicbrainz_limiter enforces the process-wide MusicBrainz throttle."""
+
+    async def _get():
+        return get_musicbrainz_limiter()
+
+    limiter = asyncio.run(_get())
+    assert limiter._throttle is utils._MUSICBRAINZ_THROTTLE
 
 
 def test_cross_thread_limiters_share_global_throttle():

@@ -10,7 +10,7 @@ except ImportError:
     asyncpg = None
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_DAYS
-from scrobblescope.enrichment import AlbumMetadata
+from scrobblescope.enrichment import MATCH_WRONG, AlbumMetadata
 from scrobblescope.utils import log_failure
 
 # Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
@@ -121,7 +121,7 @@ async def batch_lookup_metadata(conn, keys):
         """
         SELECT artist_norm, album_norm, spotify_id, release_date,
                album_image_url, track_durations, provider, provider_album_id,
-               provider_url
+               provider_url, provider_artist, provider_title
         FROM spotify_cache
         WHERE (artist_norm, album_norm) IN (
             SELECT unnest($1::text[]), unnest($2::text[])
@@ -187,15 +187,18 @@ async def batch_persist_metadata(conn, albums):
     providers = [m.provider for m in metadata]
     provider_album_ids = [m.album_id for m in metadata]
     provider_urls = [m.url for m in metadata]
+    provider_artists = [m.provider_artist for m in metadata]
+    provider_titles = [m.provider_title for m in metadata]
     await conn.execute(
         """
         INSERT INTO spotify_cache
             (artist_norm, album_norm, spotify_id, release_date,
              album_image_url, track_durations, provider, provider_album_id,
-             provider_url)
+             provider_url, provider_artist, provider_title)
         SELECT * FROM unnest(
             $1::text[], $2::text[], $3::text[], $4::text[],
-            $5::text[], $6::jsonb[], $7::text[], $8::text[], $9::text[]
+            $5::text[], $6::jsonb[], $7::text[], $8::text[], $9::text[],
+            $10::text[], $11::text[]
         )
         ON CONFLICT (artist_norm, album_norm) DO UPDATE SET
             spotify_id        = EXCLUDED.spotify_id,
@@ -205,6 +208,8 @@ async def batch_persist_metadata(conn, albums):
             provider          = EXCLUDED.provider,
             provider_album_id = EXCLUDED.provider_album_id,
             provider_url      = EXCLUDED.provider_url,
+            provider_artist   = EXCLUDED.provider_artist,
+            provider_title    = EXCLUDED.provider_title,
             updated_at        = NOW()
         """,
         artists,
@@ -216,6 +221,8 @@ async def batch_persist_metadata(conn, albums):
         providers,
         provider_album_ids,
         provider_urls,
+        provider_artists,
+        provider_titles,
     )
 
 
@@ -317,6 +324,9 @@ class AlbumCache:
     async def lookup(self, keys):
         """Return cached ``AlbumMetadata`` for *keys*, then clear stale rows.
 
+        A Spotify row whose provider names do not fit its key is left out (a
+        miss); an unstamped or non-Spotify row is returned.
+
         Returns {} when the cache is disabled or the read fails (every album is
         then a miss and the providers answer). A schema that is out of date
         gets its own remediation text: until it is fixed every read misses.
@@ -340,6 +350,15 @@ class AlbumCache:
                     "DB lookup failed, proceeding without cache", logging.WARNING
                 )
             hits = {}
+        # A row whose provider names do not fit its key is another album's: a
+        # miss, searched again and overwritten by the upsert.
+        fitting = {k: v for k, v in hits.items() if v.match_for(k) != MATCH_WRONG}
+        if len(fitting) < len(hits):
+            logging.info(
+                f"Dropped {len(hits) - len(fitting)} cached albums "
+                "whose provider names do not fit the key"
+            )
+        hits = fitting
         # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
         await cleanup_stale_metadata(self._conn)
         return hits

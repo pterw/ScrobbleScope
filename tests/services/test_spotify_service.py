@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
+from scrobblescope.domain import normalize_name
 from scrobblescope.errors import ProviderError
 from scrobblescope.spotify import (
     _loop_token_state,
@@ -41,7 +42,7 @@ async def test_search_for_spotify_album_id_retries_429_then_returns_id():
     resp_200 = AsyncMock()
     resp_200.status = 200
     resp_200.json = AsyncMock(
-        return_value={"albums": {"items": [{"id": "spotify_album_123"}]}}
+        return_value=_search_body("spotify_album_123", "Artist", "Album")
     )
 
     session.get.side_effect = [
@@ -416,6 +417,98 @@ async def test_search_returns_none_on_non_200_non_429():
     assert session.get.call_count == 1
 
 
+def _hit(spotify_id, title, *artists):
+    return {
+        "id": spotify_id,
+        "name": title,
+        "artists": [{"name": a} for a in artists],
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("artist", "album", "items", "expected"),
+    [
+        (
+            "Xiu Xiu",
+            "A Promise",
+            [_hit("x", "Safe As Milk", "Captain Beefheart")],
+            None,
+        ),
+        (
+            "audio stars",
+            "audio stars",
+            [
+                _hit("s2", "audio stars 2", "audio stars"),
+                _hit("s1", "audio stars", "audio stars"),
+            ],
+            "s1",
+        ),
+        (
+            "Basspunk",
+            "Basspunk",
+            [_hit("b2", "Basspunk 2", "Basspunk"), _hit("b1", "Basspunk", "Basspunk")],
+            "b1",
+        ),
+        ("bassvictim", "?", [_hit("f", "Forever", "bassvictim")], None),
+        (
+            "bassvictim",
+            "?",
+            [_hit("f", "Forever", "bassvictim"), _hit("q", "?", "bassvictim")],
+            "q",
+        ),
+        ("gapyear", "EP", [_hit("ep", "EP", "gapyear")], "ep"),
+        (
+            "Xiu Xiu",
+            "Safe As Milk",
+            [_hit("cb", "Safe As Milk", "Captain Beefheart")],
+            None,
+        ),
+        (
+            "Second Act",
+            "Duets",
+            [_hit("d", "Duets", "First Act", "Second Act")],
+            "d",
+        ),
+        (
+            "Artist",
+            "Album",
+            [
+                {"id": "no-name", "artists": [{"name": "Artist"}]},
+                {"id": "bad-name", "name": None, "artists": [{"name": "Artist"}]},
+                {"id": "bad-credits", "name": "Album", "artists": "Artist"},
+                {"id": "bad-credit", "name": "Album", "artists": [None, {"id": 1}]},
+                _hit("ok", "Album", "Artist"),
+            ],
+            "ok",
+        ),
+    ],
+)
+async def test_search_accepts_only_an_exact_artist_and_title_match(
+    artist, album, items, expected
+):
+    """
+    GIVEN Spotify's hits for a search, in its order
+    WHEN search_for_spotify_album_id runs
+    THEN the first hit credited to the artist with exactly the title wins; a
+    sibling, an unrelated album or a malformed hit is skipped, and no match
+    is None. The request asks for five hits.
+    """
+    session = MagicMock()
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value={"albums": {"items": items}})
+    session.get.return_value = make_response_context(resp)
+
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await search_for_spotify_album_id(session, artist, album, "token")
+
+    assert result == expected
+    assert session.get.call_args.kwargs["params"]["limit"] == 5
+
+
 @pytest.mark.asyncio
 async def test_search_succeeds_on_first_try():
     """
@@ -428,7 +521,7 @@ async def test_search_succeeds_on_first_try():
     resp_200 = AsyncMock()
     resp_200.status = 200
     resp_200.json = AsyncMock(
-        return_value={"albums": {"items": [{"id": "direct_hit_123"}]}}
+        return_value=_search_body("direct_hit_123", "Artist", "Album")
     )
 
     session.get.return_value = make_response_context(resp_200)
@@ -463,17 +556,20 @@ async def test_search_succeeds_on_first_try():
 async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist):
     """Both lookup paths preserve sparse-field fallbacks and image metadata."""
     response = AsyncMock(status=200)
-    response.json.return_value = artist if by_id else {"artists": {"items": [artist]}}
+    requested = artist.get("name", "Requested")
+    # A name search only accepts a hit that carries the requested name.
+    hit = {"name": requested, **artist}
+    response.json.return_value = artist if by_id else {"artists": {"items": [hit]}}
     session = MagicMock()
     session.get.return_value = make_response_context(response)
     with patch(
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
     ):
         result = await fetch_spotify_artist_spotlight(
-            session, "Requested", "requested-id" if by_id else None, "token"
+            session, requested, "requested-id" if by_id else None, "token"
         )
     assert result == {
-        "name": artist.get("name", "Requested"),
+        "name": requested,
         "artist_id": artist.get("id", "requested-id" if by_id else None),
         "image_url": "photo" if artist else None,
         "spotify_url": "link" if artist else None,
@@ -481,7 +577,7 @@ async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("items", [[], [{"name": "Search match"}]])
+@pytest.mark.parametrize("items", [[], [{"name": "Requested"}]])
 async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
     """An unsuccessful ID lookup searches by name, including no-match results."""
     failed = AsyncMock(status=404)
@@ -500,7 +596,7 @@ async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
         )
     assert result == (
         {
-            "name": "Search match",
+            "name": "Requested",
             "artist_id": None,
             "image_url": None,
             "spotify_url": None,
@@ -509,6 +605,51 @@ async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
         else None
     )
     assert session.get.call_args.kwargs["params"]["q"] == "artist:Requested"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("requested", "hit_names", "expected"),
+    [
+        ("ear", ["ear-something", "ear2"], None),
+        ("ear", ["ear-something", "ear"], "ear"),
+        ("Beyonce", ["BEYONCE"], "BEYONCE"),
+        ("!!!", ["???"], None),
+    ],
+)
+async def test_artist_spotlight_name_search_checks_the_returned_name(
+    requested, hit_names, expected
+):
+    """A name search takes the first hit whose normalized name equals the request.
+
+    Five hits are asked for; a punctuation-only request matches nothing.
+    """
+    response = AsyncMock(status=200)
+    response.json.return_value = {
+        "artists": {"items": [{"name": name, "id": name} for name in hit_names]}
+    }
+    session = MagicMock()
+    session.get.return_value = make_response_context(response)
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(session, requested, token="t")
+    assert (result or {}).get("name") == expected
+    assert session.get.call_args.kwargs["params"]["limit"] == 5
+
+
+@pytest.mark.asyncio
+async def test_artist_spotlight_id_lookup_skips_the_name_check():
+    """An explicit artist ID returns its hit whatever the artist is called."""
+    response = AsyncMock(status=200)
+    response.json.return_value = {"id": "x", "name": "Other"}
+    session = MagicMock()
+    session.get.return_value = make_response_context(response)
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(session, "Requested", "x", "t")
+    assert result["name"] == "Other"
 
 
 @pytest.mark.asyncio
@@ -528,6 +669,30 @@ async def test_artist_spotlight_network_error_preserves_fallback(caplog):
     # name stay out of the line.
     assert "transport unavailable" not in caplog.text
     assert "Requested" not in caplog.text
+
+
+def test_album_metadata_from_details_stamps_the_credit_that_matched_the_key(caplog):
+    """
+    GIVEN an album credited to two artists and a key for the second
+    WHEN it is translated with and without a key, and with a key it misses
+    THEN the matching credit and the title are stored; no key or no match
+    leaves both None, and only the miss logs one count line without names.
+    """
+    details = {"name": "Duets", "artists": [{"name": "First"}, {"name": "Second"}]}
+    key = normalize_name("Second", "Duets")
+
+    stamped = album_metadata_from_details("sp1", details, key)
+    unkeyed = album_metadata_from_details("sp1", details)
+    with caplog.at_level(logging.WARNING):
+        missed = album_metadata_from_details(
+            "sp1", details, normalize_name("Third", "Duets")
+        )
+
+    assert (stamped.provider_artist, stamped.provider_title) == ("Second", "Duets")
+    assert (unkeyed.provider_artist, unkeyed.provider_title) == (None, None)
+    assert (missed.provider_artist, missed.provider_title) == (None, None)
+    assert len(caplog.records) == 1
+    assert "Duets" not in caplog.text and "Second" not in caplog.text
 
 
 def test_album_metadata_from_details_translates_one_payload():
@@ -732,7 +897,7 @@ async def test_search_retries_a_malformed_retry_after():
     throttled.headers = {"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}
     found = AsyncMock()
     found.status = 200
-    found.json = AsyncMock(return_value={"albums": {"items": [{"id": "sp1"}]}})
+    found.json = AsyncMock(return_value=_search_body("sp1", "Artist", "Album"))
     session.get.side_effect = [
         make_response_context(throttled),
         make_response_context(found),
@@ -925,10 +1090,15 @@ def _status_only(status, retry_after=None):
     return resp
 
 
-def _ok_search(spotify_id="sp1"):
+def _search_body(spotify_id, artist, album):
+    item = {"id": spotify_id, "name": album, "artists": [{"name": artist}]}
+    return {"albums": {"items": [item]}}
+
+
+def _ok_search(spotify_id="sp1", artist="Artist", album="Album"):
     resp = AsyncMock()
     resp.status = 200
-    resp.json = AsyncMock(return_value={"albums": {"items": [{"id": spotify_id}]}})
+    resp.json = AsyncMock(return_value=_search_body(spotify_id, artist, album))
     return resp
 
 
@@ -968,7 +1138,7 @@ async def test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_o
     session = MagicMock()
     session.get.side_effect = [
         make_response_context(_status_only(401)),
-        make_response_context(_ok_search("sp-fresh")),
+        make_response_context(_ok_search("sp-fresh", "A", "B")),
     ]
     cache = {"token": "old", "expires_at": time.time() + 3000}
     seen_cache_at_refresh = []
@@ -1061,7 +1231,7 @@ async def test_a_sibling_that_already_replaced_the_token_is_not_replaced_again()
     cache = {"token": "stale", "expires_at": time.time() + 3000}
     responses = [
         make_response_context(_status_only(401)),
-        make_response_context(_ok_search()),
+        make_response_context(_ok_search(artist="A", album="B")),
     ]
 
     def get(*args, **kwargs):
@@ -1279,6 +1449,24 @@ async def test_one_jobs_tripped_breaker_does_not_stop_a_concurrent_job():
     assert session_b.get.call_count == 1
 
 
+def test_a_nested_job_breaker_block_shares_the_outer_breaker():
+    """
+    GIVEN a spotify_job_breaker block that has tripped its breaker
+    WHEN another block opens inside it, and again after the outer one ends
+    THEN the inner block yields the same, still tripped breaker, and a fresh
+    outer block gets a new, untripped one.
+    """
+    with spotify_job_breaker() as outer:
+        outer.trip("test")
+        with spotify_job_breaker() as inner:
+            assert inner is outer
+            assert inner.tripped
+        assert outer.tripped
+    with spotify_job_breaker() as fresh:
+        assert fresh is not outer
+        assert not fresh.tripped
+
+
 @pytest.mark.asyncio
 async def test_outside_a_job_breaker_an_over_cap_429_skips_nothing():
     """
@@ -1448,10 +1636,10 @@ async def test_an_answer_between_refusals_keeps_the_breaker_closed():
     session.get.side_effect = [
         make_response_context(_status_only(403)),
         make_response_context(_status_only(403)),
-        make_response_context(_ok_search("hit")),
+        make_response_context(_ok_search("hit", "A", "al 2")),
         make_response_context(_status_only(403)),
         make_response_context(_status_only(403)),
-        make_response_context(_ok_search("hit")),
+        make_response_context(_ok_search("hit", "A", "al 5")),
     ]
 
     with patch(_LIMITER, return_value=NoopAsyncContext()):
@@ -1544,7 +1732,7 @@ async def test_a_call_given_a_stale_token_sends_the_valid_cached_one_first():
     token fetch are spent to find that out.
     """
     session = MagicMock()
-    session.get.return_value = make_response_context(_ok_search("hit"))
+    session.get.return_value = make_response_context(_ok_search("hit", "A", "B"))
     refresh = AsyncMock(return_value="unused")
 
     with (
@@ -1571,7 +1759,7 @@ async def test_an_expired_cached_token_is_not_adopted():
     THEN the given token is sent, not the expired cached one.
     """
     session = MagicMock()
-    session.get.return_value = make_response_context(_ok_search("hit"))
+    session.get.return_value = make_response_context(_ok_search("hit", "A", "B"))
 
     with (
         patch(_LIMITER, return_value=NoopAsyncContext()),
@@ -1671,7 +1859,11 @@ async def test_concurrent_rejections_of_one_token_cost_one_token_request():
 
         def get(*args, **kwargs):
             bearer = kwargs["headers"]["Authorization"]
-            status = _status_only(401) if bearer == "Bearer old" else _ok_search("m")
+            status = (
+                _status_only(401)
+                if bearer == "Bearer old"
+                else _ok_search("m", "A", "B")
+            )
             return _Suspending(status)
 
         session.get.side_effect = get

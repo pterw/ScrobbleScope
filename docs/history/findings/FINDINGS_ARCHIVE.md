@@ -9,6 +9,88 @@ Newest rotation first.
 
 ---
 
+### F-B23-59: Spotify album search takes the first result without checking the artist or title -- RESOLVED
+
+`search_for_spotify_album_id` (`scrobblescope/spotify.py`) sends `limit: 3` and returns `items[0].get("id")` with no artist or title check, where `search_deezer_album` (`scrobblescope/deezer.py`) accepts a candidate only when `normalize_name` of its artist and title equals that of the request. Real cases from the owner's runs: an album Spotify lacks got another album (Xiu Xiu "A Promise" got Captain Beefheart's "Safe As Milk", 1967), and a sibling ranked higher won ("audio stars" got "audio stars 2", "Basspunk" got "Basspunk 2", bassvictim's "?" got "Forever"). The wrong track list matches no scrobble, so `aggregate_albums` totals 0 seconds and the album shows "0 secs".
+
+Fix direction: ask for five candidates and accept one only when any credited artist and the title both equal the request under `normalize_name`; no match falls to Deezer.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by `search_for_spotify_album_id` asking Spotify for five candidates and
+accepting one only when the title and one credited artist both equal the
+request under `normalize_name` (`matching_credit`); no match falls to Deezer.
+Fixed by `2561e4cd`. A wrong match already in the cache clears on read: the
+provider's own names are stored (`f546a0bf`), `AlbumCache.lookup` drops a row
+naming another album as a miss (`4892ca8a`), and an older row without names is
+checked once by its cached Spotify ID, kept and stamped if it fits, otherwise
+a miss (`1cc4d33d`).
+Source: owner's real runs, 2026-10-25
+
+### F-B23-60: two albums that resolve to one Spotify ID overwrite each other in the search phase -- RESOLVED
+
+`_run_spotify_search_phase` (`scrobblescope/orchestrator/_search.py`) writes `spotify_id_to_key[spotify_id] = key` and `spotify_id_to_original_data[spotify_id] = data`, so a second key with the same ID replaces the first silently and the loser falls to Deezer. It stays reachable once D1 is fixed: a collaboration album credited to [A, B] matches key (A, title) and key (B, title), so a Last.fm library that holds scrobbles under both artist names sends two keys to one ID.
+
+Fix direction: log one warning (operation and count only) when an ID is shared, never drop a key, and build the metadata once per requesting key so each key's stored provider artist is the credit that matched it.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by building the metadata once per requesting key, so two keys
+sharing a Spotify ID each get their own metadata and the stored provider
+artist is the credit that matched that key. Fixed by `3c2694c3`.
+Source: owner's real runs, 2026-10-25
+
+### F-B23-61: an album named "?" or "EP" normalizes to an empty key -- RESOLVED
+
+`normalize_name` (`scrobblescope/domain.py`) replaces ASCII punctuation with spaces and strips the album edition words (including "ep") from the album only, so the albums "?" and "EP" both normalize to `""`. Matching on `""` would accept any other empty-normalizing title by that artist, and two such albums by one artist share one key in the cache, the grouping and the wire key. Real case: bassvictim's "?" (see F-B23-59).
+
+Fix direction: when the cleaned album text is empty, key on the title's NFKC-lowercased text with whitespace collapsed and `|` written `%7c`; every existing non-empty key stays unchanged, and rows stored under the empty key age out by the TTL.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by `normalize_name` keying an empty-normalizing album on its
+NFKC-lowercased title; every existing non-empty key is unchanged, and rows
+stored under the empty key age out by the TTL. Fixed by `0237a840`.
+Source: owner's real runs, 2026-10-25
+
+### F-B23-62: a MusicBrainz 429 is cached as a final "no match" -- RESOLVED
+
+`lookup_original_release.search_once` (`scrobblescope/musicbrainz.py`) retries a 503 (fixed 1s sleep) and other 5xx, but a 429 reaches the `status != 200` branch and returns `(None, None, True)`, which `release_checks` caches as a terminal "no match". Any album that meets a rate-limit response during a release check is recorded as having no original release until the cache row expires.
+
+Fix direction: treat 429 and 503 alike, wait the `Retry-After` header (bounded) or a short default and retry; when retries run out, report the service unavailable and cache nothing.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by treating a 429 like a 503: wait the bounded `Retry-After` or a
+short default and retry, and when retries run out report the service
+unavailable and cache nothing. Fixed by `5d9e561a`.
+Source: owner's real runs, 2026-10-25
+
+### F-B23-63: MusicBrainz request starts are exactly 1.000s apart -- RESOLVED
+
+`_MUSICBRAINZ_THROTTLE` (`scrobblescope/utils.py`) is built from `MUSICBRAINZ_REQUESTS_PER_SECOND`, read in `scrobblescope/config.py` as `int(... "1")`, so `_min_interval` is `1.0 / 1` and requests start exactly 1.000s apart, the edge of MusicBrainz's published limit; clock jitter or a second process tips it into a 429 (F-B23-62). Release checks run in the background, so extra spacing costs the user nothing.
+
+Fix direction: space request starts 1.1s apart, with the setting no longer an integer.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by spacing request starts 1.1 seconds apart
+(`MUSICBRAINZ_MIN_INTERVAL_SECONDS`, no longer an integer request rate).
+Fixed by `2b7e95ad`.
+Source: owner's real runs, 2026-10-25
+
+### F-B23-26: the artist spotlight can show another artist's photo and link under the Last.fm name -- RESOLVED
+
+`scrobblescope/spotify.py` `_request_spotlight_artist` asks Spotify for `limit: 1` and returns `items[0]` with no name check, and neither `static/js/results-spotlight.js` `hydrateCandidate` nor `static/js/unmatched.js` `fetchArtistImage` compares `data.name` with the requested artist. A Last.fm artist Spotify does not know (a local band, a misspelling) gets the closest other artist: the card shows that photo with the alt text "Photograph of <Last.fm name>" and a link to the other artist's page. With the album-cover fallback gone, this is the only photo source, and the card treats the result as a confirmed photo. Reproduced with the API mocked to return a different name; how often it happens against the live API is unmeasured. Fix: the route returns the hit only when `normalize_name` of its name equals that of the requested artist, else null `image_url` and `spotify_url`.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by `_request_spotlight_artist` accepting a name-search hit only when
+`normalize_name` of its name equals that of the requested artist, so a
+different artist's photo and link no longer reach the card, which stays hidden
+for that artist. Fixed by `7aeafa90`.
+Source: third review of PR #245 (2026-09-29), S2-12.
+
 ### F-B23-57: CI downloads Playwright's Ubuntu packages from a slow mirror on every run -- RESOLVED
 
 Evidence (2026-10-22): in PR #265's CI run, step "Install Playwright browser" fetched 53.7 MB of Ubuntu packages at 43.5 kB/s from the runner's Azure mirror and took 20 min 32 s. The apt index (12.5 MB in 16 s) and the four browser downloads (14 s together) were fast, so the package download was the whole stall. PR #266's first attempt stalled in the same step and was cancelled and re-run.

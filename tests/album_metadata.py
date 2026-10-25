@@ -8,6 +8,8 @@ def spotify_metadata(
     release_date="2025-01-01",
     image_url="https://img.example.com/a.jpg",
     track_durations=None,
+    provider_artist=None,
+    provider_title=None,
 ):
     """A Spotify album as ``album_metadata_from_details`` would return it."""
     return AlbumMetadata(
@@ -17,6 +19,8 @@ def spotify_metadata(
         release_date=release_date,
         image_url=image_url,
         track_durations={} if track_durations is None else track_durations,
+        provider_artist=provider_artist,
+        provider_title=provider_title,
     )
 
 

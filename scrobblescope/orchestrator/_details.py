@@ -27,6 +27,7 @@ async def _run_spotify_batch_detail_phase(
     spotify_id_to_original_data,
     cache_hits,
     detail_unavailable_keys=None,
+    shared_id_requests=None,
 ):
     """Batch-fetch Spotify album details for all found IDs.
 
@@ -38,8 +39,14 @@ async def _run_spotify_batch_detail_phase(
     for (a 5xx, a timeout, a capped 429) is not a "no match": its key is
     added to *detail_unavailable_keys* (mutated in place, when given) so the
     Deezer fallback can record it as unavailable if Deezer misses it too.
+
+    *shared_id_requests* (``{spotify_id: [(key, data), ...]}``) holds the
+    further requests that resolved to an ID already mapped. Each key, the
+    first and every extra, gets its own ``album_metadata_from_details`` call
+    so its metadata carries the credit that matched that key.
     """
     new_metadata = {}
+    shared_id_requests = shared_id_requests or {}
     batch_size = 20
     num_batches = ceil(len(valid_spotify_ids) / batch_size)
     logging.info(
@@ -90,10 +97,11 @@ async def _run_spotify_batch_detail_phase(
             batch_result = await fut
             all_album_details.update(batch_result)
             if detail_unavailable_keys is not None:
-                detail_unavailable_keys.update(
-                    spotify_id_to_key[spotify_id]
-                    for spotify_id in getattr(batch_result, "unanswered", ())
-                )
+                for spotify_id in getattr(batch_result, "unanswered", ()):
+                    detail_unavailable_keys.add(spotify_id_to_key[spotify_id])
+                    detail_unavailable_keys.update(
+                        key for key, _data in shared_id_requests.get(spotify_id, ())
+                    )
             batches_done += 1
             enriched_so_far = len(all_album_details)
             jobs.report_phase(
@@ -124,10 +132,13 @@ async def _run_spotify_batch_detail_phase(
         original_data = spotify_id_to_original_data.get(spotify_id)
         if not original_data:
             continue
-        key = spotify_id_to_key[spotify_id]
-        metadata = _orchestrator.album_metadata_from_details(spotify_id, album_details)
-
-        cache_hits[key] = {"cached": metadata, "original": original_data}
-        new_metadata[key] = metadata
+        requests = [(spotify_id_to_key[spotify_id], original_data)]
+        requests.extend(shared_id_requests.get(spotify_id, ()))
+        for key, data in requests:
+            metadata = _orchestrator.album_metadata_from_details(
+                spotify_id, album_details, key
+            )
+            cache_hits[key] = {"cached": metadata, "original": data}
+            new_metadata[key] = metadata
 
     return new_metadata
