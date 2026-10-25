@@ -183,6 +183,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-25 - Accept only an exact album match in Spotify search
+
+Side task, no batch tag: Spotify search accepts only a hit whose credited artist and title match the request (D1, RB3, RB4), on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `search_for_spotify_album_id` took `items[0]` unchecked, so a missing album got another album (wrong track list, "0 secs"). It now asks for 5 hits (`limit` 5) and returns the first whose credited artist and title normalize to the request key; otherwise None. New pure `matching_credit(item, key)` does the comparison (a non-dict hit or non-text field returns None, never raises). `album_metadata_from_details` takes `key` (default None) and stamps `provider_artist` and `provider_title` from the credit that matched, else leaves both None and, given a key, logs one warning line with no names; `orchestrator/_details.py` passes the key. Fix round 1: review found that comparing the title alone went unnoticed, so the exact-match test gains a same-title, different-artist case. The sequence-diagram and README wording for the search step follow in Task 11 (RB13, RB14); F-B23-59 is closed by Task 11, not here.
+
+Deviations: none.
+
+Edited existing tests: `test_search_for_spotify_album_id_retries_429_then_returns_id`, `test_search_succeeds_on_first_try` and `test_search_retries_a_malformed_retry_after` (their fake bodies gain the name and artists a real hit carries), and the helper `_ok_search` (now takes artist and album; callers pass the request's own names: `test_search_401_drops_the_cached_token_and_retries_once_with_a_fresh_one`, the newer-cached-token 401 test, `test_an_answer_between_refusals_keeps_the_breaker_closed`, `test_a_call_given_a_stale_token_sends_the_valid_cached_one_first`, `test_an_expired_cached_token_is_not_adopted`, `test_concurrent_rejections_of_one_token_cost_one_token_request`).
+
+Validation: `pytest -q` -- **2924 passed**.
+
 ### 2026-10-25 - Store the provider's own names and add match_for
 
 Side task, no batch tag: store the artist and title the provider returned beside each cached album, and add `AlbumMetadata.match_for(key)`, on `fix/album-matching`, stacked on PR #269.
@@ -214,13 +226,3 @@ Owner intent: `scrobblescope/musicbrainz.py::search_once` treated a 429 as a fin
 Deviations: this task landed after Task 5 (disjoint files). F-B23-62 is not closed here; Task 11 closes the findings. The test module imports `_check_candidate` from `scrobblescope.release_checks`. Edited existing tests: `test_lookup_raises_when_musicbrainz_stays_throttled_not_no_match` (now asserts `musicbrainz_unavailable`, docstring updated, response `headers = {}`) and `test_lookup_retries_on_503_then_succeeds` (response `headers = {}`; the sleep assertion pins the first exponential wait, 1 <= wait < 1.2, instead of `await_count >= 1`), the other 503 retry tests were checked and needed no change.
 
 Validation: `pytest -q` -- **2899 passed**.
-
-### 2026-10-25 - Check the artist name the spotlight search returns
-
-Side task, no batch tag: make the artist spotlight check the name Spotify returns, on `fix/album-matching`, stacked on PR #269.
-
-Owner intent: `scrobblescope/spotify.py::_request_spotlight_artist` searched `artist:<name>` with `limit: 1` and returned the first hit unchecked, so a short name such as "ear" could show another artist's photo (F-B23-26 / D6). The name-search path now asks for `limit: 5` and returns the first hit whose `normalize_name(hit, "")[0]` equals that of the requested name (case and punctuation ignored). It returns `None` when no hit matches, or when the requested name normalizes to empty ("!!!"), so `/api/artist_spotlight` answers its existing null-image payload. The `artist_id` path is unchanged. New tests: `test_artist_spotlight_name_search_checks_the_returned_name` (4 cases) and `test_artist_spotlight_id_lookup_skips_the_name_check`.
-
-Deviations: this task landed before Tasks 3 and 4 of the plan (disjoint files; those are in fix rounds). F-B23-26 is not closed here; Task 11 closes the findings. Edited existing tests: `test_artist_spotlight_parses_details_and_missing_fields` (the search hit now carries the requested name) and `test_artist_spotlight_falls_back_from_failed_id_lookup` (the hit is named "Requested", not "Search match"); same assertions.
-
-Validation: `pytest -q` -- **2888 passed**.

@@ -125,7 +125,9 @@ async def _run_spotify_batch_detail_phase(
         if not original_data:
             continue
         key = spotify_id_to_key[spotify_id]
-        metadata = _orchestrator.album_metadata_from_details(spotify_id, album_details)
+        metadata = _orchestrator.album_metadata_from_details(
+            spotify_id, album_details, key
+        )
 
         cache_hits[key] = {"cached": metadata, "original": original_data}
         new_metadata[key] = metadata

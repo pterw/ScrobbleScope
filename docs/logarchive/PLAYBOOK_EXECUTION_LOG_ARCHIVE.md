@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Check the artist name the spotlight search returns
+
+Side task, no batch tag: make the artist spotlight check the name Spotify returns, on `fix/album-matching`, stacked on PR #269.
+
+Owner intent: `scrobblescope/spotify.py::_request_spotlight_artist` searched `artist:<name>` with `limit: 1` and returned the first hit unchecked, so a short name such as "ear" could show another artist's photo (F-B23-26 / D6). The name-search path now asks for `limit: 5` and returns the first hit whose `normalize_name(hit, "")[0]` equals that of the requested name (case and punctuation ignored). It returns `None` when no hit matches, or when the requested name normalizes to empty ("!!!"), so `/api/artist_spotlight` answers its existing null-image payload. The `artist_id` path is unchanged. New tests: `test_artist_spotlight_name_search_checks_the_returned_name` (4 cases) and `test_artist_spotlight_id_lookup_skips_the_name_check`.
+
+Deviations: this task landed before Tasks 3 and 4 of the plan (disjoint files; those are in fix rounds). F-B23-26 is not closed here; Task 11 closes the findings. Edited existing tests: `test_artist_spotlight_parses_details_and_missing_fields` (the search hit now carries the requested name) and `test_artist_spotlight_falls_back_from_failed_id_lookup` (the hit is named "Requested", not "Search match"); same assertions.
+
+Validation: `pytest -q` -- **2888 passed**.
+
 ### 2026-10-25 - Keep an identity for albums that normalize to nothing
 
 Side task, no batch tag: give an album whose title normalizes to nothing its own identity, on `fix/album-matching`, stacked on PR #269.
