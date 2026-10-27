@@ -215,14 +215,14 @@ Side task, no batch tag: file one finding, on `docs/file-findings-docsync-24`, a
 
 Validation: test count unchanged (docs only); `pytest -q` was not re-run.
 
-### 2026-10-25 - Make two vacuous service checks honest
+### 2026-10-27 - Patch the pip-audit advisories
 
-Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
+Side task, no batch tag: patch the dependency advisories that `pip-audit` reported, on `chore/pip-advisories`, a branch off `main` (PR #273). Files changed: `requirements.txt` and `requirements-dev.txt` (pins only).
 
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The stale-cache cleanup test only checked that some positive integer was passed, so a cleanup using the 365-day original-release TTL, or one that deleted fresh rows instead of stale ones, still passed; it now patches the TTL to 17 and asserts the whole normalized DELETE statement and `ttl == 17`. The out-of-bounds timestamp test only checked that the 2020 artist was absent, so a window that dropped every play passed; it now asserts the eligible artists are exactly `["Artist Y"]`, with a play count of 10 and no exclusions. `test_album_metadata_carries_its_provider_and_url` only read back the fields of a frozen dataclass it had just built, and the stored-row siblings already pin provider and url; it is deleted.
+Owner intent: `pip-audit` reported 34 findings in 6 packages; it now reports none. Runtime bumps: aiohttp 3.14.3 to 3.14.4, multidict 6.7.1 to 6.9.1, Werkzeug 3.1.6 to 3.1.9, yarl 1.24.5 to 1.25.1 (aiohttp 3.14.4 needs yarl 1.25.1 or newer). Dev-only bumps: certifi 2026.10.19, urllib3 2.8.0, virtualenv 21.14.10 with distlib 0.4.4, filelock 4.2.4, platformdirs 4.13.6 and python-discovery 1.6.5, which virtualenv 21 pulls in.
 
-Deviations: none. `test_a_missing_correction_table_names_the_migration` and `test_original_release_lookup_without_a_connection_skips_the_query` are left as they are (the first is pinned exactly in `test_failure_logging.py`, the second by `assert_not_awaited`). Red proofs used scratch edits, restored byte-identical: `cleanup_stale_metadata` passing `ORIGINAL_RELEASE_TTL_DAYS` (`assert 365 == 17`), `Window.contains` always False (empty result, no `Artist Y`). The suite count falls by one (the deleted test).
+Deviations: none. The commit for the pins (2acb3fab) landed without this entry; it is logged here.
 
-Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
+Validation: a fresh venv install with `--only-binary=:all:` succeeded; `pip check` is clean; `pip-audit` is clean; Linux manylinux wheels exist for all 24 runtime packages; 2872 non-browser tests passed. Full suite pin unchanged: `pytest -q` -- **2952 passed**.
 
-Validation: `pytest -q` -- **2952 passed**.
+Edited existing tests: none.
