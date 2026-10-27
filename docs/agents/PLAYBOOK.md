@@ -184,6 +184,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - The pointer-list and slot-leak findings are filed
+
+Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, a branch off `main`.
+
+- **Filed F-DOCSYNC-24 at P3.** The "Deferred / future-batch candidates" list mixes item 4 pointers (promoted or absorbed findings) with a resolved record, F-B18-12, that docsync never parses and that has no archived body. Checked before writing: the list has eleven bullets, not twelve, and F-FEATURE-2 is a pointer in the next section ("Feature preparation notes"), not in that list. The finding states the corrected counts.
+- **Filed F-B23-65 at P3.** `admit()` in `scrobblescope/routes/admission.py` calls `jobs.create(params)` (line 47) after taking a slot (line 44) and outside its `try`, so a raise there leaks the slot. With the in-memory store little in `jobs.create` can raise, so the finding says so.
+- **Scope:** documentation only. No code, test or gate changed, and no existing finding or pointer bullet was edited. Both are proposals, not built.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
+### 2026-10-27 - F-B18-12 is archived with its recorded outcome
+
+Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/file-findings-docsync-24`.
+
+- **Archived F-B18-12.** Its active entry was transcribed from the original `FINDINGS.md` text (before `494f2c7`) and the pointer bullet's own RESOLVED 2026-08-25 paragraph, given `- [x] **Status:** RESOLVED` and `**Completed:** 2026-08-25`, and rotated to `docs/history/findings/FINDINGS_ARCHIVE.md` by `doc_state_sync.py --fix`. The bullet in "Deferred / future-batch candidates" is now a pointer to it.
+- **Narrowed F-DOCSYNC-24.** Its F-B18-12 example is fixed. It stays open (P3): nothing checks that a pointer's target heading exists, and item 4 does not say which outcomes a pointer may carry.
+- **Pointer targets checked.** F-B18-1, F-B18-7, F-MAS-2, F-FEATURE-2 and F-B18-12 all resolve to a heading in the active file or the archive.
+- **Scope:** documentation only. No docsync code or AGENTS.md changed.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
+### 2026-10-27 - The mechanical Last updated dates are filed
+
+Side task, no batch tag: file one finding, on `docs/file-findings-docsync-24`, a branch off `main`.
+
+- **Filed F-DOCSYNC-25 at P3.** The `Last updated:` lines of FINDINGS.md and SESSION_CONTEXT.md and PLAYBOOK's `Date:` line are set by hand and no docsync code reads them. The finding proposes deriving them from the newest dated Section 4 entry, names DOC027 as the next free code, and notes the sibling F-DOCSYNC-23 (module count). Owner ruling 2026-10-27: make the dates mechanical, file it as a follow-up.
+- **Set FINDINGS.md `Last updated:` to 2026-10-27** (it read 2026-09-21), under the owner's standing rule to update the date when a file changes.
+- **Scope:** documentation only. Nothing was built, and no docsync code, AGENTS.md or config changed.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
 ### 2026-10-27 - Patch the pip-audit advisories
 
 Side task, no batch tag: patch the dependency advisories that `pip-audit` reported, on `chore/pip-advisories`, a branch off `main` (PR #273). Files changed: `requirements.txt` and `requirements-dev.txt` (pins only).
@@ -195,39 +226,3 @@ Deviations: none. The commit for the pins (2acb3fab) landed without this entry; 
 Validation: a fresh venv install with `--only-binary=:all:` succeeded; `pip check` is clean; `pip-audit` is clean; Linux manylinux wheels exist for all 24 runtime packages; 2872 non-browser tests passed. Full suite pin unchanged: `pytest -q` -- **2952 passed**.
 
 Edited existing tests: none.
-
-### 2026-10-25 - Make two vacuous service checks honest
-
-Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The stale-cache cleanup test only checked that some positive integer was passed, so a cleanup using the 365-day original-release TTL, or one that deleted fresh rows instead of stale ones, still passed; it now patches the TTL to 17 and asserts the whole normalized DELETE statement and `ttl == 17`. The out-of-bounds timestamp test only checked that the 2020 artist was absent, so a window that dropped every play passed; it now asserts the eligible artists are exactly `["Artist Y"]`, with a play count of 10 and no exclusions. `test_album_metadata_carries_its_provider_and_url` only read back the fields of a frozen dataclass it had just built, and the stored-row siblings already pin provider and url; it is deleted.
-
-Deviations: none. `test_a_missing_correction_table_names_the_migration` and `test_original_release_lookup_without_a_connection_skips_the_query` are left as they are (the first is pinned exactly in `test_failure_logging.py`, the second by `assert_not_awaited`). Red proofs used scratch edits, restored byte-identical: `cleanup_stale_metadata` passing `ORIGINAL_RELEASE_TTL_DAYS` (`assert 365 == 17`), `Window.contains` always False (empty result, no `Artist Y`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
-
-Validation: `pytest -q` -- **2952 passed**.
-
-### 2026-10-25 - Replace vacuous shell and results checks with behaviour checks
-
-Side task, no batch tag: replace four vacuous shell and results checks with behaviour checks, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The inline-mark test passed `0 == 0` on a page that lost its header logo; it now also asserts at least one mark renders. The release-check poller test only grepped the script text, so a `skipped` job polled every 2 s forever and still passed; it is deleted and `ResultsBehaviorTests` gains a Chromium test that counts requests over 20 s of frozen-clock time (`running` keeps polling, `done`, `skipped`, `error` and an unknown status stop after one reply). The rotating-card test only checked that a height was written, on markup where both candidates were the same height; it now uses differing candidates and asserts the reserved height is at least the tall one's (80 px). The framework test lost its unreachable Bootstrap branch (every template is in `MIGRATED`) and a stale comment.
-
-Deviations: none. Red proofs used scratch edits, restored byte-identical: base.html header mark removed (7 of 8 pages failed), `'skipped'` added to `LIVE_STATES` (`11 != 1`), `Math.max` to `Math.min` in results-spotlight.js (`0.0 not >= 80`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
-
-Validation: `pytest -q` -- **2953 passed**.
-
-### 2026-10-25 - Make two vacuous domain checks honest
-
-Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: test for the intended function, not the written function; one test per intended behaviour. `test_normalize_name_unicode_preserved` promised that non-Latin text survives but assigned `album` and never asserted it, and its input was one accented artist; it now asserts exact equality on both halves with accented Latin names (Bjork/Debut, Sigur Ros/Agaetis Byrjun, with their diacritics), so an album-only ASCII strip fails it. In `test_cover_wash_index_is_stable_and_ignores_spelling_noise` the loop that called the pure function five times could not fail unless `cover_wash_index` kept call-count state; it is deleted and the docstring no longer promises repetition, since `test_cover_wash_index_is_pinned_across_processes` guards stability.
-
-Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left as is.
-
-Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
-
-Validation: `pytest -q` -- **2954 passed**.

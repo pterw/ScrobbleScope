@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-21
+Last updated: 2026-10-27
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
 2952 tests across 103 tracked test modules.
@@ -893,6 +893,28 @@ The Results header's Top Artist is the artist of the first row in the run's rank
 
 - [ ] **Status:** open (P3, low); the product rule is the owner's to decide; no fix in PR #269. Source: T11's agreement test (`tests/frontend/test_results_ranking_agreement.py`), whose fixture gives every album one artist for this reason; owner ruling RA21, 2026-10-25 ("File it, it's trivial for now").
 
+### F-DOCSYNC-24: the cross-reference list mixes promoted pointers with resolved records that no check reaches
+
+"Deferred / future-batch candidates" is where AGENTS.md "Finding-Writing Rules" item 4 keeps one-line pointers for promoted or absorbed findings. Several of its bullets state a terminal outcome: F-B18-1 (promoted to F-B20-2), F-B18-7 and F-MAS-2 (absorbed), F-B18-12 (resolved), and, in "Feature preparation notes", F-FEATURE-2 ("shipped in Batches 18/19, archived"). Item 4 names only promoted and absorbed findings, not resolved or shipped ones. docsync parses only `### F-...` headings, so DOC023 and rotation never see these bullets, and nothing checks that a pointer's target heading exists in the active file or the archive. (The F-B18-12 case was fixed on 2026-10-27: its entry now sits in `docs/history/findings/FINDINGS_ARCHIVE.md` and its bullet points there.) What would close it: give a pointer a checkable format, or add a docsync check that each pointer's target heading exists in the active file or the archive, and let item 4 say which outcomes a pointer may carry.
+
+- [ ] **Status:** open (P3). Source: findings audit of 24 candidate findings, 2026-10-27.
+
+### F-B23-65: a job slot leaks when `jobs.create` raises during admission
+
+`admit()` in `scrobblescope/routes/admission.py` takes a job slot with `_routes.acquire_job_slot()` (line 44) and then calls `jobs.create(params)` (line 47), outside its `try` (lines 49-54). Only a `start_job_thread` failure is caught: that path logs, deletes the job and returns `Refused.START_FAILED`, and `start_job_thread` has already released the slot (`scrobblescope/worker.py`). If `jobs.create` raises, nothing releases the slot, so the semaphore stays one short for the life of the process, and enough such failures would make the app refuse every job as at capacity until it restarts. What can raise there: `jobs.create` (`scrobblescope/jobs.py`, line 187) calls `_now()`, `uuid4()`, `_initial_progress()` and `_store.insert(...)`. With the in-memory store `insert` is a dict write under a lock, so in practice only something like `MemoryError` reaches the slot; `_store` is a protocol, though, so another store's `insert` could raise. What would close it: acquire the slot and create the job under one `try` that releases the slot on any exception, with a test that makes `jobs.create` raise and asserts the slot count is unchanged.
+
+- [ ] **Status:** open (P3). Source: review of the Fly idle-exit plan (reviewer note), 2026-10-27.
+
+### F-DOCSYNC-25: the Last updated dates are hand-maintained and unchecked
+
+Three documents carry a date line that someone sets by hand. `docs/agents/FINDINGS.md` (`Last updated:`) read 2026-09-21 for five weeks while the file kept changing; `.claude/SESSION_CONTEXT.md` (`Last updated:`) is set by hand (`git log -S` shows the current value arriving in `4f659b7b`, 2026-10-25); `docs/agents/PLAYBOOK.md` carries `Date: 2026-02-22`, a creation date that nobody updates. Nothing reads any of them: a grep of `scripts/`, `tests/`, `config/` and `.githooks/` for `Last updated` and the PLAYBOOK `Date:` line finds no docsync code, and only one test fixture mentions a date (`tests/test_docsync_findings.py`, a `Last updated: 2026-09-15` line in a synthetic findings header).
+
+Proposal, not built (owner-approved direction, 2026-10-27): derive each date from the newest dated PLAYBOOK Section 4 entry, since docsync never reads the wall clock and every commit already writes one. `--fix` would set the `Last updated:` line of FINDINGS.md and SESSION_CONTEXT.md, and PLAYBOOK's own date line would become the date of its most recent addition. `--check` would warn on a mismatch, as DOC025 does for the test count. The next free code is DOC027 (the catalogue has DOC001-DOC020 and DOC023-DOC026; DOC021 and DOC022 are reserved). Because every commit's hook runs docsync, it is gate-deciding, so it should land alone, after the in-flight PRs (#273, #274, the Fly branch and the rotation-rule branch), and in the same commit update AGENTS.md's pinned "DOC001-DOCnnn" substring and `docs/architecture/documentation-tooling.md`. Until then the owner's standing rule applies: update the date whenever any of those files changes.
+
+Sibling of F-DOCSYNC-23: the same `--fix` pass could also derive the module count (from `git ls-files 'tests/**/test_*.py'`), so one change could close both. The two facts come from different sources (the log for the date, git for the count), so they need separate derivations and separate checks even if they share the pass.
+
+- [ ] **Status:** open (P3). Source: owner review of the date drift, 2026-10-27.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
@@ -1258,10 +1280,8 @@ audits; 2026-03-04 load-test data is in the findings archive.
 - F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2,
   resolved 2026-09-21 as `worker.new_thread_event_loop`.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
-- F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`)
-  -- RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
-  elements in a two-column grid, which also closes the `span[role="button"]`
-  item in F-B21-5.
+- F-B18-12: mode pills differ in width -- resolved 2026-08-25 by Batch 21
+  WP-3; entry archived.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
 - F-B19-4: front-end UI audit notes -- basis of `docs/history/definitions/BATCH21_DEFINITION.md`.

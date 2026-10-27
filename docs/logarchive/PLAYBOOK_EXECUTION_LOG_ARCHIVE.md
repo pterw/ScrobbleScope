@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Make two vacuous service checks honest
+
+Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
+
+Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The stale-cache cleanup test only checked that some positive integer was passed, so a cleanup using the 365-day original-release TTL, or one that deleted fresh rows instead of stale ones, still passed; it now patches the TTL to 17 and asserts the whole normalized DELETE statement and `ttl == 17`. The out-of-bounds timestamp test only checked that the 2020 artist was absent, so a window that dropped every play passed; it now asserts the eligible artists are exactly `["Artist Y"]`, with a play count of 10 and no exclusions. `test_album_metadata_carries_its_provider_and_url` only read back the fields of a frozen dataclass it had just built, and the stored-row siblings already pin provider and url; it is deleted.
+
+Deviations: none. `test_a_missing_correction_table_names_the_migration` and `test_original_release_lookup_without_a_connection_skips_the_query` are left as they are (the first is pinned exactly in `test_failure_logging.py`, the second by `assert_not_awaited`). Red proofs used scratch edits, restored byte-identical: `cleanup_stale_metadata` passing `ORIGINAL_RELEASE_TTL_DAYS` (`assert 365 == 17`), `Window.contains` always False (empty result, no `Artist Y`). The suite count falls by one (the deleted test).
+
+Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
+
+Validation: `pytest -q` -- **2952 passed**.
+
+### 2026-10-25 - Replace vacuous shell and results checks with behaviour checks
+
+Side task, no batch tag: replace four vacuous shell and results checks with behaviour checks, on `test/lean-suite-vacuous`, a branch off `main`.
+
+Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The inline-mark test passed `0 == 0` on a page that lost its header logo; it now also asserts at least one mark renders. The release-check poller test only grepped the script text, so a `skipped` job polled every 2 s forever and still passed; it is deleted and `ResultsBehaviorTests` gains a Chromium test that counts requests over 20 s of frozen-clock time (`running` keeps polling, `done`, `skipped`, `error` and an unknown status stop after one reply). The rotating-card test only checked that a height was written, on markup where both candidates were the same height; it now uses differing candidates and asserts the reserved height is at least the tall one's (80 px). The framework test lost its unreachable Bootstrap branch (every template is in `MIGRATED`) and a stale comment.
+
+Deviations: none. Red proofs used scratch edits, restored byte-identical: base.html header mark removed (7 of 8 pages failed), `'skipped'` added to `LIVE_STATES` (`11 != 1`), `Math.max` to `Math.min` in results-spotlight.js (`0.0 not >= 80`). The suite count falls by one (the deleted test).
+
+Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
+
+Validation: `pytest -q` -- **2953 passed**.
+
+### 2026-10-25 - Make two vacuous domain checks honest
+
+Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
+
+Owner intent: test for the intended function, not the written function; one test per intended behaviour. `test_normalize_name_unicode_preserved` promised that non-Latin text survives but assigned `album` and never asserted it, and its input was one accented artist; it now asserts exact equality on both halves with accented Latin names (Bjork/Debut, Sigur Ros/Agaetis Byrjun, with their diacritics), so an album-only ASCII strip fails it. In `test_cover_wash_index_is_stable_and_ignores_spelling_noise` the loop that called the pure function five times could not fail unless `cover_wash_index` kept call-count state; it is deleted and the docstring no longer promises repetition, since `test_cover_wash_index_is_pinned_across_processes` guards stability.
+
+Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left as is.
+
+Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
+
+Validation: `pytest -q` -- **2954 passed**.
+
 ### 2026-10-25 - Ignore the owner's local files
 
 Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
