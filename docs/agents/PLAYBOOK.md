@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Start the idle watchdog from create_app
+
+Side task, no batch tag: Task 3 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. `create_app` now imports `watch_from_env` from `scrobblescope.idle_exit` after the blueprint is registered (deferred, like the blueprint import, so `load_dotenv` has run) and, when it returns a watch, calls `attach(application)` and `start()`. The watchdog is off unless `IDLE_EXIT_MINUTES` is a positive integer, so local runs, tests and CI never start a thread or exit; the suite never sets the variable.
+
+Red proofs: the `"20"` case failed (`assert 0 == 1`) before the edit; calling `start` unconditionally fails the test (the unset case has no watch to start); calling `watch_from_env` but never `start` fails the `"20"` case.
+
+Edited existing tests: none. Added: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` in `tests/test_app_factory.py` (2 cases).
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-27 - Add the idle watchdog behind IDLE_EXIT_MINUTES
 
 Side task, no batch tag: Task 2 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so the new `scrobblescope/idle_exit.py` stops the app itself: `IdleWatch.step()` records activity while `has_active_work()` is true (a held job slot or a pending release check), and otherwise runs the exit action (SIGTERM to the gunicorn master, once) when the last request or work is older than the window. `attach(app)` touches the timer in `before_request` and `teardown_request`; `watch_from_env` returns None unless `IDLE_EXIT_MINUTES` is a positive integer (one warning for a negative or non-integer value). Nothing calls it yet: Task 3 starts it from the app factory.
@@ -217,15 +227,3 @@ Deviations: none. `test_a_missing_correction_table_names_the_migration` and `tes
 Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
 
 Validation: `pytest -q` -- **2952 passed**.
-
-### 2026-10-25 - Replace vacuous shell and results checks with behaviour checks
-
-Side task, no batch tag: replace four vacuous shell and results checks with behaviour checks, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The inline-mark test passed `0 == 0` on a page that lost its header logo; it now also asserts at least one mark renders. The release-check poller test only grepped the script text, so a `skipped` job polled every 2 s forever and still passed; it is deleted and `ResultsBehaviorTests` gains a Chromium test that counts requests over 20 s of frozen-clock time (`running` keeps polling, `done`, `skipped`, `error` and an unknown status stop after one reply). The rotating-card test only checked that a height was written, on markup where both candidates were the same height; it now uses differing candidates and asserts the reserved height is at least the tall one's (80 px). The framework test lost its unreachable Bootstrap branch (every template is in `MIGRATED`) and a stale comment.
-
-Deviations: none. Red proofs used scratch edits, restored byte-identical: base.html header mark removed (7 of 8 pages failed), `'skipped'` added to `LIVE_STATES` (`11 != 1`), `Math.max` to `Math.min` in results-spotlight.js (`0.0 not >= 80`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
-
-Validation: `pytest -q` -- **2953 passed**.
