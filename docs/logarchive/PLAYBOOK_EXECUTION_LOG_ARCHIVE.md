@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Make two vacuous domain checks honest
+
+Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
+
+Owner intent: test for the intended function, not the written function; one test per intended behaviour. `test_normalize_name_unicode_preserved` promised that non-Latin text survives but assigned `album` and never asserted it, and its input was one accented artist; it now asserts exact equality on both halves with accented Latin names (Bjork/Debut, Sigur Ros/Agaetis Byrjun, with their diacritics), so an album-only ASCII strip fails it. In `test_cover_wash_index_is_stable_and_ignores_spelling_noise` the loop that called the pure function five times could not fail unless `cover_wash_index` kept call-count state; it is deleted and the docstring no longer promises repetition, since `test_cover_wash_index_is_pinned_across_processes` guards stability.
+
+Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left as is.
+
+Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
+
+Validation: `pytest -q` -- **2954 passed**.
+
 ### 2026-10-25 - Ignore the owner's local files
 
 Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).

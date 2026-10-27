@@ -194,6 +194,17 @@ Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, 
 
 Validation: test count unchanged (docs only); `pytest -q` was not re-run.
 
+### 2026-10-27 - F-B18-12 is archived with its recorded outcome
+
+Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/file-findings-docsync-24`.
+
+- **Archived F-B18-12.** Its active entry was transcribed from the original `FINDINGS.md` text (before `494f2c7`) and the pointer bullet's own RESOLVED 2026-08-25 paragraph, given `- [x] **Status:** RESOLVED` and `**Completed:** 2026-08-25`, and rotated to `docs/history/findings/FINDINGS_ARCHIVE.md` by `doc_state_sync.py --fix`. The bullet in "Deferred / future-batch candidates" is now a pointer to it.
+- **Narrowed F-DOCSYNC-24.** Its F-B18-12 example is fixed. It stays open (P3): nothing checks that a pointer's target heading exists, and item 4 does not say which outcomes a pointer may carry.
+- **Pointer targets checked.** F-B18-1, F-B18-7, F-MAS-2, F-FEATURE-2 and F-B18-12 all resolve to a heading in the active file or the archive.
+- **Scope:** documentation only. No docsync code or AGENTS.md changed.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
 ### 2026-10-25 - Make two vacuous service checks honest
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
@@ -217,15 +228,3 @@ Deviations: none. Red proofs used scratch edits, restored byte-identical: base.h
 Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
 
 Validation: `pytest -q` -- **2953 passed**.
-
-### 2026-10-25 - Make two vacuous domain checks honest
-
-Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: test for the intended function, not the written function; one test per intended behaviour. `test_normalize_name_unicode_preserved` promised that non-Latin text survives but assigned `album` and never asserted it, and its input was one accented artist; it now asserts exact equality on both halves with accented Latin names (Bjork/Debut, Sigur Ros/Agaetis Byrjun, with their diacritics), so an album-only ASCII strip fails it. In `test_cover_wash_index_is_stable_and_ignores_spelling_noise` the loop that called the pure function five times could not fail unless `cover_wash_index` kept call-count state; it is deleted and the docstring no longer promises repetition, since `test_cover_wash_index_is_pinned_across_processes` guards stability.
-
-Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left as is.
-
-Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
-
-Validation: `pytest -q` -- **2954 passed**.

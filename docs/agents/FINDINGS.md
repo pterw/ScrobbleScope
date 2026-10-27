@@ -895,7 +895,7 @@ The Results header's Top Artist is the artist of the first row in the run's rank
 
 ### F-DOCSYNC-24: the cross-reference list mixes promoted pointers with resolved records that no check reaches
 
-"Deferred / future-batch candidates" is where AGENTS.md "Finding-Writing Rules" item 4 keeps one-line pointers for promoted or absorbed findings. Four of its eleven bullets state a terminal outcome. Three fit item 4: F-B18-1 (promoted to F-B20-2), F-B18-7 and F-MAS-2 (absorbed). One does not: F-B18-12 ("RESOLVED 2026-08-25 by Batch 21 WP-3") is a resolved item, not a promoted or absorbed one. The next section, "Feature preparation notes", holds a pointer of the same kind, F-FEATURE-2 ("shipped in Batches 18/19, archived"). docsync parses only `### F-...` headings, so DOC023 and rotation never see any of these bullets. F-B18-12 has no archived body: its text exists only in the bullet and in git history before `494f2c7`, and it is cited by `static/css/index.css`, `static/js/heatmap.js`, `templates/index.html` and `tests/test_routes.py`. (F-MAS-2 and F-FEATURE-2 do have archive headings in `docs/history/findings/FINDINGS_ARCHIVE.md`.) What would close it: give a pointer a checkable format, or add a docsync check that each pointer's target heading exists in the active file or the archive, and let item 4 say which outcomes a pointer may carry.
+"Deferred / future-batch candidates" is where AGENTS.md "Finding-Writing Rules" item 4 keeps one-line pointers for promoted or absorbed findings. Several of its bullets state a terminal outcome: F-B18-1 (promoted to F-B20-2), F-B18-7 and F-MAS-2 (absorbed), F-B18-12 (resolved), and, in "Feature preparation notes", F-FEATURE-2 ("shipped in Batches 18/19, archived"). Item 4 names only promoted and absorbed findings, not resolved or shipped ones. docsync parses only `### F-...` headings, so DOC023 and rotation never see these bullets, and nothing checks that a pointer's target heading exists in the active file or the archive. (The F-B18-12 case was fixed on 2026-10-27: its entry now sits in `docs/history/findings/FINDINGS_ARCHIVE.md` and its bullet points there.) What would close it: give a pointer a checkable format, or add a docsync check that each pointer's target heading exists in the active file or the archive, and let item 4 say which outcomes a pointer may carry.
 
 - [ ] **Status:** open (P3). Source: findings audit of 24 candidate findings, 2026-10-27.
 
@@ -1270,10 +1270,8 @@ audits; 2026-03-04 load-test data is in the findings archive.
 - F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2,
   resolved 2026-09-21 as `worker.new_thread_event_loop`.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
-- F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`)
-  -- RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
-  elements in a two-column grid, which also closes the `span[role="button"]`
-  item in F-B21-5.
+- F-B18-12: mode pills differ in width -- resolved 2026-08-25 by Batch 21
+  WP-3; entry archived.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
 - F-B19-4: front-end UI audit notes -- basis of `docs/history/definitions/BATCH21_DEFINITION.md`.
