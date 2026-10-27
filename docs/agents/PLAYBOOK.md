@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Patch the pip-audit advisories
+
+Side task, no batch tag: patch the dependency advisories that `pip-audit` reported, on `chore/pip-advisories`, a branch off `main` (PR #273). Files changed: `requirements.txt` and `requirements-dev.txt` (pins only).
+
+Owner intent: `pip-audit` reported 34 findings in 6 packages; it now reports none. Runtime bumps: aiohttp 3.14.3 to 3.14.4, multidict 6.7.1 to 6.9.1, Werkzeug 3.1.6 to 3.1.9, yarl 1.24.5 to 1.25.1 (aiohttp 3.14.4 needs yarl 1.25.1 or newer). Dev-only bumps: certifi 2026.10.19, urllib3 2.8.0, virtualenv 21.14.10 with distlib 0.4.4, filelock 4.2.4, platformdirs 4.13.6 and python-discovery 1.6.5, which virtualenv 21 pulls in.
+
+Deviations: none. The commit for the pins (2acb3fab) landed without this entry; it is logged here.
+
+Validation: a fresh venv install with `--only-binary=:all:` succeeded; `pip check` is clean; `pip-audit` is clean; Linux manylinux wheels exist for all 24 runtime packages; 2872 non-browser tests passed. Full suite pin unchanged: `pytest -q` -- **2952 passed**.
+
+Edited existing tests: none.
+
 ### 2026-10-25 - Make two vacuous service checks honest
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
@@ -219,15 +231,3 @@ Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left 
 Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
 
 Validation: `pytest -q` -- **2954 passed**.
-
-### 2026-10-25 - Ignore the owner's local files
-
-Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
-
-Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
-
-Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.
