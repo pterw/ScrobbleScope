@@ -253,7 +253,8 @@
    * carries the same colour without needing the page stylesheet.
    */
   function zeroFill() {
-    return getComputedStyle(document.documentElement).getPropertyValue('--heatmap-empty').trim();
+    var frame = document.getElementById('heatmap-result-frame') || document.documentElement;
+    return getComputedStyle(frame).getPropertyValue('--heatmap-empty').trim();
   }
 
   /** Build the rocket_r CSS gradient string for the legend bar. */
@@ -437,11 +438,13 @@
    *
    * getPropertyValue can hand back the unresolved var(--other) text, so the
    * value is painted onto a probe and read back from the cascade instead.
+   * The probe sits in `scope` (default the page body), so a token declared on
+   * the result frame resolves to the frame's value.
    */
-  function resolvedColour(token) {
+  function resolvedColour(token, scope) {
     var probe = document.createElement('div');
     probe.style.color = 'var(' + token + ')';
-    document.body.appendChild(probe);
+    (scope || document.body).appendChild(probe);
     var value = getComputedStyle(probe).color;
     probe.remove();
     return value;

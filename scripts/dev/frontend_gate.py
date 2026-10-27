@@ -176,6 +176,7 @@ from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     THEME_EXPRESSION,
     check_divider_contrast,
     check_heatmap_export_header_matches_page,
+    check_heatmap_timeline_surfaces_page_scoped,
     check_heatmap_zero_cells_follow_theme,
     check_index_design_tokens,
     check_index_entrance_motion,
@@ -274,6 +275,12 @@ CHECKS = (
     (
         "heatmap zero cells follow theme",
         check_heatmap_zero_cells_follow_theme,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "timeline surfaces are page-scoped",
+        check_heatmap_timeline_surfaces_page_scoped,
         (DESKTOP,),
         THEME_MOTION,
     ),

@@ -693,16 +693,8 @@ def check_theme_reattaches_to_system(page, base_url: str) -> list[str]:
     return failures
 
 
-def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
-    """A theme change repaints the heatmap's zero-count cells.
-
-    The cells carry a `fill` presentation attribute, and an SVG presentation
-    attribute does not resolve a custom property, so the repaint is JavaScript:
-    `heatmap.js` watches for the theme change and rewrites every zero cell.
-    It watched `<body>` for the `.dark-mode` class until WP-8 retired that
-    write, and nothing here noticed, because every other theme check reads CSS.
-    """
-    failures = []
+def _seed_plain_heatmap_job() -> str:
+    """A finished five-day heatmap job with zero-count days and no stream."""
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     counts = {
         "2025-01-01": 3,
@@ -724,22 +716,104 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
         },
         "Done",
     )
+    return job_id
+
+
+def _read_zero_cells(page, base_url: str, job_id: str, themes) -> dict:
+    """Per theme: a zero cell's fill and the tokens and surface it should match.
+
+    `token` is `--heatmap-empty` resolved on the result frame (the timeline
+    value), `global_token` the same property on the root, `surface` the frame's
+    `--heatmap-surface` run through a probe, `background` the frame's painted
+    background colour.
+    """
+    page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+    page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    page.locator('.heatmap-cell[data-count="0"]').first.wait_for(state="attached")
+    readings = {}
+    for theme in themes:
+        page.evaluate(SET_THEME_EXPRESSION, theme)
+        wait_for_settled(page)
+        readings[theme] = page.evaluate(
+            """() => {
+                const frame = document.getElementById('heatmap-result-frame');
+                const cell = document.querySelector('.heatmap-cell[data-count="0"]');
+                const prop = (el, name) => getComputedStyle(el)
+                    .getPropertyValue(name).trim();
+                const probe = document.createElement('div');
+                probe.style.backgroundColor = prop(frame, '--heatmap-surface');
+                frame.appendChild(probe);
+                const surface = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                return {
+                    fill: cell?.getAttribute('fill'),
+                    token: prop(frame, '--heatmap-empty'),
+                    global_token: prop(document.documentElement, '--heatmap-empty'),
+                    surface: surface,
+                    background: getComputedStyle(frame).backgroundColor,
+                };
+            }"""
+        )
+    return readings
+
+
+#: What the timeline surfaces resolve to inside the frame, and what the global
+#: empty-cell token must stay outside it: (cell fill, frame background, global).
+TIMELINE_SURFACES = {
+    "dark": ("#2e2939", "rgb(31, 27, 40)", "#262230"),
+    "light": ("#c8bfad", "rgb(240, 235, 224)", "#c8bfad"),
+}
+
+
+def check_heatmap_timeline_surfaces_page_scoped(page, base_url: str) -> list[str]:
+    """The timeline surfaces live on the result frame; the global token stays.
+
+    Owner ruling U18: the timeline's darker surfaces apply inside the chart
+    frame only. A zero cell takes the frame's `--heatmap-empty`, the frame
+    paints its own `--heatmap-surface`, and the root's `--heatmap-empty` keeps
+    its global value, so no other page changes.
+    """
+    failures = []
+    job_id = _seed_plain_heatmap_job()
     try:
-        page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
-        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
-        page.locator('.heatmap-cell[data-count="0"]').first.wait_for(state="attached")
-        readings = {}
-        for theme in ("light", "dark"):
-            page.evaluate(SET_THEME_EXPRESSION, theme)
-            wait_for_settled(page)
-            readings[theme] = page.evaluate(
-                """() => {
-                    const cell = document.querySelector('.heatmap-cell[data-count="0"]');
-                    const probe = getComputedStyle(document.documentElement)
-                        .getPropertyValue('--heatmap-empty').trim();
-                    return { fill: cell?.getAttribute('fill'), token: probe };
-                }"""
+        readings = _read_zero_cells(page, base_url, job_id, TIMELINE_SURFACES)
+    finally:
+        jobs.delete(job_id)
+
+    for theme, (empty, background, global_token) in TIMELINE_SURFACES.items():
+        reading = readings[theme]
+        if reading["fill"] != empty:
+            failures.append(
+                f"/heatmap zero cell is {reading['fill']!r} in the {theme} "
+                f"theme, expected the frame value {empty!r}"
             )
+        if reading["global_token"] != global_token:
+            failures.append(
+                f"the root --heatmap-empty is {reading['global_token']!r} in "
+                f"the {theme} theme, expected the untouched {global_token!r}"
+            )
+        for key in ("background", "surface"):
+            if reading[key] != background:
+                failures.append(
+                    f"the heatmap frame {key} is {reading[key]!r} in the "
+                    f"{theme} theme, expected {background!r}"
+                )
+    return failures
+
+
+def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
+    """A theme change repaints the heatmap's zero-count cells.
+
+    The cells carry a `fill` presentation attribute, and an SVG presentation
+    attribute does not resolve a custom property, so the repaint is JavaScript:
+    `heatmap.js` watches for the theme change and rewrites every zero cell.
+    It watched `<body>` for the `.dark-mode` class until WP-8 retired that
+    write, and nothing here noticed, because every other theme check reads CSS.
+    """
+    failures = []
+    job_id = _seed_plain_heatmap_job()
+    try:
+        readings = _read_zero_cells(page, base_url, job_id, ("light", "dark"))
     finally:
         jobs.delete(job_id)
 

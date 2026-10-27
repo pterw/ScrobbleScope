@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Plan the listening streamgraph
+
+Side task, no batch tag: the streamgraph implementation plan, on `feat/ui-audit-v6-streamgraph`, a branch stacked on `feat/ui-audit-v6`.
+
+Owner intent: the owner asked for the plan with the writing-plans skill, in discrete slices with checkboxes. It is `docs/superpowers/plans/2026-10-27-streamgraph.md`: ten tasks in eight waves, each with files, interfaces, red/green steps and a Firefox probe.
+
+What changed and why: the plan went through three reviews; findings SP-F1..SP-F12 are recorded in the plan workspace, and the last three were wording Minors fixed without a fourth review. It is desktop only (owner ruling U18): the dark surfaces are declared on the heatmap frame, never on `:root`. No code changes; the plan is a point-in-time record.
+
+Deviations: none. Existing tests edited: none.
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Drop ellipses from progress and toast messages
 
 Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
