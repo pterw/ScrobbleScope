@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Add the idle watchdog behind IDLE_EXIT_MINUTES
+
+Side task, no batch tag: Task 2 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so the new `scrobblescope/idle_exit.py` stops the app itself: `IdleWatch.step()` records activity while `has_active_work()` is true (a held job slot or a pending release check), and otherwise runs the exit action (SIGTERM to the gunicorn master, once) when the last request or work is older than the window. `attach(app)` touches the timer in `before_request` and `teardown_request`; `watch_from_env` returns None unless `IDLE_EXIT_MINUTES` is a positive integer (one warning for a negative or non-integer value). Nothing calls it yet: Task 3 starts it from the app factory.
+
+Red proofs (one planted defect each): not remembering the exit fails `test_exits_once_after_the_idle_window_with_no_work`; not touching on active work fails `test_active_work_blocks_exit_and_restarts_the_window`; dropping the `teardown_request` hook fails `test_a_recent_request_blocks_exit`; treating `"0"` as valid fails `test_unset_or_invalid_idle_minutes_starts_nothing`; dropping the `has_pending_checks` half fails `test_has_active_work_sees_a_held_slot_and_a_pending_check`.
+
+Edited existing tests: none. Added: `tests/test_idle_exit.py` (12 cases).
+
+Validation: `pytest -q` -- **2966 passed**.
+
 ### 2026-10-27 - Expose held job slots and pending release checks
 
 Side task, no batch tag: Task 1 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. The owner wants the web machine to stop itself when idle while the DB machine stays on, so an idle watchdog needs one place to ask whether any background work is running. `worker.active_job_slots()` returns the number of held job slots (the semaphore's free count subtracted from `MAX_ACTIVE_JOBS`); `release_checks.has_pending_checks()` is True while `_JOB_QUEUE.unfinished_tasks` is above zero, because the correction worker outlives the slot of the job that queued it. Neither changes existing behaviour.
@@ -219,15 +229,3 @@ Deviations: none. Red proofs used scratch edits, restored byte-identical: base.h
 Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
 
 Validation: `pytest -q` -- **2953 passed**.
-
-### 2026-10-25 - Make two vacuous domain checks honest
-
-Side task, no batch tag: make two vacuous domain checks honest, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: test for the intended function, not the written function; one test per intended behaviour. `test_normalize_name_unicode_preserved` promised that non-Latin text survives but assigned `album` and never asserted it, and its input was one accented artist; it now asserts exact equality on both halves with accented Latin names (Bjork/Debut, Sigur Ros/Agaetis Byrjun, with their diacritics), so an album-only ASCII strip fails it. In `test_cover_wash_index_is_stable_and_ignores_spelling_noise` the loop that called the pure function five times could not fail unless `cover_wash_index` kept call-count state; it is deleted and the docstring no longer promises repetition, since `test_cover_wash_index_is_pinned_across_processes` guards stability.
-
-Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left as is.
-
-Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
-
-Validation: `pytest -q` -- **2954 passed**.
