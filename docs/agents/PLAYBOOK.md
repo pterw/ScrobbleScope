@@ -208,14 +208,12 @@ Owner ruling: findings rotate out as soon as docsync runs, not at batch close-ou
 
 Deviations: the brief's "(Rule 7)" reference is dropped, because no AGENTS.md rule states that principle. No code or test change; the test count is unchanged.
 
-### 2026-10-25 - Make two vacuous service checks honest
+### 2026-10-27 - The pointer-list and slot-leak findings are filed
 
-Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
+Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, a branch off `main`.
 
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The stale-cache cleanup test only checked that some positive integer was passed, so a cleanup using the 365-day original-release TTL, or one that deleted fresh rows instead of stale ones, still passed; it now patches the TTL to 17 and asserts the whole normalized DELETE statement and `ttl == 17`. The out-of-bounds timestamp test only checked that the 2020 artist was absent, so a window that dropped every play passed; it now asserts the eligible artists are exactly `["Artist Y"]`, with a play count of 10 and no exclusions. `test_album_metadata_carries_its_provider_and_url` only read back the fields of a frozen dataclass it had just built, and the stored-row siblings already pin provider and url; it is deleted.
+- **Filed F-DOCSYNC-24 at P3.** The "Deferred / future-batch candidates" list mixes item 4 pointers (promoted or absorbed findings) with a resolved record, F-B18-12, that docsync never parses and that has no archived body. Checked before writing: the list has eleven bullets, not twelve, and F-FEATURE-2 is a pointer in the next section ("Feature preparation notes"), not in that list. The finding states the corrected counts.
+- **Filed F-B23-65 at P3.** `admit()` in `scrobblescope/routes/admission.py` calls `jobs.create(params)` (line 47) after taking a slot (line 44) and outside its `try`, so a raise there leaks the slot. With the in-memory store little in `jobs.create` can raise, so the finding says so.
+- **Scope:** documentation only. No code, test or gate changed, and no existing finding or pointer bullet was edited. Both are proposals, not built.
 
-Deviations: none. `test_a_missing_correction_table_names_the_migration` and `test_original_release_lookup_without_a_connection_skips_the_query` are left as they are (the first is pinned exactly in `test_failure_logging.py`, the second by `assert_not_awaited`). Red proofs used scratch edits, restored byte-identical: `cleanup_stale_metadata` passing `ORIGINAL_RELEASE_TTL_DAYS` (`assert 365 == 17`), `Window.contains` always False (empty result, no `Artist Y`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
-
-Validation: `pytest -q` -- **2952 passed**.
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.

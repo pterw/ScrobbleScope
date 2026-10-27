@@ -9,6 +9,23 @@ Newest rotation first.
 
 ---
 
+### F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`) -- RESOLVED
+
+The "Album Filtering" pill is wider than "Heatmap" due to different text
+lengths and no `min-width` constraint. Owner flagged this after testing.
+CSS fix: add `min-width` to `.mode-pill` in `heatmap.css` so both pills
+are the same width. To be fixed in a Phase 2 WP.
+
+RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
+elements in a two-column grid, which also closes the `span[role="button"]`
+item in F-B21-5.
+
+- [x] **Status:** RESOLVED
+- **Completed:** 2026-08-25
+
+Source: `FINDINGS.md` before `494f2c7` ("pill tabs mismatched in width");
+the RESOLVED paragraph is the pointer bullet's own text, moved here.
+
 ### F-B23-59: Spotify album search takes the first result without checking the artist or title -- RESOLVED
 
 `search_for_spotify_album_id` (`scrobblescope/spotify.py`) sends `limit: 3` and returns `items[0].get("id")` with no artist or title check, where `search_deezer_album` (`scrobblescope/deezer.py`) accepts a candidate only when `normalize_name` of its artist and title equals that of the request. Real cases from the owner's runs: an album Spotify lacks got another album (Xiu Xiu "A Promise" got Captain Beefheart's "Safe As Milk", 1967), and a sibling ranked higher won ("audio stars" got "audio stars 2", "Basspunk" got "Basspunk 2", bassvictim's "?" got "Forever"). The wrong track list matches no scrobble, so `aggregate_albums` totals 0 seconds and the album shows "0 secs".
