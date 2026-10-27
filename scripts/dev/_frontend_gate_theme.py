@@ -8,6 +8,7 @@ stylesheet the browser never applied.
 
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from scripts.dev._frontend_gate_colour import (
@@ -763,20 +764,54 @@ def _plain_family(value: str | None) -> str:
     return (value or "").replace('"', "").replace("'", "").replace(" ", "")
 
 
-def headline_font_failures(drawn: str | None, page_family: str | None) -> list[str]:
-    """Judge the saved image's headline family against the page headline's.
+_FONT_SHORTHAND = re.compile(r"^\s*((?:\S+\s+)*?)[\d.]+px(?:/\S+)?\s+(.*)$", re.S)
+_NAMED_WEIGHTS = {"bold": "700", "normal": "400"}
+
+
+def _split_canvas_font(value: str) -> tuple[str | None, str]:
+    """The weight and the family list of a canvas font string.
+
+    "600 26px degular, sans-serif" gives ("600", "degular, sans-serif"). A
+    string with no size is taken to be a bare family list, with no weight.
+    """
+    match = _FONT_SHORTHAND.match(value)
+    if not match:
+        return None, value
+    weight = "400"
+    for token in match.group(1).split():
+        if token.isdigit():
+            weight = token
+        elif token in _NAMED_WEIGHTS:
+            weight = _NAMED_WEIGHTS[token]
+    return weight, match.group(2)
+
+
+def headline_font_failures(
+    drawn: str | None,
+    page_family: str | None,
+    page_weight: str | None = None,
+) -> list[str]:
+    """Judge the saved image's headline font against the page headline's.
 
     The canvas names its font in a string of its own, so it kept drawing
-    Instrument Serif after the page moved to Orpheus Pro (2026-10-22).
+    Instrument Serif after the page moved to Orpheus Pro (2026-10-22). The
+    family list and, when the page weight is given, the weight must match.
     """
     if not drawn:
         return ["saved heatmap header records no headline font"]
-    if _plain_family(drawn) != _plain_family(page_family):
-        return [
+    weight, family = _split_canvas_font(drawn)
+    failures = []
+    if _plain_family(family) != _plain_family(page_family):
+        failures.append(
             f"saved heatmap headline is set in {drawn!r}, "
             f"the page headline in {page_family!r}"
-        ]
-    return []
+        )
+    if page_weight and weight and weight != page_weight:
+        failures.append(
+            f"saved heatmap headline is drawn at weight {weight}, "
+            f"the page headline at {page_weight}"
+        )
+    return failures
 
 
 def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
@@ -821,8 +856,8 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
                     pageHeadline: headline?.textContent.trim(),
                     pageHeadlineFont: headline
                         ? getComputedStyle(headline).fontFamily : null,
-                    drawnHeadlineFont: model?.headlineFont
-                        ? model.headlineFont.replace(/^\\s*[\\d.]+px\\s+/, '') : null,
+                    pageHeadlineWeight: headline
+                        ? getComputedStyle(headline).fontWeight : null,
                     pageEyebrow: eyebrow?.textContent.trim(),
                     username: document.querySelector('.heatmap-headline-username')
                         ?.textContent.trim(),
@@ -855,7 +890,11 @@ def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
             f"saved heatmap headline drops the username {state['username']!r}"
         )
     failures.extend(
-        headline_font_failures(state["drawnHeadlineFont"], state["pageHeadlineFont"])
+        headline_font_failures(
+            model.get("headlineFont"),
+            state["pageHeadlineFont"],
+            state["pageHeadlineWeight"],
+        )
     )
     # The saved legend is a bare gradient without its captions: nothing in the
     # image then says which end of the ramp means more listening.

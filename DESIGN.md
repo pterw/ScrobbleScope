@@ -33,15 +33,15 @@ colors:
   bad-dark: "#e07070"
 typography:
   display:
-    fontFamily: "orpheuspro, instrument-serif, Georgia, serif"
+    fontFamily: "degular, akzidenz-grotesk-next-pro, sans-serif"
     fontSize: "2rem"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: 1.05
-    letterSpacing: "0"
+    letterSpacing: "-0.015em"
   headline:
-    fontFamily: "orpheuspro, instrument-serif, Georgia, serif"
+    fontFamily: "degular, akzidenz-grotesk-next-pro, sans-serif"
     fontSize: "1.5rem"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: 1.15
   title:
     fontFamily: "akzidenz-grotesk-next-pro, ui-sans-serif, sans-serif"
@@ -106,7 +106,7 @@ The visual language rejects cool, clinical SaaS greys, loud neon gradients, boun
 
 **Key Characteristics:**
 - **Warm Archival Ground:** Cream paper (`#faf7f0`) in light mode; deep purple-tinged obsidian (`#0e0c12`) in dark mode.
-- **Strict Typographic Role Separation:** Literary serif for editorial words, geometric sans for structural chrome, tabular mono for parameters, and sculpted figures for numeric magnitude.
+- **Strict Typographic Role Separation:** Degular for editorial words, geometric sans for structural chrome, tabular mono for parameters, and sculpted figures for numeric magnitude.
 - **Hairline Architecture:** Structural containment achieved through 1px borders and tonal ground shifts rather than drop shadows.
 - **Restrained Velvet Accent:** Royal velvet purple (`#6a4baf` / `#b39dde`) applied with extreme parsimony to direct attention.
 - **Dense, Traceable Data:** Every metric, ranking, exclusion, and heatmap cell is readable, verifiable, and grounded in listener evidence.
@@ -145,25 +145,25 @@ The palette draws from classic printing inks and warm archival paper, accented b
 
 Type is served by Adobe Fonts kit `rwy8ghw`. Five distinct families each perform a single, non-negotiable duty.
 
-**Display Font:** `orpheuspro` (Orpheus Pro; `instrument-serif`, then Georgia, serif, as fallback)
+**Display Font:** `degular` (Degular, weight 600; `akzidenz-grotesk-next-pro`, then sans-serif, as fallback)
 **UI Body & Chrome Font:** `akzidenz-grotesk-next-pro` (ui-sans-serif, system-ui fallback)
 **Figure Font:** `gotham` (ui-sans-serif fallback, Book weight only)
 **Code & Data Mono:** `input-mono` (ui-monospace, monospace fallback)
 **Eyebrow & Label Mono:** `input-mono-narrow` ("input-mono", monospace fallback)
 
-**Character:** The pairing of an expressive literary serif with clinical Swiss grotesque and technical mono evokes a vintage monograph or catalog raisonee.
+**Character:** The pairing of a confident geometric display sans with clinical Swiss grotesque and technical mono evokes a vintage monograph or catalog raisonee.
 
 ### Hierarchy
-- **Display** (400 weight, `2rem` to `3rem`, line-height `1.05`, tracking `0`; the empty-state titles keep `-0.01em`): Editorial hero phrases and main page banners (`orpheuspro`).
-- **Headline** (400 weight, `1.5rem`, line-height `1.15`): Section headings and mode titles (`orpheuspro`).
+- **Display** (600 weight, `2rem` to `3rem`, line-height `1.05`, tracking `-0.015em`): Editorial hero phrases and main page banners (`degular`).
+- **Headline** (600 weight, `1.5rem`, line-height `1.15`, tracking `-0.015em`): Section headings and mode titles (`degular`).
 - **Title** (700 weight, `1rem`, line-height `1.25`): Card titles, form section labels, and modal headers (`akzidenz-grotesk-next-pro`).
 - **Body** (400 weight, `1rem`, line-height `1.5`): Paragraph descriptions, documentation, and error explanations (`akzidenz-grotesk-next-pro`). Max measure 65–75ch.
 - **Label / Eyebrow** (400 weight, `0.75rem` / 12px, line-height `1`, tracking `0.12em`, uppercase): Metadata tags, field labels, table headers, and status flags (`input-mono-narrow`).
 - **Figure Numerals** (400 weight, `1.125rem` to `2.5rem`, tabular): Large quantitative readouts, play counts, and hours listened (`gotham`).
 
 ### Named Rules
-**The Role Segregation Rule.** Gotham gets the numbers, Orpheus Pro gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight. One exception, the owner's choice (2026-10-22): the Results stat row sets all four values in Gotham Book with tabular figures, the Top Artist name included, so the row reads as one set of readouts.
-**The No-Medium Rule.** The Adobe kit serves weights 300, 400, and 700 only. Never use `font-weight: 500` or `font-weight: 600`. Hierarchy is established through scale, contrast, case, and tracking.
+**The Role Segregation Rule.** Gotham gets the numbers, Degular gets the words. They never compete for the same slot. Gotham is never used for UI chrome and never rendered at bold weight. One exception, the owner's choice (2026-10-22): the Results stat row sets all four values in Gotham Book with tabular figures, the Top Artist name included, so the row reads as one set of readouts.
+**The No-Medium Rule.** The kit serves Akzidenz-Grotesk Next, Gotham and the monos at 300, 400, and 700 only, so never use `font-weight: 500` or `font-weight: 600` on them. The one exception is Degular, which the kit serves at 400 and 600 and which sets every heading at 600. Hierarchy is established through scale, contrast, case, and tracking.
 **The Narrow Eyebrow Rule.** Anything letterspaced in uppercase between 9px and 12px must use `input-mono-narrow` to eliminate horizontal crowding and prevent field hint clipping.
 
 ## Layout
@@ -172,7 +172,7 @@ The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at
 
 ### Desktop & Mobile Grid
 - **Desktop Index Stage:** Asymmetric two-column composition (`3fr 4fr`). The left hero stage hosts the editorial title and brand lockup with generous padding (`3.5rem`). The right sunken well hosts the configuration form (capped at `27.5rem` base, positioned up to `2.5rem` above centre with header clearance).
-- **Index Hero Strip:** Under the lede, each mode has a three-column strip: a serif term with a line icon over one plain description, divided by hairline rules. One container query turns the strip into rows when its column is narrower than 26 term widths (`26em`). The strip is hidden below `860px`. The lede is capped at `48ch` and wrapped `pretty`.
+- **Index Hero Strip:** Under the lede, each mode has a three-column strip: a display term with a line icon over one plain description, divided by hairline rules. One container query turns the strip into rows when its column is narrower than 26 term widths (`26em`). The strip is hidden below `860px`. The lede is capped at `48ch` and wrapped `pretty`.
 - **Loading Stats:** Scrobbles and Pages fetched, then Cache hits and Albums to search (together the albums that passed the thresholds). Each rises into place on arrival. The finished page replaces itself (`location.replace`), so Back reaches the form.
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
 - **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
@@ -248,7 +248,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 ## Do's and Don'ts
 
 ### Do:
-- **Do** use `orpheuspro` strictly for display words and `gotham` strictly for display numbers (the Results stat row's Top Artist name is the one exception).
+- **Do** use `degular` strictly for display words and `gotham` strictly for display numbers (the Results stat row's Top Artist name is the one exception).
 - **Do** author all font sizes, line heights, and layout spacing in `rem` units.
 - **Do** preserve 4.5:1 text contrast for all muted copy (`#6c6676` light, `#908a9a` dark).
 - **Do** keep cards and panels flat at rest with 1px hairline borders.

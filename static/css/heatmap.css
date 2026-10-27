@@ -338,9 +338,11 @@
 .heatmap-headline {
   margin-top: 0;
   margin-bottom: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(1.625rem, 3.75vw, 3rem);
-  font-weight: var(--font-weight-normal);
+  font-weight: 600;
+  font-style: normal;
+  letter-spacing: -0.015em;
   line-height: 1.15;
   color: var(--color-base-content);
   overflow-wrap: anywhere;

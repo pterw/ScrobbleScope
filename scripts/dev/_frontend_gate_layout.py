@@ -24,8 +24,7 @@ FONTS_READY_EXPRESSION = "document.fonts.ready"
 #: Every family in the configured Adobe Fonts kit that the design system uses.
 REQUIRED_FONT_FAMILIES = (
     "akzidenz-grotesk-next-pro",
-    "orpheuspro",
-    "instrument-serif",
+    "degular",
     "gotham",
     "input-mono",
     "input-mono-narrow",
@@ -210,7 +209,7 @@ def check_fonts(page, base_url: str) -> list[str]:
     page then falls back silently with no error anywhere.
 
     Owner ruling 2026-09-07: a missing face is advisory, not blocking. The
-    page's own fallback stacks (corporate-a, orator-std, ...) are acceptable
+    page's own fallback stacks (orator-std, ...) are acceptable
     rendering, and a hard gate here made the whole run red whenever the
     fixture or the kit served no face -- which is a font-supply problem, not
     a UI defect. The failures still print so font-supply regressions stay

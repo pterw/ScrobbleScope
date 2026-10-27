@@ -580,6 +580,20 @@
    * reader is on a phone. This saves whatever layout is on screen.
    */
   function saveHeatmapImage() {
+    // The canvas draws at once, so the heading face must be loaded first or
+    // the saved image would fall back to another family.
+    var loading = document.fonts && document.fonts.load
+      ? document.fonts.load('600 26px ' + displayFamily())
+      : Promise.resolve();
+    loading.catch(function () {}).then(drawHeatmapImage);
+  }
+
+  function displayFamily() {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-display').trim();
+  }
+
+  function drawHeatmapImage() {
     var svg = gridContainer ? gridContainer.querySelector('svg') : null;
     if (!svg) return;
 
@@ -612,11 +626,11 @@
     // one ink. The export follows it, in the page's order and wording.
     var header = exportHeaderModel();
     ctx.fillStyle = resolvedColour('--color-base-content');
-    // The page's display serif, read from its token, so the saved image
+    // The page's heading face, read from its token, so the saved image
     // follows the page instead of naming a family of its own (it drew
-    // Instrument Serif after the page moved to Orpheus Pro, 2026-10-22).
-    ctx.font = '26px ' + getComputedStyle(document.documentElement)
-      .getPropertyValue('--font-serif').trim();
+    // Instrument Serif after the page moved to Orpheus Pro, then to Degular
+    // 600 on 2026-10-27).
+    ctx.font = '600 26px ' + displayFamily();
     var headlineFont = ctx.font;
     ctx.fillText(header.headline, EXPORT_PAD, EXPORT_PAD + 26);
 

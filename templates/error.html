@@ -26,7 +26,7 @@
             </div>
             {% endif %}
 
-            <h1 class="font-serif {{ 'text-display-lg mb-2' if empty_state|default(false) else 'text-display mb-3' }}">
+            <h1 class="font-display {{ 'text-display-lg mb-2' if empty_state|default(false) else 'text-display mb-3' }}">
                 {{ error|default('Error') }}
                 {% if show_status_code|default(true) %}
                 <span class="error-code">{{ status_code|default('400') }}</span>

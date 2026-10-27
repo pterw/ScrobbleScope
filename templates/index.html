@@ -42,14 +42,14 @@
       <div class="index-hero__copy">
         <div data-mode-hero="album" class="index-hero__mode-copy{% if initial_mode != 'heatmap' %} is-active{% endif %}"
              aria-hidden="{{ 'true' if initial_mode == 'heatmap' else 'false' }}">
-          <h1 class="index-hero__headline">The albums you gave <em>the most hours.</em></h1>
+          <h1 class="index-hero__headline">The albums that owned <em>your year.</em></h1>
           <p class="eyebrow">Last.fm album filtering</p>
           <p class="index-hero__lede">ScrobbleScope ranks the albums you played most in a year, straight from your public Last.fm history. Keep that year's releases or any era, rank by plays or listening time, and see why any album was left out.</p>
         </div>
 
         <div data-mode-hero="heatmap" class="index-hero__mode-copy{% if initial_mode == 'heatmap' %} is-active{% endif %}"
              aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
-          <h1 class="index-hero__headline">Your 365 days <em>mapped by day.</em></h1>
+          <h1 class="index-hero__headline">A year of listening <em>by the day.</em></h1>
           <p class="eyebrow">Listening heatmap</p>
           <p class="index-hero__lede">See a year of listening at a glance: the weeks you played
             most, the quiet stretches between them, and how long your current streak runs. Each

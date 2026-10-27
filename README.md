@@ -178,7 +178,7 @@ next.
 | Backend | Python 3.13, Flask, Gunicorn | An application factory builds the app; Gunicorn serves it with one worker and four threads, because job state lives in that process's memory |
 | Background work | `threading`, `asyncio` | Each search runs on a daemon thread with its own event loop, so a slow provider never blocks a request |
 | Frontend | Jinja templates, vanilla JavaScript, Tailwind CSS 4, daisyUI 5 | No frontend framework and no build step to run the app: the compiled stylesheet is committed |
-| Typography | Adobe Fonts: Akzidenz-Grotesk Next, Orpheus Pro (Instrument Serif as its fallback), Gotham, Input Mono, Input Mono Narrow | Loaded from a kit in the page shell; the wordmark itself is outline geometry in an inline SVG |
+| Typography | Adobe Fonts: Akzidenz-Grotesk Next, Degular (600, for headings), Gotham, Input Mono, Input Mono Narrow | Loaded from a kit in the page shell; the wordmark itself is outline geometry in an inline SVG |
 | Music data | Last.fm, Spotify, Deezer, MusicBrainz | Last.fm supplies listening history; Spotify then Deezer supply album metadata; MusicBrainz corrects release years |
 | Async HTTP | `aiohttp`, `aiolimiter` | One pooled session per pipeline run, with a process-wide rate limiter and a retry helper per provider |
 | Database | PostgreSQL through `asyncpg`, optional | Caches album metadata and original-release findings between runs; the app works without it |

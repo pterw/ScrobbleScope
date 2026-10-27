@@ -113,6 +113,28 @@ def test_single_and_double_quotes_are_the_same_headline_family() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "drawn",
+    ["600 26px degular, sans-serif", "italic bold 26px/1.2 degular, sans-serif"],
+)
+def test_a_canvas_font_with_style_weight_and_size_matches_on_family(
+    drawn: str,
+) -> None:
+    """ctx.font is recorded whole; only its family list is compared."""
+    assert headline_font_failures(drawn, "degular, sans-serif") == []
+
+
+@pytest.mark.parametrize(
+    "drawn", ["400 26px degular, sans-serif", "26px degular, sans-serif"]
+)
+def test_a_saved_headline_drawn_at_another_weight_is_reported(drawn: str) -> None:
+    failures = headline_font_failures(drawn, "degular, sans-serif", "600")
+
+    assert len(failures) == 1
+    assert "weight 400" in failures[0]
+    assert "600" in failures[0]
+
+
 @pytest.mark.parametrize("drawn", [None, ""])
 def test_a_saved_header_with_no_headline_font_is_reported(drawn: str | None) -> None:
     assert headline_font_failures(drawn, "orpheuspro, Georgia, serif") == [

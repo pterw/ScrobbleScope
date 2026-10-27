@@ -4,7 +4,6 @@
 @layer theme {
   :root, :host {
     --font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;
-    --font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;
     --font-mono: "input-mono", "orator-std", ui-monospace, monospace;
     --container-sm: 24rem;
     --container-md: 28rem;
@@ -39,6 +38,7 @@
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
+    --font-display: "degular", "akzidenz-grotesk-next-pro", sans-serif;
     --font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;
     --font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;
     --text-label-sm: 0.75rem;
@@ -1670,14 +1670,17 @@
   .align-middle {
     vertical-align: middle;
   }
+  .font-display {
+    font-family: var(--font-display);
+  }
   .font-mono {
     font-family: var(--font-mono);
   }
+  .font-mono-narrow {
+    font-family: var(--font-mono-narrow);
+  }
   .font-sans {
     font-family: var(--font-sans);
-  }
-  .font-serif {
-    font-family: var(--font-serif);
   }
   .text-2xl {
     font-size: var(--text-2xl);
@@ -1992,6 +1995,11 @@
   }
 }
 @layer base {
+  .font-display {
+    font-weight: 600;
+    font-style: normal;
+    letter-spacing: -0.015em;
+  }
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
