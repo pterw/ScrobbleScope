@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Restore the heading of the service-checks log entry
+
+Side task, no batch tag: restore a heading lost in this branch's first commit, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Codex found on PR #275 that the first commit removed the heading of the 2026-10-25 service-checks entry and left its body under the "Rotate findings" entry, so the entry was in neither PLAYBOOK.md nor the log archive. The heading is back above its body, as on `origin/main`; no other entry is touched. A scan of the PLAYBOOK entries found no other body without a heading.
+
+Deviations: none. Docs only; no code or test change; the test count is unchanged.
+
+### 2026-10-27 - Update the Last updated line in every commit that touches its file
+
+Side task, no batch tag: put the date rule in the commit checklist, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: always update the date when updates are made, in the findings and the other files that carry one. `AGENTS.md` "What to update after a WP or side-task commit" now has a bullet setting the `Last updated:` line of `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` to the commit's date in the same commit (docsync does not derive it; FINDINGS.md had sat at 2026-09-21 for five weeks). The bullet also records that the tracked test-module count is measured with `git ls-tree` and edited by hand because `--fix --test-count N` writes the test count only (F-DOCSYNC-23), and that a log entry's test count is written in bold. PLAYBOOK's `Date:` line is left alone pending an owner decision. The `docs/architecture/documentation-tooling.md` diagram label that still said rotation happens at close-out now says it happens at `--fix` once the record is checked.
+
+Deviations: `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` are not touched, so their date lines are unchanged (FINDINGS.md already reads 2026-10-27). No code or test change; the test count is unchanged.
+
+### 2026-10-27 - Rotate findings as soon as their record is checked
+
+Side task, no batch tag: say in the live policy text when findings rotate, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: findings rotate out as soon as docsync runs, not at batch close-out. The code already did this (`doc_state_sync.py --fix` plans the rotation and moves a finding whose active entry carries a checked `RESOLVED` or `NO ACTION` record with a valid `**Completed:**` date; `--check` reports a checked finding left in the active file as drift); only the policy text was stale. `AGENTS.md` "Finding-Writing Rules" (opening sentence and item 3), the `docs/agents/FINDINGS.md` rotation-policy header and `docs/architecture/documentation-tooling.md` now say so, and item 3 adds that the resolving commit writes the lifecycle record and nobody checks a box for another author's finding.
+
+Deviations: the brief's "(Rule 7)" reference is dropped, because no AGENTS.md rule states that principle. No code or test change; the test count is unchanged.
+
+### 2026-10-27 - The pointer-list and slot-leak findings are filed
+
+Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, a branch off `main`.
+
+- **Filed F-DOCSYNC-24 at P3.** The "Deferred / future-batch candidates" list mixes item 4 pointers (promoted or absorbed findings) with a resolved record, F-B18-12, that docsync never parses and that has no archived body. Checked before writing: the list has eleven bullets, not twelve, and F-FEATURE-2 is a pointer in the next section ("Feature preparation notes"), not in that list. The finding states the corrected counts.
+- **Filed F-B23-65 at P3.** `admit()` in `scrobblescope/routes/admission.py` calls `jobs.create(params)` (line 47) after taking a slot (line 44) and outside its `try`, so a raise there leaks the slot. With the in-memory store little in `jobs.create` can raise, so the finding says so.
+- **Scope:** documentation only. No code, test or gate changed, and no existing finding or pointer bullet was edited. Both are proposals, not built.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
 ### 2026-10-27 - F-B18-12 is archived with its recorded outcome
 
 Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/file-findings-docsync-24`.

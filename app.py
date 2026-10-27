@@ -177,6 +177,13 @@ def create_app():
     from scrobblescope.routes import bp
 
     application.register_blueprint(bp)
+
+    from scrobblescope.idle_exit import watch_from_env
+
+    watch = watch_from_env(os.environ)
+    if watch:
+        watch.attach(application)
+        watch.start()
     return application
 
 

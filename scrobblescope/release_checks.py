@@ -452,6 +452,11 @@ def _ensure_worker_started():
         _worker_thread.start()
 
 
+def has_pending_checks():
+    """Return True while a job is queued or its checks are still running."""
+    return _JOB_QUEUE.unfinished_tasks > 0
+
+
 def enqueue_release_check(job_id):
     """Queue *job_id* for correction checks. Returns True when it was queued.
 

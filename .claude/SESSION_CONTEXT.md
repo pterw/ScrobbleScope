@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-10-25
+Last updated: 2026-10-27
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-10-25
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **2952 passing** across 103 tracked test modules |
+| Tests | **2972 passing** across 104 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -47,7 +47,7 @@ Last updated: 2026-10-25
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **2952 passed**.
+- Latest validated test count: **2972 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -74,6 +74,7 @@ scrobblescope/
   deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
+  idle_exit.py              # idle watchdog: one thread; exits the app (SIGTERM to the gunicorn master, exit code 0) after IDLE_EXIT_MINUTES with no request and no work; off when unset
   release_status.py         # the release-check wire strings (CHECK_*, STATUS_*): the worker writes them, /api/release_checks and the Results page read them
   orchestrator/
     __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async, finish_album_job (the one publish step)
@@ -176,6 +177,7 @@ spotify.py       <- config, domain, enrichment, errors, utils
 deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
 release_status.py <- (leaf)
+idle_exit.py     <- release_checks, utils, worker
 musicbrainz.py   <- config, domain, errors, utils
 release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_status, unmatched, utils, worker
 orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)
@@ -299,7 +301,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (2952 tests)
+## 6. Test structure (2972 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

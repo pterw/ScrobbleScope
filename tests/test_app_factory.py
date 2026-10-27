@@ -168,3 +168,20 @@ def test_a_log_line_reaches_stdout_whole_when_its_encoding_is_legacy(tmp_path):
     assert probe in result.stdout.decode("utf-8")
     assert probe in result.stderr.decode("utf-8")
     assert b"Logging error" not in result.stderr
+
+
+@pytest.mark.parametrize(("minutes", "starts"), [("20", 1), (None, 0)])
+def test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set(minutes, starts):
+    env = {"IDLE_EXIT_MINUTES": minutes} if minutes else {}
+    with patch.dict(os.environ, env):
+        if minutes is None:
+            os.environ.pop("IDLE_EXIT_MINUTES", None)
+        with (
+            patch("scrobblescope.idle_exit.IdleWatch.start") as start,
+            patch("scrobblescope.idle_exit.IdleWatch.touch") as touch,
+        ):
+            application = create_app()
+            application.test_client().get("/")
+    assert start.call_count == starts
+    # A request through the returned app renews the watch only when it is attached.
+    assert (touch.call_count > 0) == bool(starts)

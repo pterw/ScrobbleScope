@@ -33,6 +33,42 @@ The omission is safe rather than silent: a job whose corrections cannot run is
 reported as `skipped` by `/api/release_checks`, so the results page says so
 instead of showing a correction that never arrived.
 
+## Idle exit
+
+`IDLE_EXIT_MINUTES` makes the app machine stop itself. `fly.toml` sets it to
+`"20"`: when no request has arrived and no job or release check has been
+active for 20 minutes, a watchdog thread (`scrobblescope/idle_exit.py`) sends
+SIGTERM to the gunicorn master, which exits with code 0. The machine's restart
+policy is `on-failure`, so code 0 leaves it stopped, and the next request
+starts it (`auto_start_machines = true`) after a cold start of a few seconds.
+
+Fly's own autostop is off on purpose (`auto_stop_machines = 'off'`). A job runs
+in a background thread with no inbound connection, and Fly's docs do not say
+whether that counts as load, so autostop could stop a machine mid-job. The app
+knows when it is idle; Fly does not.
+
+What an exit costs: jobs and results live in memory, so they are lost on exit
+(the database cache stays). The results lifetime therefore changes from
+`JOB_TTL_SECONDS` (2 hours) to the 20 idle minutes before the machine stops.
+A revisit after that shows the existing "We couldn't find your results. The
+processing may have expired. Please try again." page (or, for a saved session
+job, "Your previous results have expired. Run an album search to build a new
+ranking."), not a crash. The in-memory request cache and the Spotify token state clear
+too.
+
+`IDLE_EXIT_MINUTES` is production-only: it signals the gunicorn master, so do
+not set it for `python app.py`. `scrobblescope-db` is a separate app and is not
+affected.
+
+To turn the feature off, unset `IDLE_EXIT_MINUTES` or set it to `0`; nothing
+starts. Restore `auto_stop_machines = 'stop'` only if you want Fly's autostop
+back.
+
+Rollback: revert the `fly.toml` change (restore `auto_stop_machines = 'stop'`
+and `min_machines_running = 1`, delete the `[env]` `IDLE_EXIT_MINUTES` line),
+then `fly deploy -a scrobblescope`. The Python code can stay: with the variable
+unset nothing starts. No secret and no database change is involved.
+
 ## Where the config lives
 
 `fly.toml` and the `Dockerfile` stay at the repository root. Fly resolves the

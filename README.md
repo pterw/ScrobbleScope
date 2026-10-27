@@ -185,7 +185,7 @@ next.
 | Validation | pytest, Playwright, Ruff, pre-commit | Unit, service and route tests, plus a real-browser gate that serves the app and drives Chromium and Firefox |
 | Documentation checks | A typed integrity gate over the repository's own documents | Blocks a commit whose documents contradict each other or the code |
 | CI | GitHub Actions | The Quality Gate runs the suite with a coverage floor, the linters, the documentation checks and an advisory dependency audit |
-| Hosting | Fly.io ([fly.toml](fly.toml), [Dockerfile](Dockerfile)) | A single small shared-CPU machine; the release command initializes the cache schema |
+| Hosting | Fly.io ([fly.toml](fly.toml), [Dockerfile](Dockerfile)) | A single small shared-CPU machine that stops itself when idle and starts on the next request; the release command initializes the cache schema |
 
 Exact pinned versions are in [requirements.txt](requirements.txt) and
 [requirements-dev.txt](requirements-dev.txt); every dependency is pinned with

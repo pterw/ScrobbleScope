@@ -35,6 +35,7 @@ flowchart LR
         Enrichment[enrichment.py<br/>AlbumMetadata contract]
         ReleaseChecks[release_checks.py<br/>one correction worker,<br/>FIFO job queue]
         ReleaseStatus[release_status.py<br/>check and status strings]
+        IdleExit[idle_exit.py<br/>idle watchdog, exit code 0]
         MusicBrainzClient[musicbrainz.py]
         Cache[cache.py<br/>AlbumCache]
         Utils[utils.py]
@@ -84,6 +85,10 @@ flowchart LR
     AlbumRequest --> JobModule
     JobModule --> Errors
     App --> ApiLogging
+    App -.->|imported inside create_app| IdleExit
+    IdleExit --> Worker
+    IdleExit --> ReleaseChecks
+    IdleExit --> Utils
     Routes --> ReleaseStatus
     ReleaseChecks --> MusicBrainzClient
     ReleaseChecks --> Cache
@@ -142,7 +147,7 @@ flowchart LR
     classDef external fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef deploy fill:#e4eef7,stroke:#46739b,color:#1a1820
     class Templates,JS,CSS,Theme,BrowserState browser
-    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,ReleaseStatus,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Plays,Errors,AlbumRequest,Stats runtime
+    class App,Routes,Worker,JobModule,Album,Heatmap,Spotlight,Unmatched,LastFMClient,SpotifyClient,DeezerClient,Enrichment,ReleaseChecks,ReleaseStatus,IdleExit,MusicBrainzClient,Cache,Utils,ApiLogging,Domain,Plays,Errors,AlbumRequest,Stats runtime
     class Pages,APIs runtime
     class JobStore,RequestCache state
     class LastFMAPI,SpotifyAPI,DeezerAPI,MusicBrainzAPI,Postgres external
@@ -241,6 +246,14 @@ silent:
   and the ways one job's state can be raced. The worker and the album filter
   both read the release-window rule from `domain.py`, described in the
   release-date bullet above.
+- **The app stops itself when idle.** One watchdog thread (`idle_exit.py`)
+  signals the gunicorn master with SIGTERM once no request and no job or
+  correction has been active for `IDLE_EXIT_MINUTES`; the master shuts down
+  with exit code 0, which Fly's `on-failure` restart policy leaves stopped,
+  and the next request starts the machine. Fly's own autostop is off because
+  it cannot see background work. In-memory jobs and results end with the
+  process, so their lifetime is the idle window, not the 2-hour expiry. See
+  `DEPLOY.md` "Idle exit".
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track
