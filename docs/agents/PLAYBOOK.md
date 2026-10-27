@@ -184,6 +184,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Correct the tracked test-module count to 104
+
+Side task, no batch tag, on `feat/fly-idle-exit`. Task 2 added `tests/test_idle_exit.py`, so `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` gives 104, but `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` still said 103 tracked test modules. Both now say 104 (the module count is hand-edited; `--fix --test-count` writes only the test count). `config/docsync.toml` `[test_count] pinned` already equals `pytest --collect-only -q` (2970). No other live doc states the module count. Docs only.
+
+Validation: `pytest --collect-only -q` -- **2970 passed** (collected, unchanged).
+
 ### 2026-10-27 - Harden the idle watchdog tests and log a dead watchdog
 
 Side task, no batch tag: fix round on Task 2 of the Fly idle-exit plan (review rulings R-2.1 to R-2.4), on `feat/fly-idle-exit`. `IdleWatch.run` now logs an exception from the watchdog loop with `logger.exception`, because a silent thread death would leave the machine running all day. The tests now start the fake clock at 1000 (so an initial `_last_activity = 0` fails), call `step()` from inside a request after the window has passed (so the `before_request` hook is needed), check that `IDLE_EXIT_MINUTES=20` means one second short of 20 minutes does not exit and 20 minutes does (a minutes-as-seconds error would stop the machine 20 seconds after a request), and check that `stop_gunicorn` sends SIGTERM to the parent pid.
@@ -213,15 +219,3 @@ Red proofs (one planted defect each): not remembering the exit fails `test_exits
 Edited existing tests: none. Added: `tests/test_idle_exit.py` (12 cases).
 
 Validation: `pytest -q` -- **2966 passed**.
-
-### 2026-10-27 - Expose held job slots and pending release checks
-
-Side task, no batch tag: Task 1 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. The owner wants the web machine to stop itself when idle while the DB machine stays on, so an idle watchdog needs one place to ask whether any background work is running. `worker.active_job_slots()` returns the number of held job slots (the semaphore's free count subtracted from `MAX_ACTIVE_JOBS`); `release_checks.has_pending_checks()` is True while `_JOB_QUEUE.unfinished_tasks` is above zero, because the correction worker outlives the slot of the job that queued it. Neither changes existing behaviour.
-
-Exit-code probe (run before this task): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" then "Shutting down: Master", last line `EXIT=0`, so a clean master shutdown leaves the `on-failure` machine stopped.
-
-Red proofs: `active_job_slots` returning a constant 0 fails `test_active_job_slots_counts_the_slots_held` (`assert 0 == 1`); `has_pending_checks` using `qsize()` instead of `unfinished_tasks` fails `test_pending_checks_stay_true_while_a_queued_job_is_running` at the "job taken, not done" step.
-
-Edited existing tests: none. Added: `test_active_job_slots_counts_the_slots_held` in `tests/test_worker.py`; `test_pending_checks_stay_true_while_a_queued_job_is_running` in `tests/services/test_release_checks.py`.
-
-Validation: `pytest -q` -- **2954 passed** (2874 passed with `-m "not browser"`).

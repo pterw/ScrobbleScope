@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Expose held job slots and pending release checks
+
+Side task, no batch tag: Task 1 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. The owner wants the web machine to stop itself when idle while the DB machine stays on, so an idle watchdog needs one place to ask whether any background work is running. `worker.active_job_slots()` returns the number of held job slots (the semaphore's free count subtracted from `MAX_ACTIVE_JOBS`); `release_checks.has_pending_checks()` is True while `_JOB_QUEUE.unfinished_tasks` is above zero, because the correction worker outlives the slot of the job that queued it. Neither changes existing behaviour.
+
+Exit-code probe (run before this task): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" then "Shutting down: Master", last line `EXIT=0`, so a clean master shutdown leaves the `on-failure` machine stopped.
+
+Red proofs: `active_job_slots` returning a constant 0 fails `test_active_job_slots_counts_the_slots_held` (`assert 0 == 1`); `has_pending_checks` using `qsize()` instead of `unfinished_tasks` fails `test_pending_checks_stay_true_while_a_queued_job_is_running` at the "job taken, not done" step.
+
+Edited existing tests: none. Added: `test_active_job_slots_counts_the_slots_held` in `tests/test_worker.py`; `test_pending_checks_stay_true_while_a_queued_job_is_running` in `tests/services/test_release_checks.py`.
+
+Validation: `pytest -q` -- **2954 passed** (2874 passed with `-m "not browser"`).
+
 ### 2026-10-25 - Make two vacuous service checks honest
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
