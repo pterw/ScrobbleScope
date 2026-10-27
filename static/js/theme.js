@@ -1,6 +1,6 @@
 // static/js/theme.js
 // Shared behaviour loaded via base.html for every page.
-// Handles: theme toggle persistence, back-to-top smooth scroll.
+// Handles: theme toggle persistence, pause-animations toggle, back-to-top smooth scroll.
 (function () {
     // One write: data-theme on <html>, which daisyUI and shell.css both key
     // on. WP-8 retired the second write, `.dark-mode` on <body>, with the
@@ -52,6 +52,38 @@
             } catch (error) {
                 // Storage can throw in private mode. The theme still applies for
                 // this page view; it just will not survive a reload.
+            }
+        });
+    }
+
+    // Pause-animations button. The inline script in base.html already set
+    // data-motion before first paint, so the label follows the element.
+    const motionToggle = document.querySelector('.motion-toggle');
+    if (motionToggle) {
+        const root = document.documentElement;
+        const syncMotionToggle = function () {
+            const still = root.getAttribute('data-motion') === 'still';
+            motionToggle.setAttribute('aria-pressed', still ? 'true' : 'false');
+            motionToggle.textContent = still ? 'Play animations' : 'Pause animations';
+        };
+        syncMotionToggle();
+        motionToggle.addEventListener('click', function () {
+            const still = root.getAttribute('data-motion') !== 'still';
+            if (still) {
+                root.setAttribute('data-motion', 'still');
+            } else {
+                root.removeAttribute('data-motion');
+            }
+            syncMotionToggle();
+            try {
+                if (still) {
+                    localStorage.setItem('ss-motion', 'still');
+                } else {
+                    localStorage.removeItem('ss-motion');
+                }
+            } catch (error) {
+                // Storage can throw in private mode. The pause still applies
+                // for this page view; it just will not survive a reload.
             }
         });
     }

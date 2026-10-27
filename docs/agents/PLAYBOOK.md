@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Add a pause-animations footer control
+
+Side task, no batch tag: UI audit v6 row 3, a pause-animations footer control, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 3): the header mark's bar animation can be paused (WCAG 2.2.2). A `.motion-toggle` button is the first child of `.page-footer-extras` in `templates/base.html` and reads "Pause animations" / "Play animations" with `aria-pressed`. `static/js/theme.js` toggles `data-motion="still"` on `<html>`, syncs the label from that attribute on load and persists the choice in localStorage `ss-motion` (write and remove in a try). The pre-paint script in `base.html` reads `ss-motion` in its own try so a paused page never flashes the animation. `static/css/shell.css` sets `animation: none` on the header mark's bars under `[data-motion="still"]`; the loading-page pinwheel is untouched. Under `prefers-reduced-motion` the bars are already still and the button keeps showing the stored state. The `.page-footer-extras:empty` rule is removed because the wrapper now always holds the button. The focus ring is 2px solid `--shell-accent` with offset 2px, as the header toggle. Contrast: rest text 5.17:1 light and 5.82:1 dark, focus ring 6.06:1 light and 8.14:1 dark (min 5.17, max 8.14); nothing is Chromium-only.
+
+Deviations: (R3-F1) the README hover colour `--rocket-5` (#f0903a) is 2.24:1 on the light footer (#faf7f0), under the 4.5:1 contrast floor, so the contrast floor governs: light hover uses `--shell-accent` (#6a4baf, 6.06:1) and dark keeps `--rocket-5` (8.11:1). The header comment of `static/js/theme.js` also names the new toggle (R3-F2).
+
+Existing tests edited, by name: `test_every_page_wraps_its_footer_extras` (the button opens the wrapper) and `test_every_page_sets_the_theme_before_first_paint` (runs the inline script in node with fake storage; skips when node is missing) in `tests/test_template_shell.py`.
+
+Validation: `pytest -q` -- **2986 passed**.
+
 ### 2026-10-27 - Make the favicon follow the theme
 
 Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.
@@ -217,17 +229,5 @@ Owner intent: README row 6, no ellipses in the live status copy. Ruling U10 wide
 Deviations: none from the rulings. `tests/test_routes.py` is untouched: its "Working..." and "Fetching page 3..." are fixture strings passed to `jobs.advance`, not production copy. The `jobs.start` test uses the arbitrary message "Starting" instead of "Initializing heatmap...".
 
 Existing tests edited, by name: `test_create_returns_unique_ids_and_a_pristine_job` and `test_reset_returns_the_job_to_its_initial_state_and_keeps_params` in `tests/test_jobs.py`, `test_start_clears_stats_phase_and_error_and_sets_the_message` (message string), `test_progress_callback_sends_correct_percentages` and the other `TestFetchAndProcessHeatmap` message asserts in `tests/test_heatmap.py`, `test_fetch_and_process_passes_progress_cb_to_lastfm` in `tests/services/test_orchestrator_fetch_and_process.py`, `test_fetch_spotify_misses_reports_search_progress`, `test_fetch_spotify_misses_reports_batch_progress` and `test_deezer_fallback_reports_progress_inside_its_band` in `tests/services/test_orchestrator_fetch_spotify.py` (full-message equality), and `test_a_failed_run_with_no_retry_still_says_the_results_page_opens` in `tests/frontend/test_heatmap_pure_functions.py`.
-
-Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Rewrite the unmatched page headline and threshold header
-
-Side task, no batch tag: UI audit v6 row 5, the unmatched page headline, subtitle, group description and threshold column header, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the unmatched page headline says what happened to the albums (ruling U13): "Albums left out of <user>'s results" when nothing is listed, "Unmatched albums in <user>'s results" when an Include unmatched run lists some (`listed_count` > 0), deciding "listed" from result rows, not reason codes. The subtitle is the year and the total, "<year> middle dot <n> albums, grouped by reason" ("album" for 1), in both cases, so the listed / left-out clause and its `left_out` arithmetic are gone; `.unmatched-total` stays as a styling hook. The "Not enough listening" group's count header reads "Plays/trk" on phones and "Plays middle dot tracks" from 768px up, one line each (rulings U15 and U17), with `aria-label="Plays and tracks"` on the `th` so a screen reader never reads "trk"; the two forms are sibling spans toggled by a plain `min-width: 768px` media query in `static/css/unmatched.css` (no Chromium-only CSS), and the column widens at 768px and up for that panel only, while the phone width is unchanged so the album-title floors in the frontend gate hold. Its description drops the year and singularises: "Below N play(s) or M unique track(s)." (ruling U16). Other groups' header stays "Plays".
-
-Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
-
-Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
 
 Validation: `pytest -q` -- **2978 passed**.

@@ -48,6 +48,18 @@
                     && window.matchMedia('(prefers-color-scheme: dark)').matches);
             document.documentElement.setAttribute(
                 'data-theme', dark ? 'dark' : 'light');
+
+            // The pause-animations choice is read the same guarded way, so
+            // a thrown read falls through to "running".
+            var motion = null;
+            try {
+                motion = localStorage.getItem('ss-motion');
+            } catch (error) {
+                /* No readable choice; the animations run. */
+            }
+            if (motion === 'still') {
+                document.documentElement.setAttribute('data-motion', 'still');
+            }
         })();
     </script>
 
@@ -114,8 +126,9 @@
     {# Page-specific JavaScript #}
     {% block scripts %}{% endblock %}
 
-    {# Optional page extras; keep one line so :empty collapses the wrapper. #}
-    <div class="page-footer-extras">{% block page_footer_extra %}{% endblock %}</div>
+    {# The pause-animations control (WCAG 2.2.2) opens the footer extras on
+       every page; theme.js wires it. A page adds its own after it. #}
+    <div class="page-footer-extras"><button type="button" class="motion-toggle" aria-pressed="false">Pause animations</button>{% block page_footer_extra %}{% endblock %}</div>
 
     {# Shared theme logic -- loads after the header toggle is in the DOM #}
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
