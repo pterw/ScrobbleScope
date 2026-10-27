@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Set display headings in Degular 600
+
+Side task, no batch tag: UI audit v6 row 1, headings in Degular 600 and two new hero headlines, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the heading face is Degular at weight 600, replacing Orpheus Pro (the serif is dropped), and the two hero headlines read "The albums that owned your year." (album mode) and "A year of listening by the day." (heatmap mode). `--font-display` replaces `--font-serif` in `static/css/tailwind.src.css`; every heading rule and the `font-display` utility use weight 600, roman, -0.015em; accent spans keep the primary colour and lose italics (including the results h1 username); the spotlight rank is roman mono. The saved heatmap draws its headline in the same face and waits for it to load. Deviations: the token is `"degular", "akzidenz-grotesk-next-pro", sans-serif` (ruling U2), because the Adobe kit serves `degular` and has no `degular-display`, unlike the README's row 1. The `templates/index.html` value site in `config/docsync.toml` is removed (U9) because the heatmap headline no longer states the window. The frontend gate reads the drawn font string (R1-F2, narrowed by R1-F5): `_frontend_gate_theme.py` ignores style, weight and size tokens when comparing families and compares the drawn weight with the headline's computed weight; a dropped `document.fonts.load` wait is not detectable from the string and stays unchecked. Removing Orpheus Pro from the Adobe kit is the owner's later step.
+
+Existing tests edited, by name: `tests/scripts/dev/test_tailwind_build_cli.py` (token line) and `tests/scripts/dev/test_frontend_gate_theme.py` (parametrized weighted and styled canvas font cases added).
+
+Validation: `pytest -q` -- **2976 passed**.
+
 ### 2026-10-27 - Log a dead watchdog through log_failure
 
 Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.

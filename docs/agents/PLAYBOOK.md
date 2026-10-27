@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Plan the listening streamgraph
+
+Side task, no batch tag: the streamgraph implementation plan, on `feat/ui-audit-v6-streamgraph`, a branch stacked on `feat/ui-audit-v6`.
+
+Owner intent: the owner asked for the plan with the writing-plans skill, in discrete slices with checkboxes. It is `docs/superpowers/plans/2026-10-27-streamgraph.md`: ten tasks in eight waves, each with files, interfaces, red/green steps and a Firefox probe.
+
+What changed and why: the plan went through three reviews; findings SP-F1..SP-F12 are recorded in the plan workspace, and the last three were wording Minors fixed without a fourth review. It is desktop only (owner ruling U18): the dark surfaces are declared on the heatmap frame, never on `:root`. No code changes; the plan is a point-in-time record.
+
+Deviations: none. Existing tests edited: none.
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Drop ellipses from progress and toast messages
 
 Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
@@ -217,13 +229,3 @@ Owner intent: the results h1 reads "<user>'s top albums of <year>", with the use
 Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
 
 Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Set display headings in Degular 600
-
-Side task, no batch tag: UI audit v6 row 1, headings in Degular 600 and two new hero headlines, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the heading face is Degular at weight 600, replacing Orpheus Pro (the serif is dropped), and the two hero headlines read "The albums that owned your year." (album mode) and "A year of listening by the day." (heatmap mode). `--font-display` replaces `--font-serif` in `static/css/tailwind.src.css`; every heading rule and the `font-display` utility use weight 600, roman, -0.015em; accent spans keep the primary colour and lose italics (including the results h1 username); the spotlight rank is roman mono. The saved heatmap draws its headline in the same face and waits for it to load. Deviations: the token is `"degular", "akzidenz-grotesk-next-pro", sans-serif` (ruling U2), because the Adobe kit serves `degular` and has no `degular-display`, unlike the README's row 1. The `templates/index.html` value site in `config/docsync.toml` is removed (U9) because the heatmap headline no longer states the window. The frontend gate reads the drawn font string (R1-F2, narrowed by R1-F5): `_frontend_gate_theme.py` ignores style, weight and size tokens when comparing families and compares the drawn weight with the headline's computed weight; a dropped `document.fonts.load` wait is not detectable from the string and stays unchecked. Removing Orpheus Pro from the Adobe kit is the owner's later step.
-
-Existing tests edited, by name: `tests/scripts/dev/test_tailwind_build_cli.py` (token line) and `tests/scripts/dev/test_frontend_gate_theme.py` (parametrized weighted and styled canvas font cases added).
-
-Validation: `pytest -q` -- **2976 passed**.
