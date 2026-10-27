@@ -74,6 +74,7 @@ scrobblescope/
   deezer.py                 # fallback provider when Spotify cannot match or detail an album
   musicbrainz.py            # lookup_original_release (release-group first-release-date)
   release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
+  idle_exit.py              # idle watchdog: one thread; exits the app (SIGTERM to the gunicorn master, exit code 0) after IDLE_EXIT_MINUTES with no request and no work; off when unset
   release_status.py         # the release-check wire strings (CHECK_*, STATUS_*): the worker writes them, /api/release_checks and the Results page read them
   orchestrator/
     __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async, finish_album_job (the one publish step)
@@ -176,6 +177,7 @@ spotify.py       <- config, domain, enrichment, errors, utils
 deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
 release_status.py <- (leaf)
+idle_exit.py     <- release_checks, worker
 musicbrainz.py   <- config, domain, errors, utils
 release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_status, unmatched, utils, worker
 orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)

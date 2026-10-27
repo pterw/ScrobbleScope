@@ -13,13 +13,17 @@ primary_region = "yyz"
 [deploy]
   release_command = "python init_db.py"
 
+# The app stops itself when idle (see DEPLOY.md "Idle exit"), so Fly's own
+# autostop is off.
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 1
   processes = ['app']
+
+[env]
+  IDLE_EXIT_MINUTES = "20"
 
 [[vm]]
   cpu_kind = "shared"

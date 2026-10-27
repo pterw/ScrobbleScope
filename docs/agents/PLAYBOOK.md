@@ -184,6 +184,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Let the app machine stop itself when idle
+
+Side task, no batch tag: Task 4 of the Fly idle-exit plan, on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so `fly.toml` now has `auto_stop_machines = 'off'`, no `min_machines_running`, and `[env] IDLE_EXIT_MINUTES = "20"`; the app exits with code 0 after 20 idle minutes and the next request starts the machine. `[deploy]`, `[build]` and `[[vm]]` are unchanged, and the `scrobblescope-db` app is untouched. Docs: DEPLOY.md gains an "Idle exit" section (what it does, why autostop is off, the results lifetime change from 2 hours to the idle window, production-only, off switch, rollback); `docs/architecture/runtime-system.md` gains the `idle_exit.py` node, its edges and a design bullet; SESSION_CONTEXT Sections 3 and 4 list `idle_exit.py`; the README hosting row and the AGENT_NOTES `REQUEST_CACHE` line name the idle exit. Exit-code probe (run before Task 1): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" and "Shutting down: Master", and the last line was `EXIT=0`. Sweep of live documents for `min_machines_running`, `auto_stop_machines`, `always on`, `shared-cpu` and `machine sleep`: the only plain sibling copy was the AGENT_NOTES line; FINDINGS F-MAS-8 (title says "always-on machines") and the 2026-10-20 tranche spec are left as records.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2970 passed**.
+
 ### 2026-10-27 - Correct the tracked test-module count to 104
 
 Side task, no batch tag, on `feat/fly-idle-exit`. Task 2 added `tests/test_idle_exit.py`, so `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` gives 104, but `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` still said 103 tracked test modules. Both now say 104 (the module count is hand-edited; `--fix --test-count` writes only the test count). `config/docsync.toml` `[test_count] pinned` already equals `pytest --collect-only -q` (2970). No other live doc states the module count. Docs only.
@@ -209,13 +217,3 @@ Red proofs: the `"20"` case failed (`assert 0 == 1`) before the edit; calling `s
 Edited existing tests: none. Added: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` in `tests/test_app_factory.py` (2 cases).
 
 Validation: `pytest -q` -- **2968 passed**.
-
-### 2026-10-27 - Add the idle watchdog behind IDLE_EXIT_MINUTES
-
-Side task, no batch tag: Task 2 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so the new `scrobblescope/idle_exit.py` stops the app itself: `IdleWatch.step()` records activity while `has_active_work()` is true (a held job slot or a pending release check), and otherwise runs the exit action (SIGTERM to the gunicorn master, once) when the last request or work is older than the window. `attach(app)` touches the timer in `before_request` and `teardown_request`; `watch_from_env` returns None unless `IDLE_EXIT_MINUTES` is a positive integer (one warning for a negative or non-integer value). Nothing calls it yet: Task 3 starts it from the app factory.
-
-Red proofs (one planted defect each): not remembering the exit fails `test_exits_once_after_the_idle_window_with_no_work`; not touching on active work fails `test_active_work_blocks_exit_and_restarts_the_window`; dropping the `teardown_request` hook fails `test_a_recent_request_blocks_exit`; treating `"0"` as valid fails `test_unset_or_invalid_idle_minutes_starts_nothing`; dropping the `has_pending_checks` half fails `test_has_active_work_sees_a_held_slot_and_a_pending_check`.
-
-Edited existing tests: none. Added: `tests/test_idle_exit.py` (12 cases).
-
-Validation: `pytest -q` -- **2966 passed**.

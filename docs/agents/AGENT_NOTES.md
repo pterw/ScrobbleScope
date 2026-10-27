@@ -131,7 +131,8 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   on Windows, where Werkzeug's reloader otherwise breaks asyncpg; the reason
   lives in its docstring. The guard is Windows-only.
 - **In-memory `REQUEST_CACHE`** avoids re-fetching Last.fm for same-user/year
-  re-searches with different filters. Clears on Fly.io machine sleep. By design.
+  re-searches with different filters. Clears on Fly.io machine sleep, and the machine also exits after
+  `IDLE_EXIT_MINUTES` (20) idle minutes. By design.
 - **Spotify cache TTL:** a plain cache hit does not refresh `updated_at`; albums
   expire 30 days from last Spotify fetch regardless of access frequency (ToS
   compliant). An older row re-persisted after being stamped with its provider
