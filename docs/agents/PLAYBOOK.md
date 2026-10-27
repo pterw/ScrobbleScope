@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Harden the idle watchdog tests and log a dead watchdog
+
+Side task, no batch tag: fix round on Task 2 of the Fly idle-exit plan (review rulings R-2.1 to R-2.4), on `feat/fly-idle-exit`. `IdleWatch.run` now logs an exception from the watchdog loop with `logger.exception`, because a silent thread death would leave the machine running all day. The tests now start the fake clock at 1000 (so an initial `_last_activity = 0` fails), call `step()` from inside a request after the window has passed (so the `before_request` hook is needed), check that `IDLE_EXIT_MINUTES=20` means one second short of 20 minutes does not exit and 20 minutes does (a minutes-as-seconds error would stop the machine 20 seconds after a request), and check that `stop_gunicorn` sends SIGTERM to the parent pid.
+
+Red proofs (one planted defect each): `_last_activity = 0` fails `test_exits_once_after_the_idle_window_with_no_work`; deleting the `before_request` hook fails `test_a_recent_request_blocks_exit`; `IdleWatch(minutes)` fails `test_idle_minutes_are_minutes_not_seconds`; `os.getpid()` and `SIGKILL` each fail `test_stop_gunicorn_sends_sigterm_to_the_parent` (on this Windows host `signal.SIGKILL` does not exist, so that case fails with AttributeError).
+
+Edited existing tests: `FakeClock` start value, `test_exits_once_after_the_idle_window_with_no_work` (relative bound), `test_a_recent_request_blocks_exit` (in-request step), and `test_a_positive_idle_minutes_builds_a_watch` replaced by `test_idle_minutes_are_minutes_not_seconds`. Added: `test_stop_gunicorn_sends_sigterm_to_the_parent`, `test_a_dying_watchdog_thread_is_logged`.
+
+Validation: `pytest -q` -- **2970 passed**.
+
 ### 2026-10-27 - Start the idle watchdog from create_app
 
 Side task, no batch tag: Task 3 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. `create_app` now imports `watch_from_env` from `scrobblescope.idle_exit` after the blueprint is registered (deferred, like the blueprint import, so `load_dotenv` has run) and, when it returns a watch, calls `attach(application)` and `start()`. The watchdog is off unless `IDLE_EXIT_MINUTES` is a positive integer, so local runs, tests and CI never start a thread or exit; the suite never sets the variable.
@@ -215,15 +225,3 @@ Red proofs: `active_job_slots` returning a constant 0 fails `test_active_job_slo
 Edited existing tests: none. Added: `test_active_job_slots_counts_the_slots_held` in `tests/test_worker.py`; `test_pending_checks_stay_true_while_a_queued_job_is_running` in `tests/services/test_release_checks.py`.
 
 Validation: `pytest -q` -- **2954 passed** (2874 passed with `-m "not browser"`).
-
-### 2026-10-25 - Make two vacuous service checks honest
-
-Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The stale-cache cleanup test only checked that some positive integer was passed, so a cleanup using the 365-day original-release TTL, or one that deleted fresh rows instead of stale ones, still passed; it now patches the TTL to 17 and asserts the whole normalized DELETE statement and `ttl == 17`. The out-of-bounds timestamp test only checked that the 2020 artist was absent, so a window that dropped every play passed; it now asserts the eligible artists are exactly `["Artist Y"]`, with a play count of 10 and no exclusions. `test_album_metadata_carries_its_provider_and_url` only read back the fields of a frozen dataclass it had just built, and the stored-row siblings already pin provider and url; it is deleted.
-
-Deviations: none. `test_a_missing_correction_table_names_the_migration` and `test_original_release_lookup_without_a_connection_skips_the_query` are left as they are (the first is pinned exactly in `test_failure_logging.py`, the second by `assert_not_awaited`). Red proofs used scratch edits, restored byte-identical: `cleanup_stale_metadata` passing `ORIGINAL_RELEASE_TTL_DAYS` (`assert 365 == 17`), `Window.contains` always False (empty result, no `Artist Y`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
-
-Validation: `pytest -q` -- **2952 passed**.

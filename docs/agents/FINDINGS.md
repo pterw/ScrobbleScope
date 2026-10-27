@@ -1,9 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-21
+Last updated: 2026-10-27
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-2968 tests across 103 tracked test modules.
+2970 tests across 103 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an

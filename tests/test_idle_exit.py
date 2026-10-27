@@ -1,13 +1,20 @@
 """Tests for the idle watchdog: when the app stops itself and when it must not."""
 
 import logging
+import os
 import queue
+import signal
 
 import pytest
 from flask import Flask
 
-from scrobblescope import release_checks, worker
-from scrobblescope.idle_exit import IdleWatch, has_active_work, watch_from_env
+from scrobblescope import idle_exit, release_checks, worker
+from scrobblescope.idle_exit import (
+    IdleWatch,
+    has_active_work,
+    stop_gunicorn,
+    watch_from_env,
+)
 
 WINDOW = 600
 
@@ -16,7 +23,7 @@ class FakeClock:
     """A clock the test moves by hand; calling it reads the time."""
 
     def __init__(self):
-        self.now = 0.0
+        self.now = 1000.0
 
     def __call__(self):
         return self.now
@@ -46,7 +53,7 @@ def test_exits_once_after_the_idle_window_with_no_work():
     watch.run(sleep=sleep)
 
     assert len(exits) == 1
-    assert clock.now >= WINDOW
+    assert clock.now >= 1000.0 + WINDOW
     assert watch.step() is True
     assert watch.step() is True
     assert len(exits) == 1
@@ -83,8 +90,20 @@ def test_a_recent_request_blocks_exit():
         clock.advance(WINDOW - 10)
         return "slow"
 
+    inside = []
+
+    @app.route("/inside")
+    def inside_request():
+        inside.append(watch.step())
+        return "inside"
+
     watch.attach(app)
     client = app.test_client()
+
+    clock.advance(WINDOW + 5)
+    client.get("/inside")
+    assert inside == [False]
+    assert exits == []
 
     clock.advance(WINDOW - 10)
     client.get("/ok")
@@ -119,8 +138,44 @@ def test_unset_or_invalid_idle_minutes_starts_nothing(environ, warns, caplog):
     assert bool(caplog.records) is warns
 
 
-def test_a_positive_idle_minutes_builds_a_watch():
-    assert isinstance(watch_from_env({"IDLE_EXIT_MINUTES": "20"}), IdleWatch)
+def test_idle_minutes_are_minutes_not_seconds():
+    clock = FakeClock()
+    exits = []
+    watch = watch_from_env({"IDLE_EXIT_MINUTES": "20"})
+    watch._clock = clock
+    watch._work = lambda: False
+    watch._exit_action = lambda: exits.append(1)
+    watch.touch()
+
+    clock.advance(20 * 60 - 1)
+    assert watch.step() is False
+    assert exits == []
+
+    clock.advance(1)
+    assert watch.step() is True
+    assert len(exits) == 1
+
+
+def test_stop_gunicorn_sends_sigterm_to_the_parent(monkeypatch):
+    sent = []
+    monkeypatch.setattr(os, "getppid", lambda: 4242)
+    monkeypatch.setattr(os, "kill", lambda pid, sig: sent.append((pid, sig)))
+
+    stop_gunicorn()
+
+    assert sent == [(4242, signal.SIGTERM)]
+
+
+def test_a_dying_watchdog_thread_is_logged(caplog):
+    def boom():
+        raise RuntimeError("work check failed")
+
+    watch = IdleWatch(WINDOW, clock=FakeClock(), work=boom, exit_action=lambda: None)
+
+    with caplog.at_level(logging.ERROR, logger=idle_exit.logger.name):
+        watch.run(sleep=lambda _s: None)
+
+    assert [r.exc_info[0] for r in caplog.records] == [RuntimeError]
 
 
 @pytest.mark.parametrize(

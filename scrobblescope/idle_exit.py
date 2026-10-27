@@ -79,8 +79,11 @@ class IdleWatch:
 
     def run(self, sleep=time.sleep):
         """Step until the exit action has run, sleeping between steps."""
-        while not self.step():
-            sleep(IDLE_CHECK_INTERVAL_SECONDS)
+        try:
+            while not self.step():
+                sleep(IDLE_CHECK_INTERVAL_SECONDS)
+        except Exception:
+            logger.exception("Idle watchdog died; the server will not stop itself")
 
     def attach(self, app):
         """Count every request on ``app`` (start and end) as activity."""
