@@ -16,24 +16,19 @@
         <div class="unmatched-heading flex-1">
             <h1 class="results-headline font-display text-2xl sm:text-3xl md:text-4xl lg:text-[calc(2.5rem*var(--results-scale,1))] text-[var(--color-base-content)] mb-1 leading-tight">
                 {% if total_count %}
-                Albums that didn't match your filter for <span class="unmatched-headline__user not-italic text-[var(--color-base-content)]">{{ username }}</span>
+                {% if listed_count|default(0) %}Unmatched albums in{% else %}Albums left out of{% endif %} <span class="unmatched-headline__user not-italic text-[var(--color-base-content)]">{{ username }}</span>'s results
                 {% else %}
                 No unmatched albums to review
                 {% endif %}
             </h1>
-            {# The line under the headline mirrors the Results page's own (the
-               year, then "Ranked by play count"): the listening year, then the
-               one fact this page adds. It used to restate the filter, which the
-               bar directly below states again. #}
+            {# The line under the headline: the listening year, then the one
+               fact this page adds, how many albums there are and that they are
+               grouped by reason. The Results subtitle says what the page is
+               sorted by; this one says how it is organised. The headline says
+               whether the results list the albums; the line does not repeat it. #}
             <p class="unmatched-subtitle font-sans text-sm md:text-base font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
                 {% if total_count %}
-                {% set listed = listed_count|default(0) %}
-                {% set left_out = total_count - listed %}
-                {% if listed == 0 %}
-                {{ year }} · <span class="unmatched-total">{{ total_count }}</span> {{ 'album' if total_count == 1 else 'albums' }} left out of your results
-                {% else %}
-                {{ year }} · <span class="unmatched-total">{{ listed }}</span> {{ 'album' if listed == 1 else 'albums' }} listed in your results without a match{% if left_out > 0 %}, {{ left_out }} left out{% endif %}
-                {% endif %}
+                {{ year }} · <span class="unmatched-total">{{ total_count }}</span> {{ 'album' if total_count == 1 else 'albums' }}, grouped by reason
                 {% else %}
                 {{ (filter_desc|default('all releases'))|capitalize }} · Minimum {{ min_plays|default(0) }} plays and {{ min_tracks|default(0) }} unique tracks
                 {% endif %}
@@ -110,7 +105,7 @@
                         </h2>
                         <p class="font-sans text-xs text-[var(--ss-text-muted)] mt-1">
                             {% if reason_key == 'below_threshold' %}
-                            Played in {{ year }}, but below {{ min_plays }} plays or {{ min_tracks }} unique tracks.
+                            Below {{ min_plays }} {{ 'play' if min_plays == 1 else 'plays' }} or {{ min_tracks }} unique {{ 'track' if min_tracks == 1 else 'tracks' }}.
                             {% else %}
                             {{ meta.description|default('Albums excluded by filter criteria.') }}
                             {% endif %}
@@ -148,7 +143,11 @@
                             <th scope="col" class="py-3 px-3 md:px-4 text-center font-normal">#</th>
                             <th scope="col" class="py-3 px-3 md:px-4 font-normal">Album &amp; artist</th>
                             {# Only the threshold panel shows a track count. #}
-                            <th scope="col" class="py-3 px-3 md:px-4 text-right font-normal">{% if reason_key == 'below_threshold' %}Plays / tracks{% else %}Plays{% endif %}</th>
+                            {% if reason_key == 'below_threshold' %}
+                            <th scope="col" aria-label="Plays and tracks" class="py-3 px-3 md:px-4 text-right font-normal"><span class="unmatched-metric-short">Plays/trk</span><span class="unmatched-metric-long">Plays · tracks</span></th>
+                            {% else %}
+                            <th scope="col" class="py-3 px-3 md:px-4 text-right font-normal">Plays</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-[var(--ss-border-default)]">
