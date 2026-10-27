@@ -503,6 +503,10 @@ def test_expanded_measurement_opens_decade_scope_and_thresholds(monkeypatch) -> 
     ]
 
 
+MODE_SWITCH = {"albumTop": 191.0, "heatmapTop": 191.0}
+HEATMAP_FIRST = {"albumTop": 191.0, "heatmapTop": 191.0}
+
+
 def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
     """Run the scale-parity check with the 1920x1063 / 1920x700 expanded stubs."""
     module = _frontend_gate_layout
@@ -516,6 +520,10 @@ def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
     root_width = 27.5 * 20 * ((900 - header_px) / ((42.0625 + 4) * 20))
     state = {"dimensions": {}, "documentHeight": 2000, "viewportHeight": 945}
     monkeypatch.setattr(module, "_measure_expanded_placement", expanded)
+    monkeypatch.setattr(module, "_measure_mode_switch_shift", lambda *a: MODE_SWITCH)
+    monkeypatch.setattr(
+        module, "_measure_heatmap_first_shift", lambda *a: HEATMAP_FIRST
+    )
     last_window = []
 
     def scale_dimensions(_page, _url, _selectors, width, height):
@@ -580,6 +588,37 @@ def test_large_display_check_reports_the_window_that_misses_its_floor(
     assert len(failures) == 2
     assert "off-centre at 1920x1063" in failures[0]
     assert failures[1] == line
+
+
+@pytest.mark.parametrize(
+    ("heatmap_top", "failed"),
+    [(191.0, False), (191.9, False), (135.0, True), (304.0, True)],
+    ids=["no-shift", "within-tolerance", "moves-up", "moves-down"],
+)
+def test_mode_switch_must_stay_put_when_the_mode_changes(heatmap_top, failed) -> None:
+    measured = {"albumTop": 191.0, "heatmapTop": heatmap_top}
+
+    failures = _frontend_gate_layout._mode_switch_failures("1920x1063", measured)
+
+    assert bool(failures) is failed
+    assert all("1920x1063" in line for line in failures)
+
+
+@pytest.mark.parametrize(
+    "stub", [MODE_SWITCH, HEATMAP_FIRST], ids=["album-first", "heatmap-first"]
+)
+def test_large_display_check_reports_a_mode_switch_that_moves(
+    monkeypatch, stub
+) -> None:
+    def run() -> list[str]:
+        return _run_large_display_check(
+            monkeypatch, full=_expanded(gap=30, top=10), short=_expanded(gap=30, top=4)
+        )
+
+    baseline = run()
+    monkeypatch.setitem(stub, "heatmapTop", 304.0)
+
+    assert len(run()) == len(baseline) + 1
 
 
 def _all_named() -> dict:

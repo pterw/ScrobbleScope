@@ -348,6 +348,10 @@ html {
 @media (min-width: 860px) {
   .index-form__inner {
     margin-block: auto;
+    /* static/js/index.js sets --index-card-min to the default album form's
+       height, so the shorter heatmap form keeps the same height and the mode
+       switch stays put when the mode changes. */
+    min-height: var(--index-card-min, auto);
   }
 
   /* Measured placement keeps the requested upward bias without carrying

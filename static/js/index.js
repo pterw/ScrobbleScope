@@ -15,9 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   scope.addEventListener('change', () => {
+    const before = formTop();
     toggleReleaseOptions();
     updateDecadePills();
     updateFilterTags();
+    playFlip(before);
   });
 
   /* ---------- Username & year validation ---------- */
@@ -626,6 +628,79 @@ document.addEventListener('DOMContentLoaded', () => {
     formWell.style.setProperty('--index-form-top', `${top}px`);
     formWell.classList.add('is-positioned');
   }
+
+  /* ---------- Stable height and animated moves ---------- */
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const albumSection = document.getElementById('album-form-section');
+  const thresholds = document.querySelector('.disclosure');
+
+  const desktop = matchMedia('(min-width: 860px)');
+
+  /** Hold the composition at the default album form's height (desktop only).
+   * The heatmap form is shorter; without a floor the centred composition
+   * would move when the mode changes. Measured only in album mode with every
+   * field at its default, since any other state is not the reference height.
+   */
+  function syncFormMinHeight() {
+    formComposition.style.removeProperty('--index-card-min');
+    const isDefault = desktop.matches
+      && !albumSection.classList.contains('hidden')
+      && scope.value !== 'decade' && scope.value !== 'custom'
+      && !(thresholds && thresholds.open);
+    if (isDefault) {
+      formComposition.style.setProperty('--index-card-min', `${formComposition.getBoundingClientRect().height}px`);
+    }
+  }
+
+  // --index-scale is an unresolved expression, so a change in scale is read
+  // from the resolved width it produces. Crossing the desktop breakpoint
+  // changes the floor's meaning without changing the scale, so it re-syncs too.
+  let scaleKey = getComputedStyle(formComposition).maxWidth;
+  window.addEventListener('resize', () => {
+    const next = getComputedStyle(formComposition).maxWidth;
+    if (next === scaleKey) return;
+    scaleKey = next;
+    syncFormMinHeight();
+  });
+  desktop.addEventListener('change', syncFormMinHeight);
+  syncFormMinHeight();
+  document.fonts.ready.then(syncFormMinHeight);
+
+  // A page loaded on the Heatmap tab, or resized away from the default state,
+  // has no floor; take it the next time the default album state is on screen.
+  function restoreFormMinHeight() {
+    if (!formComposition.style.getPropertyValue('--index-card-min')) syncFormMinHeight();
+  }
+
+  const formTop = () => formComposition.getBoundingClientRect().top;
+
+  /** Slide the composition from where it was to where it now sits.
+   * `before` is its top read before the change; the change has been applied
+   * by the next frame, which is painted only after this callback, so the
+   * old position is never shown. Skipped under reduced motion: the layout is
+   * the same either way.
+   */
+  function playFlip(before) {
+    requestAnimationFrame(() => {
+      formComposition.getAnimations().forEach((running) => running.cancel());
+      restoreFormMinHeight();
+      positionForm();
+      const delta = before - formComposition.getBoundingClientRect().top;
+      if (!delta || reducedMotion.matches) return;
+      formComposition.animate(
+        [{ transform: `translateY(${delta}px)` }, { transform: 'none' }],
+        { duration: 220, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      );
+    });
+  }
+
+  // The mode switch and the thresholds summary change the layout after their
+  // click listeners (the mode handler lives in heatmap.js; the details element
+  // opens as the click's default action). A capture listener on the ancestor
+  // runs first, so it reads the old top.
+  formComposition.addEventListener('click', (event) => {
+    if (event.target.closest('.mode-pill, .disclosure__summary')) playFlip(formTop());
+  }, true);
 
   const placementObserver = new ResizeObserver(positionForm);
   placementObserver.observe(formComposition);

@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Keep the home form centred without the jump
+
+Side task, no batch tag: UI audit v6 row 2, keeping the home form centred without the jump, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 2): the form stack re-centred instantly on every height change, so the tabs jumped when the mode, the release scope or the thresholds changed. `static/css/index.css` gives `.index-form__inner` `min-height: var(--index-card-min, auto)`. `static/js/index.js` `syncFormMinHeight` measures the inner's height in the default album state (scope same/previous/all, thresholds closed) on load, after `document.fonts.ready`, after a resize that changes the resolved `max-width` and across the 860px breakpoint, and sets the floor only on desktop, so the Heatmap tab sits where the Album tab did. `playFlip` glides the remaining shift over 220ms (`translateY` to none, `cubic-bezier(.16, 1, .3, 1)`), skipped under reduced motion; it is triggered by the scope `change`, and by one capture-phase click listener for `.mode-pill` and `.disclosure__summary`. A page loaded in Heatmap mode re-measures the floor on its first switch to the album state. `scripts/dev/_frontend_gate_layout.py` gains `_measure_mode_switch_shift`, `_measure_heatmap_first_shift` and `_mode_switch_failures`, called from `check_large_display_scale_parity` at 1920x1063 (1px tolerance). No template or `heatmap.js` change; Firefox and Chromium both measured 0px; no new colour pairing.
+
+Deviations: (R2-F1) the `min-height` rule sits inside the existing `min-width: 860px` block, so phones never pad the heatmap form to the album height. (R2-F3) the FLIP triggers are the scope `change` plus the capture-phase click listener (instead of editing `heatmap.js`), and the floor is re-measured in `playFlip`'s frame callback so the tab, scope and disclosure paths all work after a Heatmap-first load.
+
+Existing tests edited, by name, in `tests/scripts/dev/test_frontend_gate_layout.py`: the helper `_run_large_display_check` (stubs the two new measurements). Added: `test_mode_switch_must_stay_put_when_the_mode_changes` and the parametrized `test_large_display_check_reports_a_mode_switch_that_moves` (album-first, heatmap-first).
+
+Validation: `pytest -q` -- **2992 passed**.
+
 ### 2026-10-27 - Drop the sort-change toast
 
 Side task, no batch tag: UI audit v6 row 9, dropping the sort-change toast, on `feat/ui-audit-v6`, a branch off `main`.
@@ -217,17 +229,5 @@ Owner intent (design README row 8, favicon option C): the favicon uses the site'
 Deviations: none.
 
 Existing tests edited, by name: `test_every_page_carries_the_shared_shell` in `tests/test_template_shell.py` (asserts the apple-touch link and both theme-color metas).
-
-Validation: `pytest -q` -- **2986 passed**.
-
-### 2026-10-27 - State the real total of a capped unmatched group
-
-Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent (ruling U12, which supersedes U4): a group that shows fewer albums than it holds says so, "Showing the first 500 of N", with N the real total and no hard-coded 500. `group_unmatched_albums_with_totals` in `scrobblescope/unmatched.py` returns the groups, counts, metadata and a `totals` dict holding only the groups that show fewer than they hold; the total is the pre-slice length, and for the below-threshold group the larger of that and the `albums_below_threshold` stat, which `plays.select_albums` takes before its exclusion cap and which already reaches `progress.stats`, so the orchestrator is unchanged. `group_unmatched_albums` keeps its 3-tuple by delegating. `_render_unmatched_page` in `scrobblescope/routes/album_flow.py` passes `reason_totals`; `templates/unmatched.html` prints the line as a muted `text-xs` note under the group table, above the expander row. No new CSS and no new colour pairing (same muted token and surface as the group's other secondary text). Provisional wording until the impeccable pass; no real-data browser check was done.
-
-Deviations: review finding R12-F1 was fixed at landing: the route test gained a case where the capped group is not the below-threshold group (520 no-match albums), so a template that looked the total up with a fixed `below_threshold` key fails.
-
-Existing tests edited, by name: none; `test_unmatched_view_states_the_real_total_of_a_capped_group` (route, three cases) and the parametrized grouping-totals test in `tests/test_unmatched.py` are new.
 
 Validation: `pytest -q` -- **2986 passed**.

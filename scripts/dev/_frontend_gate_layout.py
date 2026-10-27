@@ -589,6 +589,53 @@ def _measure_expanded_placement(page, base_url, width: int, height: int) -> dict
     )
 
 
+def _measure_mode_switch_shift(page, base_url, width: int, height: int) -> dict:
+    """Read the mode switch's top in album mode, then on the Heatmap tab."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read_top = "document.querySelector('.mode-tabs').getBoundingClientRect().top"
+    album_top = page.evaluate(f"() => {read_top}")
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    return {"albumTop": album_top, "heatmapTop": page.evaluate(f"() => {read_top}")}
+
+
+def _measure_heatmap_first_shift(page, base_url, width: int, height: int) -> dict:
+    """Load on the Heatmap tab, visit Album, then read the switch back on Heatmap.
+
+    The first switch may move (no height was measured yet); the second must not.
+    """
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read_top = "document.querySelector('.mode-tabs').getBoundingClientRect().top"
+    page.locator("#mode-tab-album").click()
+    wait_for_settled(page)
+    album_top = page.evaluate(f"() => {read_top}")
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    return {"albumTop": album_top, "heatmapTop": page.evaluate(f"() => {read_top}")}
+
+
+def _mode_switch_failures(label: str, measured) -> list[str]:
+    """Fail when changing mode moves the mode switch (1px tolerance).
+
+    The form keeps the default album form's height in both modes
+    (`--index-card-min` in static/js/index.js), so the centred composition,
+    and the switch at its top, stay where they are when the mode changes.
+    """
+    shift = measured["heatmapTop"] - measured["albumTop"]
+    if abs(shift) > 1:
+        return [
+            f"/: the mode switch moves {shift:.1f}px when the Heatmap mode is "
+            f"chosen at {label}, expected it to stay put"
+        ]
+    return []
+
+
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     """Prove the shared wide-desktop scale, capped form, and equal gutters.
 
@@ -689,6 +736,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         collapsed_layout = _measure_wide_layout(page)
         expanded_full = _measure_expanded_placement(page, base_url, 1920, 1063)
         expanded_short = _measure_expanded_placement(page, base_url, 1920, 700)
+        mode_switch = _measure_mode_switch_shift(page, base_url, 1920, 1063)
+        heatmap_first = _measure_heatmap_first_shift(page, base_url, 1920, 1063)
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -759,6 +808,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     failures.extend(_expanded_placement_failures("1920x1063", expanded_full))
     failures.extend(
         _expanded_placement_failures("1920x700", expanded_short, short_window=True)
+    )
+    failures.extend(_mode_switch_failures("1920x1063", mode_switch))
+    failures.extend(
+        _mode_switch_failures("1920x1063 after a Heatmap-first load", heatmap_first)
     )
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
