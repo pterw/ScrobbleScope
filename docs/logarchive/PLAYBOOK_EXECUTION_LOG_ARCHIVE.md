@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
+
+Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs per-week play counts for the ten biggest artists on the heatmap's Monday-first grid, with everything else kept in an `other` series so each week still sums to the daily counts.
+
+What changed and why: `aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=10)` in `scrobblescope/plays.py`, next to `aggregate_daily_counts`. The artist key is `normalize_name(artist, "")[0]` (confirmed in `domain.py`: an empty album leaves the artist key unchanged). Artists rank by window total, ties by key; beyond-top_n artists, empty and punctuation-only artists go to `other`; plays outside the window are ignored. It is a pure function and is not wired into the job yet. Tests: `TestAggregateWeeklyArtistCounts` in `tests/test_plays.py` (Monday grid, grouping and ranking, key-less artists, overflow, and the sum invariant against `aggregate_daily_counts`).
+
+Deviations: none. Existing tests edited: none (the import line was extended only).
+
+Validation: `pytest -q` -- **2987 passed**.
+
 ### 2026-10-27 - Plan the listening streamgraph
 
 Side task, no batch tag: the streamgraph implementation plan, on `feat/ui-audit-v6-streamgraph`, a branch stacked on `feat/ui-audit-v6`.

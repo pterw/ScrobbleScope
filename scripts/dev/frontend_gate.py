@@ -170,6 +170,10 @@ from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
     check_artist_spotlight_photo_has_no_crop_overlay_or_animation,
     check_artist_spotlight_photo_not_cropped_when_non_square,
 )
+from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
+    check_stream_absent_without_payload_or_on_mobile,
+    check_stream_aligns_with_grid_columns,
+)
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     FORBIDDEN_SURFACES,
     SET_THEME_EXPRESSION,
@@ -288,6 +292,18 @@ CHECKS = (
         "heatmap export header matches page",
         check_heatmap_export_header_matches_page,
         (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream aligns with the grid columns",
+        check_stream_aligns_with_grid_columns,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream absent without payload or on mobile",
+        check_stream_absent_without_payload_or_on_mobile,
+        (DESKTOP, MOBILE),
         THEME_MOTION,
     ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),

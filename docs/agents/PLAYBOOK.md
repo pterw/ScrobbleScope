@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Draw the top-artists streamgraph under the grid
+
+Side task, no batch tag: the top-artists streamgraph drawn under the heatmap grid (streamgraph plan Task 5), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U23): a desktop-only streamgraph that lines up with the grid's week columns, matching the Claude Design reference; a mobile streamgraph is a later PR.
+
+What changed and why: `static/js/heatmap.js` gains `streamPayloadValid` (in the test seam) and `drawStream`, called at the end of `renderHeatmapDesktop` when the payload is valid and the scale is above 0. It stacks "Everything else" below the top ten artists, adds month gridlines and a muted section label, and keeps its state in module-level `streamState`, reset on every `renderHeatmap`. Every paint is a resolved attribute so the saved image needs no stylesheet; an absent or invalid payload and the mobile layout draw nothing. `static/css/heatmap.css` adds `#heatmap-grid { position: relative }`, `.stream-layer` and `.stream-chart`. The new `scripts/dev/_frontend_gate_stream.py` holds `seed_stream_job` and two gate checks, registered in `frontend_gate.py`: `stream aligns with the grid columns` (1280 and 1000 px, within 1 px) and `stream absent without payload or on mobile`. Per ruling SG5-L1 the gate-module lists in `docs/architecture/documentation-tooling.md` (now sixteen siblings) and `.claude/SESSION_CONTEXT.md` name the new module.
+
+Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, passing 4.5. Layer fills 1.52-10.22 dark and 2.02-10.52 light, "Everything else" 1.40 / 1.23, and gridlines 1.30 / 1.12 are exempt from 3:1; the owner's colour values are unchanged. A Firefox probe passed alignment, absence and mobile.
+
+Deviations: none from the brief. A theme flip without a re-render leaves the previous theme's fills until Task 6's `recolourStream`. The landing relied on the nested gate logs (frontend gate 51 checks passed, ruling U19) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none; `tests/frontend/test_heatmap_pure_functions.py` is extended with `test_stream_payload_valid`.
+
+Validation: `pytest -q` -- **3014 passed**.
+
 ### 2026-10-27 - Scope the timeline surfaces and empty cells to the heatmap frame
 
 Side task, no batch tag: the streamgraph's timeline surfaces and frame-scoped empty cells (streamgraph plan Task 4), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -227,17 +243,5 @@ What changed and why: `scrobblescope/heatmap.py` calls `aggregate_weekly_artist_
 Deviations: Task 3 lands before Task 2 (disjoint files; Task 2 is still in its code phase), so the plan's numeric landing order is not followed.
 
 Existing tests edited, by name: `TestFetchAndProcessHeatmap::test_happy_path_stores_correct_result_dict` (weeks start on the Monday on or before `from_date`; per week, artist counts plus `other` equal the daily counts over the column's 7 days); `test_context_isolates_dict_results_from_callers` (mutating `weekly_artists` weeks, a counts entry, a name, the artists list and `other` leaves the stored values unchanged).
-
-Validation: `pytest -q` -- **2987 passed**.
-
-### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
-
-Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent: the streamgraph needs per-week play counts for the ten biggest artists on the heatmap's Monday-first grid, with everything else kept in an `other` series so each week still sums to the daily counts.
-
-What changed and why: `aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=10)` in `scrobblescope/plays.py`, next to `aggregate_daily_counts`. The artist key is `normalize_name(artist, "")[0]` (confirmed in `domain.py`: an empty album leaves the artist key unchanged). Artists rank by window total, ties by key; beyond-top_n artists, empty and punctuation-only artists go to `other`; plays outside the window are ignored. It is a pure function and is not wired into the job yet. Tests: `TestAggregateWeeklyArtistCounts` in `tests/test_plays.py` (Monday grid, grouping and ranking, key-less artists, overflow, and the sum invariant against `aggregate_daily_counts`).
-
-Deviations: none. Existing tests edited: none (the import line was extended only).
 
 Validation: `pytest -q` -- **2987 passed**.

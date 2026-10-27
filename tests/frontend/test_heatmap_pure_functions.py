@@ -837,3 +837,75 @@ def test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped(js_page
     for key in ("dark0", "dark9", "light0"):
         assert got[key][0] == got[key][1], key
     assert len(set(got["light"])) == 10
+
+
+def _stream_payload(cols=3, artists=2):
+    return {
+        "weeks": [f"2025-01-{6 + 7 * t:02d}" for t in range(cols)],
+        "artists": [
+            {"name": f"Artist {i}", "counts": [i + t for t in range(cols)]}
+            for i in range(artists)
+        ],
+        "other": [1] * cols,
+    }
+
+
+def _stream_case(mutate=None):
+    payload = _stream_payload()
+    if mutate:
+        mutate(payload)
+    return payload
+
+
+def _short_weeks(p):
+    p["weeks"] = p["weeks"][:2]
+
+
+def _short_counts(p):
+    p["artists"][1]["counts"] = [1, 2]
+
+
+def _set_count(value):
+    def apply(p):
+        p["artists"][0]["counts"][1] = value
+
+    return apply
+
+
+def _no_other(p):
+    del p["other"]
+
+
+def _eleven_artists(p):
+    p["artists"] = _stream_payload(artists=11)["artists"]
+
+
+@pytest.mark.parametrize(
+    ("payload", "valid"),
+    [
+        (_stream_case(), True),
+        (_stream_case(lambda p: p.update(artists=[])), True),  # zero artists
+        (_stream_case(_short_weeks), False),
+        (_stream_case(_short_counts), False),
+        (_stream_case(_set_count(-1)), False),
+        (_stream_case(_set_count("3")), False),
+        (_stream_case(_no_other), False),
+        (_stream_case(_eleven_artists), False),
+        (None, False),
+        ("weekly", False),
+    ],
+    ids=[
+        "valid",
+        "zero-artists",
+        "weeks-length",
+        "counts-length",
+        "negative-count",
+        "non-numeric-count",
+        "other-missing",
+        "eleven-artists",
+        "null",
+        "string",
+    ],
+)
+def test_stream_payload_valid(js_page, payload, valid):
+    assert _hook(js_page, "streamPayloadValid", payload, 3) is valid

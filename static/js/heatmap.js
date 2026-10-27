@@ -247,6 +247,30 @@
     return rocketColor(theme === 'light' ? t * STREAM_LIGHT_SCALE : t);
   }
 
+  function isCountList(list, n) {
+    return Array.isArray(list) && list.length === n && list.every(function (v) {
+      return typeof v === 'number' && isFinite(v) && v >= 0;
+    });
+  }
+
+  /**
+   * Whether a job's weekly_artists payload can be drawn over numCols grid
+   * columns. Anything else (absent, an older stored result, a wrong length)
+   * draws no stream.
+   */
+  function streamPayloadValid(payload, numCols) {
+    if (!payload || typeof payload !== 'object') return false;
+    if (!Array.isArray(payload.weeks) || payload.weeks.length !== numCols) return false;
+    if (!payload.weeks.every(function (w) { return typeof w === 'string'; })) return false;
+    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_RAMP.length) {
+      return false;
+    }
+    var artistsOk = payload.artists.every(function (a) {
+      return a && typeof a.name === 'string' && isCountList(a.counts, numCols);
+    });
+    return artistsOk && isCountList(payload.other, numCols);
+  }
+
   /**
    * Read the active theme's zero-scrobble colour for standalone SVG fills.
    * Resolve the token before assigning the attribute so the downloaded grid
@@ -797,6 +821,10 @@
   var restoringSavedHeatmap = false;
   var lastRenderMobile = null;
   var resizeTimer = null;
+  // What drawStream laid out for the grid on screen: the validated payload,
+  // the layer order, the stacked bands and each week's plotted x. Reset on
+  // every render, so nothing outlives the SVG it describes.
+  var streamState = null;
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -1334,6 +1362,7 @@
   function renderHeatmap(data) {
     lastHeatmapData = data;
     lastRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
+    streamState = null;
     if (lastRenderMobile) {
       renderHeatmapMobile(data);
     } else {
@@ -1460,6 +1489,10 @@
 
     gridContainer.appendChild(svg);
 
+    if (streamPayloadValid(data.weekly_artists, numCols)) {
+      drawStream(data.weekly_artists, svgWidth);
+    }
+
     // -- Legend gradient --
     legendBar.style.background = legendGradient();
 
@@ -1470,6 +1503,97 @@
     // on, one cell down is the next day, and the first week starts on
     // row startDow.
     initTooltips(svg, cellData, { across: 7, down: 1, lead: startDow });
+  }
+
+  function streamNode(tag, attrs) {
+    var node = document.createElementNS(SVG_NS, tag);
+    Object.keys(attrs).forEach(function (name) { node.setAttribute(name, attrs[name]); });
+    return node;
+  }
+
+  // A stream paint is read from the result frame, where its tokens live.
+  function frameColour(token) {
+    return resolvedColour(token, document.getElementById('heatmap-result-frame') || undefined);
+  }
+
+  // True when the 1st of a month falls in the week that starts on `monday`.
+  function weekHoldsMonthStart(monday) {
+    return monday.getDate() === 1 || addDays(monday, 6).getMonth() !== monday.getMonth();
+  }
+
+  /**
+   * Draw the top-artists streamgraph under the grid SVG. Every paint is a
+   * resolved attribute, so the saved image needs no stylesheet. Draws nothing
+   * when no week has a play.
+   */
+  function drawStream(payload, svgWidth) {
+    var artists = payload.artists;
+    var order = streamOrder(artists.map(function (a) {
+      return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
+    }));
+    var layers = [payload.other].concat(order.map(function (i) { return artists[i].counts; }));
+    var totals = payload.other.map(function (_, t) {
+      return layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
+    });
+    var scale = streamScale(totals);
+    if (scale <= 0) return;
+
+    var stack = stackLayers(layers, streamBaseline(layers), scale);
+    var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
+    var centre = STREAM_LABEL_H + STREAM_BAND / 2;
+    var theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+
+    var svg = streamNode('svg', {
+      id: 'stream-chart',
+      'class': 'stream-chart',
+      'data-layout': 'stream',
+      viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND),
+      width: '100%',
+      'data-columns': xs.map(pathNum).join(' '),
+    });
+
+    var lineColour = frameColour('--stream-line');
+    payload.weeks.forEach(function (week, t) {
+      if (!weekHoldsMonthStart(parseLocalDate(week))) return;
+      svg.appendChild(streamNode('line', {
+        'class': 'stream-gridline',
+        x1: xs[t], x2: xs[t],
+        y1: STREAM_LABEL_H, y2: STREAM_LABEL_H + STREAM_BAND,
+        stroke: lineColour,
+        'stroke-width': 1,
+        'aria-hidden': 'true',
+      }));
+    });
+
+    // Bottom to top: "Everything else", then the artists in stack order.
+    stack.forEach(function (band, k) {
+      var isOther = k === 0;
+      var rank = isOther ? 'other' : order[k - 1];
+      var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
+      var bottom = band.map(function (b, t) { return { x: xs[t], y: centre - b.y0 }; });
+      svg.appendChild(streamNode('path', {
+        'class': isOther ? 'stream-layer stream-layer-other' : 'stream-layer',
+        'data-rank': rank,
+        d: smoothPath(top, bottom),
+        fill: isOther ? frameColour('--stream-other') : layerColour(rank, theme),
+      }));
+    });
+
+    var label = streamNode('text', {
+      'class': 'stream-section-label',
+      x: LEFT_PAD,
+      y: STREAM_LABEL_H - 4,
+      'font-size': '9.5',
+      'font-family': LABEL_FONT_STACK,
+      'letter-spacing': '0.12em',
+      fill: frameColour('--stream-muted'),
+      'aria-hidden': 'true',
+    });
+    label.textContent = 'TOP ARTISTS - PLAYS PER WEEK';
+    svg.appendChild(label);
+
+    gridContainer.appendChild(svg);
+    streamState = { payload: payload, order: order, stack: stack, xs: xs };
   }
 
   function renderHeatmapMobile(data) {
@@ -2020,6 +2144,7 @@
       streamScale: streamScale,
       smoothPath: smoothPath,
       layerColour: layerColour,
+      streamPayloadValid: streamPayloadValid,
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,

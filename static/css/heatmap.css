@@ -446,6 +446,7 @@
    and pull the grid in from the frame's edges. static/js/heatmap.js sizes
    the mobile strip to the width inside this padding. */
 #heatmap-grid {
+  position: relative;
   box-sizing: border-box;
   width: calc(100% + 8px);
   max-width: calc(100% + 8px);
@@ -468,6 +469,17 @@
   #heatmap-grid {
     overflow-x: hidden;
   }
+}
+
+/* The streamgraph under the grid. A vertical swipe still scrolls the page; a
+   horizontal drag scrubs. */
+.stream-layer {
+  transition: opacity 150ms;
+}
+
+.stream-chart {
+  cursor: crosshair;
+  touch-action: pan-y;
 }
 
 /* SVG text labels inherit the page colour through currentColor. The family
@@ -657,6 +669,7 @@
 
   .heatmap-fade,
   .heatmap-tooltip,
+  .stream-layer,
   .ss-btn {
     transition-duration: 0ms;
   }
