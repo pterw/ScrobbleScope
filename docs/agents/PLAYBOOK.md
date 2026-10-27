@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - State the real total of a capped unmatched group
+
+Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (ruling U12, which supersedes U4): a group that shows fewer albums than it holds says so, "Showing the first 500 of N", with N the real total and no hard-coded 500. `group_unmatched_albums_with_totals` in `scrobblescope/unmatched.py` returns the groups, counts, metadata and a `totals` dict holding only the groups that show fewer than they hold; the total is the pre-slice length, and for the below-threshold group the larger of that and the `albums_below_threshold` stat, which `plays.select_albums` takes before its exclusion cap and which already reaches `progress.stats`, so the orchestrator is unchanged. `group_unmatched_albums` keeps its 3-tuple by delegating. `_render_unmatched_page` in `scrobblescope/routes/album_flow.py` passes `reason_totals`; `templates/unmatched.html` prints the line as a muted `text-xs` note under the group table, above the expander row. No new CSS and no new colour pairing (same muted token and surface as the group's other secondary text). Provisional wording until the impeccable pass; no real-data browser check was done.
+
+Deviations: review finding R12-F1 was fixed at landing: the route test gained a case where the capped group is not the below-threshold group (520 no-match albums), so a template that looked the total up with a fixed `below_threshold` key fails.
+
+Existing tests edited, by name: none; `test_unmatched_view_states_the_real_total_of_a_capped_group` (route, three cases) and the parametrized grouping-totals test in `tests/test_unmatched.py` are new.
+
+Validation: `pytest -q` -- **2986 passed**.
+
 ### 2026-10-27 - Drop ellipses from progress and toast messages
 
 Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
@@ -217,13 +229,3 @@ Owner intent: the results h1 reads "<user>'s top albums of <year>", with the use
 Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
 
 Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Set display headings in Degular 600
-
-Side task, no batch tag: UI audit v6 row 1, headings in Degular 600 and two new hero headlines, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the heading face is Degular at weight 600, replacing Orpheus Pro (the serif is dropped), and the two hero headlines read "The albums that owned your year." (album mode) and "A year of listening by the day." (heatmap mode). `--font-display` replaces `--font-serif` in `static/css/tailwind.src.css`; every heading rule and the `font-display` utility use weight 600, roman, -0.015em; accent spans keep the primary colour and lose italics (including the results h1 username); the spotlight rank is roman mono. The saved heatmap draws its headline in the same face and waits for it to load. Deviations: the token is `"degular", "akzidenz-grotesk-next-pro", sans-serif` (ruling U2), because the Adobe kit serves `degular` and has no `degular-display`, unlike the README's row 1. The `templates/index.html` value site in `config/docsync.toml` is removed (U9) because the heatmap headline no longer states the window. The frontend gate reads the drawn font string (R1-F2, narrowed by R1-F5): `_frontend_gate_theme.py` ignores style, weight and size tokens when comparing families and compares the drawn weight with the headline's computed weight; a dropped `document.fonts.load` wait is not detectable from the string and stays unchecked. Removing Orpheus Pro from the Adobe kit is the owner's later step.
-
-Existing tests edited, by name: `tests/scripts/dev/test_tailwind_build_cli.py` (token line) and `tests/scripts/dev/test_frontend_gate_theme.py` (parametrized weighted and styled canvas font cases added).
-
-Validation: `pytest -q` -- **2976 passed**.
