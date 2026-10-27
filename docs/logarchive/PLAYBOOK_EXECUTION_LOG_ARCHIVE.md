@@ -9,53 +9,72 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
-### 2026-10-27 - Correct the tracked test-module count to 104
+### 2026-10-27 - Restore the heading of the service-checks log entry
 
-Side task, no batch tag, on `feat/fly-idle-exit`. Task 2 added `tests/test_idle_exit.py`, so `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` gives 104, but `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` still said 103 tracked test modules. Both now say 104 (the module count is hand-edited; `--fix --test-count` writes only the test count). `config/docsync.toml` `[test_count] pinned` already equals `pytest --collect-only -q` (2970). No other live doc states the module count. Docs only.
+Side task, no batch tag: restore a heading lost in this branch's first commit, on `docs/findings-rotation-rule`, a branch off `main`.
 
-Validation: `pytest --collect-only -q` -- **2970 passed** (collected, unchanged).
+Codex found on PR #275 that the first commit removed the heading of the 2026-10-25 service-checks entry and left its body under the "Rotate findings" entry, so the entry was in neither PLAYBOOK.md nor the log archive. The heading is back above its body, as on `origin/main`; no other entry is touched. A scan of the PLAYBOOK entries found no other body without a heading.
 
-### 2026-10-27 - Harden the idle watchdog tests and log a dead watchdog
+Deviations: none. Docs only; no code or test change; the test count is unchanged.
 
-Side task, no batch tag: fix round on Task 2 of the Fly idle-exit plan (review rulings R-2.1 to R-2.4), on `feat/fly-idle-exit`. `IdleWatch.run` now logs an exception from the watchdog loop with `logger.exception`, because a silent thread death would leave the machine running all day. The tests now start the fake clock at 1000 (so an initial `_last_activity = 0` fails), call `step()` from inside a request after the window has passed (so the `before_request` hook is needed), check that `IDLE_EXIT_MINUTES=20` means one second short of 20 minutes does not exit and 20 minutes does (a minutes-as-seconds error would stop the machine 20 seconds after a request), and check that `stop_gunicorn` sends SIGTERM to the parent pid.
+### 2026-10-27 - Update the Last updated line in every commit that touches its file
 
-Red proofs (one planted defect each): `_last_activity = 0` fails `test_exits_once_after_the_idle_window_with_no_work`; deleting the `before_request` hook fails `test_a_recent_request_blocks_exit`; `IdleWatch(minutes)` fails `test_idle_minutes_are_minutes_not_seconds`; `os.getpid()` and `SIGKILL` each fail `test_stop_gunicorn_sends_sigterm_to_the_parent` (on this Windows host `signal.SIGKILL` does not exist, so that case fails with AttributeError).
+Side task, no batch tag: put the date rule in the commit checklist, on `docs/findings-rotation-rule`, a branch off `main`.
 
-Edited existing tests: `FakeClock` start value, `test_exits_once_after_the_idle_window_with_no_work` (relative bound), `test_a_recent_request_blocks_exit` (in-request step), and `test_a_positive_idle_minutes_builds_a_watch` replaced by `test_idle_minutes_are_minutes_not_seconds`. Added: `test_stop_gunicorn_sends_sigterm_to_the_parent`, `test_a_dying_watchdog_thread_is_logged`.
+Owner ruling: always update the date when updates are made, in the findings and the other files that carry one. `AGENTS.md` "What to update after a WP or side-task commit" now has a bullet setting the `Last updated:` line of `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` to the commit's date in the same commit (docsync does not derive it; FINDINGS.md had sat at 2026-09-21 for five weeks). The bullet also records that the tracked test-module count is measured with `git ls-tree` and edited by hand because `--fix --test-count N` writes the test count only (F-DOCSYNC-23), and that a log entry's test count is written in bold. PLAYBOOK's `Date:` line is left alone pending an owner decision. The `docs/architecture/documentation-tooling.md` diagram label that still said rotation happens at close-out now says it happens at `--fix` once the record is checked.
 
-Validation: `pytest -q` -- **2970 passed**.
+Deviations: `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` are not touched, so their date lines are unchanged (FINDINGS.md already reads 2026-10-27). No code or test change; the test count is unchanged.
 
-### 2026-10-27 - Start the idle watchdog from create_app
+### 2026-10-27 - Rotate findings as soon as their record is checked
 
-Side task, no batch tag: Task 3 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. `create_app` now imports `watch_from_env` from `scrobblescope.idle_exit` after the blueprint is registered (deferred, like the blueprint import, so `load_dotenv` has run) and, when it returns a watch, calls `attach(application)` and `start()`. The watchdog is off unless `IDLE_EXIT_MINUTES` is a positive integer, so local runs, tests and CI never start a thread or exit; the suite never sets the variable.
+Side task, no batch tag: say in the live policy text when findings rotate, on `docs/findings-rotation-rule`, a branch off `main`.
 
-Red proofs: the `"20"` case failed (`assert 0 == 1`) before the edit; calling `start` unconditionally fails the test (the unset case has no watch to start); calling `watch_from_env` but never `start` fails the `"20"` case.
+Owner ruling: findings rotate out as soon as docsync runs, not at batch close-out. The code already did this (`doc_state_sync.py --fix` plans the rotation and moves a finding whose active entry carries a checked `RESOLVED` or `NO ACTION` record with a valid `**Completed:**` date; `--check` reports a checked finding left in the active file as drift); only the policy text was stale. `AGENTS.md` "Finding-Writing Rules" (opening sentence and item 3), the `docs/agents/FINDINGS.md` rotation-policy header and `docs/architecture/documentation-tooling.md` now say so, and item 3 adds that the resolving commit writes the lifecycle record and nobody checks a box for another author's finding.
 
-Edited existing tests: none. Added: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` in `tests/test_app_factory.py` (2 cases).
+Deviations: the brief's "(Rule 7)" reference is dropped, because no AGENTS.md rule states that principle. No code or test change; the test count is unchanged.
 
-Validation: `pytest -q` -- **2968 passed**.
+### 2026-10-27 - The pointer-list and slot-leak findings are filed
 
-### 2026-10-27 - Add the idle watchdog behind IDLE_EXIT_MINUTES
+Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, a branch off `main`.
 
-Side task, no batch tag: Task 2 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so the new `scrobblescope/idle_exit.py` stops the app itself: `IdleWatch.step()` records activity while `has_active_work()` is true (a held job slot or a pending release check), and otherwise runs the exit action (SIGTERM to the gunicorn master, once) when the last request or work is older than the window. `attach(app)` touches the timer in `before_request` and `teardown_request`; `watch_from_env` returns None unless `IDLE_EXIT_MINUTES` is a positive integer (one warning for a negative or non-integer value). Nothing calls it yet: Task 3 starts it from the app factory.
+- **Filed F-DOCSYNC-24 at P3.** The "Deferred / future-batch candidates" list mixes item 4 pointers (promoted or absorbed findings) with a resolved record, F-B18-12, that docsync never parses and that has no archived body. Checked before writing: the list has eleven bullets, not twelve, and F-FEATURE-2 is a pointer in the next section ("Feature preparation notes"), not in that list. The finding states the corrected counts.
+- **Filed F-B23-65 at P3.** `admit()` in `scrobblescope/routes/admission.py` calls `jobs.create(params)` (line 47) after taking a slot (line 44) and outside its `try`, so a raise there leaks the slot. With the in-memory store little in `jobs.create` can raise, so the finding says so.
+- **Scope:** documentation only. No code, test or gate changed, and no existing finding or pointer bullet was edited. Both are proposals, not built.
 
-Red proofs (one planted defect each): not remembering the exit fails `test_exits_once_after_the_idle_window_with_no_work`; not touching on active work fails `test_active_work_blocks_exit_and_restarts_the_window`; dropping the `teardown_request` hook fails `test_a_recent_request_blocks_exit`; treating `"0"` as valid fails `test_unset_or_invalid_idle_minutes_starts_nothing`; dropping the `has_pending_checks` half fails `test_has_active_work_sees_a_held_slot_and_a_pending_check`.
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
 
-Edited existing tests: none. Added: `tests/test_idle_exit.py` (12 cases).
+### 2026-10-27 - F-B18-12 is archived with its recorded outcome
 
-Validation: `pytest -q` -- **2966 passed**.
+Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/file-findings-docsync-24`.
 
-### 2026-10-27 - Expose held job slots and pending release checks
+- **Archived F-B18-12.** Its active entry was transcribed from the original `FINDINGS.md` text (before `494f2c7`) and the pointer bullet's own RESOLVED 2026-08-25 paragraph, given `- [x] **Status:** RESOLVED` and `**Completed:** 2026-08-25`, and rotated to `docs/history/findings/FINDINGS_ARCHIVE.md` by `doc_state_sync.py --fix`. The bullet in "Deferred / future-batch candidates" is now a pointer to it.
+- **Narrowed F-DOCSYNC-24.** Its F-B18-12 example is fixed. It stays open (P3): nothing checks that a pointer's target heading exists, and item 4 does not say which outcomes a pointer may carry.
+- **Pointer targets checked.** F-B18-1, F-B18-7, F-MAS-2, F-FEATURE-2 and F-B18-12 all resolve to a heading in the active file or the archive.
+- **Scope:** documentation only. No docsync code or AGENTS.md changed.
 
-Side task, no batch tag: Task 1 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. The owner wants the web machine to stop itself when idle while the DB machine stays on, so an idle watchdog needs one place to ask whether any background work is running. `worker.active_job_slots()` returns the number of held job slots (the semaphore's free count subtracted from `MAX_ACTIVE_JOBS`); `release_checks.has_pending_checks()` is True while `_JOB_QUEUE.unfinished_tasks` is above zero, because the correction worker outlives the slot of the job that queued it. Neither changes existing behaviour.
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
 
-Exit-code probe (run before this task): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" then "Shutting down: Master", last line `EXIT=0`, so a clean master shutdown leaves the `on-failure` machine stopped.
+### 2026-10-27 - The mechanical Last updated dates are filed
 
-Red proofs: `active_job_slots` returning a constant 0 fails `test_active_job_slots_counts_the_slots_held` (`assert 0 == 1`); `has_pending_checks` using `qsize()` instead of `unfinished_tasks` fails `test_pending_checks_stay_true_while_a_queued_job_is_running` at the "job taken, not done" step.
+Side task, no batch tag: file one finding, on `docs/file-findings-docsync-24`, a branch off `main`.
 
-Edited existing tests: none. Added: `test_active_job_slots_counts_the_slots_held` in `tests/test_worker.py`; `test_pending_checks_stay_true_while_a_queued_job_is_running` in `tests/services/test_release_checks.py`.
+- **Filed F-DOCSYNC-25 at P3.** The `Last updated:` lines of FINDINGS.md and SESSION_CONTEXT.md and PLAYBOOK's `Date:` line are set by hand and no docsync code reads them. The finding proposes deriving them from the newest dated Section 4 entry, names DOC027 as the next free code, and notes the sibling F-DOCSYNC-23 (module count). Owner ruling 2026-10-27: make the dates mechanical, file it as a follow-up.
+- **Set FINDINGS.md `Last updated:` to 2026-10-27** (it read 2026-09-21), under the owner's standing rule to update the date when a file changes.
+- **Scope:** documentation only. Nothing was built, and no docsync code, AGENTS.md or config changed.
 
-Validation: `pytest -q` -- **2954 passed** (2874 passed with `-m "not browser"`).
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
+### 2026-10-27 - Patch the pip-audit advisories
+
+Side task, no batch tag: patch the dependency advisories that `pip-audit` reported, on `chore/pip-advisories`, a branch off `main` (PR #273). Files changed: `requirements.txt` and `requirements-dev.txt` (pins only).
+
+Owner intent: `pip-audit` reported 34 findings in 6 packages; it now reports none. Runtime bumps: aiohttp 3.14.3 to 3.14.4, multidict 6.7.1 to 6.9.1, Werkzeug 3.1.6 to 3.1.9, yarl 1.24.5 to 1.25.1 (aiohttp 3.14.4 needs yarl 1.25.1 or newer). Dev-only bumps: certifi 2026.10.19, urllib3 2.8.0, virtualenv 21.14.10 with distlib 0.4.4, filelock 4.2.4, platformdirs 4.13.6 and python-discovery 1.6.5, which virtualenv 21 pulls in.
+
+Deviations: none. The commit for the pins (2acb3fab) landed without this entry; it is logged here.
+
+Validation: a fresh venv install with `--only-binary=:all:` succeeded; `pip check` is clean; `pip-audit` is clean; Linux manylinux wheels exist for all 24 runtime packages; 2872 non-browser tests passed. Full suite pin unchanged: `pytest -q` -- **2952 passed**.
+
+Edited existing tests: none.
 
 ### 2026-10-25 - Make two vacuous service checks honest
 
