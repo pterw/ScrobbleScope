@@ -97,7 +97,7 @@ class IdleWatch:
         return thread
 
 
-def watch_from_env(environ=os.environ):
+def watch_from_env(environ):
     """Return an IdleWatch for ``IDLE_EXIT_MINUTES``, or None when it is off."""
     raw = environ.get("IDLE_EXIT_MINUTES", "").strip()
     if not raw:
