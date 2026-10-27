@@ -224,6 +224,21 @@ class TestFetchAndProcessHeatmap:
         )
         assert stored_result["daily_counts"][yesterday.isoformat()] == 2
         assert stored_result["daily_counts"][today.isoformat()] == 1
+        # The weekly artist counts sit on the daily window's Monday-first
+        # columns, and every week sums to the daily counts it covers.
+        weekly = stored_result["weekly_artists"]
+        from_date = date.fromisoformat(stored_result["from_date"])
+        week0 = from_date - timedelta(days=from_date.weekday())
+        assert weekly["weeks"][0] == week0.isoformat()
+        assert weekly["artists"][0]["name"] == "Artist"
+        for t, monday in enumerate(weekly["weeks"]):
+            column_days = [
+                (date.fromisoformat(monday) + timedelta(days=d)).isoformat()
+                for d in range(7)
+            ]
+            assert weekly["artists"][0]["counts"][t] + weekly["other"][t] == sum(
+                stored_result["daily_counts"].get(day, 0) for day in column_days
+            )
         # The payload and the 100% travel in one call: no window between them.
         assert completion_events == ["Heatmap ready!"]
 

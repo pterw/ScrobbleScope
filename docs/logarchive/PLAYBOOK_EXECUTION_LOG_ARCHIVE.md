@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Rewrite the unmatched page headline and threshold header
+
+Side task, no batch tag: UI audit v6 row 5, the unmatched page headline, subtitle, group description and threshold column header, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the unmatched page headline says what happened to the albums (ruling U13): "Albums left out of <user>'s results" when nothing is listed, "Unmatched albums in <user>'s results" when an Include unmatched run lists some (`listed_count` > 0), deciding "listed" from result rows, not reason codes. The subtitle is the year and the total, "<year> middle dot <n> albums, grouped by reason" ("album" for 1), in both cases, so the listed / left-out clause and its `left_out` arithmetic are gone; `.unmatched-total` stays as a styling hook. The "Not enough listening" group's count header reads "Plays/trk" on phones and "Plays middle dot tracks" from 768px up, one line each (rulings U15 and U17), with `aria-label="Plays and tracks"` on the `th` so a screen reader never reads "trk"; the two forms are sibling spans toggled by a plain `min-width: 768px` media query in `static/css/unmatched.css` (no Chromium-only CSS), and the column widens at 768px and up for that panel only, while the phone width is unchanged so the album-title floors in the frontend gate hold. Its description drops the year and singularises: "Below N play(s) or M unique track(s)." (ruling U16). Other groups' header stays "Plays".
+
+Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
+
+Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Name the user and year in the results headline
 
 Side task, no batch tag: UI audit v6 row 4, the results headline names the user and the run's year, on `feat/ui-audit-v6`, a branch off `main`.

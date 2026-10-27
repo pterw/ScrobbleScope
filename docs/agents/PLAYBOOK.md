@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Store the weekly artist counts with the job result
+
+Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs the per-week artist counts from the same fetch as the daily counts, and a caller of the job view must not be able to change stored state.
+
+What changed and why: `scrobblescope/heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`; the zero-scrobble guard still fails the job before anything is stored. `_context_view` in `scrobblescope/jobs.py` copies it (outer dict, `weeks`, `other`, the `artists` list, each artist dict with its `counts` list) the way it copies `daily_counts` (F-B18-8).
+
+Deviations: Task 3 lands before Task 2 (disjoint files; Task 2 is still in its code phase), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: `TestFetchAndProcessHeatmap::test_happy_path_stores_correct_result_dict` (weeks start on the Monday on or before `from_date`; per week, artist counts plus `other` equal the daily counts over the column's 7 days); `test_context_isolates_dict_results_from_callers` (mutating `weekly_artists` weeks, a counts entry, a name, the artists list and `other` leaves the stored values unchanged).
+
+Validation: `pytest -q` -- **2987 passed**.
+
 ### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
 
 Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -217,17 +231,5 @@ Owner intent: README row 6, no ellipses in the live status copy. Ruling U10 wide
 Deviations: none from the rulings. `tests/test_routes.py` is untouched: its "Working..." and "Fetching page 3..." are fixture strings passed to `jobs.advance`, not production copy. The `jobs.start` test uses the arbitrary message "Starting" instead of "Initializing heatmap...".
 
 Existing tests edited, by name: `test_create_returns_unique_ids_and_a_pristine_job` and `test_reset_returns_the_job_to_its_initial_state_and_keeps_params` in `tests/test_jobs.py`, `test_start_clears_stats_phase_and_error_and_sets_the_message` (message string), `test_progress_callback_sends_correct_percentages` and the other `TestFetchAndProcessHeatmap` message asserts in `tests/test_heatmap.py`, `test_fetch_and_process_passes_progress_cb_to_lastfm` in `tests/services/test_orchestrator_fetch_and_process.py`, `test_fetch_spotify_misses_reports_search_progress`, `test_fetch_spotify_misses_reports_batch_progress` and `test_deezer_fallback_reports_progress_inside_its_band` in `tests/services/test_orchestrator_fetch_spotify.py` (full-message equality), and `test_a_failed_run_with_no_retry_still_says_the_results_page_opens` in `tests/frontend/test_heatmap_pure_functions.py`.
-
-Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Rewrite the unmatched page headline and threshold header
-
-Side task, no batch tag: UI audit v6 row 5, the unmatched page headline, subtitle, group description and threshold column header, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the unmatched page headline says what happened to the albums (ruling U13): "Albums left out of <user>'s results" when nothing is listed, "Unmatched albums in <user>'s results" when an Include unmatched run lists some (`listed_count` > 0), deciding "listed" from result rows, not reason codes. The subtitle is the year and the total, "<year> middle dot <n> albums, grouped by reason" ("album" for 1), in both cases, so the listed / left-out clause and its `left_out` arithmetic are gone; `.unmatched-total` stays as a styling hook. The "Not enough listening" group's count header reads "Plays/trk" on phones and "Plays middle dot tracks" from 768px up, one line each (rulings U15 and U17), with `aria-label="Plays and tracks"` on the `th` so a screen reader never reads "trk"; the two forms are sibling spans toggled by a plain `min-width: 768px` media query in `static/css/unmatched.css` (no Chromium-only CSS), and the column widens at 768px and up for that panel only, while the phone width is unchanged so the album-title floors in the frontend gate hold. Its description drops the year and singularises: "Below N play(s) or M unique track(s)." (ruling U16). Other groups' header stays "Plays".
-
-Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
-
-Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
 
 Validation: `pytest -q` -- **2978 passed**.

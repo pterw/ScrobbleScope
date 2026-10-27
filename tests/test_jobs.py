@@ -514,6 +514,11 @@ def test_context_isolates_dict_results_from_callers():
             "username": "testuser",
             "total_scrobbles": 5,
             "daily_counts": {"2026-05-01": 3, "2026-05-02": 2},
+            "weekly_artists": {
+                "weeks": ["2026-04-27"],
+                "artists": [{"name": "Radiohead", "counts": [3]}],
+                "other": [2],
+            },
         },
         "Heatmap ready!",
     )
@@ -522,10 +527,21 @@ def test_context_isolates_dict_results_from_callers():
     ctx["results"]["total_scrobbles"] = 999
     ctx["results"]["daily_counts"]["2026-05-01"] = 999
     ctx["results"]["daily_counts"]["2026-05-03"] = 7
+    weekly = ctx["results"]["weekly_artists"]
+    weekly["weeks"].append("2026-05-04")
+    weekly["artists"][0]["counts"][0] = 999
+    weekly["artists"][0]["name"] = "Changed"
+    weekly["artists"].append({"name": "Intruder", "counts": [1]})
+    weekly["other"][0] = 999
 
     fresh = jobs.context(job_id)["results"]
     assert fresh["total_scrobbles"] == 5
     assert fresh["daily_counts"] == {"2026-05-01": 3, "2026-05-02": 2}
+    assert fresh["weekly_artists"] == {
+        "weeks": ["2026-04-27"],
+        "artists": [{"name": "Radiohead", "counts": [3]}],
+        "other": [2],
+    }
 
 
 def test_context_isolates_the_results_list_and_unmatched_and_params():

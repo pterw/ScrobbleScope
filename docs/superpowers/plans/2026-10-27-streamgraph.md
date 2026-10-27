@@ -184,11 +184,11 @@ Every task: `Wave` is the earliest wave it can start; `After` lists tasks whose 
 - Consumes: `aggregate_weekly_artist_counts` (Task 1).
 - Produces: the job result key `weekly_artists` (payload in Interfaces) stored next to `daily_counts`; `_context_view` returns a deep-enough copy of it.
 
-- [ ] **Step 1: Write the failing cases.** In `tests/test_heatmap.py`: the stored result carries `weekly_artists` whose `weeks` align with the daily window and whose week totals equal the daily totals (the S1 invariant, end to end through the job with a fake fetch); the zero-scrobble guard still fails the job before storing anything. In `tests/test_jobs.py`: mutating `weeks`, an artist `counts` entry, an artist `name` and `other` in a returned view leaves the stored values unchanged.
-- [ ] **Step 2: Run red.** `pytest -q tests/test_heatmap.py tests/test_jobs.py`. Expected: the new heatmap case fails on the missing key and the jobs case fails because the view shares the stored lists. Quote the failing lines.
-- [ ] **Step 3: Implement.** `heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`. `_context_view` copies it the way it copies `daily_counts`: the outer dict, the `weeks`, `other` and `artists` lists, and each artist dict with its `counts` list.
-- [ ] **Step 4: Run green.** `pytest -q tests/test_heatmap.py tests/test_jobs.py tests/test_lastfm_job_results.py` passes. Quote the last line.
-- [ ] **Step 5: Gates and commit.** Stage by name. Subject: `feat(heatmap): Store the weekly artist counts with the job result`. No frontend gate (no `static/` or `templates/` change).
+- [x] **Step 1: Write the failing cases.** In `tests/test_heatmap.py`: the stored result carries `weekly_artists` whose `weeks` align with the daily window and whose week totals equal the daily totals (the S1 invariant, end to end through the job with a fake fetch); the zero-scrobble guard still fails the job before storing anything. In `tests/test_jobs.py`: mutating `weeks`, an artist `counts` entry, an artist `name` and `other` in a returned view leaves the stored values unchanged.
+- [x] **Step 2: Run red.** `pytest -q tests/test_heatmap.py tests/test_jobs.py`. Expected: the new heatmap case fails on the missing key and the jobs case fails because the view shares the stored lists. Quote the failing lines.
+- [x] **Step 3: Implement.** `heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`. `_context_view` copies it the way it copies `daily_counts`: the outer dict, the `weeks`, `other` and `artists` lists, and each artist dict with its `counts` list.
+- [x] **Step 4: Run green.** `pytest -q tests/test_heatmap.py tests/test_jobs.py tests/test_lastfm_job_results.py` passes. Quote the last line.
+- [x] **Step 5: Gates and commit.** Stage by name. Subject: `feat(heatmap): Store the weekly artist counts with the job result`. No frontend gate (no `static/` or `templates/` change).
 
 ### Task 4: Timeline surfaces and frame-scoped empty cells
 

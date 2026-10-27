@@ -23,7 +23,11 @@ from scrobblescope import jobs
 from scrobblescope.errors import classify_exception_to_error_code
 from scrobblescope.lastfm import fetch_scrobbles
 from scrobblescope.listening_stats import heatmap_statistics, utc_date
-from scrobblescope.plays import Window, aggregate_daily_counts
+from scrobblescope.plays import (
+    Window,
+    aggregate_daily_counts,
+    aggregate_weekly_artist_counts,
+)
 from scrobblescope.utils import cleanup_expired_cache, log_failure
 from scrobblescope.worker import (
     new_thread_event_loop,
@@ -110,6 +114,7 @@ async def _fetch_and_process_heatmap(job_id, username):
     # Phase 80-90%: aggregate daily counts ------------------------------------
     jobs.advance(job_id, 80, "Counting your daily scrobbles")
     daily_counts = aggregate_daily_counts(fetch.plays, from_date, to_date)
+    weekly_artists = aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)
 
     total = sum(daily_counts.values())
     max_count = max(daily_counts.values()) if daily_counts else 0
@@ -136,6 +141,7 @@ async def _fetch_and_process_heatmap(job_id, username):
             "total_scrobbles": total,
             "max_count": max_count,
             "daily_counts": daily_counts,
+            "weekly_artists": weekly_artists,
             "statistics": statistics,
         },
         "Heatmap ready!",

@@ -520,11 +520,22 @@ def _context_view(record):
     if isinstance(results, list):
         results = list(results)
     elif isinstance(results, dict):
-        # Copy the outer dict and the one known nested mutable structure
-        # (daily_counts) so callers cannot mutate stored state (F-B18-8).
+        # Copy the outer dict and the known nested mutable structures
+        # (daily_counts, weekly_artists) so callers cannot mutate stored
+        # state (F-B18-8).
         results = dict(results)
         if "daily_counts" in results:
             results["daily_counts"] = dict(results["daily_counts"])
+        weekly = results.get("weekly_artists")
+        if weekly is not None:
+            results["weekly_artists"] = {
+                "weeks": list(weekly["weeks"]),
+                "artists": [
+                    {"name": artist["name"], "counts": list(artist["counts"])}
+                    for artist in weekly["artists"]
+                ],
+                "other": list(weekly["other"]),
+            }
     return {
         "progress": _progress_view(record),
         "results": results,
