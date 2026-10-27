@@ -178,6 +178,31 @@ def test_a_dying_watchdog_thread_is_logged(caplog):
     assert [r.exc_info[0] for r in caplog.records] == [RuntimeError]
 
 
+def test_start_runs_the_loop_on_a_daemon_thread():
+    watch, _ = _watch(FakeClock())
+    watch.run = lambda: None
+
+    thread = watch.start()
+    thread.join(timeout=5)
+
+    assert thread.daemon is True
+
+
+def test_an_idle_machine_is_stopped_within_a_minute_of_the_window():
+    clock = FakeClock()
+    watch, exits = _watch(clock)
+    sleeps = []
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        clock.advance(seconds)
+
+    watch.run(sleep=sleep)
+
+    assert exits == [1]
+    assert sum(sleeps) - WINDOW <= 60
+
+
 @pytest.mark.parametrize(
     "slot_held, queue_busy, expected",
     [(True, False, True), (False, True, True), (False, False, False)],

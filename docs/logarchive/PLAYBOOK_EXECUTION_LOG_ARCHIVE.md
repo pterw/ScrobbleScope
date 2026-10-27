@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Start the idle watchdog from create_app
+
+Side task, no batch tag: Task 3 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. `create_app` now imports `watch_from_env` from `scrobblescope.idle_exit` after the blueprint is registered (deferred, like the blueprint import, so `load_dotenv` has run) and, when it returns a watch, calls `attach(application)` and `start()`. The watchdog is off unless `IDLE_EXIT_MINUTES` is a positive integer, so local runs, tests and CI never start a thread or exit; the suite never sets the variable.
+
+Red proofs: the `"20"` case failed (`assert 0 == 1`) before the edit; calling `start` unconditionally fails the test (the unset case has no watch to start); calling `watch_from_env` but never `start` fails the `"20"` case.
+
+Edited existing tests: none. Added: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` in `tests/test_app_factory.py` (2 cases).
+
+Validation: `pytest -q` -- **2968 passed**.
+
 ### 2026-10-27 - Add the idle watchdog behind IDLE_EXIT_MINUTES
 
 Side task, no batch tag: Task 2 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so the new `scrobblescope/idle_exit.py` stops the app itself: `IdleWatch.step()` records activity while `has_active_work()` is true (a held job slot or a pending release check), and otherwise runs the exit action (SIGTERM to the gunicorn master, once) when the last request or work is older than the window. `attach(app)` touches the timer in `before_request` and `teardown_request`; `watch_from_env` returns None unless `IDLE_EXIT_MINUTES` is a positive integer (one warning for a negative or non-integer value). Nothing calls it yet: Task 3 starts it from the app factory.

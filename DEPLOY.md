@@ -50,8 +50,10 @@ knows when it is idle; Fly does not.
 What an exit costs: jobs and results live in memory, so they are lost on exit
 (the database cache stays). The results lifetime therefore changes from
 `JOB_TTL_SECONDS` (2 hours) to the 20 idle minutes before the machine stops.
-A revisit after that shows the existing "Your results have expired, run a new
-search" page. The in-memory request cache and the Spotify token state clear
+A revisit after that shows the existing "We couldn't find your results. The
+processing may have expired. Please try again." page (or, for a saved session
+job, "Your previous results have expired. Run an album search to build a new
+ranking."), not a crash. The in-memory request cache and the Spotify token state clear
 too.
 
 `IDLE_EXIT_MINUTES` is production-only: it signals the gunicorn master, so do

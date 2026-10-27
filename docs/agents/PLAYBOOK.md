@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Prove the watchdog is attached to the app and runs as a daemon
+
+Side task, no batch tag: final-review fix round (rulings R-5.1 to R-5.4) of the Fly idle-exit plan, on `feat/fly-idle-exit`. A mutation run found that deleting `watch.attach(application)` in `create_app` passed the whole suite, although it would make requests stop renewing the timer and stop the machine 20 minutes after boot under an active user. The existing `create_app` idle-watch test now also sends one request through the returned app and checks that `IdleWatch.touch` ran exactly when the watch is enabled. New tests check that the watchdog thread is a daemon (a non-daemon thread would hold up worker shutdown) and that an idle machine stops within a minute of the window (a 3000-second check interval would hold it 50 more minutes). `DEPLOY.md` now quotes the two real expiry messages (`album_flow.py`) instead of an invented one. Not fixed, per the rulings: the `// 60` in a log line, and F-MAS-8's stale "always-on machines" premise (the finding's author decides).
+
+Red proofs (one planted defect each): deleting `watch.attach(application)` fails `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set[20-1]`; `daemon=False` fails `test_start_runs_the_loop_on_a_daemon_thread`; `IDLE_CHECK_INTERVAL_SECONDS = 3000` fails `test_an_idle_machine_is_stopped_within_a_minute_of_the_window`. Each was restored by Edit.
+
+Edited existing tests: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` (extended). Added: two tests in `tests/test_idle_exit.py`.
+
+Validation: `pytest -q` -- **2972 passed**.
+
 ### 2026-10-27 - Let the app machine stop itself when idle
 
 Side task, no batch tag: Task 4 of the Fly idle-exit plan, on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so `fly.toml` now has `auto_stop_machines = 'off'`, no `min_machines_running`, and `[env] IDLE_EXIT_MINUTES = "20"`; the app exits with code 0 after 20 idle minutes and the next request starts the machine. `[deploy]`, `[build]` and `[[vm]]` are unchanged, and the `scrobblescope-db` app is untouched. Docs: DEPLOY.md gains an "Idle exit" section (what it does, why autostop is off, the results lifetime change from 2 hours to the idle window, production-only, off switch, rollback); `docs/architecture/runtime-system.md` gains the `idle_exit.py` node, its edges and a design bullet; SESSION_CONTEXT Sections 3 and 4 list `idle_exit.py`; the README hosting row and the AGENT_NOTES `REQUEST_CACHE` line name the idle exit. Exit-code probe (run before Task 1): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" and "Shutting down: Master", and the last line was `EXIT=0`. Sweep of live documents for `min_machines_running`, `auto_stop_machines`, `always on`, `shared-cpu` and `machine sleep`: the only plain sibling copy was the AGENT_NOTES line; FINDINGS F-MAS-8 (title says "always-on machines") and the 2026-10-20 tranche spec are left as records.
@@ -207,13 +217,3 @@ Red proofs (one planted defect each): `_last_activity = 0` fails `test_exits_onc
 Edited existing tests: `FakeClock` start value, `test_exits_once_after_the_idle_window_with_no_work` (relative bound), `test_a_recent_request_blocks_exit` (in-request step), and `test_a_positive_idle_minutes_builds_a_watch` replaced by `test_idle_minutes_are_minutes_not_seconds`. Added: `test_stop_gunicorn_sends_sigterm_to_the_parent`, `test_a_dying_watchdog_thread_is_logged`.
 
 Validation: `pytest -q` -- **2970 passed**.
-
-### 2026-10-27 - Start the idle watchdog from create_app
-
-Side task, no batch tag: Task 3 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. `create_app` now imports `watch_from_env` from `scrobblescope.idle_exit` after the blueprint is registered (deferred, like the blueprint import, so `load_dotenv` has run) and, when it returns a watch, calls `attach(application)` and `start()`. The watchdog is off unless `IDLE_EXIT_MINUTES` is a positive integer, so local runs, tests and CI never start a thread or exit; the suite never sets the variable.
-
-Red proofs: the `"20"` case failed (`assert 0 == 1`) before the edit; calling `start` unconditionally fails the test (the unset case has no watch to start); calling `watch_from_env` but never `start` fails the `"20"` case.
-
-Edited existing tests: none. Added: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` in `tests/test_app_factory.py` (2 cases).
-
-Validation: `pytest -q` -- **2968 passed**.

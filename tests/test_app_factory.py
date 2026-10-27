@@ -176,6 +176,12 @@ def test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set(minutes, 
     with patch.dict(os.environ, env):
         if minutes is None:
             os.environ.pop("IDLE_EXIT_MINUTES", None)
-        with patch("scrobblescope.idle_exit.IdleWatch.start") as start:
-            create_app()
+        with (
+            patch("scrobblescope.idle_exit.IdleWatch.start") as start,
+            patch("scrobblescope.idle_exit.IdleWatch.touch") as touch,
+        ):
+            application = create_app()
+            application.test_client().get("/")
     assert start.call_count == starts
+    # A request through the returned app renews the watch only when it is attached.
+    assert (touch.call_count > 0) == bool(starts)
