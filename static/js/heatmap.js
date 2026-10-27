@@ -140,6 +140,113 @@
     return Math.log10(count + 1) / Math.log10(maxCount + 1);
   }
 
+  // ----------------------------------------------------------------
+  // Streamgraph layout (pure: numbers in, numbers or strings out)
+  // ----------------------------------------------------------------
+
+  // The reference draws on a 27px week pitch; every length scales by
+  // STEP / 27 so the stream lines up with the grid columns above it.
+  const STREAM_PEAK    = 300 * STEP / 27;  // tallest week's total height
+  const STREAM_BAND    = 380 * STEP / 27;  // plot height, centre line in the middle
+  const STREAM_LABEL_H = 24 * STEP / 27;   // section-label strip above the plot
+
+  // rocket_r stops by rank (0 = largest artist). The light theme scales the
+  // whole ramp so its top stop is 0.83, which keeps every rank distinct.
+  const STREAM_RAMP = [.95, .88, .81, .74, .67, .60, .53, .46, .39, .32];
+  const STREAM_LIGHT_SCALE = 0.83 / 0.95;
+
+  /**
+   * Layer order, bottom to top, as indices into volumes: the largest in the
+   * middle, the rest alternating either side of it.
+   */
+  function streamOrder(volumes) {
+    const byVolume = volumes.map(function (_, i) { return i; })
+      .sort(function (a, b) { return volumes[b] - volumes[a] || a - b; });
+    const order = [];
+    byVolume.forEach(function (idx, j) {
+      if (j % 2) order.unshift(idx);
+      else order.push(idx);
+    });
+    return order;
+  }
+
+  /**
+   * Byron-Wattenberg wiggle baseline for layers (per-week count arrays,
+   * bottom to top), shifted so the stack's midline averages 0.
+   */
+  function streamBaseline(layers) {
+    const n = layers.length;
+    const weeks = n ? layers[0].length : 0;
+    const base = [];
+    const totals = [];
+    for (let t = 0; t < weeks; t++) {
+      let total = 0;
+      let q = 0;
+      for (let i = 0; i < n; i++) {
+        total += layers[i][t];
+        if (t > 0) q += (n - i) * (layers[i][t] - layers[i][t - 1]);
+      }
+      totals.push(total);
+      base.push(t > 0 ? base[t - 1] - q / (n + 1) : 0);
+    }
+    let mean = 0;
+    for (let t = 0; t < weeks; t++) mean += base[t] + totals[t] / 2;
+    mean = weeks ? mean / weeks : 0;
+    return base.map(function (g) { return g - mean; });
+  }
+
+  /** Stack layers on the baseline: [layer][week] -> {y0, y1}, up positive. */
+  function stackLayers(layers, baseline, scale) {
+    const level = baseline.slice();
+    return layers.map(function (counts) {
+      return counts.map(function (count, t) {
+        const y0 = level[t] * scale;
+        level[t] += count;
+        return { y0: y0, y1: y0 + count * scale };
+      });
+    });
+  }
+
+  /** Units-to-height factor that makes the tallest week STREAM_PEAK tall. */
+  function streamScale(weekTotals) {
+    const max = weekTotals.reduce(function (a, b) { return Math.max(a, b); }, 0);
+    return max > 0 ? STREAM_PEAK / max : 0;
+  }
+
+  function pathNum(v) {
+    return String(Math.round(v * 100) / 100);
+  }
+
+  // Catmull-Rom segments through pts as cubic Beziers (divisor 6), the first
+  // and last point doubled so the ends are clamped. Excludes the start point.
+  function smoothSegments(pts) {
+    let d = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(i - 1, 0)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(i + 2, pts.length - 1)];
+      d += 'C' + pathNum(p1.x + (p2.x - p0.x) / 6) + ' ' + pathNum(p1.y + (p2.y - p0.y) / 6) +
+        ' ' + pathNum(p2.x - (p3.x - p1.x) / 6) + ' ' + pathNum(p2.y - (p3.y - p1.y) / 6) +
+        ' ' + pathNum(p2.x) + ' ' + pathNum(p2.y);
+    }
+    return d;
+  }
+
+  /** Closed band path: top left to right, then bottom right to left. */
+  function smoothPath(top, bottom) {
+    if (!top.length || !bottom.length) return '';
+    const back = bottom.slice().reverse();
+    return 'M' + pathNum(top[0].x) + ' ' + pathNum(top[0].y) + smoothSegments(top) +
+      'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y) + smoothSegments(back) + 'Z';
+  }
+
+  /** Fill for the artist of the given rank (rocket_r, theme-scaled). */
+  function layerColour(rank, theme) {
+    const t = STREAM_RAMP[rank];
+    return rocketColor(theme === 'light' ? t * STREAM_LIGHT_SCALE : t);
+  }
+
   /**
    * Read the active theme's zero-scrobble colour for standalone SVG fills.
    * Resolve the token before assigning the attribute so the downloaded grid
@@ -1901,6 +2008,15 @@
     window.__scrobbleHeatmapTestHooks = {
       rocketColor: rocketColor,
       countToNorm: countToNorm,
+      STREAM_PEAK: STREAM_PEAK,
+      STREAM_BAND: STREAM_BAND,
+      STREAM_LABEL_H: STREAM_LABEL_H,
+      streamOrder: streamOrder,
+      streamBaseline: streamBaseline,
+      stackLayers: stackLayers,
+      streamScale: streamScale,
+      smoothPath: smoothPath,
+      layerColour: layerColour,
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,

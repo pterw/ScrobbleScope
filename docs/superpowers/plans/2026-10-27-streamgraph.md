@@ -159,17 +159,17 @@ Every task: `Wave` is the earliest wave it can start; `After` lists tasks whose 
 - Consumes: `rocketColor(t)` (heatmap.js:120), the grid constants `CELL_SIZE`, `STEP`, `LEFT_PAD` (lines 27-30).
 - Produces: `streamOrder`, `streamBaseline`, `stackLayers`, `streamScale`, `smoothPath`, `layerColour`, and the constants `STREAM_PEAK`, `STREAM_BAND`, `STREAM_LABEL_H`, exactly as in Interfaces, all added to `window.__scrobbleHeatmapTestHooks`. No DOM access.
 
-- [ ] **Step 1: Write the failing cases** in `tests/frontend/test_heatmap_pure_functions.py`:
+- [x] **Step 1: Write the failing cases** in `tests/frontend/test_heatmap_pure_functions.py`:
   - `streamOrder`: ten volumes put the biggest at the middle position and ranks 1 and 2 on opposite sides of it; an odd and an even count; one layer; ties keep a stable order.
   - `streamBaseline` / `stackLayers` / `streamScale`: one hand-computed example (two layers, three weeks) matches the reference formula `g[t] = g[t-1] - q / (n + 1)` with `q = sum((n - i) * (L[i][t] - L[i][t-1]))`; the stacked midline averages 0; a constant-height stream stays flat; each week's stack height equals `total * scale`; an all-zero week has zero height; `streamScale` of all zeros is `0`.
   - `smoothPath`: the path starts at the first top point, passes through every top and bottom point, closes, and a single point or all-zero input does not throw.
   - `layerColour`: dark rank 0 equals `rocketColor(.95)`, rank 9 equals `rocketColor(.32)`; light rank 0 equals `rocketColor(.83)`; light ranks 0..9 are ten distinct colours.
-- [ ] **Step 2: Run red.** `pytest -q tests/frontend/test_heatmap_pure_functions.py`. Expected: FAIL, the hooks are undefined. Quote the failing lines.
-- [ ] **Step 3: Implement** the functions and constants; expose them in the hooks object.
-- [ ] **Step 4: Run green.** Same command passes. Quote the last line.
-- [ ] **Step 5: Contrast report (U6).** Compute the WCAG ratio (use `_contrast_ratio` from `scripts/dev/_frontend_gate_colour.py:137` in a throwaway script) of all ten `layerColour` values against the dark frame `#1f1b28` and the light frame `#f0ebe0`, and of the two "Everything else" fills (`#3a3347`, `#ddd5c5`) against the same frames; report min and max per theme in the task report. A pair under 3:1 is raised (NEEDS_CONTEXT with the pair), not tuned.
-- [ ] **Step 6: Firefox probe.** The probe loads `static/js/heatmap.js` with `window.__scrobbleHeatmapTestMode` set in Firefox and evaluates one hand-computed `streamOrder`, `stackLayers` and `layerColour` case through the hooks; quote the output. (The pure module in `tests/frontend/` is Chromium only.)
-- [ ] **Step 7: Gate and commit.** The task changes `static/`, so run the frontend gate (Gates block); it is expected green and unchanged. Stage by name; the landing commits with the subject `feat(heatmap): Add pure layout functions for the streamgraph`.
+- [x] **Step 2: Run red.** `pytest -q tests/frontend/test_heatmap_pure_functions.py`. Expected: FAIL, the hooks are undefined. Quote the failing lines.
+- [x] **Step 3: Implement** the functions and constants; expose them in the hooks object.
+- [x] **Step 4: Run green.** Same command passes. Quote the last line.
+- [x] **Step 5: Contrast report (U6).** Compute the WCAG ratio (use `_contrast_ratio` from `scripts/dev/_frontend_gate_colour.py:137` in a throwaway script) of all ten `layerColour` values against the dark frame `#1f1b28` and the light frame `#f0ebe0`, and of the two "Everything else" fills (`#3a3347`, `#ddd5c5`) against the same frames; report min and max per theme in the task report. A pair under 3:1 is raised (NEEDS_CONTEXT with the pair), not tuned.
+- [x] **Step 6: Firefox probe.** The probe loads `static/js/heatmap.js` with `window.__scrobbleHeatmapTestMode` set in Firefox and evaluates one hand-computed `streamOrder`, `stackLayers` and `layerColour` case through the hooks; quote the output. (The pure module in `tests/frontend/` is Chromium only.)
+- [x] **Step 7: Gate and commit.** The task changes `static/`, so run the frontend gate (Gates block); it is expected green and unchanged. Stage by name; the landing commits with the subject `feat(heatmap): Add pure layout functions for the streamgraph`.
 
 ### Task 3: Job wiring and defensive copy
 

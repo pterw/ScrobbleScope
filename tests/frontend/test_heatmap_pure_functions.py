@@ -703,3 +703,137 @@ def test_a_window_with_no_best_day_shows_no_date(js_page):
     data = {"from_date": "2026-03-01", "to_date": "2026-03-10", "statistics": published}
     blocks = js_page.evaluate(RENDER_KPIS_JS, data)
     assert blocks[2] == {"label": "BEST DAY", "value": "0", "sub": ""}
+
+
+# ---------------------------------------------------------------------------
+# Streamgraph layout (pure functions; no DOM)
+# ---------------------------------------------------------------------------
+
+STREAM_STEP = 16  # CELL_SIZE 14 + CELL_GAP 2
+
+
+def _hook(js_page, name, *args):
+    return js_page.evaluate(
+        "([n, a]) => window.__scrobbleHeatmapTestHooks[n](...a)", [name, list(args)]
+    )
+
+
+@pytest.mark.parametrize(
+    ("volumes", "expected"),
+    [
+        # Ten layers: the biggest (index 3) sits in the middle, ranks 1 and 2
+        # (indices 1 and 7) on opposite sides of it.
+        ([5, 9, 3, 10, 1, 7, 2, 8, 4, 6], [4, 2, 0, 5, 1, 3, 7, 9, 8, 6]),
+        ([1, 2, 3, 4, 5], [1, 3, 4, 2, 0]),  # odd count
+        ([1, 2, 3, 4], [0, 2, 3, 1]),  # even count
+        ([7], [0]),
+        ([5, 5, 5], [1, 0, 2]),  # ties keep index order before placement
+        ([], []),
+    ],
+)
+def test_stream_order(js_page, volumes, expected):
+    assert _hook(js_page, "streamOrder", volumes) == expected
+
+
+def test_stream_baseline_and_stack_match_the_reference_wiggle(js_page):
+    # Two layers, three weeks, hand-computed: n = 2, g = [0, -2/3, -4/3],
+    # totals [3, 4, 4], raw midlines [1.5, 4/3, 2/3] (mean 7/6), so the
+    # centred baseline is [-7/6, -11/6, -5/2].
+    layers = [[1, 2, 4], [2, 2, 0]]
+    baseline = _hook(js_page, "streamBaseline", layers)
+    assert baseline == pytest.approx([-7 / 6, -11 / 6, -5 / 2])
+    stack = _hook(js_page, "stackLayers", layers, baseline, 2)
+    assert stack[0][0] == pytest.approx({"y0": -7 / 3, "y1": -1 / 3})
+    assert stack[1][0] == pytest.approx({"y0": -1 / 3, "y1": 11 / 3})
+    assert stack[1][2] == pytest.approx({"y0": 3.0, "y1": 3.0})
+
+
+STREAM_LAYER_SETS = [
+    [[4, 9, 2, 0], [1, 3, 8, 0], [6, 2, 2, 0]],
+    [[3, 3, 3, 3], [2, 2, 2, 2]],  # constant heights
+]
+
+
+@pytest.mark.parametrize("layers", STREAM_LAYER_SETS)
+def test_stream_stack_is_centred_and_each_week_has_its_total_height(js_page, layers):
+    scale = 0.5
+    baseline = _hook(js_page, "streamBaseline", layers)
+    stack = _hook(js_page, "stackLayers", layers, baseline, scale)
+    weeks = len(layers[0])
+    totals = [sum(layer[t] for layer in layers) for t in range(weeks)]
+    mids = [(stack[0][t]["y0"] + stack[-1][t]["y1"]) / 2 for t in range(weeks)]
+    assert sum(mids) / weeks == pytest.approx(0, abs=1e-9)
+    for t in range(weeks):
+        height = stack[-1][t]["y1"] - stack[0][t]["y0"]
+        assert height == pytest.approx(totals[t] * scale)
+    if layers is STREAM_LAYER_SETS[1]:
+        assert baseline == pytest.approx([baseline[0]] * weeks)  # stays flat
+    else:
+        assert stack[0][3]["y1"] - stack[0][3]["y0"] == 0  # all-zero week
+
+
+@pytest.mark.parametrize(
+    ("totals", "expected"),
+    [([1, 5, 2], "peak/5"), ([0, 0, 0], 0), ([], 0)],
+)
+def test_stream_scale(js_page, totals, expected):
+    peak = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_PEAK")
+    assert peak == pytest.approx(300 * STREAM_STEP / 27)
+    want = peak / 5 if expected == "peak/5" else expected
+    assert _hook(js_page, "streamScale", totals) == pytest.approx(want)
+
+
+SMOOTH_PATH_JS = """([top, bottom]) => {
+    const d = window.__scrobbleHeatmapTestHooks.smoothPath(top, bottom);
+    const points = [];
+    const controls = [];
+    for (const m of d.matchAll(/([MLC])([^MLCZ]*)/g)) {
+        const nums = m[2].trim().split(/[ ,]+/).filter(Boolean).map(Number);
+        if (m[1] === 'C') controls.push(nums.slice(0, 4));
+        points.push(nums.slice(-2));
+    }
+    return { points, controls, closed: d.trim().endsWith('Z') };
+}"""
+
+
+def _pts(pairs):
+    return [{"x": x, "y": y} for x, y in pairs]
+
+
+def test_smooth_path_runs_through_every_edge_point_and_closes(js_page):
+    top = [(0, 0), (10, 6), (20, 0)]
+    bottom = [(0, 20), (10, 24), (20, 20)]
+    out = js_page.evaluate(SMOOTH_PATH_JS, [_pts(top), _pts(bottom)])
+    # Top left to right, then bottom right to left (the function reverses it).
+    assert out["points"] == [list(p) for p in top + bottom[::-1]]
+    assert out["closed"]
+    # Catmull-Rom to Bezier with divisor 6, the ends clamped.
+    assert out["controls"][0] == pytest.approx([10 / 6, 1, 10 - 20 / 6, 6], abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "top",
+    [[(5, 0)], [(0, 0), (10, 0), (20, 0)], []],
+    ids=["single-point", "all-zero", "empty"],
+)
+def test_smooth_path_tolerates_degenerate_input(js_page, top):
+    out = js_page.evaluate(SMOOTH_PATH_JS, [_pts(top), _pts(top)])
+    assert out["closed"] or not top
+
+
+def test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped(js_page):
+    got = js_page.evaluate(
+        """() => {
+            const h = window.__scrobbleHeatmapTestHooks;
+            const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                dark0: [h.layerColour(0, 'dark'), h.rocketColor(.95)],
+                dark9: [h.layerColour(9, 'dark'), h.rocketColor(.32)],
+                light0: [h.layerColour(0, 'light'), h.rocketColor(.83)],
+                light: ranks.map((r) => h.layerColour(r, 'light')),
+            };
+        }"""
+    )
+    for key in ("dark0", "dark9", "light0"):
+        assert got[key][0] == got[key][1], key
+    assert len(set(got["light"])) == 10

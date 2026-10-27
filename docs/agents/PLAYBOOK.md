@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Add pure layout functions for the streamgraph
+
+Side task, no batch tag: the streamgraph's pure layout maths (streamgraph plan Task 2), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph is built to match the Claude Design reference, so its layout maths must be pure, tested functions before any DOM work builds on them.
+
+What changed and why: `static/js/heatmap.js` gains the constants `STREAM_PEAK`, `STREAM_BAND`, `STREAM_LABEL_H` and the functions `streamOrder`, `streamBaseline`, `stackLayers`, `streamScale`, `smoothPath` and `layerColour`, all exposed on `__scrobbleHeatmapTestHooks` and touching no DOM. `tests/frontend/test_heatmap_pure_functions.py` covers them with hand-computed cases (17 new cases). A Firefox probe loaded the hooks and checked one `streamOrder`, `stackLayers` and `layerColour` case.
+
+Contrast (ruling S13, confirmed by owner ruling U20): the layer fills are exempt from the 3:1 non-text floor because the scrubber panel states every layer's name and count as text for every week; the ramp and the "Everything else" fills stay the owner's frozen values. Measured WCAG ratios against the frame: dark frame `#1f1b28` layers 1.53-10.22, "Everything else" `#3a3347` 1.40; light frame `#f0ebe0` layers 2.02-10.52, "Everything else" `#ddd5c5` 1.23.
+
+Deviations: Task 2 lands after Task 3 (disjoint files), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: none (new tests appended to `test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3004 passed**.
+
 ### 2026-10-27 - Store the weekly artist counts with the job result
 
 Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -219,17 +235,5 @@ Owner intent: the owner asked for the plan with the writing-plans skill, in disc
 What changed and why: the plan went through three reviews; findings SP-F1..SP-F12 are recorded in the plan workspace, and the last three were wording Minors fixed without a fourth review. It is desktop only (owner ruling U18): the dark surfaces are declared on the heatmap frame, never on `:root`. No code changes; the plan is a point-in-time record.
 
 Deviations: none. Existing tests edited: none.
-
-Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Drop ellipses from progress and toast messages
-
-Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: README row 6, no ellipses in the live status copy. Ruling U10 widened it from the loading page to the server's progress messages (`scrobblescope/orchestrator/`, `heatmap.py`, `jobs.py`) and the client strings in `static/js/` (`loading-progress.js`, `loading.js`, `heatmap.js`, `results.js`), including the escaped ellipses in `loading.js`: "Retrying" and "Opening the results page". "Initializing..." (and "Initializing heatmap...") became "Connecting to Last.fm" at all seven sites, the template's first phase line, `jobs._initial_progress`, both fallbacks in `loading-progress.js` and the heatmap start; the leaderboard toast reads "Creating leaderboard image". The pins in `scripts/dev/_frontend_gate_pipeline.py` follow the new strings. Remaining `...` in the tree are docstrings and comments only.
-
-Deviations: none from the rulings. `tests/test_routes.py` is untouched: its "Working..." and "Fetching page 3..." are fixture strings passed to `jobs.advance`, not production copy. The `jobs.start` test uses the arbitrary message "Starting" instead of "Initializing heatmap...".
-
-Existing tests edited, by name: `test_create_returns_unique_ids_and_a_pristine_job` and `test_reset_returns_the_job_to_its_initial_state_and_keeps_params` in `tests/test_jobs.py`, `test_start_clears_stats_phase_and_error_and_sets_the_message` (message string), `test_progress_callback_sends_correct_percentages` and the other `TestFetchAndProcessHeatmap` message asserts in `tests/test_heatmap.py`, `test_fetch_and_process_passes_progress_cb_to_lastfm` in `tests/services/test_orchestrator_fetch_and_process.py`, `test_fetch_spotify_misses_reports_search_progress`, `test_fetch_spotify_misses_reports_batch_progress` and `test_deezer_fallback_reports_progress_inside_its_band` in `tests/services/test_orchestrator_fetch_spotify.py` (full-message equality), and `test_a_failed_run_with_no_retry_still_says_the_results_page_opens` in `tests/frontend/test_heatmap_pure_functions.py`.
 
 Validation: `pytest -q` -- **2978 passed**.
