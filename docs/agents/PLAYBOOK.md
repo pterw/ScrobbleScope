@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Name the user and year in the results headline
+
+Side task, no batch tag: UI audit v6 row 4, the results headline names the user and the run's year, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the results h1 reads "<user>'s top albums of <year>", with the username keeping its accent span and `year` being the run's own year, never the current one. The subtitle `#results-ranking-subtitle` drops the year (ruling U11) and names the source: "Last.fm", a middle dot, then "Ranked by play count" or "Ranked by listening time". `setLeaderboardMetric` in `static/js/results.js` writes the same string on a sort change, so a sort switch and a fresh load agree. This wording is provisional until the impeccable pass. The old phrase "Top Last.fm albums for" appeared only in `templates/results.html`; no `<title>` or meta text repeated it. Deviations: `scripts/dev/results_behavior_tests.py` is touched beyond the brief (review finding R4-F1) so the sort check also covers the subtitle text, which the Python route test cannot see.
+
+Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Set display headings in Degular 600
 
 Side task, no batch tag: UI audit v6 row 1, headings in Degular 600 and two new hero headlines, on `feat/ui-audit-v6`, a branch off `main`.
@@ -203,15 +213,5 @@ Validation: `pytest -q` -- **2972 passed**.
 ### 2026-10-27 - Make the watchdog's environ argument required
 
 Side task, no batch tag: Codacy flagged `watch_from_env(environ=os.environ)` in `scrobblescope/idle_exit.py` as Pylint W0102 (dangerous default value) and failed PR #276 with "1 new issue (0 max.)". Every caller already passes the mapping (`app.py` passes `os.environ`; `tests/test_idle_exit.py` passes dicts), so the default was never used. `environ` is now a required parameter with no default; nothing else changed. No test added.
-
-Validation: `pytest -q` -- **2972 passed**.
-
-### 2026-10-27 - Prove the watchdog is attached to the app and runs as a daemon
-
-Side task, no batch tag: final-review fix round (rulings R-5.1 to R-5.4) of the Fly idle-exit plan, on `feat/fly-idle-exit`. A mutation run found that deleting `watch.attach(application)` in `create_app` passed the whole suite, although it would make requests stop renewing the timer and stop the machine 20 minutes after boot under an active user. The existing `create_app` idle-watch test now also sends one request through the returned app and checks that `IdleWatch.touch` ran exactly when the watch is enabled. New tests check that the watchdog thread is a daemon (a non-daemon thread would hold up worker shutdown) and that an idle machine stops within a minute of the window (a 3000-second check interval would hold it 50 more minutes). `DEPLOY.md` now quotes the two real expiry messages (`album_flow.py`) instead of an invented one. Not fixed, per the rulings: the `// 60` in a log line, and F-MAS-8's stale "always-on machines" premise (the finding's author decides).
-
-Red proofs (one planted defect each): deleting `watch.attach(application)` fails `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set[20-1]`; `daemon=False` fails `test_start_runs_the_loop_on_a_daemon_thread`; `IDLE_CHECK_INTERVAL_SECONDS = 3000` fails `test_an_idle_machine_is_stopped_within_a_minute_of_the_window`. Each was restored by Edit.
-
-Edited existing tests: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` (extended). Added: two tests in `tests/test_idle_exit.py`.
 
 Validation: `pytest -q` -- **2972 passed**.

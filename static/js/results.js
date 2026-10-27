@@ -342,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const subtitle = document.getElementById('results-ranking-subtitle');
         if (subtitle) {
             const ranking = mode === 'playtime' ? 'listening time' : 'play count';
-            subtitle.textContent = `${window.APP_DATA?.year || ''} \u00b7 Ranked by ${ranking}`;
+            subtitle.textContent = `Last.fm \u00b7 Ranked by ${ranking}`;
         }
         updateMetricButtons(mode);
         const moves = rows.map(row => ({ row, before: positions.get(row), after: row.getBoundingClientRect() }));

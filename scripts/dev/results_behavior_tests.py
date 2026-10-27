@@ -478,6 +478,7 @@ class ResultsBehaviorTests(unittest.TestCase):
             "results.js",
             '<button id="toggle-sort-plays"></button>'
             '<button id="toggle-sort-playtime"></button><span id="metric-header-label"></span>'
+            '<p id="results-ranking-subtitle"></p>'
             '<table id="results-table"><tbody>' + rows + "</tbody></table>",
             {"year": 2025},
         )
@@ -491,6 +492,10 @@ class ResultsBehaviorTests(unittest.TestCase):
             ("playtime", "plays", ["B", "A", "C"], ["1", "2"], ["01", "02"]),
             ("plays", "playtime", ["A", "B", "C"], ["1", "2", "3"], ["01", "02", "03"]),
         ]
+        subtitles = {
+            "playtime": "Last.fm \u00b7 Ranked by listening time",
+            "plays": "Last.fm \u00b7 Ranked by play count",
+        }
         for mode, other, order, ranks, cells in cases:
             with self.subTest(mode=mode):
                 self.page.locator(f"#toggle-sort-{mode}").click()
@@ -517,6 +522,10 @@ class ResultsBehaviorTests(unittest.TestCase):
                 unpressed = self.page.locator(f"#toggle-sort-{other}")
                 self.assertEqual(unpressed.get_attribute("aria-pressed"), "false")
                 self.assertEqual(self.page.locator(".is-reordering").count(), 0)
+                self.assertEqual(
+                    self.page.locator("#results-ranking-subtitle").inner_text(),
+                    subtitles[mode],
+                )
         self.assertEqual(
             self.page.locator(".metric-value-cell").all_text_contents(),
             ["100", "20", "0"],

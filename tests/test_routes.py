@@ -540,6 +540,56 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+@pytest.mark.parametrize(
+    "sort_mode, ranking",
+    [
+        ("playcount", "Ranked by play count"),
+        ("playtime", "Ranked by listening time"),
+    ],
+)
+def test_results_headline_names_user_and_year_and_subtitle_names_source(
+    client, sort_mode, ranking
+):
+    """The h1 carries the user and the run's year; the subtitle names the
+    source and the ranking and no year."""
+    job_id = jobs.create(
+        {
+            "username": "flounder14",
+            "year": 2024,
+            "sort_mode": sort_mode,
+            "mode": "album",
+        }
+    )
+    jobs.succeed(
+        job_id,
+        [
+            {
+                "artist": "A",
+                "album": "One",
+                "play_count": 5,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2024-02-07",
+            }
+        ],
+        "Done!",
+    )
+
+    html = client.post("/results_complete", data={"job_id": job_id}).get_data(
+        as_text=True
+    )
+
+    def text(pattern):
+        match = re.search(pattern, html, re.S)
+        return " ".join(re.sub(r"<[^>]+>", "", match.group(1)).split())
+
+    assert text(r"<h1[^>]*>(.*?)</h1>") == "flounder14's top albums of 2024"
+    assert (
+        text(r'<h2 id="results-ranking-subtitle"[^>]*>(.*?)</h2>')
+        == f"Last.fm \u00b7 {ranking}"
+    )
+
+
 def test_each_play_count_states_how_many_digits_it_has(client):
     """The narrow-screen sizing keys on the digit count, so a count must
     carry its own length, whatever it is."""

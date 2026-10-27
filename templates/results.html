@@ -32,10 +32,10 @@
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
         <div>
             <h1 class="results-headline font-display text-3xl md:text-5xl text-[var(--color-base-content)] mb-1 leading-tight">
-                Top Last.fm albums for <span class="results-headline__user text-[var(--color-primary)]">{{ username }}</span>
+                <span class="results-headline__user text-[var(--color-primary)]">{{ username }}</span>'s top albums of {{ year }}
             </h1>
             <h2 id="results-ranking-subtitle" class="font-sans text-base md:text-lg font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
-                {{ year }} · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
+                Last.fm · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
             </h2>
         </div>
         <!-- Toolbar actions share type; New search carries the theme accent. -->
