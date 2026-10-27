@@ -490,9 +490,9 @@ Agents must check their work against this list before committing.
 ## Finding-Writing Rules
 
 Findings live in `docs/agents/FINDINGS.md` (active) and rotate to
-`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or a
-findings-cleanup WP; nothing is deleted, so the archive preserves grep
-history.
+`docs/history/findings/FINDINGS_ARCHIVE.md` the next time
+`doc_state_sync.py --fix` runs on a finding whose lifecycle record is
+checked; nothing is deleted, so the archive preserves grep history.
 
 1. **F-ID format:** every item heading is `F-<context>-<N>: <title>`.
    Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
@@ -505,7 +505,12 @@ history.
 3. **Rotation:** resolved and closed no-action items move to the archive
    with their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix;
    standing design-decision Info items stay active and rotate only when
-   superseded.
+   superseded. The commit that resolves or closes a finding writes its
+   lifecycle record in the same commit: `- [x] **Status:** RESOLVED` (or
+   `NO ACTION`) and `**Completed:** YYYY-MM-DD`. `doc_state_sync.py --fix`
+   then rotates it at once, and `--check` flags a checked finding still in
+   the active file. Never check a box for another author's finding: that is
+   the author's verdict.
 4. **Cross-references:** a promoted or absorbed finding keeps a one-line
    pointer in "Deferred / future-batch candidates" (e.g. `F-B18-1 --
    promoted to F-B20-2`) so the old ID stays resolvable.

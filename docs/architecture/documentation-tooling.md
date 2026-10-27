@@ -217,7 +217,8 @@ a sentence citing another entry's count is not read as a claim.
 **DOC013 to DOC018 are the finding lifecycle codes**, implemented in
 `scripts/docsync/findings.py`. A finding rotates to the archive only on the
 strength of its own canonical record -- one checkbox-bearing `**Status:**`
-line, and a `**Completed:**` ISO date when that box is checked. Historical
+line, and a `**Completed:**` ISO date when that box is checked -- and it moves on the next `--fix`
+once that record is checked. Historical
 prose never checks a box on an author's behalf, and any one of these codes
 suppresses the whole rotation rather than repairing a contradiction by guess:
 

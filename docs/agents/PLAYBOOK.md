@@ -184,7 +184,13 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-25 - Make two vacuous service checks honest
+### 2026-10-27 - Rotate findings as soon as their record is checked
+
+Side task, no batch tag: say in the live policy text when findings rotate, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: findings rotate out as soon as docsync runs, not at batch close-out. The code already did this (`doc_state_sync.py --fix` plans the rotation and moves a finding whose active entry carries a checked `RESOLVED` or `NO ACTION` record with a valid `**Completed:**` date; `--check` reports a checked finding left in the active file as drift); only the policy text was stale. `AGENTS.md` "Finding-Writing Rules" (opening sentence and item 3), the `docs/agents/FINDINGS.md` rotation-policy header and `docs/architecture/documentation-tooling.md` now say so, and item 3 adds that the resolving commit writes the lifecycle record and nobody checks a box for another author's finding.
+
+Deviations: the brief's "(Rule 7)" reference is dropped, because no AGENTS.md rule states that principle. No code or test change; the test count is unchanged.
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
 
