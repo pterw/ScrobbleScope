@@ -5,8 +5,9 @@ Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
 2952 tests across 103 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
-`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
-findings-cleanup WPs; nothing is deleted. Every item uses an
+`docs/history/findings/FINDINGS_ARCHIVE.md` at the next
+`doc_state_sync.py --fix` once their lifecycle record is checked (the
+resolving commit writes it); nothing is deleted. Every item uses an
 `F-<context>-<N>:` heading (format: AGENTS.md "Finding-Writing Rules").
 Read this file on demand -- when a task or PLAYBOOK entry references an
 F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.

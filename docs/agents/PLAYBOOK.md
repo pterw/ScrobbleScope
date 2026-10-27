@@ -184,6 +184,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Restore the heading of the service-checks log entry
+
+Side task, no batch tag: restore a heading lost in this branch's first commit, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Codex found on PR #275 that the first commit removed the heading of the 2026-10-25 service-checks entry and left its body under the "Rotate findings" entry, so the entry was in neither PLAYBOOK.md nor the log archive. The heading is back above its body, as on `origin/main`; no other entry is touched. A scan of the PLAYBOOK entries found no other body without a heading.
+
+Deviations: none. Docs only; no code or test change; the test count is unchanged.
+
+### 2026-10-27 - Update the Last updated line in every commit that touches its file
+
+Side task, no batch tag: put the date rule in the commit checklist, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: always update the date when updates are made, in the findings and the other files that carry one. `AGENTS.md` "What to update after a WP or side-task commit" now has a bullet setting the `Last updated:` line of `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` to the commit's date in the same commit (docsync does not derive it; FINDINGS.md had sat at 2026-09-21 for five weeks). The bullet also records that the tracked test-module count is measured with `git ls-tree` and edited by hand because `--fix --test-count N` writes the test count only (F-DOCSYNC-23), and that a log entry's test count is written in bold. PLAYBOOK's `Date:` line is left alone pending an owner decision. The `docs/architecture/documentation-tooling.md` diagram label that still said rotation happens at close-out now says it happens at `--fix` once the record is checked.
+
+Deviations: `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` are not touched, so their date lines are unchanged (FINDINGS.md already reads 2026-10-27). No code or test change; the test count is unchanged.
+
+### 2026-10-27 - Rotate findings as soon as their record is checked
+
+Side task, no batch tag: say in the live policy text when findings rotate, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: findings rotate out as soon as docsync runs, not at batch close-out. The code already did this (`doc_state_sync.py --fix` plans the rotation and moves a finding whose active entry carries a checked `RESOLVED` or `NO ACTION` record with a valid `**Completed:**` date; `--check` reports a checked finding left in the active file as drift); only the policy text was stale. `AGENTS.md` "Finding-Writing Rules" (opening sentence and item 3), the `docs/agents/FINDINGS.md` rotation-policy header and `docs/architecture/documentation-tooling.md` now say so, and item 3 adds that the resolving commit writes the lifecycle record and nobody checks a box for another author's finding.
+
+Deviations: the brief's "(Rule 7)" reference is dropped, because no AGENTS.md rule states that principle. No code or test change; the test count is unchanged.
+
 ### 2026-10-27 - The pointer-list and slot-leak findings are filed
 
 Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, a branch off `main`.
@@ -193,36 +217,3 @@ Side task, no batch tag: file two findings, on `docs/file-findings-docsync-24`, 
 - **Scope:** documentation only. No code, test or gate changed, and no existing finding or pointer bullet was edited. Both are proposals, not built.
 
 Validation: test count unchanged (docs only); `pytest -q` was not re-run.
-
-### 2026-10-27 - F-B18-12 is archived with its recorded outcome
-
-Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/file-findings-docsync-24`.
-
-- **Archived F-B18-12.** Its active entry was transcribed from the original `FINDINGS.md` text (before `494f2c7`) and the pointer bullet's own RESOLVED 2026-08-25 paragraph, given `- [x] **Status:** RESOLVED` and `**Completed:** 2026-08-25`, and rotated to `docs/history/findings/FINDINGS_ARCHIVE.md` by `doc_state_sync.py --fix`. The bullet in "Deferred / future-batch candidates" is now a pointer to it.
-- **Narrowed F-DOCSYNC-24.** Its F-B18-12 example is fixed. It stays open (P3): nothing checks that a pointer's target heading exists, and item 4 does not say which outcomes a pointer may carry.
-- **Pointer targets checked.** F-B18-1, F-B18-7, F-MAS-2, F-FEATURE-2 and F-B18-12 all resolve to a heading in the active file or the archive.
-- **Scope:** documentation only. No docsync code or AGENTS.md changed.
-
-Validation: test count unchanged (docs only); `pytest -q` was not re-run.
-
-### 2026-10-27 - The mechanical Last updated dates are filed
-
-Side task, no batch tag: file one finding, on `docs/file-findings-docsync-24`, a branch off `main`.
-
-- **Filed F-DOCSYNC-25 at P3.** The `Last updated:` lines of FINDINGS.md and SESSION_CONTEXT.md and PLAYBOOK's `Date:` line are set by hand and no docsync code reads them. The finding proposes deriving them from the newest dated Section 4 entry, names DOC027 as the next free code, and notes the sibling F-DOCSYNC-23 (module count). Owner ruling 2026-10-27: make the dates mechanical, file it as a follow-up.
-- **Set FINDINGS.md `Last updated:` to 2026-10-27** (it read 2026-09-21), under the owner's standing rule to update the date when a file changes.
-- **Scope:** documentation only. Nothing was built, and no docsync code, AGENTS.md or config changed.
-
-Validation: test count unchanged (docs only); `pytest -q` was not re-run.
-
-### 2026-10-27 - Patch the pip-audit advisories
-
-Side task, no batch tag: patch the dependency advisories that `pip-audit` reported, on `chore/pip-advisories`, a branch off `main` (PR #273). Files changed: `requirements.txt` and `requirements-dev.txt` (pins only).
-
-Owner intent: `pip-audit` reported 34 findings in 6 packages; it now reports none. Runtime bumps: aiohttp 3.14.3 to 3.14.4, multidict 6.7.1 to 6.9.1, Werkzeug 3.1.6 to 3.1.9, yarl 1.24.5 to 1.25.1 (aiohttp 3.14.4 needs yarl 1.25.1 or newer). Dev-only bumps: certifi 2026.10.19, urllib3 2.8.0, virtualenv 21.14.10 with distlib 0.4.4, filelock 4.2.4, platformdirs 4.13.6 and python-discovery 1.6.5, which virtualenv 21 pulls in.
-
-Deviations: none. The commit for the pins (2acb3fab) landed without this entry; it is logged here.
-
-Validation: a fresh venv install with `--only-binary=:all:` succeeded; `pip check` is clean; `pip-audit` is clean; Linux manylinux wheels exist for all 24 runtime packages; 2872 non-browser tests passed. Full suite pin unchanged: `pytest -q` -- **2952 passed**.
-
-Edited existing tests: none.
