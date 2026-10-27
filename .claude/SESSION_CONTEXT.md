@@ -177,7 +177,7 @@ spotify.py       <- config, domain, enrichment, errors, utils
 deezer.py        <- config, domain, enrichment, errors, utils
 unmatched.py     <- (leaf)
 release_status.py <- (leaf)
-idle_exit.py     <- release_checks, worker
+idle_exit.py     <- release_checks, utils, worker
 musicbrainz.py   <- config, domain, errors, utils
 release_checks.py <- cache, config, domain, errors, jobs, musicbrainz, release_status, unmatched, utils, worker
 orchestrator/__init__.py  <- album_request, cache, config, deezer, errors, jobs, lastfm, plays, release_checks, spotify, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_deezer_fallback, orchestrator/_results (imported last, for re-export)

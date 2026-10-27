@@ -12,7 +12,7 @@ Enabled only by ``IDLE_EXIT_MINUTES`` (a positive integer); unset means off.
 It signals the parent process, so it is a gunicorn-only setting.
 
 Dependency chain (leaf-ward):
-    idle_exit <- worker, release_checks
+    idle_exit <- worker, release_checks, utils
 """
 
 import logging
@@ -22,6 +22,7 @@ import threading
 import time
 
 from scrobblescope import release_checks, worker
+from scrobblescope.utils import log_failure
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,8 @@ class IdleWatch:
         try:
             while not self.step():
                 sleep(IDLE_CHECK_INTERVAL_SECONDS)
-        except Exception:
-            logger.exception("Idle watchdog died; the server will not stop itself")
+        except Exception:  # noqa: BLE001 -- logged by log_failure
+            log_failure("Idle watchdog died; the server will not stop itself")
 
     def attach(self, app):
         """Count every request on ``app`` (start and end) as activity."""

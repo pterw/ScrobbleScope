@@ -184,6 +184,12 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Log a dead watchdog through log_failure
+
+Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.
+
+Validation: `pytest -q` -- **2972 passed**.
+
 ### 2026-10-27 - Make the watchdog's environ argument required
 
 Side task, no batch tag: Codacy flagged `watch_from_env(environ=os.environ)` in `scrobblescope/idle_exit.py` as Pylint W0102 (dangerous default value) and failed PR #276 with "1 new issue (0 max.)". Every caller already passes the mapping (`app.py` passes `os.environ`; `tests/test_idle_exit.py` passes dicts), so the default was never used. `environ` is now a required parameter with no default; nothing else changed. No test added.
@@ -207,9 +213,3 @@ Side task, no batch tag: Task 4 of the Fly idle-exit plan, on `feat/fly-idle-exi
 Edited existing tests: none.
 
 Validation: `pytest -q` -- **2970 passed**.
-
-### 2026-10-27 - Correct the tracked test-module count to 104
-
-Side task, no batch tag, on `feat/fly-idle-exit`. Task 2 added `tests/test_idle_exit.py`, so `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` gives 104, but `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` still said 103 tracked test modules. Both now say 104 (the module count is hand-edited; `--fix --test-count` writes only the test count). `config/docsync.toml` `[test_count] pinned` already equals `pytest --collect-only -q` (2970). No other live doc states the module count. Docs only.
-
-Validation: `pytest --collect-only -q` -- **2970 passed** (collected, unchanged).

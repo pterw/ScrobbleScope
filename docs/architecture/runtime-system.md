@@ -88,6 +88,7 @@ flowchart LR
     App -.->|imported inside create_app| IdleExit
     IdleExit --> Worker
     IdleExit --> ReleaseChecks
+    IdleExit --> Utils
     Routes --> ReleaseStatus
     ReleaseChecks --> MusicBrainzClient
     ReleaseChecks --> Cache

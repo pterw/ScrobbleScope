@@ -175,7 +175,11 @@ def test_a_dying_watchdog_thread_is_logged(caplog):
     with caplog.at_level(logging.ERROR, logger=idle_exit.logger.name):
         watch.run(sleep=lambda _s: None)
 
-    assert [r.exc_info[0] for r in caplog.records] == [RuntimeError]
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    assert "RuntimeError" in errors[0].getMessage()
+    assert "work check failed" not in errors[0].getMessage()
+    assert errors[0].exc_info is None
 
 
 def test_start_runs_the_loop_on_a_daemon_thread():

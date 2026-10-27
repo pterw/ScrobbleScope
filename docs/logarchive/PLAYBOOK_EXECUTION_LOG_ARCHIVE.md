@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Correct the tracked test-module count to 104
+
+Side task, no batch tag, on `feat/fly-idle-exit`. Task 2 added `tests/test_idle_exit.py`, so `git ls-tree -r --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` gives 104, but `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` still said 103 tracked test modules. Both now say 104 (the module count is hand-edited; `--fix --test-count` writes only the test count). `config/docsync.toml` `[test_count] pinned` already equals `pytest --collect-only -q` (2970). No other live doc states the module count. Docs only.
+
+Validation: `pytest --collect-only -q` -- **2970 passed** (collected, unchanged).
+
 ### 2026-10-27 - Harden the idle watchdog tests and log a dead watchdog
 
 Side task, no batch tag: fix round on Task 2 of the Fly idle-exit plan (review rulings R-2.1 to R-2.4), on `feat/fly-idle-exit`. `IdleWatch.run` now logs an exception from the watchdog loop with `logger.exception`, because a silent thread death would leave the machine running all day. The tests now start the fake clock at 1000 (so an initial `_last_activity = 0` fails), call `step()` from inside a request after the window has passed (so the `before_request` hook is needed), check that `IDLE_EXIT_MINUTES=20` means one second short of 20 minutes does not exit and 20 minutes does (a minutes-as-seconds error would stop the machine 20 seconds after a request), and check that `stop_gunicorn` sends SIGTERM to the parent pid.
