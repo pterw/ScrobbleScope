@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveImageBtn = document.getElementById('save-image');
     if (saveImageBtn) {
         saveImageBtn.addEventListener('click', function() {
-            showToast('Creating leaderboard image... please wait.');
+            showToast('Creating leaderboard image');
             const targetElement = document.getElementById('results-table-wrapper');
             if (!targetElement || typeof window.html2canvas !== 'function') {
                 showToast('Could not save image.', 'error');

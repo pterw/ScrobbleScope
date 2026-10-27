@@ -86,7 +86,7 @@ async def _run_spotify_search_phase(
                 jobs.SPOTIFY_SEARCH,
                 searches_done,
                 total_searches,
-                f"Searching Spotify: {searches_done}/{total_searches} albums...",
+                f"Searching Spotify: {searches_done}/{total_searches} albums",
             )
     finally:
         # An unexpected exception from one search must not leave its siblings

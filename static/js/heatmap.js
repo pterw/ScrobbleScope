@@ -834,7 +834,7 @@
     hideElement(errorContainer);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) hideElement(progressTrack);
-    progressText.textContent = 'Restoring your latest heatmap...';
+    progressText.textContent = 'Restoring your latest heatmap';
     resetLoadingDetails(lastUsername);
     restoringSavedHeatmap = true;
     hideElement(heatmapLoading);
@@ -1022,7 +1022,7 @@
     hideElement(heatmapSection);
     hideElement(heatmapResult);
     hideElement(errorContainer);
-    progressText.textContent = 'Initializing...';
+    progressText.textContent = 'Connecting to Last.fm';
     resetLoadingDetails(username);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) {
@@ -1085,7 +1085,7 @@
         result.status === 400 &&
         result.data.error_code === 'csrf_invalid'
       ) {
-        progressText.textContent = 'Refreshing your session...';
+        progressText.textContent = 'Refreshing your session';
         return refreshCsrfToken().then(function () {
           return startHeatmapRequest(username, false);
         });
@@ -1183,7 +1183,7 @@
   }
 
   function fetchHeatmapData() {
-    progressText.textContent = 'Rendering heatmap...';
+    progressText.textContent = 'Rendering heatmap';
 
     fetch('/heatmap_data?job_id=' + encodeURIComponent(currentJobId))
       .then(function (res) { return res.json(); })

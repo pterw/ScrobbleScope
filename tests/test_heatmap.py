@@ -342,26 +342,26 @@ class TestFetchAndProcessHeatmap:
             await _fetch_and_process_heatmap("job-5", "progressuser")
 
         # The phase owns the operation name; the live statistic owns N / T.
-        assert started == ["Initializing heatmap..."]
+        assert started == ["Connecting to Last.fm"]
         assert {
             "progress": 5,
-            "message": "Fetching your scrobble history from Last.fm...",
+            "message": "Fetching your scrobble history from Last.fm",
             "phase": None,
         } in progress_calls
         assert {
             "progress": 80,
-            "message": "Counting your daily scrobbles...",
+            "message": "Counting your daily scrobbles",
             "phase": None,
         } in progress_calls
         page_calls = [
             update
             for update in progress_calls
-            if update.get("message") == "Reading your Last.fm history..."
+            if update.get("message") == "Reading your Last.fm history"
         ]
         assert page_calls == [
             {
                 "progress": 80,
-                "message": "Reading your Last.fm history...",
+                "message": "Reading your Last.fm history",
                 "phase": {
                     "key": "lastfm_fetch",
                     "label": "Fetching scrobbles",

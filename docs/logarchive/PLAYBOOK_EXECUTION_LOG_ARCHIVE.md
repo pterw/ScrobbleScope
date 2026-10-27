@@ -9,6 +9,12 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Log a dead watchdog through log_failure
+
+Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.
+
+Validation: `pytest -q` -- **2972 passed**.
+
 ### 2026-10-27 - Make the watchdog's environ argument required
 
 Side task, no batch tag: Codacy flagged `watch_from_env(environ=os.environ)` in `scrobblescope/idle_exit.py` as Pylint W0102 (dangerous default value) and failed PR #276 with "1 new issue (0 max.)". Every caller already passes the mapping (`app.py` passes `os.environ`; `tests/test_idle_exit.py` passes dicts), so the default was never used. `environ` is now a required parameter with no default; nothing else changed. No test added.

@@ -90,11 +90,11 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     heatmap_job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     jobs.record_stat(heatmap_job_id, "pages_received", 7)
     jobs.record_stat(heatmap_job_id, "pages_expected", 12)
-    jobs.advance(heatmap_job_id, 48, "Reading your Last.fm history...")
+    jobs.advance(heatmap_job_id, 48, "Reading your Last.fm history")
     try:
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
         page.locator("#heatmap-progress-text").filter(
-            has_text="Reading your Last.fm history..."
+            has_text="Reading your Last.fm history"
         ).wait_for(state="visible")
         heatmap_state = page.evaluate(
             """() => ({
@@ -120,7 +120,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         failures.append(
             "/heatmap did not retain its loading parameters (expected username and date window)"
         )
-    if heatmap_state["phase"] != "Reading your Last.fm history...":
+    if heatmap_state["phase"] != "Reading your Last.fm history":
         failures.append("/heatmap phase does not name the current operation")
     if heatmap_state["fillTransform"] == "none":
         failures.append(

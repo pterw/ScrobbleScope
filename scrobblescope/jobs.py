@@ -164,7 +164,12 @@ def _now():
 
 
 def _initial_progress():
-    return {"progress": 0, "message": "Initializing...", "error": False, "stats": {}}
+    return {
+        "progress": 0,
+        "message": "Connecting to Last.fm",
+        "error": False,
+        "stats": {},
+    }
 
 
 def _write(job_id, apply):

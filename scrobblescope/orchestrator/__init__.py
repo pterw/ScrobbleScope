@@ -413,7 +413,7 @@ async def finish_album_job(job_id, selection, album, *, overall_start_time):
     if not selection.eligible:
         jobs.succeed(job_id, [], "No albums found for the specified criteria.")
         return []
-    jobs.advance(job_id, 20, "Processing your albums...")
+    jobs.advance(job_id, 20, "Processing your albums")
     return await _process_filtered_albums(
         job_id,
         selection.eligible,
@@ -473,7 +473,7 @@ async def _process_filtered_albums(
     jobs.advance(
         job_id,
         20,
-        f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
+        f"Preparing {len(filtered_albums)} albums for Spotify lookup",
     )
 
     step_start_time = time.time()
@@ -494,9 +494,9 @@ async def _process_filtered_albums(
     step_elapsed = time.time() - step_start_time
     logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
 
-    jobs.advance(job_id, 80, "Adding album art to your results...")
-    jobs.advance(job_id, 85, "Compiling your top album list...")
-    jobs.advance(job_id, 90, "Finalizing list...")
+    jobs.advance(job_id, 80, "Adding album art to your results")
+    jobs.advance(job_id, 85, "Compiling your top album list")
+    jobs.advance(job_id, 90, "Finalizing list")
 
     if include_unmatched:
         results = merge_unmatched_rows(results, jobs.unmatched(job_id))
@@ -547,8 +547,8 @@ async def _fetch_and_process(
         cleanup_expired_cache()
         jobs.expire_stale()
 
-        jobs.start(job_id, "Initializing...")
-        jobs.advance(job_id, 5, "Fetching your data from Last.fm...")
+        jobs.start(job_id, "Connecting to Last.fm")
+        jobs.advance(job_id, 5, "Fetching your data from Last.fm")
 
         def _lastfm_progress(pages_done, total_pages, _pages_received):
             """Report page-fetching progress inside the album fetch band."""
@@ -557,7 +557,7 @@ async def _fetch_and_process(
                 jobs.ALBUM_LASTFM_FETCH,
                 pages_done,
                 total_pages,
-                "Reading your Last.fm history...",
+                "Reading your Last.fm history",
             )
 
         step_start_time = time.time()

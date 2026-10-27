@@ -423,7 +423,7 @@ def test_a_failed_run_with_no_retry_still_says_the_results_page_opens(js_browser
             "message": "Last.fm failed.",
         },
     )
-    assert details == "Opening the results page\u2026"
+    assert details == "Opening the results page"
     assert 3000 in redirect_delays
 
 

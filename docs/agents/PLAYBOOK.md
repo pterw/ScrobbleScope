@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Drop ellipses from progress and toast messages
+
+Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: README row 6, no ellipses in the live status copy. Ruling U10 widened it from the loading page to the server's progress messages (`scrobblescope/orchestrator/`, `heatmap.py`, `jobs.py`) and the client strings in `static/js/` (`loading-progress.js`, `loading.js`, `heatmap.js`, `results.js`), including the escaped ellipses in `loading.js`: "Retrying" and "Opening the results page". "Initializing..." (and "Initializing heatmap...") became "Connecting to Last.fm" at all seven sites, the template's first phase line, `jobs._initial_progress`, both fallbacks in `loading-progress.js` and the heatmap start; the leaderboard toast reads "Creating leaderboard image". The pins in `scripts/dev/_frontend_gate_pipeline.py` follow the new strings. Remaining `...` in the tree are docstrings and comments only.
+
+Deviations: none from the rulings. `tests/test_routes.py` is untouched: its "Working..." and "Fetching page 3..." are fixture strings passed to `jobs.advance`, not production copy. The `jobs.start` test uses the arbitrary message "Starting" instead of "Initializing heatmap...".
+
+Existing tests edited, by name: `test_create_returns_unique_ids_and_a_pristine_job` and `test_reset_returns_the_job_to_its_initial_state_and_keeps_params` in `tests/test_jobs.py`, `test_start_clears_stats_phase_and_error_and_sets_the_message` (message string), `test_progress_callback_sends_correct_percentages` and the other `TestFetchAndProcessHeatmap` message asserts in `tests/test_heatmap.py`, `test_fetch_and_process_passes_progress_cb_to_lastfm` in `tests/services/test_orchestrator_fetch_and_process.py`, `test_fetch_spotify_misses_reports_search_progress`, `test_fetch_spotify_misses_reports_batch_progress` and `test_deezer_fallback_reports_progress_inside_its_band` in `tests/services/test_orchestrator_fetch_spotify.py` (full-message equality), and `test_a_failed_run_with_no_retry_still_says_the_results_page_opens` in `tests/frontend/test_heatmap_pure_functions.py`.
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Rewrite the unmatched page headline and threshold header
 
 Side task, no batch tag: UI audit v6 row 5, the unmatched page headline, subtitle, group description and threshold column header, on `feat/ui-audit-v6`, a branch off `main`.
@@ -215,9 +227,3 @@ Owner intent: the heading face is Degular at weight 600, replacing Orpheus Pro (
 Existing tests edited, by name: `tests/scripts/dev/test_tailwind_build_cli.py` (token line) and `tests/scripts/dev/test_frontend_gate_theme.py` (parametrized weighted and styled canvas font cases added).
 
 Validation: `pytest -q` -- **2976 passed**.
-
-### 2026-10-27 - Log a dead watchdog through log_failure
-
-Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.
-
-Validation: `pytest -q` -- **2972 passed**.

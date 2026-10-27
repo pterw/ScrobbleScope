@@ -74,7 +74,7 @@ def test_create_returns_unique_ids_and_a_pristine_job():
     ctx = jobs.context(first)
     assert ctx["progress"] == {
         "progress": 0,
-        "message": "Initializing...",
+        "message": "Connecting to Last.fm",
         "error": False,
         "stats": {},
     }
@@ -103,7 +103,7 @@ def test_reset_returns_the_job_to_its_initial_state_and_keeps_params():
     ctx = jobs.context(job_id)
     assert ctx["progress"] == {
         "progress": 0,
-        "message": "Initializing...",
+        "message": "Connecting to Last.fm",
         "error": False,
         "stats": {},
     }
@@ -215,12 +215,12 @@ def test_start_clears_stats_phase_and_error_and_sets_the_message():
     jobs.report_phase(job_id, jobs.SPOTIFY_SEARCH, 1, 2, "x")
     jobs.fail(job_id, "lastfm_rate_limited")
 
-    assert jobs.start(job_id, "Initializing heatmap...") is True
+    assert jobs.start(job_id, "Starting") is True
 
     progress = jobs.progress(job_id)
     assert progress == {
         "progress": 0,
-        "message": "Initializing heatmap...",
+        "message": "Starting",
         "error": False,
         "stats": {},
     }

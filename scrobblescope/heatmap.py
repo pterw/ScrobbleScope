@@ -58,7 +58,7 @@ async def _fetch_and_process_heatmap(job_id, username):
     # Phase 0%: housekeeping --------------------------------------------------
     cleanup_expired_cache()
     jobs.expire_stale()
-    jobs.start(job_id, "Initializing heatmap...")
+    jobs.start(job_id, "Connecting to Last.fm")
 
     # Compute the 365-day window (today inclusive). All datetimes are UTC
     # so the fetch range and bucket boundaries agree regardless of the
@@ -81,10 +81,10 @@ async def _fetch_and_process_heatmap(job_id, username):
             jobs.HEATMAP_LASTFM_FETCH,
             pages_done,
             total_pages,
-            "Reading your Last.fm history...",
+            "Reading your Last.fm history",
         )
 
-    jobs.advance(job_id, 5, "Fetching your scrobble history from Last.fm...")
+    jobs.advance(job_id, 5, "Fetching your scrobble history from Last.fm")
 
     fetch_start = time.time()
     fetch = await fetch_scrobbles(username, window, progress_cb=_heatmap_progress)
@@ -108,7 +108,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         )
 
     # Phase 80-90%: aggregate daily counts ------------------------------------
-    jobs.advance(job_id, 80, "Counting your daily scrobbles...")
+    jobs.advance(job_id, 80, "Counting your daily scrobbles")
     daily_counts = aggregate_daily_counts(fetch.plays, from_date, to_date)
 
     total = sum(daily_counts.values())
