@@ -6,6 +6,7 @@ import pytest
 
 from scrobblescope.worker import (
     acquire_job_slot,
+    active_job_slots,
     new_thread_event_loop,
     release_job_slot,
     start_job_thread,
@@ -327,3 +328,15 @@ def test_run_coroutine_never_hides_a_close_failure():
 
     assert released == [True]
     assert seen == []
+
+
+def test_active_job_slots_counts_the_slots_held():
+    """GIVEN the per-test semaphore
+    WHEN a slot is acquired and then released
+    THEN active_job_slots reports 0, then 1, then 0 again.
+    """
+    assert active_job_slots() == 0
+    assert acquire_job_slot() is True
+    assert active_job_slots() == 1
+    release_job_slot()
+    assert active_job_slots() == 0

@@ -7,6 +7,7 @@ Quality Rules.
 """
 
 import logging
+import queue
 from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1106,3 +1107,19 @@ async def test_a_cached_finding_gives_an_unmatched_row_the_outcome_a_lookup_woul
     stats = jobs.progress(job_id)["stats"]["release_check"]
     assert stats["moved_out"] == moved_out
     lookup.assert_not_awaited()
+
+
+def test_pending_checks_stay_true_while_a_queued_job_is_running(monkeypatch):
+    """GIVEN a queue with one job
+    WHEN the job is taken but not yet marked done
+    THEN has_pending_checks stays True until task_done, so a running
+    correction keeps the machine awake.
+    """
+    monkeypatch.setattr(release_checks, "_JOB_QUEUE", queue.Queue())
+    assert release_checks.has_pending_checks() is False
+    release_checks._JOB_QUEUE.put("job")
+    assert release_checks.has_pending_checks() is True
+    release_checks._JOB_QUEUE.get()
+    assert release_checks.has_pending_checks() is True
+    release_checks._JOB_QUEUE.task_done()
+    assert release_checks.has_pending_checks() is False

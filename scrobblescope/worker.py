@@ -30,6 +30,11 @@ def release_job_slot():
         logging.warning("release_job_slot called with no matching acquire")
 
 
+def active_job_slots():
+    """Return how many background job slots are currently held."""
+    return MAX_ACTIVE_JOBS - _active_jobs_semaphore._value
+
+
 def start_job_thread(target, args=()):
     """Start a daemon thread for a background job.
 

@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Expose held job slots and pending release checks
+
+Side task, no batch tag: Task 1 of the Fly idle-exit plan (`docs/superpowers/plans/2026-10-27-fly-idle-exit.md`), on `feat/fly-idle-exit`. The owner wants the web machine to stop itself when idle while the DB machine stays on, so an idle watchdog needs one place to ask whether any background work is running. `worker.active_job_slots()` returns the number of held job slots (the semaphore's free count subtracted from `MAX_ACTIVE_JOBS`); `release_checks.has_pending_checks()` is True while `_JOB_QUEUE.unfinished_tasks` is above zero, because the correction worker outlives the slot of the job that queued it. Neither changes existing behaviour.
+
+Exit-code probe (run before this task): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" then "Shutting down: Master", last line `EXIT=0`, so a clean master shutdown leaves the `on-failure` machine stopped.
+
+Red proofs: `active_job_slots` returning a constant 0 fails `test_active_job_slots_counts_the_slots_held` (`assert 0 == 1`); `has_pending_checks` using `qsize()` instead of `unfinished_tasks` fails `test_pending_checks_stay_true_while_a_queued_job_is_running` at the "job taken, not done" step.
+
+Edited existing tests: none. Added: `test_active_job_slots_counts_the_slots_held` in `tests/test_worker.py`; `test_pending_checks_stay_true_while_a_queued_job_is_running` in `tests/services/test_release_checks.py`.
+
+Validation: `pytest -q` -- **2954 passed** (2874 passed with `-m "not browser"`).
+
 ### 2026-10-25 - Make two vacuous service checks honest
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
@@ -219,15 +231,3 @@ Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left 
 Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
 
 Validation: `pytest -q` -- **2954 passed**.
-
-### 2026-10-25 - Ignore the owner's local files
-
-Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
-
-Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
-
-Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.
