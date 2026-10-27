@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Make the favicon follow the theme
+
+Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 8, favicon option C): the favicon uses the site's own surfaces and purples and follows the browser colour scheme. `static/images/favicon.svg` (1841 bytes) holds a `<style>` block with plate `#faf7f0` / blades `#6a4baf`, and under `prefers-color-scheme: dark` plate `#181520` / blades `#b39dde`; the rounded 32x32 plate (`rx="8"`) carries the four existing blade paths scaled to .86. `favicon-16x16.png`, `favicon-32x32.png` and `favicon.ico` (16 + 32, PNG payloads, written by hand) are regenerated from the light variant, and `apple-touch-icon.png` (180x180, full-bleed cream plate, blades at .86) is new. `templates/base.html` `<head>` gains the apple-touch link and two `theme-color` metas (`#faf7f0` light, `#0e0c12` dark); the four existing icon links stay. Blade against plate contrast is 6.06:1 light and 7.54:1 dark (non-text minimum 3:1). The README's 7.8 kB `c2pa` block was already gone from the file. The PNGs were rendered with Playwright Chromium (Pillow is not a dependency); the SVG itself uses only plain CSS and a media query.
+
+Deviations: none.
+
+Existing tests edited, by name: `test_every_page_carries_the_shared_shell` in `tests/test_template_shell.py` (asserts the apple-touch link and both theme-color metas).
+
+Validation: `pytest -q` -- **2986 passed**.
+
 ### 2026-10-27 - State the real total of a capped unmatched group
 
 Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.
@@ -217,15 +229,5 @@ Owner intent: the unmatched page headline says what happened to the albums (ruli
 Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
 
 Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
-
-Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Name the user and year in the results headline
-
-Side task, no batch tag: UI audit v6 row 4, the results headline names the user and the run's year, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the results h1 reads "<user>'s top albums of <year>", with the username keeping its accent span and `year` being the run's own year, never the current one. The subtitle `#results-ranking-subtitle` drops the year (ruling U11) and names the source: "Last.fm", a middle dot, then "Ranked by play count" or "Ranked by listening time". `setLeaderboardMetric` in `static/js/results.js` writes the same string on a sort change, so a sort switch and a fresh load agree. This wording is provisional until the impeccable pass. The old phrase "Top Last.fm albums for" appeared only in `templates/results.html`; no `<title>` or meta text repeated it. Deviations: `scripts/dev/results_behavior_tests.py` is touched beyond the brief (review finding R4-F1) so the sort check also covers the subtitle text, which the Python route test cannot see.
-
-Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
 
 Validation: `pytest -q` -- **2978 passed**.

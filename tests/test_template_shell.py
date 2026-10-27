@@ -239,6 +239,22 @@ def test_every_page_carries_the_shared_shell(app, template):
     assert ">Loading</a>" not in html
     assert ">Light</span>" in html
     assert ">Dark</span>" in html
+    # The touch icon and one theme-color per scheme: the browser chrome follows
+    # the scheme the page is shown in.
+    assert re.search(
+        r'<link rel="apple-touch-icon" href="/static/images/apple-touch-icon\.png">',
+        html,
+    )
+    assert re.search(
+        r'<meta name="theme-color" content="#faf7f0"'
+        r' media="\(prefers-color-scheme: light\)">',
+        html,
+    )
+    assert re.search(
+        r'<meta name="theme-color" content="#0e0c12"'
+        r' media="\(prefers-color-scheme: dark\)">',
+        html,
+    )
 
 
 def test_shared_navigation_uses_input_mono_narrow():
