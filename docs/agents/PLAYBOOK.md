@@ -184,6 +184,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Update the Last updated line in every commit that touches its file
+
+Side task, no batch tag: put the date rule in the commit checklist, on `docs/findings-rotation-rule`, a branch off `main`.
+
+Owner ruling: always update the date when updates are made, in the findings and the other files that carry one. `AGENTS.md` "What to update after a WP or side-task commit" now has a bullet setting the `Last updated:` line of `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` to the commit's date in the same commit (docsync does not derive it; FINDINGS.md had sat at 2026-09-21 for five weeks). The bullet also records that the tracked test-module count is measured with `git ls-tree` and edited by hand because `--fix --test-count N` writes the test count only (F-DOCSYNC-23), and that a log entry's test count is written in bold. PLAYBOOK's `Date:` line is left alone pending an owner decision. The `docs/architecture/documentation-tooling.md` diagram label that still said rotation happens at close-out now says it happens at `--fix` once the record is checked.
+
+Deviations: `docs/agents/FINDINGS.md` and `.claude/SESSION_CONTEXT.md` are not touched, so their date lines are unchanged (FINDINGS.md already reads 2026-10-27). No code or test change; the test count is unchanged.
+
 ### 2026-10-27 - Rotate findings as soon as their record is checked
 
 Side task, no batch tag: say in the live policy text when findings rotate, on `docs/findings-rotation-rule`, a branch off `main`.
@@ -225,15 +233,3 @@ Deviations: none. `test_normalize_name_remastered_suffix` was reviewed and left 
 Edited existing tests: `test_normalize_name_unicode_preserved` and `test_cover_wash_index_is_stable_and_ignores_spelling_noise` in `tests/test_domain.py`.
 
 Validation: `pytest -q` -- **2954 passed**.
-
-### 2026-10-25 - Ignore the owner's local files
-
-Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
-
-Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
-
-Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
-
-Edited existing tests: none.
-
-Validation: `pytest -q` -- **2941 passed**.

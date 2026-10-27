@@ -359,6 +359,15 @@ recorded decision or a date collision. Then update:
 - `README.md` for user/developer-visible changes (a batch's dedicated
   README WP may absorb updates from earlier WPs instead).
 - `docs/history/reports/<TOPIC>_<DATE>.md` for significant findings or audits.
+- The `Last updated:` line of every file you change that carries one
+  (`docs/agents/FINDINGS.md`, `.claude/SESSION_CONTEXT.md`), set to the
+  commit's date in the same commit; docsync does not derive it. The tracked
+  test-module count in those two files is measured with `git ls-tree -r
+  --name-only HEAD tests | grep -c '/test_[^/]*\.py$'` and edited by hand,
+  because `--fix --test-count N` writes the test count only (F-DOCSYNC-23). A
+  test count in a log entry is written in bold (`**N passed**`) because
+  docsync reads only bold counts. PLAYBOOK's `Date:` line is left alone
+  pending an owner decision.
 
 **Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true
 state of every WP at all times -- mark a mid-WP deviation fix there before

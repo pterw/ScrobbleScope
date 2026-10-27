@@ -14,7 +14,7 @@ flowchart TD
     P --> BL[docs/history/logs/<br/>tagged Batch N entries]
     P --> LA[docs/logarchive/<br/>rotated side-task entries]
     P --> DH[docs/history/<br/>definitions, findings, reports]
-    F --> FA[docs/history/findings/<br/>rotation at close-out]
+    F --> FA[docs/history/findings/<br/>rotation at --fix once the record is checked]
 
     AR[docs/ARCHITECTURE.md<br/>diagram index] --> RV[runtime-system]
     AR --> DC[development-cycle]

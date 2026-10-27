@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-25 - Ignore the owner's local files
+
+Side task, no batch tag: ignore the owner's local files and commit `.graphifyignore`, on `chore/ignore-local-files`, a branch stacked on `fix/album-matching` (PR #270).
+
+Owner intent: "RE: .gitignore, yes to all." `.gitignore` gains one block for the owner's handoffs (`scrobblescope-handoff-*.md`, `scratchpad_owner.md`), `/progress_copy.md`, `docs/superpowers/plans/plan.md`, the plans' `architecture-review-*.html`, `docs/history/reports/*.htm` and `Architecture Review*.html`, two audit files and `.github/skills/`. `.graphifyignore` is committed as the owner wrote it. The scripts under `scripts/dev/mutation_*` and their test stay visible.
+
+Deviations: the brief's directory and `*.html` patterns would have ignored four files git already tracks (one handoff, three exported reports), so the patterns are narrowed to the untracked names; `git ls-files -ci --exclude-standard` now lists only `.superpowers/sdd/.gitignore`, which was ignored before. No rule in AGENTS.md, `docs/agents/` or `config/docsync.toml` expects the handoffs to be visible to git.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2941 passed**.
+
 ### 2026-10-25 - Share one Spotify breaker across a job's phases
 
 Side task, no batch tag: fix the Codex review P2 (round 2) on PR #270, where the stamping calls and the miss fetch each opened their own Spotify breaker, on `fix/album-matching`, stacked on PR #269.
