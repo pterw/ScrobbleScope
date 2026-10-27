@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-21
+Last updated: 2026-10-27
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
 2952 tests across 103 tracked test modules.
@@ -904,6 +904,16 @@ The Results header's Top Artist is the artist of the first row in the run's rank
 `admit()` in `scrobblescope/routes/admission.py` takes a job slot with `_routes.acquire_job_slot()` (line 44) and then calls `jobs.create(params)` (line 47), outside its `try` (lines 49-54). Only a `start_job_thread` failure is caught: that path logs, deletes the job and returns `Refused.START_FAILED`, and `start_job_thread` has already released the slot (`scrobblescope/worker.py`). If `jobs.create` raises, nothing releases the slot, so the semaphore stays one short for the life of the process, and enough such failures would make the app refuse every job as at capacity until it restarts. What can raise there: `jobs.create` (`scrobblescope/jobs.py`, line 187) calls `_now()`, `uuid4()`, `_initial_progress()` and `_store.insert(...)`. With the in-memory store `insert` is a dict write under a lock, so in practice only something like `MemoryError` reaches the slot; `_store` is a protocol, though, so another store's `insert` could raise. What would close it: acquire the slot and create the job under one `try` that releases the slot on any exception, with a test that makes `jobs.create` raise and asserts the slot count is unchanged.
 
 - [ ] **Status:** open (P3). Source: review of the Fly idle-exit plan (reviewer note), 2026-10-27.
+
+### F-DOCSYNC-25: the Last updated dates are hand-maintained and unchecked
+
+Three documents carry a date line that someone sets by hand. `docs/agents/FINDINGS.md` (`Last updated:`) read 2026-09-21 for five weeks while the file kept changing; `.claude/SESSION_CONTEXT.md` (`Last updated:`) is set by hand (`git log -S` shows the current value arriving in `4f659b7b`, 2026-10-25); `docs/agents/PLAYBOOK.md` carries `Date: 2026-02-22`, a creation date that nobody updates. Nothing reads any of them: a grep of `scripts/`, `tests/`, `config/` and `.githooks/` for `Last updated` and the PLAYBOOK `Date:` line finds no docsync code, and only one test fixture mentions a date (`tests/test_docsync_findings.py`, a `Last updated: 2026-09-15` line in a synthetic findings header).
+
+Proposal, not built (owner-approved direction, 2026-10-27): derive each date from the newest dated PLAYBOOK Section 4 entry, since docsync never reads the wall clock and every commit already writes one. `--fix` would set the `Last updated:` line of FINDINGS.md and SESSION_CONTEXT.md, and PLAYBOOK's own date line would become the date of its most recent addition. `--check` would warn on a mismatch, as DOC025 does for the test count. The next free code is DOC027 (the catalogue has DOC001-DOC020 and DOC023-DOC026; DOC021 and DOC022 are reserved). Because every commit's hook runs docsync, it is gate-deciding, so it should land alone, after the in-flight PRs (#273, #274, the Fly branch and the rotation-rule branch), and in the same commit update AGENTS.md's pinned "DOC001-DOCnnn" substring and `docs/architecture/documentation-tooling.md`. Until then the owner's standing rule applies: update the date whenever any of those files changes.
+
+Sibling of F-DOCSYNC-23: the same `--fix` pass could also derive the module count (from `git ls-files 'tests/**/test_*.py'`), so one change could close both. The two facts come from different sources (the log for the date, git for the count), so they need separate derivations and separate checks even if they share the pass.
+
+- [ ] **Status:** open (P3). Source: owner review of the date drift, 2026-10-27.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 

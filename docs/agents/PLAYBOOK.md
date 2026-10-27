@@ -205,6 +205,16 @@ Side task, no batch tag: make the stale pointer F-B18-12 consistent, on `docs/fi
 
 Validation: test count unchanged (docs only); `pytest -q` was not re-run.
 
+### 2026-10-27 - The mechanical Last updated dates are filed
+
+Side task, no batch tag: file one finding, on `docs/file-findings-docsync-24`, a branch off `main`.
+
+- **Filed F-DOCSYNC-25 at P3.** The `Last updated:` lines of FINDINGS.md and SESSION_CONTEXT.md and PLAYBOOK's `Date:` line are set by hand and no docsync code reads them. The finding proposes deriving them from the newest dated Section 4 entry, names DOC027 as the next free code, and notes the sibling F-DOCSYNC-23 (module count). Owner ruling 2026-10-27: make the dates mechanical, file it as a follow-up.
+- **Set FINDINGS.md `Last updated:` to 2026-10-27** (it read 2026-09-21), under the owner's standing rule to update the date when a file changes.
+- **Scope:** documentation only. Nothing was built, and no docsync code, AGENTS.md or config changed.
+
+Validation: test count unchanged (docs only); `pytest -q` was not re-run.
+
 ### 2026-10-25 - Make two vacuous service checks honest
 
 Side task, no batch tag: make two vacuous service checks honest and drop one redundant test, on `test/lean-suite-vacuous`, a branch off `main`.
@@ -216,15 +226,3 @@ Deviations: none. `test_a_missing_correction_table_names_the_migration` and `tes
 Edited existing tests: `test_cleanup_stale_metadata_issues_delete` in `tests/services/test_orchestrator_fetch_spotify.py`; `test_fetch_top_albums_skips_out_of_bounds_timestamps` in `tests/services/test_lastfm_logic.py`. Deleted: `test_album_metadata_carries_its_provider_and_url` in `tests/services/test_enrichment.py`.
 
 Validation: `pytest -q` -- **2952 passed**.
-
-### 2026-10-25 - Replace vacuous shell and results checks with behaviour checks
-
-Side task, no batch tag: replace four vacuous shell and results checks with behaviour checks, on `test/lean-suite-vacuous`, a branch off `main`.
-
-Owner intent: one test per intended behaviour; fix a vacuous test in place and prove it red against a defect a user could ship. The inline-mark test passed `0 == 0` on a page that lost its header logo; it now also asserts at least one mark renders. The release-check poller test only grepped the script text, so a `skipped` job polled every 2 s forever and still passed; it is deleted and `ResultsBehaviorTests` gains a Chromium test that counts requests over 20 s of frozen-clock time (`running` keeps polling, `done`, `skipped`, `error` and an unknown status stop after one reply). The rotating-card test only checked that a height was written, on markup where both candidates were the same height; it now uses differing candidates and asserts the reserved height is at least the tall one's (80 px). The framework test lost its unreachable Bootstrap branch (every template is in `MIGRATED`) and a stale comment.
-
-Deviations: none. Red proofs used scratch edits, restored byte-identical: base.html header mark removed (7 of 8 pages failed), `'skipped'` added to `LIVE_STATES` (`11 != 1`), `Math.max` to `Math.min` in results-spotlight.js (`0.0 not >= 80`). The suite count falls by one (the deleted test).
-
-Edited existing tests: `test_every_inline_mark_is_wrapped_for_the_css_animation` and `test_each_page_loads_the_framework_its_markup_is_written_for` in `tests/test_template_shell.py`; `test_a_rotating_card_reserves_its_tallest_height` in `scripts/dev/results_behavior_tests.py`. Deleted: `test_the_release_check_poller_stops_on_every_terminal_state`. Added: `test_the_release_check_poller_stops_on_every_status_that_is_not_live`.
-
-Validation: `pytest -q` -- **2953 passed**.
