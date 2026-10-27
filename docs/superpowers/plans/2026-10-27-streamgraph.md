@@ -137,15 +137,15 @@ Every task: `Wave` is the earliest wave it can start; `After` lists tasks whose 
 - Consumes: `normalize_name(artist, album)` from `scrobblescope/domain.py:7`; the play objects `aggregate_daily_counts` already reads.
 - Produces: `aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=10) -> dict` with the payload shape in Interfaces.
 
-- [ ] **Step 1: Write the failing cases** in `tests/test_plays.py`, parametrized:
+- [x] **Step 1: Write the failing cases** in `tests/test_plays.py`, parametrized:
   - week boundaries follow the Monday grid: a Wednesday `from_date` gives `weeks[0]` equal to the previous Monday and the first column holds only plays from `from_date` on; a `to_date` mid-week gives a partial last column; `len(weeks)` equals `(from_date.weekday() + days - 1) // 7 + 1`.
   - grouping and ranking: two spellings of one artist (case or punctuation) become one layer named by the first spelling seen; artists ordered by window total descending, a tie broken by normalised key; fewer than `top_n` artists gives a shorter `artists` list.
   - `other`: artists beyond `top_n`, plays with an empty artist and plays with a punctuation-only artist (`"!!!"`, key `""`) land in `other`; plays outside `[from_date, to_date]` are ignored.
   - the sum invariant: for a mixed input, each week's artist counts plus `other` equals the matching sum taken from `aggregate_daily_counts` over the same days (the test builds the expected figure from the daily function so the two cannot drift).
-- [ ] **Step 2: Run red.** Run `pytest -q tests/test_plays.py`. Expected: FAIL with `ImportError` / `AttributeError` for the missing name. Quote the last line.
-- [ ] **Step 3: Implement** `aggregate_weekly_artist_counts` (standard library only). Use `normalize_name(artist, "")[0]` as the artist key after confirming in `domain.py` that an empty album returns the artist key unchanged; if it does not, stop and return NEEDS_CONTEXT. Report the exact call used.
-- [ ] **Step 4: Run green.** `pytest -q tests/test_plays.py` passes. Quote the last line.
-- [ ] **Step 5: Gates and commit.** Stage `scrobblescope/plays.py` and `tests/test_plays.py` by name. The landing commits with the subject `feat(plays): Aggregate weekly top-artist counts for the streamgraph` after the Gates block (no frontend gate: no `static/` or `templates/` change).
+- [x] **Step 2: Run red.** Run `pytest -q tests/test_plays.py`. Expected: FAIL with `ImportError` / `AttributeError` for the missing name. Quote the last line.
+- [x] **Step 3: Implement** `aggregate_weekly_artist_counts` (standard library only). Use `normalize_name(artist, "")[0]` as the artist key after confirming in `domain.py` that an empty album returns the artist key unchanged; if it does not, stop and return NEEDS_CONTEXT. Report the exact call used.
+- [x] **Step 4: Run green.** `pytest -q tests/test_plays.py` passes. Quote the last line.
+- [x] **Step 5: Gates and commit.** Stage `scrobblescope/plays.py` and `tests/test_plays.py` by name. The landing commits with the subject `feat(plays): Aggregate weekly top-artist counts for the streamgraph` after the Gates block (no frontend gate: no `static/` or `templates/` change).
 
 ### Task 2: JS pure layout functions
 

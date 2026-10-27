@@ -16,6 +16,7 @@ from scrobblescope.plays import (
     Window,
     aggregate_albums,
     aggregate_daily_counts,
+    aggregate_weekly_artist_counts,
     select_albums,
     zero_fill_daily_counts,
 )
@@ -273,6 +274,93 @@ class TestAggregateDailyCounts:
         play = _play(_noon(date(2026, 4, 1)), artist="", album="", track="")
         result = aggregate_daily_counts([play], date(2026, 4, 1), date(2026, 4, 1))
         assert result["2026-04-01"] == 1
+
+
+class TestAggregateWeeklyArtistCounts:
+    @pytest.mark.parametrize(
+        "from_date, to_date, first_monday, columns",
+        [
+            (date(2026, 1, 7), date(2026, 1, 20), "2026-01-05", 3),  # Wed to Tue
+            (date(2026, 1, 5), date(2026, 1, 11), "2026-01-05", 1),  # Mon to Sun
+            (date(2026, 1, 11), date(2026, 1, 12), "2026-01-05", 2),  # Sun to Mon
+            (date(2025, 3, 8), date(2026, 3, 7), "2025-03-03", 53),  # a year, Sat
+        ],
+    )
+    def test_columns_follow_the_monday_grid(
+        self, from_date, to_date, first_monday, columns
+    ):
+        """Column 0 starts on the Monday on or before ``from_date`` and the
+        count matches the heatmap's ``numCols``. A play the Monday before the
+        window is ignored; one on ``from_date`` is in column 0. Planted defect:
+        step 7 days from ``from_date``."""
+        days = (to_date - from_date).days + 1
+        plays = [_play(_noon(from_date), "A"), _play(_noon(to_date), "A")]
+        plays.append(_play(_noon(from_date - timedelta(days=1)), "A"))
+        result = aggregate_weekly_artist_counts(plays, from_date, to_date)
+        assert result["weeks"][0] == first_monday
+        assert len(result["weeks"]) == columns
+        assert columns == (from_date.weekday() + days - 1) // 7 + 1
+        counts = result["artists"][0]["counts"]
+        assert counts[0] >= 1 and counts[-1] >= 1
+        assert sum(counts) == 2
+
+    def test_artists_group_by_key_and_rank_by_total(self):
+        """Spellings that normalise alike are one layer named by the first
+        spelling seen; layers run by total descending, a tie by key. Planted
+        defect: key on the raw artist string, or break ties by arrival."""
+        day = date(2026, 1, 5)
+        plays = [
+            _play(_noon(day), "Zed"),
+            _play(_noon(day), "Beta"),
+            _play(_noon(day), "Radiohead"),
+            _play(_noon(day), "radiohead!"),
+            _play(_noon(day), "RADIOHEAD"),
+        ]
+        result = aggregate_weekly_artist_counts(plays, day, day)
+        assert [a["name"] for a in result["artists"]] == ["Radiohead", "Beta", "Zed"]
+        assert [a["counts"] for a in result["artists"]] == [[3], [1], [1]]
+
+    @pytest.mark.parametrize("artist", ["", "!!!"])
+    def test_artists_without_a_key_land_in_other(self, artist):
+        """An empty or punctuation-only artist is counted in ``other``, never
+        as a layer. Planted defect: drop such plays or layer them."""
+        day = date(2026, 1, 5)
+        result = aggregate_weekly_artist_counts([_play(_noon(day), artist)], day, day)
+        assert result["artists"] == []
+        assert result["other"] == [1]
+
+    def test_artists_beyond_top_n_fold_into_other_and_stray_plays_are_ignored(self):
+        """With ``top_n=2`` the third artist joins ``other``; plays outside the
+        range count nowhere. Planted defect: drop the overflow artists."""
+        day = date(2026, 1, 5)
+        plays = [_play(_noon(day), name) for name in "AAABBC"]
+        plays.append(_play(_noon(day + timedelta(days=9)), "A"))
+        result = aggregate_weekly_artist_counts(plays, day, day, top_n=2)
+        assert [a["name"] for a in result["artists"]] == ["A", "B"]
+        assert result["other"] == [1]
+
+    def test_each_week_adds_up_to_the_daily_counts(self):
+        """Per week, artists plus ``other`` equal the daily counts of that
+        column's days inside the window. Planted defect: any play lost or
+        counted twice."""
+        from_date, to_date = date(2026, 1, 7), date(2026, 2, 3)
+        names = ["A", "B", "C", "D", "", "!!!", "a"]
+        plays = [
+            _play(_noon(from_date + timedelta(days=i % 30)), names[i % len(names)])
+            for i in range(90)
+        ]
+        result = aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=2)
+        daily = aggregate_daily_counts(plays, from_date, to_date)
+        week0 = from_date - timedelta(days=from_date.weekday())
+        expected = [0] * len(result["weeks"])
+        for iso, count in daily.items():
+            expected[(date.fromisoformat(iso) - week0).days // 7] += count
+        got = [
+            sum(a["counts"][t] for a in result["artists"]) + result["other"][t]
+            for t in range(len(expected))
+        ]
+        assert got == expected
+        assert result["other"] != [0] * len(expected)
 
 
 class TestZeroFill:

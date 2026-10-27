@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
+
+Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs per-week play counts for the ten biggest artists on the heatmap's Monday-first grid, with everything else kept in an `other` series so each week still sums to the daily counts.
+
+What changed and why: `aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=10)` in `scrobblescope/plays.py`, next to `aggregate_daily_counts`. The artist key is `normalize_name(artist, "")[0]` (confirmed in `domain.py`: an empty album leaves the artist key unchanged). Artists rank by window total, ties by key; beyond-top_n artists, empty and punctuation-only artists go to `other`; plays outside the window are ignored. It is a pure function and is not wired into the job yet. Tests: `TestAggregateWeeklyArtistCounts` in `tests/test_plays.py` (Monday grid, grouping and ranking, key-less artists, overflow, and the sum invariant against `aggregate_daily_counts`).
+
+Deviations: none. Existing tests edited: none (the import line was extended only).
+
+Validation: `pytest -q` -- **2987 passed**.
+
 ### 2026-10-27 - Plan the listening streamgraph
 
 Side task, no batch tag: the streamgraph implementation plan, on `feat/ui-audit-v6-streamgraph`, a branch stacked on `feat/ui-audit-v6`.
@@ -217,15 +229,5 @@ Owner intent: the unmatched page headline says what happened to the albums (ruli
 Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
 
 Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
-
-Validation: `pytest -q` -- **2978 passed**.
-
-### 2026-10-27 - Name the user and year in the results headline
-
-Side task, no batch tag: UI audit v6 row 4, the results headline names the user and the run's year, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent: the results h1 reads "<user>'s top albums of <year>", with the username keeping its accent span and `year` being the run's own year, never the current one. The subtitle `#results-ranking-subtitle` drops the year (ruling U11) and names the source: "Last.fm", a middle dot, then "Ranked by play count" or "Ranked by listening time". `setLeaderboardMetric` in `static/js/results.js` writes the same string on a sort change, so a sort switch and a fresh load agree. This wording is provisional until the impeccable pass. The old phrase "Top Last.fm albums for" appeared only in `templates/results.html`; no `<title>` or meta text repeated it. Deviations: `scripts/dev/results_behavior_tests.py` is touched beyond the brief (review finding R4-F1) so the sort check also covers the subtitle text, which the Python route test cannot see.
-
-Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
 
 Validation: `pytest -q` -- **2978 passed**.
