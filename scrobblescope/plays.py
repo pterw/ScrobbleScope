@@ -183,6 +183,47 @@ def aggregate_daily_counts(
     return zero_fill_daily_counts(counts, from_date, to_date)
 
 
+def aggregate_weekly_artist_counts(
+    plays: Iterable[Play], from_date: date, to_date: date, top_n: int = 10
+) -> dict:
+    """Count plays per Monday-first calendar week for the *top_n* artists.
+
+    Column ``t`` starts on the Monday ``t`` weeks after the Monday on or before
+    *from_date*, the same grid the heatmap draws, so the first and last columns
+    can be partial. Artists are keyed by ``normalize_name(artist, "")[0]``; the
+    first spelling seen names a layer, layers run largest window total first and
+    a tie breaks on the key. ``other`` holds every artist beyond *top_n* and
+    every play whose artist key is empty. Plays outside the range are ignored.
+    Pure: no I/O, no clock.
+    """
+    week0 = from_date - timedelta(days=from_date.weekday())
+    num_weeks = (to_date - week0).days // 7 + 1
+    names: dict[str, str] = {}
+    by_key: dict[str, list[int]] = {}
+    other = [0] * num_weeks
+    for play in plays:
+        day = play.played_at.date()
+        if not from_date <= day <= to_date:
+            continue
+        week = (day - week0).days // 7
+        key = normalize_name(play.artist, "")[0]
+        if not key:
+            other[week] += 1
+            continue
+        names.setdefault(key, play.artist)
+        by_key.setdefault(key, [0] * num_weeks)[week] += 1
+    ranked = sorted(by_key, key=lambda key: (-sum(by_key[key]), key))
+    for key in ranked[top_n:]:
+        other = [total + count for total, count in zip(other, by_key[key], strict=True)]
+    return {
+        "weeks": [(week0 + timedelta(weeks=t)).isoformat() for t in range(num_weeks)],
+        "artists": [
+            {"name": names[key], "counts": by_key[key]} for key in ranked[:top_n]
+        ],
+        "other": other,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class AlbumSelection:
     """The albums a window's listening leaves after the thresholds.

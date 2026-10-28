@@ -9,6 +9,230 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Describe the listening streamgraph
+
+Side task, no batch tag: the streamgraph docs (streamgraph plan Task 10), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U20): describe the streamgraph as it ships, desktop layout only, with the dark timeline surfaces inside the chart frame only.
+
+What changed and why: `README.md` gains a streamgraph bullet in the Scrobble Heatmap list, a hand-built SVG paragraph, the keyboard note, and the weekly artist counts in the `plays.py` and `heatmap.py` rows; the Save image bullet now says the image includes the stream. `DESIGN.md` "Heatmap & Status" gains the frame-scoped timeline surfaces and the stream layer ramp with the light-theme 0.83 rescale, plus a "Heatmap Streamgraph" component section. `docs/architecture/documentation-tooling.md` gains the `_frontend_gate_stream` edges to `_frontend_gate_shared`, `_frontend_gate_colour` and `_frontend_gate_theme` and its `tool` class entry (the diagram needs a render). `.claude/SESSION_CONTEXT.md` lists the stream gate checks. The plan's Task 10 boxes are ticked.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. No "Pause animations" control exists at this base, so the docs say only that `prefers-reduced-motion` zeroes the layer fade. `docs/architecture/heatmap-sequence.md` line 89 still lists `daily_counts` and statistics as what the job stores; it is outside this task's files and is left for the controller.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3050 passed**.
+
+### 2026-10-27 - Include the streamgraph in Save image
+
+Side task, no batch tag: the streamgraph in the saved image (streamgraph plan Task 9), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference; the saved image shows what the page shows.
+
+What changed and why: `static/js/heatmap.js` `drawHeatmapImage` now calls `clearWeek()` first (S19), serialises the stream SVG through a new `streamAsImage` (a clone without `line.stream-guide`, every `path.stream-layer` at `opacity` 1 with its `style` removed, the section label in `monospace`) and draws it flush under the grid at the grid's width, growing the canvas by the stream's rendered height (SG9-F1: the plan's "plus the section gap" is superseded, the page has no gap and the file now matches it). `gridAsImage` also drops `.stream-column-ring`; `removeAll` and `svgCloneAsImage` are shared helpers. The background is painted from `--heatmap-surface` resolved on the frame (S15), so the file takes the timeline surface (dark `#1f1b28`) and not the body's `#181520`. The header record gains `drawnHeader.stream = {label, height}`, only when a stream exists; with no stream (mobile layout or no payload) the export is unchanged.
+
+Gate: new check `stream is in the saved image` (DESKTOP, THEME_MOTION, dark and light) saves for real and decodes the JPEG in the page. Image growth over the no-payload export is the stream height times the export scale, within an absolute 2 px (SG9-F3, replaces a 4% tolerance); a layer pixel at the tallest week and an "Everything else" pixel match the resolved fills; `drawnHeader.stream` matches the page. SG9-F2: the check saves once at rest, hovers week 30, saves again and compares that week's column in both JPEGs (max per-channel difference 12), so a ring, guide or dimmed layer reaching the file fails; proved red with `clearWeek()` and the clone resets removed (differences 238 and 170 of 255).
+
+Rulings recorded: S15, S19, SG9-F1, SG9-F2, SG9-F3. Firefox probe: the same assertions pass in Firefox, dark and light, and the saved images were viewed; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. Check (b) samples the middle of the layer found on the centre line, not the centre-line pixel, because that pixel can fall on a layer edge. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 57 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new gate check only, registered in `CHECKS`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
+### 2026-10-27 - Add keyboard access to the streamgraph
+
+Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference, and the stream must not be pointer-only.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `streamKeyTarget`, `streamStartTarget` and `streamPositions` (test seam) and the key and focus handlers on `#stream-chart`, now `tabindex="0"`, `role="application"` with an `aria-label`. The stream is one tab stop: on focus with nothing selected it starts at week 26 (the last week when there are fewer) on the top layer; the arrow keys, Home and End move through the same `showWeek` path as the pointer, edges clamp, ArrowUp and ArrowDown walk the stack positions down to "Everything else", blur calls `clearWeek()`, and Tab is never trapped. `static/css/heatmap.css` adds the `.stream-chart:focus-visible` outline (2px, offset 4px). `scripts/dev/_frontend_gate_stream.py` adds `stream is one keyboard tab stop` (DESKTOP, Chromium), registered in `frontend_gate.py` (THEME_MOTION); the gate went from 55 to 56 checks.
+
+Padding change: `#heatmap-grid` at 860px and wider goes from 4px to 8px padding, with a matching -8px margin and `calc(100% + 16px)` width, so the grid box no longer clips the outline (it paints 6px outside the chart). The layout is unchanged (net content box identical); reviewed and accepted.
+
+Rulings recorded: SG8-F1 (review, Minor, restored as the brief mandates): the gate injects a focusable sentinel after the stream in its own page only and asserts Tab from the stream lands on it, then Shift+Tab twice returns to the grid cell. SG8-F2 (review, Important): the sentinel is injected after the outline, walk and tab-stop measurements, so it cannot add height to the grid and mask a bottom clip; proved red with bottom padding removed. Accepted Minors: a pointer leaving while the stream is focused clears the shown week (keys resume from the last keyboard week), and there is no Escape handling.
+
+Contrast (rendered focus outline against the frame, both themes): min 5.45, max 7.06; nothing fails. Firefox probe: tab stop, arrows, Home / End, blur and resize-blur pass; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 56 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new tests appended to `tests/frontend/test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
+### 2026-10-27 - Record new frontend-gate flake sightings
+
+Side task, no batch tag: adding the gate failures seen during the UI audit v6 PR to F-B23-58, on `feat/ui-audit-v6`, a branch off `main`.
+
+This is new evidence for an existing finding, not a new finding. F-B23-58 asked for new sightings with their timing before any fix. Three kinds were appended from the plan's gate logs: three `net::ERR_NO_BUFFER_SPACE` sightings (a grep of every gate log finds exactly three), `shell text scaling [mobile]` (`shell.css`) and two code-phase `large display scale parity [desktop]` runs (`index.css` in `task-sg8-code-3`, `static/js/theme.js` in `task-row5-code-1`), each failing after an asset failed to load (all passed on the next run); one `cached heatmap restoration painted the loading panel before its result` (passed on the next run); and a non-failing `Job context not found` log line noted as noise. The finding's status box and fix shape are unchanged.
+
+Deviations: the brief called the second `ERR_NO_BUFFER_SPACE` sighting "index.css, 72 large-display checks"; the log shows 72 `large display scale parity [desktop]` failures, each carrying the `index.css` error, so the entry says that. No code changed.
+
+Existing tests edited, by name: none.
+
+Validation: `pytest -q` -- **3023 passed**.
+
+### 2026-10-27 - Parse the canvas font string without a regex
+
+Side task, no batch tag: replacing the `_FONT_SHORTHAND` regular expression in the frontend gate's theme check with plain token parsing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U34: "I agree with (b), because a quick fix now is worth it over forgetting it"). Codacy flagged `_FONT_SHORTHAND` (`scripts/dev/_frontend_gate_theme.py`) as an inefficient regular expression. It measured linear, so the flag was a false positive, but plain parsing clears the check for good. `_split_canvas_font` now walks the whitespace tokens up to the first size token (`<n>px`, with an optional `/line-height`), keeping the last weight token (`bold` is 700, `normal` is 400); `_is_size_token` is the new helper and the `re` import is gone. Behaviour is identical on 22 compared inputs and a 400k-string fuzz; the one difference is that size digits are ASCII-only (the old `\d` also took Unicode digits, which `ctx.font` never emits). The parametrized weight cases (`bold`, `normal`, `italic 600` with a line-height, `bold 600`, a string with no size token) close the gap row 1 recorded under R1-F5.
+
+Deviations: none.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_theme.py::test_a_saved_headline_drawn_at_another_weight_is_reported` (extended with a drawn-weight parameter and five cases)
+
+Validation: `pytest -q` -- **3023 passed**.
+
+### 2026-10-27 - Lift the home pause button to the footer's gap
+
+Side task, no batch tag: lifting the home page's "Pause animations" button to the footer button's gap, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U30: "maybe raise it up by a touch in the index card -- to match the distance from the bottom of the page as is in the results page"). At 860px and wider the home button sat flush with the window bottom (0px); the footer button on the other pages sits 24px above the page foot (`.page-footer-extras` padding-bottom, 1.5rem). `static/css/index.css` now gives `.index-grid .index-hero` a 1.5rem bottom padding, so the button's bottom edge is 24.00px above the viewport foot in both modes at the six desktop sizes, in Firefox and Chromium, centring unchanged. The extra 24px made 1280x720 scroll by 12-13px, so a `@media (max-height: 760px)` rule takes 1rem back from the hero's top padding; windows taller than 760px are unchanged. The layout gate reads the shown button's gap and the footer row's computed padding-bottom and fails when they differ by more than 1px (`_home_pause_failures` in `scripts/dev/_frontend_gate_layout.py`).
+
+Deviations: the gate compares the gap with the footer row's computed padding-bottom, not a seeded results page (a seeded results page agrees to within 1px, measured); 1.5rem is written in both `shell.css` and `index.css` (no shared token, `shell.css` was outside the task), and the gate's equality check fails if either changes alone; the `max-height: 760px` top-padding give-back goes beyond "raise the button". Real laptop windows near 650px tall already scrolled before this change and still do.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_layout.py::test_the_home_page_must_not_scroll_vertically_in_either_mode` (two parametrized cases: gap 0 fails, 24.9 passes) and its `PAUSE_OK` fixture.
+
+Validation: `pytest -q` -- **3018 passed**.
+
+### 2026-10-27 - Make "Pause animations" stop every animation
+
+Side task, no batch tag: making "Pause animations" stop every auto-moving thing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U29: "clicking pause animation doesn't stop the top artist carousel"; U31: the loading page's pinwheel should stop too; U33: the unmatched page's button does not pause the header). Row 3's control set `data-motion="still"` but only the header bars honoured it. Now the results spotlight's interval callback in `static/js/results-spotlight.js` returns early while `<html data-motion>` is `still`, so a page loaded paused never advances and Play resumes at the next period from the card shown. In `static/css/shell.css` the still rule also covers `.ss-pinwheel svg > g` and `> g > g`, so the pinwheel rests (drawn artwork, no transform, as reduced motion does) and the phase line still shows progress as text. U31 supersedes row 3's pinwheel exemption. No live doc called the pinwheel exempt, so no doc prose changed.
+
+Reproduction: the header bars were already stopping on the results page at the base commit (Firefox and Chromium: `animation-name` none after the click and after a reload with the stored choice), so the first bar report did not reproduce and the bar rule is unchanged. U33 (unmatched page) was reproduced with a real click on a seeded page at 390, 900, 1280 and 1920px in both browsers and also works (bars `ss-bar-pulse` x5 before, `none` x5 after; the controller repeated it on the owner's server), so no code fix; the likeliest cause is a carried-over paused state or a cached stylesheet. A click check was added anyway. The bar rule and the pulse rule have equal specificity and the pause wins by source order only; the new checks guard that.
+
+Deviations: none from the owner rulings. Checks: `_paused_motion_failures` and `_unmatched_pause_failures` in `scripts/dev/_frontend_gate_pipeline.py` (bars and pinwheel rest while paused; the unmatched button click rests the bars), `_pause_hold_failures` in `scripts/dev/_frontend_gate_spotlight_photo.py` (stored pause before load: artist unchanged over 3 periods and bars rest, then Play resumes), and `test_pause_animations_holds_the_rotation_and_play_resumes_it` in `scripts/dev/results_behavior_tests.py`.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py::test_the_hold_check_focuses_then_hovers_and_counts_the_periods` (the check gained a paused phase) and `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` (now three tick failures plus a "did not resume").
+
+Validation: `pytest -q` -- **3016 passed**.
+
+### 2026-10-27 - Scrub the streamgraph with a panel and column ring
+
+Side task, no batch tag: hover and touch scrubbing of the streamgraph with a values panel and a heatmap column ring (streamgraph plan Task 7), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): the stream shows one readable value per week, as the Claude Design reference does.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `weekFromX`, `layerAtY` and `panelModel` (test seam), the DOM functions `showWeek` and `clearWeek`, and Pointer Events on `#stream-chart` (`pointermove`, `pointerdown`, `pointerleave`, `pointercancel`), one path for mouse and touch. `showWeek` dims the other layers to 0.25, draws the guide line at the column centre, appends one column ring around that week's seven-row column in the grid SVG and fills a panel with the week's artist counts ("Everything else" last, the hovered row marked). `renderHeatmap` calls `clearWeek()` first, so a re-render leaves no stale ring. `static/css/heatmap.css` holds the panel rules (count column in the figure face with tabular numbers). `scripts/dev/_frontend_gate_stream.py` adds three checks, registered in `frontend_gate.py` (THEME_MOTION): `stream hover shows panel and ring` (DESKTOP, weeks 0/30/40 on a window that starts mid-week, the panel flip, re-render clearing, every panel row inside the chart box at 1280x720), `stream touch drag scrubs` (Chromium only by design) and `stream reduced motion` (DESKTOP). The frontend gate went from 52 to 55 checks.
+
+Rulings recorded: S17, `layerAtY` takes an optional fourth argument `order` (maps stack slots to ranks); three-argument callers are unchanged (accepted backward-compatible change of a frozen interface). SG7-F1 (review, Important): the count column uses `font-family: var(--font-figure)` with `font-variant-numeric: tabular-nums`, as the reference draws it. SG7-F2 and the S18 refinement: the panel sits a little above the plot top (`STREAM_PANEL_RISE`, the reference's 372px against the plot's 380px) and lifts only when it would otherwise run past the chart's bottom edge; at 1280px the unlifted panel was clipped by `#heatmap-grid`, hiding the "Everything else" row. The gate proves it red with the lift disabled ("1 of 11 panel rows are outside the chart's visible box").
+
+Contrast (rendered colours, both themes): row ink 8.64 light / 9.20 dark; header on panel 5.53 / 5.05; hovered ink 17.57 / 14.43; "Everything else" swatch 3.63 / 4.65; guide and ring against the frame 14.78 / 14.43. Min text 5.05, min non-text 3.63; nothing fails. Firefox probe: hover, flip, re-render clearing and reduced motion pass; touch drag is Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The panel stays inside the chart box by lifting (S18), a deviation from the reference. Task 9 (Save image) must clear a shown week before serialising (S19). The landing relied on the nested gate-runner's ALL_PASS (frontend gate 55 checks passed, ruling U28) and did not re-run the frontend gate.
+
+Existing tests edited, by name: `test_stream_payload_valid` (three parametrize cases added: non-string week, non-string name, `artists` not a list).
+
+Validation: `pytest -q` -- **3029 passed**.
+
+### 2026-10-27 - Recolour the streamgraph when the theme changes
+
+Side task, no batch tag: the streamgraph recolours on a theme change (streamgraph plan Task 6), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U20, U23): the streamgraph follows the light and dark themes like the rest of the page, with the owner's colour values unchanged.
+
+What changed and why: the stream paints resolved attribute values so a saved image needs no stylesheet, and a `data-theme` flip left those stale. `static/js/heatmap.js` gains `currentStreamTheme()` (shared with `drawStream`) and `recolourStream()`, which `initThemeObserver()` calls beside `updateZeroFills()`. It rewrites each layer's fill (artists from `layerColour(rank, theme)`, "Everything else" from the frame's `--stream-other`), the gridline strokes (`--stream-line`) and the section label fill (`--stream-muted`) in place, with no re-render. The new gate check `stream colours follow theme and meet contrast` (DESKTOP, THEME_MOTION, registered in `frontend_gate.py`, written in `scripts/dev/_frontend_gate_stream.py`) keeps a handle on the chart node, switches dark, light, dark with no reload, and asserts the node is not replaced, every artist layer equals `layerColour(rank, theme)`, "Everything else" is #3a3347 / #ddd5c5, every gridline and the label match the frame-resolved tokens, and the label clears 4.5:1.
+
+Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, asserted at 4.5. Layer fills 1.53-10.22 dark and 2.02-10.52 light are exempt from 3:1 (logged, not asserted); the owner's colour values are unchanged.
+
+Finding SG6-F1 (review of the first patch, closed): the check compared only layer 0 and the first gridline, so a partial recolour would pass. It now compares every layer by its own rank and every gridline, and names an empty layer list or no gridlines. Red against a `recolourStream` that repainted only layer 0 (layers 1-9 reported), green on the real code in chromium and firefox.
+
+Deviations: the brief's 3:1 assertion on layer fills is not made (U20). The mermaid edges for the new imports in `docs/architecture/documentation-tooling.md` are Task 10's (ruling S16a). The landing relied on the nested gate logs (frontend gate 52 checks passed, ruling U19) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none.
+
+Validation: `pytest -q` -- **3014 passed**.
+
+### 2026-10-27 - Draw the top-artists streamgraph under the grid
+
+Side task, no batch tag: the top-artists streamgraph drawn under the heatmap grid (streamgraph plan Task 5), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U23): a desktop-only streamgraph that lines up with the grid's week columns, matching the Claude Design reference; a mobile streamgraph is a later PR.
+
+What changed and why: `static/js/heatmap.js` gains `streamPayloadValid` (in the test seam) and `drawStream`, called at the end of `renderHeatmapDesktop` when the payload is valid and the scale is above 0. It stacks "Everything else" below the top ten artists, adds month gridlines and a muted section label, and keeps its state in module-level `streamState`, reset on every `renderHeatmap`. Every paint is a resolved attribute so the saved image needs no stylesheet; an absent or invalid payload and the mobile layout draw nothing. `static/css/heatmap.css` adds `#heatmap-grid { position: relative }`, `.stream-layer` and `.stream-chart`. The new `scripts/dev/_frontend_gate_stream.py` holds `seed_stream_job` and two gate checks, registered in `frontend_gate.py`: `stream aligns with the grid columns` (1280 and 1000 px, within 1 px) and `stream absent without payload or on mobile`. Per ruling SG5-L1 the gate-module lists in `docs/architecture/documentation-tooling.md` (now sixteen siblings) and `.claude/SESSION_CONTEXT.md` name the new module.
+
+Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, passing 4.5. Layer fills 1.52-10.22 dark and 2.02-10.52 light, "Everything else" 1.40 / 1.23, and gridlines 1.30 / 1.12 are exempt from 3:1; the owner's colour values are unchanged. A Firefox probe passed alignment, absence and mobile.
+
+Deviations: none from the brief. A theme flip without a re-render leaves the previous theme's fills until Task 6's `recolourStream`. The landing relied on the nested gate logs (frontend gate 51 checks passed, ruling U19) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none; `tests/frontend/test_heatmap_pure_functions.py` is extended with `test_stream_payload_valid`.
+
+Validation: `pytest -q` -- **3014 passed**.
+
+### 2026-10-27 - Scope the timeline surfaces and empty cells to the heatmap frame
+
+Side task, no batch tag: the streamgraph's timeline surfaces and frame-scoped empty cells (streamgraph plan Task 4), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U18): the darker timeline surfaces apply inside the chart frame only, so the global dark token and every other page keep `#262230`.
+
+What changed and why: `static/css/heatmap.css` declares the `--stream-*` tokens plus `--heatmap-surface` and `--heatmap-empty` on `.heatmap-frame` (light) and `[data-theme="dark"] .heatmap-frame` (dark); no `:root` block is touched. `zeroFill()` in `static/js/heatmap.js` reads `--heatmap-empty` from `#heatmap-result-frame`, and `resolvedColour(token, scope)` takes an optional scope element (default `document.body`) for the later stream tasks. The frontend gate's `check_heatmap_zero_cells_follow_theme` now reads its expected value from the frame, and the new check "timeline surfaces are page-scoped" pins the frame cell fill (`#2e2939` dark, `#c8bfad` light), the untouched global token and the frame background. A Firefox probe passed all of those assertions.
+
+Contrast (rulings S14 and U20): `--stream-line` (gridlines and the panel border) is decorative and exempt from 3:1: 1.30 / 1.12 against the frame and 1.30 / 1.33 against the panel (dark / light). The empty cells keep the shipped heatmap's look: 1.20 / 1.53 against the frame. Text pairs pass: muted on frame 5.05 / 4.65, muted on panel 5.05 / 5.53, ink on panel 14.43 / 17.57, accent on frame 7.06 / 5.45, "Everything else" swatch on panel 4.65 / 3.63. The owner's colour values are unchanged.
+
+Deviations: the updated theme check was not red on the old code (the frame inherited the root token); only the new check failed red. The saved image's background still reads the body's surface (`#181520` dark); ruling S15 assigns the frame scope there to Task 9.
+
+Existing tests edited, by name: none in `tests/`; the gate check `check_heatmap_zero_cells_follow_theme` was refactored onto shared helpers.
+
+Validation: `pytest -q` -- **3004 passed**.
+
+### 2026-10-27 - Add pure layout functions for the streamgraph
+
+Side task, no batch tag: the streamgraph's pure layout maths (streamgraph plan Task 2), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph is built to match the Claude Design reference, so its layout maths must be pure, tested functions before any DOM work builds on them.
+
+What changed and why: `static/js/heatmap.js` gains the constants `STREAM_PEAK`, `STREAM_BAND`, `STREAM_LABEL_H` and the functions `streamOrder`, `streamBaseline`, `stackLayers`, `streamScale`, `smoothPath` and `layerColour`, all exposed on `__scrobbleHeatmapTestHooks` and touching no DOM. `tests/frontend/test_heatmap_pure_functions.py` covers them with hand-computed cases (17 new cases). A Firefox probe loaded the hooks and checked one `streamOrder`, `stackLayers` and `layerColour` case.
+
+Contrast (ruling S13, confirmed by owner ruling U20): the layer fills are exempt from the 3:1 non-text floor because the scrubber panel states every layer's name and count as text for every week; the ramp and the "Everything else" fills stay the owner's frozen values. Measured WCAG ratios against the frame: dark frame `#1f1b28` layers 1.53-10.22, "Everything else" `#3a3347` 1.40; light frame `#f0ebe0` layers 2.02-10.52, "Everything else" `#ddd5c5` 1.23.
+
+Deviations: Task 2 lands after Task 3 (disjoint files), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: none (new tests appended to `test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3004 passed**.
+
+### 2026-10-27 - Store the weekly artist counts with the job result
+
+Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs the per-week artist counts from the same fetch as the daily counts, and a caller of the job view must not be able to change stored state.
+
+What changed and why: `scrobblescope/heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`; the zero-scrobble guard still fails the job before anything is stored. `_context_view` in `scrobblescope/jobs.py` copies it (outer dict, `weeks`, `other`, the `artists` list, each artist dict with its `counts` list) the way it copies `daily_counts` (F-B18-8).
+
+Deviations: Task 3 lands before Task 2 (disjoint files; Task 2 is still in its code phase), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: `TestFetchAndProcessHeatmap::test_happy_path_stores_correct_result_dict` (weeks start on the Monday on or before `from_date`; per week, artist counts plus `other` equal the daily counts over the column's 7 days); `test_context_isolates_dict_results_from_callers` (mutating `weekly_artists` weeks, a counts entry, a name, the artists list and `other` leaves the stored values unchanged).
+
+Validation: `pytest -q` -- **2987 passed**.
+
+### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
+
+Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs per-week play counts for the ten biggest artists on the heatmap's Monday-first grid, with everything else kept in an `other` series so each week still sums to the daily counts.
+
+What changed and why: `aggregate_weekly_artist_counts(plays, from_date, to_date, top_n=10)` in `scrobblescope/plays.py`, next to `aggregate_daily_counts`. The artist key is `normalize_name(artist, "")[0]` (confirmed in `domain.py`: an empty album leaves the artist key unchanged). Artists rank by window total, ties by key; beyond-top_n artists, empty and punctuation-only artists go to `other`; plays outside the window are ignored. It is a pure function and is not wired into the job yet. Tests: `TestAggregateWeeklyArtistCounts` in `tests/test_plays.py` (Monday grid, grouping and ranking, key-less artists, overflow, and the sum invariant against `aggregate_daily_counts`).
+
+Deviations: none. Existing tests edited: none (the import line was extended only).
+
+Validation: `pytest -q` -- **2987 passed**.
+
+### 2026-10-27 - Plan the listening streamgraph
+
+Side task, no batch tag: the streamgraph implementation plan, on `feat/ui-audit-v6-streamgraph`, a branch stacked on `feat/ui-audit-v6`.
+
+Owner intent: the owner asked for the plan with the writing-plans skill, in discrete slices with checkboxes. It is `docs/superpowers/plans/2026-10-27-streamgraph.md`: ten tasks in eight waves, each with files, interfaces, red/green steps and a Firefox probe.
+
+What changed and why: the plan went through three reviews; findings SP-F1..SP-F12 are recorded in the plan workspace, and the last three were wording Minors fixed without a fourth review. It is desktop only (owner ruling U18): the dark surfaces are declared on the heatmap frame, never on `:root`. No code changes; the plan is a point-in-time record.
+
+Deviations: none. Existing tests edited: none.
+
+Validation: `pytest -q` -- **2978 passed**.
+
 ### 2026-10-27 - Keep the home page within one screen
 
 Side task, no batch tag: keeping the desktop home page within one screen, on `feat/ui-audit-v6`, a branch off `main`.

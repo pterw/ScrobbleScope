@@ -125,6 +125,7 @@ flowchart TD
     FG --> FGSP[_frontend_gate_spotlight_photo]
     FG --> FGSI[_frontend_gate_spotify_icon]
     FG --> FGFG[_frontend_gate_figures]
+    FG --> FGST[_frontend_gate_stream]
     FGSI --> FGSP
     FGR --> FGSI
     FGR --> FGC
@@ -142,6 +143,9 @@ flowchart TD
     FGRU --> FGS
     FGHA --> FGS
     FGSP --> FGS
+    FGST --> FGS
+    FGST --> FGC
+    FGST --> FGT
     FG -. owns its lifecycle .-> APP[Flask on an<br/>ephemeral loopback port]
     FG -. drives .-> CHR[Chromium: every group]
     FG -. drives .-> FFX[Firefox: assets canary]
@@ -150,7 +154,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGFG,FGINC,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGFG,FGST,FGINC,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
@@ -523,15 +527,15 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: the checks are grouped by concern across fifteen
+`dev/worktree_guard.py`: the checks are grouped by concern across sixteen
 `_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
 `_frontend_gate_figures`,
 `_frontend_gate_forms`, `_frontend_gate_heatmap_access`, `_frontend_gate_include`,
 `_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
 `_frontend_gate_runtime`,
 `_frontend_gate_shared`, `_frontend_gate_spotify_icon`,
-`_frontend_gate_spotlight_photo`, `_frontend_gate_theme`, and
-`_frontend_gate_unmatched` -- with `_frontend_gate_shared`
+`_frontend_gate_spotlight_photo`, `_frontend_gate_stream`,
+`_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
 proposed has landed (foundation plan Task 8): a manifest under `config/`

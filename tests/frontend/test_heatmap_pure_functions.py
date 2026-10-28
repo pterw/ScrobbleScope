@@ -704,3 +704,425 @@ def test_a_window_with_no_best_day_shows_no_date(js_page):
     data = {"from_date": "2026-03-01", "to_date": "2026-03-10", "statistics": published}
     blocks = js_page.evaluate(RENDER_KPIS_JS, data)
     assert blocks[2] == {"label": "BEST DAY", "value": "0", "sub": ""}
+
+
+# ---------------------------------------------------------------------------
+# Streamgraph layout (pure functions; no DOM)
+# ---------------------------------------------------------------------------
+
+STREAM_STEP = 16  # CELL_SIZE 14 + CELL_GAP 2
+
+
+def _hook(js_page, name, *args):
+    return js_page.evaluate(
+        "([n, a]) => window.__scrobbleHeatmapTestHooks[n](...a)", [name, list(args)]
+    )
+
+
+@pytest.mark.parametrize(
+    ("volumes", "expected"),
+    [
+        # Ten layers: the biggest (index 3) sits in the middle, ranks 1 and 2
+        # (indices 1 and 7) on opposite sides of it.
+        ([5, 9, 3, 10, 1, 7, 2, 8, 4, 6], [4, 2, 0, 5, 1, 3, 7, 9, 8, 6]),
+        ([1, 2, 3, 4, 5], [1, 3, 4, 2, 0]),  # odd count
+        ([1, 2, 3, 4], [0, 2, 3, 1]),  # even count
+        ([7], [0]),
+        ([5, 5, 5], [1, 0, 2]),  # ties keep index order before placement
+        ([], []),
+    ],
+)
+def test_stream_order(js_page, volumes, expected):
+    assert _hook(js_page, "streamOrder", volumes) == expected
+
+
+def test_stream_baseline_and_stack_match_the_reference_wiggle(js_page):
+    # Two layers, three weeks, hand-computed: n = 2, g = [0, -2/3, -4/3],
+    # totals [3, 4, 4], raw midlines [1.5, 4/3, 2/3] (mean 7/6), so the
+    # centred baseline is [-7/6, -11/6, -5/2].
+    layers = [[1, 2, 4], [2, 2, 0]]
+    baseline = _hook(js_page, "streamBaseline", layers)
+    assert baseline == pytest.approx([-7 / 6, -11 / 6, -5 / 2])
+    stack = _hook(js_page, "stackLayers", layers, baseline, 2)
+    assert stack[0][0] == pytest.approx({"y0": -7 / 3, "y1": -1 / 3})
+    assert stack[1][0] == pytest.approx({"y0": -1 / 3, "y1": 11 / 3})
+    assert stack[1][2] == pytest.approx({"y0": 3.0, "y1": 3.0})
+
+
+STREAM_LAYER_SETS = [
+    [[4, 9, 2, 0], [1, 3, 8, 0], [6, 2, 2, 0]],
+    [[3, 3, 3, 3], [2, 2, 2, 2]],  # constant heights
+]
+
+
+@pytest.mark.parametrize("layers", STREAM_LAYER_SETS)
+def test_stream_stack_is_centred_and_each_week_has_its_total_height(js_page, layers):
+    scale = 0.5
+    baseline = _hook(js_page, "streamBaseline", layers)
+    stack = _hook(js_page, "stackLayers", layers, baseline, scale)
+    weeks = len(layers[0])
+    totals = [sum(layer[t] for layer in layers) for t in range(weeks)]
+    mids = [(stack[0][t]["y0"] + stack[-1][t]["y1"]) / 2 for t in range(weeks)]
+    assert sum(mids) / weeks == pytest.approx(0, abs=1e-9)
+    for t in range(weeks):
+        height = stack[-1][t]["y1"] - stack[0][t]["y0"]
+        assert height == pytest.approx(totals[t] * scale)
+    if layers is STREAM_LAYER_SETS[1]:
+        assert baseline == pytest.approx([baseline[0]] * weeks)  # stays flat
+    else:
+        assert stack[0][3]["y1"] - stack[0][3]["y0"] == 0  # all-zero week
+
+
+@pytest.mark.parametrize(
+    ("totals", "expected"),
+    [([1, 5, 2], "peak/5"), ([0, 0, 0], 0), ([], 0)],
+)
+def test_stream_scale(js_page, totals, expected):
+    peak = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_PEAK")
+    assert peak == pytest.approx(300 * STREAM_STEP / 27)
+    want = peak / 5 if expected == "peak/5" else expected
+    assert _hook(js_page, "streamScale", totals) == pytest.approx(want)
+
+
+CODEX_LAYERS = [[1000 if t == 26 else 0 for t in range(53)]] + [[20] * 53] * 10
+
+
+@pytest.mark.parametrize(
+    ("layers", "moved"),
+    [
+        (STREAM_LAYER_SETS[0], False),
+        (CODEX_LAYERS, True),
+        (
+            [
+                [0, 30],
+                [498, 0],
+                [0, 0],
+                [8, 0],
+                [0, 11],
+                [0, 2],
+                [5, 0],
+                [0, 293],
+                [217, 381],
+            ],
+            True,
+        ),
+        ([[0, 35, 34], [50, 0, 18]], True),
+    ],
+    ids=[
+        "ordinary-data-keeps-its-look",
+        "sharp-mix-change-stays-in-band",
+        "scale-capped-by-the-stack-extent",
+        "stack-pushed-off-the-top-shifts-down",
+    ],
+)
+def test_stream_stack_stays_inside_the_band(js_page, layers, moved):
+    band = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_BAND")
+    plain = _hook(js_page, "streamBaseline", layers)
+    fit = _hook(js_page, "streamFit", layers, plain)
+    stack = _hook(js_page, "stackLayers", layers, fit["baseline"], fit["scale"])
+    low = min(band_[t]["y0"] for band_ in stack for t in range(len(plain)))
+    high = max(band_[t]["y1"] for band_ in stack for t in range(len(plain)))
+    print(f"extent {low:.2f}..{high:.2f} against +-{band / 2:.2f}")
+    assert -band / 2 - 1e-9 <= low and high <= band / 2 + 1e-9
+    assert (fit["baseline"] != plain) == moved
+    if not moved:
+        totals = [sum(layer[t] for layer in layers) for t in range(len(plain))]
+        assert fit["scale"] == _hook(js_page, "streamScale", totals)
+
+
+SMOOTH_PATH_JS = """([top, bottom]) => {
+    const d = window.__scrobbleHeatmapTestHooks.smoothPath(top, bottom);
+    const points = [];
+    const controls = [];
+    for (const m of d.matchAll(/([MLC])([^MLCZ]*)/g)) {
+        const nums = m[2].trim().split(/[ ,]+/).filter(Boolean).map(Number);
+        if (m[1] === 'C') controls.push(nums.slice(0, 4));
+        points.push(nums.slice(-2));
+    }
+    return { points, controls, closed: d.trim().endsWith('Z') };
+}"""
+
+
+def _pts(pairs):
+    return [{"x": x, "y": y} for x, y in pairs]
+
+
+def test_smooth_path_runs_through_every_edge_point_and_closes(js_page):
+    top = [(0, 0), (10, 6), (20, 0)]
+    bottom = [(0, 20), (10, 24), (20, 20)]
+    out = js_page.evaluate(SMOOTH_PATH_JS, [_pts(top), _pts(bottom)])
+    # Top left to right, then bottom right to left (the function reverses it).
+    assert out["points"] == [list(p) for p in top + bottom[::-1]]
+    assert out["closed"]
+    # Catmull-Rom to Bezier with divisor 6, the ends clamped.
+    assert out["controls"][0] == pytest.approx([10 / 6, 1, 10 - 20 / 6, 6], abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "top",
+    [[(5, 0)], [(0, 0), (10, 0), (20, 0)], []],
+    ids=["single-point", "all-zero", "empty"],
+)
+def test_smooth_path_tolerates_degenerate_input(js_page, top):
+    out = js_page.evaluate(SMOOTH_PATH_JS, [_pts(top), _pts(top)])
+    assert out["closed"] or not top
+
+
+def test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped(js_page):
+    got = js_page.evaluate(
+        """() => {
+            const h = window.__scrobbleHeatmapTestHooks;
+            const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+            return {
+                dark0: [h.layerColour(0, 'dark'), h.rocketColor(.95)],
+                dark9: [h.layerColour(9, 'dark'), h.rocketColor(.32)],
+                light0: [h.layerColour(0, 'light'), h.rocketColor(.83)],
+                light: ranks.map((r) => h.layerColour(r, 'light')),
+            };
+        }"""
+    )
+    for key in ("dark0", "dark9", "light0"):
+        assert got[key][0] == got[key][1], key
+    assert len(set(got["light"])) == 10
+
+
+def _stream_payload(cols=3, artists=2):
+    return {
+        "weeks": [f"2025-01-{6 + 7 * t:02d}" for t in range(cols)],
+        "artists": [
+            {"name": f"Artist {i}", "counts": [i + t for t in range(cols)]}
+            for i in range(artists)
+        ],
+        "other": [1] * cols,
+    }
+
+
+def _stream_case(mutate=None):
+    payload = _stream_payload()
+    if mutate:
+        mutate(payload)
+    return payload
+
+
+def _short_weeks(p):
+    p["weeks"] = p["weeks"][:2]
+
+
+def _short_counts(p):
+    p["artists"][1]["counts"] = [1, 2]
+
+
+def _set_count(value):
+    def apply(p):
+        p["artists"][0]["counts"][1] = value
+
+    return apply
+
+
+def _no_other(p):
+    del p["other"]
+
+
+def _eleven_artists(p):
+    p["artists"] = _stream_payload(artists=11)["artists"]
+
+
+def _non_string_week(p):
+    p["weeks"][1] = 20250113
+
+
+def _non_string_name(p):
+    p["artists"][0]["name"] = 7
+
+
+def _artists_not_a_list(p):
+    p["artists"] = {"0": p["artists"][0]}
+
+
+@pytest.mark.parametrize(
+    ("payload", "valid"),
+    [
+        (_stream_case(), True),
+        (_stream_case(lambda p: p.update(artists=[])), True),  # zero artists
+        (_stream_case(_short_weeks), False),
+        (_stream_case(_short_counts), False),
+        (_stream_case(_set_count(-1)), False),
+        (_stream_case(_set_count("3")), False),
+        (_stream_case(_no_other), False),
+        (_stream_case(_eleven_artists), False),
+        (_stream_case(_non_string_week), False),
+        (_stream_case(_non_string_name), False),
+        (_stream_case(_artists_not_a_list), False),
+        (None, False),
+        ("weekly", False),
+    ],
+    ids=[
+        "valid",
+        "zero-artists",
+        "weeks-length",
+        "counts-length",
+        "negative-count",
+        "non-numeric-count",
+        "other-missing",
+        "eleven-artists",
+        "non-string-week",
+        "non-string-name",
+        "artists-not-a-list",
+        "null",
+        "string",
+    ],
+)
+def test_stream_payload_valid(js_page, payload, valid):
+    assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
+
+
+def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
+    # Week t sits at LEFT_PAD + t * STEP + CELL_SIZE / 2 = 39 + 16 t.
+    xs = [-500, 39, 46, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
+    got = [_hook(js_page, "weekFromX", x, 53) for x in xs]
+    assert got == [0, 0, 0, 1, 1, 2, 52, 52]
+
+
+STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], rank 7 [2,5]
+    [{"y0": 0, "y1": 2}],
+    [{"y0": 2, "y1": 2}],
+    [{"y0": 2, "y1": 5}],
+]
+
+
+@pytest.mark.parametrize(
+    ("y", "expected"),
+    [
+        (1, "other"),
+        (3.5, 7),
+        (2, 7),  # a shared boundary belongs to the layer above
+        (5, 7),
+        (-0.1, None),
+        (5.1, None),
+    ],
+)
+def test_layer_at_y_finds_the_band_holding_the_pointer(js_page, y, expected):
+    # The empty band (rank 4) can never be hit; `order` maps stack slots to ranks.
+    got = js_page.evaluate(
+        "([stack, y, order]) => window.__scrobbleHeatmapTestHooks.layerAtY("
+        "stack, 0, y, order)",
+        [STACK_AT_WEEK, y, [4, 7]],
+    )
+    assert got == expected
+
+
+def _panel(js_page, week, hover, weeks=40):
+    payload = {
+        "weeks": [f"2025-{1 + t // 5:02d}-{1 + 7 * (t % 4):02d}" for t in range(weeks)],
+        "artists": [
+            {"name": "Big", "counts": [1200] * weeks},
+            {"name": "Mid", "counts": [30] * weeks},
+            {"name": "Silent", "counts": [0] * weeks},
+        ],
+        "other": [5] * weeks,
+    }
+    return _hook(js_page, "panelModel", payload, week, hover)
+
+
+def test_panel_model_lists_the_stack_top_first_with_everything_else_last(js_page):
+    model = _panel(js_page, 2, 1)
+    # Order bottom to top is [Mid, Big]; the panel reads from the top down.
+    assert [r["name"] for r in model["rows"]] == ["Big", "Mid", "Everything else"]
+    assert [r["id"] for r in model["rows"]] == [0, 1, "other"]
+    assert [r["hovered"] for r in model["rows"]] == [False, True, False]
+    assert model["rows"][2]["count"] == 5
+
+
+def test_panel_model_header_counts_the_whole_week_with_thousands_separators(js_page):
+    assert _panel(js_page, 2, None)["header"] == "Week of Jan 15 - 1,235 scrobbles"
+
+
+def test_panel_model_header_and_rows_for_a_single_scrobble(js_page):
+    payload = {
+        "weeks": ["2025-01-15"],
+        "artists": [{"name": "Big", "counts": [0]}],
+        "other": [1],
+    }
+    model = _hook(js_page, "panelModel", payload, 0, None)
+    assert model["header"] == "Week of Jan 15 - 1 scrobble"
+    assert [r["name"] for r in model["rows"]] == ["Everything else"]  # no zero rows
+
+
+@pytest.mark.parametrize(("week", "side"), [(34, "right"), (35, "left")])
+def test_panel_model_flips_left_past_week_34(js_page, week, side):
+    assert _panel(js_page, week, None)["side"] == side
+
+
+# ---------------------------------------------------------------------------
+# Streamgraph keyboard model
+# ---------------------------------------------------------------------------
+
+KEY_DIMS = {"weeks": 5, "layers": 4}
+
+
+@pytest.mark.parametrize(
+    ("key", "state", "expected"),
+    [
+        ("ArrowRight", (2, 1), (3, 1)),
+        ("ArrowLeft", (2, 1), (1, 1)),
+        ("ArrowDown", (2, 1), (2, 2)),
+        ("ArrowUp", (2, 1), (2, 0)),
+        ("Home", (3, 2), (0, 2)),
+        ("End", (1, 2), (4, 2)),
+        ("ArrowLeft", (0, 1), (0, 1)),  # the left edge clamps, no wrap
+        ("ArrowRight", (4, 1), (4, 1)),
+        ("ArrowUp", (2, 0), (2, 0)),
+        ("ArrowDown", (2, 3), (2, 3)),  # the bottom is "Everything else"
+    ],
+)
+def test_stream_key_target_moves_one_step_and_clamps_at_each_edge(
+    js_page, key, state, expected
+):
+    got = _hook(
+        js_page,
+        "streamKeyTarget",
+        key,
+        {"week": state[0], "position": state[1]},
+        KEY_DIMS,
+    )
+    assert (got["week"], got["position"]) == expected
+
+
+@pytest.mark.parametrize("key", ["Tab", "Enter", "a", "PageDown", "toString"])
+def test_stream_key_target_ignores_keys_it_does_not_handle(js_page, key):
+    state = {"week": 2, "position": 1}
+    assert _hook(js_page, "streamKeyTarget", key, state, KEY_DIMS) is None
+
+
+def test_stream_key_target_on_a_one_week_payload_stays_on_week_zero(js_page):
+    dims = {"weeks": 1, "layers": 2}
+    state = {"week": 0, "position": 0}
+    for key in ("ArrowLeft", "ArrowRight", "Home", "End"):
+        assert _hook(js_page, "streamKeyTarget", key, state, dims)["week"] == 0
+
+
+def test_stream_key_target_walks_from_the_top_down_to_the_last_layer(js_page):
+    state = {"week": 0, "position": 0}
+    for _ in range(KEY_DIMS["layers"] + 3):
+        state = _hook(js_page, "streamKeyTarget", "ArrowDown", state, KEY_DIMS)
+    assert state["position"] == KEY_DIMS["layers"] - 1
+
+
+@pytest.mark.parametrize(("weeks", "week"), [(53, 26), (10, 9), (1, 0)])
+def test_stream_start_target_is_week_26_or_the_last_week_on_the_top_layer(
+    js_page, weeks, week
+):
+    got = _hook(js_page, "streamStartTarget", {"weeks": weeks, "layers": 4})
+    assert (got["week"], got["position"]) == (week, 0)
+
+
+def test_stream_positions_run_from_the_top_of_the_stack_to_everything_else(js_page):
+    # `order` is bottom to top, so the keyboard reads it reversed.
+    assert _hook(js_page, "streamPositions", [3, 1, 0, 2, 4]) == [
+        4,
+        2,
+        0,
+        1,
+        3,
+        "other",
+    ]

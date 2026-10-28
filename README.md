@@ -153,8 +153,15 @@ next.
 - See total scrobbles, daily average, best day, and current streak.
 - Compare activity through the seven-stop `rocket_r` palette. Empty days remain
   distinct from the surrounding frame in both themes.
+- On desktop, see a streamgraph under the grid: weekly plays for the ten most
+  played artists, with every other artist in one "Everything else" layer. Its
+  weeks sit under the grid's columns. Hover or drag across it to open a panel
+  that lists the week's counts, or focus it and use the arrow keys, Home and
+  End. A vertical swipe still scrolls the page. Narrow screens, and results
+  stored before the streamgraph existed, show the grid alone.
 - Save the heatmap as a JPEG. This export uses a separate canvas layout rather
-  than an exact screenshot of the page.
+  than an exact screenshot of the page. When the page shows the streamgraph,
+  the image includes it under the grid, at rest.
 
 ### Shared experience
 
@@ -359,8 +366,8 @@ module, so the clients stay thin:
 | `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
 | `jobs.py` | The job module: the lifecycle of one search (create, advance, record, succeed or fail, reset, read, expire) and the rules that keep a job coherent, over a storage seam whose one adapter today is an in-memory store under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
-| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection) and into daily counts |
-| `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, with no enrichment step |
+| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection), into daily counts and into weekly counts for the top ten artists |
+| `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, plus the weekly artist counts stored with the result, with no enrichment step |
 | `lastfm.py`, `spotify.py`, `deezer.py`, `musicbrainz.py` | One module per external API, each owning that provider's quirks and nothing else |
 | `enrichment.py` | The provider-neutral album record both metadata providers return |
 | `release_status.py` | The release-check wire strings (`CHECK_*`, `STATUS_*`): the worker writes them, `/api/release_checks` and the Results page read them |
@@ -473,6 +480,13 @@ load-bearing:
 - **The palette has one owner.** `heatmap.js` holds all seven stops;
   `tailwind.src.css` and `heatmap.css` derive from them rather than
   re-declaring them, so the tab accent and the grid cannot disagree.
+
+The streamgraph under the grid on desktop is hand-built SVG too, with no
+library. Its week positions come from the same Monday-first column geometry
+as the grid, so each week sits under its column; every length scales with the
+grid's column pitch. The server counts plays per week for the ten most played
+artists and stores the counts with the job result; the browser stacks the
+layers and draws them as smooth paths.
 
 The JPEG export is not a screenshot. The live SVG is cloned, given explicit
 pixel dimensions, serialised to a data URI and drawn into a canvas at 2x
@@ -727,7 +741,8 @@ deeply than the first two.
 - **Every heatmap cell is reachable by keyboard.** The grid is one Tab stop,
   arrow keys move by layout, each cell is announced with its date and play
   count, and the focus ring stays visible. On a phone, a swipe across the
-  heatmap scrolls the page instead of being caught by the grid.
+  heatmap scrolls the page instead of being caught by the grid. The
+  streamgraph under it is one more Tab stop, moved with the arrow keys.
 - **The Unmatched report was rebuilt.** Each row was rebuilt: artist portraits
   show whole instead of cropped, and every album names the provider that
   answered for it. Album links keep their full focus ring. A fourth group

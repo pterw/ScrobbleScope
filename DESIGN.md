@@ -133,6 +133,8 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Heatmap Surface** (`--heatmap-surface`): The sunken well in light mode and the dark card tone in dark mode (owner refinement, 2026-09-10).
 - **Rocket Stop 5 (Tangerine)** (`#f0903a`): The single warm accent drawn from seaborn's `rocket_r` ramp, used exclusively for the Heatmap mode indicator mark.
 - **Heatmap Empty** (`#c8bfad` light / `#262230` dark): A warm neutral for zero-scrobble days, darker than the light frame so empty cells remain visible.
+- **Timeline Surfaces** (`.heatmap-frame` only): Inside the chart frame the surface is `#f0ebe0` light / `#1f1b28` dark and the empty cell is `#c8bfad` light / `#2e2939` dark. They are declared on the frame, not in the `:root` or `[data-theme="dark"]` blocks, so the page background and every other screen keep the global tokens above.
+- **Stream Layers** (`--stream-*` on the frame): The top-artists streamgraph colours its layers by rank from the `rocket_r` ramp, stops 0.95 for the largest artist down to 0.32 for the tenth. The light theme scales the whole ramp by 0.83/0.95 so its top stop is 0.83 and every rank stays distinct. "Everything else" is `#ddd5c5` light / `#3a3347` dark. Gridlines use `#e5dfd1` light / `#352e43` dark, the section label and panel header use `#6c6676` light / `#908a9a` dark, and the focus outline uses `#6a4baf` light / `#b39dde` dark. Layer fills, gridlines and the panel border are exempt from the 3:1 non-text floor (owner ruling U20) because the scrubber panel lists every value as text.
 - **Good / Success** (`#2f7a4a` light / `#6fcf97` dark): Forest pine for successful cache hits and validated inputs.
 - **Bad / Error** (`#b03434` light / `#e07070` dark): Terracotta crimson for validation errors, private profile alerts, and failed jobs.
 
@@ -244,6 +246,11 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 ### Heatmap Grid
 - **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
+
+### Heatmap Streamgraph
+- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. Narrow screens and results stored without weekly artist data show the grid alone.
+- **Scrubber panel:** Opens beside the hovered column and lists every layer's count for that week as text, with the layer under the pointer or key marked and the other layers dimmed. It opens leftwards late in the year. It never takes the pointer. The chart is one Tab stop, moved with the arrow keys, Home and End.
+- **Motion:** The layer dimming fades over 150ms, which `prefers-reduced-motion: reduce` sets to zero.
 
 ## Do's and Don'ts
 

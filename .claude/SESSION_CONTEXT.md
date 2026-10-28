@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-10-27
+Last updated: 2026-10-28
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-10-27
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **3023 passing** across 104 tracked test modules |
+| Tests | **3099 passing** across 104 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -47,7 +47,7 @@ Last updated: 2026-10-27
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **3023 passed**.
+- Latest validated test count: **3099 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -61,7 +61,7 @@ scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, matches_release_criteria, release_window
-  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, AlbumSelection, select_albums
+  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, aggregate_weekly_artist_counts, AlbumSelection, select_albums
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
@@ -83,7 +83,7 @@ scrobblescope/
     _cache.py                # job stats and log lines for the cache lookup and persist steps (scrobblescope/cache.py does the work)
     _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
-  heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics and the weekly top-artist counts
   spotlight.py              # pure artist aggregation and stable sample selection
   listening_stats.py        # pure listening statistics (streak, best day, daily average, plays listed vs matched), each with its population stated
   unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
@@ -125,6 +125,7 @@ scripts/
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
     _frontend_gate_spotify_icon.py # official Spotify icon: size, file, clear space, link target
     _frontend_gate_spotlight_photo.py # artist spotlight photo: no crop, overlay, animation, or fake
+    _frontend_gate_stream.py # streamgraph fixture job and eight checks: grid alignment, absence (no payload, mobile), theme colours and contrast, hover panel and ring, saved image, keyboard tab stop, touch drag, reduced motion
     _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
     _frontend_gate_unmatched.py # unmatched report contract, width sweep, portraits and artwork corners
     _worktree_guard_types.py # immutable public diagnostic value types
@@ -240,9 +241,10 @@ dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app);
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
 dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
+dev/_frontend_gate_stream.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared, dev/_frontend_gate_theme; jobs, listening_stats
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs, listening_stats
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; domain; jobs
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_figures, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_figures, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_stream, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
 
 ---
@@ -301,7 +303,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (3023 tests)
+## 6. Test structure (3099 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
