@@ -58,9 +58,8 @@ the measured ranking below determines selection.
   names and counts line up). No rule and no rows when the list is empty.
 - The rule uses the existing `--stream-muted` token, chosen by the owner on 2026-10-28 for its higher
   contrast against the panel (see the plan's Task 3). No new token is added.
-- The panel's existing size cap, ellipsis and side choice apply to the new rows. Desktop results
-  reserve room for the tallest panel from initial render and fit surrounding width, spacing and
-  headline size to the viewport height. The chart and tooltip do not scroll vertically.
+- The panel's existing size cap, ellipsis and side choice apply to the new rows. The current page-flow
+  and internal-scroll contract is owned by the [live-review design](2026-10-28-streamgraph-live-feedback-design.md).
 
 ## Part 3 -- palette (`static/js/heatmap.js`)
 

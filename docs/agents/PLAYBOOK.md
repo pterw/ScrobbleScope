@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Restore stream result spacing and quiet the residual row
+
+Side task, no batch tag: restore stream result spacing and quiet the residual row, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: restore the original page rhythm and keep Everything else at normal weight even when selected. The page may follow normal document flow beyond a short viewport; only the grid and tooltip must avoid internal vertical scrolling.
+
+What changed: Task 5 removes the temporary stream-specific width, padding, headline and spacing compression. The original desktop focus-padding rule and 25rem initial chart reservation remain. Selected residual rows keep opacity 1 and weight 400 while named artists retain weight 700. The existing hover reader now checks internal grid/panel scrolling only, with diagnostic wording matching that scope; row containment, focus clearance and clipping assertions remain. DESIGN.md follows the restored page flow and residual emphasis. The original design spec links to the follow-up design for the current scrolling contract.
+
+Deviations: the owner superseded the earlier whole-page no-scroll constraint during live review. The gate's document-height rejection is therefore removed intentionally, with no weakening of internal containment. The reviewer-approved diagnostic correction changes "chart, panel or page" to "chart or panel". No new unit test is added for this reversible styling slice; existing full-suite and computed-style browser evidence validate it. The whole 58-check browser gate runs at the integrated Task 7 head per the follow-up plan.
+
+Existing tests edited: none under tests/. Independent Task 5 code review approved the correction; source probe red had 8 failures (compressed 4px gaps, selected residual weight 700) and green had 8 passes across Chromium/Firefox at four desktop sizes (original gaps 40/20/20/24/16px, residual weight 400, 16 rows with zero outside/internal-scroll failures). The fresh locked landing probe passed the same 8 cases on actual u7 source. All three full-suite shards passed: 702 + 1503 + 912. No whole-gate success is claimed for this individual slice.
+
+Validation: `pytest -q` -- **3117 passed**.
+
+Forward guidance: land Tasks 6 and 7 independently, then run the integrated browser gate and refresh the private real-data preview. Owner prototype approval remains pending; no main integration or PR publication yet.
+
 ### 2026-10-28 - Plan the streamgraph live-review corrections
 
 Side task, no batch tag: record the owner-directed prototype corrections, on
@@ -230,19 +246,3 @@ Existing tests edited: `test_stream_payload_valid`; `test_panel_model_hidden_art
 Validation: `pytest -q` -- **3117 passed**.
 
 Forward guidance: land Task 4's browser proof next, then complete the real-data Firefox prototype. Its owner sign-off still precedes PR publication; Task 0 sign-off remains pending.
-
-### 2026-10-28 - Colour twelve stream layers with the rocket palette
-
-Side task, no batch tag: colour twelve stream layers with the rocket palette, on `feat/streamgraph-bursts`, a branch off `main`.
-
-Owner intent: give all twelve layers distinct colours, with touching bands separated across the ramp and each theme using its visible range.
-
-What changed: Task 2 installs the frozen seaborn v0.13.2 rocket samples and fixed permutation, exports the palette to the existing test hooks, and accepts up to twelve layers. DESIGN.md follows those values. The stream gate's existing `_rgb` wrapper now accepts the palette's six-digit hex values through its existing decoder. The active design spec now reflects the owner's checkpoint-commit timing override, resolving Task 1's landing-review follow-up.
-
-Deviations: the owner approved the minimal `_rgb` gate compatibility hunk outside the original Task 2 Touches. The palette stays in JS arrays with per-theme sampling windows, as agreed. Stream fills retain their U20 exemption: light contrast min/max 1.89/12.66, dark 1.59/10.83. No helper, test, dependency or schema was added beyond the approved plan.
-
-Existing tests edited: `test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped` became `test_layer_colour_gives_touching_layers_distinct_palette_steps`; `test_stream_payload_valid` covers the twelve/thirteen-layer boundary. Code-phase red: 5 failed, 13 passed; green whole file: 139 passed. The published LUT derivation had 0 differences. Independent palette and approved-exception reviews passed. Fresh landing focused tests: 18 passed, 121 deselected; whole file: 139 passed. The three full-suite shards all passed.
-
-Validation: `pytest -q` -- **3110 passed**.
-
-Forward guidance: land Task 3's tooltip next. Firefox prototype approval still precedes PR publication; Task 0 remains pending.

@@ -28,20 +28,20 @@ assertion only); DESIGN.md (Placement/Scrubber prose); plan and landing log.
 **Consumes:** Task 3's reserved chart room and existing is-hovered/data-rank DOM contract.
 **Produces:** Original page spacing with a reserved chart and a normal-weight residual row.
 
-- [ ] Remove the stream-only result width/padding, headline size, header/frame/KPI spacing
+- [x] Remove the stream-only result width/padding, headline size, header/frame/KPI spacing
   compression overrides. Keep the original 860px grid focus-padding rule and the stream
   grid's min-height:25rem and overflow-y:hidden. This restores .heatmap-stage's original
   padding and the original header/frame gaps without altering the global stylesheet.
-- [ ] Keep opacity:1 on .stream-panel-row.is-hovered; apply font-weight:700 only to
+- [x] Keep opacity:1 on .stream-panel-row.is-hovered; apply font-weight:700 only to
   .stream-panel-row.is-hovered:not([data-rank="other"]). The base row remains 400.
-- [ ] In the existing hover reader, verticalScroll checks the grid and panel only. Remove
+- [x] In the existing hover reader, verticalScroll checks the grid and panel only. Remove
   its document.scrollHeight check because the accepted original document flow may extend
   past a short viewport. Do not weaken rowsOutside, focus clearance or panel clipping.
-- [ ] Verify computed original top/header/frame gaps and residual font-weight400 in Firefox
+- [x] Verify computed original top/header/frame gaps and residual font-weight400 in Firefox
   and Chromium, with16rows/no internal scrolling at860/1024/1280/1920 widths. No new unit
   test for this reversible styling change; run the existing browser gate and full landing
   gates. Update DESIGN's temporary compressed-layout wording and record the scope correction.
-- [ ] Land atomically: fix(heatmap): Restore result spacing and quiet the residual row
+- [x] Land atomically: fix(heatmap): Restore result spacing and quiet the residual row
 
 ## Task 6: Split the residual around the named stack
 
@@ -116,7 +116,10 @@ No duplicate detector/context invocation or open-ended colour polishing loop.
 ## Execution record
 
 - Planning checkpoint: original Tasks1-4 complete at92019d21; follow-up code not started.
-- Task5: pending.
+- Task5: complete in the atomic `fix(heatmap): Restore result spacing and quiet the residual row`
+  checkpoint. Fresh suite: 3117 passed. Actual landing-source locked spacing probe: eight cases passed
+  across Chromium/Firefox, four desktop sizes, original gaps and residual weight400, no internal scroll.
+  Full browser integration remains at the Task7 head; owner prototype approval is still pending.
 - Task6: pending.
 - Task7: pending.
 - Prototype approval: pending updated live review. No PR/push yet.

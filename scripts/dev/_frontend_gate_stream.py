@@ -476,8 +476,7 @@ _READ_HOVER_JS = """([rank, week]) => {
         rowCount: rows.length,
         rowsOutside: outside.length,
         verticalScroll: host.scrollHeight > host.clientHeight + 1
-            || panel.scrollHeight > panel.clientHeight + 1
-            || document.documentElement.scrollHeight > innerHeight + 1,
+            || panel.scrollHeight > panel.clientHeight + 1,
         siblings: layers.filter((l) => l.dataset.rank !== String(rank)).map(opacity),
         hovered: opacity(layers.find((l) => l.dataset.rank === String(rank))),
         panelShown: !panel.hidden && panelBox.width > 0,
@@ -560,9 +559,7 @@ def _hover_failures(
             " are outside the chart's visible box"
         )
     if reading["verticalScroll"]:
-        failures.append(
-            f"{where}: the chart, panel or page requires vertical scrolling"
-        )
+        failures.append(f"{where}: the chart or panel requires vertical scrolling")
     if (
         reading["panelLeft"] < reading["gridLeft"] - 0.5
         or reading["panelRight"] > reading["gridRight"] + 0.5

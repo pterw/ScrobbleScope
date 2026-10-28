@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Colour twelve stream layers with the rocket palette
+
+Side task, no batch tag: colour twelve stream layers with the rocket palette, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: give all twelve layers distinct colours, with touching bands separated across the ramp and each theme using its visible range.
+
+What changed: Task 2 installs the frozen seaborn v0.13.2 rocket samples and fixed permutation, exports the palette to the existing test hooks, and accepts up to twelve layers. DESIGN.md follows those values. The stream gate's existing `_rgb` wrapper now accepts the palette's six-digit hex values through its existing decoder. The active design spec now reflects the owner's checkpoint-commit timing override, resolving Task 1's landing-review follow-up.
+
+Deviations: the owner approved the minimal `_rgb` gate compatibility hunk outside the original Task 2 Touches. The palette stays in JS arrays with per-theme sampling windows, as agreed. Stream fills retain their U20 exemption: light contrast min/max 1.89/12.66, dark 1.59/10.83. No helper, test, dependency or schema was added beyond the approved plan.
+
+Existing tests edited: `test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped` became `test_layer_colour_gives_touching_layers_distinct_palette_steps`; `test_stream_payload_valid` covers the twelve/thirteen-layer boundary. Code-phase red: 5 failed, 13 passed; green whole file: 139 passed. The published LUT derivation had 0 differences. Independent palette and approved-exception reviews passed. Fresh landing focused tests: 18 passed, 121 deselected; whole file: 139 passed. The three full-suite shards all passed.
+
+Validation: `pytest -q` -- **3110 passed**.
+
+Forward guidance: land Task 3's tooltip next. Firefox prototype approval still precedes PR publication; Task 0 remains pending.
+
 ### 2026-10-28 - Add server burst layers and weekly hidden artists
 
 Side task, no batch tag: add server burst layers and weekly hidden artists, on `feat/streamgraph-bursts`, a branch off `main`.
