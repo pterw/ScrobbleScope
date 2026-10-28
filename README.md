@@ -5,6 +5,8 @@
   </picture>
 </h1>
 
+Last updated: 2026-10-28
+
 <p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
 
 [![Quality Gate](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml/badge.svg)](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml)
@@ -153,8 +155,9 @@ next.
 - See total scrobbles, daily average, best day, and current streak.
 - Compare activity through the seven-stop `rocket_r` palette. Empty days remain
   distinct from the surrounding frame in both themes.
-- On desktop, see a streamgraph under the grid: weekly plays for the ten most
-  played artists, with every other artist in one "Everything else" layer. Its
+- On desktop, see a streamgraph under the grid: weekly plays for up to twelve
+  layers -- the ten most played artists and the two with the biggest 21-day
+  burst -- with every other artist in one "Everything else" layer. Its
   weeks sit under the grid's columns. Hover or drag across it to open a panel
   that lists the week's counts, or focus it and use the arrow keys, Home and
   End. A vertical swipe still scrolls the page. Narrow screens, and results
@@ -366,7 +369,7 @@ module, so the clients stay thin:
 | `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
 | `jobs.py` | The job module: the lifecycle of one search (create, advance, record, succeed or fail, reset, read, expire) and the rules that keep a job coherent, over a storage seam whose one adapter today is an in-memory store under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
-| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection), into daily counts and into weekly counts for the top ten artists |
+| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection), into daily counts and into weekly counts for the top ten plus two burst artists |
 | `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, plus the weekly artist counts stored with the result, with no enrichment step |
 | `lastfm.py`, `spotify.py`, `deezer.py`, `musicbrainz.py` | One module per external API, each owning that provider's quirks and nothing else |
 | `enrichment.py` | The provider-neutral album record both metadata providers return |
@@ -484,8 +487,8 @@ load-bearing:
 The streamgraph under the grid on desktop is hand-built SVG too, with no
 library. Its week positions come from the same Monday-first column geometry
 as the grid, so each week sits under its column; every length scales with the
-grid's column pitch. The server counts plays per week for the ten most played
-artists and stores the counts with the job result; the browser stacks the
+grid's column pitch. The server counts plays per week for the top ten plus two
+burst artists and stores the counts with the job result; the browser stacks the
 layers and draws them as smooth paths.
 
 The JPEG export is not a screenshot. The live SVG is cloned, given explicit

@@ -32,8 +32,8 @@ bookkeeping task exists beyond the landing's own.
 4. **Gate.** The seeded payload carries 12 layers and hidden artists; one new check proves the rule
    and rows appear only for a week that has hidden artists, and so that `hidden` survives the job store.
 5. **Prototype (no commit).** Tasks 1-3's patches, applied in a scratch worktree, render the real
-   flounder14 payload; Firefox screenshots in both themes are the owner's sign-off gate before ANY
-   landing (G5).
+   flounder14 payload; Firefox screenshots in both themes are the owner's sign-off gate before PR
+   publication. The owner authorized checkpoint commits before prototype approval on 2026-10-28.
 
 **Simplifications against the spec (B7, G4; the spec has been updated to say the same).**
 
@@ -48,9 +48,9 @@ bookkeeping task exists beyond the landing's own.
   source, no read-back from CSS.
 - **Per-theme sampling windows (owner B9).** Dark samples rocket over 28%-90%, light over 15%-78%: two
   12-colour arrays, one permutation. A single 15%-90% window leaves one end invisible in each theme.
-- **The prototype is the real code.** No throwaway page: Tasks 1-3 run as code phases (patches, no
-  landing), the patches are applied in a scratch worktree, and only the data loader and the screenshot
-  script are scratch. The owner signs off on the code that will land.
+- **The prototype is the real code.** No throwaway page: Tasks 1-3 produce reviewed patches that may land as
+  checkpoint commits before prototype approval. The same patches are applied in a scratch worktree;
+  only the data loader and screenshot script are scratch. Owner approval precedes PR publication.
 
 **Tech Stack:** Python 3.13 stdlib (`heapq`), pytest, hand-built SVG in `static/js/heatmap.js`, the
 Chromium pure-function harness (`tests/frontend/`), Playwright for the browser gate. No new dependency.
@@ -267,22 +267,22 @@ def test_a_burst_across_a_monday_is_one_burst_not_two_weeks(self):
     """
 ```
 
-- [ ] **Step 1: Write tests a-g and the edit, run them against BASE.**
+- [x] **Step 1: Write tests a-g and the edit, run them against BASE.**
   `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe" -m pytest -q -p no:cacheprovider tests/test_plays.py tests/test_jobs.py -k "weekly or aggregate or artists or context_isolates_dict"`
   Quote the red lines (expected: assertion failures on missing `hidden` and absent burst layers, a
   `KeyError` on `hidden` in the jobs test; not import errors).
-- [ ] **Step 2: Implement** `_peak_in_window`, the constants, the single pass, the docstring, and the
+- [x] **Step 2: Implement** `_peak_in_window`, the constants, the single pass, the docstring, and the
   `_context_view` change.
-- [ ] **Step 3: Same command, green.** Quote it. Also run `tests/test_heatmap.py` and the whole of
+- [x] **Step 3: Same command, green.** Quote it. Also run `tests/test_heatmap.py` and the whole of
   `tests/test_jobs.py` and `tests/test_plays.py`.
-- [ ] **Step 4: Docs.** README lines 156-157 ("weekly plays for the ten most played artists, with every
+- [x] **Step 4: Docs.** README lines 156-157 ("weekly plays for the ten most played artists, with every
   other artist in one "Everything else" layer" becomes: for the twelve layers -- the ten most played
   artists and the two with the biggest short burst -- with every other artist in one "Everything else"
   layer); lines 369 and 487-488 ("top ten" / "ten most played" become "top ten plus two burst"); the
   sequence diagram line 83 ("top 10 artists ... the rest counted as other" becomes "top 10 artists plus
   the 2 biggest 21-day bursts and the 3 largest hidden artists per week, the rest counted as other").
   `Last updated:` in both files. Leave README line 523 (the unrelated spotlight sample).
-- [ ] **Step 5: Pre-commit on the changed files**, stage by name, write the patch (see "manual
+- [x] **Step 5: Pre-commit on the changed files**, stage by name, write the patch (see "manual
   equivalents").
 
 **Do not:** add a `burst` key; add a parameter to `aggregate_weekly_artist_counts`; add any helper,
@@ -459,7 +459,7 @@ contract. **Gates:** pre-commit on the changed files, frontend gate.
   `git checkout` or `git restore`, R6); the tree must equal the stack plus your own edits before Step 2.
 - [ ] **Step 2: Green** with the full patch stack: frontend gate (command in "manual equivalents");
   quote the last line and the `[stream colours]` lines. If the panel overflows at the gate's viewport
-  with 16 rows plus the rule, stop and report it (the prototype screenshots show it first); do not shrink the check.
+  with 16 rows plus the rule, stop and report it; do not shrink the check.
 - [ ] **Step 3: Docs.** None are made untrue; say so in the report.
 - [ ] **Step 4: Pre-commit on the changed files**, stage the two files by name, write the patch.
 
@@ -475,12 +475,12 @@ make room; add JS or CSS changes (those belong to Tasks 2-3).
 **Touches:** nothing tracked. Scratch only, under `<scratchpad>/sgb-proto/` (R8), plus a detached
 worktree `C:/ssw/proto` at BASE (removed afterwards).
 
-**After:** the code phases of Tasks 1, 2 and 3 have produced patches (they are not landed).
+**After:** the code phases of Tasks 1, 2 and 3 have produced patches (checkpoint commits may already have landed).
 **Interfaces:** consumes the three patches; produces screenshots and a signed-off verdict. **Gates:**
 none; this is a visual and data check for the owner.
 
-**Why this shape (G5).** The prototype renders the real code-phase patches on flounder14's real data and
-is the owner's sign-off gate before ANY landing. Simplest faithful render: the real page with the real
+**Why this shape (owner override of G5, 2026-10-28).** The prototype renders the real code-phase patches on flounder14's real data and
+is the owner's sign-off gate before PR publication. Simplest faithful render: the real page with the real
 code, no new page, flag or route in the app.
 
 - [ ] **Step 1: Build the scratch worktree** `git worktree add --detach C:/ssw/proto e1ea6008f8c7699793a435e06d1b55ce1e5401e2`,
@@ -509,7 +509,7 @@ code, no new page, flag or route in the app.
   show the panel fits. Re-renders need no network.
 - [ ] **Step 4: Save and stop.** Save the screenshots to `<scratchpad>/sgb-proto/` (the named folder) and
   STOP: the executing agent does not present or judge them. The owner reviews the screenshots, the
-  contrast table from "Palette" and any overflow. Landings (Tasks 1-4) start only after the owner approves;
+  contrast table from "Palette" and any overflow. Checkpoint commits may precede approval; PR publication waits for owner approval;
   a rejected palette or window changes only "Frozen interfaces" and Tasks 2 and 4's data, not the
   structure.
 - [ ] **Step 5: Clean up, after the owner's verdict,** the worktree (`git worktree remove --force C:/ssw/proto`) and the scratch
@@ -518,7 +518,7 @@ code, no new page, flag or route in the app.
 **Do not:** commit anything; add a route, query flag or page to the app; write a reusable tool; store the
 payload or any screenshot in the repository.
 
-**Resolves:** the owner's sign-off gate (G2, G5). The report records the verdict and the screenshot
+**Resolves:** the owner's sign-off gate (G2, G5 timing overridden by the owner on 2026-10-28). The report records the verdict and the screenshot
 paths; the final `docs(plan)` commit ticks this task's boxes.
 
 ---
@@ -538,10 +538,10 @@ Task 3's README hunk (after line 161) does not overlap Task 1's (lines 156-157, 
 `DESIGN.md` hunk (Scrubber panel) does not overlap Task 2's (line 137); each landing starts with
 `git apply --check --index <PATCH>`, and a failure there is NEEDS_CONTEXT, not a reason to use `-3`.
 
-**Sign-off gate (G5):** no patch is landed before the owner approves Task 0's screenshots. Waves 1-3
-produce patches only.
+**Sign-off gate (owner override of G5, 2026-10-28):** reviewed patches may land as atomic checkpoint
+commits before prototype approval. The owner reviews Task 0's Firefox screenshots before PR publication.
 
-**Landing order (serial, after the owner's sign-off on Task 0):** 1, 2, 3, 4. Each landing: apply the
+**Landing order (serial; checkpoint commits may precede Task 0 approval):** 1, 2, 3, 4. Each landing: apply the
 patch, re-run the focused tests, Section 4 entry (R1), the three `suite-*` shards and N (R3),
 `doc_state_sync.py --fix --test-count N`, stage by name, `pre-commit`, `docsync-check`, commit (R4,
 R5), tick that task's boxes. (Manual equivalent: run each command of the `Gates` block in

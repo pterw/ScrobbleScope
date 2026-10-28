@@ -536,6 +536,10 @@ def _context_view(record):
                 ],
                 "other": list(weekly["other"]),
             }
+            if "hidden" in weekly:
+                results["weekly_artists"]["hidden"] = [
+                    [dict(entry) for entry in week] for week in weekly["hidden"]
+                ]
     return {
         "progress": _progress_view(record),
         "results": results,

@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Add server burst layers and weekly hidden artists
+
+Side task, no batch tag: add server burst layers and weekly hidden artists, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: make concentrated listening such as Cameron Winter visible beyond the top ten, and name the largest artists still hidden each week.
+
+What changed: Task 1 selects two additional layers by the largest 21-day burst, with deterministic total/key ties, and names up to three non-layer artists per week. The job-store read view copies the optional hidden list without adding it to older payloads. README and the heatmap sequence diagram follow the server contract. The reviewed patch passed independent code review.
+
+Deviations: no unused `burst` flag, as agreed in G4. The owner's 2026-10-28 override of G5 permits atomic checkpoint commits before prototype sign-off; Firefox prototype approval still precedes PR publication. The active plan now reflects that timing; Task 0 remains pending.
+
+Existing tests edited: `test_artists_without_a_key_land_in_other`, `test_artists_beyond_top_n_fold_into_other_and_stray_plays_are_ignored`, and `test_context_isolates_dict_results_from_callers`. Five new aggregate behaviours cover cross-Monday bursts, the 21-day boundary, tie order, fewer than twelve artists and weekly hidden ranking. Fresh focused checks: 35 passed, 64 deselected; related regression files: 121 passed.
+
+Validation: `pytest -q` -- **3106 passed**.
+
+Forward guidance: land Task 2 next; review the Firefox prototype before publishing the PR. No frontend change is included in this checkpoint.
+
 ### 2026-10-28 - Plan the streamgraph burst layers
 
 Side task, no batch tag: plan the streamgraph burst layers, on `feat/streamgraph-bursts`, a branch off `main`.
@@ -225,19 +241,5 @@ What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 
 Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
 
 Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
-
-Validation: `pytest -q` -- **3095 passed**.
-
-### 2026-10-27 - Take main into the streamgraph branch
-
-Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U37): PR #278 is retargeted to `main` after #277 merges, so its diff is its own. The branch takes #277 first, by a merge commit and not a rebase (AGENTS.md).
-
-What changed and why: a plain `git merge`. Five docs conflicted and nothing else: `.claude/SESSION_CONTEXT.md`, `config/docsync.toml` and `docs/agents/FINDINGS.md` differed only in the test count (re-measured, then `--fix`); `docs/agents/PLAYBOOK.md` Section 4 and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` keep every dated entry from both sides, none lost. The code files merged without conflict; `static/js/heatmap.js` (saveHeatmapImage/drawHeatmapImage split, mode-key crossfade) and `scripts/dev/_frontend_gate_theme.py` (token-parsed `_split_canvas_font`, no `re` import) were read for clashes with the branch's Save image and theme-scope work and none was found.
-
-Deviations: none.
-
-Existing tests edited: none.
 
 Validation: `pytest -q` -- **3095 passed**.
