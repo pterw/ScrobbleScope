@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Bring the job and module docs up to the streamgraph
+
+Side task, no batch tag: the follow-up to the streamgraph docs commit (review ruling SG10-F1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rule R10): docs that the streamgraph makes untrue are fixed on the branch, not left for later.
+
+What changed and why: `docs/architecture/heatmap-sequence.md` gains the `plays.aggregate_weekly_artist_counts` step, `weekly_artists` in the single success write, and a note that desktop widths draw the streamgraph under the grid when `weekly_artists` is valid. `.claude/SESSION_CONTEXT.md` gives the stream gate module its three real imports (`_frontend_gate_colour`, `_frontend_gate_shared`, `_frontend_gate_theme`) and adds the weekly artist counts to the `plays.py` and `heatmap.py` rows. This also closes the heatmap-sequence concern left open by the previous entry.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The previous entry (Describe the listening streamgraph) missed two deviations, recorded here: its commit subject `docs(heatmap): Describe the listening streamgraph` replaced the brief's `docs: Describe the top-artists streamgraph`, and the bare `--fix` rotated one older entry (Recolour the streamgraph) into the PLAYBOOK execution log archive.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3050 passed**.
+
 ### 2026-10-27 - Describe the listening streamgraph
 
 Side task, no batch tag: the streamgraph docs (streamgraph plan Task 10), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
