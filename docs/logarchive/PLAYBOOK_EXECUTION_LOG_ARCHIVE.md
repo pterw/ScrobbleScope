@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Scrub the streamgraph with a panel and column ring
+
+Side task, no batch tag: hover and touch scrubbing of the streamgraph with a values panel and a heatmap column ring (streamgraph plan Task 7), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): the stream shows one readable value per week, as the Claude Design reference does.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `weekFromX`, `layerAtY` and `panelModel` (test seam), the DOM functions `showWeek` and `clearWeek`, and Pointer Events on `#stream-chart` (`pointermove`, `pointerdown`, `pointerleave`, `pointercancel`), one path for mouse and touch. `showWeek` dims the other layers to 0.25, draws the guide line at the column centre, appends one column ring around that week's seven-row column in the grid SVG and fills a panel with the week's artist counts ("Everything else" last, the hovered row marked). `renderHeatmap` calls `clearWeek()` first, so a re-render leaves no stale ring. `static/css/heatmap.css` holds the panel rules (count column in the figure face with tabular numbers). `scripts/dev/_frontend_gate_stream.py` adds three checks, registered in `frontend_gate.py` (THEME_MOTION): `stream hover shows panel and ring` (DESKTOP, weeks 0/30/40 on a window that starts mid-week, the panel flip, re-render clearing, every panel row inside the chart box at 1280x720), `stream touch drag scrubs` (Chromium only by design) and `stream reduced motion` (DESKTOP). The frontend gate went from 52 to 55 checks.
+
+Rulings recorded: S17, `layerAtY` takes an optional fourth argument `order` (maps stack slots to ranks); three-argument callers are unchanged (accepted backward-compatible change of a frozen interface). SG7-F1 (review, Important): the count column uses `font-family: var(--font-figure)` with `font-variant-numeric: tabular-nums`, as the reference draws it. SG7-F2 and the S18 refinement: the panel sits a little above the plot top (`STREAM_PANEL_RISE`, the reference's 372px against the plot's 380px) and lifts only when it would otherwise run past the chart's bottom edge; at 1280px the unlifted panel was clipped by `#heatmap-grid`, hiding the "Everything else" row. The gate proves it red with the lift disabled ("1 of 11 panel rows are outside the chart's visible box").
+
+Contrast (rendered colours, both themes): row ink 8.64 light / 9.20 dark; header on panel 5.53 / 5.05; hovered ink 17.57 / 14.43; "Everything else" swatch 3.63 / 4.65; guide and ring against the frame 14.78 / 14.43. Min text 5.05, min non-text 3.63; nothing fails. Firefox probe: hover, flip, re-render clearing and reduced motion pass; touch drag is Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The panel stays inside the chart box by lifting (S18), a deviation from the reference. Task 9 (Save image) must clear a shown week before serialising (S19). The landing relied on the nested gate-runner's ALL_PASS (frontend gate 55 checks passed, ruling U28) and did not re-run the frontend gate.
+
+Existing tests edited, by name: `test_stream_payload_valid` (three parametrize cases added: non-string week, non-string name, `artists` not a list).
+
+Validation: `pytest -q` -- **3029 passed**.
+
 ### 2026-10-27 - Recolour the streamgraph when the theme changes
 
 Side task, no batch tag: the streamgraph recolours on a theme change (streamgraph plan Task 6), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

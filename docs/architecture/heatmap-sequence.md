@@ -80,13 +80,14 @@ sequenceDiagram
                 end
                 Heatmap->>Jobs: Progress 80%
                 Heatmap->>Heatmap: plays.aggregate_daily_counts: the UTC day of each play, boundaries filtered, empty days filled
+                Heatmap->>Heatmap: plays.aggregate_weekly_artist_counts: plays per Monday-first week for the top 10 artists, the rest counted as other
                 Heatmap->>Heatmap: total, max_count and active_days from the daily counts, total_scrobbles and active_days recorded as stats
                 Heatmap->>Heatmap: heatmap_statistics(daily_counts, UTC window end): streak, best day, average, total, each with its population
                 Note over Heatmap: Streak, best day and average are computed here, not in the browser
                 alt No scrobbles in range
                     Heatmap->>Jobs: fail(no_scrobbles_in_range)
                 else Results available
-                    Heatmap->>Jobs: succeed: daily_counts, statistics and progress 100%, in one write
+                    Heatmap->>Jobs: succeed: daily_counts, weekly_artists, statistics and progress 100%, in one write
                 end
             end
             opt Unhandled exception anywhere above
@@ -121,6 +122,7 @@ sequenceDiagram
             else Results stored
                 Routes-->>UI: JSON 200, ready true + results
                 UI->>UI: Render responsive SVG and the published KPIs
+                Note over UI: On desktop widths, when weekly_artists is valid, the streamgraph is drawn under the grid
             else Results not stored yet
                 Routes-->>UI: JSON 202, ready false
                 UI->>UI: Restart polling

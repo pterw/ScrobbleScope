@@ -61,7 +61,7 @@ scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # typed exceptions (UserNotFoundError, PrivateProfileError, ProviderError, SpotifyUnavailableError), provider_failure, ERROR_CODES, classify_exception_to_error_code (by type)
   domain.py                 # normalize_name, format_album_key, normalize_track_name, matches_release_criteria, release_window
-  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, AlbumSelection, select_albums
+  plays.py                  # Play (the record both sources emit), Window, aggregate_albums, aggregate_daily_counts, zero_fill_daily_counts, aggregate_weekly_artist_counts, AlbumSelection, select_albums
   api_logging.py            # provider-call trace hook, host-to-provider map, per-session tally and summary, RedactingFormatter (api_key)
   utils.py                  # rate limiters, session pooling, request caching, log_failure (one failure-logging shape), cancel_and_drain (end a run's orphaned tasks)
   jobs.py                   # job lifecycle interface (create, advance, report_phase, succeed, fail, reset, reads), JobStore seam, MemoryJobStore
@@ -83,7 +83,7 @@ scrobblescope/
     _cache.py                # job stats and log lines for the cache lookup and persist steps (scrobblescope/cache.py does the work)
     _deezer_fallback.py      # Deezer pass over what Spotify search and detail could not enrich
     _results.py              # release-filter + sort + proportion phase (_build_results)
-  heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap; publishes the KPI statistics and the weekly top-artist counts
   spotlight.py              # pure artist aggregation and stable sample selection
   listening_stats.py        # pure listening statistics (streak, best day, daily average, plays listed vs matched), each with its population stated
   unmatched.py              # stable reason codes (four, incl. provider_unavailable), category metadata, threshold shortfall copy, deterministic grouping
@@ -241,7 +241,7 @@ dev/_frontend_gate_runtime.py <- dev/_frontend_gate_shared; app.py (create_app);
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
 dev/_frontend_gate_spotify_icon.py <- dev/_frontend_gate_spotlight_photo; jobs
 dev/_frontend_gate_spotlight_photo.py <- dev/_frontend_gate_shared; jobs
-dev/_frontend_gate_stream.py <- dev/_frontend_gate_shared; jobs, listening_stats
+dev/_frontend_gate_stream.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared, dev/_frontend_gate_theme; jobs, listening_stats
 dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; jobs, listening_stats
 dev/_frontend_gate_unmatched.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; domain; jobs
 dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_figures, dev/_frontend_gate_forms, dev/_frontend_gate_heatmap_access, dev/_frontend_gate_include, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_spotify_icon, dev/_frontend_gate_spotlight_photo, dev/_frontend_gate_stream, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
