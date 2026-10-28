@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Describe the listening streamgraph
+
+Side task, no batch tag: the streamgraph docs (streamgraph plan Task 10), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U20): describe the streamgraph as it ships, desktop layout only, with the dark timeline surfaces inside the chart frame only.
+
+What changed and why: `README.md` gains a streamgraph bullet in the Scrobble Heatmap list, a hand-built SVG paragraph, the keyboard note, and the weekly artist counts in the `plays.py` and `heatmap.py` rows; the Save image bullet now says the image includes the stream. `DESIGN.md` "Heatmap & Status" gains the frame-scoped timeline surfaces and the stream layer ramp with the light-theme 0.83 rescale, plus a "Heatmap Streamgraph" component section. `docs/architecture/documentation-tooling.md` gains the `_frontend_gate_stream` edges to `_frontend_gate_shared`, `_frontend_gate_colour` and `_frontend_gate_theme` and its `tool` class entry (the diagram needs a render). `.claude/SESSION_CONTEXT.md` lists the stream gate checks. The plan's Task 10 boxes are ticked.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. No "Pause animations" control exists at this base, so the docs say only that `prefers-reduced-motion` zeroes the layer fade. `docs/architecture/heatmap-sequence.md` line 89 still lists `daily_counts` and statistics as what the job stores; it is outside this task's files and is left for the controller.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3050 passed**.
+
 ### 2026-10-27 - Include the streamgraph in Save image
 
 Side task, no batch tag: the streamgraph in the saved image (streamgraph plan Task 9), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -239,21 +253,3 @@ Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. T
 Existing tests edited, by name: `test_stream_payload_valid` (three parametrize cases added: non-string week, non-string name, `artists` not a list).
 
 Validation: `pytest -q` -- **3029 passed**.
-
-### 2026-10-27 - Recolour the streamgraph when the theme changes
-
-Side task, no batch tag: the streamgraph recolours on a theme change (streamgraph plan Task 6), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (rulings U18, U20, U23): the streamgraph follows the light and dark themes like the rest of the page, with the owner's colour values unchanged.
-
-What changed and why: the stream paints resolved attribute values so a saved image needs no stylesheet, and a `data-theme` flip left those stale. `static/js/heatmap.js` gains `currentStreamTheme()` (shared with `drawStream`) and `recolourStream()`, which `initThemeObserver()` calls beside `updateZeroFills()`. It rewrites each layer's fill (artists from `layerColour(rank, theme)`, "Everything else" from the frame's `--stream-other`), the gridline strokes (`--stream-line`) and the section label fill (`--stream-muted`) in place, with no re-render. The new gate check `stream colours follow theme and meet contrast` (DESKTOP, THEME_MOTION, registered in `frontend_gate.py`, written in `scripts/dev/_frontend_gate_stream.py`) keeps a handle on the chart node, switches dark, light, dark with no reload, and asserts the node is not replaced, every artist layer equals `layerColour(rank, theme)`, "Everything else" is #3a3347 / #ddd5c5, every gridline and the label match the frame-resolved tokens, and the label clears 4.5:1.
-
-Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, asserted at 4.5. Layer fills 1.53-10.22 dark and 2.02-10.52 light are exempt from 3:1 (logged, not asserted); the owner's colour values are unchanged.
-
-Finding SG6-F1 (review of the first patch, closed): the check compared only layer 0 and the first gridline, so a partial recolour would pass. It now compares every layer by its own rank and every gridline, and names an empty layer list or no gridlines. Red against a `recolourStream` that repainted only layer 0 (layers 1-9 reported), green on the real code in chromium and firefox.
-
-Deviations: the brief's 3:1 assertion on layer fills is not made (U20). The mermaid edges for the new imports in `docs/architecture/documentation-tooling.md` are Task 10's (ruling S16a). The landing relied on the nested gate logs (frontend gate 52 checks passed, ruling U19) and did not re-run the frontend gate.
-
-Existing tests edited, by name: none.
-
-Validation: `pytest -q` -- **3014 passed**.

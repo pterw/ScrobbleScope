@@ -125,7 +125,7 @@ scripts/
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
     _frontend_gate_spotify_icon.py # official Spotify icon: size, file, clear space, link target
     _frontend_gate_spotlight_photo.py # artist spotlight photo: no crop, overlay, animation, or fake
-    _frontend_gate_stream.py # streamgraph fixture job and the alignment/absence checks
+    _frontend_gate_stream.py # streamgraph fixture job and eight checks: grid alignment, absence (no payload, mobile), theme colours and contrast, hover panel and ring, saved image, keyboard tab stop, touch drag, reduced motion
     _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
     _frontend_gate_unmatched.py # unmatched report contract, width sweep, portraits and artwork corners
     _worktree_guard_types.py # immutable public diagnostic value types

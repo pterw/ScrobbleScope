@@ -350,12 +350,12 @@ Behaviour (SP-F4): `drawHeatmapImage` serialises the stream SVG the way `gridAsI
 - Consumes: the landed behaviour of Tasks 1-9.
 - Produces: no behaviour change.
 
-- [ ] **Step 1: Re-measure** the facts the docs will state (line numbers, module names, the gate module `scripts/dev/_frontend_gate_stream.py`) against the final head with `grep`; do not copy numbers from this plan.
-- [ ] **Step 2: README.** Features list: add the top-artists streamgraph (weekly top 10 under the grid on desktop, scrubber panel, keyboard, touch, included in Save image, desktop layout only). Fix any line the change makes untrue (for example the "Save the heatmap as a JPEG" bullet if it implies the grid alone). "Hand-built SVG": one short paragraph that the streamgraph is also hand-built SVG with no library, aligned to the same Monday-first week columns. Module table: `plays.py` / `heatmap.py` mention the weekly artist aggregation.
-- [ ] **Step 3: DESIGN.md** "Heatmap & Status": add the timeline surfaces (frame-scoped, not the global dark theme) and the stream layer ramp with the light-theme 0.83 rescale, only if the document names the page's parts (it does under that heading).
-- [ ] **Step 4: Gate-module mentions.** If `docs/architecture/documentation-tooling.md` lists the frontend gate modules by name, add `_frontend_gate_stream`; if it enumerates them in a diagram (line 120), follow the existing pattern.
-- [ ] **Step 5: Last updated.** Update `Last updated:` in every doc the commit changes. Point-in-time records (`docs/history/`, `docs/logarchive/`, `docs/superpowers/`, dated Section 4 entries) are not edited, except the landing's own Section 4 entry as the stacked workspace's constraints require.
-- [ ] **Step 6: Gates and commit.** Docsync check and pre-commit pass (landing gates). Subject: `docs: Describe the top-artists streamgraph`.
+- [x] **Step 1: Re-measure** the facts the docs will state (line numbers, module names, the gate module `scripts/dev/_frontend_gate_stream.py`) against the final head with `grep`; do not copy numbers from this plan.
+- [x] **Step 2: README.** Features list: add the top-artists streamgraph (weekly top 10 under the grid on desktop, scrubber panel, keyboard, touch, included in Save image, desktop layout only). Fix any line the change makes untrue (for example the "Save the heatmap as a JPEG" bullet if it implies the grid alone). "Hand-built SVG": one short paragraph that the streamgraph is also hand-built SVG with no library, aligned to the same Monday-first week columns. Module table: `plays.py` / `heatmap.py` mention the weekly artist aggregation.
+- [x] **Step 3: DESIGN.md** "Heatmap & Status": add the timeline surfaces (frame-scoped, not the global dark theme) and the stream layer ramp with the light-theme 0.83 rescale, only if the document names the page's parts (it does under that heading).
+- [x] **Step 4: Gate-module mentions.** If `docs/architecture/documentation-tooling.md` lists the frontend gate modules by name, add `_frontend_gate_stream`; if it enumerates them in a diagram (line 120), follow the existing pattern.
+- [x] **Step 5: Last updated.** Update `Last updated:` in every doc the commit changes. Point-in-time records (`docs/history/`, `docs/logarchive/`, `docs/superpowers/`, dated Section 4 entries) are not edited, except the landing's own Section 4 entry as the stacked workspace's constraints require.
+- [x] **Step 6: Gates and commit.** Docsync check and pre-commit pass (landing gates). Subject: `docs: Describe the top-artists streamgraph`.
 
 ## Dispatch
 

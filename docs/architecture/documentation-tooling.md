@@ -143,6 +143,9 @@ flowchart TD
     FGRU --> FGS
     FGHA --> FGS
     FGSP --> FGS
+    FGST --> FGS
+    FGST --> FGC
+    FGST --> FGT
     FG -. owns its lifecycle .-> APP[Flask on an<br/>ephemeral loopback port]
     FG -. drives .-> CHR[Chromium: every group]
     FG -. drives .-> FFX[Firefox: assets canary]
@@ -151,7 +154,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGFG,FGINC,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,EG,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,FGHA,FGSP,FGSI,FGFG,FGST,FGINC,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
