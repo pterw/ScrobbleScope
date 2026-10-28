@@ -184,6 +184,21 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Plan the streamgraph live-review corrections
+
+Side task, no batch tag: record the owner-directed prototype corrections, on
+`feat/streamgraph-bursts`, a branch off `main`. Original Tasks 1-4 are committed.
+The owner requested restored header spacing, normal-weight residual text,
+symmetric residual caps and clearer burst colours, with parallel implementation.
+The follow-up plan slices spacing, proportional geometry and palette into separate
+atomic commits and keeps updated live review before PR publication. Document flow
+is restored; the chart and tooltip retain their internal no-scroll constraint.
+No application code changes. Tests edited: none. Plan vs implementation: planning
+only; no code step is marked complete. Forward guidance: execute Tasks 5-7 in
+parallel code worktrees, review and land serially, then refresh the private preview.
+
+Validation: `pytest -q` -- **3117 passed**.
+
 ### 2026-10-28 - Verify weekly hidden artists in the browser gate
 
 Side task, no batch tag: verify weekly hidden artists in the browser gate, on `feat/streamgraph-bursts`, a branch off `main`.
@@ -231,19 +246,3 @@ Existing tests edited: `test_layer_colour_follows_the_ramp_and_light_is_rescaled
 Validation: `pytest -q` -- **3110 passed**.
 
 Forward guidance: land Task 3's tooltip next. Firefox prototype approval still precedes PR publication; Task 0 remains pending.
-
-### 2026-10-28 - Add server burst layers and weekly hidden artists
-
-Side task, no batch tag: add server burst layers and weekly hidden artists, on `feat/streamgraph-bursts`, a branch off `main`.
-
-Owner intent: make concentrated listening such as Cameron Winter visible beyond the top ten, and name the largest artists still hidden each week.
-
-What changed: Task 1 selects two additional layers by the largest 21-day burst, with deterministic total/key ties, and names up to three non-layer artists per week. The job-store read view copies the optional hidden list without adding it to older payloads. README and the heatmap sequence diagram follow the server contract. The reviewed patch passed independent code review.
-
-Deviations: no unused `burst` flag, as agreed in G4. The owner's 2026-10-28 override of G5 permits atomic checkpoint commits before prototype sign-off; Firefox prototype approval still precedes PR publication. The active plan now reflects that timing; Task 0 remains pending.
-
-Existing tests edited: `test_artists_without_a_key_land_in_other`, `test_artists_beyond_top_n_fold_into_other_and_stray_plays_are_ignored`, and `test_context_isolates_dict_results_from_callers`. Five new aggregate behaviours cover cross-Monday bursts, the 21-day boundary, tie order, fewer than twelve artists and weekly hidden ranking. Fresh focused checks: 35 passed, 64 deselected; related regression files: 121 passed.
-
-Validation: `pytest -q` -- **3106 passed**.
-
-Forward guidance: land Task 2 next; review the Firefox prototype before publishing the PR. No frontend change is included in this checkpoint.

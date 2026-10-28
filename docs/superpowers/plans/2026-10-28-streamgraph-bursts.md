@@ -585,6 +585,12 @@ carrying the plan's Execution record and ticking Task 0's boxes; then the contro
 **Branch hygiene (context):** after #279 merges, this branch takes `main` in a reviewed merge commit,
 never a rebase.
 
+## Owner live-review follow-up
+
+Tasks 1-4 are complete. Further owner-directed spacing, residual geometry and colour
+corrections are tracked in [the follow-up plan](2026-10-28-streamgraph-live-feedback.md).
+Prototype approval remains pending that integrated review.
+
 ## Execution record
 
 (Filled by the final `docs(plan)` commit: per task the landing SHA, N passed, the gate-run log
