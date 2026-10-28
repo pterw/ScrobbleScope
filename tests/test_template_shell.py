@@ -726,7 +726,8 @@ def test_every_page_wraps_its_footer_extras(app, template):
     """The wrapper centres and spaces whatever a page adds after the content.
 
     The pause-animations button opens the wrapper on every page, ahead of
-    whatever a page adds, so the wrapper is never empty and never collapses.
+    whatever a page adds. On the home page from 860px the markup is the same
+    but index.css hides the wrapper and shows the button's copy in the hero.
     """
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])

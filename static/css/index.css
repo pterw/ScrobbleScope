@@ -120,9 +120,35 @@ html {
   padding: 2rem 0 2.5rem;
 }
 
+/* One pause button is exposed at any width: this copy below 860px is hidden
+   (the footer one in base.html shows), from 860px it replaces the footer. */
+.index-hero__motion {
+  display: none;
+}
+
 @media (min-width: 860px) {
   .index-hero {
+    display: flex;
+    flex-direction: column;
     padding: 3.5rem;
+  }
+
+  /* The button's own 2.75rem box stands in for the column's bottom padding
+     (the more specific selector keeps the scaled padding below from
+     restoring it), so adding it does not make the column taller. */
+  .index-grid .index-hero {
+    padding-bottom: 0;
+  }
+
+  .index-hero__motion {
+    display: inline-block;
+    align-self: center;
+    margin-top: auto;
+  }
+
+  /* The footer row returns while the heatmap stage replaces the grid. */
+  body:not(.heatmap-stage-active) .page-footer-extras {
+    display: none;
   }
 }
 

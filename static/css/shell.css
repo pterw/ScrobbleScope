@@ -623,8 +623,9 @@ body {
     animation: ss-footer-extras-in 1.2s ease 0.6s forwards;
 }
 
-/* The wrapper is never empty: the pause-animations button opens it on every
-   page, so the old :empty collapse for pages with no extras is gone. */
+/* The wrapper holds the pause-animations button on every page except the
+   home page from 860px, where the button sits at the foot of the left column
+   and the wrapper is hidden (index.css). The old :empty collapse is gone. */
 
 /* Pause animations (WCAG 2.2.2). The choice lives on <html data-motion>,
    set before first paint by the inline script in base.html. It stops the

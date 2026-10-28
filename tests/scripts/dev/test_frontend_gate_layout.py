@@ -518,7 +518,9 @@ MODE_SWITCH = {
 HEATMAP_FIRST = {"albumTop": 191.0, "heatmapTop": 191.0}
 
 
-def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
+def _run_large_display_check(
+    monkeypatch, full: dict, short: dict, overflow=None
+) -> list[str]:
     """Run the scale-parity check with the 1920x1063 / 1920x700 expanded stubs."""
     module = _frontend_gate_layout
     measured_at = []
@@ -534,6 +536,11 @@ def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
     monkeypatch.setattr(module, "_measure_mode_switch_shift", lambda *a: MODE_SWITCH)
     monkeypatch.setattr(
         module, "_measure_heatmap_first_shift", lambda *a: HEATMAP_FIRST
+    )
+    monkeypatch.setattr(
+        module,
+        "_measure_home_overflow",
+        overflow or (lambda *a: _measured_home()),
     )
     last_window = []
 
@@ -613,6 +620,84 @@ def test_mode_switch_must_stay_put_when_the_mode_changes(heatmap_top, failed) ->
 
     assert bool(failures) is failed
     assert all("1920x1063" in line for line in failures)
+
+
+SYNCED = [{"text": "Play animations", "pressed": "true"}] * 2
+PAUSE_OK = {"shown": 1, "inside": True, "afterClick": SYNCED}
+
+
+def _home_state(overflow=0, **pause) -> dict:
+    return {"overflow": overflow, "pause": dict(PAUSE_OK, **pause)}
+
+
+def _measured_home(album=None, heatmap=None) -> dict:
+    return {"album": album or _home_state(), "heatmap": heatmap or _home_state()}
+
+
+@pytest.mark.parametrize(
+    ("measured", "expected"),
+    [
+        (_measured_home(), []),
+        (_measured_home(album=_home_state(92)), ["scrolls 92px", "album mode"]),
+        (_measured_home(heatmap=_home_state(1)), ["scrolls 1px", "heatmap mode"]),
+        # The rule or markup that places the button is gone: nothing shows.
+        (_measured_home(album=_home_state(shown=0)), ["0 pause buttons", "album"]),
+        (_measured_home(heatmap=_home_state(shown=2)), ["2 pause buttons", "heatmap"]),
+        (_measured_home(album=_home_state(inside=False)), ["outside the window"]),
+        # The hidden copy kept its old label after the click.
+        (
+            _measured_home(
+                heatmap=_home_state(
+                    afterClick=[
+                        {"text": "Play animations", "pressed": "true"},
+                        {"text": "Pause animations", "pressed": "false"},
+                    ]
+                )
+            ),
+            ["did not follow a click", "heatmap mode"],
+        ),
+    ],
+    ids=[
+        "fits",
+        "album-scrolls",
+        "heatmap-scrolls",
+        "no-pause-button",
+        "two-pause-buttons",
+        "pause-button-off-screen",
+        "hidden-copy-not-synced",
+    ],
+)
+def test_the_home_page_must_not_scroll_vertically_in_either_mode(
+    measured, expected
+) -> None:
+    failures = _frontend_gate_layout._home_overflow_failures("1366x768", measured)
+
+    assert len(failures) == (1 if expected else 0)
+    assert all(fragment in failures[0] for fragment in expected)
+
+
+def test_the_large_display_check_measures_the_home_fit_windows(monkeypatch) -> None:
+    """A scrolling home page at 1920x1080 or 1366x768 fails the gate."""
+    seen = []
+
+    def overflow(_page, _url, width, height):
+        seen.append((width, height))
+        return _measured_home(album=_home_state(92))
+
+    failures = _run_large_display_check(
+        monkeypatch,
+        full=_expanded(gap=30, top=4),
+        short=_expanded(gap=30, top=4),
+        overflow=overflow,
+    )
+
+    assert seen == [(1920, 1080), (1366, 768)]
+    assert [line for line in failures if "scrolls 92px" in line] == [
+        "/: the home page scrolls 92px vertically in album mode at 1920x1080, "
+        "expected none",
+        "/: the home page scrolls 92px vertically in album mode at 1366x768, "
+        "expected none",
+    ]
 
 
 @pytest.mark.parametrize(

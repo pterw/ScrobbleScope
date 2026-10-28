@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Add a pause-animations footer control
+
+Side task, no batch tag: UI audit v6 row 3, a pause-animations footer control, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 3): the header mark's bar animation can be paused (WCAG 2.2.2). A `.motion-toggle` button is the first child of `.page-footer-extras` in `templates/base.html` and reads "Pause animations" / "Play animations" with `aria-pressed`. `static/js/theme.js` toggles `data-motion="still"` on `<html>`, syncs the label from that attribute on load and persists the choice in localStorage `ss-motion` (write and remove in a try). The pre-paint script in `base.html` reads `ss-motion` in its own try so a paused page never flashes the animation. `static/css/shell.css` sets `animation: none` on the header mark's bars under `[data-motion="still"]`; the loading-page pinwheel is untouched. Under `prefers-reduced-motion` the bars are already still and the button keeps showing the stored state. The `.page-footer-extras:empty` rule is removed because the wrapper now always holds the button. The focus ring is 2px solid `--shell-accent` with offset 2px, as the header toggle. Contrast: rest text 5.17:1 light and 5.82:1 dark, focus ring 6.06:1 light and 8.14:1 dark (min 5.17, max 8.14); nothing is Chromium-only.
+
+Deviations: (R3-F1) the README hover colour `--rocket-5` (#f0903a) is 2.24:1 on the light footer (#faf7f0), under the 4.5:1 contrast floor, so the contrast floor governs: light hover uses `--shell-accent` (#6a4baf, 6.06:1) and dark keeps `--rocket-5` (8.11:1). The header comment of `static/js/theme.js` also names the new toggle (R3-F2).
+
+Existing tests edited, by name: `test_every_page_wraps_its_footer_extras` (the button opens the wrapper) and `test_every_page_sets_the_theme_before_first_paint` (runs the inline script in node with fake storage; skips when node is missing) in `tests/test_template_shell.py`.
+
+Validation: `pytest -q` -- **2986 passed**.
+
 ### 2026-10-27 - Make the favicon follow the theme
 
 Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.

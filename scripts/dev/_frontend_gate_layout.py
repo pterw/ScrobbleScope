@@ -635,6 +635,10 @@ HOME_KEY_STATE_EXPRESSION = """() => {
 RESTORED_THRESHOLDS = (("min_plays", "7"), ("min_tracks", "5"))
 
 
+#: Desktop windows where the home page must fit with no vertical scroll.
+HOME_FIT_WINDOWS = ((1920, 1080), (1366, 768))
+
+
 def _restored_key_text(page, base_url: str) -> str:
     """Load the home page with 7 and 5 already in the threshold inputs."""
 
@@ -715,6 +719,97 @@ def _measure_heatmap_first_shift(page, base_url, width: int, height: int) -> dic
     page.locator("#mode-tab-heatmap").click()
     wait_for_settled(page)
     return {"albumTop": album_top, "heatmapTop": page.evaluate(f"() => {read_top}")}
+
+
+#: The home page carries two pause buttons, one per layout; read how many show,
+#: whether the shown one lies inside the window, then click it and read every
+#: copy back (a copy that stops syncing keeps the old label).
+PAUSE_STATE_EXPRESSION = """() => {
+    const toggles = [...document.querySelectorAll('.motion-toggle')];
+    const shown = toggles.filter(el => el.getClientRects().length > 0);
+    const inside = shown.every(el => {
+        const box = el.getBoundingClientRect();
+        return box.top >= 0 && box.left >= 0
+            && box.bottom <= window.innerHeight
+            && box.right <= window.innerWidth;
+    });
+    return {
+        shown: shown.length,
+        inside,
+        copies: toggles.map(el => ({
+            text: el.textContent,
+            pressed: el.getAttribute('aria-pressed'),
+        })),
+    };
+}"""
+
+
+def _measure_home_pause(page) -> dict:
+    """Read the pause buttons, click the shown one, read them again, undo it."""
+    state = page.evaluate(PAUSE_STATE_EXPRESSION)
+    button = page.locator(".motion-toggle:visible")
+    if state["shown"] == 1:
+        button.click()
+        state["afterClick"] = page.evaluate(PAUSE_STATE_EXPRESSION)["copies"]
+        button.click()
+    return state
+
+
+def _measure_home_overflow(page, base_url, width: int, height: int) -> dict:
+    """Read the home page per mode: its scroll overflow and its pause buttons."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read = (
+        "() => document.documentElement.scrollHeight"
+        " - document.documentElement.clientHeight"
+    )
+    measured = {"album": {"overflow": page.evaluate(read)}}
+    measured["album"]["pause"] = _measure_home_pause(page)
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    measured["heatmap"] = {
+        "overflow": page.evaluate(read),
+        "pause": _measure_home_pause(page),
+    }
+    return measured
+
+
+def _home_pause_failures(label: str, mode: str, pause: dict) -> list[str]:
+    """Fail unless exactly one pause button shows, in the window, and syncs."""
+    where = f"in {mode} mode at {label}"
+    if pause["shown"] != 1:
+        return [f"/: {pause['shown']} pause buttons show {where}, expected one"]
+    if not pause["inside"]:
+        return [f"/: the pause button lies outside the window {where}"]
+    stale = [c for c in pause["afterClick"] if c != PAUSED_COPY]
+    if stale:
+        return [f"/: a pause button copy did not follow a click {where}: {stale}"]
+    return []
+
+
+#: What every pause button copy reads after the shown one is clicked.
+PAUSED_COPY = {"text": "Play animations", "pressed": "true"}
+
+
+def _home_overflow_failures(label: str, measured: dict) -> list[str]:
+    """Fail when the home page scrolls, or its pause control is wrong, per mode.
+
+    From 860px the pause button sits at the foot of the left column and the
+    footer row takes no height (index.css `.index-hero__motion`), so the page
+    must not scroll vertically. Exactly one pause button must show, inside the
+    window, and a click must flip every copy (static/js/theme.js).
+    """
+    failures = []
+    for mode, state in measured.items():
+        if state["overflow"] > 0:
+            failures.append(
+                f"/: the home page scrolls {state['overflow']}px vertically in "
+                f"{mode} mode at {label}, expected none"
+            )
+        failures.extend(_home_pause_failures(label, mode, state["pause"]))
+    return failures
 
 
 def _mode_switch_failures(label: str, measured) -> list[str]:
@@ -888,6 +983,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         expanded_short = _measure_expanded_placement(page, base_url, 1920, 700)
         mode_switch = _measure_mode_switch_shift(page, base_url, 1920, 1063)
         heatmap_first = _measure_heatmap_first_shift(page, base_url, 1920, 1063)
+        overflow = {
+            f"{w}x{h}": _measure_home_overflow(page, base_url, w, h)
+            for w, h in HOME_FIT_WINDOWS
+        }
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -964,6 +1063,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     failures.extend(
         _mode_switch_failures("1920x1063 after a Heatmap-first load", heatmap_first)
     )
+    for label, measured_overflow in overflow.items():
+        failures.extend(_home_overflow_failures(label, measured_overflow))
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
         failures.extend(_phone_home_failures(width, header))

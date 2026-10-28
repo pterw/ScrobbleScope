@@ -56,35 +56,41 @@
         });
     }
 
-    // Pause-animations button. The inline script in base.html already set
-    // data-motion before first paint, so the label follows the element.
-    const motionToggle = document.querySelector('.motion-toggle');
-    if (motionToggle) {
+    // Pause-animations buttons. The inline script in base.html already set
+    // data-motion before first paint, so the label follows the element. The
+    // home page carries a second copy in its left column (one is hidden by
+    // CSS at any width); every copy stays in sync with data-motion.
+    const motionToggles = document.querySelectorAll('.motion-toggle');
+    if (motionToggles.length) {
         const root = document.documentElement;
-        const syncMotionToggle = function () {
+        const syncMotionToggles = function () {
             const still = root.getAttribute('data-motion') === 'still';
-            motionToggle.setAttribute('aria-pressed', still ? 'true' : 'false');
-            motionToggle.textContent = still ? 'Play animations' : 'Pause animations';
+            motionToggles.forEach(function (toggle) {
+                toggle.setAttribute('aria-pressed', still ? 'true' : 'false');
+                toggle.textContent = still ? 'Play animations' : 'Pause animations';
+            });
         };
-        syncMotionToggle();
-        motionToggle.addEventListener('click', function () {
-            const still = root.getAttribute('data-motion') !== 'still';
-            if (still) {
-                root.setAttribute('data-motion', 'still');
-            } else {
-                root.removeAttribute('data-motion');
-            }
-            syncMotionToggle();
-            try {
+        syncMotionToggles();
+        motionToggles.forEach(function (toggle) {
+            toggle.addEventListener('click', function () {
+                const still = root.getAttribute('data-motion') !== 'still';
                 if (still) {
-                    localStorage.setItem('ss-motion', 'still');
+                    root.setAttribute('data-motion', 'still');
                 } else {
-                    localStorage.removeItem('ss-motion');
+                    root.removeAttribute('data-motion');
                 }
-            } catch (error) {
-                // Storage can throw in private mode. The pause still applies
-                // for this page view; it just will not survive a reload.
-            }
+                syncMotionToggles();
+                try {
+                    if (still) {
+                        localStorage.setItem('ss-motion', 'still');
+                    } else {
+                        localStorage.removeItem('ss-motion');
+                    }
+                } catch (error) {
+                    // Storage can throw in private mode. The pause still applies
+                    // for this page view; it just will not survive a reload.
+                }
+            });
         });
     }
 
