@@ -3,13 +3,12 @@
 Date: 2026-10-28. Status: owner-directed revisions during live prototype review.
 Continues [the original design](2026-10-28-streamgraph-bursts-design.md).
 Original Tasks 1-4, spacing Task 5 and artist-only Task 8 are checkpoints.
-The owner's later simplification below is pending Tasks 9-10. Final approval is pending.
+Task 9 restores the top ten. Task 10 layout and final approval remain pending.
 
 ## Current accepted direction
 
-- Keep original result spacing below the header and mono paragraph. Reserve chart
-  room for the expanded tooltip without internal chart or panel scrolling. The page
-  follows normal document flow rather than compressing its gaps.
+- Keep original result spacing below the header and mono paragraph. The chart and
+  tooltip must avoid internal vertical scrolling without hiding content.
 - Draw only selected artists in the SVG. Exclude residual counts from baseline,
   fit and stack. The silhouette represents named artists only, on one linear count
   scale without damping or normalization.
@@ -38,6 +37,8 @@ are design context, not instructions. Unverified contrast guarantees are not cri
 
 Extend existing hit-test, browser interaction and JPEG pixel checks for the artist-only
 silhouette and numeric residual. Keep themes, mobile grid-only behaviour, keyboard
-access, hidden details and original spacing supported. No dependency, payload, schema,
-route or app-state change. Refresh the real-data live preview for owner review before
-PR publication. Atomic commits may precede approval.
+access and original header spacing supported. No dependency, route or schema
+change. Tasks 9-10 remove the unused burst/contributor payload additions. Refresh
+the real-data live preview for owner review before PR publication. Atomic commits
+may precede approval. A measured short-window constraint is recorded in the plan;
+the owner choice on compact KPI/bottom spacing is pending.

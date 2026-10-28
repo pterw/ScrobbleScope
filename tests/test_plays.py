@@ -322,171 +322,22 @@ class TestAggregateWeeklyArtistCounts:
 
     @pytest.mark.parametrize("artist", ["", "!!!"])
     def test_artists_without_a_key_land_in_other(self, artist):
-        """Unnamed plays stay in other without a hidden name.
-        GIVEN: an empty or punctuation-only artist
-        WHEN: weekly artist counts are aggregated
-        THEN: the play counts in other and no layer or hidden entry names it
-        """
+        """An empty or punctuation-only artist is counted in ``other``, never
+        as a layer. Planted defect: drop such plays or layer them."""
         day = date(2026, 1, 5)
         result = aggregate_weekly_artist_counts([_play(_noon(day), artist)], day, day)
         assert result["artists"] == []
         assert result["other"] == [1]
-        assert result["hidden"] == [[]]
 
     def test_artists_beyond_top_n_fold_into_other_and_stray_plays_are_ignored(self):
-        """Artists beyond the top and burst layers join other.
-        GIVEN: five artists and a stray play outside the date range
-        WHEN: weekly counts select two top artists and two bursts
-        THEN: E is hidden in other and the stray play counts nowhere
-        """
+        """With ``top_n=2`` the third artist joins ``other``; plays outside the
+        range count nowhere. Planted defect: drop the overflow artists."""
         day = date(2026, 1, 5)
-        plays = [_play(_noon(day), name) for name in "AAABBCDE"]
+        plays = [_play(_noon(day), name) for name in "AAABBC"]
         plays.append(_play(_noon(day + timedelta(days=9)), "A"))
         result = aggregate_weekly_artist_counts(plays, day, day, top_n=2)
-        assert [a["name"] for a in result["artists"]] == ["A", "B", "C", "D"]
-        assert [a["counts"] for a in result["artists"]] == [[3], [2], [1], [1]]
+        assert [a["name"] for a in result["artists"]] == ["A", "B"]
         assert result["other"] == [1]
-        assert result["hidden"] == [[{"name": "E", "count": 1}]]
-
-    def test_a_burst_across_a_monday_is_one_burst_not_two_weeks(self):
-        """A Wednesday-to-Tuesday run outranks a hotter single week.
-        GIVEN: X has 8 plays Wed-Sun and 7 Mon-Tue, Y has 10 and Z has 9
-        WHEN: weekly counts select one top artist and two bursts
-        THEN: T, X, Y are layers, X stays in its two weeks, and Z is hidden
-        """
-        start = date(2026, 1, 5)
-        plays = [
-            _play(_noon(start + timedelta(days=offset)), name)
-            for name, offset, count in [
-                ("T", 0, 20),
-                ("X", 9, 8),
-                ("X", 14, 7),
-                ("Y", 28, 10),
-                ("Z", 35, 9),
-            ]
-            for _ in range(count)
-        ]
-        result = aggregate_weekly_artist_counts(
-            plays, start, start + timedelta(days=41), top_n=1
-        )
-        assert [a["name"] for a in result["artists"]] == ["T", "X", "Y"]
-        assert result["artists"][1]["counts"] == [0, 8, 7, 0, 0, 0]
-        assert result["hidden"] == [[], [], [], [], [], [{"name": "Z", "count": 9}]]
-
-    @pytest.mark.parametrize(
-        "gap, layers, hidden_name",
-        [(20, ["T", "X", "R"], "S"), (21, ["T", "R", "S"], "X")],
-    )
-    def test_burst_window_is_21_consecutive_days(self, gap, layers, hidden_name):
-        """Burst windows include day 21 but exclude day 22.
-        GIVEN: X has two six-play clumps separated by 20 or 21 days
-        WHEN: X competes with R's eight plays and S's seven for two slots
-        THEN: only the 20-day gap lets X outrank R and S
-        """
-        start = date(2026, 1, 5)
-        plays = [
-            _play(_noon(start + timedelta(days=offset)), name)
-            for name, offset, count in [
-                ("T", 0, 30),
-                ("X", 0, 6),
-                ("X", gap, 6),
-                ("R", 0, 8),
-                ("S", 0, 7),
-            ]
-            for _ in range(count)
-        ]
-        result = aggregate_weekly_artist_counts(
-            plays, start, start + timedelta(days=27), top_n=1
-        )
-        assert [a["name"] for a in result["artists"]] == layers
-        expected = (
-            [[{"name": hidden_name, "count": 7}], [], [], []]
-            if gap == 20
-            else [
-                [{"name": hidden_name, "count": 6}],
-                [],
-                [],
-                [{"name": hidden_name, "count": 6}],
-            ]
-        )
-        assert result["hidden"] == expected
-
-    def test_burst_ties_break_on_window_total_then_key(self):
-        """Equal peaks favor the larger total, then the normalized key.
-        GIVEN: P, Q and R peak at five, with Q playing twice 40 days later
-        WHEN: the candidates compete for two burst layers after T
-        THEN: Q and P are selected and R stays hidden
-        """
-        start = date(2026, 1, 5)
-        plays = [
-            _play(_noon(start + timedelta(days=offset)), name)
-            for name, offset, count in [
-                ("T", 0, 30),
-                ("R", 0, 5),
-                ("P", 0, 5),
-                ("Q", 0, 5),
-                ("Q", 40, 2),
-            ]
-            for _ in range(count)
-        ]
-        result = aggregate_weekly_artist_counts(
-            plays, start, start + timedelta(days=41), top_n=1
-        )
-        assert [a["name"] for a in result["artists"]] == ["T", "Q", "P"]
-        assert result["hidden"] == [[{"name": "R", "count": 5}], [], [], [], [], []]
-
-    def test_fewer_than_twelve_artists_leave_an_empty_tail(self):
-        """Eleven artists fill eleven layers without manufacturing a twelfth.
-        GIVEN: eleven artists with distinct window totals
-        WHEN: weekly counts use the default top ten and two burst slots
-        THEN: all eleven are layers and other and hidden are empty
-        """
-        day = date(2026, 1, 5)
-        plays = [
-            _play(_noon(day), name)
-            for count, name in enumerate("ABCDEFGHIJK", start=1)
-            for _ in range(count)
-        ]
-        result = aggregate_weekly_artist_counts(plays, day, day)
-        assert len(result["artists"]) == 11
-        assert result["other"] == [0]
-        assert result["hidden"] == [[]]
-
-    def test_hidden_artists_are_the_three_largest_non_layers_each_week(self):
-        """Hidden rows rank only artists outside the displayed layers.
-        GIVEN: two bursts and a top artist exceed four hidden week-one artists
-        WHEN: three weeks contain four, two, and zero hidden candidates
-        THEN: rows cap at three, break ties by key, and omit layers
-        """
-        start = date(2026, 1, 5)
-        plays = [
-            _play(_noon(start + timedelta(weeks=week)), name)
-            for name, week, count in [
-                ("T", 0, 29),
-                ("T", 2, 1),
-                ("BurstX", 0, 12),
-                ("BurstY", 0, 11),
-                ("D", 0, 2),
-                ("C", 0, 3),
-                ("B", 0, 3),
-                ("A", 0, 4),
-                ("E", 1, 2),
-                ("A", 1, 1),
-            ]
-            for _ in range(count)
-        ]
-        result = aggregate_weekly_artist_counts(
-            plays, start, start + timedelta(days=20), top_n=1
-        )
-        assert result["hidden"] == [
-            [
-                {"name": "A", "count": 4},
-                {"name": "B", "count": 3},
-                {"name": "C", "count": 3},
-            ],
-            [{"name": "E", "count": 2}, {"name": "A", "count": 1}],
-            [],
-        ]
 
     def test_each_week_adds_up_to_the_daily_counts(self):
         """Per week, artists plus ``other`` equal the daily counts of that

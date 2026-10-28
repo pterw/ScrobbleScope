@@ -15,7 +15,6 @@ source's own module before a ``Play`` exists, never here.
     plays <- domain, unmatched
 """
 
-import heapq
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -26,10 +25,6 @@ from scrobblescope.unmatched import partition_albums_by_threshold
 
 #: An album's identity: ``domain.normalize_name(artist, album)``.
 AlbumKey = tuple[str, str]
-
-BURST_LAYERS = 2  # Layers added past top_n for short-lived listening.
-BURST_WINDOW_DAYS = 21  # A burst spans this many consecutive days.
-HIDDEN_PER_WEEK = 3  # Artists named from Everything else each week.
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,41 +183,23 @@ def aggregate_daily_counts(
     return zero_fill_daily_counts(counts, from_date, to_date)
 
 
-def _peak_in_window(days: list[int]) -> int:
-    """Return the most plays on any BURST_WINDOW_DAYS consecutive days.
-
-    *days* are the play dates as ordinals; one sorted walk with two pointers
-    per artist, never artists x days.
-    """
-    days = sorted(days)
-    peak = start = 0
-    for end, day in enumerate(days):
-        while day - days[start] >= BURST_WINDOW_DAYS:
-            start += 1
-        peak = max(peak, end - start + 1)
-    return peak
-
-
 def aggregate_weekly_artist_counts(
     plays: Iterable[Play], from_date: date, to_date: date, top_n: int = 10
 ) -> dict:
-    """Count plays per Monday-first week for top artists and burst layers.
+    """Count plays per Monday-first calendar week for the *top_n* artists.
 
     Column ``t`` starts on the Monday ``t`` weeks after the Monday on or before
     *from_date*, the same grid the heatmap draws, so the first and last columns
     can be partial. Artists are keyed by ``normalize_name(artist, "")[0]``; the
-    first spelling seen names an artist. Layers are the top *top_n* by window
-    total (ties by key), then up to BURST_LAYERS by 21-day peak (ties by larger
-    window total, then key). ``other`` holds artists outside those layers and
-    every play whose artist key is empty. ``hidden`` names up to HIDDEN_PER_WEEK
-    non-layer artists per week by count descending, ties by key, excluding empty
-    keys. Plays outside the range are ignored. Pure: no I/O, no clock.
+    first spelling seen names a layer, layers run largest window total first and
+    a tie breaks on the key. ``other`` holds every artist beyond *top_n* and
+    every play whose artist key is empty. Plays outside the range are ignored.
+    Pure: no I/O, no clock.
     """
     week0 = from_date - timedelta(days=from_date.weekday())
     num_weeks = (to_date - week0).days // 7 + 1
     names: dict[str, str] = {}
     by_key: dict[str, list[int]] = {}
-    days_by_key: dict[str, list[int]] = {}
     other = [0] * num_weeks
     for play in plays:
         day = play.played_at.date()
@@ -234,32 +211,16 @@ def aggregate_weekly_artist_counts(
             other[week] += 1
             continue
         names.setdefault(key, play.artist)
-        days_by_key.setdefault(key, []).append(day.toordinal())
         by_key.setdefault(key, [0] * num_weeks)[week] += 1
     ranked = sorted(by_key, key=lambda key: (-sum(by_key[key]), key))
-    rest = ranked[top_n:]
-    bursts = sorted(
-        rest,
-        key=lambda key: (-_peak_in_window(days_by_key[key]), -sum(by_key[key]), key),
-    )[:BURST_LAYERS]
-    layers = ranked[:top_n] + bursts
-    hidden_keys = [key for key in rest if key not in bursts]
-    for key in hidden_keys:
+    for key in ranked[top_n:]:
         other = [total + count for total, count in zip(other, by_key[key], strict=True)]
     return {
         "weeks": [(week0 + timedelta(weeks=t)).isoformat() for t in range(num_weeks)],
-        "artists": [{"name": names[key], "counts": by_key[key]} for key in layers],
-        "other": other,
-        "hidden": [
-            [
-                {"name": names[key], "count": -count}
-                for count, key in heapq.nsmallest(
-                    HIDDEN_PER_WEEK,
-                    ((-by_key[key][t], key) for key in hidden_keys if by_key[key][t]),
-                )
-            ]
-            for t in range(num_weeks)
+        "artists": [
+            {"name": names[key], "counts": by_key[key]} for key in ranked[:top_n]
         ],
+        "other": other,
     }
 
 

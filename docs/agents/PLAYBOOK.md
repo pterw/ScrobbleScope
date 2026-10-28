@@ -184,6 +184,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Return weekly artists to the top ten
+
+Side task, no batch tag: Task 9 on `feat/streamgraph-bursts`. The owner
+requested top ten only and no residual contributor list after live testing.
+Reverse this branch's own burst selection and contributor metadata in plays,
+job readback and their tests. The four files match origin/main exactly;
+none changed upstream since the original branch base. Original normalized
+ranking/ties, Monday columns, window filtering, empty-key residuals and
+nested-copy isolation coverage remain. README and the sequence diagram
+again describe top ten. No UI source changes in this checkpoint.
+
+Plan vs implementation: exact scoped reversal, no history rewrite. Tests
+solely for the removed feature are removed; original behavior tests return.
+Focused plays/jobs/heatmap: 114 passed. Independent spec/quality review
+approved. Fresh full shards: 702 + 1507 + 905. No browser gate is triggered
+by these backend-only paths; Task 10 runs the integrated UI gate.
+
+Forward guidance: Task 10 removes remaining contributor UI and unused
+styles, caps the client at ten and reduces the chart box. Measured short
+viewports cannot fit the original gaps and 268px tooltip together. Owner
+choice on compact KPI/bottom spacing is pending; page-scroll assertions
+remain strict. Final main integration, live approval and PR remain pending.
+Section 3 batch sequencing is unchanged. WT003/WT005/WT010/WT012 are
+advisory under the owner's instruction; no lineage repair is attempted.
+
+Validation: `pytest -q` -- **3114 passed**.
+
 ### 2026-10-28 - Keep residual counts outside the artist stream
 
 Side task, no batch tag: Task 8 checkpoint on `feat/streamgraph-bursts`.
@@ -253,18 +280,3 @@ Existing tests edited: none under tests/. Independent Task 5 code review approve
 Validation: `pytest -q` -- **3117 passed**.
 
 Forward guidance: land Tasks 6 and 7 independently, then run the integrated browser gate and refresh the private real-data preview. Owner prototype approval remains pending; no main integration or PR publication yet.
-
-### 2026-10-28 - Plan the streamgraph live-review corrections
-
-Side task, no batch tag: record the owner-directed prototype corrections, on
-`feat/streamgraph-bursts`, a branch off `main`. Original Tasks 1-4 are committed.
-The owner requested restored header spacing, normal-weight residual text,
-symmetric residual caps and clearer burst colours, with parallel implementation.
-The follow-up plan slices spacing, proportional geometry and palette into separate
-atomic commits and keeps updated live review before PR publication. Document flow
-is restored; the chart and tooltip retain their internal no-scroll constraint.
-No application code changes. Tests edited: none. Plan vs implementation: planning
-only; no code step is marked complete. Forward guidance: execute Tasks 5-7 in
-parallel code worktrees, review and land serially, then refresh the private preview.
-
-Validation: `pytest -q` -- **3117 passed**.

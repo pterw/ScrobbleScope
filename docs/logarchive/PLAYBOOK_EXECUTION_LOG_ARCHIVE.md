@@ -9,6 +9,21 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Plan the streamgraph live-review corrections
+
+Side task, no batch tag: record the owner-directed prototype corrections, on
+`feat/streamgraph-bursts`, a branch off `main`. Original Tasks 1-4 are committed.
+The owner requested restored header spacing, normal-weight residual text,
+symmetric residual caps and clearer burst colours, with parallel implementation.
+The follow-up plan slices spacing, proportional geometry and palette into separate
+atomic commits and keeps updated live review before PR publication. Document flow
+is restored; the chart and tooltip retain their internal no-scroll constraint.
+No application code changes. Tests edited: none. Plan vs implementation: planning
+only; no code step is marked complete. Forward guidance: execute Tasks 5-7 in
+parallel code worktrees, review and land serially, then refresh the private preview.
+
+Validation: `pytest -q` -- **3117 passed**.
+
 ### 2026-10-28 - Verify weekly hidden artists in the browser gate
 
 Side task, no batch tag: verify weekly hidden artists in the browser gate, on `feat/streamgraph-bursts`, a branch off `main`.

@@ -82,7 +82,7 @@ sequenceDiagram
                 end
                 Heatmap->>Jobs: Progress 80%
                 Heatmap->>Heatmap: plays.aggregate_daily_counts: the UTC day of each play, boundaries filtered, empty days filled
-                Heatmap->>Heatmap: plays.aggregate_weekly_artist_counts: plays per Monday-first week for the top 10 artists plus the 2 biggest 21-day bursts and the 3 largest hidden artists per week, the rest counted as other
+                Heatmap->>Heatmap: plays.aggregate_weekly_artist_counts: plays per Monday-first week for the top 10 artists, the rest counted as other
                 Heatmap->>Heatmap: total, max_count and active_days from the daily counts, total_scrobbles and active_days recorded as stats
                 Heatmap->>Heatmap: heatmap_statistics(daily_counts, UTC window end): streak, best day, average, total, each with its population
                 Note over Heatmap: Streak, best day and average are computed here, not in the browser

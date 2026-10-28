@@ -502,28 +502,23 @@ def test_reads_of_a_missing_job_return_none():
     assert jobs.context("nonexistent_job_id") is None
 
 
-@pytest.mark.parametrize("hidden", [None, [[{"name": "Suki", "count": 2}]]])
-def test_context_isolates_dict_results_from_callers(hidden):
-    """Heatmap result copies isolate nested caller mutations (F-B18-8).
-    GIVEN: stored weekly counts with or without hidden artists
-    WHEN: a caller mutates the returned results and their nested collections
-    THEN: a fresh read preserves the stored values and optional hidden key
+def test_context_isolates_dict_results_from_callers():
+    """
+    Heatmap results are a dict: mutating the returned one, or its nested
+    daily_counts, must not reach stored state (F-B18-8).
     """
     job_id = _new_job()
-    stored_weekly = {
-        "weeks": ["2026-04-27"],
-        "artists": [{"name": "Radiohead", "counts": [3]}],
-        "other": [2],
-    }
-    if hidden is not None:
-        stored_weekly["hidden"] = hidden
     jobs.succeed(
         job_id,
         {
             "username": "testuser",
             "total_scrobbles": 5,
             "daily_counts": {"2026-05-01": 3, "2026-05-02": 2},
-            "weekly_artists": stored_weekly,
+            "weekly_artists": {
+                "weeks": ["2026-04-27"],
+                "artists": [{"name": "Radiohead", "counts": [3]}],
+                "other": [2],
+            },
         },
         "Heatmap ready!",
     )
@@ -538,21 +533,15 @@ def test_context_isolates_dict_results_from_callers(hidden):
     weekly["artists"][0]["name"] = "Changed"
     weekly["artists"].append({"name": "Intruder", "counts": [1]})
     weekly["other"][0] = 999
-    if hidden is not None:
-        weekly["hidden"].append([])
-        weekly["hidden"][0][0]["count"] = 999
 
     fresh = jobs.context(job_id)["results"]
     assert fresh["total_scrobbles"] == 5
     assert fresh["daily_counts"] == {"2026-05-01": 3, "2026-05-02": 2}
-    expected_weekly = {
+    assert fresh["weekly_artists"] == {
         "weeks": ["2026-04-27"],
         "artists": [{"name": "Radiohead", "counts": [3]}],
         "other": [2],
     }
-    if hidden is not None:
-        expected_weekly["hidden"] = [[{"name": "Suki", "count": 2}]]
-    assert fresh["weekly_artists"] == expected_weekly
 
 
 def test_context_isolates_the_results_list_and_unmatched_and_params():

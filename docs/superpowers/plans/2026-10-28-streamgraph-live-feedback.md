@@ -74,13 +74,13 @@ tests/test_jobs.py; README.md; docs/architecture/heatmap-sequence.md; plan/log.
 **Produces:** Original top-ten weekly payload and residual counts, without bursts
 or the now-unwanted contributor metadata. Existing tie and empty-key rules stay.
 
-- [ ] Verify the four source/test paths have no upstream changes since the original
+- [x] Verify the four source/test paths have no upstream changes since the original
   branch base. Reverse only this branch's burst/hidden additions, preserving any
   unrelated edits. Do not reset, restore or rewrite history.
-- [ ] Restore existing top-ten behaviour tests and job-view isolation assertions.
+- [x] Restore existing top-ten behaviour tests and job-view isolation assertions.
   Remove tests solely for superseded bursts/contributor output; keep adversarial
   top_n, ties, dates, empty names and nested-copy coverage. No new duplicate family.
-- [ ] Run focused plays/jobs/heatmap tests and independent source review. Update
+- [x] Run focused plays/jobs/heatmap tests and independent source review. Update
   README and sequence docs to top ten. Run full suite/hooks/docsync and land:
   refactor(heatmap): Return weekly artists to the top ten
 
@@ -133,6 +133,10 @@ open-ended colour polishing loop.
 - Tasks 6-7: superseded before landing by owner's artist-only request.
 - Task 8: artist-only checkpoint, 3121 tests and 58 browser checks in 89 runs passed;
   independent source/runtime review approved. Latest UI refinement follows below.
-- Tasks 9-10: pending. Owner requested ten artists, no contributor list and a
-  smaller SVG box without vertical scrolling. Final prototype approval is pending.
+- Task 9: backend checkpoint restores the original four source/test files exactly;
+  focused 114 and full 3114 tests passed, independent review approved.
+- Task 10: UI simplification patch ready, 141 pure tests passed. Both-browser
+  measurements prove that the original gaps plus the 268px panel cannot fit all
+  short viewports. Owner choice on compact KPI/bottom spacing is pending; do not
+  weaken page-scroll checks or claim the layout complete. Final approval is pending.
 - Prototype approval: pending updated live review. No PR/push yet.
