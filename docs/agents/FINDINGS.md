@@ -276,10 +276,18 @@ test server shared the machine (log directories are relative to the plan workspa
   produced 30px height, expected 85px [1 app resource(s) failed to load:
   http://127.0.0.1:59096/static/css/shell.css (net::ERR_NO_BUFFER_SPACE)]`, at `40ad4ab8`
   (`gates/land-row9`); the re-run at the same head passed 48 checks (`gates/land-row9-rerun`). The
-  same asset error recurred once in a code-phase run (`gates/task-sg8-code-3`): `index.css` failed
-  with `net::ERR_NO_BUFFER_SPACE` and 72 `large display scale parity [desktop]` checks failed
-  (the first: `/: hero composition height is 481.4px at 1200p measured, expected proportional
-  11921.7px`); the next attempt (`gates/task-sg8-code-4`) passed 56 checks.
+  same error appeared in two code-phase runs (a grep of every `gates/*/frontend-gate.log` for
+  `ERR_NO_BUFFER_SPACE` finds exactly these two and `gates/land-row9`, three sightings in all):
+  - `gates/task-sg8-code-3`: `index.css` failed with `net::ERR_NO_BUFFER_SPACE` and 72
+    `large display scale parity [desktop]` checks failed (the first: `/: hero composition height
+    is 481.4px at 1200p measured, expected proportional 11921.7px`); the next attempt
+    (`gates/task-sg8-code-4`) passed 56 checks.
+  - `gates/task-row5-code-1`: `static/js/theme.js` (a script, not a stylesheet) failed with
+    `net::ERR_NO_BUFFER_SPACE` and 3 `large display scale parity [desktop]` checks failed (log
+    lines 114-116, the first: `/: mobile theme control remains in the header at 390px`); the
+    same log holds two `unmatched report` album-title width FAIL lines per profile that carry no
+    asset error and are not counted here. The next attempt (`gates/task-row5-code-2`) passed 48
+    checks.
 - `[frontend_gate] FAIL chromium: pipeline state machines [desktop]: cached heatmap restoration
   painted the loading panel before its result`, once, in a code-phase run
   (`gates/task-u30-code-1`); the next attempt on the unchanged tree passed 48 checks
