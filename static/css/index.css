@@ -135,15 +135,26 @@ html {
 
   /* The button's own 2.75rem box stands in for the column's bottom padding
      (the more specific selector keeps the scaled padding below from
-     restoring it), so adding it does not make the column taller. */
+     restoring it). What remains is the footer row's bottom padding in
+     static/css/shell.css (.page-footer-extras, 1.5rem), so the button sits
+     as far above the viewport's foot as the footer button does on the
+     results page. The gate compares the two. */
   .index-grid .index-hero {
-    padding-bottom: 0;
+    padding-bottom: 1.5rem;
   }
 
   .index-hero__motion {
     display: inline-block;
     align-self: center;
     margin-top: auto;
+  }
+
+  /* Short windows (1280x720 measured: 12px over with the gap above) take the
+     gap back from the column's top padding, so the page still fits. */
+  @media (max-height: 760px) {
+    .index-grid .index-hero {
+      padding-top: calc(3.5rem * var(--index-scale, 1) - 1rem);
+    }
   }
 
   /* The footer row returns while the heatmap stage replaces the grid. */

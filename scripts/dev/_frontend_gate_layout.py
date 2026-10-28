@@ -736,6 +736,12 @@ PAUSE_STATE_EXPRESSION = """() => {
     return {
         shown: shown.length,
         inside,
+        // The shown button's distance from the window's foot, and the footer
+        // row's own bottom padding: what a footer button sits above the page's
+        // foot on every other page (read from the row even when it is hidden).
+        gap: shown.length ? window.innerHeight - shown[0].getBoundingClientRect().bottom : 0,
+        footerGap: parseFloat(getComputedStyle(
+            document.querySelector('.page-footer-extras')).paddingBottom),
         copies: toggles.map(el => ({
             text: el.textContent,
             pressed: el.getAttribute('aria-pressed'),
@@ -777,12 +783,18 @@ def _measure_home_overflow(page, base_url, width: int, height: int) -> dict:
 
 
 def _home_pause_failures(label: str, mode: str, pause: dict) -> list[str]:
-    """Fail unless exactly one pause button shows, in the window, and syncs."""
+    """Fail unless exactly one pause button shows, in the window, as far above
+    the window's foot as the footer button is on the results page, and syncs."""
     where = f"in {mode} mode at {label}"
     if pause["shown"] != 1:
         return [f"/: {pause['shown']} pause buttons show {where}, expected one"]
     if not pause["inside"]:
         return [f"/: the pause button lies outside the window {where}"]
+    if abs(pause["gap"] - pause["footerGap"]) > 1:
+        return [
+            f"/: the pause button sits {pause['gap']:.1f}px above the window's "
+            f"foot {where}, expected the footer row's {pause['footerGap']:.1f}px"
+        ]
     stale = [c for c in pause["afterClick"] if c != PAUSED_COPY]
     if stale:
         return [f"/: a pause button copy did not follow a click {where}: {stale}"]

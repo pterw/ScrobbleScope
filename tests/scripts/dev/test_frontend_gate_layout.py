@@ -623,7 +623,13 @@ def test_mode_switch_must_stay_put_when_the_mode_changes(heatmap_top, failed) ->
 
 
 SYNCED = [{"text": "Play animations", "pressed": "true"}] * 2
-PAUSE_OK = {"shown": 1, "inside": True, "afterClick": SYNCED}
+PAUSE_OK = {
+    "shown": 1,
+    "inside": True,
+    "gap": 24,
+    "footerGap": 24,
+    "afterClick": SYNCED,
+}
 
 
 def _home_state(overflow=0, **pause) -> dict:
@@ -644,6 +650,9 @@ def _measured_home(album=None, heatmap=None) -> dict:
         (_measured_home(album=_home_state(shown=0)), ["0 pause buttons", "album"]),
         (_measured_home(heatmap=_home_state(shown=2)), ["2 pause buttons", "heatmap"]),
         (_measured_home(album=_home_state(inside=False)), ["outside the window"]),
+        # Flush with the window's foot, not level with the results footer button.
+        (_measured_home(album=_home_state(gap=0)), ["0.0px above", "24.0px"]),
+        (_measured_home(heatmap=_home_state(gap=24.9)), []),
         # The hidden copy kept its old label after the click.
         (
             _measured_home(
@@ -664,6 +673,8 @@ def _measured_home(album=None, heatmap=None) -> dict:
         "no-pause-button",
         "two-pause-buttons",
         "pause-button-off-screen",
+        "pause-button-flush-with-the-window-foot",
+        "pause-button-gap-within-one-px",
         "hidden-copy-not-synced",
     ],
 )
