@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Plan the Deezer egress incident fixes
+
+Side task, no batch tag: plan the Deezer egress incident fixes, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: production Deezer calls were all refused with 403 by Deezer's CDN for one Fly host address, fixed operationally by moving the machine; the owner asked for an incident report, no retries on a Deezer 403, MusicBrainz spacing of 1.2 seconds, and atomic parallel slices.
+
+What the plan holds: three parallel code tasks T1-T3, one commit each, landing in order (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`).
+
+Deviations: none.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Fit the streamgraph stack inside its band
 
 Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -227,17 +241,3 @@ Deviations: none.
 Existing tests edited: none.
 
 Validation: `pytest -q` -- **3095 passed**.
-
-### 2026-10-27 - Bring the job and module docs up to the streamgraph
-
-Side task, no batch tag: the follow-up to the streamgraph docs commit (review ruling SG10-F1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (rule R10): docs that the streamgraph makes untrue are fixed on the branch, not left for later.
-
-What changed and why: `docs/architecture/heatmap-sequence.md` gains the `plays.aggregate_weekly_artist_counts` step, `weekly_artists` in the single success write, and a note that desktop widths draw the streamgraph under the grid when `weekly_artists` is valid. `.claude/SESSION_CONTEXT.md` gives the stream gate module its three real imports (`_frontend_gate_colour`, `_frontend_gate_shared`, `_frontend_gate_theme`) and adds the weekly artist counts to the `plays.py` and `heatmap.py` rows. This also closes the heatmap-sequence concern left open by the previous entry.
-
-Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The previous entry (Describe the listening streamgraph) missed two deviations, recorded here: its commit subject `docs(heatmap): Describe the listening streamgraph` replaced the brief's `docs: Describe the top-artists streamgraph`, and the bare `--fix` rotated one older entry (Recolour the streamgraph) into the PLAYBOOK execution log archive.
-
-Existing tests edited: none.
-
-Validation: `pytest -q` -- **3050 passed**.
