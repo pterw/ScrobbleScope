@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Fit the streamgraph stack inside its band
+
+Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Root cause: the scale came from the largest weekly total alone, but the wiggle baseline shifts each week's stack, so a stack could leave the fixed viewBox and the saved image clipped it.
+
+What changed: `streamFit` in `static/js/heatmap.js` caps the scale by the stack's extent and shifts the baseline only when the stack would leave the band; ordinary data keeps its baseline and scale unchanged. Test rows from the review (two data sets that catch the missing scale cap and the high-side shift sign) were added to `test_stream_stack_stays_inside_the_band`, plus a pin that unmoved data keeps `streamScale` of its totals.
+
+Deviations: none.
+
+Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Keep the scrubber panel inside the chart
 
 Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -223,20 +237,6 @@ Owner intent (rule R10): docs that the streamgraph makes untrue are fixed on the
 What changed and why: `docs/architecture/heatmap-sequence.md` gains the `plays.aggregate_weekly_artist_counts` step, `weekly_artists` in the single success write, and a note that desktop widths draw the streamgraph under the grid when `weekly_artists` is valid. `.claude/SESSION_CONTEXT.md` gives the stream gate module its three real imports (`_frontend_gate_colour`, `_frontend_gate_shared`, `_frontend_gate_theme`) and adds the weekly artist counts to the `plays.py` and `heatmap.py` rows. This also closes the heatmap-sequence concern left open by the previous entry.
 
 Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The previous entry (Describe the listening streamgraph) missed two deviations, recorded here: its commit subject `docs(heatmap): Describe the listening streamgraph` replaced the brief's `docs: Describe the top-artists streamgraph`, and the bare `--fix` rotated one older entry (Recolour the streamgraph) into the PLAYBOOK execution log archive.
-
-Existing tests edited: none.
-
-Validation: `pytest -q` -- **3050 passed**.
-
-### 2026-10-27 - Describe the listening streamgraph
-
-Side task, no batch tag: the streamgraph docs (streamgraph plan Task 10), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (rulings U18, U20): describe the streamgraph as it ships, desktop layout only, with the dark timeline surfaces inside the chart frame only.
-
-What changed and why: `README.md` gains a streamgraph bullet in the Scrobble Heatmap list, a hand-built SVG paragraph, the keyboard note, and the weekly artist counts in the `plays.py` and `heatmap.py` rows; the Save image bullet now says the image includes the stream. `DESIGN.md` "Heatmap & Status" gains the frame-scoped timeline surfaces and the stream layer ramp with the light-theme 0.83 rescale, plus a "Heatmap Streamgraph" component section. `docs/architecture/documentation-tooling.md` gains the `_frontend_gate_stream` edges to `_frontend_gate_shared`, `_frontend_gate_colour` and `_frontend_gate_theme` and its `tool` class entry (the diagram needs a render). `.claude/SESSION_CONTEXT.md` lists the stream gate checks. The plan's Task 10 boxes are ticked.
-
-Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. No "Pause animations" control exists at this base, so the docs say only that `prefers-reduced-motion` zeroes the layer fade. `docs/architecture/heatmap-sequence.md` line 89 still lists `daily_counts` and statistics as what the job stores; it is outside this task's files and is left for the controller.
 
 Existing tests edited: none.
 

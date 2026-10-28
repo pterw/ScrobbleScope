@@ -784,6 +784,52 @@ def test_stream_scale(js_page, totals, expected):
     assert _hook(js_page, "streamScale", totals) == pytest.approx(want)
 
 
+CODEX_LAYERS = [[1000 if t == 26 else 0 for t in range(53)]] + [[20] * 53] * 10
+
+
+@pytest.mark.parametrize(
+    ("layers", "moved"),
+    [
+        (STREAM_LAYER_SETS[0], False),
+        (CODEX_LAYERS, True),
+        (
+            [
+                [0, 30],
+                [498, 0],
+                [0, 0],
+                [8, 0],
+                [0, 11],
+                [0, 2],
+                [5, 0],
+                [0, 293],
+                [217, 381],
+            ],
+            True,
+        ),
+        ([[0, 35, 34], [50, 0, 18]], True),
+    ],
+    ids=[
+        "ordinary-data-keeps-its-look",
+        "sharp-mix-change-stays-in-band",
+        "scale-capped-by-the-stack-extent",
+        "stack-pushed-off-the-top-shifts-down",
+    ],
+)
+def test_stream_stack_stays_inside_the_band(js_page, layers, moved):
+    band = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_BAND")
+    plain = _hook(js_page, "streamBaseline", layers)
+    fit = _hook(js_page, "streamFit", layers, plain)
+    stack = _hook(js_page, "stackLayers", layers, fit["baseline"], fit["scale"])
+    low = min(band_[t]["y0"] for band_ in stack for t in range(len(plain)))
+    high = max(band_[t]["y1"] for band_ in stack for t in range(len(plain)))
+    print(f"extent {low:.2f}..{high:.2f} against +-{band / 2:.2f}")
+    assert -band / 2 - 1e-9 <= low and high <= band / 2 + 1e-9
+    assert (fit["baseline"] != plain) == moved
+    if not moved:
+        totals = [sum(layer[t] for layer in layers) for t in range(len(plain))]
+        assert fit["scale"] == _hook(js_page, "streamScale", totals)
+
+
 SMOOTH_PATH_JS = """([top, bottom]) => {
     const d = window.__scrobbleHeatmapTestHooks.smoothPath(top, bottom);
     const points = [];

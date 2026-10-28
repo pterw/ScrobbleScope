@@ -217,6 +217,35 @@
     return max > 0 ? STREAM_PEAK / max : 0;
   }
 
+  /**
+   * Scale and baseline that keep every layer inside the plot band. The scale
+   * makes the tallest week STREAM_PEAK tall, or less when the wiggle swings
+   * the stack's extent past STREAM_BAND; the baseline moves by the least
+   * amount that brings the extent back inside (none for ordinary data).
+   */
+  function streamFit(layers, baseline) {
+    const weeks = baseline.length;
+    const totals = [];
+    for (let t = 0; t < weeks; t++) {
+      totals.push(layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0));
+    }
+    let low = Infinity;
+    let high = -Infinity;
+    for (let t = 0; t < weeks; t++) {
+      low = Math.min(low, baseline[t]);
+      high = Math.max(high, baseline[t] + totals[t]);
+    }
+    let scale = streamScale(totals);
+    if (scale <= 0) return { scale: 0, baseline: baseline };
+    scale = Math.min(scale, STREAM_BAND / (high - low));
+    const half = STREAM_BAND / 2 / scale;
+    const shift = high > half ? half - high : Math.max(0, -half - low);
+    return {
+      scale: scale,
+      baseline: baseline.map(function (g) { return g + shift; }),
+    };
+  }
+
   function pathNum(v) {
     return String(Math.round(v * 100) / 100);
   }
@@ -1720,13 +1749,10 @@
       return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
     }));
     var layers = [payload.other].concat(order.map(function (i) { return artists[i].counts; }));
-    var totals = payload.other.map(function (_, t) {
-      return layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
-    });
-    var scale = streamScale(totals);
-    if (scale <= 0) return;
+    var fit = streamFit(layers, streamBaseline(layers));
+    if (fit.scale <= 0) return;
 
-    var stack = stackLayers(layers, streamBaseline(layers), scale);
+    var stack = stackLayers(layers, fit.baseline, fit.scale);
     var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
     var centre = STREAM_LABEL_H + STREAM_BAND / 2;
     var theme = currentStreamTheme();
@@ -2548,6 +2574,7 @@
       streamBaseline: streamBaseline,
       stackLayers: stackLayers,
       streamScale: streamScale,
+      streamFit: streamFit,
       smoothPath: smoothPath,
       layerColour: layerColour,
       streamPayloadValid: streamPayloadValid,
