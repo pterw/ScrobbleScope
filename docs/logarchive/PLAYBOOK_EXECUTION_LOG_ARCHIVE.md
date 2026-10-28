@@ -9,6 +9,88 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Restore stream result spacing and quiet the residual row
+
+Side task, no batch tag: restore stream result spacing and quiet the residual row, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: restore the original page rhythm and keep Everything else at normal weight even when selected. The page may follow normal document flow beyond a short viewport; only the grid and tooltip must avoid internal vertical scrolling.
+
+What changed: Task 5 removes the temporary stream-specific width, padding, headline and spacing compression. The original desktop focus-padding rule and 25rem initial chart reservation remain. Selected residual rows keep opacity 1 and weight 400 while named artists retain weight 700. The existing hover reader now checks internal grid/panel scrolling only, with diagnostic wording matching that scope; row containment, focus clearance and clipping assertions remain. DESIGN.md follows the restored page flow and residual emphasis. The original design spec links to the follow-up design for the current scrolling contract.
+
+Deviations: the owner superseded the earlier whole-page no-scroll constraint during live review. The gate's document-height rejection is therefore removed intentionally, with no weakening of internal containment. The reviewer-approved diagnostic correction changes "chart, panel or page" to "chart or panel". No new unit test is added for this reversible styling slice; existing full-suite and computed-style browser evidence validate it. The whole 58-check browser gate runs at the integrated Task 7 head per the follow-up plan.
+
+Existing tests edited: none under tests/. Independent Task 5 code review approved the correction; source probe red had 8 failures (compressed 4px gaps, selected residual weight 700) and green had 8 passes across Chromium/Firefox at four desktop sizes (original gaps 40/20/20/24/16px, residual weight 400, 16 rows with zero outside/internal-scroll failures). The fresh locked landing probe passed the same 8 cases on actual u7 source. All three full-suite shards passed: 702 + 1503 + 912. No whole-gate success is claimed for this individual slice.
+
+Validation: `pytest -q` -- **3117 passed**.
+
+Forward guidance: land Tasks 6 and 7 independently, then run the integrated browser gate and refresh the private real-data preview. Owner prototype approval remains pending; no main integration or PR publication yet.
+
+### 2026-10-28 - Record the Deezer egress plan's execution
+
+Side task, no batch tag: record in the Deezer egress plan (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`) which tasks landed, in which commits and with which deviations, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: plans must show their boxes ticked as work lands; several earlier plans lacked the ticks. The plan's 15 step boxes (Tasks 1-3) are ticked, each backed by its land report and an approving review. The plan gains an "Execution record (2026-10-28)" section: each task's commit and review result (T1 `3ed4aaec`, T2 `575d3412`, T3 `ab914965`; plan `80ce99ee`, approved after 2 fix rounds), the deviation rulings (C10, C12, C14-C17), the stacked landing with one gate-runner at the top, the final evidence (ALL_PASS at `ab914965`, CI run 40717261737 green) and the bot triage (qlty and Codacy findings rejected after measurement; Codex pending). Docs only; the plan is a point-in-time record, so no live prose changed.
+
+Deviations: none. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3101 passed**.
+
+### 2026-10-28 - Record the Deezer egress block and its recovery
+
+Side task, no batch tag: document the Deezer egress-address block and how to recover from it, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: the production machine's egress IP was blocked by Akamai, so every Deezer call returned 403; keep a runbook so the next occurrence is a probe and a machine clone, not a code hunt.
+
+What changed: `DEPLOY.md` gains the section "Deezer blocks the machine's egress address" (symptom, probe, free fix by machine clone, paid fix by static egress IP, why a restart or deploy does not help). `AGENTS.md` gains Anti-Pattern item 16 and the `OPS` source tag; `docs/agents/issue-tracker.md` lists `OPS`. Finding F-OPS-1 is written resolved and rotated to the findings archive in this commit. The static egress IP was released on the owner's word to test whether a restart would clear the block; it did not.
+
+Deviations: new `OPS` tag for the F-ID (extended in `AGENTS.md` and `issue-tracker.md`); the finding is resolved and rotated in the same commit.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3101 passed**.
+
+### 2026-10-28 - MusicBrainz request starts 1.2 seconds apart
+
+Side task, no batch tag: space MusicBrainz request starts 1.2 seconds apart instead of 1.1, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: add more delay between MusicBrainz requests, and note that MusicBrainz answers a rate limit with HTTP 503 rather than 429, so an occasional 503 is not unusual.
+
+What changed: `MUSICBRAINZ_MIN_INTERVAL_SECONDS` defaults to 1.2 in `scrobblescope/config.py`; every statement of the old 1.1 value is updated (`scrobblescope/utils.py` docstring, `static/js/results-release-checks.js` comment, README, `docs/architecture/runtime-system.md`, `.claude/SESSION_CONTEXT.md`). The README paragraph on provider log lines gains a sentence saying MusicBrainz uses 503 as its rate-limit answer, that the client retries it like a 429, and that an occasional `503` count is normal. No code path changes; `musicbrainz.py` already treats 429 and 503 alike.
+
+Deviations: none.
+
+Existing tests edited: `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` and `test_global_throttles_space_request_starts_by_their_interval` (expected value only, 1.1 to 1.2).
+
+Validation: `pytest -q` -- **3101 passed**.
+
+### 2026-10-28 - A Deezer 403 is one request, not three
+
+Side task, no batch tag: stop retrying a Deezer HTTP 403, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: a 403 from Deezer's CDN means the egress address is blocked, so a retry cannot cure it and only triples the traffic to a host that already refuses us.
+
+What changed: `scrobblescope/deezer.py` raises `deezer_unavailable` at once on a 403 (one request, no backoff sleep); 429, 5xx and quota responses are still retried. Both `retry_with_semaphore` calls now pass `reraise=(ProviderError,)`, which only silences a duplicate error log line (no test guards that decision).
+
+Deviations: none.
+
+Existing tests edited: `test_deezer_http_403_raises_unavailable_not_no_match` (re-pointed, parametrized over search, album details and album tracks; asserts the request count and that no sleep happens).
+
+Validation: `pytest -q` -- **3101 passed**.
+
+### 2026-10-28 - Plan the Deezer egress incident fixes
+
+Side task, no batch tag: plan the Deezer egress incident fixes, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: production Deezer calls were all refused with 403 by Deezer's CDN for one Fly host address, fixed operationally by moving the machine; the owner asked for an incident report, no retries on a Deezer 403, MusicBrainz spacing of 1.2 seconds, and atomic parallel slices.
+
+What the plan holds: three parallel code tasks T1-T3, one commit each, landing in order (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`).
+
+Deviations: none.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Plan the streamgraph live-review corrections
 
 Side task, no batch tag: record the owner-directed prototype corrections, on

@@ -122,7 +122,9 @@ gate worker owns _frontend_gate_stream.py in separate worktrees at the stated ba
 Code phases start after this revised definition is committed. Apply exact reviewed
 patches with --check before --index; no history rewrite or broad staging.
 
-After Task 10, merge current main normally under review, run final gates and results
+Current main is integrated normally after Task 9 while the owner layout choice is
+pending; this advances independent work without a history rewrite. Task 10 patches
+must pass fresh apply checks against that merge. After Task 10, run final gates and results
 behaviour, refresh real-data live preview and obtain owner sign-off before PR
 publication using the repo template. No repeated detector/context invocation or
 open-ended colour polishing loop.
@@ -139,4 +141,7 @@ open-ended colour polishing loop.
   measurements prove that the original gaps plus the 268px panel cannot fit all
   short viewports. Owner choice on compact KPI/bottom spacing is pending; do not
   weaken page-scroll checks or claim the layout complete. Final approval is pending.
+- Main integration: advanced before Task 10 while waiting on the layout choice.
+  Conflicts are documentation-only; both parent histories are preserved. Fresh
+  full suite is 3116 tests. Final UI/browser/results evidence follows Task 10.
 - Prototype approval: pending updated live review. No PR/push yet.

@@ -83,15 +83,15 @@ MB_OLD_RATE = "MUSICBRAINZ_REQUESTS_PER_SECOND"
 @pytest.mark.parametrize(
     "env, expected_interval, expected_warnings",
     [
-        ({}, "1.1", 0),
+        ({}, "1.2", 0),
         ({MB_INTERVAL: "2.0"}, "2.0", 0),
-        ({MB_OLD_RATE: "5"}, "1.1", 1),
+        ({MB_OLD_RATE: "5"}, "1.2", 1),
     ],
 )
 def test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored(
     env, expected_interval, expected_warnings
 ):
-    """The interval setting (default 1.1s) sets the spacing; the old rate setting
+    """The interval setting (default 1.2s) sets the spacing; the old rate setting
     changes nothing and logs one warning naming the new variable."""
     base = {k: v for k, v in os.environ.items() if k not in (MB_INTERVAL, MB_OLD_RATE)}
     result = subprocess.run(

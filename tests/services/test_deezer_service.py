@@ -665,26 +665,51 @@ async def test_deezer_http_429_on_every_attempt_raises_rate_limited_not_no_match
 
 
 @pytest.mark.asyncio
-async def test_deezer_http_403_raises_unavailable_not_no_match():
+@pytest.mark.parametrize(
+    "call, expected_requests",
+    [("search", 1), ("album_details", 1), ("album_tracks", 2)],
+)
+async def test_deezer_http_403_raises_unavailable_not_no_match(call, expected_requests):
     """
-    GIVEN Deezer answers HTTP 403 on every attempt
-    WHEN search_deezer_album runs
-    THEN ProviderError deezer_unavailable is raised, not None.
+    GIVEN Deezer answers HTTP 403 (the egress address is blocked) on a search,
+    on /album/{id}, or on /album/{id}/tracks
+    WHEN the call runs
+    THEN ProviderError deezer_unavailable is raised, not None, after a single
+    request for the 403 URL and with no sleep: a retry cannot cure a block.
     """
     session = MagicMock()
-    session.get.return_value = make_response_context(_http_status(403))
+    if call == "search":
+        session.get.return_value = make_response_context(_http_status(403))
+    else:
+        album_resp = AsyncMock()
+        album_resp.status = 200
+        album_resp.json = AsyncMock(return_value=_GOOD_ALBUM)
+        blocked = _http_status(403)
+        if call == "album_details":
+            album_resp, blocked = blocked, album_resp
+
+        def route(url, params=None, **kwargs):
+            return make_response_context(
+                blocked if url.endswith("/tracks") else album_resp
+            )
+
+        session.get.side_effect = route
 
     with (
         patch(
             "scrobblescope.deezer.get_deezer_limiter", return_value=NoopAsyncContext()
         ),
-        patch("asyncio.sleep", new_callable=AsyncMock),
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
     ):
         with pytest.raises(ProviderError) as excinfo:
-            await search_deezer_album(session, "Artist", "Album", retries=2)
+            if call == "search":
+                await search_deezer_album(session, "Artist", "Album", retries=2)
+            else:
+                await fetch_deezer_album(session, 1, retries=2)
 
     assert excinfo.value.code == "deezer_unavailable"
-    assert session.get.call_count == 2
+    assert session.get.call_count == expected_requests
+    mock_sleep.assert_not_awaited()
 
 
 @pytest.mark.asyncio

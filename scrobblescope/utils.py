@@ -169,7 +169,7 @@ def get_musicbrainz_limiter():
     """Return a throttled rate limiter for MusicBrainz API calls.
 
     MusicBrainz's policy is 1 request/second per IP. Request starts are
-    spaced MUSICBRAINZ_MIN_INTERVAL_SECONDS apart (default 1.1s, a margin
+    spaced MUSICBRAINZ_MIN_INTERVAL_SECONDS apart (default 1.2s, a margin
     over the policy), enforced process-wide -- the global throttle is what
     makes this process-wide rather than per-loop, since the correction
     worker (a single dedicated thread) is not the only possible caller.

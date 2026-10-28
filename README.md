@@ -220,7 +220,7 @@ date, artwork, and track runtimes: Spotify answers first, and Deezer
 covers whatever Spotify cannot match or detail, so one provider's outage
 no longer empties a result. Both providers date a remaster by its reissue,
 so a separate MusicBrainz pass corrects release years to the original --
-slowly, about 1.1 seconds apart, and therefore after the results are
+slowly, about 1.2 seconds apart, and therefore after the results are
 already on screen rather than before. A Heatmap job aggregates Last.fm
 history directly and skips enrichment. An optional PostgreSQL cache
 remembers provider metadata and every correction across restarts, so the
@@ -245,7 +245,7 @@ flowchart TB
     Cache -->|hit| Build
     Build --> Results[[Results page]]
 
-    Build -.->|queued, never awaited| Checks[Correction worker<br/>about 1.1 seconds apart]
+    Build -.->|queued, never awaited| Checks[Correction worker<br/>about 1.2 seconds apart]
     Checks -.-> MusicBrainz[MusicBrainz<br/>original release date]
     MusicBrainz -.-> Cache
     Checks -.->|marks rows in place| Results
@@ -325,7 +325,7 @@ That has three consequences visible throughout the architecture:
    in the first render.
 8. **The page renders, and the corrections keep arriving.** A single
    process-wide worker asks MusicBrainz for the original release date of each
-   album the cache does not know yet, about 1.1 seconds apart, capped per
+   album the cache does not know yet, about 1.2 seconds apart, capped per
    job. The results page polls for its findings and marks corrected rows in
    place. Nothing re-sorts while you are reading; albums that now qualify are
    announced with a reload link. Every finding is written to the cache,
@@ -836,7 +836,7 @@ reason the old single-provider pipeline still worked.
 **Release years are corrected to the original.** Spotify and Deezer date a
 remaster by its reissue, while a year filter means the year the album first
 came out. MusicBrainz carries the original on the release group, and a
-background pass applies it about 1.1 seconds apart (MusicBrainz asks for
+background pass applies it about 1.2 seconds apart (MusicBrainz asks for
 one request per second, and the gap leaves headroom), so it never delays a
 result. A corrected row stays where it is, marked, and nothing re-sorts under
 you. Every finding is cached, including "checked, nothing found".
@@ -849,8 +849,11 @@ time; debug level for a success, a warning for a 429 or a server error --
 and each provider gets a summary when its session closes, such as
 `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`: the
 span and the time actually spent waiting differ because calls are throttled
-apart or run in parallel. These lines never carry a query string, a request
-body or an artist or album name; the one exception is Last.fm's `method`
+apart or run in parallel. MusicBrainz answers a rate limit or a busy
+moment with HTTP 503, not 429 (an older convention); the client retries it
+like a 429, so an occasional `503` count there is normal. These lines
+never carry a query string, a request body or an artist or album name;
+the one exception is Last.fm's `method`
 value (for example `user.getrecenttracks`), which says which call it was. Everywhere else the log formatter redacts the
 value of `api_key` (query string or cache key) from every line, exception
 text included.

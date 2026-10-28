@@ -27,8 +27,8 @@ the tracker is and how skills use it; it does not restate the rules.
 Place it under the matching severity heading. The heading is
 `### F-<context>-<N>: <title>`. Context is a batch tag (`B18`, `B19`, `B20`,
 ...) or one of the source tags (`MAS`, `DOCSYNC`, `AUDIT`, `LOAD`, `SWE`,
-`WORKTREE`, `DATA`, `STYLE`, `FEATURE`). That tag list is complete; extend it
-in `AGENTS.md` rather than coining a tag here.
+`WORKTREE`, `DATA`, `STYLE`, `FEATURE`, `OPS`). That tag list is complete;
+extend it in `AGENTS.md` rather than coining a tag here.
 
 Include the problem statement in one sentence, a `Status:` line, and a
 `Source:` line when a named audit or session produced the finding.

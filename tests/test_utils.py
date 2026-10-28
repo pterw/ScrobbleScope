@@ -150,7 +150,7 @@ def test_global_throttle_serializes_rapid_calls():
 @pytest.mark.parametrize(
     "throttle_name, expected_interval",
     [
-        ("_MUSICBRAINZ_THROTTLE", 1.1),
+        ("_MUSICBRAINZ_THROTTLE", 1.2),
         ("_SPOTIFY_THROTTLE", 1.0 / SPOTIFY_REQUESTS_PER_SECOND),
     ],
 )
@@ -161,7 +161,7 @@ def test_global_throttles_space_request_starts_by_their_interval(
     GIVEN a provider throttle and a controlled clock
     WHEN two calls reserve a start at the same instant
     THEN the second is told to wait the provider's interval: MusicBrainz
-    starts are at least 1.1s apart (a margin over its 1/s policy), while
+    starts are at least 1.2s apart (a margin over its 1/s policy), while
     Spotify's spacing stays its integer-rate interval.
     """
     throttle = getattr(utils, throttle_name)

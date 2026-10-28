@@ -184,6 +184,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Integrate main before final streamgraph validation
+
+Side task, no batch tag: normal merge of origin/main at f94c490f into
+`feat/streamgraph-bursts`, after Task 9 while the owner layout choice waits.
+The plan had integration after Task 10; advancing this independent work is
+an order deviation, not a scope addition or history rewrite. Main brings
+PR #279's Deezer 403 handling, MusicBrainz spacing and operations record.
+No stream UI source changes are included in this merge.
+
+Five conflicts concern counts and dated documentation histories. Preserve
+both parents' log entries, retain Section 3 unchanged, then refresh the
+managed counts from a fresh run. Independent pre-rotation review proved
+658 HEAD and 653 main dated entries preserved exactly across PLAYBOOK and
+archive, and main's automatic source/test merges match its parent. Docsync
+performs the rotation; no log entry is discarded or moved across markers
+by hand. Fresh suite shards: 702 + 1509 + 905. Existing test changes are
+upstream provider/config cases, unchanged from main.
+
+Forward guidance: Task 10 UI/gate patches stay in isolated worktrees.
+The real-data top-ten preview preserves all 53 weekly totals, shows no
+contributors and passes both-theme numeric-row checks. Its short-window
+page sizing remains pending the owner's KPI/bottom-spacing choice. Run
+integrated frontend and results-behavior checks after that final UI patch;
+this merge makes no final browser or prototype-approval claim. No PR/push.
+
+Validation: `pytest -q` -- **3116 passed**.
+
 ### 2026-10-28 - Return weekly artists to the top ten
 
 Side task, no batch tag: Task 9 on `feat/streamgraph-bursts`. The owner
@@ -264,19 +291,3 @@ worktrees, review and validate, refresh live review and obtain prototype
 approval before PR publication.
 
 Validation: `pytest -q` -- **3117 passed**.
-
-### 2026-10-28 - Restore stream result spacing and quiet the residual row
-
-Side task, no batch tag: restore stream result spacing and quiet the residual row, on `feat/streamgraph-bursts`, a branch off `main`.
-
-Owner intent: restore the original page rhythm and keep Everything else at normal weight even when selected. The page may follow normal document flow beyond a short viewport; only the grid and tooltip must avoid internal vertical scrolling.
-
-What changed: Task 5 removes the temporary stream-specific width, padding, headline and spacing compression. The original desktop focus-padding rule and 25rem initial chart reservation remain. Selected residual rows keep opacity 1 and weight 400 while named artists retain weight 700. The existing hover reader now checks internal grid/panel scrolling only, with diagnostic wording matching that scope; row containment, focus clearance and clipping assertions remain. DESIGN.md follows the restored page flow and residual emphasis. The original design spec links to the follow-up design for the current scrolling contract.
-
-Deviations: the owner superseded the earlier whole-page no-scroll constraint during live review. The gate's document-height rejection is therefore removed intentionally, with no weakening of internal containment. The reviewer-approved diagnostic correction changes "chart, panel or page" to "chart or panel". No new unit test is added for this reversible styling slice; existing full-suite and computed-style browser evidence validate it. The whole 58-check browser gate runs at the integrated Task 7 head per the follow-up plan.
-
-Existing tests edited: none under tests/. Independent Task 5 code review approved the correction; source probe red had 8 failures (compressed 4px gaps, selected residual weight 700) and green had 8 passes across Chromium/Firefox at four desktop sizes (original gaps 40/20/20/24/16px, residual weight 400, 16 rows with zero outside/internal-scroll failures). The fresh locked landing probe passed the same 8 cases on actual u7 source. All three full-suite shards passed: 702 + 1503 + 912. No whole-gate success is claimed for this individual slice.
-
-Validation: `pytest -q` -- **3117 passed**.
-
-Forward guidance: land Tasks 6 and 7 independently, then run the integrated browser gate and refresh the private real-data preview. Owner prototype approval remains pending; no main integration or PR publication yet.
