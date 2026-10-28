@@ -9,6 +9,33 @@ Newest rotation first.
 
 ---
 
+### F-OPS-1: Akamai blocked the app machine's egress address, so every Deezer call returned 403 -- RESOLVED
+
+Every Deezer call from the production machine got HTTP 403 from Akamai, because the machine's outbound IPv4 address was blocked.
+
+Symptom: the Results page said "Deezer could not be reached for some albums" on every production run. Fly logs on machine `807339f1595248` showed `Deezer: 51 calls over 5.0s (1.1s in calls) -- 51x403` and, after a redeploy, `Deezer: 72 calls over 7.2s (4.2s in calls) -- 72x403`. Local runs were fine.
+
+Diagnosis: the same request from the machine got 403 from `AkamaiGHost` for any User-Agent and any client (urllib and aiohttp). From the owner's PC (AS577 Bell Canada) it got 200. The machine's egress was `185.156.47.129` (AS60068 Datacamp, Toronto). Fly's default egress is the host's address and can change. api.deezer.com has no AAAA record, so Deezer traffic is IPv4 only.
+
+Tried: a static egress IP (`209.71.99.215`, $3.60/month) made Deezer return 200 and was released on the owner's word. A restart and a `fly deploy` did not help: the machine id, host and IP stayed the same, because a deploy updates the machine in place.
+
+Fix applied: `fly machine clone 807339f1595248 --region yyz` made `8e762ec1ed4538` with egress `185.156.47.130` (same /24), and Deezer answered 200. The old machine was destroyed. So Akamai blocked one address, not the range. The clone kept `IDLE_EXIT_MINUTES=20`, autostop off, autostart on, restart on-failure. The fix was operational: no code change resolved the block.
+
+Unknown: why Akamai blocked `185.156.47.129`; and why the machine was recreated at 2026-10-27T17:49:55Z, about four minutes after the first idle exit stopped the old one at 17:45:54Z.
+
+MusicBrainz 503s the same day (`87 calls ... 60x200, 27x503`) were MusicBrainz-side: 12 requests at 1.1s spacing from the owner's PC got 4x503, from Fly 2x503, at the same moment. MusicBrainz answers a rate limit or busy state with 503, not 429 (an older convention). The client treats 429 and 503 alike (`_RATE_LIMIT_STATUS` in `scrobblescope/musicbrainz.py`) and retries.
+
+Code changes that came with it: a Deezer 403 is now one request, raised as `deezer_unavailable`; MusicBrainz request starts are spaced 1.2s.
+
+Recurrence risk: any move of the machine to another host changes the egress IP, and the idle exit (PR #276) makes stop and start frequent. The remedy is the `DEPLOY.md` section "Deezer blocks the machine's egress address". The finding is resolved because the incident is over; the risk is carried as a possible issue in `AGENTS.md` and `DEPLOY.md`, not as an open finding. Out of scope: a per-job Deezer circuit breaker, Spotify 403 handling, the static egress IP.
+
+RESOLVED 2026-10-28 by an operational fix (machine clone), with code follow-ups in this PR.
+
+- [x] **Status:** RESOLVED
+- **Completed:** 2026-10-28
+
+Source: production incident, 2026-10-28 (owner session).
+
 ### F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`) -- RESOLVED
 
 The "Album Filtering" pill is wider than "Heatmap" due to different text

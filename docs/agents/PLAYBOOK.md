@@ -184,60 +184,54 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-28 - Fit the streamgraph stack inside its band
+### 2026-10-28 - Record the Deezer egress plan's execution
 
-Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+Side task, no batch tag: record in the Deezer egress plan (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`) which tasks landed, in which commits and with which deviations, on `fix/deezer-egress-incident`, a branch off `main`.
 
-Root cause: the scale came from the largest weekly total alone, but the wiggle baseline shifts each week's stack, so a stack could leave the fixed viewBox and the saved image clipped it.
+Owner intent: plans must show their boxes ticked as work lands; several earlier plans lacked the ticks. The plan's 15 step boxes (Tasks 1-3) are ticked, each backed by its land report and an approving review. The plan gains an "Execution record (2026-10-28)" section: each task's commit and review result (T1 `3ed4aaec`, T2 `575d3412`, T3 `ab914965`; plan `80ce99ee`, approved after 2 fix rounds), the deviation rulings (C10, C12, C14-C17), the stacked landing with one gate-runner at the top, the final evidence (ALL_PASS at `ab914965`, CI run 40717261737 green) and the bot triage (qlty and Codacy findings rejected after measurement; Codex pending). Docs only; the plan is a point-in-time record, so no live prose changed.
 
-What changed: `streamFit` in `static/js/heatmap.js` caps the scale by the stack's extent and shifts the baseline only when the stack would leave the band; ordinary data keeps its baseline and scale unchanged. Test rows from the review (two data sets that catch the missing scale cap and the high-side shift sign) were added to `test_stream_stack_stays_inside_the_band`, plus a pin that unmoved data keeps `streamScale` of its totals.
+Deviations: none. Existing tests edited: none.
 
-Deviations: none.
+Validation: `pytest -q` -- **3101 passed**.
 
-Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
+### 2026-10-28 - Record the Deezer egress block and its recovery
 
-Validation: `pytest -q` -- **3099 passed**.
+Side task, no batch tag: document the Deezer egress-address block and how to recover from it, on `fix/deezer-egress-incident`, a branch off `main`.
 
-### 2026-10-28 - Keep the scrubber panel inside the chart
+Owner intent: the production machine's egress IP was blocked by Akamai, so every Deezer call returned 403; keep a runbook so the next occurrence is a probe and a machine clone, not a code hunt.
 
-Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+What changed: `DEPLOY.md` gains the section "Deezer blocks the machine's egress address" (symptom, probe, free fix by machine clone, paid fix by static egress IP, why a restart or deploy does not help). `AGENTS.md` gains Anti-Pattern item 16 and the `OPS` source tag; `docs/agents/issue-tracker.md` lists `OPS`. Finding F-OPS-1 is written resolved and rotated to the findings archive in this commit. The static egress IP was released on the owner's word to test whether a restart would clear the block; it did not.
 
-Owner intent (ruling U23): the streamgraph matches the Claude Design reference in look and behaviour; the panel must also stay visible inside the chart frame when a fallback face renders it.
-
-Root cause: CI has no Adobe kit fonts, so a wider fallback face draws the panel. The panel was sized by the room right of its anchor. Week 40 (the only week with a two-digit day, "Oct 13") opens leftwards into 225px of room, so it was squeezed to its 260px minimum, the wider face wrapped its header, and the panel ran past the chart's bottom (+9.8px against a 0.5px tolerance). Weeks 0 and 30 had room and passed. Blocking the kit alone does not reproduce it on Windows (the Windows fallback face is narrow), so the gate adds a wide-face pass.
-
-What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 360px and no further than the room on its side (`--stream-panel-room`, set by `showWeek` in `static/js/heatmap.js`); the header never wraps and a long artist name ends in an ellipsis. `showWeek` also measures the room on both sides of the column and opens toward the side with room when the reference side lacks it. The hover check in `scripts/dev/_frontend_gate_stream.py` (one check, more passes) gains a pass with the kit refused and wider tracking (checked as in effect), a 60-character artist name, weeks 0, 30, 33 and 40, containment on both axes, and a 1024x768 pass over weeks 0, 34 and 52. Proven red against the earlier code in Chromium and Firefox, then green.
-
-Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
-
-Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
-
-Validation: `pytest -q` -- **3095 passed**.
-
-### 2026-10-27 - Take main into the streamgraph branch
-
-Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U37): PR #278 is retargeted to `main` after #277 merges, so its diff is its own. The branch takes #277 first, by a merge commit and not a rebase (AGENTS.md).
-
-What changed and why: a plain `git merge`. Five docs conflicted and nothing else: `.claude/SESSION_CONTEXT.md`, `config/docsync.toml` and `docs/agents/FINDINGS.md` differed only in the test count (re-measured, then `--fix`); `docs/agents/PLAYBOOK.md` Section 4 and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` keep every dated entry from both sides, none lost. The code files merged without conflict; `static/js/heatmap.js` (saveHeatmapImage/drawHeatmapImage split, mode-key crossfade) and `scripts/dev/_frontend_gate_theme.py` (token-parsed `_split_canvas_font`, no `re` import) were read for clashes with the branch's Save image and theme-scope work and none was found.
-
-Deviations: none.
+Deviations: new `OPS` tag for the F-ID (extended in `AGENTS.md` and `issue-tracker.md`); the finding is resolved and rotated in the same commit.
 
 Existing tests edited: none.
 
-Validation: `pytest -q` -- **3095 passed**.
+Validation: `pytest -q` -- **3101 passed**.
 
-### 2026-10-27 - Bring the job and module docs up to the streamgraph
+### 2026-10-28 - MusicBrainz request starts 1.2 seconds apart
 
-Side task, no batch tag: the follow-up to the streamgraph docs commit (review ruling SG10-F1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+Side task, no batch tag: space MusicBrainz request starts 1.2 seconds apart instead of 1.1, on `fix/deezer-egress-incident`, a branch off `main`.
 
-Owner intent (rule R10): docs that the streamgraph makes untrue are fixed on the branch, not left for later.
+Owner intent: add more delay between MusicBrainz requests, and note that MusicBrainz answers a rate limit with HTTP 503 rather than 429, so an occasional 503 is not unusual.
 
-What changed and why: `docs/architecture/heatmap-sequence.md` gains the `plays.aggregate_weekly_artist_counts` step, `weekly_artists` in the single success write, and a note that desktop widths draw the streamgraph under the grid when `weekly_artists` is valid. `.claude/SESSION_CONTEXT.md` gives the stream gate module its three real imports (`_frontend_gate_colour`, `_frontend_gate_shared`, `_frontend_gate_theme`) and adds the weekly artist counts to the `plays.py` and `heatmap.py` rows. This also closes the heatmap-sequence concern left open by the previous entry.
+What changed: `MUSICBRAINZ_MIN_INTERVAL_SECONDS` defaults to 1.2 in `scrobblescope/config.py`; every statement of the old 1.1 value is updated (`scrobblescope/utils.py` docstring, `static/js/results-release-checks.js` comment, README, `docs/architecture/runtime-system.md`, `.claude/SESSION_CONTEXT.md`). The README paragraph on provider log lines gains a sentence saying MusicBrainz uses 503 as its rate-limit answer, that the client retries it like a 429, and that an occasional `503` count is normal. No code path changes; `musicbrainz.py` already treats 429 and 503 alike.
 
-Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The previous entry (Describe the listening streamgraph) missed two deviations, recorded here: its commit subject `docs(heatmap): Describe the listening streamgraph` replaced the brief's `docs: Describe the top-artists streamgraph`, and the bare `--fix` rotated one older entry (Recolour the streamgraph) into the PLAYBOOK execution log archive.
+Deviations: none.
 
-Existing tests edited: none.
+Existing tests edited: `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` and `test_global_throttles_space_request_starts_by_their_interval` (expected value only, 1.1 to 1.2).
 
-Validation: `pytest -q` -- **3050 passed**.
+Validation: `pytest -q` -- **3101 passed**.
+
+### 2026-10-28 - A Deezer 403 is one request, not three
+
+Side task, no batch tag: stop retrying a Deezer HTTP 403, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: a 403 from Deezer's CDN means the egress address is blocked, so a retry cannot cure it and only triples the traffic to a host that already refuses us.
+
+What changed: `scrobblescope/deezer.py` raises `deezer_unavailable` at once on a 403 (one request, no backoff sleep); 429, 5xx and quota responses are still retried. Both `retry_with_semaphore` calls now pass `reraise=(ProviderError,)`, which only silences a duplicate error log line (no test guards that decision).
+
+Deviations: none.
+
+Existing tests edited: `test_deezer_http_403_raises_unavailable_not_no_match` (re-pointed, parametrized over search, album details and album tracks; asserts the request count and that no sleep happens).
+
+Validation: `pytest -q` -- **3101 passed**.

@@ -493,6 +493,11 @@ Agents must check their work against this list before committing.
     WP-0); `docs/ARCHITECTURE.md`'s rule is that code wins when they
     disagree, so verify against current source before citing one -- its own
     "Last verified" date is as stale-prone as the diagram.
+16. **Debugging a provider-wide 403 as a code defect (F-OPS-1, incident
+    2026-10-28):** every call to one provider refused from production
+    while local runs work means check the machine's egress IP first, not
+    the code; the probe and the fix are in `DEPLOY.md`, "Deezer blocks the
+    machine's egress address".
 
 ---
 
@@ -507,7 +512,8 @@ checked; nothing is deleted, so the archive preserves grep history.
    Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
    complete source tags -- extend the list here, never leave a tag
    undocumented: `MAS`, `DOCSYNC`, `AUDIT`, `LOAD`, `SWE`, `WORKTREE`,
-   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in `docs/agents/FINDINGS.md`.
+   `DATA`, `STYLE`, `FEATURE`, `OPS`. No bare-numbered items in
+   `docs/agents/FINDINGS.md`.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when a named audit or session
    produced it.

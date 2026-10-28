@@ -16,7 +16,7 @@ only fetches data.
 from scrobblescope.config import DEEZER_DETAIL_RETRIES, DEEZER_SEARCH_RETRIES
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.enrichment import AlbumMetadata
-from scrobblescope.errors import provider_failure
+from scrobblescope.errors import ProviderError, provider_failure
 from scrobblescope.utils import (
     get_deezer_limiter,
     parse_retry_after,
@@ -56,9 +56,13 @@ async def _deezer_request(session, url, params, limiter, null_body=None):
                 # 200-body form): honour Retry-After, default one second.
                 retry_after = parse_retry_after(response.headers.get("Retry-After"))
                 return None, retry_after, False
-            if response.status >= 500 or response.status == 403:
-                # An outage or a refusal, not an answer: retried, then raised
-                # as deezer_unavailable rather than read as "no match".
+            if response.status == 403:
+                # The egress address is blocked, which a retry cannot cure:
+                # raised at once as deezer_unavailable, never read as "no match".
+                raise provider_failure("deezer")("unavailable")
+            if response.status >= 500:
+                # An outage, not an answer: retried, then raised as
+                # deezer_unavailable rather than read as "no match".
                 return None, None, False
             if response.status != 200:
                 return None, None, True
@@ -88,7 +92,8 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
     built from *artist*/*album* -- this never returns "the first result"
     as a guess. Returns None if no candidate matches. Raises ``ProviderError``
     when Deezer could not be read: throttled past the Retry-After cap or
-    through every retry, a 5xx, a timeout. That is not "no match", and the
+    through every retry, a 5xx (retried), a timeout, or a 403 (raised at
+    once, not retried). That is not "no match", and the
     caller records the album as unavailable instead.
     """
     key = normalize_name(artist, album)
@@ -125,6 +130,7 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
         backoff=1,
         error_label="deezer.search",
         failure=provider_failure("deezer"),
+        reraise=(ProviderError,),
     )
 
 
@@ -151,6 +157,7 @@ async def _fetch_deezer_json(
         backoff=1,
         error_label=error_label,
         failure=provider_failure("deezer"),
+        reraise=(ProviderError,),
     )
 
 
