@@ -256,13 +256,13 @@ Colour handling (SP-F4): every stream paint is a resolved attribute so the saved
 
 Behaviour: on a `data-theme` change `recolourStream()` rewrites the layer `fill`, "Everything else" `fill`, gridline `stroke` and section-label `fill` attributes for the new theme, without a re-render.
 
-- [ ] **Step 1: Write the failing gate check** `stream colours follow theme and meet contrast` (DESKTOP, dark and light): layer 0's `fill` equals `layerColour(0, theme)` in both themes and changes when the theme is switched without a re-render; "Everything else" `fill` equals `#3a3347` / `#ddd5c5`; gridline `stroke` equals the resolved `--stream-line`; every layer fill against the frame, and the section label against the frame, clears the floor (3:1 non-text, 4.5:1 text), via `_contrast_ratio`, min and max logged. A failing pair is raised (S10); the check does not tune colours. Register it.
-- [ ] **Step 2: Run red.** Run the frontend gate; expected FAIL: after the theme switch the fills still carry the old theme's values. Quote the failing check name and line.
-- [ ] **Step 3: Implement** `recolourStream` and its call.
-- [ ] **Step 4: Run green.** The frontend gate passes; quote the last line and the check name.
-- [ ] **Step 5: Contrast report.** Quote the min and max layer-vs-frame and label-vs-frame ratios per theme from the check's log into the task report.
-- [ ] **Step 6: Firefox probe.** Recolour in both themes (switch the theme with no reload, read the layer 0 and "Everything else" fills) plus a screenshot each, viewed and not committed. Quote the output.
-- [ ] **Step 7: Commit.** Stage by name; the landing runs the frontend gate. Subject: `feat(heatmap): Recolour the streamgraph when the theme changes`.
+- [x] **Step 1: Write the failing gate check** `stream colours follow theme and meet contrast` (DESKTOP, dark and light): layer 0's `fill` equals `layerColour(0, theme)` in both themes and changes when the theme is switched without a re-render; "Everything else" `fill` equals `#3a3347` / `#ddd5c5`; gridline `stroke` equals the resolved `--stream-line`; every layer fill against the frame, and the section label against the frame, clears the floor (3:1 non-text, 4.5:1 text), via `_contrast_ratio`, min and max logged. A failing pair is raised (S10); the check does not tune colours. Register it.
+- [x] **Step 2: Run red.** Run the frontend gate; expected FAIL: after the theme switch the fills still carry the old theme's values. Quote the failing check name and line.
+- [x] **Step 3: Implement** `recolourStream` and its call.
+- [x] **Step 4: Run green.** The frontend gate passes; quote the last line and the check name.
+- [x] **Step 5: Contrast report.** Quote the min and max layer-vs-frame and label-vs-frame ratios per theme from the check's log into the task report.
+- [x] **Step 6: Firefox probe.** Recolour in both themes (switch the theme with no reload, read the layer 0 and "Everything else" fills) plus a screenshot each, viewed and not committed. Quote the output.
+- [x] **Step 7: Commit.** Stage by name; the landing runs the frontend gate. Subject: `feat(heatmap): Recolour the streamgraph when the theme changes`.
 
 ### Task 7: Hover, scrubber panel and column ring
 

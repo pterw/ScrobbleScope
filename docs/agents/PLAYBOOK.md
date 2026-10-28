@@ -184,6 +184,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Recolour the streamgraph when the theme changes
+
+Side task, no batch tag: the streamgraph recolours on a theme change (streamgraph plan Task 6), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (rulings U18, U20, U23): the streamgraph follows the light and dark themes like the rest of the page, with the owner's colour values unchanged.
+
+What changed and why: the stream paints resolved attribute values so a saved image needs no stylesheet, and a `data-theme` flip left those stale. `static/js/heatmap.js` gains `currentStreamTheme()` (shared with `drawStream`) and `recolourStream()`, which `initThemeObserver()` calls beside `updateZeroFills()`. It rewrites each layer's fill (artists from `layerColour(rank, theme)`, "Everything else" from the frame's `--stream-other`), the gridline strokes (`--stream-line`) and the section label fill (`--stream-muted`) in place, with no re-render. The new gate check `stream colours follow theme and meet contrast` (DESKTOP, THEME_MOTION, registered in `frontend_gate.py`, written in `scripts/dev/_frontend_gate_stream.py`) keeps a handle on the chart node, switches dark, light, dark with no reload, and asserts the node is not replaced, every artist layer equals `layerColour(rank, theme)`, "Everything else" is #3a3347 / #ddd5c5, every gridline and the label match the frame-resolved tokens, and the label clears 4.5:1.
+
+Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, asserted at 4.5. Layer fills 1.53-10.22 dark and 2.02-10.52 light are exempt from 3:1 (logged, not asserted); the owner's colour values are unchanged.
+
+Finding SG6-F1 (review of the first patch, closed): the check compared only layer 0 and the first gridline, so a partial recolour would pass. It now compares every layer by its own rank and every gridline, and names an empty layer list or no gridlines. Red against a `recolourStream` that repainted only layer 0 (layers 1-9 reported), green on the real code in chromium and firefox.
+
+Deviations: the brief's 3:1 assertion on layer fills is not made (U20). The mermaid edges for the new imports in `docs/architecture/documentation-tooling.md` are Task 10's (ruling S16a). The landing relied on the nested gate logs (frontend gate 52 checks passed, ruling U19) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none.
+
+Validation: `pytest -q` -- **3014 passed**.
+
 ### 2026-10-27 - Draw the top-artists streamgraph under the grid
 
 Side task, no batch tag: the top-artists streamgraph drawn under the heatmap grid (streamgraph plan Task 5), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -231,17 +249,3 @@ Deviations: Task 2 lands after Task 3 (disjoint files), so the plan's numeric la
 Existing tests edited, by name: none (new tests appended to `test_heatmap_pure_functions.py`).
 
 Validation: `pytest -q` -- **3004 passed**.
-
-### 2026-10-27 - Store the weekly artist counts with the job result
-
-Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent: the streamgraph needs the per-week artist counts from the same fetch as the daily counts, and a caller of the job view must not be able to change stored state.
-
-What changed and why: `scrobblescope/heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`; the zero-scrobble guard still fails the job before anything is stored. `_context_view` in `scrobblescope/jobs.py` copies it (outer dict, `weeks`, `other`, the `artists` list, each artist dict with its `counts` list) the way it copies `daily_counts` (F-B18-8).
-
-Deviations: Task 3 lands before Task 2 (disjoint files; Task 2 is still in its code phase), so the plan's numeric landing order is not followed.
-
-Existing tests edited, by name: `TestFetchAndProcessHeatmap::test_happy_path_stores_correct_result_dict` (weeks start on the Monday on or before `from_date`; per week, artist counts plus `other` equal the daily counts over the column's 7 days); `test_context_isolates_dict_results_from_callers` (mutating `weekly_artists` weeks, a counts entry, a name, the artists list and `other` leaves the stored values unchanged).
-
-Validation: `pytest -q` -- **2987 passed**.

@@ -1516,6 +1516,32 @@
     return resolvedColour(token, document.getElementById('heatmap-result-frame') || undefined);
   }
 
+  function currentStreamTheme() {
+    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  }
+
+  /**
+   * Repaint the drawn stream for the current theme, without a re-render.
+   * Each paint is a resolved attribute, so a theme change leaves the old
+   * theme's values until they are rewritten here.
+   */
+  function recolourStream() {
+    var svg = document.getElementById('stream-chart');
+    if (!svg) return;
+    var theme = currentStreamTheme();
+    svg.querySelectorAll('.stream-layer').forEach(function (layer) {
+      layer.setAttribute('fill', layer.classList.contains('stream-layer-other')
+        ? frameColour('--stream-other')
+        : layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
+    });
+    var lineColour = frameColour('--stream-line');
+    svg.querySelectorAll('.stream-gridline').forEach(function (line) {
+      line.setAttribute('stroke', lineColour);
+    });
+    var label = svg.querySelector('.stream-section-label');
+    if (label) label.setAttribute('fill', frameColour('--stream-muted'));
+  }
+
   // True when the 1st of a month falls in the week that starts on `monday`.
   function weekHoldsMonthStart(monday) {
     return monday.getDate() === 1 || addDays(monday, 6).getMonth() !== monday.getMonth();
@@ -1541,7 +1567,7 @@
     var stack = stackLayers(layers, streamBaseline(layers), scale);
     var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
     var centre = STREAM_LABEL_H + STREAM_BAND / 2;
-    var theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    var theme = currentStreamTheme();
 
     var svg = streamNode('svg', {
       id: 'stream-chart',
@@ -2039,6 +2065,7 @@
       mutations.forEach(function (m) {
         if (m.attributeName === 'data-theme') {
           updateZeroFills();
+          recolourStream();
         }
       });
     });

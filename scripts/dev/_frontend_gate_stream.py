@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import datetime
 
+from scripts.dev._frontend_gate_colour import _contrast_ratio, _parse_rgb_string
 from scripts.dev._frontend_gate_shared import wait_for_settled
+from scripts.dev._frontend_gate_theme import SET_THEME_EXPRESSION
 from scrobblescope import jobs
 from scrobblescope.listening_stats import heatmap_statistics
 
@@ -216,4 +218,130 @@ def _desktop_failures(page, base_url: str) -> list[str]:
         page.set_viewport_size(original)
         jobs.delete(with_payload)
         jobs.delete(without_payload)
+    return failures
+
+
+#: What the frame's stream tokens resolve to in each theme (heatmap.css).
+_OTHER_HEX = {"dark": "#3a3347", "light": "#ddd5c5"}
+#: Layer fills are logged against the frame, not held to 3:1: the scrubber
+#: panel states every layer as text, so a fill is exempt (rulings S13, U20).
+_FLOOR_TEXT = 4.5
+
+_READ_PAINT_JS = """(theme) => {
+    const frame = document.getElementById('heatmap-result-frame');
+    const stream = document.querySelector('#stream-chart');
+    if (!frame || !stream) return null;
+    const probe = (token) => {
+        const el = document.createElement('div');
+        el.style.color = 'var(' + token + ')';
+        frame.appendChild(el);
+        const colour = getComputedStyle(el).color;
+        el.remove();
+        return colour;
+    };
+    const hooks = window.__scrobbleHeatmapTestHooks;
+    const fills = {};
+    const expected = {};
+    for (const path of stream.querySelectorAll('path.stream-layer:not(.stream-layer-other)')) {
+        const rank = path.dataset.rank;
+        fills[rank] = path.getAttribute('fill');
+        expected[rank] = hooks.layerColour(parseInt(rank, 10), theme);
+    }
+    return {
+        fills: fills,
+        expected: expected,
+        other: stream.querySelector('.stream-layer-other')?.getAttribute('fill'),
+        lines: Array.from(stream.querySelectorAll('.stream-gridline'))
+            .map((line) => line.getAttribute('stroke')),
+        lineToken: probe('--stream-line'),
+        label: stream.querySelector('.stream-section-label')?.getAttribute('fill'),
+        labelToken: probe('--stream-muted'),
+        frame: getComputedStyle(frame).backgroundColor,
+    };
+}"""
+
+
+def _rgb(value: str | None) -> tuple[float, float, float]:
+    return _parse_rgb_string(value or "")[:3]
+
+
+def _hex_rgb(value: str) -> tuple[float, float, float]:
+    return tuple(float(int(value[i : i + 2], 16)) for i in (1, 3, 5))
+
+
+def _paint_failures(reading, theme: str) -> list[str]:
+    """Compare one theme's stream paint with its tokens and the contrast floors."""
+    if reading is None:
+        return [f"/heatmap draws no stream chart in the {theme} theme"]
+    failures = []
+    if not reading["fills"]:
+        failures.append(f"the stream draws no artist layers in the {theme} theme")
+    if not reading["lines"]:
+        failures.append(f"the stream draws no gridlines in the {theme} theme")
+    for rank, fill in reading["fills"].items():
+        if _rgb(fill) != _rgb(reading["expected"][rank]):
+            failures.append(
+                f"layer {rank} fill is {fill} in the {theme} theme, "
+                f"expected {reading['expected'][rank]}"
+            )
+    if _rgb(reading["other"]) != _hex_rgb(_OTHER_HEX[theme]):
+        failures.append(
+            f"'Everything else' fill is {reading['other']} in the {theme} theme, "
+            f"expected {_OTHER_HEX[theme]}"
+        )
+    for index, line in enumerate(reading["lines"]):
+        if _rgb(line) != _rgb(reading["lineToken"]):
+            failures.append(
+                f"gridline {index} stroke is {line} in the {theme} theme, "
+                f"expected {reading['lineToken']}"
+            )
+    if _rgb(reading["label"]) != _rgb(reading["labelToken"]):
+        failures.append(
+            f"section label fill is {reading['label']} in the {theme} theme, "
+            f"expected {reading['labelToken']}"
+        )
+    frame = _rgb(reading["frame"])
+    ratios = [_contrast_ratio(_rgb(fill), frame) for fill in reading["fills"].values()]
+    label_ratio = _contrast_ratio(_rgb(reading["label"]), frame)
+    print(
+        f"[stream colours] {theme}: layer vs frame min {min(ratios):.2f} "
+        f"max {max(ratios):.2f}, label vs frame {label_ratio:.2f}"
+    )
+    if label_ratio < _FLOOR_TEXT:
+        failures.append(
+            f"the section label is {label_ratio:.2f}:1 against the frame in the "
+            f"{theme} theme, floor {_FLOOR_TEXT}"
+        )
+    return failures
+
+
+def check_stream_colours_follow_theme_and_meet_contrast(
+    page, base_url: str
+) -> list[str]:
+    """Switching the theme repaints the stream without a re-render."""
+    failures = []
+    job_id, _last_day = seed_stream_job()
+    # The expected layer colour comes from the page's own ramp, which the
+    # test seam exposes only when the flag is set before the script runs.
+    probe = page.context.new_page()
+    try:
+        probe.add_init_script("window.__scrobbleHeatmapTestMode = true")
+        probe.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+        probe.locator(_STREAM).wait_for(state="attached")
+        probe.evaluate(
+            "() => { window.__streamNode = document.querySelector('#stream-chart'); }"
+        )
+        for theme in ("dark", "light", "dark"):
+            probe.evaluate(SET_THEME_EXPRESSION, theme)
+            wait_for_settled(probe)
+            if not probe.evaluate(
+                "() => window.__streamNode === document.querySelector('#stream-chart')"
+            ):
+                failures.append(f"the {theme} switch re-rendered the stream")
+            failures.extend(
+                _paint_failures(probe.evaluate(_READ_PAINT_JS, theme), theme)
+            )
+    finally:
+        probe.close()
+        jobs.delete(job_id)
     return failures

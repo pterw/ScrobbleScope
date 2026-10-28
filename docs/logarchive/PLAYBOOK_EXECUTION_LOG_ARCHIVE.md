@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Store the weekly artist counts with the job result
+
+Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph needs the per-week artist counts from the same fetch as the daily counts, and a caller of the job view must not be able to change stored state.
+
+What changed and why: `scrobblescope/heatmap.py` calls `aggregate_weekly_artist_counts(fetch.plays, from_date, to_date)` right after `aggregate_daily_counts` and stores it under `weekly_artists` in the dict passed to `jobs.succeed`; the zero-scrobble guard still fails the job before anything is stored. `_context_view` in `scrobblescope/jobs.py` copies it (outer dict, `weeks`, `other`, the `artists` list, each artist dict with its `counts` list) the way it copies `daily_counts` (F-B18-8).
+
+Deviations: Task 3 lands before Task 2 (disjoint files; Task 2 is still in its code phase), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: `TestFetchAndProcessHeatmap::test_happy_path_stores_correct_result_dict` (weeks start on the Monday on or before `from_date`; per week, artist counts plus `other` equal the daily counts over the column's 7 days); `test_context_isolates_dict_results_from_callers` (mutating `weekly_artists` weeks, a counts entry, a name, the artists list and `other` leaves the stored values unchanged).
+
+Validation: `pytest -q` -- **2987 passed**.
+
 ### 2026-10-27 - Aggregate weekly top-artist counts for the streamgraph
 
 Side task, no batch tag: the weekly top-artist aggregation (streamgraph plan Task 1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

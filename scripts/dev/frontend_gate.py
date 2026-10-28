@@ -173,6 +173,7 @@ from scripts.dev._frontend_gate_spotlight_photo import (  # noqa: E402, F401
 from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
     check_stream_absent_without_payload_or_on_mobile,
     check_stream_aligns_with_grid_columns,
+    check_stream_colours_follow_theme_and_meet_contrast,
 )
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     FORBIDDEN_SURFACES,
@@ -304,6 +305,12 @@ CHECKS = (
         "stream absent without payload or on mobile",
         check_stream_absent_without_payload_or_on_mobile,
         (DESKTOP, MOBILE),
+        THEME_MOTION,
+    ),
+    (
+        "stream colours follow theme and meet contrast",
+        check_stream_colours_follow_theme_and_meet_contrast,
+        (DESKTOP,),
         THEME_MOTION,
     ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
