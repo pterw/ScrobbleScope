@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Record the Deezer egress block and its recovery
+
+Side task, no batch tag: document the Deezer egress-address block and how to recover from it, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: the production machine's egress IP was blocked by Akamai, so every Deezer call returned 403; keep a runbook so the next occurrence is a probe and a machine clone, not a code hunt.
+
+What changed: `DEPLOY.md` gains the section "Deezer blocks the machine's egress address" (symptom, probe, free fix by machine clone, paid fix by static egress IP, why a restart or deploy does not help). `AGENTS.md` gains Anti-Pattern item 16 and the `OPS` source tag; `docs/agents/issue-tracker.md` lists `OPS`. Finding F-OPS-1 is written resolved and rotated to the findings archive in this commit. The static egress IP was released on the owner's word to test whether a restart would clear the block; it did not.
+
+Deviations: new `OPS` tag for the F-ID (extended in `AGENTS.md` and `issue-tracker.md`); the finding is resolved and rotated in the same commit.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3101 passed**.
+
 ### 2026-10-28 - MusicBrainz request starts 1.2 seconds apart
 
 Side task, no batch tag: space MusicBrainz request starts 1.2 seconds apart instead of 1.1, on `fix/deezer-egress-incident`, a branch off `main`.
@@ -223,19 +237,5 @@ What the plan holds: three parallel code tasks T1-T3, one commit each, landing i
 Deviations: none.
 
 Existing tests edited: none.
-
-Validation: `pytest -q` -- **3099 passed**.
-
-### 2026-10-28 - Fit the streamgraph stack inside its band
-
-Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Root cause: the scale came from the largest weekly total alone, but the wiggle baseline shifts each week's stack, so a stack could leave the fixed viewBox and the saved image clipped it.
-
-What changed: `streamFit` in `static/js/heatmap.js` caps the scale by the stack's extent and shifts the baseline only when the stack would leave the band; ordinary data keeps its baseline and scale unchanged. Test rows from the review (two data sets that catch the missing scale cap and the high-side shift sign) were added to `test_stream_stack_stays_inside_the_band`, plus a pin that unmoved data keeps `streamScale` of its totals.
-
-Deviations: none.
-
-Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
 
 Validation: `pytest -q` -- **3099 passed**.

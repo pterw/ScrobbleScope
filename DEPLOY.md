@@ -69,6 +69,80 @@ and `min_machines_running = 1`, delete the `[env]` `IDLE_EXIT_MINUTES` line),
 then `fly deploy -a scrobblescope`. The Python code can stay: with the variable
 unset nothing starts. No secret and no database change is involved.
 
+## Deezer blocks the machine's egress address
+
+Symptom: the Results page says "Deezer could not be reached for some albums"
+on every run, local runs are fine, and the log summary shows
+`Deezer: N calls ... Nx403`. Deezer's CDN (Akamai) refuses requests from the
+machine's outbound IPv4 address. Fly's default egress is the host's address,
+which can change, so the block follows the address, not the code. A Deezer
+403 is sent once and reported as unavailable, never retried and never read as
+"no match".
+
+To confirm, probe from the machine (Git Bash quoting):
+
+```bash
+fly ssh console -a scrobblescope -C "python -c \"import urllib.request as u,urllib.error as e
+ip=u.urlopen('https://api.ipify.org',timeout=10).read().decode()
+try:
+  s=u.urlopen(u.Request('https://api.deezer.com/search/album?q=radiohead&limit=1',headers={'User-Agent':'ScrobbleScope/probe'}),timeout=10).status
+except e.HTTPError as x:
+  s=x.code
+print('PROBE',ip,s)\""
+```
+
+It prints `PROBE <egress-ip> <status>`. `200` is healthy; `403` means Deezer
+blocks this machine's address. Add `--machine <id>` to probe one specific
+machine.
+
+Free fix: clone the machine onto another host, check the clone, then destroy
+the blocked machine. The clone keeps the machine's config (env, restart
+policy, autostop).
+
+```bash
+fly machine clone <blocked-id> --region yyz -a scrobblescope
+```
+
+Probe the clone with the probe above plus `--machine <new-id>`. If it prints
+`200`, destroy the blocked machine:
+
+```bash
+fly machine destroy <blocked-id> --force -a scrobblescope
+fly machine list -a scrobblescope
+```
+
+The list must show one machine, and it must still carry `IDLE_EXIT_MINUTES`.
+If the clone's address is also blocked, destroy the clone and clone again. In
+the incident the clone landed on the next address of the same /24 and Deezer
+answered 200, so Akamai had blocked one address, not the range.
+
+Paid fix: a static egress IP, which costs $3.60 a month at the time of
+writing (the owner's ceiling is machine plus cache under $5 a month).
+
+```bash
+fly ips allocate-egress -r yyz -a scrobblescope
+fly ips list -a scrobblescope
+fly ips release-egress <ip> -a scrobblescope
+```
+
+The first command allocates it, the second reads it, the third drops it. In
+the incident it did make Deezer answer 200. It was released on the owner's
+word to test whether a machine restart would clear the block, and it did not
+(a restart and a redeploy kept the same blocked address).
+
+A deploy or a restart does not change the egress IP: `fly deploy` updates the
+machine in place (same id, host and IP). Only a new machine on another host
+does, and the idle exit makes the machine stop and start often, so a block
+can come back.
+
+Possible issue: this can happen again. A new machine on another host gets a
+new egress address that Akamai may block, and closing the incident finding
+does not remove that risk. If Deezer starts returning 403 on every run, use
+the recipe above before looking at the code.
+
+The incident record is finding `F-OPS-1` in
+`docs/history/findings/FINDINGS_ARCHIVE.md`; this section is the recipe only.
+
 ## Where the config lives
 
 `fly.toml` and the `Dockerfile` stay at the repository root. Fly resolves the

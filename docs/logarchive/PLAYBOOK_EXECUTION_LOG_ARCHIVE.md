@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Fit the streamgraph stack inside its band
+
+Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Root cause: the scale came from the largest weekly total alone, but the wiggle baseline shifts each week's stack, so a stack could leave the fixed viewBox and the saved image clipped it.
+
+What changed: `streamFit` in `static/js/heatmap.js` caps the scale by the stack's extent and shifts the baseline only when the stack would leave the band; ordinary data keeps its baseline and scale unchanged. Test rows from the review (two data sets that catch the missing scale cap and the high-side shift sign) were added to `test_stream_stack_stays_inside_the_band`, plus a pin that unmoved data keeps `streamScale` of its totals.
+
+Deviations: none.
+
+Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Keep the scrubber panel inside the chart
 
 Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
