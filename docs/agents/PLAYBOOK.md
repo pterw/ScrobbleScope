@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - A Deezer 403 is one request, not three
+
+Side task, no batch tag: stop retrying a Deezer HTTP 403, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: a 403 from Deezer's CDN means the egress address is blocked, so a retry cannot cure it and only triples the traffic to a host that already refuses us.
+
+What changed: `scrobblescope/deezer.py` raises `deezer_unavailable` at once on a 403 (one request, no backoff sleep); 429, 5xx and quota responses are still retried. Both `retry_with_semaphore` calls now pass `reraise=(ProviderError,)`, which only silences a duplicate error log line (no test guards that decision).
+
+Deviations: none.
+
+Existing tests edited: `test_deezer_http_403_raises_unavailable_not_no_match` (re-pointed, parametrized over search, album details and album tracks; asserts the request count and that no sleep happens).
+
+Validation: `pytest -q` -- **3101 passed**.
+
 ### 2026-10-28 - Plan the Deezer egress incident fixes
 
 Side task, no batch tag: plan the Deezer egress incident fixes, on `fix/deezer-egress-incident`, a branch off `main`.
@@ -225,19 +239,5 @@ What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 
 Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
 
 Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
-
-Validation: `pytest -q` -- **3095 passed**.
-
-### 2026-10-27 - Take main into the streamgraph branch
-
-Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U37): PR #278 is retargeted to `main` after #277 merges, so its diff is its own. The branch takes #277 first, by a merge commit and not a rebase (AGENTS.md).
-
-What changed and why: a plain `git merge`. Five docs conflicted and nothing else: `.claude/SESSION_CONTEXT.md`, `config/docsync.toml` and `docs/agents/FINDINGS.md` differed only in the test count (re-measured, then `--fix`); `docs/agents/PLAYBOOK.md` Section 4 and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` keep every dated entry from both sides, none lost. The code files merged without conflict; `static/js/heatmap.js` (saveHeatmapImage/drawHeatmapImage split, mode-key crossfade) and `scripts/dev/_frontend_gate_theme.py` (token-parsed `_split_canvas_font`, no `re` import) were read for clashes with the branch's Save image and theme-scope work and none was found.
-
-Deviations: none.
-
-Existing tests edited: none.
 
 Validation: `pytest -q` -- **3095 passed**.
