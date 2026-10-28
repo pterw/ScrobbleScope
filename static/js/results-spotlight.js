@@ -240,7 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
             watchCardLayout(view, state);
             watchCardUse(view, state);
             setInterval(() => {
-                if (document.hidden || cardInUse(view, state)) return;
+                // "Pause animations" holds the card on its artist; Play
+                // resumes from there at the next period.
+                const paused = document.documentElement.dataset.motion === 'still';
+                if (document.hidden || paused || cardInUse(view, state)) return;
                 state.index = (state.index + 1) % state.candidates.length;
                 renderCandidate(view, state);
             }, 7000);

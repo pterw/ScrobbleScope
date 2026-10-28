@@ -8,7 +8,6 @@ stylesheet the browser never applied.
 
 from __future__ import annotations
 
-import re
 from datetime import date
 
 from scripts.dev._frontend_gate_colour import (
@@ -838,8 +837,19 @@ def _plain_family(value: str | None) -> str:
     return (value or "").replace('"', "").replace("'", "").replace(" ", "")
 
 
-_FONT_SHORTHAND = re.compile(r"^\s*((?:\S+\s+)*?)[\d.]+px(?:/\S+)?\s+(.*)$", re.S)
 _NAMED_WEIGHTS = {"bold": "700", "normal": "400"}
+
+
+def _is_size_token(token: str) -> bool:
+    """True for "26px" or "18px/1.2": a number, px, then an optional /line-height."""
+    size, slash, line_height = token.partition("/")
+    number = size[:-2]
+    return (
+        size.endswith("px")
+        and bool(number)
+        and all(char in "0123456789." for char in number)
+        and (not slash or bool(line_height))
+    )
 
 
 def _split_canvas_font(value: str) -> tuple[str | None, str]:
@@ -848,16 +858,19 @@ def _split_canvas_font(value: str) -> tuple[str | None, str]:
     "600 26px degular, sans-serif" gives ("600", "degular, sans-serif"). A
     string with no size is taken to be a bare family list, with no weight.
     """
-    match = _FONT_SHORTHAND.match(value)
-    if not match:
-        return None, value
+    rest = value.lstrip()
     weight = "400"
-    for token in match.group(1).split():
+    while rest:
+        token = rest.split(None, 1)[0]
+        after = rest[len(token) :]
+        if after and _is_size_token(token):
+            return weight, after.lstrip()
         if token.isdigit():
             weight = token
         elif token in _NAMED_WEIGHTS:
             weight = _NAMED_WEIGHTS[token]
-    return weight, match.group(2)
+        rest = after.lstrip()
+    return None, value
 
 
 def headline_font_failures(

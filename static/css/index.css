@@ -120,9 +120,46 @@ html {
   padding: 2rem 0 2.5rem;
 }
 
+/* One pause button is exposed at any width: this copy below 860px is hidden
+   (the footer one in base.html shows), from 860px it replaces the footer. */
+.index-hero__motion {
+  display: none;
+}
+
 @media (min-width: 860px) {
   .index-hero {
+    display: flex;
+    flex-direction: column;
     padding: 3.5rem;
+  }
+
+  /* The button's own 2.75rem box stands in for the column's bottom padding
+     (the more specific selector keeps the scaled padding below from
+     restoring it). What remains is the footer row's bottom padding in
+     static/css/shell.css (.page-footer-extras, 1.5rem), so the button sits
+     as far above the viewport's foot as the footer button does on the
+     results page. The gate compares the two. */
+  .index-grid .index-hero {
+    padding-bottom: 1.5rem;
+  }
+
+  .index-hero__motion {
+    display: inline-block;
+    align-self: center;
+    margin-top: auto;
+  }
+
+  /* Short windows (1280x720 measured: 12px over with the gap above) take the
+     gap back from the column's top padding, so the page still fits. */
+  @media (max-height: 760px) {
+    .index-grid .index-hero {
+      padding-top: calc(3.5rem * var(--index-scale, 1) - 1rem);
+    }
+  }
+
+  /* The footer row returns while the heatmap stage replaces the grid. */
+  body:not(.heatmap-stage-active) .page-footer-extras {
+    display: none;
   }
 }
 
@@ -318,6 +355,76 @@ html {
 }
 
 /* ------------------------------------------------------------------ */
+/* Left column: the key under the strip                                */
+/* ------------------------------------------------------------------ */
+/* One key per mode, in the same grid track like the strip, so switching mode
+   changes paint and not geometry. The right column holds controls only; what a
+   mode does and counts is said here. Each key ends with a rule at the strip's
+   width; both keys stretch to the taller one, so the rule stays put. */
+.index-hero__keys {
+  display: grid;
+  flex: 1 1 100%;
+  max-width: calc(44rem * var(--index-scale, 1));
+  margin-top: calc(1.75rem * var(--index-scale, 1));
+}
+
+.index-key {
+  grid-area: 1 / 1;
+  display: grid;
+  align-content: start;
+  gap: calc(0.75rem * var(--index-scale, 1));
+  padding-bottom: calc(1.75rem * var(--index-scale, 1));
+  border-bottom: 1px solid var(--ss-border-divider);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--index-fade-duration) ease-out,
+    visibility 0s linear var(--index-fade-duration);
+}
+
+.index-key.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.index-key__title {
+  margin: 0;
+  font-size: max(0.9375rem, calc(1rem * var(--index-scale, 1)));
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  color: var(--ss-text-body);
+}
+
+.index-key__facts {
+  display: grid;
+  gap: calc(0.75rem * var(--index-scale, 1));
+  margin: 0;
+}
+
+.index-key__facts > div {
+  display: grid;
+  grid-template-columns: max(5.5rem, calc(5.6rem * var(--index-scale, 1))) 1fr;
+  align-items: baseline;
+}
+
+.index-key__facts dt {
+  font-family: var(--font-mono-narrow);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.index-key__facts dd {
+  margin: 0;
+  font-size: max(0.8125rem, calc(0.875rem * var(--index-scale, 1)));
+  line-height: 1.45;
+  color: var(--ss-text-body);
+  text-wrap: pretty;
+}
+
+/* ------------------------------------------------------------------ */
 /* Right column: the sunken form well                                  */
 /* ------------------------------------------------------------------ */
 .index-form {
@@ -348,6 +455,10 @@ html {
 @media (min-width: 860px) {
   .index-form__inner {
     margin-block: auto;
+    /* static/js/index.js sets --index-card-min to the default album form's
+       height, so the shorter heatmap form keeps the same height and the mode
+       switch stays put when the mode changes. */
+    min-height: var(--index-card-min, auto);
   }
 
   /* Measured placement keeps the requested upward bias without carrying
@@ -505,6 +616,14 @@ html {
   font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1.4;
   color: var(--ss-text-muted);
+}
+
+/* The year hint is for phones, where the left column's keys are hidden; from
+   860px the album key's YEAR row says it. */
+@media (min-width: 860px) {
+  .field__help--phone {
+    display: none;
+  }
 }
 
 /* Show and the unmatched choice share one row. Stacked below 860px; equal
@@ -1072,8 +1191,11 @@ html {
      about 115px between them. */
 
   /* The headline and the lede already say all three of these. They are the
-     least load-bearing thing in the hero, and they cost two rows here. */
-  .index-hero__marks {
+     least load-bearing thing in the hero, and they cost two rows here. The
+     keys under the strip go the same way (owner, 2026-10-27: mobile concerns
+     are for later); the form keeps its calendar-year hint instead. */
+  .index-hero__marks,
+  .index-hero__keys {
     display: none;
   }
 

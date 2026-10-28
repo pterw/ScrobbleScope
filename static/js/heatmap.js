@@ -1010,7 +1010,8 @@
     // [data-mode-marks] holds the two mark lists that crossfade alongside
     // the hero copy. Both sets live in the same grid track; only the active
     // one is visible at a time -- same mechanism as heroBlocks.
-    marksBlocks    = document.querySelectorAll('[data-mode-marks]');
+    // The two keys under the strip (data-mode-key) crossfade the same way.
+    marksBlocks    = document.querySelectorAll('[data-mode-marks], [data-mode-key]');
 
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
@@ -1090,10 +1091,12 @@
       hero.classList.toggle('is-active', isActive);
       hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    // The hero strip term lists (data-mode-marks) crossfade in lock-step with the hero copy.
+    // The hero strip term lists (data-mode-marks) and the keys under them
+    // (data-mode-key) crossfade in lock-step with the hero copy.
     if (marksBlocks) {
       marksBlocks.forEach(function (marks) {
-        var isActive = marks.getAttribute('data-mode-marks') === mode;
+        var isActive = (marks.getAttribute('data-mode-marks')
+          || marks.getAttribute('data-mode-key')) === mode;
         marks.classList.toggle('is-active', isActive);
         marks.setAttribute('aria-hidden', isActive ? 'false' : 'true');
       });

@@ -9,6 +9,7 @@ Composition must reach its proportions through layout, never CSS `zoom` or
 
 from __future__ import annotations
 
+import re
 import sys
 
 from scripts.dev._frontend_gate_colour import _clamp_px
@@ -526,6 +527,11 @@ def _measure_mobile_headers(page, base_url) -> dict:
                     ),
                     actionsTop: actionsRect.top,
                     contentBottom: mainRect.bottom,
+                    keysShown: [...document.querySelectorAll('[data-mode-key]')]
+                        .filter(key => key.getClientRects().length > 0).length,
+                    yearHintShown: [...document.querySelectorAll(
+                        '#album-form-section .field__help--phone'
+                    )].some(hint => hint.getClientRects().length > 0),
                     themeHeight: document.querySelector('.site-header__theme-toggle')
                         .getBoundingClientRect().height,
                     linksInside: links.every(link => {
@@ -587,6 +593,304 @@ def _measure_expanded_placement(page, base_url, width: int, height: int) -> dict
             };
         }"""
     )
+
+
+#: What the home page's right column and its left-column keys look like in the
+#: current mode: explanatory copy still in the form stack, and which keys
+#: (`data-mode-key`) are shown, with the others hidden from assistive technology.
+HOME_KEY_STATE_EXPRESSION = """() => {
+    const keys = [...document.querySelectorAll('[data-mode-key]')];
+    const active = keys.filter((key) => key.classList.contains('is-active'));
+    const strip = document.querySelector('.index-hero__marks.is-active');
+    const divider = document.createElement('i');
+    divider.style.color = 'var(--ss-border-divider)';
+    document.body.append(divider);
+    const dividerColour = getComputedStyle(divider).color;
+    divider.remove();
+    return {
+        inForm: [...document.querySelectorAll(
+            '.index-form .hm-preview, .index-form [data-mode-key], '
+            + '#album-form-section .field__help:not(.field-pair__help)'
+        )].filter((node) => node.getClientRects().length > 0).length,
+        active: active.map((key) => key.dataset.modeKey),
+        hiddenOk: keys.every(
+            (key) => (key.getAttribute('aria-hidden') === 'false')
+                === key.classList.contains('is-active')
+        ),
+        ruleOk: active.every((key) => {
+            const style = getComputedStyle(key);
+            return style.borderBottomWidth === '1px'
+                && style.borderBottomStyle === 'solid'
+                && style.borderBottomColor === dividerColour
+                && Math.abs(
+                    key.getBoundingClientRect().width
+                    - strip.getBoundingClientRect().width
+                ) <= 1;
+        }),
+    };
+}"""
+
+#: Reload the home page with the thresholds already holding other numbers, the
+#: way a browser restores a form on reload or Back, then read the album key.
+RESTORED_THRESHOLDS = (("min_plays", "7"), ("min_tracks", "5"))
+
+
+#: Desktop windows where the home page must fit with no vertical scroll.
+HOME_FIT_WINDOWS = ((1920, 1080), (1366, 768))
+
+
+def _restored_key_text(page, base_url: str) -> str:
+    """Load the home page with 7 and 5 already in the threshold inputs."""
+
+    def restore(route):
+        response = route.fetch()
+        body = response.text()
+        for field, value in RESTORED_THRESHOLDS:
+            body = re.sub(
+                rf'(id="{field}"[^>]*?value=")\d+"', rf'\g<1>{value}"', body, flags=re.S
+            )
+        route.fulfill(response=response, body=body)
+
+    page.route(f"{base_url}/", restore)
+    try:
+        page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(FONTS_READY_EXPRESSION)
+        return page.evaluate(
+            "() => document.querySelector('[data-mode-key=\"album\"]').textContent"
+        )
+    finally:
+        page.unroute(f"{base_url}/")
+
+
+#: Drive both thresholds the way a stepper does (value, then an input event)
+#: and read the album key's sentences back.
+SET_THRESHOLDS_EXPRESSION = """() => {
+    for (const [id, value] of [['min_plays', '1'], ['min_tracks', '5']]) {
+        const input = document.getElementById(id);
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const key = document.querySelector('[data-mode-key="album"]');
+    return key ? key.textContent : '';
+}"""
+
+
+def _measure_mode_switch_shift(page, base_url, width: int, height: int) -> dict:
+    """Read the mode switch's top and the home keys in each mode.
+
+    Album mode first, then the Heatmap tab, then album again with both
+    thresholds changed.
+    """
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read_top = "document.querySelector('.mode-tabs').getBoundingClientRect().top"
+    album_top = page.evaluate(f"() => {read_top}")
+    keys = {"album": page.evaluate(HOME_KEY_STATE_EXPRESSION)}
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    heatmap_top = page.evaluate(f"() => {read_top}")
+    keys["heatmap"] = page.evaluate(HOME_KEY_STATE_EXPRESSION)
+    page.locator("#mode-tab-album").click()
+    wait_for_settled(page)
+    return {
+        "albumTop": album_top,
+        "heatmapTop": heatmap_top,
+        "keys": keys,
+        "albumKeyText": page.evaluate(SET_THRESHOLDS_EXPRESSION),
+        "restoredKeyText": _restored_key_text(page, base_url),
+    }
+
+
+def _measure_heatmap_first_shift(page, base_url, width: int, height: int) -> dict:
+    """Load on the Heatmap tab, visit Album, then read the switch back on Heatmap.
+
+    The first switch may move (no height was measured yet); the second must not.
+    """
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read_top = "document.querySelector('.mode-tabs').getBoundingClientRect().top"
+    page.locator("#mode-tab-album").click()
+    wait_for_settled(page)
+    album_top = page.evaluate(f"() => {read_top}")
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    return {"albumTop": album_top, "heatmapTop": page.evaluate(f"() => {read_top}")}
+
+
+#: The home page carries two pause buttons, one per layout; read how many show,
+#: whether the shown one lies inside the window, then click it and read every
+#: copy back (a copy that stops syncing keeps the old label).
+PAUSE_STATE_EXPRESSION = """() => {
+    const toggles = [...document.querySelectorAll('.motion-toggle')];
+    const shown = toggles.filter(el => el.getClientRects().length > 0);
+    const inside = shown.every(el => {
+        const box = el.getBoundingClientRect();
+        return box.top >= 0 && box.left >= 0
+            && box.bottom <= window.innerHeight
+            && box.right <= window.innerWidth;
+    });
+    return {
+        shown: shown.length,
+        inside,
+        // The shown button's distance from the window's foot, and the footer
+        // row's own bottom padding: what a footer button sits above the page's
+        // foot on every other page (read from the row even when it is hidden).
+        gap: shown.length ? window.innerHeight - shown[0].getBoundingClientRect().bottom : 0,
+        footerGap: parseFloat(getComputedStyle(
+            document.querySelector('.page-footer-extras')).paddingBottom),
+        copies: toggles.map(el => ({
+            text: el.textContent,
+            pressed: el.getAttribute('aria-pressed'),
+        })),
+    };
+}"""
+
+
+def _measure_home_pause(page) -> dict:
+    """Read the pause buttons, click the shown one, read them again, undo it."""
+    state = page.evaluate(PAUSE_STATE_EXPRESSION)
+    button = page.locator(".motion-toggle:visible")
+    if state["shown"] == 1:
+        button.click()
+        state["afterClick"] = page.evaluate(PAUSE_STATE_EXPRESSION)["copies"]
+        button.click()
+    return state
+
+
+def _measure_home_overflow(page, base_url, width: int, height: int) -> dict:
+    """Read the home page per mode: its scroll overflow and its pause buttons."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    wait_for_settled(page)
+    read = (
+        "() => document.documentElement.scrollHeight"
+        " - document.documentElement.clientHeight"
+    )
+    measured = {"album": {"overflow": page.evaluate(read)}}
+    measured["album"]["pause"] = _measure_home_pause(page)
+    page.locator("#mode-tab-heatmap").click()
+    wait_for_settled(page)
+    measured["heatmap"] = {
+        "overflow": page.evaluate(read),
+        "pause": _measure_home_pause(page),
+    }
+    return measured
+
+
+def _home_pause_failures(label: str, mode: str, pause: dict) -> list[str]:
+    """Fail unless exactly one pause button shows, in the window, as far above
+    the window's foot as the footer button is on the results page, and syncs."""
+    where = f"in {mode} mode at {label}"
+    if pause["shown"] != 1:
+        return [f"/: {pause['shown']} pause buttons show {where}, expected one"]
+    if not pause["inside"]:
+        return [f"/: the pause button lies outside the window {where}"]
+    if abs(pause["gap"] - pause["footerGap"]) > 1:
+        return [
+            f"/: the pause button sits {pause['gap']:.1f}px above the window's "
+            f"foot {where}, expected the footer row's {pause['footerGap']:.1f}px"
+        ]
+    stale = [c for c in pause["afterClick"] if c != PAUSED_COPY]
+    if stale:
+        return [f"/: a pause button copy did not follow a click {where}: {stale}"]
+    return []
+
+
+#: What every pause button copy reads after the shown one is clicked.
+PAUSED_COPY = {"text": "Play animations", "pressed": "true"}
+
+
+def _home_overflow_failures(label: str, measured: dict) -> list[str]:
+    """Fail when the home page scrolls, or its pause control is wrong, per mode.
+
+    From 860px the pause button sits at the foot of the left column and the
+    footer row takes no height (index.css `.index-hero__motion`), so the page
+    must not scroll vertically. Exactly one pause button must show, inside the
+    window, and a click must flip every copy (static/js/theme.js).
+    """
+    failures = []
+    for mode, state in measured.items():
+        if state["overflow"] > 0:
+            failures.append(
+                f"/: the home page scrolls {state['overflow']}px vertically in "
+                f"{mode} mode at {label}, expected none"
+            )
+        failures.extend(_home_pause_failures(label, mode, state["pause"]))
+    return failures
+
+
+def _mode_switch_failures(label: str, measured) -> list[str]:
+    """Fail when changing mode moves the mode switch (1px tolerance).
+
+    The form keeps the default album form's height in both modes
+    (`--index-card-min` in static/js/index.js), so the centred composition,
+    and the switch at its top, stay where they are when the mode changes.
+    """
+    shift = measured["heatmapTop"] - measured["albumTop"]
+    if abs(shift) > 1:
+        return [
+            f"/: the mode switch moves {shift:.1f}px when the Heatmap mode is "
+            f"chosen at {label}, expected it to stay put"
+        ]
+    return []
+
+
+def _home_key_failures(label: str, measured) -> list[str]:
+    """Fail when the form stack still explains, or a mode shows the wrong key.
+
+    The right column holds the tabs and the form card only; each mode's key
+    sits in the left column, the other mode's key is hidden from assistive
+    technology, and the album key's counts follow the steppers.
+    """
+    failures = []
+    for mode, state in measured["keys"].items():
+        if state["inForm"]:
+            failures.append(
+                f"/: the form stack holds {state['inForm']} explanatory "
+                f"element(s) in {mode} mode at {label}, expected none"
+            )
+        if not state["ruleOk"]:
+            failures.append(
+                f"/: the {mode} key does not end with the 1px divider rule at the "
+                f"strip's width at {label}"
+            )
+        if state["active"] != [mode] or not state["hiddenOk"]:
+            failures.append(
+                f"/: {mode} mode shows keys {state['active']} (hidden ones "
+                f"aria-hidden ok: {state['hiddenOk']}) at {label}, expected "
+                f"only the {mode} key"
+            )
+    text = " ".join(measured["albumKeyText"].split())
+    if "1 play across" not in text or "5 different tracks" not in text:
+        failures.append(
+            f"/: the album key does not follow the steppers at {label}: {text!r}"
+        )
+    restored = " ".join(measured["restoredKeyText"].split())
+    if "7 plays across" not in restored or "5 different tracks" not in restored:
+        failures.append(
+            f"/: the album key ignores restored threshold values at {label}: "
+            f"{restored!r}"
+        )
+    return failures
+
+
+def _phone_home_failures(width: int, phone: dict) -> list[str]:
+    """Fail when a phone shows the keys, or loses the calendar-year hint.
+
+    Below 860px the keys are hidden like the strip (owner, 2026-10-27) and
+    the form carries the year hint instead.
+    """
+    failures = []
+    if phone["keysShown"]:
+        failures.append(f"/: the home keys are shown at {width}px, expected hidden")
+    if not phone["yearHintShown"]:
+        failures.append(f"/: the calendar-year hint is hidden at {width}px")
+    return failures
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
@@ -689,6 +993,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         collapsed_layout = _measure_wide_layout(page)
         expanded_full = _measure_expanded_placement(page, base_url, 1920, 1063)
         expanded_short = _measure_expanded_placement(page, base_url, 1920, 700)
+        mode_switch = _measure_mode_switch_shift(page, base_url, 1920, 1063)
+        heatmap_first = _measure_heatmap_first_shift(page, base_url, 1920, 1063)
+        overflow = {
+            f"{w}x{h}": _measure_home_overflow(page, base_url, w, h)
+            for w, h in HOME_FIT_WINDOWS
+        }
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -760,8 +1070,16 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     failures.extend(
         _expanded_placement_failures("1920x700", expanded_short, short_window=True)
     )
+    failures.extend(_mode_switch_failures("1920x1063", mode_switch))
+    failures.extend(_home_key_failures("1920x1063", mode_switch))
+    failures.extend(
+        _mode_switch_failures("1920x1063 after a Heatmap-first load", heatmap_first)
+    )
+    for label, measured_overflow in overflow.items():
+        failures.extend(_home_overflow_failures(label, measured_overflow))
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
+        failures.extend(_phone_home_failures(width, header))
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
     # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
     # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height

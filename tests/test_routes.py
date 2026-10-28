@@ -1443,6 +1443,69 @@ def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(
     assert description_text.group(1) == description
 
 
+@pytest.mark.parametrize(
+    ("recorded", "stat", "other_recorded", "expected_notes"),
+    [
+        pytest.param(
+            500,
+            600,
+            0,
+            {"below_threshold": "Showing the first 500 of 600"},
+            id="capped-upstream",
+        ),
+        pytest.param(12, 12, 0, {}, id="not-capped"),
+        pytest.param(
+            12,
+            12,
+            520,
+            {"no_spotify_match": "Showing the first 500 of 520"},
+            id="capped-group-is-not-the-threshold-group",
+        ),
+    ],
+)
+def test_unmatched_view_states_the_real_total_of_a_capped_group(
+    client, recorded, stat, other_recorded, expected_notes
+):
+    """
+    GIVEN a job whose groups were capped upstream, capped here, or not capped
+    WHEN POST /unmatched_view is submitted
+    THEN each capped group says how many it shows of how many it holds, using
+         its own total, and an uncapped group says nothing of the kind.
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    for reason, count in (
+        ("below_threshold", recorded),
+        ("no_spotify_match", other_recorded),
+    ):
+        for n in range(count):
+            jobs.record_unmatched(
+                job_id,
+                f"{reason}|{n}",
+                {
+                    "artist": "Artist",
+                    "album": f"Album {n}",
+                    "play_count": 1,
+                    "track_count": 1,
+                    "reason_code": reason,
+                },
+            )
+    jobs.record_stat(job_id, "albums_below_threshold", stat)
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
+    shown_reasons = ["below_threshold"] + (
+        ["no_spotify_match"] if other_recorded else []
+    )
+    for reason in shown_reasons:
+        note = re.search(
+            r'class="unmatched-capped-note[^"]*">([^<]*)<',
+            _unmatched_panel(html, reason),
+        )
+        assert (note.group(1) if note else None) == expected_notes.get(reason)
+
+
 def test_unmatched_view_filter_bar_states_the_run_settings(client):
     """
     GIVEN a job with one unmatched album

@@ -26,6 +26,7 @@ from scrobblescope.unmatched import (
     CATEGORY_METADATA,
     REASON_NO_SPOTIFY_MATCH,
     REASON_PROVIDER_UNAVAILABLE,
+    group_unmatched_albums_with_totals,
 )
 
 bp = _routes.bp
@@ -430,8 +431,11 @@ def _render_unmatched_page():
     )
 
     unmatched_data = dict(job_context.get("unmatched", {}))
-    reasons, reason_counts, reason_metadata = _routes.group_unmatched_albums(
-        unmatched_data
+    stats = job_context.get("progress", {}).get("stats", {})
+    reasons, reason_counts, reason_metadata, reason_totals = (
+        group_unmatched_albums_with_totals(
+            unmatched_data, stats.get("albums_below_threshold") or 0
+        )
     )
 
     listed_count, listed_by_reason = _listed_unmatched_counts(
@@ -447,6 +451,7 @@ def _render_unmatched_page():
         reasons=reasons,
         reason_counts=reason_counts,
         reason_metadata=reason_metadata,
+        reason_totals=reason_totals,
         total_count=len(unmatched_data),
         listed_count=listed_count,
         listed_by_reason=listed_by_reason,

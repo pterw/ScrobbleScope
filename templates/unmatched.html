@@ -268,6 +268,13 @@
                     </tbody>
                 </table>
 
+                {# A group that shows fewer albums than it holds says so, with
+                   its real total. #}
+                {% set group_total = (reason_totals or {}).get(reason_key) %}
+                {% if group_total %}
+                <p class="unmatched-capped-note p-3 border-t border-[var(--ss-border-default)] font-sans text-xs text-[var(--ss-text-muted)]">Showing the first {{ albums|length }} of {{ group_total }}</p>
+                {% endif %}
+
                 {% if albums|length > 10 %}
                 <div class="unmatched-expander-row p-3 flex flex-wrap items-center justify-center gap-3 border-t border-[var(--ss-border-default)]">
                     <button type="button"

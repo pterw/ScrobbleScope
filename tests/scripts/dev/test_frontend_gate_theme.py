@@ -125,14 +125,25 @@ def test_a_canvas_font_with_style_weight_and_size_matches_on_family(
 
 
 @pytest.mark.parametrize(
-    "drawn", ["400 26px degular, sans-serif", "26px degular, sans-serif"]
+    ("drawn", "family", "drawn_weight"),
+    [
+        ("400 26px degular, sans-serif", "degular, sans-serif", "400"),
+        ("26px degular, sans-serif", "degular, sans-serif", "400"),
+        ("bold 18px x", "x", "700"),
+        ("normal 18px x", "x", "400"),
+        ('italic 600 18px/1.2 "a b"', '"a b"', "600"),
+        ("bold 600 18px x", "x", "600"),
+        ("x, serif", "x, serif", None),
+    ],
 )
-def test_a_saved_headline_drawn_at_another_weight_is_reported(drawn: str) -> None:
-    failures = headline_font_failures(drawn, "degular, sans-serif", "600")
+def test_a_saved_headline_drawn_at_another_weight_is_reported(
+    drawn: str, family: str, drawn_weight: str | None
+) -> None:
+    """The weight is the last weight word before the size; no size, no weight."""
+    failures = headline_font_failures(drawn, family, "900")
 
-    assert len(failures) == 1
-    assert "weight 400" in failures[0]
-    assert "600" in failures[0]
+    assert len(failures) == (drawn_weight is not None)
+    assert all(f"weight {drawn_weight}" in f and "900" in f for f in failures)
 
 
 @pytest.mark.parametrize("drawn", [None, ""])

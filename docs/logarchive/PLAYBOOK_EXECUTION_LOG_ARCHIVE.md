@@ -9,6 +9,76 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Add keyboard access to the streamgraph
+
+Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference, and the stream must not be pointer-only.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `streamKeyTarget`, `streamStartTarget` and `streamPositions` (test seam) and the key and focus handlers on `#stream-chart`, now `tabindex="0"`, `role="application"` with an `aria-label`. The stream is one tab stop: on focus with nothing selected it starts at week 26 (the last week when there are fewer) on the top layer; the arrow keys, Home and End move through the same `showWeek` path as the pointer, edges clamp, ArrowUp and ArrowDown walk the stack positions down to "Everything else", blur calls `clearWeek()`, and Tab is never trapped. `static/css/heatmap.css` adds the `.stream-chart:focus-visible` outline (2px, offset 4px). `scripts/dev/_frontend_gate_stream.py` adds `stream is one keyboard tab stop` (DESKTOP, Chromium), registered in `frontend_gate.py` (THEME_MOTION); the gate went from 55 to 56 checks.
+
+Padding change: `#heatmap-grid` at 860px and wider goes from 4px to 8px padding, with a matching -8px margin and `calc(100% + 16px)` width, so the grid box no longer clips the outline (it paints 6px outside the chart). The layout is unchanged (net content box identical); reviewed and accepted.
+
+Rulings recorded: SG8-F1 (review, Minor, restored as the brief mandates): the gate injects a focusable sentinel after the stream in its own page only and asserts Tab from the stream lands on it, then Shift+Tab twice returns to the grid cell. SG8-F2 (review, Important): the sentinel is injected after the outline, walk and tab-stop measurements, so it cannot add height to the grid and mask a bottom clip; proved red with bottom padding removed. Accepted Minors: a pointer leaving while the stream is focused clears the shown week (keys resume from the last keyboard week), and there is no Escape handling.
+
+Contrast (rendered focus outline against the frame, both themes): min 5.45, max 7.06; nothing fails. Firefox probe: tab stop, arrows, Home / End, blur and resize-blur pass; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 56 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new tests appended to `tests/frontend/test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
+### 2026-10-27 - Record new frontend-gate flake sightings
+
+Side task, no batch tag: adding the gate failures seen during the UI audit v6 PR to F-B23-58, on `feat/ui-audit-v6`, a branch off `main`.
+
+This is new evidence for an existing finding, not a new finding. F-B23-58 asked for new sightings with their timing before any fix. Three kinds were appended from the plan's gate logs: three `net::ERR_NO_BUFFER_SPACE` sightings (a grep of every gate log finds exactly three), `shell text scaling [mobile]` (`shell.css`) and two code-phase `large display scale parity [desktop]` runs (`index.css` in `task-sg8-code-3`, `static/js/theme.js` in `task-row5-code-1`), each failing after an asset failed to load (all passed on the next run); one `cached heatmap restoration painted the loading panel before its result` (passed on the next run); and a non-failing `Job context not found` log line noted as noise. The finding's status box and fix shape are unchanged.
+
+Deviations: the brief called the second `ERR_NO_BUFFER_SPACE` sighting "index.css, 72 large-display checks"; the log shows 72 `large display scale parity [desktop]` failures, each carrying the `index.css` error, so the entry says that. No code changed.
+
+Existing tests edited, by name: none.
+
+Validation: `pytest -q` -- **3023 passed**.
+
+### 2026-10-27 - Parse the canvas font string without a regex
+
+Side task, no batch tag: replacing the `_FONT_SHORTHAND` regular expression in the frontend gate's theme check with plain token parsing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U34: "I agree with (b), because a quick fix now is worth it over forgetting it"). Codacy flagged `_FONT_SHORTHAND` (`scripts/dev/_frontend_gate_theme.py`) as an inefficient regular expression. It measured linear, so the flag was a false positive, but plain parsing clears the check for good. `_split_canvas_font` now walks the whitespace tokens up to the first size token (`<n>px`, with an optional `/line-height`), keeping the last weight token (`bold` is 700, `normal` is 400); `_is_size_token` is the new helper and the `re` import is gone. Behaviour is identical on 22 compared inputs and a 400k-string fuzz; the one difference is that size digits are ASCII-only (the old `\d` also took Unicode digits, which `ctx.font` never emits). The parametrized weight cases (`bold`, `normal`, `italic 600` with a line-height, `bold 600`, a string with no size token) close the gap row 1 recorded under R1-F5.
+
+Deviations: none.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_theme.py::test_a_saved_headline_drawn_at_another_weight_is_reported` (extended with a drawn-weight parameter and five cases)
+
+Validation: `pytest -q` -- **3023 passed**.
+
+### 2026-10-27 - Lift the home pause button to the footer's gap
+
+Side task, no batch tag: lifting the home page's "Pause animations" button to the footer button's gap, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U30: "maybe raise it up by a touch in the index card -- to match the distance from the bottom of the page as is in the results page"). At 860px and wider the home button sat flush with the window bottom (0px); the footer button on the other pages sits 24px above the page foot (`.page-footer-extras` padding-bottom, 1.5rem). `static/css/index.css` now gives `.index-grid .index-hero` a 1.5rem bottom padding, so the button's bottom edge is 24.00px above the viewport foot in both modes at the six desktop sizes, in Firefox and Chromium, centring unchanged. The extra 24px made 1280x720 scroll by 12-13px, so a `@media (max-height: 760px)` rule takes 1rem back from the hero's top padding; windows taller than 760px are unchanged. The layout gate reads the shown button's gap and the footer row's computed padding-bottom and fails when they differ by more than 1px (`_home_pause_failures` in `scripts/dev/_frontend_gate_layout.py`).
+
+Deviations: the gate compares the gap with the footer row's computed padding-bottom, not a seeded results page (a seeded results page agrees to within 1px, measured); 1.5rem is written in both `shell.css` and `index.css` (no shared token, `shell.css` was outside the task), and the gate's equality check fails if either changes alone; the `max-height: 760px` top-padding give-back goes beyond "raise the button". Real laptop windows near 650px tall already scrolled before this change and still do.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_layout.py::test_the_home_page_must_not_scroll_vertically_in_either_mode` (two parametrized cases: gap 0 fails, 24.9 passes) and its `PAUSE_OK` fixture.
+
+Validation: `pytest -q` -- **3018 passed**.
+
+### 2026-10-27 - Make "Pause animations" stop every animation
+
+Side task, no batch tag: making "Pause animations" stop every auto-moving thing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U29: "clicking pause animation doesn't stop the top artist carousel"; U31: the loading page's pinwheel should stop too; U33: the unmatched page's button does not pause the header). Row 3's control set `data-motion="still"` but only the header bars honoured it. Now the results spotlight's interval callback in `static/js/results-spotlight.js` returns early while `<html data-motion>` is `still`, so a page loaded paused never advances and Play resumes at the next period from the card shown. In `static/css/shell.css` the still rule also covers `.ss-pinwheel svg > g` and `> g > g`, so the pinwheel rests (drawn artwork, no transform, as reduced motion does) and the phase line still shows progress as text. U31 supersedes row 3's pinwheel exemption. No live doc called the pinwheel exempt, so no doc prose changed.
+
+Reproduction: the header bars were already stopping on the results page at the base commit (Firefox and Chromium: `animation-name` none after the click and after a reload with the stored choice), so the first bar report did not reproduce and the bar rule is unchanged. U33 (unmatched page) was reproduced with a real click on a seeded page at 390, 900, 1280 and 1920px in both browsers and also works (bars `ss-bar-pulse` x5 before, `none` x5 after; the controller repeated it on the owner's server), so no code fix; the likeliest cause is a carried-over paused state or a cached stylesheet. A click check was added anyway. The bar rule and the pulse rule have equal specificity and the pause wins by source order only; the new checks guard that.
+
+Deviations: none from the owner rulings. Checks: `_paused_motion_failures` and `_unmatched_pause_failures` in `scripts/dev/_frontend_gate_pipeline.py` (bars and pinwheel rest while paused; the unmatched button click rests the bars), `_pause_hold_failures` in `scripts/dev/_frontend_gate_spotlight_photo.py` (stored pause before load: artist unchanged over 3 periods and bars rest, then Play resumes), and `test_pause_animations_holds_the_rotation_and_play_resumes_it` in `scripts/dev/results_behavior_tests.py`.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py::test_the_hold_check_focuses_then_hovers_and_counts_the_periods` (the check gained a paused phase) and `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` (now three tick failures plus a "did not resume").
+
+Validation: `pytest -q` -- **3016 passed**.
+
 ### 2026-10-27 - Scrub the streamgraph with a panel and column ring
 
 Side task, no batch tag: hover and touch scrubbing of the streamgraph with a values panel and a heatmap column ring (streamgraph plan Task 7), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -130,6 +200,92 @@ What changed and why: the plan went through three reviews; findings SP-F1..SP-F1
 Deviations: none. Existing tests edited: none.
 
 Validation: `pytest -q` -- **2978 passed**.
+
+### 2026-10-27 - Keep the home page within one screen
+
+Side task, no batch tag: keeping the desktop home page within one screen, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U24, after the Firefox pass: "ideally there would be 0 vertical scrolling"; U25/U27 placement: the pause button "at the very bottom" of the left column, "centered"). Row 3's "Pause animations" button made `.page-footer-extras` non-empty on the home page, so the page scrolled 92px at every desktop size below the full-height `.index-grid`. From 860px the button now sits at the foot of the home page's left column (`.index-hero__motion`, a second `.motion-toggle` in `templates/index.html`, centred with `margin-top: auto`), and `body:not(.heatmap-stage-active) .page-footer-extras` is `display: none` in `static/css/index.css`, so the footer takes no space (it returns while the heatmap stage replaces the grid). Below 860px the footer copy stays and the hero copy is `display: none`, so exactly one is focusable at any width. `static/js/theme.js` syncs every copy's label and `aria-pressed` to `data-motion`. Measured (scrollHeight - clientHeight, Firefox and Chromium, album and heatmap modes identical): 1920x1080, 1920x960, 1536x864, 1440x900, 1366x768 and 1280x720 went 92px -> 0; 1536x730 went 106px -> 10px (Firefox) and 108px -> 12px (Chromium). The 10px residual is content taller than the viewport (header, hero padding, hero content and the 44px button), not shrunk, per U24 item 5. Rows 2 and 10 are unchanged (tabs and active key tops identical before and after). No Chromium-only CSS; the button's size, focus ring and contrast are unchanged. The gate (`scripts/dev/_frontend_gate_layout.py`) now fails when the home page scrolls at 1920x1080 or 1366x768 in either mode, or when the pause button count, position or sync is wrong.
+
+Focus order: Pause now precedes the form on the home page from 860px. That follows the visual left-to-right order and is one labelled control, so WCAG 2.4.3 is judged met (U24-L1); one extra Tab stop before the form.
+
+Deviations: (U25) supersedes the brief's shorter-grid items 2 and 3. (U26 was superseded by U27: left column, centred.) (U24-L1) the comment in `static/css/shell.css` and the docstring of `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` said the wrapper is never empty; both now say it is hidden on the home page from 860px (the docstring edit is outside the brief's Touches, authorised by the controller). The gate does not pin which column holds the button; the owner's Firefox check does.
+
+Existing tests edited, by name: `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` (docstring only) and the `_run_large_display_check` helper in `tests/scripts/dev/test_frontend_gate_layout.py` (optional `overflow` stub). Added: `test_the_home_page_must_not_scroll_vertically_in_either_mode` (parametrized) and `test_the_large_display_check_measures_the_home_fit_windows`.
+
+Validation: `pytest -q` -- **3015 passed**.
+
+### 2026-10-27 - Move the home page keys to the left column
+
+Side task, no batch tag: UI audit v6 row 10, moving the home page keys to the left column, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 10): the right column holds controls only. The heatmap preview card inside the form stack and the album "Only plays inside this calendar year are counted." hint explained the mode in the form. `templates/index.html` now has an `.index-hero__keys` wrapper under the strip with two keys, `data-mode-key="album"` (rows Year, Plays, Tracks; "How an album makes the list") and `data-mode-key="heatmap"` (the old card markup, `.hm-preview*` names kept as hooks). `static/js/heatmap.js` `switchModeHero` crossfades the keys with the strip through one mechanism (the inactive key gets `aria-hidden="true"` and `visibility:hidden`). `static/js/index.js` `updateKeyCounts` makes the album key's two numbers follow the steppers (singular at 1) and runs in the initial-state sync too, so restored form values show. `static/css/index.css` holds the `.index-key*` rules in `--index-scale` units; `static/css/heatmap.css` lost the card, key and facts rules. `_heatmap_form.html` lost the card. The mode switch moves the tabs 0px (row 2's floor). Contrast (computed, both themes): min 5.17:1 (labels), max 10.61:1; no new colour token. No Chromium-only CSS.
+
+Deviations: (U21) supersedes brief item 6: below 860px both keys are hidden like the strip, and the year hint stays in the form as `field__help--phone` (shown below 860px, hidden from 860px up). (U22) the album key also ends with the 1px `--ss-border-divider` rule at the strip's width, like the heatmap key; the rule sits on each key, which stretch to the taller one, so it lands at the same y in both modes. The keys use a new attribute `data-mode-key`, not `data-mode-marks`, so the gate's `[data-mode-marks="{mode}"].is-active` locator keeps selecting only the strip.
+
+Existing tests edited, by name: `tests/frontend/test_heatmap_pure_functions.py::_preview_text` (helper; reads the heatmap key from `templates/index.html`) and the `MODE_SWITCH` constant in `tests/scripts/dev/test_frontend_gate_layout.py` (new fields). Added: `test_the_form_stack_holds_no_key_and_each_mode_shows_its_own` (parametrized) and `test_a_phone_hides_the_keys_and_keeps_the_year_hint`, over new checks in `scripts/dev/_frontend_gate_layout.py` (`_home_key_failures`, `_phone_home_failures`, `_restored_key_text`).
+
+Validation: `pytest -q` -- **3007 passed**.
+
+### 2026-10-27 - Keep the home form centred without the jump
+
+Side task, no batch tag: UI audit v6 row 2, keeping the home form centred without the jump, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 2): the form stack re-centred instantly on every height change, so the tabs jumped when the mode, the release scope or the thresholds changed. `static/css/index.css` gives `.index-form__inner` `min-height: var(--index-card-min, auto)`. `static/js/index.js` `syncFormMinHeight` measures the inner's height in the default album state (scope same/previous/all, thresholds closed) on load, after `document.fonts.ready`, after a resize that changes the resolved `max-width` and across the 860px breakpoint, and sets the floor only on desktop, so the Heatmap tab sits where the Album tab did. `playFlip` glides the remaining shift over 220ms (`translateY` to none, `cubic-bezier(.16, 1, .3, 1)`), skipped under reduced motion; it is triggered by the scope `change`, and by one capture-phase click listener for `.mode-pill` and `.disclosure__summary`. A page loaded in Heatmap mode re-measures the floor on its first switch to the album state. `scripts/dev/_frontend_gate_layout.py` gains `_measure_mode_switch_shift`, `_measure_heatmap_first_shift` and `_mode_switch_failures`, called from `check_large_display_scale_parity` at 1920x1063 (1px tolerance). No template or `heatmap.js` change; Firefox and Chromium both measured 0px; no new colour pairing.
+
+Deviations: (R2-F1) the `min-height` rule sits inside the existing `min-width: 860px` block, so phones never pad the heatmap form to the album height. (R2-F3) the FLIP triggers are the scope `change` plus the capture-phase click listener (instead of editing `heatmap.js`), and the floor is re-measured in `playFlip`'s frame callback so the tab, scope and disclosure paths all work after a Heatmap-first load.
+
+Existing tests edited, by name, in `tests/scripts/dev/test_frontend_gate_layout.py`: the helper `_run_large_display_check` (stubs the two new measurements). Added: `test_mode_switch_must_stay_put_when_the_mode_changes` and the parametrized `test_large_display_check_reports_a_mode_switch_that_moves` (album-first, heatmap-first).
+
+Validation: `pytest -q` -- **2992 passed**.
+
+### 2026-10-27 - Drop the sort-change toast
+
+Side task, no batch tag: UI audit v6 row 9, dropping the sort-change toast, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 9): switching the leaderboard between play count and play time no longer raises a toast. The hidden-album count already shows in `#playtime-hidden-note`, so the toast repeated the page. `setLeaderboardMetric` in `static/js/results.js` loses its `showToast` block, the `hiddenCount` string built only for it, the now-unused `showNotification` parameter and an unused `dropped` binding; its three callers (the plays and playtime buttons, `setUnmatchedHidden`) are updated. `showToast` stays for the CSV, image export and error callers. No CSS and no new colour pairing.
+
+Deviations: none.
+
+Existing tests edited, by name, in `scripts/dev/results_behavior_tests.py`: `test_hidden_note_and_toast_carry_the_count_of_dropped_albums` (renamed `test_sort_switch_shows_the_count_in_the_note_and_no_toast`, extended to assert no toast, the subtitle and the column header), `test_hidden_note_stays_hidden_when_every_album_has_a_listening_time` (asserts no toast) and `test_hidden_note_counts_only_rows_the_ranking_alone_drops` (tuple unpack only).
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - Add a pause-animations footer control
+
+Side task, no batch tag: UI audit v6 row 3, a pause-animations footer control, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 3): the header mark's bar animation can be paused (WCAG 2.2.2). A `.motion-toggle` button is the first child of `.page-footer-extras` in `templates/base.html` and reads "Pause animations" / "Play animations" with `aria-pressed`. `static/js/theme.js` toggles `data-motion="still"` on `<html>`, syncs the label from that attribute on load and persists the choice in localStorage `ss-motion` (write and remove in a try). The pre-paint script in `base.html` reads `ss-motion` in its own try so a paused page never flashes the animation. `static/css/shell.css` sets `animation: none` on the header mark's bars under `[data-motion="still"]`; the loading-page pinwheel is untouched. Under `prefers-reduced-motion` the bars are already still and the button keeps showing the stored state. The `.page-footer-extras:empty` rule is removed because the wrapper now always holds the button. The focus ring is 2px solid `--shell-accent` with offset 2px, as the header toggle. Contrast: rest text 5.17:1 light and 5.82:1 dark, focus ring 6.06:1 light and 8.14:1 dark (min 5.17, max 8.14); nothing is Chromium-only.
+
+Deviations: (R3-F1) the README hover colour `--rocket-5` (#f0903a) is 2.24:1 on the light footer (#faf7f0), under the 4.5:1 contrast floor, so the contrast floor governs: light hover uses `--shell-accent` (#6a4baf, 6.06:1) and dark keeps `--rocket-5` (8.11:1). The header comment of `static/js/theme.js` also names the new toggle (R3-F2).
+
+Existing tests edited, by name: `test_every_page_wraps_its_footer_extras` (the button opens the wrapper) and `test_every_page_sets_the_theme_before_first_paint` (runs the inline script in node with fake storage; skips when node is missing) in `tests/test_template_shell.py`.
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - Make the favicon follow the theme
+
+Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 8, favicon option C): the favicon uses the site's own surfaces and purples and follows the browser colour scheme. `static/images/favicon.svg` (1841 bytes) holds a `<style>` block with plate `#faf7f0` / blades `#6a4baf`, and under `prefers-color-scheme: dark` plate `#181520` / blades `#b39dde`; the rounded 32x32 plate (`rx="8"`) carries the four existing blade paths scaled to .86. `favicon-16x16.png`, `favicon-32x32.png` and `favicon.ico` (16 + 32, PNG payloads, written by hand) are regenerated from the light variant, and `apple-touch-icon.png` (180x180, full-bleed cream plate, blades at .86) is new. `templates/base.html` `<head>` gains the apple-touch link and two `theme-color` metas (`#faf7f0` light, `#0e0c12` dark); the four existing icon links stay. Blade against plate contrast is 6.06:1 light and 7.54:1 dark (non-text minimum 3:1). The README's 7.8 kB `c2pa` block was already gone from the file. The PNGs were rendered with Playwright Chromium (Pillow is not a dependency); the SVG itself uses only plain CSS and a media query.
+
+Deviations: none.
+
+Existing tests edited, by name: `test_every_page_carries_the_shared_shell` in `tests/test_template_shell.py` (asserts the apple-touch link and both theme-color metas).
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - State the real total of a capped unmatched group
+
+Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (ruling U12, which supersedes U4): a group that shows fewer albums than it holds says so, "Showing the first 500 of N", with N the real total and no hard-coded 500. `group_unmatched_albums_with_totals` in `scrobblescope/unmatched.py` returns the groups, counts, metadata and a `totals` dict holding only the groups that show fewer than they hold; the total is the pre-slice length, and for the below-threshold group the larger of that and the `albums_below_threshold` stat, which `plays.select_albums` takes before its exclusion cap and which already reaches `progress.stats`, so the orchestrator is unchanged. `group_unmatched_albums` keeps its 3-tuple by delegating. `_render_unmatched_page` in `scrobblescope/routes/album_flow.py` passes `reason_totals`; `templates/unmatched.html` prints the line as a muted `text-xs` note under the group table, above the expander row. No new CSS and no new colour pairing (same muted token and surface as the group's other secondary text). Provisional wording until the impeccable pass; no real-data browser check was done.
+
+Deviations: review finding R12-F1 was fixed at landing: the route test gained a case where the capped group is not the below-threshold group (520 no-match albums), so a template that looked the total up with a fixed `below_threshold` key fails.
+
+Existing tests edited, by name: none; `test_unmatched_view_states_the_real_total_of_a_capped_group` (route, three cases) and the parametrized grouping-totals test in `tests/test_unmatched.py` are new.
+
+Validation: `pytest -q` -- **2986 passed**.
 
 ### 2026-10-27 - Drop ellipses from progress and toast messages
 

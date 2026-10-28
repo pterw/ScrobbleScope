@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Take main into the streamgraph branch
+
+Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U37): PR #278 is retargeted to `main` after #277 merges, so its diff is its own. The branch takes #277 first, by a merge commit and not a rebase (AGENTS.md).
+
+What changed and why: a plain `git merge`. Five docs conflicted and nothing else: `.claude/SESSION_CONTEXT.md`, `config/docsync.toml` and `docs/agents/FINDINGS.md` differed only in the test count (re-measured, then `--fix`); `docs/agents/PLAYBOOK.md` Section 4 and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` keep every dated entry from both sides, none lost. The code files merged without conflict; `static/js/heatmap.js` (saveHeatmapImage/drawHeatmapImage split, mode-key crossfade) and `scripts/dev/_frontend_gate_theme.py` (token-parsed `_split_canvas_font`, no `re` import) were read for clashes with the branch's Save image and theme-scope work and none was found.
+
+Deviations: none.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3095 passed**.
+
 ### 2026-10-27 - Bring the job and module docs up to the streamgraph
 
 Side task, no batch tag: the follow-up to the streamgraph docs commit (review ruling SG10-F1), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -227,25 +241,5 @@ Rulings recorded: S15, S19, SG9-F1, SG9-F2, SG9-F3. Firefox probe: the same asse
 Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. Check (b) samples the middle of the layer found on the centre line, not the centre-line pixel, because that pixel can fall on a layer edge. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 57 checks passed) and did not re-run the frontend gate.
 
 Existing tests edited, by name: none (new gate check only, registered in `CHECKS`).
-
-Validation: `pytest -q` -- **3050 passed**.
-
-### 2026-10-27 - Add keyboard access to the streamgraph
-
-Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U23): match the Claude Design reference, and the stream must not be pointer-only.
-
-What changed and why: `static/js/heatmap.js` gains the pure helpers `streamKeyTarget`, `streamStartTarget` and `streamPositions` (test seam) and the key and focus handlers on `#stream-chart`, now `tabindex="0"`, `role="application"` with an `aria-label`. The stream is one tab stop: on focus with nothing selected it starts at week 26 (the last week when there are fewer) on the top layer; the arrow keys, Home and End move through the same `showWeek` path as the pointer, edges clamp, ArrowUp and ArrowDown walk the stack positions down to "Everything else", blur calls `clearWeek()`, and Tab is never trapped. `static/css/heatmap.css` adds the `.stream-chart:focus-visible` outline (2px, offset 4px). `scripts/dev/_frontend_gate_stream.py` adds `stream is one keyboard tab stop` (DESKTOP, Chromium), registered in `frontend_gate.py` (THEME_MOTION); the gate went from 55 to 56 checks.
-
-Padding change: `#heatmap-grid` at 860px and wider goes from 4px to 8px padding, with a matching -8px margin and `calc(100% + 16px)` width, so the grid box no longer clips the outline (it paints 6px outside the chart). The layout is unchanged (net content box identical); reviewed and accepted.
-
-Rulings recorded: SG8-F1 (review, Minor, restored as the brief mandates): the gate injects a focusable sentinel after the stream in its own page only and asserts Tab from the stream lands on it, then Shift+Tab twice returns to the grid cell. SG8-F2 (review, Important): the sentinel is injected after the outline, walk and tab-stop measurements, so it cannot add height to the grid and mask a bottom clip; proved red with bottom padding removed. Accepted Minors: a pointer leaving while the stream is focused clears the shown week (keys resume from the last keyboard week), and there is no Escape handling.
-
-Contrast (rendered focus outline against the frame, both themes): min 5.45, max 7.06; nothing fails. Firefox probe: tab stop, arrows, Home / End, blur and resize-blur pass; the full gate runs this check in Chromium only.
-
-Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 56 checks passed) and did not re-run the frontend gate.
-
-Existing tests edited, by name: none (new tests appended to `tests/frontend/test_heatmap_pure_functions.py`).
 
 Validation: `pytest -q` -- **3050 passed**.

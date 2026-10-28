@@ -9,6 +9,7 @@ from scrobblescope.unmatched import (
     REASON_RELEASE_SCOPE,
     describe_shortfall,
     group_unmatched_albums,
+    group_unmatched_albums_with_totals,
     partition_albums_by_threshold,
 )
 
@@ -181,6 +182,62 @@ def test_group_unmatched_albums_ranks_top_offenders_deterministically():
         "Low Plays",
         "Unknown Plays",
     ]
+
+
+def _albums(reason_code, count):
+    return {
+        f"{reason_code}|{n}": {
+            "artist": "Artist",
+            "album": f"Album {n}",
+            "play_count": 1,
+            "reason_code": reason_code,
+        }
+        for n in range(count)
+    }
+
+
+@pytest.mark.parametrize(
+    ("reason_code", "recorded", "below_threshold_total", "shown", "totals"),
+    [
+        pytest.param(
+            REASON_NO_SPOTIFY_MATCH,
+            520,
+            0,
+            500,
+            520,
+            id="sliced-here-reports-pre-slice",
+        ),
+        pytest.param(
+            REASON_BELOW_THRESHOLD,
+            500,
+            692,
+            500,
+            692,
+            id="capped-upstream-reports-stat",
+        ),
+        pytest.param(
+            REASON_BELOW_THRESHOLD, 520, 510, 500, 520, id="larger-known-count-wins"
+        ),
+        pytest.param(
+            REASON_RELEASE_SCOPE, 12, 692, 12, None, id="uncapped-group-has-no-total"
+        ),
+        pytest.param(
+            REASON_BELOW_THRESHOLD, 12, 12, 12, None, id="stat-equal-to-shown-is-no-cap"
+        ),
+    ],
+)
+def test_group_unmatched_albums_with_totals_states_the_real_total_of_a_capped_group(
+    reason_code, recorded, below_threshold_total, shown, totals
+):
+    """A group shows its real total only when it shows fewer albums than it holds."""
+    data = _albums(reason_code, recorded)
+
+    groups, counts, _, reported = group_unmatched_albums_with_totals(
+        data, below_threshold_total
+    )
+
+    assert counts[reason_code] == shown == len(groups[reason_code])
+    assert reported == ({} if totals is None else {reason_code: totals})
 
 
 def test_provider_unavailable_is_its_own_group_with_its_own_copy():

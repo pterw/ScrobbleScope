@@ -151,6 +151,35 @@ def group_unmatched_albums(
         - ``metadata`` maps each group key to a dict with ``title``,
           ``description``, ``badge``, and ``fix_hint``.
     """
+    groups, counts, metadata, _ = group_unmatched_albums_with_totals(unmatched_data)
+    return groups, counts, metadata
+
+
+def group_unmatched_albums_with_totals(
+    unmatched_data: dict[str, dict[str, Any]],
+    below_threshold_total: int = 0,
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    dict[str, int],
+    dict[str, dict[str, str]],
+    dict[str, int],
+]:
+    """Group like ``group_unmatched_albums`` and report capped groups' totals.
+
+    A group shows fewer albums than it holds when it was sliced to
+    ``MAX_UNMATCHED_GROUP_CAP`` here, or when the below-threshold albums were
+    capped before they were recorded (``below_threshold_total`` is their count
+    before that cap).
+
+    Args:
+        unmatched_data: The job's unmatched entries.
+        below_threshold_total: The run's ``albums_below_threshold`` stat.
+
+    Returns:
+        ``(groups, counts, metadata, totals)``. ``totals`` has an entry only
+        for a group that shows fewer albums than it holds, mapped to the real
+        number, which is never less than the number shown.
+    """
     groups: dict[str, list[dict[str, Any]]] = {}
     metadata: dict[str, dict[str, str]] = {}
 
@@ -205,4 +234,12 @@ def group_unmatched_albums(
     }
     counts = {k: len(v) for k, v in sorted_groups.items()}
 
-    return sorted_groups, counts, metadata
+    totals = {}
+    for key, shown in counts.items():
+        known = len(groups[key])
+        if key == REASON_BELOW_THRESHOLD:
+            known = max(known, below_threshold_total)
+        if known > shown:
+            totals[key] = known
+
+    return sorted_groups, counts, metadata, totals
