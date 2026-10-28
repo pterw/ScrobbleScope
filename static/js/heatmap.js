@@ -154,10 +154,14 @@
   const STREAM_RING_W  = 2 * STEP / 27;    // column marker stroke width
   const STREAM_RING_PAD = 4 * STEP / 27;   // marker offset and corner radius
 
-  // rocket_r stops by rank (0 = largest artist). The light theme scales the
-  // whole ramp so its top stop is 0.83, which keeps every rank distinct.
-  const STREAM_RAMP = [.95, .88, .81, .74, .67, .60, .53, .46, .39, .32];
-  const STREAM_LIGHT_SCALE = 0.83 / 0.95;
+  // seaborn v0.13.2 _rocket_lut: light samples 15%-78%, dark samples 28%-90%.
+  const STREAM_PALETTE = {
+    light: ['#391a40', '#4f1d4c', '#671f55', '#7f1e5a', '#981b5b', '#b11759',
+      '#c81951', '#db2a46', '#e9433e', '#f05f43', '#f47a54', '#f5946b'],
+    dark: ['#6d1f56', '#851e5b', '#9e1a5b', '#b61657', '#cc1c4f', '#de2e44',
+      '#eb473e', '#f16445', '#f47e57', '#f5976e', '#f6ae87', '#f7c5a5'],
+  };
+  const STREAM_STEPS = [0, 4, 5, 8, 9, 1, 2, 10, 11, 3, 6, 7];
 
   /**
    * Layer order, bottom to top, as indices into volumes: the largest in the
@@ -274,10 +278,9 @@
       'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y) + smoothSegments(back) + 'Z';
   }
 
-  /** Fill for the artist of the given rank (rocket_r, theme-scaled). */
+  /** Fill for the artist rank from the theme palette in a fixed order. */
   function layerColour(rank, theme) {
-    const t = STREAM_RAMP[rank];
-    return rocketColor(theme === 'light' ? t * STREAM_LIGHT_SCALE : t);
+    return STREAM_PALETTE[theme][STREAM_STEPS[rank]];
   }
 
   function isCountList(list, n) {
@@ -295,7 +298,8 @@
     if (!payload || typeof payload !== 'object') return false;
     if (!Array.isArray(payload.weeks) || payload.weeks.length !== numCols) return false;
     if (!payload.weeks.every(function (w) { return typeof w === 'string'; })) return false;
-    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_RAMP.length) {
+    // This cap duplicates the server top_n plus BURST_LAYERS.
+    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_STEPS.length) {
       return false;
     }
     var artistsOk = payload.artists.every(function (a) {
@@ -2577,6 +2581,7 @@
       streamFit: streamFit,
       smoothPath: smoothPath,
       layerColour: layerColour,
+      streamPalette: STREAM_PALETTE,
       streamPayloadValid: streamPayloadValid,
       weekFromX: weekFromX,
       layerAtY: layerAtY,

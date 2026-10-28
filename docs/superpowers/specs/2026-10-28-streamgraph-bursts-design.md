@@ -71,9 +71,10 @@ ends of the warm ramp unused.
 
 ## Verification
 
-- Prototype first: the real flounder14 payload (window ending 2026-10-28) rendered with the new selection,
-  tooltip and palette, screenshots in Firefox in both themes, including the weeks covering 11-17 October; owner
-  sign-off before any implementation task lands (the prototype renders the real task patches).
+- The real flounder14 payload (window ending 2026-10-28) is rendered with the new selection, tooltip
+  and palette, with Firefox screenshots in both themes, including the weeks covering 11-17 October.
+  Owner sign-off precedes PR publication; the owner authorized atomic checkpoint commits before
+  prototype approval on 2026-10-28. The prototype renders the real task patches.
 - Unit tests (lean suite, one per behaviour, parametrized): a burst crossing a Monday is found; the top 10
   are unchanged; burst layers are zero outside the burst; fewer than 12 artists; the 3 hidden artists per
   week and their order; empty-key plays never named; the job store passes the hidden list through as a copy.

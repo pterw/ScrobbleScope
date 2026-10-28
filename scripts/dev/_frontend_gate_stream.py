@@ -286,6 +286,9 @@ _READ_PAINT_JS = """(theme) => {
 
 
 def _rgb(value: str | None) -> tuple[float, float, float]:
+    """Read a computed colour or a six-digit stream palette hex value."""
+    if value and value.startswith("#") and len(value) == 7:
+        return _hex_rgb(value)
     return _parse_rgb_string(value or "")[:3]
 
 

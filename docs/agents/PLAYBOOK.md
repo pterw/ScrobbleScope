@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Colour twelve stream layers with the rocket palette
+
+Side task, no batch tag: colour twelve stream layers with the rocket palette, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: give all twelve layers distinct colours, with touching bands separated across the ramp and each theme using its visible range.
+
+What changed: Task 2 installs the frozen seaborn v0.13.2 rocket samples and fixed permutation, exports the palette to the existing test hooks, and accepts up to twelve layers. DESIGN.md follows those values. The stream gate's existing `_rgb` wrapper now accepts the palette's six-digit hex values through its existing decoder. The active design spec now reflects the owner's checkpoint-commit timing override, resolving Task 1's landing-review follow-up.
+
+Deviations: the owner approved the minimal `_rgb` gate compatibility hunk outside the original Task 2 Touches. The palette stays in JS arrays with per-theme sampling windows, as agreed. Stream fills retain their U20 exemption: light contrast min/max 1.89/12.66, dark 1.59/10.83. No helper, test, dependency or schema was added beyond the approved plan.
+
+Existing tests edited: `test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped` became `test_layer_colour_gives_touching_layers_distinct_palette_steps`; `test_stream_payload_valid` covers the twelve/thirteen-layer boundary. Code-phase red: 5 failed, 13 passed; green whole file: 139 passed. The published LUT derivation had 0 differences. Independent palette and approved-exception reviews passed. Fresh landing focused tests: 18 passed, 121 deselected; whole file: 139 passed. The three full-suite shards all passed.
+
+Validation: `pytest -q` -- **3110 passed**.
+
+Forward guidance: land Task 3's tooltip next. Firefox prototype approval still precedes PR publication; Task 0 remains pending.
+
 ### 2026-10-28 - Add server burst layers and weekly hidden artists
 
 Side task, no batch tag: add server burst layers and weekly hidden artists, on `feat/streamgraph-bursts`, a branch off `main`.
@@ -227,19 +243,3 @@ Deviations: none.
 Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
 
 Validation: `pytest -q` -- **3099 passed**.
-
-### 2026-10-28 - Keep the scrubber panel inside the chart
-
-Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U23): the streamgraph matches the Claude Design reference in look and behaviour; the panel must also stay visible inside the chart frame when a fallback face renders it.
-
-Root cause: CI has no Adobe kit fonts, so a wider fallback face draws the panel. The panel was sized by the room right of its anchor. Week 40 (the only week with a two-digit day, "Oct 13") opens leftwards into 225px of room, so it was squeezed to its 260px minimum, the wider face wrapped its header, and the panel ran past the chart's bottom (+9.8px against a 0.5px tolerance). Weeks 0 and 30 had room and passed. Blocking the kit alone does not reproduce it on Windows (the Windows fallback face is narrow), so the gate adds a wide-face pass.
-
-What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 360px and no further than the room on its side (`--stream-panel-room`, set by `showWeek` in `static/js/heatmap.js`); the header never wraps and a long artist name ends in an ellipsis. `showWeek` also measures the room on both sides of the column and opens toward the side with room when the reference side lacks it. The hover check in `scripts/dev/_frontend_gate_stream.py` (one check, more passes) gains a pass with the kit refused and wider tracking (checked as in effect), a 60-character artist name, weeks 0, 30, 33 and 40, containment on both axes, and a 1024x768 pass over weeks 0, 34 and 52. Proven red against the earlier code in Chromium and Firefox, then green.
-
-Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
-
-Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
-
-Validation: `pytest -q` -- **3095 passed**.

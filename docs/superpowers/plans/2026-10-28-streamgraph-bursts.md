@@ -307,11 +307,16 @@ the Validation line.
 - Modify: `tests/frontend/test_heatmap_pure_functions.py` (`test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped`;
   the `_eleven_artists` case of `test_stream_payload_valid`)
 - Modify: `DESIGN.md` (line 137, the "Stream Layers" bullet)
+- Modify: `scripts/dev/_frontend_gate_stream.py` (`_rgb` only: owner-approved hex compatibility exception, 2026-10-28)
 
 **After:** none (Wave 1). **Mode:** code. **Interfaces:** consumes "Palette" in Frozen interfaces;
 produces `layerColour(rank, theme)` for ranks 0..11 and the `streamPalette` hook. The palette ORDER is
 checked by the Task 2 scratch diff and the owner's prototype screenshots, not by a committed test.
 **Gates:** focused tests, pre-commit on the changed files, frontend gate.
+
+**Approved exception (owner, 2026-10-28).** The frozen palette returns hex strings; the existing
+stream gate accepted only computed colour forms. `_rgb` routes six-digit hex through the existing
+`_hex_rgb` helper and preserves its computed-colour fallback. No new helper or test is added.
 
 **Behaviour.** Replace `STREAM_RAMP` and `STREAM_LIGHT_SCALE` with `STREAM_PALETTE = {light: [...],
 dark: [...]}` (the two rows of the frozen table, typed exactly) and `STREAM_STEPS = [0, 4, 5, 8, 9, 1, 2,
@@ -328,18 +333,18 @@ A one-line comment names seaborn v0.13.2 `_rocket_lut` and the two sampling wind
 | a | Twelve layers get twelve distinct colours of the theme's palette, and layers that touch in the stack are at least 3 steps apart | edit the existing `layerColour` test (rename it `test_layer_colour_gives_touching_layers_distinct_palette_steps`), parametrized over theme (`light`, `dark`) and over two volume lists: `[120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10]` and the same with the last two swapped (`..., 30, 10, 20`). In one `js_page.evaluate`, for each case: `order = hooks.streamOrder(volumes)`; `steps = order.map(rank => hooks.streamPalette[theme].indexOf(hooks.layerColour(rank, theme)))`; return `steps`. Assert `sorted(steps) == list(range(12))` (every colour found, all distinct) and `min(abs(a - b) for a, b in zip(steps, steps[1:])) >= 3` | BASE has no `streamPalette` hook (the evaluate fails) and only 10 ramp stops |
 | b | A payload may carry 12 layers, not 13 | edit `test_stream_payload_valid`: `_eleven_artists` becomes `_thirteen_artists` (invalid); add a `twelve-artists` valid case | BASE rejects 11, so the twelve case is red |
 
-- [ ] **Step 1: Write the tests, run red against BASE.**
+- [x] **Step 1: Write the tests, run red against BASE.**
   `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe" -m pytest -q -p no:cacheprovider tests/frontend/test_heatmap_pure_functions.py -k "layer_colour or stream_payload_valid"`
-- [ ] **Step 2: Implement** as above. Scratch check (not committed, in `<scratchpad>/sgb-2/`): fetch
+- [x] **Step 2: Implement** as above. Scratch check (not committed, in `<scratchpad>/sgb-2/`): fetch
   `cm.py` with the URL in "Palette" (`curl`, bounded with `--max-time 40`), re-derive both rows with the
   recipe and diff against the typed hexes; quote "0 differences".
-- [ ] **Step 3: Green** (same command), then the whole file (`tests/frontend/test_heatmap_pure_functions.py`).
-- [ ] **Step 4: Docs.** `DESIGN.md` line 137: the layers use 12 steps of seaborn's `rocket` colormap
+- [x] **Step 3: Green** (same command), then the whole file (`tests/frontend/test_heatmap_pure_functions.py`).
+- [x] **Step 4: Docs.** `DESIGN.md` line 137: the layers use 12 steps of seaborn's `rocket` colormap
   (v0.13.2), light sampled over 15%-78% and dark over 28%-90%, assigned by a fixed permutation so
   touching layers are at least 3 steps apart; keep the "Everything else", gridline, label and outline
   colours and the U20 exemption sentence. Do not touch README (its "one owner" paragraph is about the
   grid ramp and stays true). `Last updated:`.
-- [ ] **Step 5: Frontend gate** (changes `static/`): the `[stream colours]` lines print min and max per
+- [x] **Step 5: Frontend gate** (changes `static/`): the `[stream colours]` lines print min and max per
   theme; quote them (expected: light 1.89 / 12.66, dark 1.59 / 10.83). Pre-commit on the changed files,
   stage by name, write the patch.
 
@@ -530,7 +535,7 @@ paths; the final `docs(plan)` commit ticks this task's boxes.
 
 | Wave | Tasks (mode) | Files (pairwise disjoint) | Peak agents |
 |---|---|---|---|
-| 1 | 1 (`code`), 2 (`code`) | `plays.py`, `jobs.py`, `tests/test_plays.py`, `tests/test_jobs.py`, `README.md`, `heatmap-sequence.md` / `heatmap.js`, `tests/frontend/test_heatmap_pure_functions.py`, `DESIGN.md` | 2 implementers + 2 nested gate-runs |
+| 1 | 1 (`code`), 2 (`code`) | `plays.py`, `jobs.py`, `tests/test_plays.py`, `tests/test_jobs.py`, `README.md`, `heatmap-sequence.md` / `heatmap.js`, `tests/frontend/test_heatmap_pure_functions.py`, `DESIGN.md`, `_frontend_gate_stream.py` (`_rgb` exception) | 2 implementers + 2 nested gate-runs |
 | 2 | 3 (`code`, on Task 2's patch) | `heatmap.js`, `heatmap.css`, the frontend test file, `README.md`, `DESIGN.md` | 1 + 1 |
 | 3 | 4 (`code`, on Tasks 1-3), 0 (prototype, on Tasks 1-3) | `_frontend_gate_stream.py`, `frontend_gate.py` / scratch only | 2 + 1 nested |
 

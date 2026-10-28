@@ -868,22 +868,35 @@ def test_smooth_path_tolerates_degenerate_input(js_page, top):
     assert out["closed"] or not top
 
 
-def test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped(js_page):
-    got = js_page.evaluate(
-        """() => {
-            const h = window.__scrobbleHeatmapTestHooks;
-            const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-            return {
-                dark0: [h.layerColour(0, 'dark'), h.rocketColor(.95)],
-                dark9: [h.layerColour(9, 'dark'), h.rocketColor(.32)],
-                light0: [h.layerColour(0, 'light'), h.rocketColor(.83)],
-                light: ranks.map((r) => h.layerColour(r, 'light')),
-            };
-        }"""
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize(
+    "volumes",
+    [
+        [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10],
+        [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 10, 20],
+    ],
+    ids=["descending-bursts", "swapped-bursts"],
+)
+def test_layer_colour_gives_touching_layers_distinct_palette_steps(
+    js_page, theme, volumes
+):
+    """Keep touching layers separated in each theme's palette.
+
+    GIVEN: Twelve layers with either ordering of the two burst volumes.
+    WHEN: The layers receive colours and are ordered into the stack.
+    THEN: Every palette colour is used and touching layers differ by three steps.
+    """
+    steps = js_page.evaluate(
+        """([theme, volumes]) => {
+            const hooks = window.__scrobbleHeatmapTestHooks;
+            const order = hooks.streamOrder(volumes);
+            return order.map(rank => hooks.streamPalette[theme].indexOf(
+                hooks.layerColour(rank, theme)));
+        }""",
+        [theme, volumes],
     )
-    for key in ("dark0", "dark9", "light0"):
-        assert got[key][0] == got[key][1], key
-    assert len(set(got["light"])) == 10
+    assert sorted(steps) == list(range(12))
+    assert min(abs(a - b) for a, b in zip(steps, steps[1:], strict=False)) >= 3
 
 
 def _stream_payload(cols=3, artists=2):
@@ -923,8 +936,8 @@ def _no_other(p):
     del p["other"]
 
 
-def _eleven_artists(p):
-    p["artists"] = _stream_payload(artists=11)["artists"]
+def _thirteen_artists(p):
+    p["artists"] = _stream_payload(artists=13)["artists"]
 
 
 def _non_string_week(p):
@@ -943,13 +956,14 @@ def _artists_not_a_list(p):
     ("payload", "valid"),
     [
         (_stream_case(), True),
+        (_stream_payload(artists=12), True),
         (_stream_case(lambda p: p.update(artists=[])), True),  # zero artists
         (_stream_case(_short_weeks), False),
         (_stream_case(_short_counts), False),
         (_stream_case(_set_count(-1)), False),
         (_stream_case(_set_count("3")), False),
         (_stream_case(_no_other), False),
-        (_stream_case(_eleven_artists), False),
+        (_stream_case(_thirteen_artists), False),
         (_stream_case(_non_string_week), False),
         (_stream_case(_non_string_name), False),
         (_stream_case(_artists_not_a_list), False),
@@ -958,13 +972,14 @@ def _artists_not_a_list(p):
     ],
     ids=[
         "valid",
+        "twelve-artists",
         "zero-artists",
         "weeks-length",
         "counts-length",
         "negative-count",
         "non-numeric-count",
         "other-missing",
-        "eleven-artists",
+        "thirteen-artists",
         "non-string-week",
         "non-string-name",
         "artists-not-a-list",
@@ -973,6 +988,12 @@ def _artists_not_a_list(p):
     ],
 )
 def test_stream_payload_valid(js_page, payload, valid):
+    """Accept drawable payloads up to twelve artist layers.
+
+    GIVEN: Valid payloads and malformed or oversized variants.
+    WHEN: The stream validates the payload against the grid width.
+    THEN: Only drawable payloads with at most twelve layers are accepted.
+    """
     assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
 
 
