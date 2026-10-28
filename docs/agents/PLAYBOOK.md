@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Parse the canvas font string without a regex
+
+Side task, no batch tag: replacing the `_FONT_SHORTHAND` regular expression in the frontend gate's theme check with plain token parsing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U34: "I agree with (b), because a quick fix now is worth it over forgetting it"). Codacy flagged `_FONT_SHORTHAND` (`scripts/dev/_frontend_gate_theme.py`) as an inefficient regular expression. It measured linear, so the flag was a false positive, but plain parsing clears the check for good. `_split_canvas_font` now walks the whitespace tokens up to the first size token (`<n>px`, with an optional `/line-height`), keeping the last weight token (`bold` is 700, `normal` is 400); `_is_size_token` is the new helper and the `re` import is gone. Behaviour is identical on 22 compared inputs and a 400k-string fuzz; the one difference is that size digits are ASCII-only (the old `\d` also took Unicode digits, which `ctx.font` never emits). The parametrized weight cases (`bold`, `normal`, `italic 600` with a line-height, `bold 600`, a string with no size token) close the gap row 1 recorded under R1-F5.
+
+Deviations: none.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_theme.py::test_a_saved_headline_drawn_at_another_weight_is_reported` (extended with a drawn-weight parameter and five cases)
+
+Validation: `pytest -q` -- **3023 passed**.
+
 ### 2026-10-27 - Lift the home pause button to the footer's gap
 
 Side task, no batch tag: lifting the home page's "Pause animations" button to the footer button's gap, on `feat/ui-audit-v6`, a branch off `main`.
@@ -223,15 +235,3 @@ Deviations: (U25) supersedes the brief's shorter-grid items 2 and 3. (U26 was su
 Existing tests edited, by name: `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` (docstring only) and the `_run_large_display_check` helper in `tests/scripts/dev/test_frontend_gate_layout.py` (optional `overflow` stub). Added: `test_the_home_page_must_not_scroll_vertically_in_either_mode` (parametrized) and `test_the_large_display_check_measures_the_home_fit_windows`.
 
 Validation: `pytest -q` -- **3015 passed**.
-
-### 2026-10-27 - Move the home page keys to the left column
-
-Side task, no batch tag: UI audit v6 row 10, moving the home page keys to the left column, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent (design README row 10): the right column holds controls only. The heatmap preview card inside the form stack and the album "Only plays inside this calendar year are counted." hint explained the mode in the form. `templates/index.html` now has an `.index-hero__keys` wrapper under the strip with two keys, `data-mode-key="album"` (rows Year, Plays, Tracks; "How an album makes the list") and `data-mode-key="heatmap"` (the old card markup, `.hm-preview*` names kept as hooks). `static/js/heatmap.js` `switchModeHero` crossfades the keys with the strip through one mechanism (the inactive key gets `aria-hidden="true"` and `visibility:hidden`). `static/js/index.js` `updateKeyCounts` makes the album key's two numbers follow the steppers (singular at 1) and runs in the initial-state sync too, so restored form values show. `static/css/index.css` holds the `.index-key*` rules in `--index-scale` units; `static/css/heatmap.css` lost the card, key and facts rules. `_heatmap_form.html` lost the card. The mode switch moves the tabs 0px (row 2's floor). Contrast (computed, both themes): min 5.17:1 (labels), max 10.61:1; no new colour token. No Chromium-only CSS.
-
-Deviations: (U21) supersedes brief item 6: below 860px both keys are hidden like the strip, and the year hint stays in the form as `field__help--phone` (shown below 860px, hidden from 860px up). (U22) the album key also ends with the 1px `--ss-border-divider` rule at the strip's width, like the heatmap key; the rule sits on each key, which stretch to the taller one, so it lands at the same y in both modes. The keys use a new attribute `data-mode-key`, not `data-mode-marks`, so the gate's `[data-mode-marks="{mode}"].is-active` locator keeps selecting only the strip.
-
-Existing tests edited, by name: `tests/frontend/test_heatmap_pure_functions.py::_preview_text` (helper; reads the heatmap key from `templates/index.html`) and the `MODE_SWITCH` constant in `tests/scripts/dev/test_frontend_gate_layout.py` (new fields). Added: `test_the_form_stack_holds_no_key_and_each_mode_shows_its_own` (parametrized) and `test_a_phone_hides_the_keys_and_keeps_the_year_hint`, over new checks in `scripts/dev/_frontend_gate_layout.py` (`_home_key_failures`, `_phone_home_failures`, `_restored_key_text`).
-
-Validation: `pytest -q` -- **3007 passed**.
