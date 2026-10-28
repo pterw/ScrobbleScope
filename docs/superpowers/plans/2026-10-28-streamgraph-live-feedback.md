@@ -1,125 +1,82 @@
-# Streamgraph live-review corrections implementation plan
+﻿# Streamgraph live-review corrections implementation plan
 
-> **For agentic workers:** Use subagent-driven-development. Keep the three slices isolated,
-> execute their code phases in parallel, review each and land serially. Tick steps only
-> after evidence is available.
+> **For agentic workers:** Use subagent-driven-development. Parallelize independent
+> code and browser-check files, review the integrated change and land atomically.
+> Tick steps only after evidence is available.
 
-**Goal:** Restore the original page rhythm, balance the residual band without distorting
-counts, and distinguish the two burst-selected artists.
-
-**Architecture:** Three UI corrections on the existing renderer. No payload or schema
-change. Design: [owner-directed live review](../specs/2026-10-28-streamgraph-live-feedback-design.md).
-Original Tasks 1-4: [completed implementation plan](2026-10-28-streamgraph-bursts.md).
+**Goal:** Preserve original page spacing and show named artists clearly, keeping the
+residual count in the scrubber and restoring the original rocket palette.
+**Architecture:** Existing SVG and panel, unchanged payload.
+Design: [owner-directed live review](../specs/2026-10-28-streamgraph-live-feedback-design.md).
+Original Tasks 1-4: [completed plan](2026-10-28-streamgraph-bursts.md).
 **Tech Stack:** Existing Python/pytest, hand-built SVG and Playwright gate. No dependency.
 
 ## Global constraints
 
-AGENTS.md, global-rules.md and the original SDD constraints still apply, with these owner
-updates: the chart/tooltip must not scroll internally; original document spacing and normal
-page flow are restored. The owner deferred a 4.5:1 colour target during this iteration.
-Guards remain advisory. All tests/hooks/docsync remain required. Use the qualified primary
-Python and the browser lock. Stage named paths only, no attribution, no push before owner
-prototype sign-off. Code base: 92019d214b993005448cf18dfab3abbfb94b9e58.
+AGENTS.md, global-rules.md and original SDD constraints apply. The owner requires
+original page spacing and no internal chart or tooltip scrolling; normal page flow
+may exceed a short viewport. Guards are advisory. Tests/hooks/docsync remain required.
+Use qualified primary Python and the browser lock. Stage named paths only, no
+attribution, no push before prototype sign-off. Current code base: 6ac9147.
 
-## Task 5: Restore spacing and quiet the residual row
+## Task 5: Restore spacing and quiet the residual row -- complete
 
-**Touches:** static/css/heatmap.css; scripts/dev/_frontend_gate_stream.py (internal-scroll
-assertion only); DESIGN.md (Placement/Scrubber prose); plan and landing log.
-**Consumes:** Task 3's reserved chart room and existing is-hovered/data-rank DOM contract.
-**Produces:** Original page spacing with a reserved chart and a normal-weight residual row.
+- [x] Restore original stage/header/frame/KPI gaps without viewport compression.
+- [x] Keep 25rem grid reservation and desktop focus clearance, no internal scroll.
+- [x] Keep selected residual row at normal weight; emphasize selected artists only.
+- [x] Verify eight Chromium/Firefox cases at 860/1024/1280/1920 widths, full suite
+  3117 passed, hooks/docsync and independent review. Commit: 6ac9147.
 
-- [x] Remove the stream-only result width/padding, headline size, header/frame/KPI spacing
-  compression overrides. Keep the original 860px grid focus-padding rule and the stream
-  grid's min-height:25rem and overflow-y:hidden. This restores .heatmap-stage's original
-  padding and the original header/frame gaps without altering the global stylesheet.
-- [x] Keep opacity:1 on .stream-panel-row.is-hovered; apply font-weight:700 only to
-  .stream-panel-row.is-hovered:not([data-rank="other"]). The base row remains 400.
-- [x] In the existing hover reader, verticalScroll checks the grid and panel only. Remove
-  its document.scrollHeight check because the accepted original document flow may extend
-  past a short viewport. Do not weaken rowsOutside, focus clearance or panel clipping.
-- [x] Verify computed original top/header/frame gaps and residual font-weight400 in Firefox
-  and Chromium, with16rows/no internal scrolling at860/1024/1280/1920 widths. No new unit
-  test for this reversible styling change; run the existing browser gate and full landing
-  gates. Update DESIGN's temporary compressed-layout wording and record the scope correction.
-- [x] Land atomically: fix(heatmap): Restore result spacing and quiet the residual row
+## Tasks 6 and 7: Sandwich and categorical burst colours -- superseded, unlanded
 
-## Task 6: Split the residual around the named stack
+The owner replaced these proposals with Task 8 during live review. Private patches
+and evidence remain in the ignored SDD workspace for recovery, not as final proof.
+Neither proposal landed. Do not execute or mark them complete.
 
-**Touches:** static/js/heatmap.js (drawStream, layerAtY); tests/frontend/test_heatmap_pure_functions.py
-(existing hit-test behaviour); scripts/dev/_frontend_gate_stream.py (existing alignment/export
-checks); README.md and DESIGN.md (controller at landing); plan and landing log.
-**Consumes:** Unchanged payload.other, artist counts, streamOrder, stackLayers and streamFit.
-**Produces:** Two equal residual caps, one logical other path and tooltip row, same linear scale.
+## Task 8: Draw artists only and retain the numeric residual
 
-- [ ] Extend the existing layerAtY parameter cases for upper/lower residual caps, shared
-  edges and empty caps. Prove the new upper-cap case fails against the unchanged renderer.
-  Extend the existing browser alignment check to prove two equal caps surround named bands;
-  no second helper/check that only asserts DOM shape.
-- [ ] In drawStream, make halfOther = payload.other.map(n => n / 2), then stack
-  [halfOther, ...ordered artist counts, halfOther] through the existing baseline/fit helpers.
-  Render the two caps as two closed subpaths of ONE stream-layer-other path, preserving
-  artistCount+1 path count and a single rank="other" logical identity. Keep named artists
-  contiguous. No new general-purpose layer model or helper is needed.
-- [ ] Teach layerAtY the terminal cap maps to other; preserve existing named rank mapping,
-  zero-thickness skips and boundary ownership. Tooltip totals and keyboard rows remain
-  unchanged. Both caps must hover/dim as the same other category.
-- [ ] Update existing export probe logic to sample inside each actual residual cap rather
-  than the midpoint spanning the named-artist gap. Verify both caps survive theme switches
-  and real JPEG export. Keep gate pixel assertions and hover/keyboard checks intact.
-- [ ] Run focused red/green, whole frontend test file, file hooks and one locked integrated
-  browser gate; review patch. At landing run full shards/hooks/docsync, update README/DESIGN
-  with proportional caps/one tooltip count, tick evidence, and commit:
-  feat(heatmap): Sandwich named artists between equal residual caps
+**Touches:** static/js/heatmap.js; static/css/heatmap.css (unused residual tokens only);
+tests/frontend/test_heatmap_pure_functions.py;
+scripts/dev/_frontend_gate_stream.py; README.md; DESIGN.md; plan and landing log.
+**Consumes:** Existing weeks, artists, other, hiddenArtists, streamOrder and helpers.
+**Produces:** Artist-only proportional SVG, unchanged numeric totals and hidden details.
 
-## Task 7: Give burst artists a separate colour family
-
-**Touches:** static/js/heatmap.js (palette, layerColour, payload cap comment);
-tests/frontend/test_heatmap_pure_functions.py (existing layer-colour behaviour); DESIGN.md
-(controller at landing); plan and landing log. Separate worktree avoids Task 6 file conflicts.
-**Consumes:** Artist rank0..9 top-ten, rank10..11 burst-selected; existing theme argument.
-**Produces:** Twelve distinct categorical colours; two cool full-ribbon burst identities.
-
-Palette values are owned here for the implementation; runtime remains the sole rendering
-owner. Each array is rank order0..11, so remove STREAM_STEPS and return the array's rank entry.
-
-```text
-light: #e85d44 #4a235a #f4a259 #6a4baf #c8335b #e9c46a #3b336a #d97757 #8e2d56 #b39dde #2a9d8f #56cfe1
-dark:  #e85d44 #8a5a9b #f4a259 #9574ce #c8335b #e9c46a #7870b3 #d97757 #bb5d8d #b39dde #2a9d8f #56cfe1
-```
-
-- [ ] Replace the existing touching-step test with the intended categorical behaviour:
-  both themes produce12unique colours; ranks10/11 have distinct cool hues (HSV hue140-220),
-  top-ten hues are outside that reserved interval. Read actual layerColour output; do not
-  pin literal hex strings or numeric palette indices. Parametrize themes; eliminate the
-  now-irrelevant duplicate burst-volume ordering cases. Prove red before palette changes.
-- [ ] Type the arrays above, remove the obsolete permutation and LUT sampling comments,
-  retain streamPalette hook and cap12 via STREAM_PALETTE.light.length. No CSS tokens,
-  algorithmic recolouring, new payload flag or new dependency.
-- [ ] Run focused/whole-file tests and scoped hooks. Landing follows Task6 so the one full
-  browser gate proves the integrated stack and JPEG colours. Update DESIGN's obsolete
-  twelve-rocket-step/permutation description; keep original density-grid ramp unchanged.
-- [ ] Land atomically: feat(heatmap): Reserve cool colours for burst-selected artists
+- [ ] Extend existing layerAtY cases for named-only slot mapping, order, empty bands
+  and shared boundaries. Demonstrate red against the residual-first renderer.
+- [ ] Build baseline/fit/stack from ordered artist counts only. Remove residual path
+  rendering/recolouring and map hit slots through order[k]. Preserve one count scale;
+  no caps, damping or independent scales.
+- [ ] Keep numeric residual row and keyboard position, with blank swatch spacer and
+  all artist paths undimmed on its selection. Preserve full week totals, hidden-three
+  rows, scrubbing through residual-only weeks and a blank interactive chart for
+  globally residual-only data; no chart for all-zero data.
+- [ ] Retain original rocket arrays/permutation. Replace the private live preview's
+  unlanded navy treatment when the reviewed source is copied there. Remove the
+  unused residual fill/swatch tokens after checking their consumers.
+- [ ] Extend existing browser alignment, paint, panel, keyboard, absence and JPEG
+  pixel checks for the new contract. Preserve focus, clipping and internal-scroll
+  checks. Cover residual-only/all-zero cases without a duplicate check family.
+- [ ] Run focused red/green and whole frontend test file, independent source review,
+  full suite shards, hooks/docsync and locked integrated browser gate.
+- [ ] Update README/DESIGN to distinguish named-only silhouette from full week totals.
+  Tick evidence and land atomically:
+  fix(heatmap): Keep the residual count outside the artist stream
 
 ## Execution and review
 
-Code phases run in parallel at the stated base: t5 CSS/gate reader, t6 geometry/tests/gate,
-t7 palette/test. Controller owns all docs and serial landings in u7. Exact patches may touch
-one file in disjoint hunks; every landing uses git apply --check --index first. No three-way
-apply or history rewrite. A context failure is resolved from current source before editing.
+Controller owns docs and serial landing in u7. Renderer worker owns JS/pure tests;
+gate worker owns _frontend_gate_stream.py in separate worktrees at the stated base.
+Code phases start after this revised definition is committed. Apply exact reviewed
+patches with --check before --index; no history rewrite or broad staging.
 
-Land5,6,7 with independent code/landing review and the same full3shards/hook/docsync procedure.
-Run the full browser gate at the integrated7head, plus affected checks at each earlier landing.
-Then merge current main normally under review, run final gates/results behaviour, refresh the
-private live preview and obtain owner sign-off before PR publication using the repo template.
-No duplicate detector/context invocation or open-ended colour polishing loop.
+After Task 8, merge current main normally under review, run final gates and results
+behaviour, refresh real-data live preview and obtain owner sign-off before PR
+publication using the repo template. No repeated detector/context invocation or
+open-ended colour polishing loop.
 
 ## Execution record
 
-- Planning checkpoint: original Tasks1-4 complete at92019d21; follow-up code not started.
-- Task5: complete in the atomic `fix(heatmap): Restore result spacing and quiet the residual row`
-  checkpoint. Fresh suite: 3117 passed. Actual landing-source locked spacing probe: eight cases passed
-  across Chromium/Firefox, four desktop sizes, original gaps and residual weight400, no internal scroll.
-  Full browser integration remains at the Task7 head; owner prototype approval is still pending.
-- Task6: pending.
-- Task7: pending.
+- Tasks 1-4: complete at 92019d21; Task 5: complete at 6ac9147.
+- Tasks 6-7: superseded before landing by owner's artist-only request.
+- Task 8: pending. Revised definition records the owner's explicit direction.
 - Prototype approval: pending updated live review. No PR/push yet.

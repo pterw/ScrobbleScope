@@ -184,6 +184,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Plan an artist-only stream with numeric residual
+
+Side task, no batch tag: revise the live-review design and plan on
+`feat/streamgraph-bursts`. The owner wants Everything else excluded from
+SVG geometry, kept numerically in the scrubber, and the original rocket
+palette restored. This supersedes unlanded sandwich and navy experiments;
+Task 5 spacing and normal residual weight remain complete. Task 8 separates
+renderer/pure-test and browser-check ownership for parallel code work, then
+one integrated atomic landing. No product code changes in this checkpoint.
+
+Plan vs implementation: revised definition only; no Task 8 box is complete.
+Deviations: owner-directed replacement of Tasks 6-7 before either landed.
+Existing tests edited: none. Fresh full shards passed 702 + 1503 + 912.
+The guard reports WT003, WT010 and WT005; guards are advisory per owner.
+WT005 is real divergence, not the content-identical case. Normal reviewed
+main integration remains required, with no history rewrite. Section 3 batch
+sequencing is unchanged. Forward guidance: execute Task 8 in isolated
+worktrees, review and validate, refresh live review and obtain prototype
+approval before PR publication.
+
+Validation: `pytest -q` -- **3117 passed**.
+
 ### 2026-10-28 - Restore stream result spacing and quiet the residual row
 
 Side task, no batch tag: restore stream result spacing and quiet the residual row, on `feat/streamgraph-bursts`, a branch off `main`.
@@ -230,19 +252,3 @@ Existing tests edited: none under tests/. Browser checks extended: `check_stream
 Validation: `pytest -q` -- **3117 passed**.
 
 Forward guidance: the owner has not approved the Firefox prototype. Follow up in a separate small slice on Everything else bolding and burst emphasis; the controller is clarifying whether emphasis applies to the full burst-artist ribbon or its winning 21-day segment. This checkpoint preserves the reviewed gate/source stack. Task 0 sign-off, final integration and PR publication remain pending.
-
-### 2026-10-28 - List hidden artists in the stream tooltip
-
-Side task, no batch tag: list hidden artists in the stream tooltip, on `feat/streamgraph-bursts`, a branch off `main`.
-
-Owner intent: name the largest artists still pooled each week without indentation, use a divider only when those rows exist, retain twelve named layers (top ten plus two rolling three-week bursts), and fit the desktop chart without vertical scrolling.
-
-What changed: Task 3 validates optional hidden entries, exposes the selected week's list in the panel model, and renders a conditional rule plus up to three aligned text rows with blank swatch spacers. README and DESIGN.md follow the new UI. Sparse burst weeks now use their visible rows for keyboard selection, including retained-cursor and pointer-to-key transitions. The desktop result reserves chart room at initial render and fits its width, spacing and headline to viewport height.
-
-Deviations: the owner selected existing `--stream-muted` for the divider (5.53:1 light, 5.05:1 dark), replacing the planned low-contrast token. The same-file keyboard and desktop height-budget corrections were required by the final sparse fixture and approved independently. A code-phase CSS order edit briefly let the base 4px grid padding override the existing 8px desktop focus-ring room; the final-stack gate caught clipping, and the existing desktop rule was restored after the base rule without weakening the gate. The controller-approved documentation scope also reconciles the active spec with the divider/layout decisions and clarifies that burst layers keep their full weekly history, with zero counts only in weeks without plays; DESIGN.md now describes only visible layer rows. No selection code changed. No new helper, token, dependency, schema or extra test family was added. The Task 0 named-artist guarantee is replaced with independent measured top-ten plus rolling 21-day peak verification: current outside-top-ten peaks are Slayyyter 134, Magdalena Bay 120 and Cameron Winter 115; Four Tet holds the tenth slot at 271 total, one above Magdalena Bay's 270. The owner reaffirmed the ranking rule; no artist is hardcoded and the dated handoff remains historical.
-
-Existing tests edited: `test_stream_payload_valid`; `test_panel_model_hidden_artists_for_the_week` adds the planned three parametrized model cases. Code-phase red: 7 failed, 19 passed; focused green: 26 passed. Fresh landing focused checks: 26 passed, 120 deselected; whole file: 146 passed. Independent hidden-row, keyboard follow-up and layout reviews approved the scoped source. The controller's final full-stack browser gate passed 58 checks in 89 runs after the focus-room correction; both browsers also passed the eight focused desktop sizes. Fresh final-source suite shards all passed; landing validation follows below.
-
-Validation: `pytest -q` -- **3117 passed**.
-
-Forward guidance: land Task 4's browser proof next, then complete the real-data Firefox prototype. Its owner sign-off still precedes PR publication; Task 0 sign-off remains pending.
