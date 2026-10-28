@@ -131,7 +131,7 @@ flowchart LR
     LastFMClient -->|HTTPS| LastFMAPI[(Last.fm API)]
     SpotifyClient -->|HTTPS| SpotifyAPI[(Spotify API)]
     DeezerClient -->|HTTPS| DeezerAPI[(Deezer API)]
-    MusicBrainzClient -->|HTTPS, 1.1 s apart| MusicBrainzAPI[(MusicBrainz API)]
+    MusicBrainzClient -->|HTTPS, 1.2 s apart| MusicBrainzAPI[(MusicBrainz API)]
     Cache -->|asyncpg| Postgres[(PostgreSQL<br/>spotify_cache,<br/>original_release_cache)]
 
     subgraph Deploy[Fly.io deployment]

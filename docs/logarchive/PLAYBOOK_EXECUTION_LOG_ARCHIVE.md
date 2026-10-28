@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Keep the scrubber panel inside the chart
+
+Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): the streamgraph matches the Claude Design reference in look and behaviour; the panel must also stay visible inside the chart frame when a fallback face renders it.
+
+Root cause: CI has no Adobe kit fonts, so a wider fallback face draws the panel. The panel was sized by the room right of its anchor. Week 40 (the only week with a two-digit day, "Oct 13") opens leftwards into 225px of room, so it was squeezed to its 260px minimum, the wider face wrapped its header, and the panel ran past the chart's bottom (+9.8px against a 0.5px tolerance). Weeks 0 and 30 had room and passed. Blocking the kit alone does not reproduce it on Windows (the Windows fallback face is narrow), so the gate adds a wide-face pass.
+
+What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 360px and no further than the room on its side (`--stream-panel-room`, set by `showWeek` in `static/js/heatmap.js`); the header never wraps and a long artist name ends in an ellipsis. `showWeek` also measures the room on both sides of the column and opens toward the side with room when the reference side lacks it. The hover check in `scripts/dev/_frontend_gate_stream.py` (one check, more passes) gains a pass with the kit refused and wider tracking (checked as in effect), a 60-character artist name, weeks 0, 30, 33 and 40, containment on both axes, and a 1024x768 pass over weeks 0, 34 and 52. Proven red against the earlier code in Chromium and Firefox, then green.
+
+Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
+
+Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
+
+Validation: `pytest -q` -- **3095 passed**.
+
 ### 2026-10-27 - Take main into the streamgraph branch
 
 Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.

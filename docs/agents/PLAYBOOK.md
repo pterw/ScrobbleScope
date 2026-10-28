@@ -184,6 +184,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - MusicBrainz request starts 1.2 seconds apart
+
+Side task, no batch tag: space MusicBrainz request starts 1.2 seconds apart instead of 1.1, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: add more delay between MusicBrainz requests, and note that MusicBrainz answers a rate limit with HTTP 503 rather than 429, so an occasional 503 is not unusual.
+
+What changed: `MUSICBRAINZ_MIN_INTERVAL_SECONDS` defaults to 1.2 in `scrobblescope/config.py`; every statement of the old 1.1 value is updated (`scrobblescope/utils.py` docstring, `static/js/results-release-checks.js` comment, README, `docs/architecture/runtime-system.md`, `.claude/SESSION_CONTEXT.md`). The README paragraph on provider log lines gains a sentence saying MusicBrainz uses 503 as its rate-limit answer, that the client retries it like a 429, and that an occasional `503` count is normal. No code path changes; `musicbrainz.py` already treats 429 and 503 alike.
+
+Deviations: none.
+
+Existing tests edited: `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` and `test_global_throttles_space_request_starts_by_their_interval` (expected value only, 1.1 to 1.2).
+
+Validation: `pytest -q` -- **3101 passed**.
+
 ### 2026-10-28 - A Deezer 403 is one request, not three
 
 Side task, no batch tag: stop retrying a Deezer HTTP 403, on `fix/deezer-egress-incident`, a branch off `main`.
@@ -225,19 +239,3 @@ Deviations: none.
 Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
 
 Validation: `pytest -q` -- **3099 passed**.
-
-### 2026-10-28 - Keep the scrubber panel inside the chart
-
-Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U23): the streamgraph matches the Claude Design reference in look and behaviour; the panel must also stay visible inside the chart frame when a fallback face renders it.
-
-Root cause: CI has no Adobe kit fonts, so a wider fallback face draws the panel. The panel was sized by the room right of its anchor. Week 40 (the only week with a two-digit day, "Oct 13") opens leftwards into 225px of room, so it was squeezed to its 260px minimum, the wider face wrapped its header, and the panel ran past the chart's bottom (+9.8px against a 0.5px tolerance). Weeks 0 and 30 had room and passed. Blocking the kit alone does not reproduce it on Windows (the Windows fallback face is narrow), so the gate adds a wide-face pass.
-
-What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 360px and no further than the room on its side (`--stream-panel-room`, set by `showWeek` in `static/js/heatmap.js`); the header never wraps and a long artist name ends in an ellipsis. `showWeek` also measures the room on both sides of the column and opens toward the side with room when the reference side lacks it. The hover check in `scripts/dev/_frontend_gate_stream.py` (one check, more passes) gains a pass with the kit refused and wider tracking (checked as in effect), a 60-character artist name, weeks 0, 30, 33 and 40, containment on both axes, and a 1024x768 pass over weeks 0, 34 and 52. Proven red against the earlier code in Chromium and Firefox, then green.
-
-Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
-
-Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
-
-Validation: `pytest -q` -- **3095 passed**.

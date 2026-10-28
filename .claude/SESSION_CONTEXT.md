@@ -289,7 +289,7 @@ background_task (orchestrator/__init__.py, daemon Thread):
          -> jobs.succeed() -> enqueue_release_check(job_id)
 
 release_checks.py (one process-wide daemon thread, own loop, FIFO job queue):
-  -> MusicBrainz policy 1 req/s, request starts spaced MUSICBRAINZ_MIN_INTERVAL_SECONDS (1.1s), capped per job, both hits and misses cached
+  -> MusicBrainz policy 1 req/s, request starts spaced MUSICBRAINZ_MIN_INTERVAL_SECONDS (1.2s), capped per job, both hits and misses cached
   -> marks each result in place and publishes progress.stats.release_check
 
 loading.js polls GET /progress?job_id=...
