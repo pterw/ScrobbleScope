@@ -11,7 +11,8 @@ pools every other artist into "Everything else". An artist heard heavily for a f
 otherwise never reaches the top 10, so the weeks they dominated read as a large grey band. Owner's case:
 Cameron Winter, 206 plays in the window (rank 17), most of them between 11 and 17 October 2026, is
 invisible inside "Everything else" for that week. The current palette (Tailwind steps) also leaves the
-ends of the warm ramp unused.
+ends of the warm ramp unused. This motivating example does not guarantee a burst slot for that artist;
+the measured ranking below determines selection.
 
 ## Decisions (owner, 2026-10-28, verbatim where quoted)
 
@@ -36,9 +37,10 @@ ends of the warm ramp unused.
 - Computing the peak walks each artist's sorted play dates once with a sliding window (one sorted walk
   per artist), never artists x days. Selection and the hidden list below come from the same single pass
   over the plays, in the same function.
-- A burst layer carries the full weekly counts like any layer (zero outside its burst, so it takes no
-  vertical space there). The payload carries no `burst` flag (nothing reads it; a layer past the top 10
-  is a burst layer). The key and tooltip render burst layers exactly like the others.
+- A burst layer carries the full weekly counts across the 365-day window like any layer. Counts are
+  not clipped to its selected 21-day peak; it is zero and takes no vertical space only in weeks with
+  no plays. The payload carries no `burst` flag (nothing reads it; a layer past the top 10 is a burst
+  layer). The key and tooltip render burst layers exactly like the others.
 - New payload field: for each week, the 3 largest artists still inside "Everything else" after the 12
   layers are removed, as name and count, largest first (tie on key); fewer when fewer exist. Empty-key
   plays stay in the "Everything else" total and are never listed by name.
@@ -48,12 +50,17 @@ ends of the warm ramp unused.
 
 ## Part 2 -- tooltip (`static/js/heatmap.js`)
 
-- Rows as now: one per layer (up to 12), then "Everything else" with its count.
+- Rows as now: one per layer with plays that week (up to 12), then "Everything else" with its count.
+  Keyboard positions follow those visible rows, including after pointer activity or a week change.
 - When the week's hidden-artist list is non-empty: a horizontal rule, then up to three rows, one per
   hidden artist, name and count, in the same alignment as the rows above (no indentation, no new
   horizontal space; an empty swatch-width spacer stands where the layer rows have a colour swatch, so
   names and counts line up). No rule and no rows when the list is empty.
-- The panel's existing size cap, ellipsis and side choice apply to the new rows.
+- The rule uses the existing `--stream-muted` token, chosen by the owner on 2026-10-28 for its higher
+  contrast against the panel (see the plan's Task 3). No new token is added.
+- The panel's existing size cap, ellipsis and side choice apply to the new rows. Desktop results
+  reserve room for the tallest panel from initial render and fit surrounding width, spacing and
+  headline size to the viewport height. The chart and tooltip do not scroll vertically.
 
 ## Part 3 -- palette (`static/js/heatmap.js`)
 
@@ -75,9 +82,14 @@ ends of the warm ramp unused.
   and palette, with Firefox screenshots in both themes, including the weeks covering 11-17 October.
   Owner sign-off precedes PR publication; the owner authorized atomic checkpoint commits before
   prototype approval on 2026-10-28. The prototype renders the real task patches.
+- The prototype independently recomputes the top ten by window total and the two largest rolling
+  21-day peaks among the remaining artists, with the specified tie rules, and compares the selected
+  names with the job-store readback. The owner reaffirmed this top-ten-plus-two rule on 2026-10-28;
+  no named artist is guaranteed a slot.
 - Unit tests (lean suite, one per behaviour, parametrized): a burst crossing a Monday is found; the top 10
-  are unchanged; burst layers are zero outside the burst; fewer than 12 artists; the 3 hidden artists per
-  week and their order; empty-key plays never named; the job store passes the hidden list through as a copy.
+  are unchanged; a sparse fixture retains zero counts in weeks with no plays, while each selected
+  artist keeps its full weekly history; fewer than 12 artists; the 3 hidden artists per week and their
+  order; empty-key plays never named; the job store passes the hidden list through as a copy.
 - Browser gate: the tooltip's rule and hidden rows appear only for a week with hidden artists (which also
   proves the field survives the job store); the existing streamgraph checks still pass.
 

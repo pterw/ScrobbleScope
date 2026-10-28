@@ -967,6 +967,25 @@ def _artists_not_a_list(p):
         (_stream_case(_non_string_week), False),
         (_stream_case(_non_string_name), False),
         (_stream_case(_artists_not_a_list), False),
+        (_stream_case(lambda p: p.update(hidden=[[]])), False),
+        (
+            _stream_case(
+                lambda p: p.update(hidden=[[{"name": 7, "count": 1}], [], []])
+            ),
+            False,
+        ),
+        (
+            _stream_case(
+                lambda p: p.update(hidden=[[{"name": "Hidden", "count": 0}], [], []])
+            ),
+            False,
+        ),
+        (
+            _stream_case(
+                lambda p: p.update(hidden=[[{"name": "Hidden", "count": "3"}], [], []])
+            ),
+            False,
+        ),
         (None, False),
         ("weekly", False),
     ],
@@ -983,6 +1002,10 @@ def _artists_not_a_list(p):
         "non-string-week",
         "non-string-name",
         "artists-not-a-list",
+        "hidden-weeks-length",
+        "hidden-non-string-name",
+        "hidden-zero-count",
+        "hidden-non-numeric-count",
         "null",
         "string",
     ],
@@ -990,9 +1013,9 @@ def _artists_not_a_list(p):
 def test_stream_payload_valid(js_page, payload, valid):
     """Accept drawable payloads up to twelve artist layers.
 
-    GIVEN: Valid payloads and malformed or oversized variants.
+    GIVEN: Valid payloads, including older results without hidden artists, and malformed variants.
     WHEN: The stream validates the payload against the grid width.
-    THEN: Only drawable payloads with at most twelve layers are accepted.
+    THEN: Only drawable payloads with at most twelve layers and valid hidden entries are accepted.
     """
     assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
 
@@ -1043,6 +1066,33 @@ def _panel(js_page, week, hover, weeks=40):
         "other": [5] * weeks,
     }
     return _hook(js_page, "panelModel", payload, week, hover)
+
+
+@pytest.mark.parametrize(
+    "hidden",
+    [
+        [
+            {"name": "First", "count": 3},
+            {"name": "Second", "count": 2},
+            {"name": "Third", "count": 1},
+        ],
+        [],
+        None,
+    ],
+    ids=["three-hidden", "empty-week", "older-payload"],
+)
+def test_panel_model_hidden_artists_for_the_week(js_page, hidden):
+    """List the selected week's hidden artists when available.
+
+    GIVEN: A week with three hidden artists, none, or an older payload without the field.
+    WHEN: The panel model is built for that week.
+    THEN: It includes that week's entries or an empty list.
+    """
+    payload = _stream_payload()
+    if hidden is not None:
+        payload["hidden"] = [[], hidden, []]
+    model = _hook(js_page, "panelModel", payload, 1, None)
+    assert model["hidden"] == (hidden if hidden is not None else [])
 
 
 def test_panel_model_lists_the_stack_top_first_with_everything_else_last(js_page):

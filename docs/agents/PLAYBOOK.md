@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - List hidden artists in the stream tooltip
+
+Side task, no batch tag: list hidden artists in the stream tooltip, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: name the largest artists still pooled each week without indentation, use a divider only when those rows exist, retain twelve named layers (top ten plus two rolling three-week bursts), and fit the desktop chart without vertical scrolling.
+
+What changed: Task 3 validates optional hidden entries, exposes the selected week's list in the panel model, and renders a conditional rule plus up to three aligned text rows with blank swatch spacers. README and DESIGN.md follow the new UI. Sparse burst weeks now use their visible rows for keyboard selection, including retained-cursor and pointer-to-key transitions. The desktop result reserves chart room at initial render and fits its width, spacing and headline to viewport height.
+
+Deviations: the owner selected existing `--stream-muted` for the divider (5.53:1 light, 5.05:1 dark), replacing the planned low-contrast token. The same-file keyboard and desktop height-budget corrections were required by the final sparse fixture and approved independently. A code-phase CSS order edit briefly let the base 4px grid padding override the existing 8px desktop focus-ring room; the final-stack gate caught clipping, and the existing desktop rule was restored after the base rule without weakening the gate. The controller-approved documentation scope also reconciles the active spec with the divider/layout decisions and clarifies that burst layers keep their full weekly history, with zero counts only in weeks without plays; DESIGN.md now describes only visible layer rows. No selection code changed. No new helper, token, dependency, schema or extra test family was added. The Task 0 named-artist guarantee is replaced with independent measured top-ten plus rolling 21-day peak verification: current outside-top-ten peaks are Slayyyter 134, Magdalena Bay 120 and Cameron Winter 115; Four Tet holds the tenth slot at 271 total, one above Magdalena Bay's 270. The owner reaffirmed the ranking rule; no artist is hardcoded and the dated handoff remains historical.
+
+Existing tests edited: `test_stream_payload_valid`; `test_panel_model_hidden_artists_for_the_week` adds the planned three parametrized model cases. Code-phase red: 7 failed, 19 passed; focused green: 26 passed. Fresh landing focused checks: 26 passed, 120 deselected; whole file: 146 passed. Independent hidden-row, keyboard follow-up and layout reviews approved the scoped source. The controller's final full-stack browser gate passed 58 checks in 89 runs after the focus-room correction; both browsers also passed the eight focused desktop sizes. Fresh final-source suite shards all passed; landing validation follows below.
+
+Validation: `pytest -q` -- **3117 passed**.
+
+Forward guidance: land Task 4's browser proof next, then complete the real-data Firefox prototype. Its owner sign-off still precedes PR publication; Task 0 sign-off remains pending.
+
 ### 2026-10-28 - Colour twelve stream layers with the rocket palette
 
 Side task, no batch tag: colour twelve stream layers with the rocket palette, on `feat/streamgraph-bursts`, a branch off `main`.
@@ -227,19 +243,5 @@ What changed: the design spec (`docs/superpowers/specs/2026-10-28-streamgraph-bu
 Deviations: none.
 
 Existing tests edited: none.
-
-Validation: `pytest -q` -- **3099 passed**.
-
-### 2026-10-28 - Fit the streamgraph stack inside its band
-
-Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Root cause: the scale came from the largest weekly total alone, but the wiggle baseline shifts each week's stack, so a stack could leave the fixed viewBox and the saved image clipped it.
-
-What changed: `streamFit` in `static/js/heatmap.js` caps the scale by the stack's extent and shifts the baseline only when the stack would leave the band; ordinary data keeps its baseline and scale unchanged. Test rows from the review (two data sets that catch the missing scale cap and the high-side shift sign) were added to `test_stream_stack_stays_inside_the_band`, plus a pin that unmoved data keeps `streamScale` of its totals.
-
-Deviations: none.
-
-Existing tests edited: none (`test_stream_stack_stays_inside_the_band` is new in this change).
 
 Validation: `pytest -q` -- **3099 passed**.

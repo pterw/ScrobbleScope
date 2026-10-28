@@ -361,8 +361,8 @@ and max, deviations (JS array rather than tokens; per-theme windows), the edited
 ### Task 3: Hidden artists under a rule in the tooltip
 
 **Touches:**
-- Modify: `static/js/heatmap.js` (`streamPayloadValid` end of function, `panelModel`, `fillStreamPanel`)
-- Modify: `static/css/heatmap.css` (the `.stream-panel-row` rule block near line 484, a rule style)
+- Modify: `static/js/heatmap.js` (`streamPayloadValid` end of function, `panelModel`, `fillStreamPanel`, and the approved visible-row corrections in `streamDims`, `showStreamCursor`, `showWeek`)
+- Modify: `static/css/heatmap.css` (the `.stream-panel-row` rule block, rule style, and approved desktop result height budget and chart-host room)
 - Modify: `tests/frontend/test_heatmap_pure_functions.py` (the `panelModel` and `streamPayloadValid` tests)
 - Modify: `README.md` (the streamgraph bullet, after line 161's last sentence)
 - Modify: `DESIGN.md` (the "Scrubber panel" bullet under "Heatmap Streamgraph")
@@ -388,7 +388,15 @@ Task 2's patch, which `git apply --check --index` confirms at landing). **Interf
   new horizontal space: the panel's `max-width`, ellipsis and side choice apply as they do to the other
   rows.
 - CSS: the hidden rows share the `.stream-panel-row` declarations (group the selector); the rule is a
-  1px `var(--stream-line)` top border with the panel's row gap above and below, no extra token.
+  1px `var(--stream-muted)` top border with the panel's row gap above and below, no extra token.
+  The owner chose the higher-contrast existing token on 2026-10-28: 5.53:1 light and 5.05:1 dark
+  against the panel, replacing the planned `--stream-line` pairing (1.33:1 and 1.30:1).
+- Approved integration corrections: `streamDims`, `showStreamCursor` and `showWeek` derive selectable
+  positions from the visible rows of the active or retained cursor week, so silent burst layers are
+  skipped and pointer-to-key transitions retain the correct row count.
+- Approved desktop layout: reserve 25rem of chart-host room from the initial render and fit the
+  surrounding result width, spacing and 1.375rem-3rem headline to the viewport height. The chart and
+  tooltip never scroll vertically. Mobile and grid-only results retain their existing layout.
 
 **Tests:**
 
@@ -400,16 +408,18 @@ Task 2's patch, which `git apply --check --index` confirms at landing). **Interf
 The rule and the rows themselves are DOM output: Task 4's browser check proves them; no jsdom test
 reaching for markup.
 
-- [ ] **Step 1: Write tests a-b, run red against BASE+Task 2**
+- [x] **Step 1: Write tests a-b, run red against BASE+Task 2**
   (`"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/python.exe" -m pytest -q -p no:cacheprovider tests/frontend/test_heatmap_pure_functions.py -k "panel_model or stream_payload_valid"`).
-- [ ] **Step 2: Implement** `streamPayloadValid`, `panelModel`, `fillStreamPanel`, the CSS.
-- [ ] **Step 3: Green**, then the whole test file.
-- [ ] **Step 4: Docs.** README: append to the streamgraph bullet that a week with artists hidden in
+- [x] **Step 2: Implement** `streamPayloadValid`, `panelModel`, `fillStreamPanel`, the CSS.
+- [x] **Step 3: Green**, then the whole test file.
+- [x] **Step 4: Docs.** README: append to the streamgraph bullet that a week with artists hidden in
   "Everything else" lists the three largest under a rule; `DESIGN.md` "Scrubber panel": same sentence,
   plus "no indentation" and that the rule only appears when hidden artists exist. `Last updated:`.
-- [ ] **Step 5: Frontend gate** (changes `static/`); expected: green on the existing checks (seeded
-  payloads have no `hidden` yet, so the panel is unchanged). Pre-commit on the changed files, write the
-  patch.
+- [x] **Step 5: Frontend gate** (changes `static/`); expected: green on the existing checks and on
+  the final Task 4 fixture with up to 16 rows plus the rule. The legacy seed has no `hidden`; Task 4
+  supplies the twelve layers, sparse weeks and three hidden rows that exercise the full panel.
+  Preserve the focus outline and containment without vertical scrolling. Pre-commit on the changed
+  files, write the patch.
 
 **Do not:** add a jsdom/DOM test; add a CSS token, class beyond `stream-panel-rule` and
 `stream-panel-hidden`, or a swatch colour for hidden rows; bound the hidden list in JS; add tests beyond
@@ -501,8 +511,12 @@ code, no new page, flag or route in the app.
   the loaded `daily_counts` and `weekly_artists` in place of the synthetic ones), then print as text,
   read back from `jobs.context(job_id)["results"]["weekly_artists"]` (not from the aggregate, so the
   job-store pass-through is exercised): the layer names, and `hidden` for the weeks `2026-10-05` and
-  `2026-10-12` (11 October is a Sunday, so the 11-17 October listening spans both weeks). Cameron Winter
-  must be a burst layer, and `hidden` for those weeks must not repeat any layer name.
+  `2026-10-12` (11 October is a Sunday, so the 11-17 October listening spans both weeks). Independently
+  recompute the top ten by window total, then the two largest rolling 21-consecutive-day peaks among
+  the remaining artists, using the frozen tie rules. Compare those twelve names with the job-store
+  readback; `hidden` must not repeat any layer. No named artist is guaranteed a burst slot. The owner
+  reaffirmed top ten plus two bursts on 2026-10-28 after the measured data disproved the original
+  Cameron Winter expectation; do not hardcode an artist or change the ranking rule to force it.
 - [ ] **Step 3: Screenshot, Firefox, light and dark.** A second scratch script starts the app with
   `serve_app()` from `scripts/dev/_frontend_gate_runtime.py` (a context manager yielding the base URL),
   seeds the job, opens `/heatmap` in Playwright Firefox through

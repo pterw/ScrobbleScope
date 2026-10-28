@@ -162,6 +162,8 @@ next.
   that lists the week's counts, or focus it and use the arrow keys, Home and
   End. A vertical swipe still scrolls the page. Narrow screens, and results
   stored before the streamgraph existed, show the grid alone.
+  A week with artists hidden in "Everything else" lists the three largest
+  under a rule in the panel.
 - Save the heatmap as a JPEG. This export uses a separate canvas layout rather
   than an exact screenshot of the page. When the page shows the streamgraph,
   the image includes it under the grid, at rest.

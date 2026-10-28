@@ -248,8 +248,8 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
 
 ### Heatmap Streamgraph
-- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. Narrow screens and results stored without weekly artist data show the grid alone.
-- **Scrubber panel:** Opens beside the hovered column and lists every layer's count for that week as text, with the layer under the pointer or key marked and the other layers dimmed. It opens leftwards late in the year. It never takes the pointer. The chart is one Tab stop, moved with the arrow keys, Home and End.
+- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. The result reserves room for the tallest panel and fits its surrounding spacing to the window height; the chart and tooltip do not scroll vertically. The desktop result headline scales from 1.375rem to 3rem with window height to leave that room. Narrow screens and results stored without weekly artist data show the grid alone.
+- **Scrubber panel:** Opens beside the hovered column and lists each layer with plays that week as text, with the layer under the pointer or key marked and the other layers dimmed. It opens leftwards late in the year. It never takes the pointer. The chart is one Tab stop, moved with the arrow keys, Home and End. A week with artists hidden in "Everything else" lists the three largest under a rule, with no indentation and a blank swatch-width spacer so names align. The rule only appears when hidden artists exist.
 - **Motion:** The layer dimming fades over 150ms, which `prefers-reduced-motion: reduce` sets to zero.
 
 ## Do's and Don'ts

@@ -305,7 +305,15 @@
     var artistsOk = payload.artists.every(function (a) {
       return a && typeof a.name === 'string' && isCountList(a.counts, numCols);
     });
-    return artistsOk && isCountList(payload.other, numCols);
+    if (!artistsOk || !isCountList(payload.other, numCols)) return false;
+    if (!('hidden' in payload)) return true;
+    return Array.isArray(payload.hidden) && payload.hidden.length === numCols &&
+      payload.hidden.every(function (week) {
+        return Array.isArray(week) && week.every(function (entry) {
+          return entry && typeof entry === 'object' && typeof entry.name === 'string' &&
+            Number.isInteger(entry.count) && entry.count > 0;
+        });
+      });
   }
 
   // ----------------------------------------------------------------
@@ -367,6 +375,7 @@
         total.toLocaleString('en-US') + (total === 1 ? ' scrobble' : ' scrobbles'),
       side: week > STREAM_PANEL_FLIP_WEEK ? 'left' : 'right',
       rows: rows,
+      hidden: payload.hidden ? payload.hidden[week] : [],
     };
   }
 
@@ -1852,11 +1861,17 @@
   }
 
   function streamDims(state) {
-    return { weeks: state.xs.length, layers: state.positions.length };
+    var week = state.shown ? state.shown.week : state.cursor ? state.cursor.week
+      : Math.min(STREAM_START_WEEK, state.xs.length - 1);
+    return { weeks: state.xs.length, layers: panelModel(state.payload, week, null).rows.length };
   }
 
-  // Show the keyboard's week on the layer at its stack position.
+  // Silent burst layers have no panel row, so keys follow this week's rows.
   function showStreamCursor(state, cursor) {
+    state.positions = panelModel(state.payload, cursor.week, null).rows.map(function (row) {
+      return row.id;
+    });
+    cursor = { week: cursor.week, position: Math.min(cursor.position, state.positions.length - 1) };
     state.cursor = cursor;
     showWeek(cursor.week, state.positions[cursor.position]);
   }
@@ -1932,6 +1947,26 @@
       line.appendChild(count);
       panel.appendChild(line);
     });
+    if (model.hidden.length) {
+      var rule = document.createElement('hr');
+      rule.className = 'stream-panel-rule';
+      panel.appendChild(rule);
+      model.hidden.forEach(function (entry) {
+        var line = document.createElement('div');
+        line.className = 'stream-panel-hidden';
+        var spacer = document.createElement('span');
+        var name = document.createElement('span');
+        name.className = 'stream-panel-name';
+        name.textContent = entry.name;
+        var count = document.createElement('span');
+        count.className = 'stream-panel-count';
+        count.textContent = entry.count.toLocaleString('en-US');
+        line.appendChild(spacer);
+        line.appendChild(name);
+        line.appendChild(count);
+        panel.appendChild(line);
+      });
+    }
   }
 
   /**
@@ -1981,6 +2016,7 @@
     }
 
     var model = panelModel(state.payload, week, hoverId);
+    state.positions = model.rows.map(function (row) { return row.id; });
     var panel = state.panel;
     fillStreamPanel(panel, model, currentStreamTheme());
     var box = state.svg.getBoundingClientRect();

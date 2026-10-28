@@ -418,6 +418,38 @@
     margin: -8px;
     padding: 8px;
   }
+
+  /* Reserve the tallest panel's room from the start. The surrounding result
+     uses the window's height budget so the extra room needs no scrolling. */
+  #heatmap-result:has(.stream-chart) {
+    max-width: min(100%, calc(150vh - 2.5rem));
+    padding: 0.25rem 1rem 0;
+  }
+
+  #heatmap-result:has(.stream-chart) .heatmap-head {
+    margin-bottom: 0.25rem;
+  }
+
+  #heatmap-result:has(.stream-chart) .heatmap-headline {
+    font-size: clamp(1.375rem, calc(10vh - 3.125rem), 3rem);
+  }
+
+  #heatmap-result:has(.stream-chart) .heatmap-frame {
+    padding-block: 0.25rem;
+  }
+
+  #heatmap-result:has(.stream-chart) .heatmap-frame-top {
+    margin-bottom: 0.25rem;
+  }
+
+  #heatmap-result:has(.stream-chart) .heatmap-kpi-row {
+    gap: clamp(1rem, 2vw, 2rem);
+  }
+
+  #heatmap-grid:has(.stream-chart) {
+    min-height: 25rem;
+    overflow-y: hidden;
+  }
 }
 
 /* The streamgraph under the grid. A vertical swipe still scrolls the page; a
@@ -481,13 +513,20 @@
   color: var(--stream-muted);
 }
 
-.stream-panel-row {
+.stream-panel-row,
+.stream-panel-hidden {
   display: grid;
   grid-template-columns: 12px 1fr auto;
   gap: 10px;
   align-items: center;
   font-weight: 400;
   opacity: 0.78;
+}
+
+.stream-panel-rule {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--stream-muted);
 }
 
 .stream-panel-row.is-hovered {
