@@ -184,6 +184,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Scrub the streamgraph with a panel and column ring
+
+Side task, no batch tag: hover and touch scrubbing of the streamgraph with a values panel and a heatmap column ring (streamgraph plan Task 7), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): the stream shows one readable value per week, as the Claude Design reference does.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `weekFromX`, `layerAtY` and `panelModel` (test seam), the DOM functions `showWeek` and `clearWeek`, and Pointer Events on `#stream-chart` (`pointermove`, `pointerdown`, `pointerleave`, `pointercancel`), one path for mouse and touch. `showWeek` dims the other layers to 0.25, draws the guide line at the column centre, appends one column ring around that week's seven-row column in the grid SVG and fills a panel with the week's artist counts ("Everything else" last, the hovered row marked). `renderHeatmap` calls `clearWeek()` first, so a re-render leaves no stale ring. `static/css/heatmap.css` holds the panel rules (count column in the figure face with tabular numbers). `scripts/dev/_frontend_gate_stream.py` adds three checks, registered in `frontend_gate.py` (THEME_MOTION): `stream hover shows panel and ring` (DESKTOP, weeks 0/30/40 on a window that starts mid-week, the panel flip, re-render clearing, every panel row inside the chart box at 1280x720), `stream touch drag scrubs` (Chromium only by design) and `stream reduced motion` (DESKTOP). The frontend gate went from 52 to 55 checks.
+
+Rulings recorded: S17, `layerAtY` takes an optional fourth argument `order` (maps stack slots to ranks); three-argument callers are unchanged (accepted backward-compatible change of a frozen interface). SG7-F1 (review, Important): the count column uses `font-family: var(--font-figure)` with `font-variant-numeric: tabular-nums`, as the reference draws it. SG7-F2 and the S18 refinement: the panel sits a little above the plot top (`STREAM_PANEL_RISE`, the reference's 372px against the plot's 380px) and lifts only when it would otherwise run past the chart's bottom edge; at 1280px the unlifted panel was clipped by `#heatmap-grid`, hiding the "Everything else" row. The gate proves it red with the lift disabled ("1 of 11 panel rows are outside the chart's visible box").
+
+Contrast (rendered colours, both themes): row ink 8.64 light / 9.20 dark; header on panel 5.53 / 5.05; hovered ink 17.57 / 14.43; "Everything else" swatch 3.63 / 4.65; guide and ring against the frame 14.78 / 14.43. Min text 5.05, min non-text 3.63; nothing fails. Firefox probe: hover, flip, re-render clearing and reduced motion pass; touch drag is Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The panel stays inside the chart box by lifting (S18), a deviation from the reference. Task 9 (Save image) must clear a shown week before serialising (S19). The landing relied on the nested gate-runner's ALL_PASS (frontend gate 55 checks passed, ruling U28) and did not re-run the frontend gate.
+
+Existing tests edited, by name: `test_stream_payload_valid` (three parametrize cases added: non-string week, non-string name, `artists` not a list).
+
+Validation: `pytest -q` -- **3029 passed**.
+
 ### 2026-10-27 - Recolour the streamgraph when the theme changes
 
 Side task, no batch tag: the streamgraph recolours on a theme change (streamgraph plan Task 6), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -231,21 +249,5 @@ Contrast (rulings S14 and U20): `--stream-line` (gridlines and the panel border)
 Deviations: the updated theme check was not red on the old code (the frame inherited the root token); only the new check failed red. The saved image's background still reads the body's surface (`#181520` dark); ruling S15 assigns the frame scope there to Task 9.
 
 Existing tests edited, by name: none in `tests/`; the gate check `check_heatmap_zero_cells_follow_theme` was refactored onto shared helpers.
-
-Validation: `pytest -q` -- **3004 passed**.
-
-### 2026-10-27 - Add pure layout functions for the streamgraph
-
-Side task, no batch tag: the streamgraph's pure layout maths (streamgraph plan Task 2), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent: the streamgraph is built to match the Claude Design reference, so its layout maths must be pure, tested functions before any DOM work builds on them.
-
-What changed and why: `static/js/heatmap.js` gains the constants `STREAM_PEAK`, `STREAM_BAND`, `STREAM_LABEL_H` and the functions `streamOrder`, `streamBaseline`, `stackLayers`, `streamScale`, `smoothPath` and `layerColour`, all exposed on `__scrobbleHeatmapTestHooks` and touching no DOM. `tests/frontend/test_heatmap_pure_functions.py` covers them with hand-computed cases (17 new cases). A Firefox probe loaded the hooks and checked one `streamOrder`, `stackLayers` and `layerColour` case.
-
-Contrast (ruling S13, confirmed by owner ruling U20): the layer fills are exempt from the 3:1 non-text floor because the scrubber panel states every layer's name and count as text for every week; the ramp and the "Everything else" fills stay the owner's frozen values. Measured WCAG ratios against the frame: dark frame `#1f1b28` layers 1.53-10.22, "Everything else" `#3a3347` 1.40; light frame `#f0ebe0` layers 2.02-10.52, "Everything else" `#ddd5c5` 1.23.
-
-Deviations: Task 2 lands after Task 3 (disjoint files), so the plan's numeric landing order is not followed.
-
-Existing tests edited, by name: none (new tests appended to `test_heatmap_pure_functions.py`).
 
 Validation: `pytest -q` -- **3004 passed**.

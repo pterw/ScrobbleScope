@@ -149,6 +149,10 @@
   const STREAM_PEAK    = 300 * STEP / 27;  // tallest week's total height
   const STREAM_BAND    = 380 * STEP / 27;  // plot height, centre line in the middle
   const STREAM_LABEL_H = 24 * STEP / 27;   // section-label strip above the plot
+  const STREAM_PANEL_RISE = 8 * STEP / 27; // the panel starts this far above the plot
+  const STREAM_GUIDE_W = 1.5 * STEP / 27;  // guide stroke width
+  const STREAM_RING_W  = 2 * STEP / 27;    // column marker stroke width
+  const STREAM_RING_PAD = 4 * STEP / 27;   // marker offset and corner radius
 
   // rocket_r stops by rank (0 = largest artist). The light theme scales the
   // whole ramp so its top stop is 0.83, which keeps every rank distinct.
@@ -269,6 +273,67 @@
       return a && typeof a.name === 'string' && isCountList(a.counts, numCols);
     });
     return artistsOk && isCountList(payload.other, numCols);
+  }
+
+  // ----------------------------------------------------------------
+  // Streamgraph hover (pure: pointer position and payload in, data out)
+  // ----------------------------------------------------------------
+
+  const STREAM_PANEL_FLIP_WEEK = 34;  // past this week the panel opens leftwards
+
+  /** The week whose column centre is nearest x (viewBox units), clamped. */
+  function weekFromX(x, weeks) {
+    const t = Math.round((x - LEFT_PAD - CELL_SIZE / 2) / STEP);
+    return Math.max(0, Math.min(weeks - 1, t));
+  }
+
+  /**
+   * The layer whose band holds y (signed, up positive) at the given week.
+   * stack runs bottom to top with "Everything else" first; order, when
+   * given, maps the artist slots to ranks. A boundary belongs to the layer
+   * above, an empty band is never hit, and null means no band holds y.
+   */
+  function layerAtY(stack, week, y, order) {
+    for (let k = stack.length - 1; k >= 0; k--) {
+      const band = stack[k][week];
+      if (band.y1 > band.y0 && y >= band.y0 && y <= band.y1) {
+        if (k === 0) return 'other';
+        return order ? order[k - 1] : k - 1;
+      }
+    }
+    return null;
+  }
+
+  function weekLabel(iso) {
+    const parts = iso.split('-');
+    return MONTH_NAMES[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10);
+  }
+
+  /** What the scrubber panel shows for one week of a valid payload. */
+  function panelModel(payload, week, hoverId) {
+    const artists = payload.artists;
+    const order = streamOrder(artists.map(function (a) {
+      return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
+    }));
+    const rows = [];
+    let total = payload.other[week];
+    order.slice().reverse().forEach(function (rank) {
+      const count = artists[rank].counts[week];
+      total += count;
+      if (count > 0) {
+        rows.push({ id: rank, name: artists[rank].name, count: count, hovered: hoverId === rank });
+      }
+    });
+    rows.push({
+      id: 'other', name: 'Everything else', count: payload.other[week],
+      hovered: hoverId === 'other',
+    });
+    return {
+      header: 'Week of ' + weekLabel(payload.weeks[week]) + ' - ' +
+        total.toLocaleString('en-US') + (total === 1 ? ' scrobble' : ' scrobbles'),
+      side: week > STREAM_PANEL_FLIP_WEEK ? 'left' : 'right',
+      rows: rows,
+    };
   }
 
   /**
@@ -1362,6 +1427,7 @@
   function renderHeatmap(data) {
     lastHeatmapData = data;
     lastRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
+    clearWeek();
     streamState = null;
     if (lastRenderMobile) {
       renderHeatmapMobile(data);
@@ -1619,7 +1685,146 @@
     svg.appendChild(label);
 
     gridContainer.appendChild(svg);
-    streamState = { payload: payload, order: order, stack: stack, xs: xs };
+
+    var panel = document.createElement('div');
+    panel.id = 'stream-panel';
+    panel.className = 'stream-panel';
+    panel.setAttribute('aria-live', 'polite');
+    panel.hidden = true;
+    gridContainer.appendChild(panel);
+
+    streamState = {
+      payload: payload, order: order, stack: stack, xs: xs, centre: centre,
+      svg: svg, panel: panel, shown: null,
+    };
+    ['pointermove', 'pointerdown'].forEach(function (type) {
+      svg.addEventListener(type, handleStreamPointer);
+    });
+    ['pointerleave', 'pointercancel'].forEach(function (type) {
+      svg.addEventListener(type, clearWeek);
+    });
+  }
+
+  // Map the pointer to a week and the layer under it, then show them.
+  function handleStreamPointer(event) {
+    var state = streamState;
+    if (!state) return;
+    var box = state.svg.getBoundingClientRect();
+    if (!box.width) return;
+    var unit = state.svg.viewBox.baseVal.width / box.width;
+    var week = weekFromX((event.clientX - box.left) * unit, state.xs.length);
+    var y = state.centre - (event.clientY - box.top) * unit;
+    showWeek(week, layerAtY(state.stack, week, y, state.order));
+  }
+
+  function removeStreamMarks() {
+    gridContainer.querySelectorAll('.stream-column-ring, .stream-guide').forEach(function (node) {
+      node.remove();
+    });
+  }
+
+  function fillStreamPanel(panel, model, theme) {
+    clearChildren(panel);
+    var header = document.createElement('div');
+    header.className = 'stream-panel-header';
+    header.textContent = model.header;
+    panel.appendChild(header);
+    model.rows.forEach(function (row) {
+      var line = document.createElement('div');
+      line.className = row.hovered ? 'stream-panel-row is-hovered' : 'stream-panel-row';
+      line.setAttribute('data-rank', row.id);
+      var swatch = document.createElement('span');
+      swatch.className = 'stream-panel-swatch';
+      swatch.style.background = row.id === 'other'
+        ? frameColour('--stream-swatch-other')
+        : layerColour(row.id, theme);
+      var name = document.createElement('span');
+      name.className = 'stream-panel-name';
+      name.textContent = row.name;
+      var count = document.createElement('span');
+      count.className = 'stream-panel-count';
+      count.textContent = row.count.toLocaleString('en-US');
+      line.appendChild(swatch);
+      line.appendChild(name);
+      line.appendChild(count);
+      panel.appendChild(line);
+    });
+  }
+
+  /**
+   * Show one week: dim the layers other than hoverId (none when it is null),
+   * mark the column with a guide and a marker on the grid, and fill the panel
+   * beside the column. The same call serves the pointer and the keys.
+   */
+  function showWeek(week, hoverId) {
+    var state = streamState;
+    if (!state) return;
+    if (state.shown &&state.shown.week === week && state.shown.hoverId === hoverId) return;
+    removeStreamMarks();
+    state.shown = { week: week, hoverId: hoverId };
+
+    state.svg.querySelectorAll('.stream-layer').forEach(function (layer) {
+      var dim = hoverId !== null && layer.getAttribute('data-rank') !== String(hoverId);
+      layer.style.opacity = hoverId === null ? '' : (dim ? '0.25' : '1');
+    });
+
+    var ink = frameColour('--color-base-content');
+    var x = state.xs[week];
+    state.svg.appendChild(streamNode('line', {
+      'class': 'stream-guide',
+      x1: x, x2: x,
+      y1: STREAM_LABEL_H, y2: STREAM_LABEL_H + STREAM_BAND,
+      stroke: ink,
+      'stroke-opacity': '0.55',
+      'stroke-width': STREAM_GUIDE_W,
+      'pointer-events': 'none',
+      'aria-hidden': 'true',
+    }));
+    var grid = gridContainer.querySelector('svg[data-layout="desktop"]');
+    if (grid) {
+      grid.appendChild(streamNode('rect', {
+        'class': 'stream-column-ring',
+        x: LEFT_PAD + week * STEP - STREAM_RING_PAD,
+        y: TOP_PAD - STREAM_RING_PAD,
+        width: CELL_SIZE + 2 * STREAM_RING_PAD,
+        height: 7 * STEP - CELL_GAP + 2 * STREAM_RING_PAD,
+        rx: STREAM_RING_PAD,
+        fill: 'none',
+        stroke: ink,
+        'stroke-width': STREAM_RING_W,
+        'pointer-events': 'none',
+        'aria-hidden': 'true',
+      }));
+    }
+
+    var model = panelModel(state.payload, week, hoverId);
+    var panel = state.panel;
+    fillStreamPanel(panel, model, currentStreamTheme());
+    panel.setAttribute('data-side', model.side);
+    var box = state.svg.getBoundingClientRect();
+    var host = gridContainer.getBoundingClientRect();
+    var unit = box.width / state.svg.viewBox.baseVal.width;
+    panel.hidden = false;
+    // Starts just above the plot as the reference draws it, lifted when the
+    // panel would run past the chart's bottom edge (a narrow desktop width),
+    // never above the grid.
+    var scrolled = gridContainer.scrollTop - host.top;
+    var top = Math.min(box.top + scrolled + (STREAM_LABEL_H - STREAM_PANEL_RISE) * unit,
+      box.bottom + scrolled - panel.offsetHeight);
+    panel.style.left = (box.left - host.left + gridContainer.scrollLeft + x * unit) + 'px';
+    panel.style.top = Math.max(0, top) + 'px';
+  }
+
+  /** Remove everything showWeek put up: panel, marker, guide and dimming. */
+  function clearWeek() {
+    var state = streamState;
+    removeStreamMarks();
+    if (!state) return;
+    state.shown = null;
+    state.panel.hidden = true;
+    state.svg.querySelectorAll('.stream-layer').forEach(function (layer) {
+      layer.style.opacity = '';
+    });
   }
 
   function renderHeatmapMobile(data) {
@@ -2172,6 +2377,9 @@
       smoothPath: smoothPath,
       layerColour: layerColour,
       streamPayloadValid: streamPayloadValid,
+      weekFromX: weekFromX,
+      layerAtY: layerAtY,
+      panelModel: panelModel,
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,

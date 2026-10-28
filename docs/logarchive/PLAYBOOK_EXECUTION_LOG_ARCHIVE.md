@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Add pure layout functions for the streamgraph
+
+Side task, no batch tag: the streamgraph's pure layout maths (streamgraph plan Task 2), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent: the streamgraph is built to match the Claude Design reference, so its layout maths must be pure, tested functions before any DOM work builds on them.
+
+What changed and why: `static/js/heatmap.js` gains the constants `STREAM_PEAK`, `STREAM_BAND`, `STREAM_LABEL_H` and the functions `streamOrder`, `streamBaseline`, `stackLayers`, `streamScale`, `smoothPath` and `layerColour`, all exposed on `__scrobbleHeatmapTestHooks` and touching no DOM. `tests/frontend/test_heatmap_pure_functions.py` covers them with hand-computed cases (17 new cases). A Firefox probe loaded the hooks and checked one `streamOrder`, `stackLayers` and `layerColour` case.
+
+Contrast (ruling S13, confirmed by owner ruling U20): the layer fills are exempt from the 3:1 non-text floor because the scrubber panel states every layer's name and count as text for every week; the ramp and the "Everything else" fills stay the owner's frozen values. Measured WCAG ratios against the frame: dark frame `#1f1b28` layers 1.53-10.22, "Everything else" `#3a3347` 1.40; light frame `#f0ebe0` layers 2.02-10.52, "Everything else" `#ddd5c5` 1.23.
+
+Deviations: Task 2 lands after Task 3 (disjoint files), so the plan's numeric landing order is not followed.
+
+Existing tests edited, by name: none (new tests appended to `test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3004 passed**.
+
 ### 2026-10-27 - Store the weekly artist counts with the job result
 
 Side task, no batch tag: the heatmap job wiring for the streamgraph (streamgraph plan Task 3), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

@@ -174,6 +174,9 @@ from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
     check_stream_absent_without_payload_or_on_mobile,
     check_stream_aligns_with_grid_columns,
     check_stream_colours_follow_theme_and_meet_contrast,
+    check_stream_hover_shows_panel_and_ring,
+    check_stream_reduced_motion,
+    check_stream_touch_drag_scrubs,
 )
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
     FORBIDDEN_SURFACES,
@@ -310,6 +313,24 @@ CHECKS = (
     (
         "stream colours follow theme and meet contrast",
         check_stream_colours_follow_theme_and_meet_contrast,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream hover shows panel and ring",
+        check_stream_hover_shows_panel_and_ring,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream touch drag scrubs",
+        check_stream_touch_drag_scrubs,
+        (TOUCH_WIDE,),
+        THEME_MOTION,
+    ),
+    (
+        "stream reduced motion",
+        check_stream_reduced_motion,
         (DESKTOP,),
         THEME_MOTION,
     ),

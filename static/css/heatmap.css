@@ -482,6 +482,65 @@
   touch-action: pan-y;
 }
 
+/* The scrubber panel, positioned by static/js/heatmap.js at the hovered
+   column's centre, a little above the plot. It never takes the pointer,
+   so the chart under it keeps the hover. */
+.stream-panel {
+  position: absolute;
+  z-index: 2;
+  min-width: 260px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--stream-line);
+  border-radius: 4px;
+  background: var(--stream-panel-bg);
+  box-shadow: 0 4px 16px var(--stream-panel-shadow);
+  font-family: var(--font-mono);
+  font-size: var(--text-body-sm);
+  line-height: 1.45;
+  color: var(--color-base-content);
+  pointer-events: none;
+  transform: translateX(18px);
+}
+
+.stream-panel[hidden] {
+  display: none;
+}
+
+.stream-panel[data-side="left"] {
+  transform: translateX(calc(-100% - 18px));
+}
+
+.stream-panel-header {
+  margin-bottom: 0.35rem;
+  font-size: var(--text-label-sm);
+  color: var(--stream-muted);
+}
+
+.stream-panel-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-weight: 400;
+  opacity: 0.78;
+}
+
+.stream-panel-row.is-hovered {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.stream-panel-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.stream-panel-count {
+  font-family: var(--font-figure);
+  font-variant-numeric: tabular-nums;
+}
+
 /* SVG text labels inherit the page colour through currentColor. The family
    and tracking are set on the nodes themselves in static/js/heatmap.js,
    because they land on SVG presentation attributes where var() does not

@@ -880,6 +880,18 @@ def _eleven_artists(p):
     p["artists"] = _stream_payload(artists=11)["artists"]
 
 
+def _non_string_week(p):
+    p["weeks"][1] = 20250113
+
+
+def _non_string_name(p):
+    p["artists"][0]["name"] = 7
+
+
+def _artists_not_a_list(p):
+    p["artists"] = {"0": p["artists"][0]}
+
+
 @pytest.mark.parametrize(
     ("payload", "valid"),
     [
@@ -891,6 +903,9 @@ def _eleven_artists(p):
         (_stream_case(_set_count("3")), False),
         (_stream_case(_no_other), False),
         (_stream_case(_eleven_artists), False),
+        (_stream_case(_non_string_week), False),
+        (_stream_case(_non_string_name), False),
+        (_stream_case(_artists_not_a_list), False),
         (None, False),
         ("weekly", False),
     ],
@@ -903,9 +918,89 @@ def _eleven_artists(p):
         "non-numeric-count",
         "other-missing",
         "eleven-artists",
+        "non-string-week",
+        "non-string-name",
+        "artists-not-a-list",
         "null",
         "string",
     ],
 )
 def test_stream_payload_valid(js_page, payload, valid):
     assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
+
+
+def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
+    # Week t sits at LEFT_PAD + t * STEP + CELL_SIZE / 2 = 39 + 16 t.
+    xs = [-500, 39, 46, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
+    got = [_hook(js_page, "weekFromX", x, 53) for x in xs]
+    assert got == [0, 0, 0, 1, 1, 2, 52, 52]
+
+
+STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], rank 7 [2,5]
+    [{"y0": 0, "y1": 2}],
+    [{"y0": 2, "y1": 2}],
+    [{"y0": 2, "y1": 5}],
+]
+
+
+@pytest.mark.parametrize(
+    ("y", "expected"),
+    [
+        (1, "other"),
+        (3.5, 7),
+        (2, 7),  # a shared boundary belongs to the layer above
+        (5, 7),
+        (-0.1, None),
+        (5.1, None),
+    ],
+)
+def test_layer_at_y_finds_the_band_holding_the_pointer(js_page, y, expected):
+    # The empty band (rank 4) can never be hit; `order` maps stack slots to ranks.
+    got = js_page.evaluate(
+        "([stack, y, order]) => window.__scrobbleHeatmapTestHooks.layerAtY("
+        "stack, 0, y, order)",
+        [STACK_AT_WEEK, y, [4, 7]],
+    )
+    assert got == expected
+
+
+def _panel(js_page, week, hover, weeks=40):
+    payload = {
+        "weeks": [f"2025-{1 + t // 5:02d}-{1 + 7 * (t % 4):02d}" for t in range(weeks)],
+        "artists": [
+            {"name": "Big", "counts": [1200] * weeks},
+            {"name": "Mid", "counts": [30] * weeks},
+            {"name": "Silent", "counts": [0] * weeks},
+        ],
+        "other": [5] * weeks,
+    }
+    return _hook(js_page, "panelModel", payload, week, hover)
+
+
+def test_panel_model_lists_the_stack_top_first_with_everything_else_last(js_page):
+    model = _panel(js_page, 2, 1)
+    # Order bottom to top is [Mid, Big]; the panel reads from the top down.
+    assert [r["name"] for r in model["rows"]] == ["Big", "Mid", "Everything else"]
+    assert [r["id"] for r in model["rows"]] == [0, 1, "other"]
+    assert [r["hovered"] for r in model["rows"]] == [False, True, False]
+    assert model["rows"][2]["count"] == 5
+
+
+def test_panel_model_header_counts_the_whole_week_with_thousands_separators(js_page):
+    assert _panel(js_page, 2, None)["header"] == "Week of Jan 15 - 1,235 scrobbles"
+
+
+def test_panel_model_header_and_rows_for_a_single_scrobble(js_page):
+    payload = {
+        "weeks": ["2025-01-15"],
+        "artists": [{"name": "Big", "counts": [0]}],
+        "other": [1],
+    }
+    model = _hook(js_page, "panelModel", payload, 0, None)
+    assert model["header"] == "Week of Jan 15 - 1 scrobble"
+    assert [r["name"] for r in model["rows"]] == ["Everything else"]  # no zero rows
+
+
+@pytest.mark.parametrize(("week", "side"), [(34, "right"), (35, "left")])
+def test_panel_model_flips_left_past_week_34(js_page, week, side):
+    assert _panel(js_page, week, None)["side"] == side
