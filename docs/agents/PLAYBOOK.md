@@ -184,6 +184,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Include the streamgraph in Save image
+
+Side task, no batch tag: the streamgraph in the saved image (streamgraph plan Task 9), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference; the saved image shows what the page shows.
+
+What changed and why: `static/js/heatmap.js` `drawHeatmapImage` now calls `clearWeek()` first (S19), serialises the stream SVG through a new `streamAsImage` (a clone without `line.stream-guide`, every `path.stream-layer` at `opacity` 1 with its `style` removed, the section label in `monospace`) and draws it flush under the grid at the grid's width, growing the canvas by the stream's rendered height (SG9-F1: the plan's "plus the section gap" is superseded, the page has no gap and the file now matches it). `gridAsImage` also drops `.stream-column-ring`; `removeAll` and `svgCloneAsImage` are shared helpers. The background is painted from `--heatmap-surface` resolved on the frame (S15), so the file takes the timeline surface (dark `#1f1b28`) and not the body's `#181520`. The header record gains `drawnHeader.stream = {label, height}`, only when a stream exists; with no stream (mobile layout or no payload) the export is unchanged.
+
+Gate: new check `stream is in the saved image` (DESKTOP, THEME_MOTION, dark and light) saves for real and decodes the JPEG in the page. Image growth over the no-payload export is the stream height times the export scale, within an absolute 2 px (SG9-F3, replaces a 4% tolerance); a layer pixel at the tallest week and an "Everything else" pixel match the resolved fills; `drawnHeader.stream` matches the page. SG9-F2: the check saves once at rest, hovers week 30, saves again and compares that week's column in both JPEGs (max per-channel difference 12), so a ring, guide or dimmed layer reaching the file fails; proved red with `clearWeek()` and the clone resets removed (differences 238 and 170 of 255).
+
+Rulings recorded: S15, S19, SG9-F1, SG9-F2, SG9-F3. Firefox probe: the same assertions pass in Firefox, dark and light, and the saved images were viewed; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. Check (b) samples the middle of the layer found on the centre line, not the centre-line pixel, because that pixel can fall on a layer edge. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 57 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new gate check only, registered in `CHECKS`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
 ### 2026-10-27 - Add keyboard access to the streamgraph
 
 Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -237,21 +255,5 @@ Finding SG6-F1 (review of the first patch, closed): the check compared only laye
 Deviations: the brief's 3:1 assertion on layer fills is not made (U20). The mermaid edges for the new imports in `docs/architecture/documentation-tooling.md` are Task 10's (ruling S16a). The landing relied on the nested gate logs (frontend gate 52 checks passed, ruling U19) and did not re-run the frontend gate.
 
 Existing tests edited, by name: none.
-
-Validation: `pytest -q` -- **3014 passed**.
-
-### 2026-10-27 - Draw the top-artists streamgraph under the grid
-
-Side task, no batch tag: the top-artists streamgraph drawn under the heatmap grid (streamgraph plan Task 5), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (rulings U18, U23): a desktop-only streamgraph that lines up with the grid's week columns, matching the Claude Design reference; a mobile streamgraph is a later PR.
-
-What changed and why: `static/js/heatmap.js` gains `streamPayloadValid` (in the test seam) and `drawStream`, called at the end of `renderHeatmapDesktop` when the payload is valid and the scale is above 0. It stacks "Everything else" below the top ten artists, adds month gridlines and a muted section label, and keeps its state in module-level `streamState`, reset on every `renderHeatmap`. Every paint is a resolved attribute so the saved image needs no stylesheet; an absent or invalid payload and the mobile layout draw nothing. `static/css/heatmap.css` adds `#heatmap-grid { position: relative }`, `.stream-layer` and `.stream-chart`. The new `scripts/dev/_frontend_gate_stream.py` holds `seed_stream_job` and two gate checks, registered in `frontend_gate.py`: `stream aligns with the grid columns` (1280 and 1000 px, within 1 px) and `stream absent without payload or on mobile`. Per ruling SG5-L1 the gate-module lists in `docs/architecture/documentation-tooling.md` (now sixteen siblings) and `.claude/SESSION_CONTEXT.md` name the new module.
-
-Contrast (rulings S13, S14, U20): section label on the frame 5.05 dark / 4.65 light, passing 4.5. Layer fills 1.52-10.22 dark and 2.02-10.52 light, "Everything else" 1.40 / 1.23, and gridlines 1.30 / 1.12 are exempt from 3:1; the owner's colour values are unchanged. A Firefox probe passed alignment, absence and mobile.
-
-Deviations: none from the brief. A theme flip without a re-render leaves the previous theme's fills until Task 6's `recolourStream`. The landing relied on the nested gate logs (frontend gate 51 checks passed, ruling U19) and did not re-run the frontend gate.
-
-Existing tests edited, by name: none; `tests/frontend/test_heatmap_pure_functions.py` is extended with `test_stream_payload_valid`.
 
 Validation: `pytest -q` -- **3014 passed**.

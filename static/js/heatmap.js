@@ -587,14 +587,9 @@
    */
   function gridAsImage(svg, width, height) {
     var clone = svg.cloneNode(true);
-    clone.setAttribute('width', String(width));
-    clone.setAttribute('height', String(height));
-    clone.setAttribute('xmlns', SVG_NS);
-    // The focus-ring is page state, not part of the picture.
-    Array.prototype.forEach.call(
-      clone.querySelectorAll('.heatmap-focus-ring'),
-      function (node) { node.remove(); }
-    );
+    // The focus marker and the shown week's marker are page state, not
+    // part of the picture.
+    removeAll(clone, '.heatmap-focus-ring, .stream-column-ring');
     Array.prototype.forEach.call(
       clone.querySelectorAll('.heatmap-month-label, .heatmap-day-label'),
       function (node) {
@@ -602,6 +597,38 @@
         node.setAttribute('fill', resolvedColour('--ss-text-muted'));
       }
     );
+    return svgCloneAsImage(clone, width, height);
+  }
+
+  /**
+   * The streamgraph as the saved image shows it: at rest (no guide, every
+   * layer fully opaque), its section label in plain monospace like the month
+   * labels. Every stream paint is already a resolved attribute.
+   */
+  function streamAsImage(svg, width, height) {
+    var clone = svg.cloneNode(true);
+    removeAll(clone, 'line.stream-guide');
+    Array.prototype.forEach.call(clone.querySelectorAll('path.stream-layer'), function (node) {
+      node.removeAttribute('style');
+      node.setAttribute('opacity', '1');
+    });
+    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label'), function (node) {
+      node.setAttribute('font-family', 'monospace');
+    });
+    return svgCloneAsImage(clone, width, height);
+  }
+
+  function removeAll(root, selector) {
+    Array.prototype.forEach.call(root.querySelectorAll(selector), function (node) {
+      node.remove();
+    });
+  }
+
+  // A serialised clone with explicit pixel dimensions, as an Image.
+  function svgCloneAsImage(clone, width, height) {
+    clone.setAttribute('width', String(width));
+    clone.setAttribute('height', String(height));
+    clone.setAttribute('xmlns', SVG_NS);
     var markup = new XMLSerializer().serializeToString(clone);
     var image = new Image();
     image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
@@ -832,12 +859,22 @@
     var svg = gridContainer ? gridContainer.querySelector('svg') : null;
     if (!svg) return;
 
+    // A shown week (dimmed layers, guide, column marker) is the pointer's
+    // state; the saved image is the resting picture. Nothing is restored.
+    clearWeek();
+
     var svgBox = svg.getBoundingClientRect();
     var gridWidth = Math.round(svgBox.width);
     var gridHeight = Math.round(svgBox.height);
     if (!gridWidth || !gridHeight) return;
 
     var width = gridWidth + EXPORT_PAD * 2;
+
+    // The streamgraph, when the page draws one, goes under the grid at the
+    // grid's width, so its weeks stay under their columns.
+    var streamSvg = gridContainer.querySelector('#stream-chart');
+    var streamHeight = streamSvg ? Math.round(streamSvg.getBoundingClientRect().height) : 0;
+    var streamBlock = streamHeight;
 
     var canvas = document.createElement('canvas');
     var ctx = canvas.getContext('2d');
@@ -847,14 +884,16 @@
     var items = kpiTexts();
     var layout = exportHeaderLayout(ctx, gridWidth, items);
     var headHeight = layout.headHeight;
-    var height = headHeight + gridHeight + EXPORT_PAD;
+    var height = headHeight + gridHeight + streamBlock + EXPORT_PAD;
 
     canvas.width = width * EXPORT_SCALE;
     canvas.height = height * EXPORT_SCALE;
     ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
     ctx.textBaseline = 'alphabetic';
 
-    ctx.fillStyle = resolvedColour('--heatmap-surface');
+    // Read on the result frame, where the timeline surface is declared, so
+    // the saved image matches what the page shows.
+    ctx.fillStyle = frameColour('--heatmap-surface');
     ctx.fillRect(0, 0, width, height);
 
     // The page leads with the headline and puts the eyebrow under it, both in
@@ -883,8 +922,23 @@
       drawLegend(ctx, layout.legendX, layout.legendY, header.legend, layout.legendMeasured);
 
     var image = gridAsImage(svg, gridWidth, gridHeight);
-    image.onload = function () {
+    var streamImage = streamBlock ? streamAsImage(streamSvg, gridWidth, streamHeight) : null;
+    if (streamImage) {
+      var streamLabel = streamSvg.querySelector('.stream-section-label');
+      drawnHeader.stream = {
+        label: streamLabel ? streamLabel.textContent : '',
+        height: streamHeight
+      };
+    }
+    var pending = streamImage ? 2 : 1;
+    var drawWhenLoaded = function () {
+      pending -= 1;
+      if (pending) return;
       ctx.drawImage(image, EXPORT_PAD, headHeight, gridWidth, gridHeight);
+      if (streamImage) {
+        ctx.drawImage(streamImage, EXPORT_PAD,
+          headHeight + gridHeight, gridWidth, streamHeight);
+      }
       var link = document.createElement('a');
       link.href = canvas.toDataURL('image/jpeg', 0.95);
       link.download =
@@ -893,6 +947,8 @@
       link.click();
       link.remove();
     };
+    image.onload = drawWhenLoaded;
+    if (streamImage) streamImage.onload = drawWhenLoaded;
   }
 
   // ----------------------------------------------------------------

@@ -175,6 +175,7 @@ from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
     check_stream_aligns_with_grid_columns,
     check_stream_colours_follow_theme_and_meet_contrast,
     check_stream_hover_shows_panel_and_ring,
+    check_stream_is_in_saved_image,
     check_stream_is_one_keyboard_tab_stop,
     check_stream_reduced_motion,
     check_stream_touch_drag_scrubs,
@@ -320,6 +321,12 @@ CHECKS = (
     (
         "stream hover shows panel and ring",
         check_stream_hover_shows_panel_and_ring,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream is in the saved image",
+        check_stream_is_in_saved_image,
         (DESKTOP,),
         THEME_MOTION,
     ),

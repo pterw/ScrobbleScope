@@ -9,6 +9,8 @@ own `data-columns`), never recomputed from the constants under test.
 from __future__ import annotations
 
 import datetime
+from base64 import b64encode
+from pathlib import Path
 
 from scripts.dev._frontend_gate_colour import _contrast_ratio, _parse_rgb_string
 from scripts.dev._frontend_gate_shared import wait_for_settled
@@ -880,4 +882,265 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
         page.evaluate(_REMOVE_SENTINEL_JS)
         page.set_viewport_size(original)
         jobs.delete(job_id)
+    return failures
+
+
+# Save image. The export is drawn by hand, so a stream the page shows can
+# still be missing from the file; the file is read back pixel by pixel.
+_EXPORT_SCALE = 2
+_EXPORT_PAD = 28
+#: The export puts the stream flush under the grid, as the page does, so the
+#: canvas grows by exactly the stream's rounded CSS height times the export
+#: scale (the header and grid heights are the same in both saves). One CSS
+#: pixel of rounding, 1 * _EXPORT_SCALE = 2 px, is the whole allowance.
+_HEIGHT_TOLERANCE = _EXPORT_SCALE
+_JPEG_TOLERANCE = 12
+_SAVE_BUTTON = "#heatmap-save-image"
+_SAVED_WEEK = 30
+
+#: Where in the stream (viewBox units, found by testing the layers' own
+#: fills) to look in the saved file: the layer on the centre line at the
+#: tallest week, and the "Everything else" band at its widest.
+_PLAN_JS = """([theme, week]) => {
+    const svg = document.querySelector('#stream-chart');
+    const hooks = window.__scrobbleHeatmapTestHooks;
+    const xs = svg.dataset.columns.split(' ').map(Number);
+    const grid = svg.querySelector('line.stream-gridline');
+    const centre = (Number(grid.getAttribute('y1')) + Number(grid.getAttribute('y2'))) / 2;
+    const height = svg.viewBox.baseVal.height;
+    const paths = Array.from(svg.querySelectorAll('path.stream-layer'));
+    const fills = (path, x, y) => path.isPointInFill(new DOMPoint(x, y));
+    const band = (path, x, step) => {
+        let first = null;
+        let last = null;
+        for (let y = 0; y <= height; y += step) {
+            if (fills(path, x, y)) {
+                if (first === null) first = y;
+                last = y;
+            }
+        }
+        return first === null ? null : { first, last };
+    };
+    const extent = (x) => {
+        let first = null;
+        let last = null;
+        for (let y = 0; y <= height; y += 1) {
+            if (paths.some((p) => fills(p, x, y))) {
+                if (first === null) first = y;
+                last = y;
+            }
+        }
+        return first === null ? 0 : last - first;
+    };
+    const extents = xs.map(extent);
+    const tallest = extents.indexOf(Math.max(...extents));
+    const x = xs[tallest];
+    const onCentre = paths.find((p) => fills(p, x, centre))
+        || paths.find((p) => band(p, x, 1));
+    const other = svg.querySelector('path.stream-layer-other');
+    const widths = xs.map((wx) => {
+        const b = band(other, wx, 0.5);
+        return b ? b.last - b.first : 0;
+    });
+    const widest = widths.indexOf(Math.max(...widths));
+    const mid = (path, px) => {
+        const b = band(path, px, 0.25);
+        return (b.first + b.last) / 2;
+    };
+    const rank = onCentre.dataset.rank;
+    const probe = document.createElement('div');
+    probe.style.color = 'var(--stream-other)';
+    document.querySelector('#heatmap-result-frame').appendChild(probe);
+    const otherColour = getComputedStyle(probe).color;
+    probe.remove();
+    const box = svg.getBoundingClientRect();
+    return {
+        cssHeight: Math.round(box.height),
+        unitX: Math.round(box.width) / svg.viewBox.baseVal.width,
+        unitY: Math.round(box.height) / height,
+        label: svg.querySelector('.stream-section-label').textContent,
+        column: { x: xs[week] * (Math.round(box.width) / svg.viewBox.baseVal.width),
+                  step: (xs[1] - xs[0]) * (Math.round(box.width) / svg.viewBox.baseVal.width) },
+        probes: [
+            { name: 'layer ' + rank + ' at week ' + tallest, x, y: mid(onCentre, x),
+              expected: rank === 'other' ? otherColour : hooks.layerColour(Number(rank), theme) },
+            { name: 'Everything else at week ' + widest, x: xs[widest],
+              y: mid(other, xs[widest]), expected: otherColour },
+        ],
+    };
+}"""
+
+_READ_SAVED_JS = """async ([data, plan, scale, pad, streamHeight]) => {
+    const image = new Image();
+    image.src = 'data:image/jpeg;base64,' + data;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    const top = image.height / scale - pad - streamHeight;
+    const pixels = plan ? plan.probes.map((p) => {
+        const px = Math.round((pad + p.x * plan.unitX) * scale);
+        const py = Math.round((top + p.y * plan.unitY) * scale);
+        const d = context.getImageData(px - 1, py - 1, 3, 3).data;
+        const sum = [0, 0, 0];
+        for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) sum[c] += d[i + c] / 9;
+        return sum;
+    }) : [];
+    return { width: image.width, height: image.height, pixels };
+}"""
+
+#: The largest per-channel difference between two saves of the same page over
+#: the shown week's column (one column either side), the grid part above the
+#: stream and the stream part, so a ring or a guide left in shows up.
+_READ_COLUMN_DIFF_JS = """async ([rest, shown, plan, scale, pad, streamHeight]) => {
+    const load = async (data) => {
+        const image = new Image();
+        image.src = 'data:image/jpeg;base64,' + data;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        return { image, context };
+    };
+    const a = await load(rest);
+    const b = await load(shown);
+    if (a.image.width !== b.image.width || a.image.height !== b.image.height) return null;
+    const x0 = Math.round((pad + plan.column.x - plan.column.step) * scale);
+    const x1 = Math.round((pad + plan.column.x + plan.column.step) * scale);
+    const split = Math.round(b.image.height - (pad + streamHeight) * scale);
+    const largest = (y0, y1) => {
+        const w = x1 - x0;
+        const da = a.context.getImageData(x0, y0, w, y1 - y0).data;
+        const db = b.context.getImageData(x0, y0, w, y1 - y0).data;
+        let max = 0;
+        for (let i = 0; i < da.length; i++) {
+            if (i % 4 !== 3) max = Math.max(max, Math.abs(da[i] - db[i]));
+        }
+        return max;
+    };
+    return { grid: largest(0, split), stream: largest(split, b.image.height) };
+}"""
+
+
+def _save_image(page) -> bytes:
+    """Save for real; the click comes from script so the pointer stays put."""
+    with page.expect_download(timeout=15_000) as downloaded:
+        page.evaluate(f"() => document.querySelector('{_SAVE_BUTTON}').click()")
+    return Path(downloaded.value.path()).read_bytes()
+
+
+def _decode(page, image_bytes: bytes, plan=None, stream_height: int = 0) -> dict:
+    return page.evaluate(
+        _READ_SAVED_JS,
+        [
+            b64encode(image_bytes).decode("ascii"),
+            plan,
+            _EXPORT_SCALE,
+            _EXPORT_PAD,
+            stream_height,
+        ],
+    )
+
+
+def _saved_image_failures(theme, plan, drawn, saved, baseline_height) -> list[str]:
+    """Judge one theme's saved image against what the page drew and showed."""
+    stream = (drawn or {}).get("stream")
+    if not stream:
+        return [f"the saved image records no stream in the {theme} theme"]
+    failures = []
+    if stream.get("label") != plan["label"]:
+        failures.append(
+            f"saved stream label is {stream.get('label')!r} in the {theme} theme, "
+            f"the page says {plan['label']!r}"
+        )
+    if stream.get("height") != plan["cssHeight"]:
+        failures.append(
+            f"saved stream is {stream.get('height')} px tall in the {theme} theme, "
+            f"the page draws it {plan['cssHeight']} px tall"
+        )
+    grown = saved["height"] - baseline_height
+    wanted = plan["cssHeight"] * _EXPORT_SCALE
+    if abs(grown - wanted) > _HEIGHT_TOLERANCE:
+        failures.append(
+            f"saved image grows by {grown} px with the stream in the {theme} theme, "
+            f"expected {wanted} px (within {_HEIGHT_TOLERANCE} px)"
+        )
+    for probe, pixel in zip(plan["probes"], saved["pixels"], strict=True):
+        want = _rgb(probe["expected"])
+        if any(
+            abs(got - w) > _JPEG_TOLERANCE for got, w in zip(pixel, want, strict=True)
+        ):
+            failures.append(
+                f"saved image pixel in {probe['name']} is "
+                f"{tuple(round(c) for c in pixel)} in the {theme} theme, "
+                f"expected {tuple(round(c) for c in want)}"
+            )
+    return failures
+
+
+def _column_failures(theme, diff) -> list[str]:
+    """The shown week's column must look the same as in a save at rest."""
+    if diff is None:
+        return [f"the saved images differ in size once a week is shown ({theme})"]
+    return [
+        f"the shown week's column differs from the resting save in the {part} "
+        f"part of the {theme} theme by {diff[part]} (of 255)"
+        for part in ("grid", "stream")
+        if diff[part] > _JPEG_TOLERANCE
+    ]
+
+
+def check_stream_is_in_saved_image(page, base_url: str) -> list[str]:
+    """Save image carries the stream, at rest, on the frame surface."""
+    failures = []
+    with_payload, _last_day = seed_stream_job()
+    without_payload, _last_day = seed_stream_job(payload=False)
+    # The expected layer colour comes from the page's own ramp, which the
+    # test seam exposes only when the flag is set before the script runs.
+    probe = page.context.new_page()
+    probe.add_init_script("window.__scrobbleHeatmapTestMode = true")
+    try:
+        _open_heatmap(probe, base_url, without_payload, _GRID_DESKTOP)
+        baseline_height = _decode(probe, _save_image(probe))["height"]
+        for theme in ("dark", "light"):
+            _open_heatmap(probe, base_url, with_payload, _GRID_DESKTOP)
+            probe.evaluate(SET_THEME_EXPRESSION, theme)
+            wait_for_settled(probe)
+            plan = probe.evaluate(_PLAN_JS, [theme, _SAVED_WEEK])
+            rest_bytes = _save_image(probe)
+            # A week on show must not reach the file: dimmed layers, the
+            # guide and the column ring are the pointer's state. The hover
+            # must really have shown, or the save below proves nothing.
+            failures.extend(_hover_failures(_hover(probe, _SAVED_WEEK), _SAVED_WEEK))
+            image_bytes = _save_image(probe)
+            drawn = probe.evaluate("() => window.__scrobbleHeatmapDrawnHeader?.()")
+            saved = _decode(
+                probe,
+                image_bytes,
+                plan,
+                ((drawn or {}).get("stream") or {}).get("height", 0),
+            )
+            failures.extend(
+                _saved_image_failures(theme, plan, drawn, saved, baseline_height)
+            )
+            diff = probe.evaluate(
+                _READ_COLUMN_DIFF_JS,
+                [
+                    b64encode(rest_bytes).decode("ascii"),
+                    b64encode(image_bytes).decode("ascii"),
+                    plan,
+                    _EXPORT_SCALE,
+                    _EXPORT_PAD,
+                    plan["cssHeight"],
+                ],
+            )
+            failures.extend(_column_failures(theme, diff))
+    finally:
+        probe.close()
+        jobs.delete(with_payload)
+        jobs.delete(without_payload)
     return failures
