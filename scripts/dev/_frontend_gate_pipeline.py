@@ -27,6 +27,97 @@ PAGE_23_OF_102 = "PAGE 23 / 102"
 PAGE_90_OF_100 = "PAGE 90 / 100"
 
 
+#: The animation names on the header bars and on every pinwheel group (the
+#: rotor and its blades), the two looping animations a loading page starts.
+_MOTION_NAMES_JS = """() => [
+    ...document.querySelectorAll(
+        '.ss-mark svg #horizontal_bars path:nth-of-type(-n+5), '
+        + '.ss-pinwheel svg > g, .ss-pinwheel svg > g > g'
+    ),
+].map(el => getComputedStyle(el).animationName)"""
+
+
+def _paused_motion_failures(page) -> list[str]:
+    """Fail unless a paused page (data-motion still on <html>, as the pre-paint
+    script sets it from the stored choice) stops the header bars and the
+    pinwheel (U29, U31), and lifting it starts them again. No footer button is
+    needed and nothing is stored, so no choice leaks into the next check."""
+    running = page.evaluate(_MOTION_NAMES_JS)
+    page.evaluate("() => document.documentElement.setAttribute('data-motion', 'still')")
+    try:
+        paused = page.evaluate(_MOTION_NAMES_JS)
+    finally:
+        page.evaluate("() => document.documentElement.removeAttribute('data-motion')")
+    resumed = page.evaluate(_MOTION_NAMES_JS)
+    failures = []
+    if len(running) != 10 or "none" in running:
+        failures.append(f"/loading motion is not running before a pause: {running}")
+    if set(paused) != {"none"}:
+        failures.append(f"/loading Pause animations left motion running: {paused}")
+    if resumed != running:
+        failures.append("/loading Play animations did not start the motion again")
+    return failures
+
+
+_BAR_NAMES_JS = """() => [
+    ...document.querySelectorAll('.ss-mark svg #horizontal_bars path:nth-of-type(-n+5)'),
+].map(el => getComputedStyle(el).animationName)"""
+
+
+def _unmatched_pause_failures(page, base_url: str) -> list[str]:
+    """Clicking the unmatched page's own Pause animations button rests the
+    header bars (U33); a second click (Play) pulses them again, which also
+    clears the stored choice so it cannot leak into the next check."""
+    job_id = jobs.create(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    jobs.record_unmatched(
+        job_id,
+        "below-threshold",
+        {
+            "album": "Older",
+            "artist": "Pause Probe",
+            "reason": "Played 2 times across 1 unique tracks",
+            "reason_code": "below_threshold",
+            "shortfall": "1 play short",
+            "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+            "spotify_id": None,
+            "play_count": 2,
+        },
+    )
+    try:
+        page.route("**/api/artist_spotlight?*", lambda route: route.abort())
+        page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
+        toggle = page.locator(".motion-toggle").first
+        running = page.evaluate(_BAR_NAMES_JS)
+        toggle.click()
+        try:
+            paused = page.evaluate(_BAR_NAMES_JS)
+        finally:
+            toggle.click()
+        resumed = page.evaluate(_BAR_NAMES_JS)
+    finally:
+        page.unroute("**/api/artist_spotlight?*")
+        jobs.delete(job_id)
+    failures = []
+    if len(running) != 5 or "none" in running:
+        failures.append(f"/unmatched bars are not running before a pause: {running}")
+    if set(paused) != {"none"}:
+        failures.append(f"/unmatched Pause animations left the header bars: {paused}")
+    if resumed != running:
+        failures.append("/unmatched Play animations did not pulse the bars again")
+    return failures
+
+
 def check_loading_composition(page, base_url: str) -> list[str]:
     """The job-backed loading route uses the shared determinate wait panel."""
     loading_path = next(path for path in MIGRATED_PAGES if path.startswith("/loading?"))
@@ -82,6 +173,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         )
     if geometry["cancel"] != {"href": "/", "text": "Cancel and return home"}:
         failures.append("/loading has no honest Cancel and return home control")
+    failures.extend(_paused_motion_failures(page))
 
     # Use a disposable job. Opening an explicit Heatmap job intentionally
     # stores it in the browser session; deleting it afterward lets the next
@@ -90,11 +182,11 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     heatmap_job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
     jobs.record_stat(heatmap_job_id, "pages_received", 7)
     jobs.record_stat(heatmap_job_id, "pages_expected", 12)
-    jobs.advance(heatmap_job_id, 48, "Reading your Last.fm history...")
+    jobs.advance(heatmap_job_id, 48, "Reading your Last.fm history")
     try:
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
         page.locator("#heatmap-progress-text").filter(
-            has_text="Reading your Last.fm history..."
+            has_text="Reading your Last.fm history"
         ).wait_for(state="visible")
         heatmap_state = page.evaluate(
             """() => ({
@@ -120,7 +212,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         failures.append(
             "/heatmap did not retain its loading parameters (expected username and date window)"
         )
-    if heatmap_state["phase"] != "Reading your Last.fm history...":
+    if heatmap_state["phase"] != "Reading your Last.fm history":
         failures.append("/heatmap phase does not name the current operation")
     if heatmap_state["fillTransform"] == "none":
         failures.append(
@@ -128,6 +220,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         )
     if heatmap_state["cancel"] != {"href": "/", "text": "Cancel and return home"}:
         failures.append("/heatmap has no honest Cancel and return home control")
+    failures.extend(_unmatched_pause_failures(page, base_url))
     return failures
 
 

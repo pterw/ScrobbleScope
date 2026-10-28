@@ -96,7 +96,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   owner uses the two words interchangeably for the ScrobbleScope mark, and
   counts only the letterforms as the logo -- the five bars beside them are a
   visualiser, not part of it. So "the wordmark font" means Oblong Regular,
-  the face inside the SVG, and never Orpheus Pro, Instrument Serif or any
+  the face inside the SVG, and never Degular or any
   Adobe kit family used for page type. Getting this wrong sends you to the
   wrong file.
 - **The Adobe kit is what keeps this UI from looking generated.** The owner is
@@ -107,8 +107,8 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   terracotta serif pairings, Inter or Space Grotesk as the safe face, emoji
   section markers, everything centred, uniform rounded cards. When proposing
   UI, do not reach for those defaults, and do not substitute a "safer" common
-  face for a kit family. The owner accepts the serif hero layout (Instrument
-  Serif until 2026-10-22, Orpheus Pro since) as AI-flavoured but fine; that is
+  face for a kit family. The owner accepts the editorial hero layout (a serif
+  until 2026-10-27, Degular 600 since) as AI-flavoured but fine; that is
   a judgement already made, not an opening.
 - **The wordmark typeface is Oblong Regular, by WAPType.** Free, and licensed
   so this project can host it. The owner recovered this on 2026-08-25 after

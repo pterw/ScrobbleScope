@@ -580,6 +580,20 @@
    * reader is on a phone. This saves whatever layout is on screen.
    */
   function saveHeatmapImage() {
+    // The canvas draws at once, so the heading face must be loaded first or
+    // the saved image would fall back to another family.
+    var loading = document.fonts && document.fonts.load
+      ? document.fonts.load('600 26px ' + displayFamily())
+      : Promise.resolve();
+    loading.catch(function () {}).then(drawHeatmapImage);
+  }
+
+  function displayFamily() {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-display').trim();
+  }
+
+  function drawHeatmapImage() {
     var svg = gridContainer ? gridContainer.querySelector('svg') : null;
     if (!svg) return;
 
@@ -612,11 +626,11 @@
     // one ink. The export follows it, in the page's order and wording.
     var header = exportHeaderModel();
     ctx.fillStyle = resolvedColour('--color-base-content');
-    // The page's display serif, read from its token, so the saved image
+    // The page's heading face, read from its token, so the saved image
     // follows the page instead of naming a family of its own (it drew
-    // Instrument Serif after the page moved to Orpheus Pro, 2026-10-22).
-    ctx.font = '26px ' + getComputedStyle(document.documentElement)
-      .getPropertyValue('--font-serif').trim();
+    // Instrument Serif after the page moved to Orpheus Pro, then to Degular
+    // 600 on 2026-10-27).
+    ctx.font = '600 26px ' + displayFamily();
     var headlineFont = ctx.font;
     ctx.fillText(header.headline, EXPORT_PAD, EXPORT_PAD + 26);
 
@@ -701,7 +715,8 @@
     // [data-mode-marks] holds the two mark lists that crossfade alongside
     // the hero copy. Both sets live in the same grid track; only the active
     // one is visible at a time -- same mechanism as heroBlocks.
-    marksBlocks    = document.querySelectorAll('[data-mode-marks]');
+    // The two keys under the strip (data-mode-key) crossfade the same way.
+    marksBlocks    = document.querySelectorAll('[data-mode-marks], [data-mode-key]');
 
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
@@ -781,10 +796,12 @@
       hero.classList.toggle('is-active', isActive);
       hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    // The hero strip term lists (data-mode-marks) crossfade in lock-step with the hero copy.
+    // The hero strip term lists (data-mode-marks) and the keys under them
+    // (data-mode-key) crossfade in lock-step with the hero copy.
     if (marksBlocks) {
       marksBlocks.forEach(function (marks) {
-        var isActive = marks.getAttribute('data-mode-marks') === mode;
+        var isActive = (marks.getAttribute('data-mode-marks')
+          || marks.getAttribute('data-mode-key')) === mode;
         marks.classList.toggle('is-active', isActive);
         marks.setAttribute('aria-hidden', isActive ? 'false' : 'true');
       });
@@ -820,7 +837,7 @@
     hideElement(errorContainer);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) hideElement(progressTrack);
-    progressText.textContent = 'Restoring your latest heatmap...';
+    progressText.textContent = 'Restoring your latest heatmap';
     resetLoadingDetails(lastUsername);
     restoringSavedHeatmap = true;
     hideElement(heatmapLoading);
@@ -1008,7 +1025,7 @@
     hideElement(heatmapSection);
     hideElement(heatmapResult);
     hideElement(errorContainer);
-    progressText.textContent = 'Initializing...';
+    progressText.textContent = 'Connecting to Last.fm';
     resetLoadingDetails(username);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) {
@@ -1071,7 +1088,7 @@
         result.status === 400 &&
         result.data.error_code === 'csrf_invalid'
       ) {
-        progressText.textContent = 'Refreshing your session...';
+        progressText.textContent = 'Refreshing your session';
         return refreshCsrfToken().then(function () {
           return startHeatmapRequest(username, false);
         });
@@ -1169,7 +1186,7 @@
   }
 
   function fetchHeatmapData() {
-    progressText.textContent = 'Rendering heatmap...';
+    progressText.textContent = 'Rendering heatmap';
 
     fetch('/heatmap_data?job_id=' + encodeURIComponent(currentJobId))
       .then(function (res) { return res.json(); })

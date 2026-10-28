@@ -110,7 +110,7 @@ async def _run_spotify_batch_detail_phase(
                 batches_done,
                 num_batches,
                 f"Enriched {enriched_so_far}/"
-                f"{len(valid_spotify_ids)} albums from Spotify...",
+                f"{len(valid_spotify_ids)} albums from Spotify",
             )
     finally:
         # An unexpected exception from one batch must not leave its siblings

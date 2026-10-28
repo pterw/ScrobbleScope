@@ -209,6 +209,11 @@
     .unmatched-table td:nth-child(3) {
         width: calc(6.5rem * var(--results-scale, 1));
     }
+
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
+        width: calc(9rem * var(--results-scale, 1));
+    }
 }
 
 /* Headers wrap between words instead of clipping. Cells keep
@@ -217,6 +222,28 @@
 .unmatched-table th {
     white-space: normal;
     overflow-wrap: break-word;
+}
+
+/* The threshold panel's metric header is one label on one line at every width:
+   "Plays/trk" below 768px, where the column keeps its phone width, and
+   "Plays (dot) tracks" from 768px, where the column is widened above to hold
+   it. The th carries aria-label, so a screen reader hears the full words. */
+.unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3) {
+    white-space: nowrap;
+}
+
+.unmatched-metric-long {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .unmatched-metric-short {
+        display: none;
+    }
+
+    .unmatched-metric-long {
+        display: inline;
+    }
 }
 
 .unmatched-metric {

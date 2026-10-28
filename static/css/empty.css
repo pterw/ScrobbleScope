@@ -34,11 +34,12 @@
 .empty-state h1 {
   margin: 0 0 0.75rem;
   color: var(--color-base-content);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 2.625rem);
-  font-weight: var(--font-weight-normal);
+  font-weight: 600;
+  font-style: normal;
   line-height: 1.05;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .empty-state p {

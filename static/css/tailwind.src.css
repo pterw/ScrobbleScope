@@ -17,11 +17,11 @@
    padding. tests/test_template_shell.py holds the line. */
 @theme static {
    /* Adobe Fonts, loaded by the use.typekit.net link in
-     base.html. Each family owns one job: sans for all UI chrome, serif for
-     display words, figure for display numbers, mono for inputs and tabular
+     base.html. Each family owns one job: sans for all UI chrome, display for
+     heading words (Degular 600), figure for display numbers, mono for inputs and tabular
      numbers, mono-narrow for letterspaced caps at 9-11px. */
    --font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;
-   --font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;
+   --font-display: "degular", "akzidenz-grotesk-next-pro", sans-serif;
    --font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;
    --font-mono: "input-mono", "orator-std", ui-monospace, monospace;
    --font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;
@@ -313,6 +313,14 @@
    migrated page. static/css/error.css paints its own .error-page and is
    unaffected. */
 @layer base {
+  /* Heading face: Degular 600, tight tracking. The utility only names the
+     family, so the weight and tracking ride with it. */
+  .font-display {
+    font-weight: 600;
+    font-style: normal;
+    letter-spacing: -0.015em;
+  }
+
   html {
     /* Prevents iOS Safari from inflating text on orientation change:
        without an explicit value, Mobile Safari rescales font sizes in

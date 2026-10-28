@@ -522,13 +522,6 @@ file = "static/js/heatmap.js"
 pattern = 'LAST (\d+) DAYS'
 expect = "365"
 
-# The heatmap headline, "Your 365 days mapped by day." (owner, 2026-10-25;
-# it read "Your last 365 days" before).
-[[value.sites]]
-file = "templates/index.html"
-pattern = 'Your (\d+) days'
-expect = "365"
-
 [[value.sites]]
 file = "templates/partials/_heatmap_form.html"
 pattern = 'last (\d+) days'
@@ -746,4 +739,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 2972
+pinned = 3023

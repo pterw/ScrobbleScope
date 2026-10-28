@@ -130,7 +130,7 @@ async def _run_deezer_fallback_phase(
                 jobs.DEEZER_FALLBACK,
                 done,
                 total,
-                f"Checking Deezer: {done}/{total} albums...",
+                f"Checking Deezer: {done}/{total} albums",
             )
 
             if metadata is not None:

@@ -219,6 +219,19 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
 
+    def test_pause_animations_holds_the_rotation_and_play_resumes_it(self):
+        """With data-motion still the card stays on its artist, also when the
+        page loaded paused; Play resumes from the card shown."""
+        self.spotlight()
+        self.page.evaluate("document.documentElement.dataset.motion = 'still'")
+        self.settle_two_candidates()
+        name = self.page.locator("#spotlight-artist-name")
+        self.page.clock.run_for(21000)
+        self.assertEqual(name.inner_text(), "A & B")
+        self.page.evaluate("delete document.documentElement.dataset.motion")
+        self.page.clock.run_for(7150)
+        self.assertEqual(name.inner_text(), "Second")
+
     def test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration(self):
         """A failed hydration drops its candidate; reduced motion keeps the
         surviving confirmed artist still."""
@@ -478,6 +491,7 @@ class ResultsBehaviorTests(unittest.TestCase):
             "results.js",
             '<button id="toggle-sort-plays"></button>'
             '<button id="toggle-sort-playtime"></button><span id="metric-header-label"></span>'
+            '<p id="results-ranking-subtitle"></p>'
             '<table id="results-table"><tbody>' + rows + "</tbody></table>",
             {"year": 2025},
         )
@@ -491,6 +505,10 @@ class ResultsBehaviorTests(unittest.TestCase):
             ("playtime", "plays", ["B", "A", "C"], ["1", "2"], ["01", "02"]),
             ("plays", "playtime", ["A", "B", "C"], ["1", "2", "3"], ["01", "02", "03"]),
         ]
+        subtitles = {
+            "playtime": "Last.fm \u00b7 Ranked by listening time",
+            "plays": "Last.fm \u00b7 Ranked by play count",
+        }
         for mode, other, order, ranks, cells in cases:
             with self.subTest(mode=mode):
                 self.page.locator(f"#toggle-sort-{mode}").click()
@@ -517,6 +535,10 @@ class ResultsBehaviorTests(unittest.TestCase):
                 unpressed = self.page.locator(f"#toggle-sort-{other}")
                 self.assertEqual(unpressed.get_attribute("aria-pressed"), "false")
                 self.assertEqual(self.page.locator(".is-reordering").count(), 0)
+                self.assertEqual(
+                    self.page.locator("#results-ranking-subtitle").inner_text(),
+                    subtitles[mode],
+                )
         self.assertEqual(
             self.page.locator(".metric-value-cell").all_text_contents(),
             ["100", "20", "0"],
@@ -671,6 +693,7 @@ class ResultsBehaviorTests(unittest.TestCase):
             '<button id="toggle-sort-plays"></button>'
             '<button id="toggle-sort-playtime" data-has-durations="true"></button>'
             '<span id="metric-header-label"></span>'
+            '<p id="results-ranking-subtitle"></p>'
             '<input type="radio" id="results_albums_matched" name="results_albums">'
             '<label for="results_albums_matched">Hide</label>'
             '<input type="radio" id="results_albums_all" name="results_albums" checked>'
@@ -680,37 +703,41 @@ class ResultsBehaviorTests(unittest.TestCase):
         )
 
     def note_state(self):
-        """[note hidden, integer in the note, integers in the latest toast]."""
+        """[note hidden, integer in the note, toasts shown, subtitle, header]."""
         return self.page.evaluate(
-            "() => { const toasts = document.querySelectorAll('#toastContainer > div');"
-            " const last = toasts[toasts.length - 1];"
-            " return [document.getElementById('playtime-hidden-note').hidden,"
+            "() => [document.getElementById('playtime-hidden-note').hidden,"
             " document.getElementById('playtime-hidden-count').textContent,"
-            " (last.textContent.match(/\\d+/g) || [])]; }"
+            " document.querySelectorAll('#toastContainer > div').length,"
+            " document.getElementById('results-ranking-subtitle').textContent,"
+            " document.getElementById('metric-header-label').textContent]"
         )
 
-    def test_hidden_note_and_toast_carry_the_count_of_dropped_albums(self):
+    def test_sort_switch_shows_the_count_in_the_note_and_no_toast(self):
         """Two albums without a listening time: ranking by listening time shows
-        the note with 2 and a toast holding 2; ranking by plays hides the note
-        and the toast holds no count."""
+        the note with 2; ranking by plays hides it. The subtitle and header
+        follow the ranking and no toast appears either way."""
         self.note_run([("A", "9", "50", ""), ("B", "8", "0", ""), ("C", "7", "", "")])
         self.page.locator("#toggle-sort-playtime").click()
-        hidden, count, toast = self.note_state()
+        hidden, count, toasts, subtitle, header = self.note_state()
         self.assertFalse(hidden)
         self.assertEqual(count, "2")
-        self.assertEqual(toast, ["2"])
+        self.assertEqual(toasts, 0)
+        self.assertEqual(subtitle, "Last.fm · Ranked by listening time")
+        self.assertEqual(header, "Listening Time")
         self.page.locator("#toggle-sort-plays").click()
-        hidden, _, toast = self.note_state()
+        hidden, _, toasts, subtitle, header = self.note_state()
         self.assertTrue(hidden)
-        self.assertEqual(toast, [])
+        self.assertEqual(toasts, 0)
+        self.assertEqual(subtitle, "Last.fm · Ranked by play count")
+        self.assertEqual(header, "Track Plays")
 
     def test_hidden_note_stays_hidden_when_every_album_has_a_listening_time(self):
-        """Nothing is dropped, so the note stays hidden and the toast has no count."""
+        """Nothing is dropped, so the note stays hidden and no toast appears."""
         self.note_run([("A", "9", "50", ""), ("B", "8", "40", "")])
         self.page.locator("#toggle-sort-playtime").click()
-        hidden, _, toast = self.note_state()
+        hidden, _, toasts, _, _ = self.note_state()
         self.assertTrue(hidden)
-        self.assertEqual(toast, [])
+        self.assertEqual(toasts, 0)
 
     def test_hidden_note_counts_only_rows_the_ranking_alone_drops(self):
         """A durationless unmatched row is Hide's, not the ranking's, whichever
@@ -746,7 +773,7 @@ class ResultsBehaviorTests(unittest.TestCase):
                     self.page.locator(controls[step]).click()
                 for step, expected in checks:
                     self.page.locator(controls[step]).click()
-                    hidden, count, _ = self.note_state()
+                    hidden, count = self.note_state()[:2]
                     self.assertEqual((hidden, count), expected)
 
     def tooltip(self):

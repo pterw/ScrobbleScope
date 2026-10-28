@@ -839,6 +839,65 @@ def spotlight_remeasure_failures(state: dict) -> list[str]:
     return failures
 
 
+#: Seeds the stored choice the pre-paint script reads, as a page carried over
+#: from a paused home page would have it.
+_STORE_PAUSE_JS = "localStorage.setItem('ss-motion', 'still');"
+
+#: The animation names on the header bars, which a paused page must rest.
+_BAR_NAMES_JS = """() => [
+    ...document.querySelectorAll(
+        '.ss-mark svg #horizontal_bars path:nth-of-type(-n+5)'
+    ),
+].map(el => getComputedStyle(el).animationName)"""
+
+
+def _pause_hold_failures(page, url: str) -> list[str]:
+    """Load the results page already paused (the stored choice, set before the
+    page runs): the card keeps its artist across several rotation periods and
+    the header bars rest; clicking Play animations resumes the rotation from
+    the card shown (U29). Runs on a page of its own so the stored choice
+    cannot leak into the other phases."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    probe = page.context.new_page()
+    try:
+        # Before the fetch mock: the last init script is the one a unit test reads.
+        probe.add_init_script(_STORE_PAUSE_JS)
+        _install_spotlight_fetch_mock(probe, SQUARE_PHOTO_DATA_URL, keep_rotating=True)
+        error = _open_spotlight_card(
+            probe, url, LAYOUT_VIEWPORTS[3], "spotlight paused hold"
+        )
+        if error:
+            return [error]
+        before = probe.evaluate(_LINK_STATE_JS)
+        try:
+            probe.wait_for_function(
+                f"() => window.__spotlightTicks >= {before['ticks'] + HOLD_PERIODS}",
+                timeout=5_000,
+            )
+        except PlaywrightTimeoutError:
+            pass  # Reported below by the tick count.
+        failures = spotlight_hold_failures(
+            before, probe.evaluate(_LINK_STATE_JS), "paused"
+        )
+        bars = probe.evaluate(_BAR_NAMES_JS)
+        if not bars or set(bars) != {"none"}:
+            failures.append(f"paused results page left the header bars moving: {bars}")
+        probe.click(".motion-toggle")
+        try:
+            probe.wait_for_function(
+                "artist => document.getElementById('artist-spotlight-card')"
+                ".dataset.artist !== artist",
+                arg=before["artist"],
+                timeout=5_000,
+            )
+        except PlaywrightTimeoutError:
+            failures.append("spotlight did not resume after Play animations")
+        return failures
+    finally:
+        probe.close()
+
+
 def _remeasure_hold_failures(page, url: str) -> list[str]:
     """Focus the link, resize the card so it is re-measured, and judge it.
 
@@ -915,6 +974,7 @@ def check_artist_spotlight_holds_still_while_focused_or_hovered(
             failures.extend(
                 spotlight_hold_failures(before, page.evaluate(_LINK_STATE_JS), held_by)
             )
+        failures.extend(_pause_hold_failures(page, url))
         failures.extend(_remeasure_hold_failures(page, url))
     finally:
         jobs.delete(job_id)

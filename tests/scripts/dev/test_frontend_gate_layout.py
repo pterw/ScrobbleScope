@@ -503,7 +503,24 @@ def test_expanded_measurement_opens_decade_scope_and_thresholds(monkeypatch) -> 
     ]
 
 
-def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
+def _keys(mode: str) -> dict:
+    """The home keys as they should read in `mode`: one shown, none in the form."""
+    return {"inForm": 0, "active": [mode], "hiddenOk": True, "ruleOk": True}
+
+
+MODE_SWITCH = {
+    "albumTop": 191.0,
+    "heatmapTop": 191.0,
+    "keys": {"album": _keys("album"), "heatmap": _keys("heatmap")},
+    "albumKeyText": "1 play across the album 5 different tracks by default",
+    "restoredKeyText": "7 plays across the album 5 different tracks by default",
+}
+HEATMAP_FIRST = {"albumTop": 191.0, "heatmapTop": 191.0}
+
+
+def _run_large_display_check(
+    monkeypatch, full: dict, short: dict, overflow=None
+) -> list[str]:
     """Run the scale-parity check with the 1920x1063 / 1920x700 expanded stubs."""
     module = _frontend_gate_layout
     measured_at = []
@@ -516,6 +533,15 @@ def _run_large_display_check(monkeypatch, full: dict, short: dict) -> list[str]:
     root_width = 27.5 * 20 * ((900 - header_px) / ((42.0625 + 4) * 20))
     state = {"dimensions": {}, "documentHeight": 2000, "viewportHeight": 945}
     monkeypatch.setattr(module, "_measure_expanded_placement", expanded)
+    monkeypatch.setattr(module, "_measure_mode_switch_shift", lambda *a: MODE_SWITCH)
+    monkeypatch.setattr(
+        module, "_measure_heatmap_first_shift", lambda *a: HEATMAP_FIRST
+    )
+    monkeypatch.setattr(
+        module,
+        "_measure_home_overflow",
+        overflow or (lambda *a: _measured_home()),
+    )
     last_window = []
 
     def scale_dimensions(_page, _url, _selectors, width, height):
@@ -580,6 +606,200 @@ def test_large_display_check_reports_the_window_that_misses_its_floor(
     assert len(failures) == 2
     assert "off-centre at 1920x1063" in failures[0]
     assert failures[1] == line
+
+
+@pytest.mark.parametrize(
+    ("heatmap_top", "failed"),
+    [(191.0, False), (191.9, False), (135.0, True), (304.0, True)],
+    ids=["no-shift", "within-tolerance", "moves-up", "moves-down"],
+)
+def test_mode_switch_must_stay_put_when_the_mode_changes(heatmap_top, failed) -> None:
+    measured = {"albumTop": 191.0, "heatmapTop": heatmap_top}
+
+    failures = _frontend_gate_layout._mode_switch_failures("1920x1063", measured)
+
+    assert bool(failures) is failed
+    assert all("1920x1063" in line for line in failures)
+
+
+SYNCED = [{"text": "Play animations", "pressed": "true"}] * 2
+PAUSE_OK = {
+    "shown": 1,
+    "inside": True,
+    "gap": 24,
+    "footerGap": 24,
+    "afterClick": SYNCED,
+}
+
+
+def _home_state(overflow=0, **pause) -> dict:
+    return {"overflow": overflow, "pause": dict(PAUSE_OK, **pause)}
+
+
+def _measured_home(album=None, heatmap=None) -> dict:
+    return {"album": album or _home_state(), "heatmap": heatmap or _home_state()}
+
+
+@pytest.mark.parametrize(
+    ("measured", "expected"),
+    [
+        (_measured_home(), []),
+        (_measured_home(album=_home_state(92)), ["scrolls 92px", "album mode"]),
+        (_measured_home(heatmap=_home_state(1)), ["scrolls 1px", "heatmap mode"]),
+        # The rule or markup that places the button is gone: nothing shows.
+        (_measured_home(album=_home_state(shown=0)), ["0 pause buttons", "album"]),
+        (_measured_home(heatmap=_home_state(shown=2)), ["2 pause buttons", "heatmap"]),
+        (_measured_home(album=_home_state(inside=False)), ["outside the window"]),
+        # Flush with the window's foot, not level with the results footer button.
+        (_measured_home(album=_home_state(gap=0)), ["0.0px above", "24.0px"]),
+        (_measured_home(heatmap=_home_state(gap=24.9)), []),
+        # The hidden copy kept its old label after the click.
+        (
+            _measured_home(
+                heatmap=_home_state(
+                    afterClick=[
+                        {"text": "Play animations", "pressed": "true"},
+                        {"text": "Pause animations", "pressed": "false"},
+                    ]
+                )
+            ),
+            ["did not follow a click", "heatmap mode"],
+        ),
+    ],
+    ids=[
+        "fits",
+        "album-scrolls",
+        "heatmap-scrolls",
+        "no-pause-button",
+        "two-pause-buttons",
+        "pause-button-off-screen",
+        "pause-button-flush-with-the-window-foot",
+        "pause-button-gap-within-one-px",
+        "hidden-copy-not-synced",
+    ],
+)
+def test_the_home_page_must_not_scroll_vertically_in_either_mode(
+    measured, expected
+) -> None:
+    failures = _frontend_gate_layout._home_overflow_failures("1366x768", measured)
+
+    assert len(failures) == (1 if expected else 0)
+    assert all(fragment in failures[0] for fragment in expected)
+
+
+def test_the_large_display_check_measures_the_home_fit_windows(monkeypatch) -> None:
+    """A scrolling home page at 1920x1080 or 1366x768 fails the gate."""
+    seen = []
+
+    def overflow(_page, _url, width, height):
+        seen.append((width, height))
+        return _measured_home(album=_home_state(92))
+
+    failures = _run_large_display_check(
+        monkeypatch,
+        full=_expanded(gap=30, top=4),
+        short=_expanded(gap=30, top=4),
+        overflow=overflow,
+    )
+
+    assert seen == [(1920, 1080), (1366, 768)]
+    assert [line for line in failures if "scrolls 92px" in line] == [
+        "/: the home page scrolls 92px vertically in album mode at 1920x1080, "
+        "expected none",
+        "/: the home page scrolls 92px vertically in album mode at 1366x768, "
+        "expected none",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("change", "expected_fragment"),
+    [
+        ({}, None),
+        ({"album": {"inForm": 1}}, "form stack holds 1"),
+        ({"heatmap": {"inForm": 2}}, "form stack holds 2"),
+        ({"album": {"active": ["heatmap"]}}, "album mode shows keys ['heatmap']"),
+        ({"heatmap": {"active": []}}, "heatmap mode shows keys []"),
+        ({"heatmap": {"hiddenOk": False}}, "heatmap mode shows keys"),
+        ({"text": "10 plays across the album 5 different tracks"}, "steppers"),
+        ({"text": "1 play across the album 3 different tracks"}, "steppers"),
+        ({"album": {"ruleOk": False}}, "album key does not end with the 1px"),
+        ({"heatmap": {"ruleOk": False}}, "heatmap key does not end with the 1px"),
+        ({"restored": "10 plays across 3 different tracks"}, "restored"),
+        ({"restored": "7 plays across the album 3 different tracks"}, "restored"),
+    ],
+    ids=[
+        "clean",
+        "album-form-explains",
+        "heatmap-form-explains",
+        "wrong-key-in-album",
+        "no-key-in-heatmap",
+        "inactive-key-not-hidden",
+        "plays-ignore-stepper",
+        "tracks-ignore-stepper",
+        "album-key-lacks-rule",
+        "heatmap-key-lacks-rule",
+        "restored-values-ignored",
+        "restored-tracks-ignored",
+    ],
+)
+def test_the_form_stack_holds_no_key_and_each_mode_shows_its_own(
+    change, expected_fragment
+) -> None:
+    measured = {
+        "keys": {
+            mode: {**_keys(mode), **change.get(mode, {})}
+            for mode in ("album", "heatmap")
+        },
+        "albumKeyText": change.get("text", MODE_SWITCH["albumKeyText"]),
+        "restoredKeyText": change.get("restored", MODE_SWITCH["restoredKeyText"]),
+    }
+
+    failures = _frontend_gate_layout._home_key_failures("1920x1063", measured)
+
+    if expected_fragment is None:
+        assert failures == []
+    else:
+        assert len(failures) == 1
+        assert expected_fragment in failures[0]
+        assert "1920x1063" in failures[0]
+
+
+@pytest.mark.parametrize(
+    ("phone", "expected_fragment"),
+    [
+        ({"keysShown": 0, "yearHintShown": True}, None),
+        ({"keysShown": 1, "yearHintShown": True}, "keys are shown at 390px"),
+        ({"keysShown": 0, "yearHintShown": False}, "year hint is hidden at 390px"),
+    ],
+    ids=["clean", "keys-on-phone", "year-hint-missing-on-phone"],
+)
+def test_a_phone_hides_the_keys_and_keeps_the_year_hint(
+    phone, expected_fragment
+) -> None:
+    failures = _frontend_gate_layout._phone_home_failures(390, phone)
+
+    if expected_fragment is None:
+        assert failures == []
+    else:
+        assert len(failures) == 1
+        assert expected_fragment in failures[0]
+
+
+@pytest.mark.parametrize(
+    "stub", [MODE_SWITCH, HEATMAP_FIRST], ids=["album-first", "heatmap-first"]
+)
+def test_large_display_check_reports_a_mode_switch_that_moves(
+    monkeypatch, stub
+) -> None:
+    def run() -> list[str]:
+        return _run_large_display_check(
+            monkeypatch, full=_expanded(gap=30, top=10), short=_expanded(gap=30, top=4)
+        )
+
+    baseline = run()
+    monkeypatch.setitem(stub, "heatmapTop", 304.0)
+
+    assert len(run()) == len(baseline) + 1
 
 
 def _all_named() -> dict:

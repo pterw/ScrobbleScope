@@ -540,6 +540,56 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+@pytest.mark.parametrize(
+    "sort_mode, ranking",
+    [
+        ("playcount", "Ranked by play count"),
+        ("playtime", "Ranked by listening time"),
+    ],
+)
+def test_results_headline_names_user_and_year_and_subtitle_names_source(
+    client, sort_mode, ranking
+):
+    """The h1 carries the user and the run's year; the subtitle names the
+    source and the ranking and no year."""
+    job_id = jobs.create(
+        {
+            "username": "flounder14",
+            "year": 2024,
+            "sort_mode": sort_mode,
+            "mode": "album",
+        }
+    )
+    jobs.succeed(
+        job_id,
+        [
+            {
+                "artist": "A",
+                "album": "One",
+                "play_count": 5,
+                "play_time": "1m",
+                "play_time_seconds": 60,
+                "release_date": "2024-02-07",
+            }
+        ],
+        "Done!",
+    )
+
+    html = client.post("/results_complete", data={"job_id": job_id}).get_data(
+        as_text=True
+    )
+
+    def text(pattern):
+        match = re.search(pattern, html, re.S)
+        return " ".join(re.sub(r"<[^>]+>", "", match.group(1)).split())
+
+    assert text(r"<h1[^>]*>(.*?)</h1>") == "flounder14's top albums of 2024"
+    assert (
+        text(r'<h2 id="results-ranking-subtitle"[^>]*>(.*?)</h2>')
+        == f"Last.fm \u00b7 {ranking}"
+    )
+
+
 def test_each_play_count_states_how_many_digits_it_has(client):
     """The narrow-screen sizing keys on the digit count, so a count must
     carry its own length, whatever it is."""
@@ -1178,7 +1228,7 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
-    assert b"Albums that didn't match your filter" in response.data
+    assert b"Albums left out of " in response.data
     assert b"Outside release filter" in response.data
     assert b"No match found" in response.data
     assert b"Artist B" in response.data
@@ -1346,70 +1396,145 @@ def test_unmatched_view_shows_the_could_not_be_checked_panel(client):
     assert "Unavailable Album" not in _unmatched_panel(html, "no_spotify_match")
 
 
-def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(client):
+@pytest.mark.parametrize(
+    ("min_plays", "min_tracks", "description"),
+    [
+        pytest.param(10, 3, "Below 10 plays or 3 unique tracks.", id="plural"),
+        pytest.param(1, 1, "Below 1 play or 1 unique track.", id="singular"),
+    ],
+)
+def test_unmatched_view_names_track_counts_only_on_the_threshold_panel(
+    client, min_plays, min_tracks, description
+):
     """
-    GIVEN one album in each reason panel
+    GIVEN one album in each reason panel and a run's own thresholds
     WHEN POST /unmatched_view is submitted
-    THEN only the threshold panel's metric header says "Plays / tracks"; the
-         other panels hold a bare play count and say "Plays".
+    THEN only the threshold panel's metric header carries the track count: the
+         short "Plays/trk" below 768px and "Plays · tracks" from there, under
+         the full accessible name "Plays and tracks"; the other panels say
+         "Plays". The threshold panel's description gives the run's thresholds,
+         without the year, singular when the number is 1.
     """
-    job_id = jobs.create(TEST_JOB_PARAMS)
+    job_id = jobs.create(
+        {**TEST_JOB_PARAMS, "min_plays": min_plays, "min_tracks": min_tracks}
+    )
     _seed_every_unmatched_reason(job_id)
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     html = response.data.decode("utf-8")
 
     assert response.status_code == 200
-    header = re.compile(r'<th scope="col"[^>]*text-right[^>]*>([^<]*)</th>')
-    assert header.findall(_unmatched_panel(html, "below_threshold")) == [
-        "Plays / tracks"
+    header = re.compile(r'<th scope="col"([^>]*text-right[^>]*)>(.*?)</th>', re.S)
+    [(attrs, label)] = header.findall(_unmatched_panel(html, "below_threshold"))
+    assert 'aria-label="Plays and tracks"' in attrs
+    assert re.sub(r"<[^>]+>", "|", label).strip("|").split("||") == [
+        "Plays/trk",
+        "Plays · tracks",
     ]
     for reason_key in ("release_scope", "no_spotify_match", "provider_unavailable"):
-        assert header.findall(_unmatched_panel(html, reason_key)) == ["Plays"]
-    assert html.count("Plays / tracks") == 1
+        assert [t for _, t in header.findall(_unmatched_panel(html, reason_key))] == [
+            "Plays"
+        ]
+    description_text = re.search(
+        r'<p class="font-sans text-xs[^>]*>\s*(Below .*?)\s*</p>',
+        _unmatched_panel(html, "below_threshold"),
+        re.S,
+    )
+    assert description_text.group(1) == description
 
 
 @pytest.mark.parametrize(
-    ("albums", "expected"),
+    ("recorded", "stat", "other_recorded", "expected_notes"),
     [
-        pytest.param(1, "2025 \u00b7 1 album left out of your results", id="singular"),
-        pytest.param(2, "2025 \u00b7 2 albums left out of your results", id="plural"),
+        pytest.param(
+            500,
+            600,
+            0,
+            {"below_threshold": "Showing the first 500 of 600"},
+            id="capped-upstream",
+        ),
+        pytest.param(12, 12, 0, {}, id="not-capped"),
+        pytest.param(
+            12,
+            12,
+            520,
+            {"no_spotify_match": "Showing the first 500 of 520"},
+            id="capped-group-is-not-the-threshold-group",
+        ),
     ],
 )
-def test_unmatched_view_subtitle_counts_the_albums_left_out(client, albums, expected):
+def test_unmatched_view_states_the_real_total_of_a_capped_group(
+    client, recorded, stat, other_recorded, expected_notes
+):
     """
-    GIVEN a job with one or two unmatched albums
+    GIVEN a job whose groups were capped upstream, capped here, or not capped
     WHEN POST /unmatched_view is submitted
-    THEN the line under the headline is the year and the count, and the
-         filter bar states the filter once, with no "Listening year" and no
-         "Total unmatched" (both moved to the line above).
+    THEN each capped group says how many it shows of how many it holds, using
+         its own total, and an uncapped group says nothing of the kind.
     """
     job_id = jobs.create(TEST_JOB_PARAMS)
-    for index in range(albums):
-        jobs.record_unmatched(
-            job_id,
-            f"artist|album-{index}",
-            {
-                "artist": f"Artist {index}",
-                "album": f"Album {index}",
-                "reason": "Released in 2018 (filter requires 2024)",
-                "reason_code": "release_scope",
-            },
-        )
+    for reason, count in (
+        ("below_threshold", recorded),
+        ("no_spotify_match", other_recorded),
+    ):
+        for n in range(count):
+            jobs.record_unmatched(
+                job_id,
+                f"{reason}|{n}",
+                {
+                    "artist": "Artist",
+                    "album": f"Album {n}",
+                    "play_count": 1,
+                    "track_count": 1,
+                    "reason_code": reason,
+                },
+            )
+    jobs.record_stat(job_id, "albums_below_threshold", stat)
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     html = response.data.decode("utf-8")
 
     assert response.status_code == 200
-    subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
-    text = " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
-    assert text == expected
+    shown_reasons = ["below_threshold"] + (
+        ["no_spotify_match"] if other_recorded else []
+    )
+    for reason in shown_reasons:
+        note = re.search(
+            r'class="unmatched-capped-note[^"]*">([^<]*)<',
+            _unmatched_panel(html, reason),
+        )
+        assert (note.group(1) if note else None) == expected_notes.get(reason)
+
+
+def test_unmatched_view_filter_bar_states_the_run_settings(client):
+    """
+    GIVEN a job with one unmatched album
+    WHEN POST /unmatched_view is submitted
+    THEN the filter bar states the filter once, and "Listening year" and
+         "Total unmatched" appear nowhere (both moved to the subtitle).
+    """
+    job_id = jobs.create(TEST_JOB_PARAMS)
+    jobs.record_unmatched(
+        job_id,
+        "artist|album-0",
+        {
+            "artist": "Artist 0",
+            "album": "Album 0",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
+    )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+
+    assert response.status_code == 200
     assert "Total unmatched" not in html
     assert "Listening year" not in html
     filter_bar = re.search(r'class="results-filter-bar">(.*?)</div>', html, re.S)
     bar_text = " ".join(re.sub(r"<[^>]+>", "", filter_bar.group(1)).split())
     assert bar_text.startswith("Filter: ")
-    assert bar_text.endswith("\u226510 plays \u00b7 \u22653 unique tracks")
+    assert bar_text.endswith("≥10 plays · ≥3 unique tracks")
 
 
 def test_unmatched_view_portrait_image_is_not_lazy(client):
@@ -3813,6 +3938,11 @@ def _render_unmatched(client, include_unmatched, entries, listed_rows):
     return response.data.decode("utf-8")
 
 
+def _unmatched_h1(html):
+    headline = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.S)
+    return " ".join(re.sub(r"<[^>]+>", "", headline.group(1)).split())
+
+
 def _unmatched_subtitle(html):
     subtitle = re.search(r'class="unmatched-subtitle[^"]*">(.*?)</p>', html, re.S)
     return " ".join(re.sub(r"<[^>]+>", "", subtitle.group(1)).split())
@@ -3827,13 +3957,14 @@ _INCLUDE_ENTRIES = [
 
 
 @pytest.mark.parametrize(
-    ("include", "entries", "listed_rows", "expected"),
+    ("include", "entries", "listed_rows", "expected_h1", "expected"),
     [
         pytest.param(
             False,
             _INCLUDE_ENTRIES,
             [],
-            "2025 \u00b7 4 albums left out of your results",
+            "Albums left out of testuser's results",
+            "2025 \u00b7 4 albums, grouped by reason",
             id="not-an-include-run",
         ),
         pytest.param(
@@ -3844,7 +3975,8 @@ _INCLUDE_ENTRIES = [
                 ("Lost Two", "no_spotify_match"),
                 ("Lost Three", "provider_unavailable"),
             ],
-            "2025 \u00b7 3 albums listed in your results without a match, 1 left out",
+            "Unmatched albums in testuser's results",
+            "2025 \u00b7 4 albums, grouped by reason",
             id="listed-and-left-out",
         ),
         pytest.param(
@@ -3855,48 +3987,53 @@ _INCLUDE_ENTRIES = [
                 ("Lost Two", "no_spotify_match"),
                 ("Lost Three", "provider_unavailable"),
             ],
-            "2025 \u00b7 3 albums listed in your results without a match",
+            "Unmatched albums in testuser's results",
+            "2025 \u00b7 3 albums, grouped by reason",
             id="all-listed",
         ),
         pytest.param(
             True,
             _INCLUDE_ENTRIES[:1],
             [("Lost One", "no_spotify_match")],
-            "2025 \u00b7 1 album listed in your results without a match",
+            "Unmatched albums in testuser's results",
+            "2025 \u00b7 1 album, grouped by reason",
             id="one-listed",
         ),
         pytest.param(
             True,
             _INCLUDE_ENTRIES[:2],
             [("Lost One", "no_spotify_match")],
-            "2025 \u00b7 1 album listed in your results without a match, 1 left out",
+            "Unmatched albums in testuser's results",
+            "2025 \u00b7 2 albums, grouped by reason",
             id="show-limit-cut-a-listed-reason",
         ),
         pytest.param(
             True,
             _INCLUDE_ENTRIES[3:],
             [],
-            "2025 \u00b7 1 album left out of your results",
+            "Albums left out of testuser's results",
+            "2025 \u00b7 1 album, grouped by reason",
             id="include-run-with-nothing-listed",
         ),
     ],
 )
-def test_unmatched_page_count_line_names_listed_and_left_out(
-    client, include, entries, listed_rows, expected
+def test_unmatched_page_headline_and_subtitle_follow_listed_count(
+    client, include, entries, listed_rows, expected_h1, expected
 ):
     """
     GIVEN a job whose report holds entries and whose results list some of them
     WHEN the Unmatched page renders
-    THEN the count line names the listed albums and the left-out ones, counting
-    an entry as listed only when a result row carries its key (a Show limit
-    can cut a row whose reason code says it would have been listed), and a
-    run listing nothing keeps the left-out line.
+    THEN the headline says "Unmatched albums in" when any entry is listed and
+    "Albums left out of" otherwise, counting an entry as listed only when a
+    result row carries its key (a Show limit can cut a row whose reason code
+    says it would have been listed); the count line is the total either way.
 
-    Mutation: count the listed albums from the reason codes and the
-    show-limit case reads "2 albums listed" and fails.
+    Mutation: decide "listed" from the reason codes and the show-limit case
+    reads "Unmatched albums in" with nothing listed, and fails.
     """
     html = _render_unmatched(client, include, entries, listed_rows)
 
+    assert _unmatched_h1(html) == expected_h1
     assert _unmatched_subtitle(html) == expected
 
 

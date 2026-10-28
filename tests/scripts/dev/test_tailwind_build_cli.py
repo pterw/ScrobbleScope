@@ -160,7 +160,7 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
     source = SOURCE_CSS.read_text(encoding="utf-8")
     required_lines = {
         '--font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;',
-        '--font-serif: "orpheuspro", "instrument-serif", "corporate-a", Georgia, serif;',
+        '--font-display: "degular", "akzidenz-grotesk-next-pro", sans-serif;',
         '--font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;',
         '--font-mono: "input-mono", "orator-std", ui-monospace, monospace;',
         '--font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;',

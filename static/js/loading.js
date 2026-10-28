@@ -141,14 +141,14 @@ function handleProgressError(progressData) {
     retryButton.classList.remove('hidden');
     retryButton.onclick = function () {
       retryButton.disabled = true;
-      retryButton.textContent = 'Retrying\u2026';
+      retryButton.textContent = 'Retrying';
       retryCurrentSearch();
     };
     if (stepDetails) stepDetails.textContent = 'Retry the search or return home.';
     return true;
   }
 
-  scheduleResultsRedirect('Opening the results page\u2026');
+  scheduleResultsRedirect('Opening the results page');
   return true;
 }
 

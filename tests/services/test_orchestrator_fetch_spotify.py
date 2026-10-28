@@ -196,7 +196,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     GIVEN _fetch_spotify_misses searches for 5 Spotify albums
     WHEN each search completes via asyncio.as_completed
     THEN the job advances with values in the 20%-40% range
-    and messages like "Searching Spotify: N/T albums...".
+    and messages like "Searching Spotify: N/T albums".
 
     Arithmetic: pct = 20 + int(20 * searches_done / total_searches)
     For 5 searches: 24, 28, 32, 36, 40.
@@ -282,7 +282,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     # Final search call reaches 40%
     assert search_calls[-1]["progress"] == 40
     # Messages reference the total album count
-    assert "/5 albums..." in search_calls[-1]["message"]
+    assert search_calls[-1]["message"] == "Searching Spotify: 5/5 albums"
     for idx, sc in enumerate(search_calls, start=1):
         assert sc.get("phase") == {
             "key": "spotify_search",
@@ -299,7 +299,7 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     GIVEN _fetch_spotify_misses processes 2 batches of Spotify album details
     WHEN each batch completes via asyncio.as_completed
     THEN the job advances with values in the 40%-60% range
-    and messages like "Enriched N/T albums from Spotify...".
+    and messages like "Enriched N/T albums from Spotify".
 
     Arithmetic: pct = 40 + int(20 * batches_done / num_batches)
     For 2 batches: batch 1 -> 50, batch 2 -> 60.
@@ -386,8 +386,8 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     # Batch 2: 40 + int(20 * 2/2) = 60
     assert enrich_calls[1]["progress"] == 60
     # Both messages should reference total album count
-    assert "/25 albums from Spotify..." in enrich_calls[0]["message"]
-    assert "/25 albums from Spotify..." in enrich_calls[1]["message"]
+    assert enrich_calls[0]["message"] == "Enriched 20/25 albums from Spotify"
+    assert enrich_calls[1]["message"] == "Enriched 25/25 albums from Spotify"
     for idx, bc in enumerate(enrich_calls, start=1):
         assert bc.get("phase") == {
             "key": "spotify_details",
@@ -616,7 +616,7 @@ async def test_deezer_fallback_reports_progress_inside_its_band():
         await _run_deezer_fallback_phase(job_id, MagicMock(), misses, {})
 
     assert [percent for percent, _, _ in seen] == [63, 67, 71, 75]
-    assert seen[-1][1] == "Checking Deezer: 4/4 albums..."
+    assert seen[-1][1] == "Checking Deezer: 4/4 albums"
     assert seen[-1][2] == {
         "key": "deezer_fallback",
         "label": "Checking Deezer",

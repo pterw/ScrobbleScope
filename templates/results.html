@@ -31,11 +31,11 @@
     <!-- Header: Editorial Headline + Action Group in one balanced masthead row -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
         <div>
-            <h1 class="results-headline font-serif text-3xl md:text-5xl text-[var(--color-base-content)] mb-1 leading-tight">
-                Top Last.fm albums for <span class="results-headline__user italic text-[var(--color-primary)]">{{ username }}</span>
+            <h1 class="results-headline font-display text-3xl md:text-5xl text-[var(--color-base-content)] mb-1 leading-tight">
+                <span class="results-headline__user text-[var(--color-primary)]">{{ username }}</span>'s top albums of {{ year }}
             </h1>
             <h2 id="results-ranking-subtitle" class="font-sans text-base md:text-lg font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
-                {{ year }} · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
+                Last.fm · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
             </h2>
         </div>
         <!-- Toolbar actions share type; New search carries the theme accent. -->
@@ -121,7 +121,7 @@
     <!-- Empty State Container -->
     <div class="rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] p-8 md:p-12 text-center my-8 shadow-sm">
         <div class="font-mono text-sm tracking-widest text-[var(--color-primary)] uppercase mb-2">No Matching Releases</div>
-        <h2 class="font-serif text-3xl md:text-4xl text-[var(--color-base-content)] mb-3">No Albums Found</h2>
+        <h2 class="font-display text-3xl md:text-4xl text-[var(--color-base-content)] mb-3">No Albums Found</h2>
         <p class="text-sm text-[var(--ss-text-body)] max-w-md mx-auto mb-6">
             We couldn't find any {{ filter_description|default('albums') }} that you listened to in {{ year }}.
         </p>
@@ -364,7 +364,7 @@
                         </div>
                         <div class="spotlight-details">
                             <div class="flex items-start justify-between gap-2">
-                                <p id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2 [overflow-wrap:anywhere]" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                                <p id="spotlight-artist-name" class="font-display text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight line-clamp-2 [overflow-wrap:anywhere]" title="{{ top_artist_name|default(album_list[0].artist) }}">
                                     {{ top_artist_name|default(album_list[0].artist) }}
                                 </p>
                                 {# The official Spotify icon, linking to the artist on Spotify
@@ -382,7 +382,7 @@
                             <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">
                                 <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-[var(--ss-text-muted)] {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                             </p>
-                            <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
+                            <span id="spotlight-artist-rank" class="font-mono-narrow text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
                         </div>
                     </div>
                 </div>

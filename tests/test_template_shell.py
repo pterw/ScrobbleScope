@@ -12,7 +12,10 @@ checks the job-backed templates directly.
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -239,6 +242,22 @@ def test_every_page_carries_the_shared_shell(app, template):
     assert ">Loading</a>" not in html
     assert ">Light</span>" in html
     assert ">Dark</span>" in html
+    # The touch icon and one theme-color per scheme: the browser chrome follows
+    # the scheme the page is shown in.
+    assert re.search(
+        r'<link rel="apple-touch-icon" href="/static/images/apple-touch-icon\.png">',
+        html,
+    )
+    assert re.search(
+        r'<meta name="theme-color" content="#faf7f0"'
+        r' media="\(prefers-color-scheme: light\)">',
+        html,
+    )
+    assert re.search(
+        r'<meta name="theme-color" content="#0e0c12"'
+        r' media="\(prefers-color-scheme: dark\)">',
+        html,
+    )
 
 
 def test_shared_navigation_uses_input_mono_narrow():
@@ -706,16 +725,16 @@ def test_the_pinwheel_keeps_the_shape_its_selectors_assume():
 def test_every_page_wraps_its_footer_extras(app, template):
     """The wrapper centres and spaces whatever a page adds after the content.
 
-    Asserting the exact empty markup does double duty. It proves base.html
-    still emits the wrapper, and it proves the tags stay on one line --
-    `.page-footer-extras:empty` is what collapses the wrapper on the pages
-    that add nothing, and a newline between the tags is a text node that
-    stops :empty matching.
+    The pause-animations button opens the wrapper on every page, ahead of
+    whatever a page adds. On the home page from 860px the markup is the same
+    but index.css hides the wrapper and shows the button's copy in the hero.
     """
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
-    assert '<div class="page-footer-extras"></div>' in html
+    assert re.search(
+        r'<div class="page-footer-extras"><button [^>]*class="motion-toggle"', html
+    )
     if template == "results.html":
         assert 'id="back-to-top"' not in html
 
@@ -805,6 +824,37 @@ def test_the_lockup_frame_keeps_the_whole_descender():
     assert f'viewBox="{LOCKUP_VIEWBOX}"' in _lockup()
 
 
+def _prepaint_attributes(script: str, store: dict | None) -> dict:
+    """Run the inline pre-paint script in node; return what it put on <html>.
+
+    `store` is the fake localStorage; None makes every read throw, the way a
+    browser that blocks site data does. System preference is light.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    harness = (
+        "const store = JSON.parse(process.argv[2]);"
+        "const attrs = {};"
+        "global.localStorage = { getItem(k) {"
+        " if (store === null) throw new Error('denied');"
+        " return k in store ? store[k] : null; } };"
+        "global.window = { matchMedia: () => ({ matches: false }) };"
+        "global.document = { documentElement: {"
+        " setAttribute(k, v) { attrs[k] = v; } } };"
+        "new Function(process.argv[1])();"
+        "console.log(JSON.stringify(attrs));"
+    )
+    done = subprocess.run(
+        [node, "-e", harness, script, json.dumps(store)],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    return json.loads(done.stdout)
+
+
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
 def test_every_page_sets_the_theme_before_first_paint(app, template):
     """The marker must be on <html>, and set in head, or the page flashes."""
@@ -815,6 +865,14 @@ def test_every_page_sets_the_theme_before_first_paint(app, template):
     head = html.split("</head>")[0]
     assert "localStorage.getItem('darkMode')" in head
     assert "use.typekit.net/rwy8ghw.css" in head
+
+    script = re.search(r"<script>(.*?)</script>", head, re.S).group(1)
+    assert _prepaint_attributes(script, {"ss-motion": "still"}) == {
+        "data-theme": "light",
+        "data-motion": "still",
+    }
+    assert "data-motion" not in _prepaint_attributes(script, {})
+    assert "data-motion" not in _prepaint_attributes(script, None)
 
 
 def test_base_template_offers_no_legacy_framework_stack() -> None:

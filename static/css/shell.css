@@ -623,11 +623,48 @@ body {
     animation: ss-footer-extras-in 1.2s ease 0.6s forwards;
 }
 
-/* Collapses the wrapper on the pages that add nothing. This works only
-   while base.html keeps the tags on one line: a newline between them is a
-   text node, and :empty stops matching. */
-.page-footer-extras:empty {
-    display: none;
+/* The wrapper holds the pause-animations button on every page except the
+   home page from 860px, where the button sits at the foot of the left column
+   and the wrapper is hidden (index.css). The old :empty collapse is gone. */
+
+/* Pause animations (WCAG 2.2.2). The choice lives on <html data-motion>,
+   set before first paint by the inline script in base.html. It stops the
+   header bars and the loading pinwheel (the phase line still shows
+   progress as text); results-spotlight.js holds the artist rotation. */
+.motion-toggle {
+    font-family: var(--font-mono-narrow);
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    color: var(--ss-text-muted);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+    background: none;
+    border: 0;
+    min-height: 2.75rem;
+    padding: 0 0.75rem;
+    cursor: pointer;
+}
+
+/* README hover is --rocket-5, which is 2.24:1 on the light footer, under the
+   4.5:1 text floor. Light hovers to the shell accent (6.06:1); dark keeps
+   --rocket-5 (8.11:1). */
+.motion-toggle:hover {
+    color: var(--shell-accent);
+}
+
+[data-theme="dark"] .motion-toggle:hover {
+    color: var(--rocket-5);
+}
+
+.motion-toggle:focus-visible {
+    outline: 2px solid var(--shell-accent);
+    outline-offset: 2px;
+}
+
+[data-motion="still"] .ss-mark svg #horizontal_bars path,
+[data-motion="still"] .ss-pinwheel svg > g,
+[data-motion="still"] .ss-pinwheel svg > g > g {
+    animation: none;
 }
 
 @keyframes ss-footer-extras-in {

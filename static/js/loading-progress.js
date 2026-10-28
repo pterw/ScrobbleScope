@@ -27,7 +27,7 @@
 
   function label(payload) {
     var phase = payload && payload.phase;
-    if (!phase) return (payload && payload.message) || 'Initializing...';
+    if (!phase) return (payload && payload.message) || 'Connecting to Last.fm';
     var prefix = String(phase.label || '').toUpperCase();
     return Number.isFinite(phase.current) &&
       Number.isFinite(phase.total) &&
@@ -81,7 +81,7 @@
 
   /** Render one payload while preserving the public percentage and label result. */
   function update(options) {
-    if (!options) return { percent: 0, label: 'Initializing...' };
+    if (!options) return { percent: 0, label: 'Connecting to Last.fm' };
     var track = options.track;
     var bar = options.bar;
     var phaseText = options.phaseText;

@@ -184,32 +184,52 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-27 - Log a dead watchdog through log_failure
+### 2026-10-27 - Record new frontend-gate flake sightings
 
-Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.
+Side task, no batch tag: adding the gate failures seen during the UI audit v6 PR to F-B23-58, on `feat/ui-audit-v6`, a branch off `main`.
 
-Validation: `pytest -q` -- **2972 passed**.
+This is new evidence for an existing finding, not a new finding. F-B23-58 asked for new sightings with their timing before any fix. Three kinds were appended from the plan's gate logs: three `net::ERR_NO_BUFFER_SPACE` sightings (a grep of every gate log finds exactly three), `shell text scaling [mobile]` (`shell.css`) and two code-phase `large display scale parity [desktop]` runs (`index.css` in `task-sg8-code-3`, `static/js/theme.js` in `task-row5-code-1`), each failing after an asset failed to load (all passed on the next run); one `cached heatmap restoration painted the loading panel before its result` (passed on the next run); and a non-failing `Job context not found` log line noted as noise. The finding's status box and fix shape are unchanged.
 
-### 2026-10-27 - Make the watchdog's environ argument required
+Deviations: the brief called the second `ERR_NO_BUFFER_SPACE` sighting "index.css, 72 large-display checks"; the log shows 72 `large display scale parity [desktop]` failures, each carrying the `index.css` error, so the entry says that. No code changed.
 
-Side task, no batch tag: Codacy flagged `watch_from_env(environ=os.environ)` in `scrobblescope/idle_exit.py` as Pylint W0102 (dangerous default value) and failed PR #276 with "1 new issue (0 max.)". Every caller already passes the mapping (`app.py` passes `os.environ`; `tests/test_idle_exit.py` passes dicts), so the default was never used. `environ` is now a required parameter with no default; nothing else changed. No test added.
+Existing tests edited, by name: none.
 
-Validation: `pytest -q` -- **2972 passed**.
+Validation: `pytest -q` -- **3023 passed**.
 
-### 2026-10-27 - Prove the watchdog is attached to the app and runs as a daemon
+### 2026-10-27 - Parse the canvas font string without a regex
 
-Side task, no batch tag: final-review fix round (rulings R-5.1 to R-5.4) of the Fly idle-exit plan, on `feat/fly-idle-exit`. A mutation run found that deleting `watch.attach(application)` in `create_app` passed the whole suite, although it would make requests stop renewing the timer and stop the machine 20 minutes after boot under an active user. The existing `create_app` idle-watch test now also sends one request through the returned app and checks that `IdleWatch.touch` ran exactly when the watch is enabled. New tests check that the watchdog thread is a daemon (a non-daemon thread would hold up worker shutdown) and that an idle machine stops within a minute of the window (a 3000-second check interval would hold it 50 more minutes). `DEPLOY.md` now quotes the two real expiry messages (`album_flow.py`) instead of an invented one. Not fixed, per the rulings: the `// 60` in a log line, and F-MAS-8's stale "always-on machines" premise (the finding's author decides).
+Side task, no batch tag: replacing the `_FONT_SHORTHAND` regular expression in the frontend gate's theme check with plain token parsing, on `feat/ui-audit-v6`, a branch off `main`.
 
-Red proofs (one planted defect each): deleting `watch.attach(application)` fails `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set[20-1]`; `daemon=False` fails `test_start_runs_the_loop_on_a_daemon_thread`; `IDLE_CHECK_INTERVAL_SECONDS = 3000` fails `test_an_idle_machine_is_stopped_within_a_minute_of_the_window`. Each was restored by Edit.
+Owner intent (U34: "I agree with (b), because a quick fix now is worth it over forgetting it"). Codacy flagged `_FONT_SHORTHAND` (`scripts/dev/_frontend_gate_theme.py`) as an inefficient regular expression. It measured linear, so the flag was a false positive, but plain parsing clears the check for good. `_split_canvas_font` now walks the whitespace tokens up to the first size token (`<n>px`, with an optional `/line-height`), keeping the last weight token (`bold` is 700, `normal` is 400); `_is_size_token` is the new helper and the `re` import is gone. Behaviour is identical on 22 compared inputs and a 400k-string fuzz; the one difference is that size digits are ASCII-only (the old `\d` also took Unicode digits, which `ctx.font` never emits). The parametrized weight cases (`bold`, `normal`, `italic 600` with a line-height, `bold 600`, a string with no size token) close the gap row 1 recorded under R1-F5.
 
-Edited existing tests: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` (extended). Added: two tests in `tests/test_idle_exit.py`.
+Deviations: none.
 
-Validation: `pytest -q` -- **2972 passed**.
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_theme.py::test_a_saved_headline_drawn_at_another_weight_is_reported` (extended with a drawn-weight parameter and five cases)
 
-### 2026-10-27 - Let the app machine stop itself when idle
+Validation: `pytest -q` -- **3023 passed**.
 
-Side task, no batch tag: Task 4 of the Fly idle-exit plan, on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so `fly.toml` now has `auto_stop_machines = 'off'`, no `min_machines_running`, and `[env] IDLE_EXIT_MINUTES = "20"`; the app exits with code 0 after 20 idle minutes and the next request starts the machine. `[deploy]`, `[build]` and `[[vm]]` are unchanged, and the `scrobblescope-db` app is untouched. Docs: DEPLOY.md gains an "Idle exit" section (what it does, why autostop is off, the results lifetime change from 2 hours to the idle window, production-only, off switch, rollback); `docs/architecture/runtime-system.md` gains the `idle_exit.py` node, its edges and a design bullet; SESSION_CONTEXT Sections 3 and 4 list `idle_exit.py`; the README hosting row and the AGENT_NOTES `REQUEST_CACHE` line name the idle exit. Exit-code probe (run before Task 1): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" and "Shutting down: Master", and the last line was `EXIT=0`. Sweep of live documents for `min_machines_running`, `auto_stop_machines`, `always on`, `shared-cpu` and `machine sleep`: the only plain sibling copy was the AGENT_NOTES line; FINDINGS F-MAS-8 (title says "always-on machines") and the 2026-10-20 tranche spec are left as records.
+### 2026-10-27 - Lift the home pause button to the footer's gap
 
-Edited existing tests: none.
+Side task, no batch tag: lifting the home page's "Pause animations" button to the footer button's gap, on `feat/ui-audit-v6`, a branch off `main`.
 
-Validation: `pytest -q` -- **2970 passed**.
+Owner intent (U30: "maybe raise it up by a touch in the index card -- to match the distance from the bottom of the page as is in the results page"). At 860px and wider the home button sat flush with the window bottom (0px); the footer button on the other pages sits 24px above the page foot (`.page-footer-extras` padding-bottom, 1.5rem). `static/css/index.css` now gives `.index-grid .index-hero` a 1.5rem bottom padding, so the button's bottom edge is 24.00px above the viewport foot in both modes at the six desktop sizes, in Firefox and Chromium, centring unchanged. The extra 24px made 1280x720 scroll by 12-13px, so a `@media (max-height: 760px)` rule takes 1rem back from the hero's top padding; windows taller than 760px are unchanged. The layout gate reads the shown button's gap and the footer row's computed padding-bottom and fails when they differ by more than 1px (`_home_pause_failures` in `scripts/dev/_frontend_gate_layout.py`).
+
+Deviations: the gate compares the gap with the footer row's computed padding-bottom, not a seeded results page (a seeded results page agrees to within 1px, measured); 1.5rem is written in both `shell.css` and `index.css` (no shared token, `shell.css` was outside the task), and the gate's equality check fails if either changes alone; the `max-height: 760px` top-padding give-back goes beyond "raise the button". Real laptop windows near 650px tall already scrolled before this change and still do.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_layout.py::test_the_home_page_must_not_scroll_vertically_in_either_mode` (two parametrized cases: gap 0 fails, 24.9 passes) and its `PAUSE_OK` fixture.
+
+Validation: `pytest -q` -- **3018 passed**.
+
+### 2026-10-27 - Make "Pause animations" stop every animation
+
+Side task, no batch tag: making "Pause animations" stop every auto-moving thing, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U29: "clicking pause animation doesn't stop the top artist carousel"; U31: the loading page's pinwheel should stop too; U33: the unmatched page's button does not pause the header). Row 3's control set `data-motion="still"` but only the header bars honoured it. Now the results spotlight's interval callback in `static/js/results-spotlight.js` returns early while `<html data-motion>` is `still`, so a page loaded paused never advances and Play resumes at the next period from the card shown. In `static/css/shell.css` the still rule also covers `.ss-pinwheel svg > g` and `> g > g`, so the pinwheel rests (drawn artwork, no transform, as reduced motion does) and the phase line still shows progress as text. U31 supersedes row 3's pinwheel exemption. No live doc called the pinwheel exempt, so no doc prose changed.
+
+Reproduction: the header bars were already stopping on the results page at the base commit (Firefox and Chromium: `animation-name` none after the click and after a reload with the stored choice), so the first bar report did not reproduce and the bar rule is unchanged. U33 (unmatched page) was reproduced with a real click on a seeded page at 390, 900, 1280 and 1920px in both browsers and also works (bars `ss-bar-pulse` x5 before, `none` x5 after; the controller repeated it on the owner's server), so no code fix; the likeliest cause is a carried-over paused state or a cached stylesheet. A click check was added anyway. The bar rule and the pulse rule have equal specificity and the pause wins by source order only; the new checks guard that.
+
+Deviations: none from the owner rulings. Checks: `_paused_motion_failures` and `_unmatched_pause_failures` in `scripts/dev/_frontend_gate_pipeline.py` (bars and pinwheel rest while paused; the unmatched button click rests the bars), `_pause_hold_failures` in `scripts/dev/_frontend_gate_spotlight_photo.py` (stored pause before load: artist unchanged over 3 periods and bars rest, then Play resumes), and `test_pause_animations_holds_the_rotation_and_play_resumes_it` in `scripts/dev/results_behavior_tests.py`.
+
+Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py::test_the_hold_check_focuses_then_hovers_and_counts_the_periods` (the check gained a paused phase) and `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` (now three tick failures plus a "did not resume").
+
+Validation: `pytest -q` -- **3016 passed**.

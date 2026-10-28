@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveImageBtn = document.getElementById('save-image');
     if (saveImageBtn) {
         saveImageBtn.addEventListener('click', function() {
-            showToast('Creating leaderboard image... please wait.');
+            showToast('Creating leaderboard image');
             const targetElement = document.getElementById('results-table-wrapper');
             if (!targetElement || typeof window.html2canvas !== 'function') {
                 showToast('Could not save image.', 'error');
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /** Reorder existing rows and update their visible and exported ranks together. */
-    function setLeaderboardMetric(mode, showNotification = true) {
+    function setLeaderboardMetric(mode) {
         const table = document.getElementById('results-table');
         const tbody = table?.querySelector('tbody');
         if (!tbody || table.dataset.metric === mode) return;
@@ -336,13 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.appendChild(row);
             renderMetric(row, mode);
         });
-        const dropped = applyRowState(rows, mode, Boolean(document.getElementById('results_albums_matched')?.checked));
+        applyRowState(rows, mode, Boolean(document.getElementById('results_albums_matched')?.checked));
         const label = document.getElementById('metric-header-label');
         if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
         const subtitle = document.getElementById('results-ranking-subtitle');
         if (subtitle) {
             const ranking = mode === 'playtime' ? 'listening time' : 'play count';
-            subtitle.textContent = `${window.APP_DATA?.year || ''} \u00b7 Ranked by ${ranking}`;
+            subtitle.textContent = `Last.fm \u00b7 Ranked by ${ranking}`;
         }
         updateMetricButtons(mode);
         const moves = rows.map(row => ({ row, before: positions.get(row), after: row.getBoundingClientRect() }));
@@ -354,14 +354,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.style.setProperty('--rank-offset', `${delta}px`);
                 row.classList.add('is-reordering');
             });
-        }
-        if (showNotification) {
-            const hiddenCount = dropped === 1
-                ? ' 1 album with no listening time is hidden.'
-                : (dropped > 1 ? ` ${dropped} albums with no listening time are hidden.` : '');
-            showToast(mode === 'playtime'
-                ? `Leaderboard ranked by Spotify listening time.${hiddenCount}`
-                : 'Leaderboard ranked by track play count.');
         }
     }
 
@@ -448,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!tbody) return;
         const playtimeBtn = document.getElementById('toggle-sort-playtime');
         // Restored rows have no listening time, so go back to play count first.
-        if (!hidden && table.dataset.metric === 'playtime') setLeaderboardMetric('plays', false);
+        if (!hidden && table.dataset.metric === 'playtime') setLeaderboardMetric('plays');
         const rows = Array.from(tbody.querySelectorAll('tr'));
         applyRowState(rows, table.dataset.metric, hidden);
         // The header describes the whole result, whatever the ranking drops.
@@ -510,12 +502,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const togglePlaysBtn = document.getElementById('toggle-sort-plays');
     if (togglePlaysBtn) {
-        togglePlaysBtn.addEventListener('click', () => setLeaderboardMetric('plays', true));
+        togglePlaysBtn.addEventListener('click', () => setLeaderboardMetric('plays'));
     }
 
     const togglePlaytimeBtn = document.getElementById('toggle-sort-playtime');
     if (togglePlaytimeBtn) {
-        togglePlaytimeBtn.addEventListener('click', () => setLeaderboardMetric('playtime', true));
+        togglePlaytimeBtn.addEventListener('click', () => setLeaderboardMetric('playtime'));
     }
 
     const railBackToTopBtn = document.getElementById('rail-back-to-top');

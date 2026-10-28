@@ -9,6 +9,166 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Keep the home page within one screen
+
+Side task, no batch tag: keeping the desktop home page within one screen, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (U24, after the Firefox pass: "ideally there would be 0 vertical scrolling"; U25/U27 placement: the pause button "at the very bottom" of the left column, "centered"). Row 3's "Pause animations" button made `.page-footer-extras` non-empty on the home page, so the page scrolled 92px at every desktop size below the full-height `.index-grid`. From 860px the button now sits at the foot of the home page's left column (`.index-hero__motion`, a second `.motion-toggle` in `templates/index.html`, centred with `margin-top: auto`), and `body:not(.heatmap-stage-active) .page-footer-extras` is `display: none` in `static/css/index.css`, so the footer takes no space (it returns while the heatmap stage replaces the grid). Below 860px the footer copy stays and the hero copy is `display: none`, so exactly one is focusable at any width. `static/js/theme.js` syncs every copy's label and `aria-pressed` to `data-motion`. Measured (scrollHeight - clientHeight, Firefox and Chromium, album and heatmap modes identical): 1920x1080, 1920x960, 1536x864, 1440x900, 1366x768 and 1280x720 went 92px -> 0; 1536x730 went 106px -> 10px (Firefox) and 108px -> 12px (Chromium). The 10px residual is content taller than the viewport (header, hero padding, hero content and the 44px button), not shrunk, per U24 item 5. Rows 2 and 10 are unchanged (tabs and active key tops identical before and after). No Chromium-only CSS; the button's size, focus ring and contrast are unchanged. The gate (`scripts/dev/_frontend_gate_layout.py`) now fails when the home page scrolls at 1920x1080 or 1366x768 in either mode, or when the pause button count, position or sync is wrong.
+
+Focus order: Pause now precedes the form on the home page from 860px. That follows the visual left-to-right order and is one labelled control, so WCAG 2.4.3 is judged met (U24-L1); one extra Tab stop before the form.
+
+Deviations: (U25) supersedes the brief's shorter-grid items 2 and 3. (U26 was superseded by U27: left column, centred.) (U24-L1) the comment in `static/css/shell.css` and the docstring of `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` said the wrapper is never empty; both now say it is hidden on the home page from 860px (the docstring edit is outside the brief's Touches, authorised by the controller). The gate does not pin which column holds the button; the owner's Firefox check does.
+
+Existing tests edited, by name: `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` (docstring only) and the `_run_large_display_check` helper in `tests/scripts/dev/test_frontend_gate_layout.py` (optional `overflow` stub). Added: `test_the_home_page_must_not_scroll_vertically_in_either_mode` (parametrized) and `test_the_large_display_check_measures_the_home_fit_windows`.
+
+Validation: `pytest -q` -- **3015 passed**.
+
+### 2026-10-27 - Move the home page keys to the left column
+
+Side task, no batch tag: UI audit v6 row 10, moving the home page keys to the left column, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 10): the right column holds controls only. The heatmap preview card inside the form stack and the album "Only plays inside this calendar year are counted." hint explained the mode in the form. `templates/index.html` now has an `.index-hero__keys` wrapper under the strip with two keys, `data-mode-key="album"` (rows Year, Plays, Tracks; "How an album makes the list") and `data-mode-key="heatmap"` (the old card markup, `.hm-preview*` names kept as hooks). `static/js/heatmap.js` `switchModeHero` crossfades the keys with the strip through one mechanism (the inactive key gets `aria-hidden="true"` and `visibility:hidden`). `static/js/index.js` `updateKeyCounts` makes the album key's two numbers follow the steppers (singular at 1) and runs in the initial-state sync too, so restored form values show. `static/css/index.css` holds the `.index-key*` rules in `--index-scale` units; `static/css/heatmap.css` lost the card, key and facts rules. `_heatmap_form.html` lost the card. The mode switch moves the tabs 0px (row 2's floor). Contrast (computed, both themes): min 5.17:1 (labels), max 10.61:1; no new colour token. No Chromium-only CSS.
+
+Deviations: (U21) supersedes brief item 6: below 860px both keys are hidden like the strip, and the year hint stays in the form as `field__help--phone` (shown below 860px, hidden from 860px up). (U22) the album key also ends with the 1px `--ss-border-divider` rule at the strip's width, like the heatmap key; the rule sits on each key, which stretch to the taller one, so it lands at the same y in both modes. The keys use a new attribute `data-mode-key`, not `data-mode-marks`, so the gate's `[data-mode-marks="{mode}"].is-active` locator keeps selecting only the strip.
+
+Existing tests edited, by name: `tests/frontend/test_heatmap_pure_functions.py::_preview_text` (helper; reads the heatmap key from `templates/index.html`) and the `MODE_SWITCH` constant in `tests/scripts/dev/test_frontend_gate_layout.py` (new fields). Added: `test_the_form_stack_holds_no_key_and_each_mode_shows_its_own` (parametrized) and `test_a_phone_hides_the_keys_and_keeps_the_year_hint`, over new checks in `scripts/dev/_frontend_gate_layout.py` (`_home_key_failures`, `_phone_home_failures`, `_restored_key_text`).
+
+Validation: `pytest -q` -- **3007 passed**.
+
+### 2026-10-27 - Keep the home form centred without the jump
+
+Side task, no batch tag: UI audit v6 row 2, keeping the home form centred without the jump, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 2): the form stack re-centred instantly on every height change, so the tabs jumped when the mode, the release scope or the thresholds changed. `static/css/index.css` gives `.index-form__inner` `min-height: var(--index-card-min, auto)`. `static/js/index.js` `syncFormMinHeight` measures the inner's height in the default album state (scope same/previous/all, thresholds closed) on load, after `document.fonts.ready`, after a resize that changes the resolved `max-width` and across the 860px breakpoint, and sets the floor only on desktop, so the Heatmap tab sits where the Album tab did. `playFlip` glides the remaining shift over 220ms (`translateY` to none, `cubic-bezier(.16, 1, .3, 1)`), skipped under reduced motion; it is triggered by the scope `change`, and by one capture-phase click listener for `.mode-pill` and `.disclosure__summary`. A page loaded in Heatmap mode re-measures the floor on its first switch to the album state. `scripts/dev/_frontend_gate_layout.py` gains `_measure_mode_switch_shift`, `_measure_heatmap_first_shift` and `_mode_switch_failures`, called from `check_large_display_scale_parity` at 1920x1063 (1px tolerance). No template or `heatmap.js` change; Firefox and Chromium both measured 0px; no new colour pairing.
+
+Deviations: (R2-F1) the `min-height` rule sits inside the existing `min-width: 860px` block, so phones never pad the heatmap form to the album height. (R2-F3) the FLIP triggers are the scope `change` plus the capture-phase click listener (instead of editing `heatmap.js`), and the floor is re-measured in `playFlip`'s frame callback so the tab, scope and disclosure paths all work after a Heatmap-first load.
+
+Existing tests edited, by name, in `tests/scripts/dev/test_frontend_gate_layout.py`: the helper `_run_large_display_check` (stubs the two new measurements). Added: `test_mode_switch_must_stay_put_when_the_mode_changes` and the parametrized `test_large_display_check_reports_a_mode_switch_that_moves` (album-first, heatmap-first).
+
+Validation: `pytest -q` -- **2992 passed**.
+
+### 2026-10-27 - Drop the sort-change toast
+
+Side task, no batch tag: UI audit v6 row 9, dropping the sort-change toast, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 9): switching the leaderboard between play count and play time no longer raises a toast. The hidden-album count already shows in `#playtime-hidden-note`, so the toast repeated the page. `setLeaderboardMetric` in `static/js/results.js` loses its `showToast` block, the `hiddenCount` string built only for it, the now-unused `showNotification` parameter and an unused `dropped` binding; its three callers (the plays and playtime buttons, `setUnmatchedHidden`) are updated. `showToast` stays for the CSV, image export and error callers. No CSS and no new colour pairing.
+
+Deviations: none.
+
+Existing tests edited, by name, in `scripts/dev/results_behavior_tests.py`: `test_hidden_note_and_toast_carry_the_count_of_dropped_albums` (renamed `test_sort_switch_shows_the_count_in_the_note_and_no_toast`, extended to assert no toast, the subtitle and the column header), `test_hidden_note_stays_hidden_when_every_album_has_a_listening_time` (asserts no toast) and `test_hidden_note_counts_only_rows_the_ranking_alone_drops` (tuple unpack only).
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - Add a pause-animations footer control
+
+Side task, no batch tag: UI audit v6 row 3, a pause-animations footer control, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 3): the header mark's bar animation can be paused (WCAG 2.2.2). A `.motion-toggle` button is the first child of `.page-footer-extras` in `templates/base.html` and reads "Pause animations" / "Play animations" with `aria-pressed`. `static/js/theme.js` toggles `data-motion="still"` on `<html>`, syncs the label from that attribute on load and persists the choice in localStorage `ss-motion` (write and remove in a try). The pre-paint script in `base.html` reads `ss-motion` in its own try so a paused page never flashes the animation. `static/css/shell.css` sets `animation: none` on the header mark's bars under `[data-motion="still"]`; the loading-page pinwheel is untouched. Under `prefers-reduced-motion` the bars are already still and the button keeps showing the stored state. The `.page-footer-extras:empty` rule is removed because the wrapper now always holds the button. The focus ring is 2px solid `--shell-accent` with offset 2px, as the header toggle. Contrast: rest text 5.17:1 light and 5.82:1 dark, focus ring 6.06:1 light and 8.14:1 dark (min 5.17, max 8.14); nothing is Chromium-only.
+
+Deviations: (R3-F1) the README hover colour `--rocket-5` (#f0903a) is 2.24:1 on the light footer (#faf7f0), under the 4.5:1 contrast floor, so the contrast floor governs: light hover uses `--shell-accent` (#6a4baf, 6.06:1) and dark keeps `--rocket-5` (8.11:1). The header comment of `static/js/theme.js` also names the new toggle (R3-F2).
+
+Existing tests edited, by name: `test_every_page_wraps_its_footer_extras` (the button opens the wrapper) and `test_every_page_sets_the_theme_before_first_paint` (runs the inline script in node with fake storage; skips when node is missing) in `tests/test_template_shell.py`.
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - Make the favicon follow the theme
+
+Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 8, favicon option C): the favicon uses the site's own surfaces and purples and follows the browser colour scheme. `static/images/favicon.svg` (1841 bytes) holds a `<style>` block with plate `#faf7f0` / blades `#6a4baf`, and under `prefers-color-scheme: dark` plate `#181520` / blades `#b39dde`; the rounded 32x32 plate (`rx="8"`) carries the four existing blade paths scaled to .86. `favicon-16x16.png`, `favicon-32x32.png` and `favicon.ico` (16 + 32, PNG payloads, written by hand) are regenerated from the light variant, and `apple-touch-icon.png` (180x180, full-bleed cream plate, blades at .86) is new. `templates/base.html` `<head>` gains the apple-touch link and two `theme-color` metas (`#faf7f0` light, `#0e0c12` dark); the four existing icon links stay. Blade against plate contrast is 6.06:1 light and 7.54:1 dark (non-text minimum 3:1). The README's 7.8 kB `c2pa` block was already gone from the file. The PNGs were rendered with Playwright Chromium (Pillow is not a dependency); the SVG itself uses only plain CSS and a media query.
+
+Deviations: none.
+
+Existing tests edited, by name: `test_every_page_carries_the_shared_shell` in `tests/test_template_shell.py` (asserts the apple-touch link and both theme-color metas).
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - State the real total of a capped unmatched group
+
+Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (ruling U12, which supersedes U4): a group that shows fewer albums than it holds says so, "Showing the first 500 of N", with N the real total and no hard-coded 500. `group_unmatched_albums_with_totals` in `scrobblescope/unmatched.py` returns the groups, counts, metadata and a `totals` dict holding only the groups that show fewer than they hold; the total is the pre-slice length, and for the below-threshold group the larger of that and the `albums_below_threshold` stat, which `plays.select_albums` takes before its exclusion cap and which already reaches `progress.stats`, so the orchestrator is unchanged. `group_unmatched_albums` keeps its 3-tuple by delegating. `_render_unmatched_page` in `scrobblescope/routes/album_flow.py` passes `reason_totals`; `templates/unmatched.html` prints the line as a muted `text-xs` note under the group table, above the expander row. No new CSS and no new colour pairing (same muted token and surface as the group's other secondary text). Provisional wording until the impeccable pass; no real-data browser check was done.
+
+Deviations: review finding R12-F1 was fixed at landing: the route test gained a case where the capped group is not the below-threshold group (520 no-match albums), so a template that looked the total up with a fixed `below_threshold` key fails.
+
+Existing tests edited, by name: none; `test_unmatched_view_states_the_real_total_of_a_capped_group` (route, three cases) and the parametrized grouping-totals test in `tests/test_unmatched.py` are new.
+
+Validation: `pytest -q` -- **2986 passed**.
+
+### 2026-10-27 - Drop ellipses from progress and toast messages
+
+Side task, no batch tag: UI audit v6 row 6, no ellipses in progress and toast copy, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: README row 6, no ellipses in the live status copy. Ruling U10 widened it from the loading page to the server's progress messages (`scrobblescope/orchestrator/`, `heatmap.py`, `jobs.py`) and the client strings in `static/js/` (`loading-progress.js`, `loading.js`, `heatmap.js`, `results.js`), including the escaped ellipses in `loading.js`: "Retrying" and "Opening the results page". "Initializing..." (and "Initializing heatmap...") became "Connecting to Last.fm" at all seven sites, the template's first phase line, `jobs._initial_progress`, both fallbacks in `loading-progress.js` and the heatmap start; the leaderboard toast reads "Creating leaderboard image". The pins in `scripts/dev/_frontend_gate_pipeline.py` follow the new strings. Remaining `...` in the tree are docstrings and comments only.
+
+Deviations: none from the rulings. `tests/test_routes.py` is untouched: its "Working..." and "Fetching page 3..." are fixture strings passed to `jobs.advance`, not production copy. The `jobs.start` test uses the arbitrary message "Starting" instead of "Initializing heatmap...".
+
+Existing tests edited, by name: `test_create_returns_unique_ids_and_a_pristine_job` and `test_reset_returns_the_job_to_its_initial_state_and_keeps_params` in `tests/test_jobs.py`, `test_start_clears_stats_phase_and_error_and_sets_the_message` (message string), `test_progress_callback_sends_correct_percentages` and the other `TestFetchAndProcessHeatmap` message asserts in `tests/test_heatmap.py`, `test_fetch_and_process_passes_progress_cb_to_lastfm` in `tests/services/test_orchestrator_fetch_and_process.py`, `test_fetch_spotify_misses_reports_search_progress`, `test_fetch_spotify_misses_reports_batch_progress` and `test_deezer_fallback_reports_progress_inside_its_band` in `tests/services/test_orchestrator_fetch_spotify.py` (full-message equality), and `test_a_failed_run_with_no_retry_still_says_the_results_page_opens` in `tests/frontend/test_heatmap_pure_functions.py`.
+
+Validation: `pytest -q` -- **2978 passed**.
+
+### 2026-10-27 - Rewrite the unmatched page headline and threshold header
+
+Side task, no batch tag: UI audit v6 row 5, the unmatched page headline, subtitle, group description and threshold column header, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the unmatched page headline says what happened to the albums (ruling U13): "Albums left out of <user>'s results" when nothing is listed, "Unmatched albums in <user>'s results" when an Include unmatched run lists some (`listed_count` > 0), deciding "listed" from result rows, not reason codes. The subtitle is the year and the total, "<year> middle dot <n> albums, grouped by reason" ("album" for 1), in both cases, so the listed / left-out clause and its `left_out` arithmetic are gone; `.unmatched-total` stays as a styling hook. The "Not enough listening" group's count header reads "Plays/trk" on phones and "Plays middle dot tracks" from 768px up, one line each (rulings U15 and U17), with `aria-label="Plays and tracks"` on the `th` so a screen reader never reads "trk"; the two forms are sibling spans toggled by a plain `min-width: 768px` media query in `static/css/unmatched.css` (no Chromium-only CSS), and the column widens at 768px and up for that panel only, while the phone width is unchanged so the album-title floors in the frontend gate hold. Its description drops the year and singularises: "Below N play(s) or M unique track(s)." (ruling U16). Other groups' header stays "Plays".
+
+Deviations: none from the rulings. Measured in Firefox and Chromium at 320, 390, 768, 1024, 1440 and 1920px: the header is one line and not clipped at every width; the album title is 414px at 768 (U15's 454 was the narrower column's figure). Nothing durable pins the 768px swap or the nowrap, only the scratch probe; a gate check belongs with the later accessibility PR. `docs/design/RECONCILIATION.md` (verbatim snapshot) still describes the old count line.
+
+Existing tests edited, by name: `test_unmatched_view_names_track_counts_only_on_the_threshold_panel` (parametrized to (10, 3) and (1, 1); header spans, aria-label, other panels' "Plays", description text); `test_unmatched_page_count_line_names_listed_and_left_out`, renamed `test_unmatched_page_headline_and_subtitle_follow_listed_count` and now asserting both h1 forms and the subtitle across listed, left-out, show-limit and one-album cases; `test_unmatched_view_subtitle_counts_the_albums_left_out`, renamed `test_unmatched_view_filter_bar_states_the_run_settings` (its subtitle assertion and parametrize dropped as covered by the headline test; filter-bar assertions kept).
+
+Validation: `pytest -q` -- **2978 passed**.
+
+### 2026-10-27 - Name the user and year in the results headline
+
+Side task, no batch tag: UI audit v6 row 4, the results headline names the user and the run's year, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the results h1 reads "<user>'s top albums of <year>", with the username keeping its accent span and `year` being the run's own year, never the current one. The subtitle `#results-ranking-subtitle` drops the year (ruling U11) and names the source: "Last.fm", a middle dot, then "Ranked by play count" or "Ranked by listening time". `setLeaderboardMetric` in `static/js/results.js` writes the same string on a sort change, so a sort switch and a fresh load agree. This wording is provisional until the impeccable pass. The old phrase "Top Last.fm albums for" appeared only in `templates/results.html`; no `<title>` or meta text repeated it. Deviations: `scripts/dev/results_behavior_tests.py` is touched beyond the brief (review finding R4-F1) so the sort check also covers the subtitle text, which the Python route test cannot see.
+
+Existing tests edited, by name: `test_sort_updates_order_ranks_metrics_and_accessibility` in `scripts/dev/results_behavior_tests.py` (its fixture gains the subtitle element and each sort case asserts the subtitle text); one new parametrized test, `test_results_headline_names_user_and_year_and_subtitle_names_source` in `tests/test_routes.py`.
+
+Validation: `pytest -q` -- **2978 passed**.
+
+### 2026-10-27 - Set display headings in Degular 600
+
+Side task, no batch tag: UI audit v6 row 1, headings in Degular 600 and two new hero headlines, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent: the heading face is Degular at weight 600, replacing Orpheus Pro (the serif is dropped), and the two hero headlines read "The albums that owned your year." (album mode) and "A year of listening by the day." (heatmap mode). `--font-display` replaces `--font-serif` in `static/css/tailwind.src.css`; every heading rule and the `font-display` utility use weight 600, roman, -0.015em; accent spans keep the primary colour and lose italics (including the results h1 username); the spotlight rank is roman mono. The saved heatmap draws its headline in the same face and waits for it to load. Deviations: the token is `"degular", "akzidenz-grotesk-next-pro", sans-serif` (ruling U2), because the Adobe kit serves `degular` and has no `degular-display`, unlike the README's row 1. The `templates/index.html` value site in `config/docsync.toml` is removed (U9) because the heatmap headline no longer states the window. The frontend gate reads the drawn font string (R1-F2, narrowed by R1-F5): `_frontend_gate_theme.py` ignores style, weight and size tokens when comparing families and compares the drawn weight with the headline's computed weight; a dropped `document.fonts.load` wait is not detectable from the string and stays unchecked. Removing Orpheus Pro from the Adobe kit is the owner's later step.
+
+Existing tests edited, by name: `tests/scripts/dev/test_tailwind_build_cli.py` (token line) and `tests/scripts/dev/test_frontend_gate_theme.py` (parametrized weighted and styled canvas font cases added).
+
+Validation: `pytest -q` -- **2976 passed**.
+
+### 2026-10-27 - Log a dead watchdog through log_failure
+
+Side task, no batch tag: Codex review on PR #276 (P1, `scrobblescope/idle_exit.py`). `IdleWatch.run` logged a dying watchdog with `logger.exception`, which writes the exception text and a full traceback at ERROR; exception text can carry provider URLs or listener names, so the repository's rule (owner ruling 2026-09-29, `docs/agents/global-rules.md` Rule 6) is `utils.log_failure`: message plus exception class at ERROR, traceback at DEBUG. `run` now calls `log_failure` with the same message (and the `# noqa: BLE001 -- logged by log_failure` marker the other sites carry). New import edge `idle_exit -> utils` (no cycle: `utils` imports only `api_logging` and `config`), recorded in the `idle_exit.py` docstring, `.claude/SESSION_CONTEXT.md` and `docs/architecture/runtime-system.md`. `test_a_dying_watchdog_thread_is_logged` now asserts one ERROR record that names `RuntimeError`, does not contain the exception text and carries no `exc_info`; it failed against the old `logger.exception` call. The other logging calls in `idle_exit.py` log fixed text only (`logger.info` idle minutes, `logger.warning` for the setting name), and Task 1's seams in `worker.py` and `release_checks.py` add no logging. No test added.
+
+Validation: `pytest -q` -- **2972 passed**.
+
+### 2026-10-27 - Make the watchdog's environ argument required
+
+Side task, no batch tag: Codacy flagged `watch_from_env(environ=os.environ)` in `scrobblescope/idle_exit.py` as Pylint W0102 (dangerous default value) and failed PR #276 with "1 new issue (0 max.)". Every caller already passes the mapping (`app.py` passes `os.environ`; `tests/test_idle_exit.py` passes dicts), so the default was never used. `environ` is now a required parameter with no default; nothing else changed. No test added.
+
+Validation: `pytest -q` -- **2972 passed**.
+
+### 2026-10-27 - Prove the watchdog is attached to the app and runs as a daemon
+
+Side task, no batch tag: final-review fix round (rulings R-5.1 to R-5.4) of the Fly idle-exit plan, on `feat/fly-idle-exit`. A mutation run found that deleting `watch.attach(application)` in `create_app` passed the whole suite, although it would make requests stop renewing the timer and stop the machine 20 minutes after boot under an active user. The existing `create_app` idle-watch test now also sends one request through the returned app and checks that `IdleWatch.touch` ran exactly when the watch is enabled. New tests check that the watchdog thread is a daemon (a non-daemon thread would hold up worker shutdown) and that an idle machine stops within a minute of the window (a 3000-second check interval would hold it 50 more minutes). `DEPLOY.md` now quotes the two real expiry messages (`album_flow.py`) instead of an invented one. Not fixed, per the rulings: the `// 60` in a log line, and F-MAS-8's stale "always-on machines" premise (the finding's author decides).
+
+Red proofs (one planted defect each): deleting `watch.attach(application)` fails `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set[20-1]`; `daemon=False` fails `test_start_runs_the_loop_on_a_daemon_thread`; `IDLE_CHECK_INTERVAL_SECONDS = 3000` fails `test_an_idle_machine_is_stopped_within_a_minute_of_the_window`. Each was restored by Edit.
+
+Edited existing tests: `test_create_app_starts_the_idle_watch_only_when_the_env_var_is_set` (extended). Added: two tests in `tests/test_idle_exit.py`.
+
+Validation: `pytest -q` -- **2972 passed**.
+
+### 2026-10-27 - Let the app machine stop itself when idle
+
+Side task, no batch tag: Task 4 of the Fly idle-exit plan, on `feat/fly-idle-exit`. Fly's autostop cannot see background jobs, so `fly.toml` now has `auto_stop_machines = 'off'`, no `min_machines_running`, and `[env] IDLE_EXIT_MINUTES = "20"`; the app exits with code 0 after 20 idle minutes and the next request starts the machine. `[deploy]`, `[build]` and `[[vm]]` are unchanged, and the `scrobblescope-db` app is untouched. Docs: DEPLOY.md gains an "Idle exit" section (what it does, why autostop is off, the results lifetime change from 2 hours to the idle window, production-only, off switch, rollback); `docs/architecture/runtime-system.md` gains the `idle_exit.py` node, its edges and a design bullet; SESSION_CONTEXT Sections 3 and 4 list `idle_exit.py`; the README hosting row and the AGENT_NOTES `REQUEST_CACHE` line name the idle exit. Exit-code probe (run before Task 1): gunicorn 23.0.0 on python:3.13-slim, a worker thread sending SIGTERM to its parent, logged "Handling signal: term" and "Shutting down: Master", and the last line was `EXIT=0`. Sweep of live documents for `min_machines_running`, `auto_stop_machines`, `always on`, `shared-cpu` and `machine sleep`: the only plain sibling copy was the AGENT_NOTES line; FINDINGS F-MAS-8 (title says "always-on machines") and the 2026-10-20 tranche spec are left as records.
+
+Edited existing tests: none.
+
+Validation: `pytest -q` -- **2970 passed**.
+
 ### 2026-10-27 - Restore the heading of the service-checks log entry
 
 Side task, no batch tag: restore a heading lost in this branch's first commit, on `docs/findings-rotation-rule`, a branch off `main`.

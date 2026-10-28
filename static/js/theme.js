@@ -1,6 +1,6 @@
 // static/js/theme.js
 // Shared behaviour loaded via base.html for every page.
-// Handles: theme toggle persistence, back-to-top smooth scroll.
+// Handles: theme toggle persistence, pause-animations toggle, back-to-top smooth scroll.
 (function () {
     // One write: data-theme on <html>, which daisyUI and shell.css both key
     // on. WP-8 retired the second write, `.dark-mode` on <body>, with the
@@ -53,6 +53,44 @@
                 // Storage can throw in private mode. The theme still applies for
                 // this page view; it just will not survive a reload.
             }
+        });
+    }
+
+    // Pause-animations buttons. The inline script in base.html already set
+    // data-motion before first paint, so the label follows the element. The
+    // home page carries a second copy in its left column (one is hidden by
+    // CSS at any width); every copy stays in sync with data-motion.
+    const motionToggles = document.querySelectorAll('.motion-toggle');
+    if (motionToggles.length) {
+        const root = document.documentElement;
+        const syncMotionToggles = function () {
+            const still = root.getAttribute('data-motion') === 'still';
+            motionToggles.forEach(function (toggle) {
+                toggle.setAttribute('aria-pressed', still ? 'true' : 'false');
+                toggle.textContent = still ? 'Play animations' : 'Pause animations';
+            });
+        };
+        syncMotionToggles();
+        motionToggles.forEach(function (toggle) {
+            toggle.addEventListener('click', function () {
+                const still = root.getAttribute('data-motion') !== 'still';
+                if (still) {
+                    root.setAttribute('data-motion', 'still');
+                } else {
+                    root.removeAttribute('data-motion');
+                }
+                syncMotionToggles();
+                try {
+                    if (still) {
+                        localStorage.setItem('ss-motion', 'still');
+                    } else {
+                        localStorage.removeItem('ss-motion');
+                    }
+                } catch (error) {
+                    // Storage can throw in private mode. The pause still applies
+                    // for this page view; it just will not survive a reload.
+                }
+            });
         });
     }
 
