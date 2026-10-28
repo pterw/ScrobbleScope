@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Verify weekly hidden artists in the browser gate
+
+Side task, no batch tag: verify weekly hidden artists in the browser gate, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: preserve the twelve-layer stream, conditional aligned hidden rows and keyboard access, with the tallest desktop panel visible without vertical scrolling.
+
+What changed: Task 4 seeds twelve artists, including two sparse bursts over weeks 5-7, and Hidden A/B/C in every third week as part of Everything else's count. One new registered check proves exact names, counts, sibling order, one conditional rule and name-column alignment as the pointer changes weeks. Existing hover checks include hidden rows and reject chart, panel or document vertical scrolling; the existing keyboard check now challenges a retained dense cursor after sparse pointer activity. The job fixture still flows through the real job store. No application, template, JS or CSS changed in this task, so product documentation remains true.
+
+Deviations: the existing keyboard and no-scroll assertions were extended to hold the approved Task 3 corrections, with no helper, second check, dependency, schema or weaker assertion. The intentional hidden-block removal failed the new check with zero rules and empty rows; the saved original text was restored before green. Sparse-keyboard, laptop overflow and the intermediate focus-padding source-order regression found during stack validation were corrected in Task 3, not this gate commit. The controller's final code-phase gate and the fresh landing frontend gate each passed 58 checks in 89 runs; independent source/runtime review approved the patch. Fresh suite shards passed 702 + 1503 + 912 cases.
+
+Existing tests edited: none under tests/. Browser checks extended: `check_stream_hover_shows_panel_and_ring` through its shared hover assertions, and `check_stream_is_one_keyboard_tab_stop`; new check: `check_stream_panel_rule_and_hidden_rows_follow_the_week`.
+
+Validation: `pytest -q` -- **3117 passed**.
+
+Forward guidance: the owner has not approved the Firefox prototype. Follow up in a separate small slice on Everything else bolding and burst emphasis; the controller is clarifying whether emphasis applies to the full burst-artist ribbon or its winning 21-day segment. This checkpoint preserves the reviewed gate/source stack. Task 0 sign-off, final integration and PR publication remain pending.
+
 ### 2026-10-28 - List hidden artists in the stream tooltip
 
 Side task, no batch tag: list hidden artists in the stream tooltip, on `feat/streamgraph-bursts`, a branch off `main`.

@@ -156,14 +156,17 @@ next.
 - Compare activity through the seven-stop `rocket_r` palette. Empty days remain
   distinct from the surrounding frame in both themes.
 - On desktop, see a streamgraph under the grid: weekly plays for up to twelve
-  layers -- the ten most played artists and the two with the biggest 21-day
-  burst -- with every other artist in one "Everything else" layer. Its
+  artists -- the ten most played and the two with the biggest rolling 21-day
+  burst. Only these artists shape the ribbons. Every other play is counted
+  numerically as "Everything else" in the scrubber, and the week's total
+  includes those plays. Its
   weeks sit under the grid's columns. Hover or drag across it to open a panel
   that lists the week's counts, or focus it and use the arrow keys, Home and
   End. A vertical swipe still scrolls the page. Narrow screens, and results
   stored before the streamgraph existed, show the grid alone.
   A week with artists hidden in "Everything else" lists the three largest
-  under a rule in the panel.
+  under a rule in the panel. Selecting the numeric residual row leaves the
+  artist ribbons undimmed.
 - Save the heatmap as a JPEG. This export uses a separate canvas layout rather
   than an exact screenshot of the page. When the page shows the streamgraph,
   the image includes it under the grid, at rest.

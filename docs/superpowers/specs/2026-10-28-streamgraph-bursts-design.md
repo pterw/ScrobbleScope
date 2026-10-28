@@ -69,8 +69,8 @@ the measured ranking below determines selection.
   background and its lightest the light theme's. Defined once, as two 12-colour arrays in `heatmap.js`
   (the palette's one owner), not as CSS tokens.
 - Colours are assigned by a fixed permutation of the 12 steps so bands that touch in the stack are at
-  least 3 steps apart, whichever of the two burst layers is larger; "Everything else" keeps its neutral
-  grey token.
+  least 3 steps apart, whichever of the two burst layers is larger. The current residual geometry and
+  numeric-row contract is owned by the [live-review design](2026-10-28-streamgraph-live-feedback-design.md).
 - Contrast: the stream-fill exemption (rulings U20, S13/S14) stands; both themes are checked against the
   stream frame (light min 1.89, max 12.66; dark min 1.59, max 10.83) and the numbers are shown to the
   owner.

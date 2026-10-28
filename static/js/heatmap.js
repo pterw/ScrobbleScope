@@ -331,16 +331,15 @@
 
   /**
    * The layer whose band holds y (signed, up positive) at the given week.
-   * stack runs bottom to top with "Everything else" first; order, when
-   * given, maps the artist slots to ranks. A boundary belongs to the layer
+   * stack runs bottom to top with named artists only; order, when given,
+   * maps stack slots to artist ranks. A boundary belongs to the layer
    * above, an empty band is never hit, and null means no band holds y.
    */
   function layerAtY(stack, week, y, order) {
     for (let k = stack.length - 1; k >= 0; k--) {
       const band = stack[k][week];
       if (band.y1 > band.y0 && y >= band.y0 && y <= band.y1) {
-        if (k === 0) return 'other';
-        return order ? order[k - 1] : k - 1;
+        return order ? order[k] : k;
       }
     }
     return null;
@@ -1734,9 +1733,7 @@
     if (!svg) return;
     var theme = currentStreamTheme();
     svg.querySelectorAll('.stream-layer').forEach(function (layer) {
-      layer.setAttribute('fill', layer.classList.contains('stream-layer-other')
-        ? frameColour('--stream-other')
-        : layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
+      layer.setAttribute('fill', layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
     });
     var lineColour = frameColour('--stream-line');
     svg.querySelectorAll('.stream-gridline').forEach(function (line) {
@@ -1761,9 +1758,10 @@
     var order = streamOrder(artists.map(function (a) {
       return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
     }));
-    var layers = [payload.other].concat(order.map(function (i) { return artists[i].counts; }));
+    var layers = order.map(function (i) { return artists[i].counts; });
     var fit = streamFit(layers, streamBaseline(layers));
-    if (fit.scale <= 0) return;
+    // Residual-only listening keeps a blank track for the numeric scrubber.
+    if (fit.scale <= 0 && !payload.other.some(function (count) { return count > 0; })) return;
 
     var stack = stackLayers(layers, fit.baseline, fit.scale);
     var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
@@ -1796,17 +1794,16 @@
       }));
     });
 
-    // Bottom to top: "Everything else", then the artists in stack order.
+    // Only named artists contribute to the silhouette and its common scale.
     stack.forEach(function (band, k) {
-      var isOther = k === 0;
-      var rank = isOther ? 'other' : order[k - 1];
+      var rank = order[k];
       var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
       var bottom = band.map(function (b, t) { return { x: xs[t], y: centre - b.y0 }; });
       svg.appendChild(streamNode('path', {
-        'class': isOther ? 'stream-layer stream-layer-other' : 'stream-layer',
+        'class': 'stream-layer',
         'data-rank': rank,
         d: smoothPath(top, bottom),
-        fill: isOther ? frameColour('--stream-other') : layerColour(rank, theme),
+        fill: layerColour(rank, theme),
       }));
     });
 
@@ -1932,10 +1929,10 @@
       line.className = row.hovered ? 'stream-panel-row is-hovered' : 'stream-panel-row';
       line.setAttribute('data-rank', row.id);
       var swatch = document.createElement('span');
-      swatch.className = 'stream-panel-swatch';
-      swatch.style.background = row.id === 'other'
-        ? frameColour('--stream-swatch-other')
-        : layerColour(row.id, theme);
+      if (row.id !== 'other') {
+        swatch.className = 'stream-panel-swatch';
+        swatch.style.background = layerColour(row.id, theme);
+      }
       var name = document.createElement('span');
       name.className = 'stream-panel-name';
       name.textContent = row.name;
@@ -1970,7 +1967,7 @@
   }
 
   /**
-   * Show one week: dim the layers other than hoverId (none when it is null),
+   * Show one week: dim other layers only when a named artist is selected,
    * mark the column with a guide and a marker on the grid, and fill the panel
    * beside the column. The same call serves the pointer and the keys.
    */
@@ -1981,9 +1978,10 @@
     removeStreamMarks();
     state.shown = { week: week, hoverId: hoverId };
 
+    var artistSelected = typeof hoverId === 'number';
     state.svg.querySelectorAll('.stream-layer').forEach(function (layer) {
-      var dim = hoverId !== null && layer.getAttribute('data-rank') !== String(hoverId);
-      layer.style.opacity = hoverId === null ? '' : (dim ? '0.25' : '1');
+      var dim = artistSelected && layer.getAttribute('data-rank') !== String(hoverId);
+      layer.style.opacity = artistSelected ? (dim ? '0.25' : '1') : '';
     });
 
     var ink = frameColour('--color-base-content');

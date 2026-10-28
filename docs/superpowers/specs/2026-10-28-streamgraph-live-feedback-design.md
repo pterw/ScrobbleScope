@@ -2,7 +2,8 @@
 
 Date: 2026-10-28. Status: owner-directed revisions during live prototype review.
 Continues [the original design](2026-10-28-streamgraph-bursts-design.md).
-Original Tasks 1-4 and spacing Task 5 are committed. Prototype approval is pending.
+Original Tasks 1-4, spacing Task 5 and artist-only Task 8 are checkpoints.
+The owner's later simplification below is pending Tasks 9-10. Final approval is pending.
 
 ## Current accepted direction
 
@@ -15,13 +16,17 @@ Original Tasks 1-4 and spacing Task 5 are committed. Prototype approval is pendi
 - Keep "Everything else" as a numeric scrubber row with a blank swatch spacer and
   normal weight, including selection. Preserve its keyboard position; selecting it
   leaves every artist ribbon undimmed. Week totals still include the residual.
-- Preserve the three hidden-artist rows below the conditional divider. Scrubbing
-  works in residual-only weeks. Globally residual-only data has a blank interactive
-  chart; an entirely empty payload has no chart.
+- Remove the three contributor rows and their divider. They confuse the numeric
+  residual with plotted artists. Scrubbing still works in residual-only weeks.
+  Globally residual-only data has a blank interactive chart; empty data has no chart.
 - Restore the original twelve-step per-theme rocket palette and fixed permutation.
   No special cool burst colours or new palette tuning.
-- Selection remains top ten by 365-day total plus two largest rolling 21-day peaks
-  outside that ten. Each selected artist retains its full weekly counts.
+- Return to the top ten by 365-day total, without burst slots. Each selected artist
+  retains its full weekly counts. Remove unused burst and contributor computation.
+- Reduce the chart box: remove its extra height reservation and, if needed, reduce
+  intrinsic stream height. Preserve original gaps below the header and paragraph.
+  Desktop page, chart and tooltip must fit the plan's measured viewport matrix
+  without vertical scrolling or hidden content; mobile keeps normal document flow.
 
 ## Superseded proposals
 

@@ -104,8 +104,8 @@ Why it holds: `streamOrder` puts the layers, bottom to top, at ranks
 `[11, 9, 7, 5, 3, 1, 0, 2, 4, 6, 8, 10]` when the burst layers (ranks 10, 11) have the smaller volumes in
 that order. Burst layers are chosen by 21-day peak, not by window total, so the two may swap volumes; then
 the chain ends `..., 8, 11` and the closest touching pair is **3** steps apart. Over both cases every
-touching pair is **at least 3** steps apart (4 in the first case). "Everything else" keeps its grey token
-and sits below the chain.
+touching pair is **at least 3** steps apart (4 in the first case). The current residual presentation is
+owned by the [live-review design](../specs/2026-10-28-streamgraph-live-feedback-design.md).
 
 Contrast of the layer fills against the frame (`#f0ebe0` light, `#1f1b28` dark): light min 1.89 (step
 11) max 12.66; dark min 1.59 (step 0) max 10.83. Layer fills stay exempt from the 3:1 non-text floor
@@ -275,10 +275,9 @@ def test_a_burst_across_a_monday_is_one_burst_not_two_weeks(self):
   `_context_view` change.
 - [x] **Step 3: Same command, green.** Quote it. Also run `tests/test_heatmap.py` and the whole of
   `tests/test_jobs.py` and `tests/test_plays.py`.
-- [x] **Step 4: Docs.** README lines 156-157 ("weekly plays for the ten most played artists, with every
-  other artist in one "Everything else" layer" becomes: for the twelve layers -- the ten most played
-  artists and the two with the biggest short burst -- with every other artist in one "Everything else"
-  layer); lines 369 and 487-488 ("top ten" / "ten most played" become "top ten plus two burst"); the
+- [x] **Step 4: Docs.** At Task 1 landing, README described the twelve artists and residual layer.
+  The live-review plan now owns its artist-only correction. Lines 369 and 487-488 ("top ten" /
+  "ten most played" become "top ten plus two burst"); the
   sequence diagram line 83 ("top 10 artists ... the rest counted as other" becomes "top 10 artists plus
   the 2 biggest 21-day bursts and the 3 largest hidden artists per week, the rest counted as other").
   `Last updated:` in both files. Leave README line 523 (the unrelated spotlight sample).
@@ -341,8 +340,8 @@ A one-line comment names seaborn v0.13.2 `_rocket_lut` and the two sampling wind
 - [x] **Step 3: Green** (same command), then the whole file (`tests/frontend/test_heatmap_pure_functions.py`).
 - [x] **Step 4: Docs.** `DESIGN.md` line 137: the layers use 12 steps of seaborn's `rocket` colormap
   (v0.13.2), light sampled over 15%-78% and dark over 28%-90%, assigned by a fixed permutation so
-  touching layers are at least 3 steps apart; keep the "Everything else", gridline, label and outline
-  colours and the U20 exemption sentence. Do not touch README (its "one owner" paragraph is about the
+  touching layers are at least 3 steps apart. Gridline, label, outline and the U20 exemption remain;
+  residual presentation is now owned by the live-review design. Do not touch README (its "one owner" paragraph is about the
   grid ramp and stays true). `Last updated:`.
 - [x] **Step 5: Frontend gate** (changes `static/`): the `[stream colours]` lines print min and max per
   theme; quote them (expected: light 1.89 / 12.66, dark 1.59 / 10.83). Pre-commit on the changed files,

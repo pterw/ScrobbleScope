@@ -1027,7 +1027,7 @@ def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
     assert got == [0, 0, 0, 1, 1, 2, 52, 52]
 
 
-STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], rank 7 [2,5]
+STACK_AT_WEEK = [  # bottom to top: rank 4 [0,2], empty rank 2 [2,2], rank 7 [2,5]
     [{"y0": 0, "y1": 2}],
     [{"y0": 2, "y1": 2}],
     [{"y0": 2, "y1": 5}],
@@ -1035,24 +1035,37 @@ STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], ran
 
 
 @pytest.mark.parametrize(
-    ("y", "expected"),
+    ("stack", "week", "y", "order", "expected"),
     [
-        (1, "other"),
-        (3.5, 7),
-        (2, 7),  # a shared boundary belongs to the layer above
-        (5, 7),
-        (-0.1, None),
-        (5.1, None),
+        (STACK_AT_WEEK, 0, 1, [4, 2, 7], 4),
+        (STACK_AT_WEEK, 0, 3.5, [4, 2, 7], 7),
+        (STACK_AT_WEEK, 0, 2, [4, 2, 7], 7),  # shared edge belongs above
+        (STACK_AT_WEEK, 0, 5, [4, 2, 7], 7),
+        (STACK_AT_WEEK, 0, -0.1, [4, 2, 7], None),
+        (STACK_AT_WEEK, 0, 5.1, [4, 2, 7], None),
+        (STACK_AT_WEEK, 0, 0, None, 0),  # without order, return the stack slot
+        (STACK_AT_WEEK, 0, 3.5, None, 2),
+        ([], 0, 0, [], None),  # a globally residual-only chart has no bands
+        (
+            [[{"y0": 0, "y1": 2}, {"y0": 1, "y1": 1}]],
+            1,
+            1,
+            [4],
+            None,
+        ),  # a residual-only week cannot hit a zero-height artist band
     ],
 )
-def test_layer_at_y_finds_the_band_holding_the_pointer(js_page, y, expected):
-    # The empty band (rank 4) can never be hit; `order` maps stack slots to ranks.
-    got = js_page.evaluate(
-        "([stack, y, order]) => window.__scrobbleHeatmapTestHooks.layerAtY("
-        "stack, 0, y, order)",
-        [STACK_AT_WEEK, y, [4, 7]],
-    )
-    assert got == expected
+def test_layer_at_y_finds_the_band_holding_the_pointer(
+    js_page, stack, week, y, order, expected
+):
+    """Find the named artist at the pointer without hitting empty bands.
+
+    GIVEN: Artist-only stacks, optional rank order, boundaries and empty weeks.
+    WHEN: The pointer's height is resolved at the selected week.
+    THEN: It maps directly to the artist rank or slot, gives shared edges to
+    the band above, and returns no hit outside the stack or on empty bands.
+    """
+    assert _hook(js_page, "layerAtY", stack, week, y, order) == expected
 
 
 def _panel(js_page, week, hover, weeks=40):

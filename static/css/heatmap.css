@@ -301,13 +301,11 @@
 .heatmap-frame {
   --heatmap-surface: #f0ebe0;
   --heatmap-empty: #c8bfad;
-  --stream-other: #ddd5c5;
   --stream-line: #e5dfd1;
   --stream-muted: #6c6676;
   --stream-accent: #6a4baf;
   --stream-panel-bg: #ffffff;
   --stream-panel-shadow: rgb(0 0 0 / 0.15);
-  --stream-swatch-other: #8a867e;
   width: 100%;
   box-sizing: border-box;
   padding: 1.25rem 1.75rem 1.5rem;
@@ -320,13 +318,11 @@
 [data-theme="dark"] .heatmap-frame {
   --heatmap-surface: #1f1b28;
   --heatmap-empty: #2e2939;
-  --stream-other: #3a3347;
   --stream-line: #352e43;
   --stream-muted: #908a9a;
   --stream-accent: #b39dde;
   --stream-panel-bg: #1f1b28;
   --stream-panel-shadow: rgb(0 0 0 / 0.4);
-  --stream-swatch-other: #8a867e;
 }
 
 .heatmap-frame-top {
