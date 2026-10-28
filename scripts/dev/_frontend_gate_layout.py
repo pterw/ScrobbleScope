@@ -9,6 +9,7 @@ Composition must reach its proportions through layout, never CSS `zoom` or
 
 from __future__ import annotations
 
+import re
 import sys
 
 from scripts.dev._frontend_gate_colour import _clamp_px
@@ -526,6 +527,11 @@ def _measure_mobile_headers(page, base_url) -> dict:
                     ),
                     actionsTop: actionsRect.top,
                     contentBottom: mainRect.bottom,
+                    keysShown: [...document.querySelectorAll('[data-mode-key]')]
+                        .filter(key => key.getClientRects().length > 0).length,
+                    yearHintShown: [...document.querySelectorAll(
+                        '#album-form-section .field__help--phone'
+                    )].some(hint => hint.getClientRects().length > 0),
                     themeHeight: document.querySelector('.site-header__theme-toggle')
                         .getBoundingClientRect().height,
                     linksInside: links.every(link => {
@@ -589,17 +595,108 @@ def _measure_expanded_placement(page, base_url, width: int, height: int) -> dict
     )
 
 
+#: What the home page's right column and its left-column keys look like in the
+#: current mode: explanatory copy still in the form stack, and which keys
+#: (`data-mode-key`) are shown, with the others hidden from assistive technology.
+HOME_KEY_STATE_EXPRESSION = """() => {
+    const keys = [...document.querySelectorAll('[data-mode-key]')];
+    const active = keys.filter((key) => key.classList.contains('is-active'));
+    const strip = document.querySelector('.index-hero__marks.is-active');
+    const divider = document.createElement('i');
+    divider.style.color = 'var(--ss-border-divider)';
+    document.body.append(divider);
+    const dividerColour = getComputedStyle(divider).color;
+    divider.remove();
+    return {
+        inForm: [...document.querySelectorAll(
+            '.index-form .hm-preview, .index-form [data-mode-key], '
+            + '#album-form-section .field__help:not(.field-pair__help)'
+        )].filter((node) => node.getClientRects().length > 0).length,
+        active: active.map((key) => key.dataset.modeKey),
+        hiddenOk: keys.every(
+            (key) => (key.getAttribute('aria-hidden') === 'false')
+                === key.classList.contains('is-active')
+        ),
+        ruleOk: active.every((key) => {
+            const style = getComputedStyle(key);
+            return style.borderBottomWidth === '1px'
+                && style.borderBottomStyle === 'solid'
+                && style.borderBottomColor === dividerColour
+                && Math.abs(
+                    key.getBoundingClientRect().width
+                    - strip.getBoundingClientRect().width
+                ) <= 1;
+        }),
+    };
+}"""
+
+#: Reload the home page with the thresholds already holding other numbers, the
+#: way a browser restores a form on reload or Back, then read the album key.
+RESTORED_THRESHOLDS = (("min_plays", "7"), ("min_tracks", "5"))
+
+
+def _restored_key_text(page, base_url: str) -> str:
+    """Load the home page with 7 and 5 already in the threshold inputs."""
+
+    def restore(route):
+        response = route.fetch()
+        body = response.text()
+        for field, value in RESTORED_THRESHOLDS:
+            body = re.sub(
+                rf'(id="{field}"[^>]*?value=")\d+"', rf'\g<1>{value}"', body, flags=re.S
+            )
+        route.fulfill(response=response, body=body)
+
+    page.route(f"{base_url}/", restore)
+    try:
+        page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(FONTS_READY_EXPRESSION)
+        return page.evaluate(
+            "() => document.querySelector('[data-mode-key=\"album\"]').textContent"
+        )
+    finally:
+        page.unroute(f"{base_url}/")
+
+
+#: Drive both thresholds the way a stepper does (value, then an input event)
+#: and read the album key's sentences back.
+SET_THRESHOLDS_EXPRESSION = """() => {
+    for (const [id, value] of [['min_plays', '1'], ['min_tracks', '5']]) {
+        const input = document.getElementById(id);
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const key = document.querySelector('[data-mode-key="album"]');
+    return key ? key.textContent : '';
+}"""
+
+
 def _measure_mode_switch_shift(page, base_url, width: int, height: int) -> dict:
-    """Read the mode switch's top in album mode, then on the Heatmap tab."""
+    """Read the mode switch's top and the home keys in each mode.
+
+    Album mode first, then the Heatmap tab, then album again with both
+    thresholds changed.
+    """
     page.set_viewport_size({"width": width, "height": height})
     page.goto(f"{base_url}/", wait_until="load")
     page.evaluate(FONTS_READY_EXPRESSION)
     wait_for_settled(page)
     read_top = "document.querySelector('.mode-tabs').getBoundingClientRect().top"
     album_top = page.evaluate(f"() => {read_top}")
+    keys = {"album": page.evaluate(HOME_KEY_STATE_EXPRESSION)}
     page.locator("#mode-tab-heatmap").click()
     wait_for_settled(page)
-    return {"albumTop": album_top, "heatmapTop": page.evaluate(f"() => {read_top}")}
+    heatmap_top = page.evaluate(f"() => {read_top}")
+    keys["heatmap"] = page.evaluate(HOME_KEY_STATE_EXPRESSION)
+    page.locator("#mode-tab-album").click()
+    wait_for_settled(page)
+    return {
+        "albumTop": album_top,
+        "heatmapTop": heatmap_top,
+        "keys": keys,
+        "albumKeyText": page.evaluate(SET_THRESHOLDS_EXPRESSION),
+        "restoredKeyText": _restored_key_text(page, base_url),
+    }
 
 
 def _measure_heatmap_first_shift(page, base_url, width: int, height: int) -> dict:
@@ -634,6 +731,59 @@ def _mode_switch_failures(label: str, measured) -> list[str]:
             f"chosen at {label}, expected it to stay put"
         ]
     return []
+
+
+def _home_key_failures(label: str, measured) -> list[str]:
+    """Fail when the form stack still explains, or a mode shows the wrong key.
+
+    The right column holds the tabs and the form card only; each mode's key
+    sits in the left column, the other mode's key is hidden from assistive
+    technology, and the album key's counts follow the steppers.
+    """
+    failures = []
+    for mode, state in measured["keys"].items():
+        if state["inForm"]:
+            failures.append(
+                f"/: the form stack holds {state['inForm']} explanatory "
+                f"element(s) in {mode} mode at {label}, expected none"
+            )
+        if not state["ruleOk"]:
+            failures.append(
+                f"/: the {mode} key does not end with the 1px divider rule at the "
+                f"strip's width at {label}"
+            )
+        if state["active"] != [mode] or not state["hiddenOk"]:
+            failures.append(
+                f"/: {mode} mode shows keys {state['active']} (hidden ones "
+                f"aria-hidden ok: {state['hiddenOk']}) at {label}, expected "
+                f"only the {mode} key"
+            )
+    text = " ".join(measured["albumKeyText"].split())
+    if "1 play across" not in text or "5 different tracks" not in text:
+        failures.append(
+            f"/: the album key does not follow the steppers at {label}: {text!r}"
+        )
+    restored = " ".join(measured["restoredKeyText"].split())
+    if "7 plays across" not in restored or "5 different tracks" not in restored:
+        failures.append(
+            f"/: the album key ignores restored threshold values at {label}: "
+            f"{restored!r}"
+        )
+    return failures
+
+
+def _phone_home_failures(width: int, phone: dict) -> list[str]:
+    """Fail when a phone shows the keys, or loses the calendar-year hint.
+
+    Below 860px the keys are hidden like the strip (owner, 2026-10-27) and
+    the form carries the year hint instead.
+    """
+    failures = []
+    if phone["keysShown"]:
+        failures.append(f"/: the home keys are shown at {width}px, expected hidden")
+    if not phone["yearHintShown"]:
+        failures.append(f"/: the calendar-year hint is hidden at {width}px")
+    return failures
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
@@ -810,11 +960,13 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         _expanded_placement_failures("1920x700", expanded_short, short_window=True)
     )
     failures.extend(_mode_switch_failures("1920x1063", mode_switch))
+    failures.extend(_home_key_failures("1920x1063", mode_switch))
     failures.extend(
         _mode_switch_failures("1920x1063 after a Heatmap-first load", heatmap_first)
     )
     for width, header in mobile_headers.items():
         failures.extend(_mobile_header_failures(width, header))
+        failures.extend(_phone_home_failures(width, header))
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
     # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
     # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height

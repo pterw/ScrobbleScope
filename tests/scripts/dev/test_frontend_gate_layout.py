@@ -503,7 +503,18 @@ def test_expanded_measurement_opens_decade_scope_and_thresholds(monkeypatch) -> 
     ]
 
 
-MODE_SWITCH = {"albumTop": 191.0, "heatmapTop": 191.0}
+def _keys(mode: str) -> dict:
+    """The home keys as they should read in `mode`: one shown, none in the form."""
+    return {"inForm": 0, "active": [mode], "hiddenOk": True, "ruleOk": True}
+
+
+MODE_SWITCH = {
+    "albumTop": 191.0,
+    "heatmapTop": 191.0,
+    "keys": {"album": _keys("album"), "heatmap": _keys("heatmap")},
+    "albumKeyText": "1 play across the album 5 different tracks by default",
+    "restoredKeyText": "7 plays across the album 5 different tracks by default",
+}
 HEATMAP_FIRST = {"albumTop": 191.0, "heatmapTop": 191.0}
 
 
@@ -602,6 +613,80 @@ def test_mode_switch_must_stay_put_when_the_mode_changes(heatmap_top, failed) ->
 
     assert bool(failures) is failed
     assert all("1920x1063" in line for line in failures)
+
+
+@pytest.mark.parametrize(
+    ("change", "expected_fragment"),
+    [
+        ({}, None),
+        ({"album": {"inForm": 1}}, "form stack holds 1"),
+        ({"heatmap": {"inForm": 2}}, "form stack holds 2"),
+        ({"album": {"active": ["heatmap"]}}, "album mode shows keys ['heatmap']"),
+        ({"heatmap": {"active": []}}, "heatmap mode shows keys []"),
+        ({"heatmap": {"hiddenOk": False}}, "heatmap mode shows keys"),
+        ({"text": "10 plays across the album 5 different tracks"}, "steppers"),
+        ({"text": "1 play across the album 3 different tracks"}, "steppers"),
+        ({"album": {"ruleOk": False}}, "album key does not end with the 1px"),
+        ({"heatmap": {"ruleOk": False}}, "heatmap key does not end with the 1px"),
+        ({"restored": "10 plays across 3 different tracks"}, "restored"),
+        ({"restored": "7 plays across the album 3 different tracks"}, "restored"),
+    ],
+    ids=[
+        "clean",
+        "album-form-explains",
+        "heatmap-form-explains",
+        "wrong-key-in-album",
+        "no-key-in-heatmap",
+        "inactive-key-not-hidden",
+        "plays-ignore-stepper",
+        "tracks-ignore-stepper",
+        "album-key-lacks-rule",
+        "heatmap-key-lacks-rule",
+        "restored-values-ignored",
+        "restored-tracks-ignored",
+    ],
+)
+def test_the_form_stack_holds_no_key_and_each_mode_shows_its_own(
+    change, expected_fragment
+) -> None:
+    measured = {
+        "keys": {
+            mode: {**_keys(mode), **change.get(mode, {})}
+            for mode in ("album", "heatmap")
+        },
+        "albumKeyText": change.get("text", MODE_SWITCH["albumKeyText"]),
+        "restoredKeyText": change.get("restored", MODE_SWITCH["restoredKeyText"]),
+    }
+
+    failures = _frontend_gate_layout._home_key_failures("1920x1063", measured)
+
+    if expected_fragment is None:
+        assert failures == []
+    else:
+        assert len(failures) == 1
+        assert expected_fragment in failures[0]
+        assert "1920x1063" in failures[0]
+
+
+@pytest.mark.parametrize(
+    ("phone", "expected_fragment"),
+    [
+        ({"keysShown": 0, "yearHintShown": True}, None),
+        ({"keysShown": 1, "yearHintShown": True}, "keys are shown at 390px"),
+        ({"keysShown": 0, "yearHintShown": False}, "year hint is hidden at 390px"),
+    ],
+    ids=["clean", "keys-on-phone", "year-hint-missing-on-phone"],
+)
+def test_a_phone_hides_the_keys_and_keeps_the_year_hint(
+    phone, expected_fragment
+) -> None:
+    failures = _frontend_gate_layout._phone_home_failures(390, phone)
+
+    if expected_fragment is None:
+        assert failures == []
+    else:
+        assert len(failures) == 1
+        assert expected_fragment in failures[0]
 
 
 @pytest.mark.parametrize(

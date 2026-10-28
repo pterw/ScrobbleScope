@@ -594,7 +594,6 @@ def test_kpi_blocks_render_the_published_figures_and_compute_nothing(js_page):
 
 
 INDEX_HTML = REPO_ROOT / "templates" / "index.html"
-HEATMAP_FORM_HTML = REPO_ROOT / "templates" / "partials" / "_heatmap_form.html"
 
 
 def _text(fragment: str) -> str:
@@ -613,12 +612,14 @@ def _heatmap_lede() -> str:
 
 
 def _preview_text() -> str:
-    """The words of the heatmap mode's preview card, up to its ramp."""
-    source = HEATMAP_FORM_HTML.read_text(encoding="utf-8")
+    """The words of the heatmap mode's key in the home page's left column."""
+    source = INDEX_HTML.read_text(encoding="utf-8")
     match = re.search(
-        r'<div class="hm-preview">(.*?)<span class="hm-preview__ramp"', source, re.S
+        r'<div data-mode-key="heatmap"[^>]*>(.*?)<span class="hm-preview__ramp"',
+        source,
+        re.S,
     )
-    assert match, "_heatmap_form.html has no preview card"
+    assert match, "index.html has no heatmap key"
     return _text(match.group(1))
 
 

@@ -425,10 +425,21 @@ document.addEventListener('DOMContentLoaded', () => {
     ].join(' · ');
   }
 
+  /** Keep the two numbers in the album key equal to the threshold inputs. */
+  function updateKeyCounts() {
+    document.querySelectorAll('[data-key-count]').forEach((span) => {
+      const input = document.getElementById(span.dataset.keyCount);
+      if (!input) return;
+      const value = clampToBounds(input);
+      span.textContent = `${value} ${span.dataset.keyNoun}${value === 1 ? '' : 's'}`;
+    });
+  }
+
   [minPlays, minTracks].forEach((input) => {
     if (!input) return;
     input.addEventListener('input', () => {
       updateThresholdSummary();
+      updateKeyCounts();
       updateFilterTags();
     });
     // A typed value outside the range is only corrected when the field is
@@ -436,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     input.addEventListener('blur', () => {
       input.value = String(clampToBounds(input));
       updateThresholdSummary();
+      updateKeyCounts();
       updateFilterTags();
     });
   });
@@ -445,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (minPlays) minPlays.value = '10';
       if (minTracks) minTracks.value = '3';
       updateThresholdSummary();
+      updateKeyCounts();
       updateFilterTags();
     });
   }
@@ -597,6 +610,7 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleReleaseOptions();           // set decade/custom vis on first load
   syncUnmatchedLock();              // back navigation restores form state
   updateThresholdSummary();
+  updateKeyCounts();                // the key shows restored thresholds too
   updateFilterTags();
 
   /* ---------- Desktop form placement ---------- */

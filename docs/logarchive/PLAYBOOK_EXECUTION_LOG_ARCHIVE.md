@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Make the favicon follow the theme
+
+Side task, no batch tag: UI audit v6 row 8, a theme-aware favicon with a touch icon and per-scheme theme-color, on `feat/ui-audit-v6`, a branch off `main`.
+
+Owner intent (design README row 8, favicon option C): the favicon uses the site's own surfaces and purples and follows the browser colour scheme. `static/images/favicon.svg` (1841 bytes) holds a `<style>` block with plate `#faf7f0` / blades `#6a4baf`, and under `prefers-color-scheme: dark` plate `#181520` / blades `#b39dde`; the rounded 32x32 plate (`rx="8"`) carries the four existing blade paths scaled to .86. `favicon-16x16.png`, `favicon-32x32.png` and `favicon.ico` (16 + 32, PNG payloads, written by hand) are regenerated from the light variant, and `apple-touch-icon.png` (180x180, full-bleed cream plate, blades at .86) is new. `templates/base.html` `<head>` gains the apple-touch link and two `theme-color` metas (`#faf7f0` light, `#0e0c12` dark); the four existing icon links stay. Blade against plate contrast is 6.06:1 light and 7.54:1 dark (non-text minimum 3:1). The README's 7.8 kB `c2pa` block was already gone from the file. The PNGs were rendered with Playwright Chromium (Pillow is not a dependency); the SVG itself uses only plain CSS and a media query.
+
+Deviations: none.
+
+Existing tests edited, by name: `test_every_page_carries_the_shared_shell` in `tests/test_template_shell.py` (asserts the apple-touch link and both theme-color metas).
+
+Validation: `pytest -q` -- **2986 passed**.
+
 ### 2026-10-27 - State the real total of a capped unmatched group
 
 Side task, no batch tag: UI audit v6 row 9, a capped unmatched group states its real total, on `feat/ui-audit-v6`, a branch off `main`.

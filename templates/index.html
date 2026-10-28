@@ -73,6 +73,32 @@
           <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3.5h7.5l4.5 4.5v12.5h-12z"/><path d="M14 3.5V8h4.5M9.5 12.5h5M9.5 16h5"/></svg>Export</span><span class="index-hero__strip-desc">Save the grid as a JPEG</span></li>
         </ul>
       </div>
+
+      {# The keys explain the mode; the right column keeps only controls.
+         static/js/heatmap.js crossfades them with the strip, and
+         static/js/index.js keeps the two numbers in the album key equal to
+         the threshold steppers. #}
+      <div class="index-hero__keys">
+        <div data-mode-key="album" class="index-key{% if initial_mode != 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'true' if initial_mode == 'heatmap' else 'false' }}">
+          <p class="index-key__title">How an album makes the list</p>
+          <dl class="index-key__facts">
+            <div><dt>Year</dt><dd>Only plays inside the listening year are counted.</dd></div>
+            <div><dt>Plays</dt><dd><span data-key-count="min_plays" data-key-noun="play">10 plays</span> across the album by default. Change it under What counts as listened.</dd></div>
+            <div><dt>Tracks</dt><dd><span data-key-count="min_tracks" data-key-noun="different track">3 different tracks</span> by default, so one song on repeat is not enough. Also adjustable.</dd></div>
+          </dl>
+        </div>
+        <div data-mode-key="heatmap" class="index-key hm-preview{% if initial_mode == 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
+          <p class="index-key__title hm-preview__key">One square for each of your last 365 days</p>
+          <dl class="index-key__facts hm-preview__facts">
+            <div><dt>Shade</dt><dd>Brighter squares mean more plays that day.</dd></div>
+            <div><dt>Totals</dt><dd>Your scrobbles, daily average and current streak.</dd></div>
+            <div><dt>Best day</dt><dd>Your busiest day in those 365 days, with its date.</dd></div>
+          </dl>
+          <span class="hm-preview__ramp" aria-hidden="true"></span>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -127,7 +153,8 @@
                        value="{{ current_year }}" placeholder="{{ current_year }}"
                        aria-describedby="year-hint" required>
               </div>
-              <p class="field__help">Only plays inside this calendar year are counted.</p>
+              {# Phones only: the album key, hidden there, says this. #}
+              <p class="field__help field__help--phone">Only plays inside this calendar year are counted.</p>
             </div>
 
             <div class="field">
