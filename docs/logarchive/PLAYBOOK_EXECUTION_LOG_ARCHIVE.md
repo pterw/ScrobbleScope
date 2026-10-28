@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Plan the streamgraph burst layers
+
+Side task, no batch tag: plan the streamgraph burst layers, on `feat/streamgraph-bursts`, a branch off `main`.
+
+Owner intent: the owner's streamgraph buried short listening bursts in "Everything else". The approved design has 12 layers, a hidden-artist tooltip and a per-theme rocket palette.
+
+What changed: the design spec (`docs/superpowers/specs/2026-10-28-streamgraph-bursts-design.md`) and the sliced, parallelizable plan (`docs/superpowers/plans/2026-10-28-streamgraph-bursts.md`) are committed together, so the plan no longer lacks its spec. The plan was reviewed twice; the last fixes were folded in under ruling G8. Documentation only, no code.
+
+Deviations: none.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Fit the streamgraph stack inside its band
 
 Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

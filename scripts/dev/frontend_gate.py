@@ -177,6 +177,7 @@ from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
     check_stream_hover_shows_panel_and_ring,
     check_stream_is_in_saved_image,
     check_stream_is_one_keyboard_tab_stop,
+    check_stream_panel_rule_and_hidden_rows_follow_the_week,
     check_stream_reduced_motion,
     check_stream_touch_drag_scrubs,
 )
@@ -321,6 +322,12 @@ CHECKS = (
     (
         "stream hover shows panel and ring",
         check_stream_hover_shows_panel_and_ring,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream panel rule and hidden rows follow the week",
+        check_stream_panel_rule_and_hidden_rows_follow_the_week,
         (DESKTOP,),
         THEME_MOTION,
     ),

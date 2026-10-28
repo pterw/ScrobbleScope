@@ -21,7 +21,7 @@ from scrobblescope.listening_stats import heatmap_statistics
 #: A Monday, so the first grid column holds seven real days and `weeks`
 #: columns are exactly `weeks * 7` days long.
 _FIRST_MONDAY = datetime.date(2025, 1, 6)
-_ARTIST_COUNT = 10
+_ARTIST_COUNT = 12
 _DESKTOP_MIN_WIDTH = 860
 _SECOND_WIDTH = 1000
 _NARROW_VIEWPORT = {"width": 390, "height": 844}
@@ -41,7 +41,7 @@ _GRID_MOBILE = '#heatmap-result-frame svg[data-layout="mobile"]'
 
 
 def _weekly_artists(weeks: int, long_name: bool = False) -> dict:
-    """A valid weekly_artists payload: ten artists, largest total first.
+    """A weekly_artists payload: ten top artists followed by two sparse bursts.
 
     `long_name` gives the first artist a 60-character name."""
     artists = [
@@ -51,23 +51,40 @@ def _weekly_artists(weeks: int, long_name: bool = False) -> dict:
                 (10 - k) * (1 + (t * (k + 2) + k * 5) % 6) for t in range(weeks)
             ],
         }
-        for k in range(_ARTIST_COUNT)
+        for k in range(10)
     ]
     artists.sort(key=lambda a: -sum(a["counts"]))
+    artists.extend(
+        {
+            "name": name,
+            "counts": [counts[t - 5] if 5 <= t <= 7 else 0 for t in range(weeks)],
+        }
+        for name, counts in (("Burst 1", (40, 30, 20)), ("Burst 2", (25, 35, 15)))
+    )
     return {
         "weeks": [
             (_FIRST_MONDAY + datetime.timedelta(days=7 * t)).isoformat()
             for t in range(weeks)
         ],
         "artists": artists,
-        "other": [3 + t % 5 for t in range(weeks)],
+        "other": [3 + t % 5 + (19 if t % 3 == 0 else 0) for t in range(weeks)],
+        "hidden": [
+            [
+                {"name": "Hidden A", "count": 9},
+                {"name": "Hidden B", "count": 6},
+                {"name": "Hidden C", "count": 4},
+            ]
+            if t % 3 == 0
+            else []
+            for t in range(weeks)
+        ],
     }
 
 
 def seed_stream_job(weeks: int = 53, payload: bool = True) -> tuple[str, str]:
     """A finished heatmap job over `weeks` grid columns.
 
-    `weekly_artists` is a valid payload with ten artists, or absent when
+    `weekly_artists` is a valid payload with twelve artists, or absent when
     `payload` is false. Each week's plays sit on its Monday, so the daily
     counts agree with the payload. Returns (job id, last day).
     """
@@ -140,7 +157,8 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
     failures = []
     if reading["layers"] != _ARTIST_COUNT + 1:
         failures.append(
-            f"the stream has {reading['layers']} layers at {width}px, expected 11"
+            f"the stream has {reading['layers']} layers at {width}px, "
+            f"expected {_ARTIST_COUNT + 1}"
         )
     if reading["streamWidth"] != reading["gridWidth"]:
         failures.append(
@@ -446,8 +464,10 @@ _READ_HOVER_JS = """([rank, week]) => {
     const panelBox = panel.getBoundingClientRect();
     const sbox = stream.getBoundingClientRect();
     const hovered = panel.querySelectorAll('.stream-panel-row.is-hovered');
-    const visible = document.querySelector('#heatmap-grid').getBoundingClientRect();
-    const rows = Array.from(panel.querySelectorAll('.stream-panel-row'));
+    const host = document.querySelector('#heatmap-grid');
+    const visible = host.getBoundingClientRect();
+    const rows = Array.from(panel.querySelectorAll(
+        '.stream-panel-row, .stream-panel-hidden'));
     const outside = rows.filter((row) => {
         const box = row.getBoundingClientRect();
         return box.top < visible.top - 0.5 || box.bottom > visible.bottom + 0.5;
@@ -455,6 +475,9 @@ _READ_HOVER_JS = """([rank, week]) => {
     return {
         rowCount: rows.length,
         rowsOutside: outside.length,
+        verticalScroll: host.scrollHeight > host.clientHeight + 1
+            || panel.scrollHeight > panel.clientHeight + 1
+            || document.documentElement.scrollHeight > innerHeight + 1,
         siblings: layers.filter((l) => l.dataset.rank !== String(rank)).map(opacity),
         hovered: opacity(layers.find((l) => l.dataset.rank === String(rank))),
         panelShown: !panel.hidden && panelBox.width > 0,
@@ -536,6 +559,10 @@ def _hover_failures(
             f"{where}: {reading['rowsOutside']} of {reading['rowCount']} panel rows"
             " are outside the chart's visible box"
         )
+    if reading["verticalScroll"]:
+        failures.append(
+            f"{where}: the chart, panel or page requires vertical scrolling"
+        )
     if (
         reading["panelLeft"] < reading["gridLeft"] - 0.5
         or reading["panelRight"] > reading["gridRight"] + 0.5
@@ -581,6 +608,62 @@ def _resize_failures(page, original: dict) -> list[str]:
     again = _hover_failures(_hover(page, 30), 30)
     if again:
         failures.append(f"the next pointer move did not show the week again: {again}")
+    return failures
+
+
+def check_stream_panel_rule_and_hidden_rows_follow_the_week(
+    page, base_url: str
+) -> list[str]:
+    """Hidden artists follow the hovered week without indenting their names.
+
+    GIVEN: A twelve-layer job with hidden artists in selected weeks.
+    WHEN: The pointer moves from a populated hidden week to an empty one.
+    THEN: One rule precedes the exact aligned hidden rows, then both disappear.
+    """
+    failures = []
+    original = page.viewport_size
+    job_id, _last_day = seed_stream_job()
+    try:
+        page.set_viewport_size(_PANEL_VIEWPORT)
+        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
+        for week in (6, 7):
+            failures.extend(_hover_failures(_hover(page, week), week))
+            reading = page.locator("#stream-panel").evaluate("""panel => {
+                const rules = Array.from(panel.querySelectorAll('hr.stream-panel-rule'));
+                const rows = Array.from(panel.querySelectorAll('.stream-panel-hidden'));
+                const names = Array.from(panel.querySelectorAll(
+                    '.stream-panel-row .stream-panel-name'));
+                return {
+                    rules: rules.length,
+                    followsRule: !!rules[0] && rules[0].nextElementSibling === rows[0]
+                        && rows.every((row, i) => !i || rows[i - 1].nextElementSibling === row),
+                    rows: rows.map(row => ({
+                        name: row.querySelector('.stream-panel-name').textContent,
+                        count: Number(row.querySelector('.stream-panel-count').textContent)
+                    })),
+                    aligned: rows.every(row => names.every(name => Math.abs(
+                        row.querySelector('.stream-panel-name').getBoundingClientRect().left
+                        - name.getBoundingClientRect().left) <= 0.5))
+                };
+            }""")
+            expected = (
+                [
+                    {"name": "Hidden A", "count": 9},
+                    {"name": "Hidden B", "count": 6},
+                    {"name": "Hidden C", "count": 4},
+                ]
+                if week == 6
+                else []
+            )
+            if reading["rows"] != expected or reading["rules"] != bool(expected):
+                failures.append(f"week {week}: hidden rows or rule differ: {reading}")
+            elif expected and (not reading["followsRule"] or not reading["aligned"]):
+                failures.append(
+                    f"week {week}: hidden rows are not aligned after the rule: {reading}"
+                )
+    finally:
+        page.set_viewport_size(original)
+        jobs.delete(job_id)
     return failures
 
 
@@ -947,6 +1030,18 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
             return failures
         failures.extend(_outline_failures(page))
         failures.extend(_walk_failures(page))
+        page.keyboard.press("Home")
+        for _ in range(6):
+            page.keyboard.press("ArrowRight")
+        for _ in range(_ARTIST_COUNT + 1):
+            page.keyboard.press("ArrowDown")
+        failures.extend(_step_failures(page, 6, _ARTIST_COUNT, "dense week end"))
+        _hover(page, _START_WEEK)
+        page.mouse.move(*_OUTSIDE)
+        page.keyboard.press("ArrowUp")
+        failures.extend(
+            _step_failures(page, 6, _ARTIST_COUNT - 1, "after sparse pointer leave")
+        )
         if page.evaluate(_STOPS_IN_STREAM_JS) != 1:
             failures.append("the stream holds more than one tab stop")
         # The sentinel is added only now: in flow, it would add height below

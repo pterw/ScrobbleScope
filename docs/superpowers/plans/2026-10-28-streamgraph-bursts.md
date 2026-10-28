@@ -435,7 +435,7 @@ with a blank swatch-width spacer so names align (B10). Section 4 entry: the edit
 
 **Touches:**
 - Modify: `scripts/dev/_frontend_gate_stream.py` (`_ARTIST_COUNT`, `_weekly_artists`, its two
-  "ten artists" docstrings near lines 44 and 70, the panel row readers, one new check)
+  "ten artists" docstrings near lines 44 and 70, the panel row readers, the existing keyboard regression and no-scroll assertions, one new check)
 - Modify: `scripts/dev/frontend_gate.py` (import and register the new check beside lines 173-181 and
   304-347)
 
@@ -466,17 +466,21 @@ contract. **Gates:** pre-commit on the changed files, frontend gate.
   column as the layer names (no indentation: equal `left` of the name spans), and the second holds no
   rule and no hidden rows. Reuse `_hover`, `_open_heatmap` and the failure-list style of the neighbouring
   checks; no new helper unless two checks use it.
+- Extend the existing keyboard check with a dense-week selection, sparse pointer hover, pointer leave
+  and ArrowUp, proving the retained dense cursor moves to its preceding visible row. Extend existing
+  hover assertions to reject vertical scrolling in the chart host, panel or document while retaining
+  all row-containment checks. These enforce the approved Task 3 behavior; Task 4 adds no product code.
 
-- [ ] **Step 1: Extend the seed and add the check; prove it red.** With the full patch stack applied,
+- [x] **Step 1: Extend the seed and add the check; prove it red.** With the full patch stack applied,
   temporarily delete the hidden block (the `if (model.hidden.length) {...}` branch) in
   `fillStreamPanel`, run the frontend gate and quote the failing line of the new check, then restore the
   block by re-applying the original text you saved before deleting it, with the editor (never
   `git checkout` or `git restore`, R6); the tree must equal the stack plus your own edits before Step 2.
-- [ ] **Step 2: Green** with the full patch stack: frontend gate (command in "manual equivalents");
+- [x] **Step 2: Green** with the full patch stack: frontend gate (command in "manual equivalents");
   quote the last line and the `[stream colours]` lines. If the panel overflows at the gate's viewport
   with 16 rows plus the rule, stop and report it; do not shrink the check.
-- [ ] **Step 3: Docs.** None are made untrue; say so in the report.
-- [ ] **Step 4: Pre-commit on the changed files**, stage the two files by name, write the patch.
+- [x] **Step 3: Docs.** None are made untrue; say so in the report.
+- [x] **Step 4: Pre-commit on the changed files**, stage the two files by name, write the patch.
 
 **Do not:** add a new helper, a new seed function, or a second new check; weaken an existing check to
 make room; add JS or CSS changes (those belong to Tasks 2-3).
