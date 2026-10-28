@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Plan the Deezer egress incident fixes
+
+Side task, no batch tag: plan the Deezer egress incident fixes, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: production Deezer calls were all refused with 403 by Deezer's CDN for one Fly host address, fixed operationally by moving the machine; the owner asked for an incident report, no retries on a Deezer 403, MusicBrainz spacing of 1.2 seconds, and atomic parallel slices.
+
+What the plan holds: three parallel code tasks T1-T3, one commit each, landing in order (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`).
+
+Deviations: none.
+
+Existing tests edited: none.
+
+Validation: `pytest -q` -- **3099 passed**.
+
 ### 2026-10-28 - Fit the streamgraph stack inside its band
 
 Side task, no batch tag: fixing Codex's P2 finding on PR #278 (the streamgraph saved image clipped), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

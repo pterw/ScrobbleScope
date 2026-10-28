@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Record the Deezer egress plan's execution
+
+Side task, no batch tag: record in the Deezer egress plan (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`) which tasks landed, in which commits and with which deviations, on `fix/deezer-egress-incident`, a branch off `main`.
+
+Owner intent: plans must show their boxes ticked as work lands; several earlier plans lacked the ticks. The plan's 15 step boxes (Tasks 1-3) are ticked, each backed by its land report and an approving review. The plan gains an "Execution record (2026-10-28)" section: each task's commit and review result (T1 `3ed4aaec`, T2 `575d3412`, T3 `ab914965`; plan `80ce99ee`, approved after 2 fix rounds), the deviation rulings (C10, C12, C14-C17), the stacked landing with one gate-runner at the top, the final evidence (ALL_PASS at `ab914965`, CI run 40717261737 green) and the bot triage (qlty and Codacy findings rejected after measurement; Codex pending). Docs only; the plan is a point-in-time record, so no live prose changed.
+
+Deviations: none. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3101 passed**.
+
 ### 2026-10-28 - Record the Deezer egress block and its recovery
 
 Side task, no batch tag: document the Deezer egress-address block and how to recover from it, on `fix/deezer-egress-incident`, a branch off `main`.
@@ -225,17 +235,3 @@ Deviations: none.
 Existing tests edited: `test_deezer_http_403_raises_unavailable_not_no_match` (re-pointed, parametrized over search, album details and album tracks; asserts the request count and that no sleep happens).
 
 Validation: `pytest -q` -- **3101 passed**.
-
-### 2026-10-28 - Plan the Deezer egress incident fixes
-
-Side task, no batch tag: plan the Deezer egress incident fixes, on `fix/deezer-egress-incident`, a branch off `main`.
-
-Owner intent: production Deezer calls were all refused with 403 by Deezer's CDN for one Fly host address, fixed operationally by moving the machine; the owner asked for an incident report, no retries on a Deezer 403, MusicBrainz spacing of 1.2 seconds, and atomic parallel slices.
-
-What the plan holds: three parallel code tasks T1-T3, one commit each, landing in order (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`).
-
-Deviations: none.
-
-Existing tests edited: none.
-
-Validation: `pytest -q` -- **3099 passed**.
