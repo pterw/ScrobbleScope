@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Include the streamgraph in Save image
+
+Side task, no batch tag: the streamgraph in the saved image (streamgraph plan Task 9), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference; the saved image shows what the page shows.
+
+What changed and why: `static/js/heatmap.js` `drawHeatmapImage` now calls `clearWeek()` first (S19), serialises the stream SVG through a new `streamAsImage` (a clone without `line.stream-guide`, every `path.stream-layer` at `opacity` 1 with its `style` removed, the section label in `monospace`) and draws it flush under the grid at the grid's width, growing the canvas by the stream's rendered height (SG9-F1: the plan's "plus the section gap" is superseded, the page has no gap and the file now matches it). `gridAsImage` also drops `.stream-column-ring`; `removeAll` and `svgCloneAsImage` are shared helpers. The background is painted from `--heatmap-surface` resolved on the frame (S15), so the file takes the timeline surface (dark `#1f1b28`) and not the body's `#181520`. The header record gains `drawnHeader.stream = {label, height}`, only when a stream exists; with no stream (mobile layout or no payload) the export is unchanged.
+
+Gate: new check `stream is in the saved image` (DESKTOP, THEME_MOTION, dark and light) saves for real and decodes the JPEG in the page. Image growth over the no-payload export is the stream height times the export scale, within an absolute 2 px (SG9-F3, replaces a 4% tolerance); a layer pixel at the tallest week and an "Everything else" pixel match the resolved fills; `drawnHeader.stream` matches the page. SG9-F2: the check saves once at rest, hovers week 30, saves again and compares that week's column in both JPEGs (max per-channel difference 12), so a ring, guide or dimmed layer reaching the file fails; proved red with `clearWeek()` and the clone resets removed (differences 238 and 170 of 255).
+
+Rulings recorded: S15, S19, SG9-F1, SG9-F2, SG9-F3. Firefox probe: the same assertions pass in Firefox, dark and light, and the saved images were viewed; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. Check (b) samples the middle of the layer found on the centre line, not the centre-line pixel, because that pixel can fall on a layer edge. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 57 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new gate check only, registered in `CHECKS`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
 ### 2026-10-27 - Add keyboard access to the streamgraph
 
 Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.

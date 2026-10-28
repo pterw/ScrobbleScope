@@ -28,16 +28,25 @@ _NARROW_VIEWPORT = {"width": 390, "height": 844}
 #: The width at which the tallest panel (all rows) nearly fills the chart, so a
 #: dropped lift pushes its last row out of the visible box.
 _PANEL_VIEWPORT = {"width": 1280, "height": 720}
+#: Tracking that stands in for a wider fallback face (what CI's Linux runner
+#: draws the panel in when the kit is refused): with it the panel's longest
+#: header measures past the 260px minimum width.
+_WIDE_FALLBACK_CSS = ".stream-panel { letter-spacing: 0.15em; }"
+#: A 60-character artist name, to give the panel more width than the room
+#: beside a column near the chart's right edge.
+_LONG_NAME = "The Extraordinarily Long-Winded Orchestra of Wandering Souls"
 _STREAM = "#stream-chart"
 _GRID_DESKTOP = '#heatmap-result-frame svg[data-layout="desktop"]'
 _GRID_MOBILE = '#heatmap-result-frame svg[data-layout="mobile"]'
 
 
-def _weekly_artists(weeks: int) -> dict:
-    """A valid weekly_artists payload: ten artists, largest total first."""
+def _weekly_artists(weeks: int, long_name: bool = False) -> dict:
+    """A valid weekly_artists payload: ten artists, largest total first.
+
+    `long_name` gives the first artist a 60-character name."""
     artists = [
         {
-            "name": f"Artist {k}",
+            "name": _LONG_NAME if long_name and k == 0 else f"Artist {k}",
             "counts": [
                 (10 - k) * (1 + (t * (k + 2) + k * 5) % 6) for t in range(weeks)
             ],
@@ -65,12 +74,14 @@ def seed_stream_job(weeks: int = 53, payload: bool = True) -> tuple[str, str]:
     return _seed_job(weeks, payload, 0)
 
 
-def _seed_job(weeks: int, payload: bool, skip_days: int) -> tuple[str, str]:
+def _seed_job(
+    weeks: int, payload: bool, skip_days: int, long_name: bool = False
+) -> tuple[str, str]:
     """`seed_stream_job`, with the window starting `skip_days` after the first
     Monday so the first column is partial. Each week's plays then sit on the
     window's first weekday, which every week has inside the window."""
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
-    stream = _weekly_artists(weeks)
+    stream = _weekly_artists(weeks, long_name)
     counts = {}
     for t, monday in enumerate(stream["weeks"]):
         total = stream["other"][t] + sum(a["counts"][t] for a in stream["artists"])
@@ -364,8 +375,12 @@ _WEEKS = 53
 _HOVER_RANK = 0
 #: Week 0 is the partial first column of the seeded job (it starts mid-week);
 #: weeks 30 and 40 sit either side of the panel's flip at week 34.
-_HOVER_WEEKS = (0, 30, 40)
+_HOVER_WEEKS = (0, 30, 33, 40)
 _FLIP_AFTER = 34
+#: A 1024x768 window: the far weeks leave less room than the panel's minimum
+#: on the reference's side, so first, flip and last weeks are hovered there.
+_LAPTOP_VIEWPORT = {"width": 1024, "height": 768}
+_LAPTOP_WEEKS = (0, _FLIP_AFTER, _WEEKS - 1)
 _OUTSIDE = (2, 2)
 _DIM = "0.25"
 _HIT_TIMEOUT_MS = 5_000
@@ -451,7 +466,9 @@ _READ_HOVER_JS = """([rank, week]) => {
         panelLeft: panelBox.left,
         panelRight: panelBox.right,
         panelBottom: panelBox.bottom,
-        gridBottom: document.querySelector('#heatmap-grid').getBoundingClientRect().bottom,
+        gridBottom: visible.bottom,
+        gridLeft: visible.left,
+        gridRight: visible.right,
     };
 }"""
 
@@ -478,8 +495,16 @@ def _hover(page, week: int) -> dict:
     return page.evaluate(_READ_HOVER_JS, [_HOVER_RANK, week])
 
 
-def _hover_failures(reading: dict | None, week: int) -> list[str]:
-    where = f"hovering week {week}"
+def _hover_failures(
+    reading: dict | None,
+    week: int,
+    wide_fallback: bool = False,
+    reference_side: bool = True,
+) -> list[str]:
+    face = " (wide fallback face)" if wide_fallback else ""
+    if not reference_side:
+        face = " (laptop width)"
+    where = f"hovering week {week}{face}"
     if reading is None:
         return [f"{where}: no point inside the layer to hover"]
     failures = []
@@ -508,7 +533,18 @@ def _hover_failures(reading: dict | None, week: int) -> list[str]:
             f"{where}: {reading['rowsOutside']} of {reading['rowCount']} panel rows"
             " are outside the chart's visible box"
         )
+    if (
+        reading["panelLeft"] < reading["gridLeft"] - 0.5
+        or reading["panelRight"] > reading["gridRight"] + 0.5
+    ):
+        failures.append(f"{where}: the panel runs past the side of the chart area")
     column = reading["streamColumn"]
+    if not reference_side:
+        # A laptop-width chart can leave too little room on the reference's
+        # side; the panel then opens to the other one, never across the column.
+        if reading["panelLeft"] < column < reading["panelRight"]:
+            failures.append(f"{where}: the panel sits over the column")
+        return failures
     if week > _FLIP_AFTER and reading["panelRight"] > column:
         failures.append(f"{where}: the panel does not flip left of the column")
     if week <= _FLIP_AFTER and reading["panelLeft"] < column:
@@ -550,19 +586,69 @@ def check_stream_hover_shows_panel_and_ring(page, base_url: str) -> list[str]:
     ring, and leaving removes all of it; a re-render clears a shown week."""
     failures = []
     original = page.viewport_size
-    job_id, _last_day = _seed_job(_WEEKS, True, 2)
+    job_id, _last_day = _seed_job(_WEEKS, True, 2, long_name=True)
     try:
+        page.set_viewport_size(_LAPTOP_VIEWPORT)
+        failures.extend(
+            _hover_pass(page, base_url, job_id, False, _LAPTOP_WEEKS, False)
+        )
         page.set_viewport_size(_PANEL_VIEWPORT)
-        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
-        for week in _HOVER_WEEKS:
-            failures.extend(_hover_failures(_hover(page, week), week))
-            page.mouse.move(*_OUTSIDE)
-            wait_for_settled(page)
-            failures.extend(_cleared_failures(page, f"leaving week {week}"))
+        for wide_fallback in (False, True):
+            failures.extend(_hover_pass(page, base_url, job_id, wide_fallback))
         failures.extend(_resize_failures(page, original))
     finally:
         page.set_viewport_size(original)
         jobs.delete(job_id)
+    return failures
+
+
+_PANEL_TRACKING_JS = (
+    "() => getComputedStyle(document.querySelector('#stream-panel')).letterSpacing"
+)
+
+
+def _is_kit_request(url: str) -> bool:
+    return "typekit.net" in url
+
+
+def _hover_pass(
+    page,
+    base_url: str,
+    job_id: str,
+    wide_fallback: bool,
+    weeks: tuple = _HOVER_WEEKS,
+    reference_side: bool = True,
+) -> list[str]:
+    """Hover each week; `wide_fallback` refuses the Adobe kit and widens the
+    panel's text to what a Linux runner's fallback face measures, so a panel
+    that only fits the narrow faces fails here as it did in CI.
+    `reference_side` False lets the panel open to either side of the column."""
+    failures = []
+    tag = None
+    if wide_fallback:
+        page.route(_is_kit_request, lambda route: route.abort())
+    try:
+        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
+        if wide_fallback:
+            tag = page.add_style_tag(content=_WIDE_FALLBACK_CSS)
+            tracking = page.evaluate(_PANEL_TRACKING_JS)
+            if tracking == "normal":
+                failures.append(
+                    "the wide fallback tracking is not in effect on the panel"
+                )
+        for week in weeks:
+            reading = _hover(page, week)
+            failures.extend(
+                _hover_failures(reading, week, wide_fallback, reference_side)
+            )
+            page.mouse.move(*_OUTSIDE)
+            wait_for_settled(page)
+            failures.extend(_cleared_failures(page, f"leaving week {week}"))
+    finally:
+        if wide_fallback:
+            page.unroute(_is_kit_request)
+        if tag is not None:
+            tag.evaluate("el => el.remove()")
     return failures
 
 

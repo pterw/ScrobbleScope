@@ -279,6 +279,7 @@
   // Streamgraph hover (pure: pointer position and payload in, data out)
   // ----------------------------------------------------------------
 
+  const STREAM_PANEL_GAP = 18;        // the panel's distance from its column (heatmap.css)
   const STREAM_PANEL_FLIP_WEEK = 34;  // past this week the panel opens leftwards
 
   /** The week whose column centre is nearest x (viewBox units), clamped. */
@@ -1952,11 +1953,32 @@
     var model = panelModel(state.payload, week, hoverId);
     var panel = state.panel;
     fillStreamPanel(panel, model, currentStreamTheme());
-    panel.setAttribute('data-side', model.side);
     var box = state.svg.getBoundingClientRect();
     var host = gridContainer.getBoundingClientRect();
     var unit = box.width / state.svg.viewBox.baseVal.width;
     panel.hidden = false;
+    // The width left on each side of the column, from the anchor to the
+    // chart's edge less the panel's offset; the header's own width (at least
+    // the panel's minimum) is what the panel needs, so names are cut before
+    // the header wraps.
+    var edgeLeft = host.left + gridContainer.clientLeft;
+    var anchorX = box.left + x * unit;
+    var rooms = {
+      left: anchorX - edgeLeft - STREAM_PANEL_GAP,
+      right: edgeLeft + gridContainer.clientWidth - anchorX - STREAM_PANEL_GAP,
+    };
+    var panelStyle = getComputedStyle(panel);
+    var need = Math.max(parseFloat(panelStyle.minWidth) || 0,
+      panel.querySelector('.stream-panel-header').offsetWidth +
+      parseFloat(panelStyle.paddingLeft) + parseFloat(panelStyle.paddingRight) +
+      parseFloat(panelStyle.borderLeftWidth) + parseFloat(panelStyle.borderRightWidth));
+    // The reference flips at one fixed week; where the room that side is
+    // short of the need, the panel opens to the other side if it has more.
+    var side = model.side;
+    var other = side === 'left' ? 'right' : 'left';
+    if (rooms[side] < need && rooms[other] > rooms[side]) side = other;
+    panel.setAttribute('data-side', side);
+    panel.style.setProperty('--stream-panel-room', Math.max(rooms[side], need) + 'px');
     // Starts just above the plot as the reference draws it, lifted when the
     // panel would run past the chart's bottom edge (a narrow desktop width),
     // never above the grid.

@@ -184,6 +184,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Keep the scrubber panel inside the chart
+
+Side task, no batch tag: keeping the streamgraph scrubber panel inside the chart after PR #278's Linux CI failed, on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): the streamgraph matches the Claude Design reference in look and behaviour; the panel must also stay visible inside the chart frame when a fallback face renders it.
+
+Root cause: CI has no Adobe kit fonts, so a wider fallback face draws the panel. The panel was sized by the room right of its anchor. Week 40 (the only week with a two-digit day, "Oct 13") opens leftwards into 225px of room, so it was squeezed to its 260px minimum, the wider face wrapped its header, and the panel ran past the chart's bottom (+9.8px against a 0.5px tolerance). Weeks 0 and 30 had room and passed. Blocking the kit alone does not reproduce it on Windows (the Windows fallback face is narrow), so the gate adds a wide-face pass.
+
+What changed: `.stream-panel` sizes to its content (`width: max-content`) up to 360px and no further than the room on its side (`--stream-panel-room`, set by `showWeek` in `static/js/heatmap.js`); the header never wraps and a long artist name ends in an ellipsis. `showWeek` also measures the room on both sides of the column and opens toward the side with room when the reference side lacks it. The hover check in `scripts/dev/_frontend_gate_stream.py` (one check, more passes) gains a pass with the kit refused and wider tracking (checked as in effect), a 60-character artist name, weeks 0, 30, 33 and 40, containment on both axes, and a 1024x768 pass over weeks 0, 34 and 52. Proven red against the earlier code in Chromium and Firefox, then green.
+
+Deviations (U23, for the owner): the content-sized panel with a 360px cap, the ellipsis on long names and the room-based side choice (instead of the reference's fixed flip at week 34, which still applies whenever the room allows) are not in the reference. Lifting the panel above the grid's top was weighed and skipped: the panel is 267px in a 417px grid.
+
+Existing tests edited: none (the gate's hover check was extended; `tests/` is untouched).
+
+Validation: `pytest -q` -- **3095 passed**.
+
 ### 2026-10-27 - Take main into the streamgraph branch
 
 Side task, no batch tag: taking `origin/main` (PR #277 merged, 9e4120ae) into `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -223,23 +239,5 @@ What changed and why: `README.md` gains a streamgraph bullet in the Scrobble Hea
 Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. No "Pause animations" control exists at this base, so the docs say only that `prefers-reduced-motion` zeroes the layer fade. `docs/architecture/heatmap-sequence.md` line 89 still lists `daily_counts` and statistics as what the job stores; it is outside this task's files and is left for the controller.
 
 Existing tests edited: none.
-
-Validation: `pytest -q` -- **3050 passed**.
-
-### 2026-10-27 - Include the streamgraph in Save image
-
-Side task, no batch tag: the streamgraph in the saved image (streamgraph plan Task 9), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U23): match the Claude Design reference; the saved image shows what the page shows.
-
-What changed and why: `static/js/heatmap.js` `drawHeatmapImage` now calls `clearWeek()` first (S19), serialises the stream SVG through a new `streamAsImage` (a clone without `line.stream-guide`, every `path.stream-layer` at `opacity` 1 with its `style` removed, the section label in `monospace`) and draws it flush under the grid at the grid's width, growing the canvas by the stream's rendered height (SG9-F1: the plan's "plus the section gap" is superseded, the page has no gap and the file now matches it). `gridAsImage` also drops `.stream-column-ring`; `removeAll` and `svgCloneAsImage` are shared helpers. The background is painted from `--heatmap-surface` resolved on the frame (S15), so the file takes the timeline surface (dark `#1f1b28`) and not the body's `#181520`. The header record gains `drawnHeader.stream = {label, height}`, only when a stream exists; with no stream (mobile layout or no payload) the export is unchanged.
-
-Gate: new check `stream is in the saved image` (DESKTOP, THEME_MOTION, dark and light) saves for real and decodes the JPEG in the page. Image growth over the no-payload export is the stream height times the export scale, within an absolute 2 px (SG9-F3, replaces a 4% tolerance); a layer pixel at the tallest week and an "Everything else" pixel match the resolved fills; `drawnHeader.stream` matches the page. SG9-F2: the check saves once at rest, hovers week 30, saves again and compares that week's column in both JPEGs (max per-channel difference 12), so a ring, guide or dimmed layer reaching the file fails; proved red with `clearWeek()` and the clone resets removed (differences 238 and 170 of 255).
-
-Rulings recorded: S15, S19, SG9-F1, SG9-F2, SG9-F3. Firefox probe: the same assertions pass in Firefox, dark and light, and the saved images were viewed; the full gate runs this check in Chromium only.
-
-Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. Check (b) samples the middle of the layer found on the centre line, not the centre-line pixel, because that pixel can fall on a layer edge. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 57 checks passed) and did not re-run the frontend gate.
-
-Existing tests edited, by name: none (new gate check only, registered in `CHECKS`).
 
 Validation: `pytest -q` -- **3050 passed**.

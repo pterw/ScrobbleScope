@@ -444,7 +444,14 @@
 .stream-panel {
   position: absolute;
   z-index: 2;
+  /* Sized to its content, not to the room right of its anchor: a panel that
+     opens leftwards sits near the chart's right edge, where that room is
+     narrower than a wide fallback face needs, and its header would wrap. */
+  width: max-content;
   min-width: 260px;
+  /* static/js/heatmap.js sets --stream-panel-room to the width left on the
+     side the panel opens to, so a long name is cut before it leaves the chart. */
+  max-width: min(360px, var(--stream-panel-room, 360px));
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--stream-line);
   border-radius: 4px;
@@ -468,6 +475,8 @@
 
 .stream-panel-header {
   margin-bottom: 0.35rem;
+  width: max-content;
+  white-space: nowrap;
   font-size: var(--text-label-sm);
   color: var(--stream-muted);
 }
@@ -490,6 +499,15 @@
   width: 12px;
   height: 12px;
   border-radius: 2px;
+}
+
+/* A long artist name is cut with an ellipsis at the panel's width, so a row
+   never wraps and grows the panel past the chart. */
+.stream-panel-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stream-panel-count {
