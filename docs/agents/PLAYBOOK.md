@@ -184,6 +184,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Add keyboard access to the streamgraph
+
+Side task, no batch tag: keyboard access to the streamgraph (streamgraph plan Task 8), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U23): match the Claude Design reference, and the stream must not be pointer-only.
+
+What changed and why: `static/js/heatmap.js` gains the pure helpers `streamKeyTarget`, `streamStartTarget` and `streamPositions` (test seam) and the key and focus handlers on `#stream-chart`, now `tabindex="0"`, `role="application"` with an `aria-label`. The stream is one tab stop: on focus with nothing selected it starts at week 26 (the last week when there are fewer) on the top layer; the arrow keys, Home and End move through the same `showWeek` path as the pointer, edges clamp, ArrowUp and ArrowDown walk the stack positions down to "Everything else", blur calls `clearWeek()`, and Tab is never trapped. `static/css/heatmap.css` adds the `.stream-chart:focus-visible` outline (2px, offset 4px). `scripts/dev/_frontend_gate_stream.py` adds `stream is one keyboard tab stop` (DESKTOP, Chromium), registered in `frontend_gate.py` (THEME_MOTION); the gate went from 55 to 56 checks.
+
+Padding change: `#heatmap-grid` at 860px and wider goes from 4px to 8px padding, with a matching -8px margin and `calc(100% + 16px)` width, so the grid box no longer clips the outline (it paints 6px outside the chart). The layout is unchanged (net content box identical); reviewed and accepted.
+
+Rulings recorded: SG8-F1 (review, Minor, restored as the brief mandates): the gate injects a focusable sentinel after the stream in its own page only and asserts Tab from the stream lands on it, then Shift+Tab twice returns to the grid cell. SG8-F2 (review, Important): the sentinel is injected after the outline, walk and tab-stop measurements, so it cannot add height to the grid and mask a bottom clip; proved red with bottom padding removed. Accepted Minors: a pointer leaving while the stream is focused clears the shown week (keys resume from the last keyboard week), and there is no Escape handling.
+
+Contrast (rendered focus outline against the frame, both themes): min 5.45, max 7.06; nothing fails. Firefox probe: tab stop, arrows, Home / End, blur and resize-blur pass; the full gate runs this check in Chromium only.
+
+Deviations: the stacked-branch name replaces `feat/ui-audit-v6` in this entry. The landing relied on the nested gate-runner's ALL_PASS (frontend gate 56 checks passed) and did not re-run the frontend gate.
+
+Existing tests edited, by name: none (new tests appended to `tests/frontend/test_heatmap_pure_functions.py`).
+
+Validation: `pytest -q` -- **3050 passed**.
+
 ### 2026-10-27 - Scrub the streamgraph with a panel and column ring
 
 Side task, no batch tag: hover and touch scrubbing of the streamgraph with a values panel and a heatmap column ring (streamgraph plan Task 7), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
@@ -235,19 +255,3 @@ Deviations: none from the brief. A theme flip without a re-render leaves the pre
 Existing tests edited, by name: none; `tests/frontend/test_heatmap_pure_functions.py` is extended with `test_stream_payload_valid`.
 
 Validation: `pytest -q` -- **3014 passed**.
-
-### 2026-10-27 - Scope the timeline surfaces and empty cells to the heatmap frame
-
-Side task, no batch tag: the streamgraph's timeline surfaces and frame-scoped empty cells (streamgraph plan Task 4), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
-
-Owner intent (ruling U18): the darker timeline surfaces apply inside the chart frame only, so the global dark token and every other page keep `#262230`.
-
-What changed and why: `static/css/heatmap.css` declares the `--stream-*` tokens plus `--heatmap-surface` and `--heatmap-empty` on `.heatmap-frame` (light) and `[data-theme="dark"] .heatmap-frame` (dark); no `:root` block is touched. `zeroFill()` in `static/js/heatmap.js` reads `--heatmap-empty` from `#heatmap-result-frame`, and `resolvedColour(token, scope)` takes an optional scope element (default `document.body`) for the later stream tasks. The frontend gate's `check_heatmap_zero_cells_follow_theme` now reads its expected value from the frame, and the new check "timeline surfaces are page-scoped" pins the frame cell fill (`#2e2939` dark, `#c8bfad` light), the untouched global token and the frame background. A Firefox probe passed all of those assertions.
-
-Contrast (rulings S14 and U20): `--stream-line` (gridlines and the panel border) is decorative and exempt from 3:1: 1.30 / 1.12 against the frame and 1.30 / 1.33 against the panel (dark / light). The empty cells keep the shipped heatmap's look: 1.20 / 1.53 against the frame. Text pairs pass: muted on frame 5.05 / 4.65, muted on panel 5.05 / 5.53, ink on panel 14.43 / 17.57, accent on frame 7.06 / 5.45, "Everything else" swatch on panel 4.65 / 3.63. The owner's colour values are unchanged.
-
-Deviations: the updated theme check was not red on the old code (the frame inherited the root token); only the new check failed red. The saved image's background still reads the body's surface (`#181520` dark); ruling S15 assigns the frame scope there to Task 9.
-
-Existing tests edited, by name: none in `tests/`; the gate check `check_heatmap_zero_cells_follow_theme` was refactored onto shared helpers.
-
-Validation: `pytest -q` -- **3004 passed**.

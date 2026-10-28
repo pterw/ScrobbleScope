@@ -637,3 +637,247 @@ def check_stream_reduced_motion(page, base_url: str) -> list[str]:
         page.emulate_media(reduced_motion="no-preference")
         jobs.delete(job_id)
     return failures
+
+
+_START_WEEK = 26
+_LAST_WEEK = _WEEKS - 1
+_MAX_TAB_PRESSES = 5
+_FOCUS_THEMES = ("dark", "light")
+_FLOOR_NON_TEXT = 3.0
+_RING_PX = 6  # outline width 2 plus offset 4: how far it paints past the chart
+#: Key, then the week and panel row it should leave the stream on (row 0 is the
+#: top of the stack). Edges clamp: Left at week 0 and Right at the last week
+#: stay put, Up at the top stays on row 0.
+_KEY_STEPS = (
+    ("ArrowRight", _START_WEEK + 1, 0),
+    ("ArrowDown", _START_WEEK + 1, 1),
+    ("ArrowLeft", _START_WEEK, 1),
+    ("Home", 0, 1),
+    ("ArrowLeft", 0, 1),
+    ("End", _LAST_WEEK, 1),
+    ("ArrowRight", _LAST_WEEK, 1),
+    ("ArrowUp", _LAST_WEEK, 0),
+    ("ArrowUp", _LAST_WEEK, 0),
+)
+
+_ACTIVE_JS = """() => {
+    const el = document.activeElement;
+    return {
+        isStream: !!el && el.id === 'stream-chart',
+        isCell: !!el && el.classList.contains('heatmap-cell'),
+        isSentinel: !!el && el.id === 'stream-gate-sentinel',
+    };
+}"""
+
+#: A stop the check adds to its own page right after the stream, so a Tab out of
+#: the stream has somewhere to land that is not browser chrome.
+_ADD_SENTINEL_JS = """() => {
+    const sentinel = document.createElement('button');
+    sentinel.id = 'stream-gate-sentinel';
+    sentinel.type = 'button';
+    document.querySelector('#stream-chart').after(sentinel);}"""
+
+_REMOVE_SENTINEL_JS = """() => {
+    const sentinel = document.getElementById('stream-gate-sentinel');
+    if (sentinel) sentinel.remove();
+}"""
+
+_PANEL_ROWS_JS = """() => {
+    const rows = Array.from(document.querySelectorAll('#stream-panel .stream-panel-row'));
+    return {
+        ranks: rows.map((r) => r.dataset.rank),
+        hovered: rows.findIndex((r) => r.classList.contains('is-hovered')),
+    };
+}"""
+
+_READ_OUTLINE_JS = """() => {
+    const stream = document.querySelector('#stream-chart');
+    const frame = document.getElementById('heatmap-result-frame');
+    const grid = document.getElementById('heatmap-grid');
+    const css = getComputedStyle(stream);
+    const box = stream.getBoundingClientRect();
+    const room = grid.getBoundingClientRect();
+    return {
+        style: css.outlineStyle,
+        width: css.outlineWidth,
+        offset: css.outlineOffset,
+        colour: css.outlineColor,
+        frame: getComputedStyle(frame).backgroundColor,
+        left: box.left - room.left,
+        right: room.right - box.right,
+        bottom: room.bottom - box.bottom,
+    };
+}"""
+
+
+#: The stream and everything inside it that a Tab can land on.
+_STOPS_IN_STREAM_JS = """() => {
+    const stream = document.querySelector('#stream-chart');
+    return [stream, ...stream.querySelectorAll('*')].filter((el) => el.tabIndex >= 0).length;
+}"""
+
+#: The layer fade lasts 150ms; a reading taken inside it is not "still dimmed".
+_FADE_MS = 300
+
+
+def _cleared_after(page, when: str) -> list[str]:
+    wait_for_settled(page)
+    page.wait_for_timeout(_FADE_MS)
+    return _cleared_failures(page, when)
+
+
+def _tab_to_stream(page) -> list[str]:
+    """Tab from the Save button: one grid cell stop, then the stream, then out."""
+    page.locator("#heatmap-save-image").focus()
+    for _ in range(_MAX_TAB_PRESSES):
+        page.keyboard.press("Tab")
+        if page.evaluate(_ACTIVE_JS)["isCell"]:
+            break
+    else:
+        return ["Tab never reaches the grid's cell stop"]
+    page.keyboard.press("Tab")
+    if not page.evaluate(_ACTIVE_JS)["isStream"]:
+        return ["the Tab after the grid's cell stop does not reach the stream"]
+    return []
+
+
+def _step_failures(page, week: int, row: int, when: str) -> list[str]:
+    """The week, ring and panel row the stream shows right now."""
+    wait_for_settled(page)
+    reading = page.evaluate(_READ_HOVER_JS, [_HOVER_RANK, week])
+    rows = page.evaluate(_PANEL_ROWS_JS)
+    failures = []
+    if not reading["panelShown"]:
+        failures.append(f"{when}: the panel is not shown")
+    if not reading["header"].startswith(_week_header(week)):
+        failures.append(f"{when}: the panel header reads {reading['header']!r}")
+    if reading["rings"] != 1:
+        failures.append(f"{when}: {reading['rings']} column rings")
+    elif abs(reading["ringCentre"] - reading["columnCentre"]) > 1:
+        failures.append(f"{when}: the ring is not on week {week}'s column")
+    if rows["hovered"] != row:
+        failures.append(
+            f"{when}: panel row {rows['hovered']} is hovered, expected {row}"
+        )
+    return failures
+
+
+def _walk_failures(page) -> list[str]:
+    failures = _step_failures(page, _START_WEEK, 0, "on focus")
+    for key, week, row in _KEY_STEPS:
+        page.keyboard.press(key)
+        failures.extend(_step_failures(page, week, row, f"{key} to week {week}"))
+    # Down from the top reaches every layer and stops on "Everything else".
+    rows = page.evaluate(_PANEL_ROWS_JS)["ranks"]
+    for _ in range(len(rows) + 1):
+        page.keyboard.press("ArrowDown")
+    failures.extend(
+        _step_failures(page, _LAST_WEEK, len(rows) - 1, "ArrowDown to the end")
+    )
+    if rows[-1] != "other":
+        failures.append(f"the panel's last row is {rows[-1]!r}, not 'other'")
+    return failures
+
+
+def _outline_failures(page) -> list[str]:
+    """The focus outline is 2px at offset 4px, unclipped, and clears 3:1."""
+    failures = []
+    original = page.evaluate("() => document.documentElement.dataset.theme ?? ''")
+    ratios = []
+    try:
+        for theme in _FOCUS_THEMES:
+            page.evaluate(SET_THEME_EXPRESSION, theme)
+            wait_for_settled(page)
+            reading = page.evaluate(_READ_OUTLINE_JS)
+            if (reading["style"], reading["width"], reading["offset"]) != (
+                "solid",
+                "2px",
+                "4px",
+            ):
+                failures.append(
+                    f"{theme}: the focus outline is {reading['style']} "
+                    f"{reading['width']} at offset {reading['offset']}"
+                )
+            if (
+                min(reading["left"], reading["right"], reading["bottom"])
+                < _RING_PX - 0.5
+            ):
+                failures.append(
+                    f"{theme}: the focus outline is clipped by the grid box"
+                )
+            ratios.append(
+                _contrast_ratio(_rgb(reading["colour"]), _rgb(reading["frame"]))
+            )
+    finally:
+        page.evaluate(
+            "(theme) => theme ? document.documentElement.setAttribute('data-theme', theme)"
+            " : document.documentElement.removeAttribute('data-theme')",
+            original,
+        )
+    print(
+        f"[stream focus] outline vs frame min {min(ratios):.2f} max {max(ratios):.2f}"
+    )
+    if min(ratios) < _FLOOR_NON_TEXT:
+        failures.append(
+            f"the focus outline is {min(ratios):.2f}:1 against the frame, "
+            f"floor {_FLOOR_NON_TEXT}"
+        )
+    return failures
+
+
+def _blur_resize_failures(page, original: dict) -> list[str]:
+    """A re-render with the stream focused leaves no ring, panel or focus."""
+    page.locator(_STREAM).focus()
+    wait_for_settled(page)
+    failures = []
+    if page.evaluate(_READ_HOVER_JS, [_HOVER_RANK, 0])["rings"] != 1:
+        failures.append("focusing the stream shows no column ring before the resize")
+    page.set_viewport_size(_NARROW_VIEWPORT)
+    page.locator(_GRID_MOBILE).wait_for(state="visible")
+    page.set_viewport_size(original)
+    page.locator(_GRID_DESKTOP).wait_for(state="visible")
+    wait_for_settled(page)
+    failures.extend(_cleared_after(page, "after a re-render with focus"))
+    if page.evaluate(_ACTIVE_JS)["isStream"]:
+        failures.append("the stream still has focus after a re-render")
+    return failures
+
+
+def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
+    """Tab reaches the stream once, the arrow keys move week and layer, and
+    a blur or a re-render clears what it showed."""
+    job_id, _last_day = seed_stream_job()
+    original = page.viewport_size
+    try:
+        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
+        page.mouse.move(*_OUTSIDE)
+        failures = _tab_to_stream(page)
+        if failures:
+            return failures
+        failures.extend(_outline_failures(page))
+        failures.extend(_walk_failures(page))
+        if page.evaluate(_STOPS_IN_STREAM_JS) != 1:
+            failures.append("the stream holds more than one tab stop")
+        # The sentinel is added only now: in flow, it would add height below
+        # the stream and hide a clipped outline from the check above.
+        page.evaluate(_ADD_SENTINEL_JS)
+        # A further Tab leaves the stream for the sentinel, then Shift+Tab walks back.
+        page.keyboard.press("Tab")
+        if not page.evaluate(_ACTIVE_JS)["isSentinel"]:
+            failures.append("a further Tab from the stream does not leave it")
+        page.keyboard.press("Shift+Tab")
+        page.keyboard.press("Shift+Tab")
+        if not page.evaluate(_ACTIVE_JS)["isCell"]:
+            failures.append(
+                "Shift+Tab from the stream does not return to the grid cell"
+            )
+        failures.extend(_cleared_after(page, "after Shift+Tab left the stream"))
+        page.locator(_STREAM).focus()
+        page.locator(_STREAM).blur()
+        failures.extend(_cleared_after(page, "after blur"))
+        failures.extend(_blur_resize_failures(page, original))
+    finally:
+        page.evaluate(_REMOVE_SENTINEL_JS)
+        page.set_viewport_size(original)
+        jobs.delete(job_id)
+    return failures

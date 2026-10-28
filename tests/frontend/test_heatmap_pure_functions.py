@@ -1004,3 +1004,78 @@ def test_panel_model_header_and_rows_for_a_single_scrobble(js_page):
 @pytest.mark.parametrize(("week", "side"), [(34, "right"), (35, "left")])
 def test_panel_model_flips_left_past_week_34(js_page, week, side):
     assert _panel(js_page, week, None)["side"] == side
+
+
+# ---------------------------------------------------------------------------
+# Streamgraph keyboard model
+# ---------------------------------------------------------------------------
+
+KEY_DIMS = {"weeks": 5, "layers": 4}
+
+
+@pytest.mark.parametrize(
+    ("key", "state", "expected"),
+    [
+        ("ArrowRight", (2, 1), (3, 1)),
+        ("ArrowLeft", (2, 1), (1, 1)),
+        ("ArrowDown", (2, 1), (2, 2)),
+        ("ArrowUp", (2, 1), (2, 0)),
+        ("Home", (3, 2), (0, 2)),
+        ("End", (1, 2), (4, 2)),
+        ("ArrowLeft", (0, 1), (0, 1)),  # the left edge clamps, no wrap
+        ("ArrowRight", (4, 1), (4, 1)),
+        ("ArrowUp", (2, 0), (2, 0)),
+        ("ArrowDown", (2, 3), (2, 3)),  # the bottom is "Everything else"
+    ],
+)
+def test_stream_key_target_moves_one_step_and_clamps_at_each_edge(
+    js_page, key, state, expected
+):
+    got = _hook(
+        js_page,
+        "streamKeyTarget",
+        key,
+        {"week": state[0], "position": state[1]},
+        KEY_DIMS,
+    )
+    assert (got["week"], got["position"]) == expected
+
+
+@pytest.mark.parametrize("key", ["Tab", "Enter", "a", "PageDown", "toString"])
+def test_stream_key_target_ignores_keys_it_does_not_handle(js_page, key):
+    state = {"week": 2, "position": 1}
+    assert _hook(js_page, "streamKeyTarget", key, state, KEY_DIMS) is None
+
+
+def test_stream_key_target_on_a_one_week_payload_stays_on_week_zero(js_page):
+    dims = {"weeks": 1, "layers": 2}
+    state = {"week": 0, "position": 0}
+    for key in ("ArrowLeft", "ArrowRight", "Home", "End"):
+        assert _hook(js_page, "streamKeyTarget", key, state, dims)["week"] == 0
+
+
+def test_stream_key_target_walks_from_the_top_down_to_the_last_layer(js_page):
+    state = {"week": 0, "position": 0}
+    for _ in range(KEY_DIMS["layers"] + 3):
+        state = _hook(js_page, "streamKeyTarget", "ArrowDown", state, KEY_DIMS)
+    assert state["position"] == KEY_DIMS["layers"] - 1
+
+
+@pytest.mark.parametrize(("weeks", "week"), [(53, 26), (10, 9), (1, 0)])
+def test_stream_start_target_is_week_26_or_the_last_week_on_the_top_layer(
+    js_page, weeks, week
+):
+    got = _hook(js_page, "streamStartTarget", {"weeks": weeks, "layers": 4})
+    assert (got["week"], got["position"]) == (week, 0)
+
+
+def test_stream_positions_run_from_the_top_of_the_stack_to_everything_else(js_page):
+    # `order` is bottom to top, so the keyboard reads it reversed.
+    assert _hook(js_page, "streamPositions", [3, 1, 0, 2, 4]) == [
+        4,
+        2,
+        0,
+        1,
+        3,
+        "other",
+    ]

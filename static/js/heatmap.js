@@ -336,6 +336,42 @@
     };
   }
 
+  // ----------------------------------------------------------------
+  // Streamgraph keyboard (pure: a key and a position in, a position out)
+  // ----------------------------------------------------------------
+
+  const STREAM_START_WEEK = 26;  // where the keys start: about the year's middle
+
+  /** Layer ids from the top of the stack down, "Everything else" last. */
+  function streamPositions(order) {
+    return order.slice().reverse().concat('other');
+  }
+
+  /** The state when the stream first takes focus. */
+  function streamStartTarget(dims) {
+    return { week: Math.min(STREAM_START_WEEK, dims.weeks - 1), position: 0 };
+  }
+
+  /**
+   * The state a key moves to, or null for a key the stream does not handle.
+   * Left and right change the week, up and down the stack position (0 is the
+   * top); edges clamp.
+   */
+  function streamKeyTarget(key, state, dims) {
+    const lastWeek = dims.weeks - 1;
+    const lastPosition = dims.layers - 1;
+    const clamp = function (n, max) { return Math.max(0, Math.min(max, n)); };
+    switch (key) {
+      case 'ArrowLeft': return { week: clamp(state.week - 1, lastWeek), position: state.position };
+      case 'ArrowRight': return { week: clamp(state.week + 1, lastWeek), position: state.position };
+      case 'ArrowUp': return { week: state.week, position: clamp(state.position - 1, lastPosition) };
+      case 'ArrowDown': return { week: state.week, position: clamp(state.position + 1, lastPosition) };
+      case 'Home': return { week: 0, position: state.position };
+      case 'End': return { week: lastWeek, position: state.position };
+      default: return null;
+    }
+  }
+
   /**
    * Read the active theme's zero-scrobble colour for standalone SVG fills.
    * Resolve the token before assigning the attribute so the downloaded grid
@@ -1642,6 +1678,10 @@
       viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND),
       width: '100%',
       'data-columns': xs.map(pathNum).join(' '),
+      tabindex: '0',
+      role: 'application',
+      'aria-label': 'Top artists by week. Left and right arrows move between weeks, ' +
+        'up and down move between artists.',
     });
 
     var lineColour = frameColour('--stream-line');
@@ -1696,10 +1736,14 @@
     streamState = {
       payload: payload, order: order, stack: stack, xs: xs, centre: centre,
       svg: svg, panel: panel, shown: null,
+      positions: streamPositions(order), cursor: null,
     };
     ['pointermove', 'pointerdown'].forEach(function (type) {
       svg.addEventListener(type, handleStreamPointer);
     });
+    svg.addEventListener('focus', handleStreamFocus);
+    svg.addEventListener('blur', handleStreamBlur);
+    svg.addEventListener('keydown', handleStreamKey);
     ['pointerleave', 'pointercancel'].forEach(function (type) {
       svg.addEventListener(type, clearWeek);
     });
@@ -1715,6 +1759,55 @@
     var week = weekFromX((event.clientX - box.left) * unit, state.xs.length);
     var y = state.centre - (event.clientY - box.top) * unit;
     showWeek(week, layerAtY(state.stack, week, y, state.order));
+  }
+
+  function streamDims(state) {
+    return { weeks: state.xs.length, layers: state.positions.length };
+  }
+
+  // Show the keyboard's week on the layer at its stack position.
+  function showStreamCursor(state, cursor) {
+    state.cursor = cursor;
+    showWeek(cursor.week, state.positions[cursor.position]);
+  }
+
+  // Where the keys continue from: the week the pointer left on show, else the
+  // last keyboard position, else the start.
+  function streamKeyState(state) {
+    if (state.shown) {
+      return {
+        week: state.shown.week,
+        position: Math.max(0, state.positions.indexOf(state.shown.hoverId)),
+      };
+    }
+    return state.cursor || streamStartTarget(streamDims(state));
+  }
+
+  // Tab into the stream shows the starting week, unless the pointer already
+  // put one on show.
+  function handleStreamFocus() {
+    var state = streamState;
+    if (!state) return;
+    if (state.shown) {
+      state.cursor = streamKeyState(state);
+    } else {
+      showStreamCursor(state, streamKeyState(state));
+    }
+  }
+
+  function handleStreamBlur() {
+    if (streamState) streamState.cursor = null;
+    clearWeek();
+  }
+
+  // Only the handled keys are consumed, so Tab and browser shortcuts pass.
+  function handleStreamKey(event) {
+    var state = streamState;
+    if (!state || event.altKey || event.ctrlKey || event.metaKey) return;
+    var target = streamKeyTarget(event.key, streamKeyState(state), streamDims(state));
+    if (!target) return;
+    event.preventDefault();
+    showStreamCursor(state, target);
   }
 
   function removeStreamMarks() {
@@ -2380,6 +2473,9 @@
       weekFromX: weekFromX,
       layerAtY: layerAtY,
       panelModel: panelModel,
+      streamKeyTarget: streamKeyTarget,
+      streamStartTarget: streamStartTarget,
+      streamPositions: streamPositions,
       exportHeaderModel: exportHeaderModel,
       exportHeaderLayout: exportHeaderLayout,
       arrowKeyTarget: arrowKeyTarget,

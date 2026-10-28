@@ -468,6 +468,12 @@
 @media (min-width: 860px) {
   #heatmap-grid {
     overflow-x: hidden;
+    /* Room for the stream's focus outline, 6px past the chart; the net
+       layout is the 4px box above. */
+    width: calc(100% + 16px);
+    max-width: calc(100% + 16px);
+    margin: -8px;
+    padding: 8px;
   }
 }
 
@@ -480,6 +486,13 @@
 .stream-chart {
   cursor: crosshair;
   touch-action: pan-y;
+}
+
+/* The one tab stop of the stream. The outline paints 6px outside the chart,
+   so the grid box that clips it (860px and up) leaves that much room. */
+.stream-chart:focus-visible {
+  outline: 2px solid var(--stream-accent);
+  outline-offset: 4px;
 }
 
 /* The scrubber panel, positioned by static/js/heatmap.js at the hovered

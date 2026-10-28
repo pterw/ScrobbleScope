@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-27 - Scope the timeline surfaces and empty cells to the heatmap frame
+
+Side task, no batch tag: the streamgraph's timeline surfaces and frame-scoped empty cells (streamgraph plan Task 4), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
+
+Owner intent (ruling U18): the darker timeline surfaces apply inside the chart frame only, so the global dark token and every other page keep `#262230`.
+
+What changed and why: `static/css/heatmap.css` declares the `--stream-*` tokens plus `--heatmap-surface` and `--heatmap-empty` on `.heatmap-frame` (light) and `[data-theme="dark"] .heatmap-frame` (dark); no `:root` block is touched. `zeroFill()` in `static/js/heatmap.js` reads `--heatmap-empty` from `#heatmap-result-frame`, and `resolvedColour(token, scope)` takes an optional scope element (default `document.body`) for the later stream tasks. The frontend gate's `check_heatmap_zero_cells_follow_theme` now reads its expected value from the frame, and the new check "timeline surfaces are page-scoped" pins the frame cell fill (`#2e2939` dark, `#c8bfad` light), the untouched global token and the frame background. A Firefox probe passed all of those assertions.
+
+Contrast (rulings S14 and U20): `--stream-line` (gridlines and the panel border) is decorative and exempt from 3:1: 1.30 / 1.12 against the frame and 1.30 / 1.33 against the panel (dark / light). The empty cells keep the shipped heatmap's look: 1.20 / 1.53 against the frame. Text pairs pass: muted on frame 5.05 / 4.65, muted on panel 5.05 / 5.53, ink on panel 14.43 / 17.57, accent on frame 7.06 / 5.45, "Everything else" swatch on panel 4.65 / 3.63. The owner's colour values are unchanged.
+
+Deviations: the updated theme check was not red on the old code (the frame inherited the root token); only the new check failed red. The saved image's background still reads the body's surface (`#181520` dark); ruling S15 assigns the frame scope there to Task 9.
+
+Existing tests edited, by name: none in `tests/`; the gate check `check_heatmap_zero_cells_follow_theme` was refactored onto shared helpers.
+
+Validation: `pytest -q` -- **3004 passed**.
+
 ### 2026-10-27 - Add pure layout functions for the streamgraph
 
 Side task, no batch tag: the streamgraph's pure layout maths (streamgraph plan Task 2), on `feat/ui-audit-v6-streamgraph`, a branch off `main`.
