@@ -474,10 +474,10 @@ def test_a_hold_judged_over_too_few_periods_fails() -> None:
     ]
 
 
-@pytest.mark.browser
-def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
-    page = MagicMock()
-    page.evaluate.return_value = {
+def _hold_mock_page(bars: list[str] | None = None) -> MagicMock:
+    """A page whose spotlight never advances; the paused phase's probe page is
+    this same page. `bars` is what the header bars' animation names read."""
+    state = {
         "focused": True,
         "visible": True,
         "href": "h",
@@ -485,6 +485,18 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
         "artist": "A",
         "ticks": 0,
     }
+    names = ["none"] * 5 if bars is None else bars
+    page = MagicMock()
+    page.context.new_page.return_value = page
+    page.evaluate.side_effect = lambda script: (
+        names if script is _frontend_gate_spotlight_photo._BAR_NAMES_JS else state
+    )
+    return page
+
+
+@pytest.mark.browser
+def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
+    page = _hold_mock_page()
     check = _frontend_gate_spotlight_photo.check_artist_spotlight_holds_still_while_focused_or_hovered
     with (
         patch(
@@ -505,7 +517,10 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
     page.focus.assert_called_once_with("#spotlight-spotify-link")
     page.hover.assert_called_once_with("#artist-spotlight-card")
     assert _mock_keeps_rotating(page)
-    assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)
+    assert len(failures) == 3 and all("only 0 rotation periods" in f for f in failures)
+    assert "(paused)" in failures[2]
+    page.add_init_script.assert_any_call(_frontend_gate_spotlight_photo._STORE_PAUSE_JS)
+    page.click.assert_called_once_with(".motion-toggle")
 
 
 def test_a_window_with_a_swap_and_steady_opacity_passes() -> None:
@@ -617,15 +632,7 @@ def test_the_first_photo_check_also_judges_the_crop() -> None:
 
 
 def _hold_page(wait_error: Exception) -> MagicMock:
-    page = MagicMock()
-    page.evaluate.return_value = {
-        "focused": True,
-        "visible": True,
-        "href": "h",
-        "label": "l",
-        "artist": "A",
-        "ticks": 0,
-    }
+    page = _hold_mock_page()
     page.wait_for_function.side_effect = wait_error
     return page
 
@@ -652,7 +659,15 @@ def _run_hold(page: MagicMock) -> list[str]:
 
 def test_a_timed_out_hold_wait_is_judged_by_the_tick_count() -> None:
     failures = _run_hold(_hold_page(PlaywrightTimeoutError("no ticks")))
-    assert len(failures) == 2 and all("only 0 rotation periods" in f for f in failures)
+    assert [f for f in failures if "only 0 rotation periods" not in f] == [
+        "spotlight did not resume after Play animations"
+    ]
+    assert len(failures) == 4
+
+
+def test_a_paused_page_whose_header_bars_still_move_fails() -> None:
+    failures = _run_hold(_hold_mock_page(["ss-bar-pulse"] * 5))
+    assert any("header bars moving" in f for f in failures)
 
 
 def test_a_crashed_page_during_the_hold_wait_propagates() -> None:

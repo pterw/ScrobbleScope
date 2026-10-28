@@ -629,7 +629,8 @@ body {
 
 /* Pause animations (WCAG 2.2.2). The choice lives on <html data-motion>,
    set before first paint by the inline script in base.html. It stops the
-   header bars only; the loading pinwheel is a progress indicator. */
+   header bars and the loading pinwheel (the phase line still shows
+   progress as text); results-spotlight.js holds the artist rotation. */
 .motion-toggle {
     font-family: var(--font-mono-narrow);
     font-size: 0.8125rem;
@@ -660,7 +661,9 @@ body {
     outline-offset: 2px;
 }
 
-[data-motion="still"] .ss-mark svg #horizontal_bars path {
+[data-motion="still"] .ss-mark svg #horizontal_bars path,
+[data-motion="still"] .ss-pinwheel svg > g,
+[data-motion="still"] .ss-pinwheel svg > g > g {
     animation: none;
 }
 

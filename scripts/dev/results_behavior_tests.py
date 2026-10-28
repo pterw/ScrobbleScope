@@ -219,6 +219,19 @@ class ResultsBehaviorTests(unittest.TestCase):
             self.page.locator("#spotlight-artist-name").inner_text(), "A & B"
         )
 
+    def test_pause_animations_holds_the_rotation_and_play_resumes_it(self):
+        """With data-motion still the card stays on its artist, also when the
+        page loaded paused; Play resumes from the card shown."""
+        self.spotlight()
+        self.page.evaluate("document.documentElement.dataset.motion = 'still'")
+        self.settle_two_candidates()
+        name = self.page.locator("#spotlight-artist-name")
+        self.page.clock.run_for(21000)
+        self.assertEqual(name.inner_text(), "A & B")
+        self.page.evaluate("delete document.documentElement.dataset.motion")
+        self.page.clock.run_for(7150)
+        self.assertEqual(name.inner_text(), "Second")
+
     def test_reduced_motion_keeps_first_confirmed_artist_after_failed_hydration(self):
         """A failed hydration drops its candidate; reduced motion keeps the
         surviving confirmed artist still."""
