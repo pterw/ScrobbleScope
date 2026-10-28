@@ -268,6 +268,26 @@ same change:
   delaying the kit's font hosts did not reproduce the failure, so the cause is unproven.
 - `theme persistence [mobile]`: a toggle click TimeoutError, once, in a planted-defect run.
 
+Seen again during the UI audit v6 PR (#277/#278), 2026-10-27, while several worktrees and an owner
+test server shared the machine (log directories are relative to the plan workspace
+`.superpowers/sdd/2026-10-27-ui-audit-v6/`):
+
+- `[frontend_gate] FAIL chromium: shell text scaling [mobile]: / .site-header: 20px root text
+  produced 30px height, expected 85px [1 app resource(s) failed to load:
+  http://127.0.0.1:59096/static/css/shell.css (net::ERR_NO_BUFFER_SPACE)]`, at `40ad4ab8`
+  (`gates/land-row9`); the re-run at the same head passed 48 checks (`gates/land-row9-rerun`). The
+  same asset error recurred once in a code-phase run (`gates/task-sg8-code-3`): `index.css` failed
+  with `net::ERR_NO_BUFFER_SPACE` and 72 `large display scale parity [desktop]` checks failed
+  (the first: `/: hero composition height is 481.4px at 1200p measured, expected proportional
+  11921.7px`); the next attempt (`gates/task-sg8-code-4`) passed 56 checks.
+- `[frontend_gate] FAIL chromium: pipeline state machines [desktop]: cached heatmap restoration
+  painted the loading panel before its result`, once, in a code-phase run
+  (`gates/task-u30-code-1`); the next attempt on the unchanged tree passed 48 checks
+  (`gates/task-u30-code-2`).
+- A non-failing `[WARNING] Job context not found for <id>` line (logged from
+  `scrobblescope/routes/__init__.py`) appears in some passing runs (`gates/land-u29`,
+  `gates/land-u30`); recorded as log noise, not a failure.
+
 A gate that fails for reasons outside the change it gates costs a re-run and invites "re-run until
 green", which is how a real failure gets waved through.
 

@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-27 - Record new frontend-gate flake sightings
+
+Side task, no batch tag: adding the gate failures seen during the UI audit v6 PR to F-B23-58, on `feat/ui-audit-v6`, a branch off `main`.
+
+This is new evidence for an existing finding, not a new finding. F-B23-58 asked for new sightings with their timing before any fix. Three were appended from the plan's gate logs: `shell text scaling [mobile]` and a code-phase `large display scale parity [desktop]` run, each failing after a stylesheet failed to load with `net::ERR_NO_BUFFER_SPACE` (both passed on the next run); one `cached heatmap restoration painted the loading panel before its result` (passed on the next run); and a non-failing `Job context not found` log line noted as noise. The finding's status box and fix shape are unchanged.
+
+Deviations: the brief called the second `ERR_NO_BUFFER_SPACE` sighting "index.css, 72 large-display checks"; the log shows 72 `large display scale parity [desktop]` failures, each carrying the `index.css` error, so the entry says that. No code changed.
+
+Existing tests edited, by name: none.
+
+Validation: `pytest -q` -- **3023 passed**.
+
 ### 2026-10-27 - Parse the canvas font string without a regex
 
 Side task, no batch tag: replacing the `_FONT_SHORTHAND` regular expression in the frontend gate's theme check with plain token parsing, on `feat/ui-audit-v6`, a branch off `main`.
@@ -221,17 +233,3 @@ Deviations: none from the owner rulings. Checks: `_paused_motion_failures` and `
 Existing tests edited, by name: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py::test_the_hold_check_focuses_then_hovers_and_counts_the_periods` (the check gained a paused phase) and `test_a_timed_out_hold_wait_is_judged_by_the_tick_count` (now three tick failures plus a "did not resume").
 
 Validation: `pytest -q` -- **3016 passed**.
-
-### 2026-10-27 - Keep the home page within one screen
-
-Side task, no batch tag: keeping the desktop home page within one screen, on `feat/ui-audit-v6`, a branch off `main`.
-
-Owner intent (U24, after the Firefox pass: "ideally there would be 0 vertical scrolling"; U25/U27 placement: the pause button "at the very bottom" of the left column, "centered"). Row 3's "Pause animations" button made `.page-footer-extras` non-empty on the home page, so the page scrolled 92px at every desktop size below the full-height `.index-grid`. From 860px the button now sits at the foot of the home page's left column (`.index-hero__motion`, a second `.motion-toggle` in `templates/index.html`, centred with `margin-top: auto`), and `body:not(.heatmap-stage-active) .page-footer-extras` is `display: none` in `static/css/index.css`, so the footer takes no space (it returns while the heatmap stage replaces the grid). Below 860px the footer copy stays and the hero copy is `display: none`, so exactly one is focusable at any width. `static/js/theme.js` syncs every copy's label and `aria-pressed` to `data-motion`. Measured (scrollHeight - clientHeight, Firefox and Chromium, album and heatmap modes identical): 1920x1080, 1920x960, 1536x864, 1440x900, 1366x768 and 1280x720 went 92px -> 0; 1536x730 went 106px -> 10px (Firefox) and 108px -> 12px (Chromium). The 10px residual is content taller than the viewport (header, hero padding, hero content and the 44px button), not shrunk, per U24 item 5. Rows 2 and 10 are unchanged (tabs and active key tops identical before and after). No Chromium-only CSS; the button's size, focus ring and contrast are unchanged. The gate (`scripts/dev/_frontend_gate_layout.py`) now fails when the home page scrolls at 1920x1080 or 1366x768 in either mode, or when the pause button count, position or sync is wrong.
-
-Focus order: Pause now precedes the form on the home page from 860px. That follows the visual left-to-right order and is one labelled control, so WCAG 2.4.3 is judged met (U24-L1); one extra Tab stop before the form.
-
-Deviations: (U25) supersedes the brief's shorter-grid items 2 and 3. (U26 was superseded by U27: left column, centred.) (U24-L1) the comment in `static/css/shell.css` and the docstring of `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` said the wrapper is never empty; both now say it is hidden on the home page from 860px (the docstring edit is outside the brief's Touches, authorised by the controller). The gate does not pin which column holds the button; the owner's Firefox check does.
-
-Existing tests edited, by name: `tests/test_template_shell.py::test_every_page_wraps_its_footer_extras` (docstring only) and the `_run_large_display_check` helper in `tests/scripts/dev/test_frontend_gate_layout.py` (optional `overflow` stub). Added: `test_the_home_page_must_not_scroll_vertically_in_either_mode` (parametrized) and `test_the_large_display_check_measures_the_home_fit_windows`.
-
-Validation: `pytest -q` -- **3015 passed**.
