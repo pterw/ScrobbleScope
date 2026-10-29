@@ -2597,6 +2597,7 @@
         if (m.attributeName === 'data-theme') {
           updateZeroFills();
           recolourStream();
+          initPreviewRamp();
         }
       });
     });
@@ -2734,16 +2735,26 @@
   // Init on DOMContentLoaded
   // ----------------------------------------------------------------
   /**
-   * Paint the heatmap-mode preview ramp.
+   * Paint the home ramp and schematic from the live chart palettes.
    *
    * The ramp shows the reader the colour scale before there is any data. It
    * reads ROCKET_STOPS through the same helper the legend uses, so the two
    * cannot drift. The CSS deliberately does not carry the seven stops: one
-   * copy of the ramp, and this file owns it.
+   * copy of the ramp, and this file owns it. The decorative schematic uses the
+   * same daily colours and rank colours, including a repaint on theme changes.
+   * Zero-level cells inherit the theme token directly from CSS.
    */
   function initPreviewRamp() {
     var ramp = document.querySelector('.hm-preview__ramp');
     if (ramp) ramp.style.backgroundImage = legendGradient();
+    // Reuse the live palettes so the schematic cannot drift from the result.
+    document.querySelectorAll('[data-example-level]').forEach(function (cell) {
+      const level = Number(cell.dataset.exampleLevel);
+      if (level > 0) cell.setAttribute('fill', rocketColor(level / 6));
+    });
+    document.querySelectorAll('[data-example-rank]').forEach(function (band) {
+      band.setAttribute('fill', layerColour(Number(band.dataset.exampleRank), currentStreamTheme()));
+    });
   }
 
   // Module top level, not inside DOMContentLoaded: a harness that loads this

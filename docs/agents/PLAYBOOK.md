@@ -70,7 +70,8 @@ See FINDINGS F-DOCSYNC-3.
 ## 3. Active batch + next action
 
 - **Listening view side task:** Durable result and empty-state sizing is
-  complete on `feat/streamgraph-bursts`, PR #280, awaiting owner review.
+  complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
+  illustration refinement is verified and awaiting owner review.
   The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
@@ -189,6 +190,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Balance the Listening entry form with an output illustration
+
+Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
+of the empty desktop area below the Listening username card. Add an unboxed,
+decorative daily-grid and artist-ribbon schematic inside the existing mode
+panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
+and preserve the shared album-form height and submission path.
+
+Independent spatial and source reviews found no material issue. After a local
+comparison, the owner requested removal of the caption and preferred the
+original straight ribbon ends over a tapered variant. Those preferences are
+applied. The existing page entrance remains the only fade; no animation or
+control was added. The full suite measured **3113 passed** (2954 non-browser
+tests in three shards plus 159 browser tests); the complete frontend gate
+passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
+stable mode-tab positions and no added page height. The existing home layout
+still scrolls at 1024x768 because of its left-column text; the example fits.
+Pre-commit and docsync passed. The optional design detector
+ran in degraded regex mode because its parser modules are unavailable; its
+findings concern existing styles, so it is not evidence of computed contrast.
+The execution checklist is in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Fit listening and empty pages to the browser viewport
 
 Side task on `feat/streamgraph-bursts`, requested after the earlier viewport
@@ -231,15 +255,3 @@ horizontally at both ends, preserving every weekly centre and value. The
 existing browser alignment gate now checks both outer edges. Focused checks
 passed in Chromium and Firefox; the full suite measured **3113 passed**.
 The full frontend gate passed 58 checks in 89 Chromium and Firefox runs.
-
-### 2026-10-28 - Map stream colours to artist rank
-
-Side task on `feat/streamgraph-bursts`. After comparing a local preview, the
-owner approved the heatmap convention: orange for the most-played artist,
-progressing through red to purple for the least-played artist. Keep ranks and
-counts stable, preserve the existing heatmap ramp, and use lighter purple
-shades for dark mode. Extend the existing palette test for rank progression.
-Focused Chromium and Firefox theme repaint, alignment, toggle and export
-checks pass. The full suite measured **3113 passed**. The palette audit and
-known weak adjacent colour pairs are recorded in the plan. The full browser
-gate passed 58 checks in 89 runs across Chromium and Firefox.

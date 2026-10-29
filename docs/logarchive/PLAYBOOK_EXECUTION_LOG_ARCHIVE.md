@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Map stream colours to artist rank
+
+Side task on `feat/streamgraph-bursts`. After comparing a local preview, the
+owner approved the heatmap convention: orange for the most-played artist,
+progressing through red to purple for the least-played artist. Keep ranks and
+counts stable, preserve the existing heatmap ramp, and use lighter purple
+shades for dark mode. Extend the existing palette test for rank progression.
+Focused Chromium and Firefox theme repaint, alignment, toggle and export
+checks pass. The full suite measured **3113 passed**. The palette audit and
+known weak adjacent colour pairs are recorded in the plan. The full browser
+gate passed 58 checks in 89 runs across Chromium and Firefox.
+
 ### 2026-10-28 - Remove the streamgraph compression caption
 
 Side task on `feat/streamgraph-bursts`. Following a local review, the owner

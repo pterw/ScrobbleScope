@@ -358,9 +358,10 @@ html {
 /* Left column: the key under the strip                                */
 /* ------------------------------------------------------------------ */
 /* One key per mode, in the same grid track like the strip, so switching mode
-   changes paint and not geometry. The right column holds controls only; what a
-   mode does and counts is said here. Each key ends with a rule at the strip's
-   width; both keys stretch to the taller one, so the rule stays put. */
+   changes paint and not geometry. What a mode does and counts is said here;
+   the short Listening form also shows an illustrative output below its controls.
+   Each key ends with a rule at the strip's width; both keys stretch to the
+   taller one, so the rule stays put. */
 .index-hero__keys {
   display: grid;
   flex: 1 1 100%;
@@ -475,6 +476,31 @@ html {
 @media (min-width: 1200px) and (max-height: 900px) {
   .index-form {
     padding-block: 2rem;
+  }
+}
+
+/* The short Listening form leaves room within the shared album-height floor.
+   Show the result grammar there without a second card or extra mobile scroll. */
+.listening-example {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .listening-example {
+    display: block;
+    margin: calc(1.75rem * var(--index-scale, 1)) 0 0;
+  }
+
+  .listening-example svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    fill: var(--heatmap-empty);
+  }
+
+  .listening-example__halo {
+    fill: var(--heatmap-empty);
+    opacity: 0.5;
   }
 }
 

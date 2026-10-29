@@ -153,3 +153,43 @@ windows or enlarged text cannot accommodate the full content.
   pass with normal and reduced motion. Reviewed the 1920x900 application capture.
   Repository hooks and docsync passed; the final completion record is staged
   for the responsive follow-up commit.
+
+## Listening entry whitespace refinement (2026-10-29)
+
+The owner confirmed the index form when Listening is selected. Preserve the
+existing form and stable mode-tab position. Add one unboxed desktop-only
+illustration beneath the short form, showing daily cells, artist ribbons and
+a neutral context halo. Keep the schematic decorative and free of invented
+user statistics, controls, dependencies or new animation.
+
+- [x] Add the compact example using existing palette owners and theme tokens.
+- [x] Inspect desktop themes, short windows and mobile; preserve submission
+  priority, tab stability and reachable motion controls.
+- [x] Run the relevant checks and repository gates, record evidence, and commit
+  this bounded refinement separately.
+
+- 2026-10-29: Independent spatial review supports an unboxed visual example
+  rather than another card or repeated explanatory copy. The existing shared
+  album-form height remains the reference for mode switching.
+- 2026-10-29: Owner requested no visible illustration caption and tapered
+  ribbon ends. Removed the caption and marked the entire schematic decorative
+  for assistive technology; every ribbon and halo now meet at each tip.
+- 2026-10-29: After viewing the tapered variant, the owner preferred the
+  original straight ends. Restored those boundaries while keeping the caption
+  removed. The existing page entrance remains the only fade; no extra motion.
+- 2026-10-29: Final straight-end preview verified in Chromium and Firefox at
+  1920x1080, 1280x720, 1024x768 and 390x844 in both themes. Theme paints change,
+  mode tabs stay within 1px, and mobile adds no illustration height. Desktop
+  examples fit without increasing the album composition's page height. The
+  existing text-heavy home layout still scrolls at 1024x768 (939/940px page);
+  the example itself remains inside that viewport. Reviewed final Firefox
+  light/dark captures in sgb-proto/listening-space-final-{light,dark}.png.
+- 2026-10-29: Full suite measured 3113 passed (2954 non-browser in three
+  shards plus 159 browser tests). The complete frontend gate passed 58 checks
+  in 89 runs. No tests or dependencies were added for this decorative change.
+  Independent whole-file review found no material concern. Hooks and final
+  docsync are running before the focused commit.
+- 2026-10-29: Repository hooks and final docsync passed. The completion
+  record is staged with the focused illustration commit; local preview files
+  match the reviewed source. The optional detector's degraded-mode limitation
+  is recorded in PLAYBOOK. PR #280 remains draft for owner review.

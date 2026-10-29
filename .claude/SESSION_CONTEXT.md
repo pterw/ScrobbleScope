@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
 ---
 
@@ -97,7 +97,7 @@ scrobblescope/
     admission.py              # admit: expire, slot, create, start the thread with the job id only; Refused.CAPACITY / START_FAILED
 templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
-  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
+  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _listening_example.html (decorative desktop preview), _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
   css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
   js/                       # theme, page-motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
