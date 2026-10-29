@@ -42,6 +42,19 @@
   .heatmap-stage {
     max-width: min(84vw, 120rem);
   }
+
+  /* Both SVGs scale with their shared width. Leave room for the pause control
+     on shorter screens without squeezing the toolbar into unnecessary rows. */
+  #heatmap-result {
+    max-width: min(84vw, 120rem, max(58rem, calc(155dvh - 21rem)));
+    padding-bottom: clamp(0.75rem, 2vh, 2rem);
+  }
+
+  body.heatmap-stage-active .page-footer-extras {
+    margin-top: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -400,6 +413,24 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ss-text-muted);
+}
+
+@media (min-width: 860px) {
+  .heatmap-frame-top {
+    gap: 1rem;
+  }
+
+  .heatmap-frame-top .heatmap-legend {
+    margin-left: auto;
+  }
+
+  .heatmap-kpi-row {
+    gap: clamp(0.75rem, 1.4vw, 1.5rem);
+  }
+
+  .heatmap-kpi-value {
+    font-size: 1.75rem;
+  }
 }
 
 /* ------------------------------------------------------------------ */

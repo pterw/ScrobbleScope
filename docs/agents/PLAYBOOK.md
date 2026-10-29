@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Scale the heatmap result with viewport height
+
+Side task on `feat/streamgraph-bursts`. The owner requested the pause control
+be visible at 1080p, more prominent KPIs and a better placed legend. Limit the
+result width by viewport height so its two aligned SVGs scale together, group
+the legend beside the context control, and compact the result footer spacing.
+The heading and mobile layout remain intact. The full suite measured **3113 passed** in three shards. The browser gate passed 58 checks in 89 Chromium and Firefox runs after
+replacing two obsolete fixed-width assumptions with tooltip containment and a
+readable cell size check. Shorter desktop viewports can still require page scrolling.
+
 ### 2026-10-28 - Align streamgraph paths with the grid edges
 
 Side task on `feat/streamgraph-bursts`. The owner noticed a gap at the
@@ -215,28 +225,3 @@ Remove the matching accessible-label wording and obsolete gate assertion.
 A separate local hue-grouped palette remains a preview pending owner review;
 it is not part of this commit. Focused alignment, toggle and export checks
 passed in Chromium and Firefox; the full suite measured **3113 passed**.
-
-### 2026-10-28 - Add the streamgraph context halo
-
-Side task on `feat/streamgraph-bursts`. The owner replaced the earlier
-artist-only follow-up with the context-halo direction and approved its T0
-plan. Partial implementation started before that approval; it was paused,
-disclosed, and reviewed against the approved plan before continuing.
-
-Keep the ten featured artists' stack independent of the residual. Draw the
-remaining plays as a default-on symmetric halo at one quarter thickness,
-with a visibility control that preserves artist paths, counts and scale.
-Reuse heatmap month positions on the lower axis, add circular tooltip markers
-and a residual divider, and use ten deterministic candidate-derived colours.
-A final partial-week label is anchored inward to avoid clipping without
-moving its calendar gridline. Save Image keeps the selected halo state.
-
-Superseded burst and hidden-contributor test cases were replaced or removed;
-focused coverage checks geometry, empty and spike weeks, interaction, axis
-alignment and exposed halo pixels in both export states. The previous suite
-had 3116 tests; the fresh suite measured **3113 passed** in three shards.
-Focused Chromium and Firefox checks pass after the final-week fix. Four
-matched real-data captures and the colour audit are recorded in the context
-plan. The final-state browser gate passed 58 checks in 89 runs across
-Chromium and Firefox. All pre-commit hooks and the final docsync check pass.
-The alignment hook reports the known advisory WT003 side-task branch warning.

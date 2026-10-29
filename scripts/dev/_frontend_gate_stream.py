@@ -240,18 +240,34 @@ def _open_heatmap(page, base_url: str, job_id: str, layout_selector: str) -> Non
 
 
 def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
-    """Every stream week sits under its heatmap column, at two widths."""
+    """Keep weeks aligned and the pause control visible at desktop sizes."""
     failures = []
     jobs_to_check = [_seed_job(53, True, 2), _seed_job(52, True, 2, end_early=3)]
     original = page.viewport_size
     try:
         for job_id, _last_day in jobs_to_check:
             _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
-            for width in (original["width"], _SECOND_WIDTH):
-                page.set_viewport_size({"width": width, "height": original["height"]})
+            sizes = [
+                (original["width"], original["height"]),
+                (_SECOND_WIDTH, original["height"]),
+                (1440, 900),
+                (1920, 1080),
+            ]
+            for width, height in sizes:
+                page.set_viewport_size({"width": width, "height": height})
                 wait_for_settled(page)
                 reading = page.evaluate(_READ_ALIGNMENT_JS)
                 failures.extend(_alignment_failures(reading, width))
+                if (width, height) in ((1440, 900), (1920, 1080)):
+                    visible = page.evaluate("""() => {
+                        const pause = document.querySelector('.page-footer-extras .motion-toggle');
+                        return pause && pause.getBoundingClientRect().bottom <= innerHeight
+                            && document.documentElement.scrollHeight <= innerHeight;
+                    }""")
+                    if not visible:
+                        failures.append(
+                            f"pause control is below the {width}x{height} viewport"
+                        )
                 if _last_day == "2026-01-01" and (
                     not reading["gridMonths"]
                     or reading["gridMonths"][-1]["text"] != "Jan"
@@ -799,7 +815,15 @@ def check_stream_hover_shows_panel_and_ring(page, base_url: str) -> list[str]:
         )
         page.set_viewport_size(_PANEL_VIEWPORT)
         for wide_fallback in (False, True):
-            failures.extend(_hover_pass(page, base_url, job_id, wide_fallback))
+            failures.extend(
+                _hover_pass(
+                    page,
+                    base_url,
+                    job_id,
+                    wide_fallback,
+                    reference_side=not wide_fallback,
+                )
+            )
         failures.extend(_resize_failures(page, original))
     finally:
         page.set_viewport_size(original)

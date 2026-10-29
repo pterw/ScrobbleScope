@@ -177,7 +177,7 @@ The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at
 - **Index Hero Strip:** Under the lede, each mode has a three-column strip: a display term with a line icon over one plain description, divided by hairline rules. One container query turns the strip into rows when its column is narrower than 26 term widths (`26em`). The strip is hidden below `860px`. The lede is capped at `48ch` and wrapped `pretty`.
 - **Loading Stats:** Scrobbles and Pages fetched, then Cache hits and Albums to search (together the albums that passed the thresholds). Each rises into place on arrival. The finished page replaces itself (`location.replace`), so Back reaches the form.
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
-- **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
+- **Heatmap Stage:** Centered desktop frame capped by viewport width and height so the heatmap and stream scale together and help leave room for the pause control. Mobile uses its own compact layout.
 - **Mobile Navigation:** At mobile viewports, destination pills organize in a single line across the header width with zero horizontal scrollbars, preserving the 44px minimum touch target height; the theme toggle sits below page content.
 - **Document Header:** The navbar scrolls out of view with the document. The Results side rail remains sticky with its own top gap (owner screenshot clarification, 2026-09-10).
 

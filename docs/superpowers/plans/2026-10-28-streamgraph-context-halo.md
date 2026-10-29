@@ -74,3 +74,22 @@ Visibility changes never change that scale or the artist path coordinates.
 - 2026-10-28: The owner noticed a gap at the chart edge. Weekly paths started at column centres while the heatmap boundary begins half a cell earlier. Extend the first and last ribbon and halo values to the corresponding cell edges without moving weekly scrubber coordinates. The existing browser alignment gate was extended and failed before the fix; final verification is in progress.
 - 2026-10-28: The edge correction and existing alignment-gate regression pass in Chromium and Firefox. The full suite passed 3113 tests. The complete browser gate and repository checks remain in progress.
 - 2026-10-28: Edge fix verified: full suite 3113 passed, complete frontend gate 58 checks in 89 runs passed, and the new edge regression failed before the fix and passed afterward. Final hooks and docsync are being run before commit.
+
+## Desktop scaling refinement
+
+- [x] Bound the result width by viewport height while keeping the heatmap and
+  streamgraph on the same scale; retain the existing header spacing.
+- [x] Increase KPI values and group the legend with the context control.
+- [x] Verify desktop visibility, responsive alignment and tooltip placement;
+  run the repository gates and record the results.
+
+- 2026-10-28: Owner requested responsive scaling so the pause control remains
+  visible at 1080p, larger KPIs, and improved legend placement. The result width
+  now responds to viewport height; desktop footer spacing is compacted and the
+  chart label scales with the charts. Shorter viewports still need verification.
+- 2026-10-29: The owner approved the preview and deferred further tweaks.
+  Full suite 3113 passed in three shards; the frontend gate passed 58 checks
+  in 89 Chromium and Firefox runs. The old fixed-width gate assumptions were
+  updated to check a readable cell size and tooltip containment. The pause
+  control fits at 1440x900 and 1920x1080 with the seeded result; shorter
+  desktop viewports can still scroll as a page.
