@@ -149,19 +149,20 @@
   const STREAM_PEAK    = 300 * STEP / 27;  // tallest week's total height
   const STREAM_BAND    = 380 * STEP / 27;  // plot height, centre line in the middle
   const STREAM_LABEL_H = 24 * STEP / 27;   // section-label strip above the plot
+  const STREAM_AXIS_H  = 32 * STEP / 27;   // month labels below the plot
+  const STREAM_HALO_FACTOR = 0.25;         // combined residual margin
   const STREAM_PANEL_RISE = 8 * STEP / 27; // the panel starts this far above the plot
   const STREAM_GUIDE_W = 1.5 * STEP / 27;  // guide stroke width
   const STREAM_RING_W  = 2 * STEP / 27;    // column marker stroke width
   const STREAM_RING_PAD = 4 * STEP / 27;   // marker offset and corner radius
 
-  // seaborn v0.13.2 _rocket_lut: light samples 15%-78%, dark samples 28%-90%.
+  // Categorical ink colours from the owner's Extended Rocket + Indigo direction.
   const STREAM_PALETTE = {
-    light: ['#391a40', '#4f1d4c', '#671f55', '#7f1e5a', '#981b5b', '#b11759',
-      '#c81951', '#db2a46', '#e9433e', '#f05f43', '#f47a54', '#f5946b'],
-    dark: ['#6d1f56', '#851e5b', '#9e1a5b', '#b61657', '#cc1c4f', '#de2e44',
-      '#eb473e', '#f16445', '#f47e57', '#f5976e', '#f6ae87', '#f7c5a5'],
+    light: ['#e85d44', '#4a235a', '#f4a259', '#6a4baf', '#c8335b',
+      '#e9c46a', '#3b336a', '#d97757', '#8e2d56', '#b39dde'],
+    dark: ['#e85d44', '#8a5a9b', '#f4a259', '#9574ce', '#c8335b',
+      '#e9c46a', '#7870b3', '#d97757', '#bb5d8d', '#b39dde'],
   };
-  const STREAM_STEPS = [0, 4, 5, 8, 9, 1, 2, 10, 11, 3, 6, 7];
 
   /**
    * Layer order, bottom to top, as indices into volumes: the largest in the
@@ -221,23 +222,65 @@
     return max > 0 ? STREAM_PEAK / max : 0;
   }
 
+  /** Count-space outer bounds of the artist stack plus both halo margins. */
+  function streamEnvelope(layers, baseline, residual) {
+    return baseline.map(function (level, t) {
+      const total = layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
+      const margin = residual[t] * STREAM_HALO_FACTOR / 2;
+      return { lower: level - margin, upper: level + total + margin };
+    });
+  }
+
+  /** Find segments where ordinary Catmull-Rom controls would turn a band inside out. */
+  function streamSafeSegments(layers) {
+    const weeks = layers.length ? layers[0].length : 0;
+    return Array.from({ length: Math.max(0, weeks - 1) }, function (_, t) {
+      return layers.some(function (counts) {
+        const a = counts[Math.max(0, t - 1)], b = counts[t];
+        const c = counts[t + 1], d = counts[Math.min(weeks - 1, t + 2)];
+        return b + (c - a) / 6 < 0 || c - (d - b) / 6 < 0;
+      });
+    });
+  }
+
   /**
    * Scale and baseline that keep every layer inside the plot band. The scale
    * makes the tallest week STREAM_PEAK tall, or less when the wiggle swings
    * the stack's extent past STREAM_BAND; the baseline moves by the least
    * amount that brings the extent back inside (none for ordinary data).
    */
-  function streamFit(layers, baseline) {
+  function streamFit(layers, baseline, residual) {
     const weeks = baseline.length;
+    const other = residual || baseline.map(function () { return 0; });
+    const envelope = streamEnvelope(layers, baseline, other);
     const totals = [];
     for (let t = 0; t < weeks; t++) {
-      totals.push(layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0));
+      totals.push(envelope[t].upper - envelope[t].lower);
     }
     let low = Infinity;
     let high = -Infinity;
     for (let t = 0; t < weeks; t++) {
-      low = Math.min(low, baseline[t]);
-      high = Math.max(high, baseline[t] + totals[t]);
+      low = Math.min(low, envelope[t].lower);
+      high = Math.max(high, envelope[t].upper);
+    }
+    if (residual && weeks > 1) {
+      // Bounding the Bezier controls also contains the smoothed curves between
+      // sampled weeks, including a steep spike beside a zero-height week.
+      const upper = baseline.map(function (level, t) {
+        return level + layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
+      });
+      const safe = streamSafeSegments(layers);
+      for (let t = 0; t < weeks - 1; t++) {
+        const before = Math.max(0, t - 1), after = Math.min(weeks - 1, t + 2);
+        const lowerA = safe[t] ? baseline[t] : baseline[t] + (baseline[t + 1] - baseline[before]) / 6;
+        const lowerB = safe[t] ? baseline[t + 1] : baseline[t + 1] - (baseline[after] - baseline[t]) / 6;
+        const upperA = safe[t] ? upper[t] : upper[t] + (upper[t + 1] - upper[before]) / 6;
+        const upperB = safe[t] ? upper[t + 1] : upper[t + 1] - (upper[after] - upper[t]) / 6;
+        const marginA = (2 * other[t] + other[t + 1]) * STREAM_HALO_FACTOR / 6;
+        const marginB = (other[t] + 2 * other[t + 1]) * STREAM_HALO_FACTOR / 6;
+        low = Math.min(low, lowerA - marginA, lowerB - marginB);
+        high = Math.max(high, upperA + marginA, upperB + marginB);
+      }
     }
     let scale = streamScale(totals);
     if (scale <= 0) return { scale: 0, baseline: baseline };
@@ -256,31 +299,39 @@
 
   // Catmull-Rom segments through pts as cubic Beziers (divisor 6), the first
   // and last point doubled so the ends are clamped. Excludes the start point.
-  function smoothSegments(pts) {
+  function smoothSegments(pts, offsets, safeSegments) {
     let d = '';
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[Math.max(i - 1, 0)];
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[Math.min(i + 2, pts.length - 1)];
-      d += 'C' + pathNum(p1.x + (p2.x - p0.x) / 6) + ' ' + pathNum(p1.y + (p2.y - p0.y) / 6) +
-        ' ' + pathNum(p2.x - (p3.x - p1.x) / 6) + ' ' + pathNum(p2.y - (p3.y - p1.y) / 6) +
-        ' ' + pathNum(p2.x) + ' ' + pathNum(p2.y);
+      // Interpolate halo margins linearly in the Bezier controls, so a
+      // nonnegative margin cannot overshoot across the artist boundary.
+      const a = offsets ? offsets[i] : 0;
+      const b = offsets ? offsets[i + 1] : 0;
+      const firstY = safeSegments && safeSegments[i] ? p1.y : p1.y + (p2.y - p0.y) / 6;
+      const secondY = safeSegments && safeSegments[i] ? p2.y : p2.y - (p3.y - p1.y) / 6;
+      d += 'C' + pathNum(p1.x + (p2.x - p0.x) / 6) + ' ' + pathNum(firstY + (2 * a + b) / 3) +
+        ' ' + pathNum(p2.x - (p3.x - p1.x) / 6) + ' ' + pathNum(secondY + (a + 2 * b) / 3) +
+        ' ' + pathNum(p2.x) + ' ' + pathNum(p2.y + b);
     }
     return d;
   }
 
   /** Closed band path: top left to right, then bottom right to left. */
-  function smoothPath(top, bottom) {
+  function smoothPath(top, bottom, topOffsets, bottomOffsets, safeSegments) {
     if (!top.length || !bottom.length) return '';
     const back = bottom.slice().reverse();
-    return 'M' + pathNum(top[0].x) + ' ' + pathNum(top[0].y) + smoothSegments(top) +
-      'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y) + smoothSegments(back) + 'Z';
+    const backOffsets = bottomOffsets ? bottomOffsets.slice().reverse() : null;
+    const backSafe = safeSegments ? safeSegments.slice().reverse() : null;
+    return 'M' + pathNum(top[0].x) + ' ' + pathNum(top[0].y + (topOffsets ? topOffsets[0] : 0)) + smoothSegments(top, topOffsets, safeSegments) +
+      'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y + (backOffsets ? backOffsets[0] : 0)) + smoothSegments(back, backOffsets, backSafe) + 'Z';
   }
 
   /** Fill for the artist rank from the theme palette in a fixed order. */
   function layerColour(rank, theme) {
-    return STREAM_PALETTE[theme][STREAM_STEPS[rank]];
+    return STREAM_PALETTE[theme][rank];
   }
 
   function isCountList(list, n) {
@@ -298,22 +349,14 @@
     if (!payload || typeof payload !== 'object') return false;
     if (!Array.isArray(payload.weeks) || payload.weeks.length !== numCols) return false;
     if (!payload.weeks.every(function (w) { return typeof w === 'string'; })) return false;
-    // This cap duplicates the server top_n plus BURST_LAYERS.
-    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_STEPS.length) {
+    // The server publishes at most ten featured artists.
+    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_PALETTE.light.length) {
       return false;
     }
     var artistsOk = payload.artists.every(function (a) {
       return a && typeof a.name === 'string' && isCountList(a.counts, numCols);
     });
-    if (!artistsOk || !isCountList(payload.other, numCols)) return false;
-    if (!('hidden' in payload)) return true;
-    return Array.isArray(payload.hidden) && payload.hidden.length === numCols &&
-      payload.hidden.every(function (week) {
-        return Array.isArray(week) && week.every(function (entry) {
-          return entry && typeof entry === 'object' && typeof entry.name === 'string' &&
-            Number.isInteger(entry.count) && entry.count > 0;
-        });
-      });
+    return artistsOk && isCountList(payload.other, numCols);
   }
 
   // ----------------------------------------------------------------
@@ -374,7 +417,6 @@
         total.toLocaleString('en-US') + (total === 1 ? ' scrobble' : ' scrobbles'),
       side: week > STREAM_PANEL_FLIP_WEEK ? 'left' : 'right',
       rows: rows,
-      hidden: payload.hidden ? payload.hidden[week] : [],
     };
   }
 
@@ -654,7 +696,7 @@
       node.removeAttribute('style');
       node.setAttribute('opacity', '1');
     });
-    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label'), function (node) {
+    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label, .stream-caption, .stream-month-label'), function (node) {
       node.setAttribute('font-family', 'monospace');
     });
     return svgCloneAsImage(clone, width, height);
@@ -1024,6 +1066,7 @@
   // the layer order, the stacked bands and each week's plotted x. Reset on
   // every render, so nothing outlives the SVG it describes.
   var streamState = null;
+  var streamContextVisible = true;
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -1565,6 +1608,8 @@
     lastHeatmapData = data;
     lastRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
     clearWeek();
+    var oldToggle = document.getElementById('stream-context-toggle');
+    if (oldToggle) oldToggle.remove();
     streamState = null;
     if (lastRenderMobile) {
       renderHeatmapMobile(data);
@@ -1735,17 +1780,17 @@
     svg.querySelectorAll('.stream-layer').forEach(function (layer) {
       layer.setAttribute('fill', layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
     });
+    var halo = svg.querySelector('.stream-halo');
+    if (halo) {
+      halo.setAttribute('fill', frameColour('--stream-halo-fill'));
+      halo.setAttribute('stroke', frameColour('--stream-halo-stroke'));
+    }
     var lineColour = frameColour('--stream-line');
     svg.querySelectorAll('.stream-gridline').forEach(function (line) {
       line.setAttribute('stroke', lineColour);
     });
-    var label = svg.querySelector('.stream-section-label');
-    if (label) label.setAttribute('fill', frameColour('--stream-muted'));
-  }
-
-  // True when the 1st of a month falls in the week that starts on `monday`.
-  function weekHoldsMonthStart(monday) {
-    return monday.getDate() === 1 || addDays(monday, 6).getMonth() !== monday.getMonth();
+    svg.querySelectorAll('.stream-section-label, .stream-caption, .stream-month-label')
+      .forEach(function (label) { label.setAttribute('fill', frameColour('--stream-muted')); });
   }
 
   /**
@@ -1759,11 +1804,12 @@
       return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
     }));
     var layers = order.map(function (i) { return artists[i].counts; });
-    var fit = streamFit(layers, streamBaseline(layers));
-    // Residual-only listening keeps a blank track for the numeric scrubber.
-    if (fit.scale <= 0 && !payload.other.some(function (count) { return count > 0; })) return;
+    var baseline = layers.length ? streamBaseline(layers) : payload.other.map(function () { return 0; });
+    var fit = streamFit(layers, baseline, payload.other);
+    if (fit.scale <= 0) return;
 
     var stack = stackLayers(layers, fit.baseline, fit.scale);
+    var safeSegments = streamSafeSegments(layers);
     var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
     var centre = STREAM_LABEL_H + STREAM_BAND / 2;
     var theme = currentStreamTheme();
@@ -1772,7 +1818,7 @@
       id: 'stream-chart',
       'class': 'stream-chart',
       'data-layout': 'stream',
-      viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND),
+      viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H),
       width: '100%',
       'data-columns': xs.map(pathNum).join(' '),
       tabindex: '0',
@@ -1782,19 +1828,42 @@
     });
 
     var lineColour = frameColour('--stream-line');
-    payload.weeks.forEach(function (week, t) {
-      if (!weekHoldsMonthStart(parseLocalDate(week))) return;
+    // Reuse the heatmap's calendar positions, including partial first weeks.
+    gridContainer.querySelectorAll('.heatmap-month-label').forEach(function (heatmapLabel) {
+      var x = heatmapLabel.getAttribute('x');
       svg.appendChild(streamNode('line', {
-        'class': 'stream-gridline',
-        x1: xs[t], x2: xs[t],
+        'class': 'stream-gridline', x1: x, x2: x,
         y1: STREAM_LABEL_H, y2: STREAM_LABEL_H + STREAM_BAND,
-        stroke: lineColour,
-        'stroke-width': 1,
-        'aria-hidden': 'true',
+        stroke: lineColour, 'stroke-width': 1, 'aria-hidden': 'true',
       }));
+      // Keep a last-column label inside the SVG while its gridline stays aligned.
+      var monthLabel = streamNode('text', {
+        'class': 'stream-month-label', x: x,
+        y: STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H - 6,
+        'font-size': '9.5', 'font-family': LABEL_FONT_STACK,
+        'text-anchor': Number(x) > svgWidth - 24 ? 'end' : 'start',
+        fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
+      });
+      monthLabel.textContent = heatmapLabel.textContent;
+      svg.appendChild(monthLabel);
     });
 
-    // Only named artists contribute to the silhouette and its common scale.
+    var lower = fit.baseline.map(function (level) { return level * fit.scale; });
+    var upper = stack.length ? stack[stack.length - 1].map(function (band) { return band.y1; }) : lower;
+    var haloTop = upper.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var haloBottom = lower.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var margin = payload.other.map(function (count) { return count * STREAM_HALO_FACTOR / 2 * fit.scale; });
+    var halo = streamNode('path', {
+      'class': 'stream-halo stream-layer-other',
+      d: smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments),
+      fill: frameColour('--stream-halo-fill'), stroke: frameColour('--stream-halo-stroke'),
+      'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
+      'pointer-events': 'none', 'aria-hidden': 'true',
+      visibility: streamContextVisible ? 'visible' : 'hidden',
+    });
+    svg.appendChild(halo);
+
+    // Only named artists contribute to the foreground silhouette.
     stack.forEach(function (band, k) {
       var rank = order[k];
       var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
@@ -1802,7 +1871,7 @@
       svg.appendChild(streamNode('path', {
         'class': 'stream-layer',
         'data-rank': rank,
-        d: smoothPath(top, bottom),
+        d: smoothPath(top, bottom, null, null, safeSegments),
         fill: layerColour(rank, theme),
       }));
     });
@@ -1820,7 +1889,30 @@
     label.textContent = 'TOP ARTISTS - PLAYS PER WEEK';
     svg.appendChild(label);
 
+    var caption = streamNode('text', {
+      'class': 'stream-caption', x: svgWidth - 4, y: STREAM_LABEL_H - 4,
+      'font-size': '9.5', 'font-family': LABEL_FONT_STACK, 'text-anchor': 'end',
+      fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
+    });
+    caption.textContent = 'Other plays: 0.25x thickness';
+    svg.appendChild(caption);
+
     gridContainer.appendChild(svg);
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'stream-context-toggle';
+    toggle.className = 'stream-context-toggle';
+    toggle.textContent = 'Other listening';
+    toggle.setAttribute('aria-label', 'Other listening, shown at one quarter thickness');
+    toggle.setAttribute('aria-pressed', streamContextVisible ? 'true' : 'false');
+    toggle.addEventListener('click', function () {
+      streamContextVisible = !streamContextVisible;
+      toggle.setAttribute('aria-pressed', streamContextVisible ? 'true' : 'false');
+      halo.setAttribute('visibility', streamContextVisible ? 'visible' : 'hidden');
+    });
+    var frameTop = document.querySelector('#heatmap-result-frame .heatmap-frame-top');
+    if (frameTop) frameTop.appendChild(toggle);
 
     var panel = document.createElement('div');
     panel.id = 'stream-panel';
@@ -1863,7 +1955,7 @@
     return { weeks: state.xs.length, layers: panelModel(state.payload, week, null).rows.length };
   }
 
-  // Silent burst layers have no panel row, so keys follow this week's rows.
+  // Silent artists have no panel row, so keys follow this week's rows.
   function showStreamCursor(state, cursor) {
     state.positions = panelModel(state.payload, cursor.week, null).rows.map(function (row) {
       return row.id;
@@ -1925,14 +2017,18 @@
     header.textContent = model.header;
     panel.appendChild(header);
     model.rows.forEach(function (row) {
+      if (row.id === 'other' && panel.querySelector('.stream-panel-row')) {
+        var rule = document.createElement('hr');
+        rule.className = 'stream-panel-rule';
+        panel.appendChild(rule);
+      }
       var line = document.createElement('div');
       line.className = row.hovered ? 'stream-panel-row is-hovered' : 'stream-panel-row';
       line.setAttribute('data-rank', row.id);
       var swatch = document.createElement('span');
-      if (row.id !== 'other') {
-        swatch.className = 'stream-panel-swatch';
-        swatch.style.background = layerColour(row.id, theme);
-      }
+      swatch.className = 'stream-panel-swatch';
+      swatch.style.background = row.id === 'other'
+        ? frameColour('--stream-muted') : layerColour(row.id, theme);
       var name = document.createElement('span');
       name.className = 'stream-panel-name';
       name.textContent = row.name;
@@ -1944,26 +2040,6 @@
       line.appendChild(count);
       panel.appendChild(line);
     });
-    if (model.hidden.length) {
-      var rule = document.createElement('hr');
-      rule.className = 'stream-panel-rule';
-      panel.appendChild(rule);
-      model.hidden.forEach(function (entry) {
-        var line = document.createElement('div');
-        line.className = 'stream-panel-hidden';
-        var spacer = document.createElement('span');
-        var name = document.createElement('span');
-        name.className = 'stream-panel-name';
-        name.textContent = entry.name;
-        var count = document.createElement('span');
-        count.className = 'stream-panel-count';
-        count.textContent = entry.count.toLocaleString('en-US');
-        line.appendChild(spacer);
-        line.appendChild(name);
-        line.appendChild(count);
-        panel.appendChild(line);
-      });
-    }
   }
 
   /**
@@ -2613,6 +2689,8 @@
       stackLayers: stackLayers,
       streamScale: streamScale,
       streamFit: streamFit,
+      streamEnvelope: streamEnvelope,
+      streamSafeSegments: streamSafeSegments,
       smoothPath: smoothPath,
       layerColour: layerColour,
       streamPalette: STREAM_PALETTE,

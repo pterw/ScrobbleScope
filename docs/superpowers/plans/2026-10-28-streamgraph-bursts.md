@@ -1,5 +1,8 @@
 # Streamgraph burst layers, hidden-artist tooltip and rocket palette plan
 
+> Historical direction superseded by the owner's 2026-10-28 context-halo plan.
+> Earlier decisions below are retained as project history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** The heatmap's streamgraph shows 12 layers -- the 10 artists with the most plays in the

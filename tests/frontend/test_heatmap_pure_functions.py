@@ -830,6 +830,110 @@ def test_stream_stack_stays_inside_the_band(js_page, layers, moved):
         assert fit["scale"] == _hook(js_page, "streamScale", totals)
 
 
+@pytest.mark.parametrize(
+    ("layers", "residual"),
+    [
+        ([[5, 0, 7], [2, 0, 1]], [0, 80, 10000]),
+        ([], [0, 30, 2]),
+        ([[0, 300, 0]], [0, 0, 0]),
+    ],
+    ids=["mixed-with-residual-spike", "residual-only", "zero-residual"],
+)
+def test_stream_fit_contains_symmetric_context_halo(js_page, layers, residual):
+    """Fit true artists and both compressed residual margins into the band.
+
+    GIVEN artist counts and residuals including zero and extreme weeks,
+    WHEN the shared fit and halo boundaries are computed,
+    THEN each halo margin is one eighth of the residual and stays in bounds.
+    """
+    baseline = (
+        _hook(js_page, "streamBaseline", layers) if layers else [0] * len(residual)
+    )
+    fit = _hook(js_page, "streamFit", layers, baseline, residual)
+    envelope = _hook(js_page, "streamEnvelope", layers, fit["baseline"], residual)
+    band = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_BAND")
+    assert fit["scale"] > 0
+    for week, bounds in enumerate(envelope):
+        total = sum(layer[week] for layer in layers)
+        margin = residual[week] / 8
+        assert bounds["lower"] == pytest.approx(fit["baseline"][week] - margin)
+        assert bounds["upper"] == pytest.approx(fit["baseline"][week] + total + margin)
+        assert bounds["lower"] * fit["scale"] >= -band / 2 - 1e-9
+        assert bounds["upper"] * fit["scale"] <= band / 2 + 1e-9
+
+
+def _stream_path_samples(path, weeks):
+    """Sample both sides of each cubic segment in left-to-right order."""
+    commands = re.findall(r"([MLC])([^MLCZ]*)", path)
+    values = [list(map(float, value.split())) for _, value in commands]
+    top = [values[0][1]] + [values[i][5] for i in range(1, weeks)]
+    bottom = [values[weeks][1]] + [values[i][5] for i in range(weeks + 1, len(values))]
+    samples = []
+    for segment in range(weeks - 1):
+        upper = [
+            top[segment],
+            values[segment + 1][1],
+            values[segment + 1][3],
+            top[segment + 1],
+        ]
+        reverse = weeks - 2 - segment
+        controls = values[weeks + 1 + reverse]
+        lower = [bottom[reverse + 1], controls[3], controls[1], bottom[reverse]]
+        for position in (0.25, 0.5, 0.75):
+            weights = [
+                (1 - position) ** 3,
+                3 * (1 - position) ** 2 * position,
+                3 * (1 - position) * position**2,
+                position**3,
+            ]
+            samples.append(
+                tuple(
+                    sum(y * weight for y, weight in zip(edge, weights, strict=True))
+                    for edge in (upper, lower)
+                )
+            )
+    return samples
+
+
+@pytest.mark.parametrize(
+    ("layers", "residual"),
+    [
+        ([[0, 800, 0, 0, 12], [7, 0, 0, 450, 0]], [0, 0, 9000, 0, 40]),
+        ([], [0, 2000, 0, 1, 0]),
+    ],
+    ids=["artist-and-residual-spikes", "residual-only"],
+)
+def test_smoothed_stream_encloses_artists_without_clipping(js_page, layers, residual):
+    """GIVEN spikes and empty bands, WHEN curves are drawn, THEN they stay valid."""
+    result = js_page.evaluate(
+        """([layers, residual]) => {
+        const h = window.__scrobbleHeatmapTestHooks;
+        const baseline = layers.length ? h.streamBaseline(layers) : residual.map(() => 0);
+        const fit = h.streamFit(layers, baseline, residual);
+        const stack = h.stackLayers(layers, fit.baseline, fit.scale);
+        const safe = h.streamSafeSegments(layers);
+        const lower = fit.baseline.map(n => n * fit.scale);
+        const upper = stack.length ? stack.at(-1).map(p => p.y1) : lower;
+        const points = values => values.map((y, x) => ({x: x * 27, y: -y}));
+        const margin = residual.map(n => n * fit.scale / 8);
+        return {
+            band: h.STREAM_BAND,
+            halo: h.smoothPath(points(upper), points(lower), margin.map(n => -n), margin, safe),
+            artists: stack.map(layer => h.smoothPath(
+                points(layer.map(p => p.y1)), points(layer.map(p => p.y0)), null, null, safe)),
+        };
+    }""",
+        [layers, residual],
+    )
+    halo = _stream_path_samples(result["halo"], len(residual))
+    artists = [_stream_path_samples(path, len(residual)) for path in result["artists"]]
+    for index, (top, bottom) in enumerate(halo):
+        assert -result["band"] / 2 - 0.02 <= top <= bottom <= result["band"] / 2 + 0.02
+        for layer in artists:
+            artist_top, artist_bottom = layer[index]
+            assert top - 0.02 <= artist_top <= artist_bottom + 0.02 <= bottom + 0.04
+
+
 SMOOTH_PATH_JS = """([top, bottom]) => {
     const d = window.__scrobbleHeatmapTestHooks.smoothPath(top, bottom);
     const points = [];
@@ -869,34 +973,11 @@ def test_smooth_path_tolerates_degenerate_input(js_page, top):
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-@pytest.mark.parametrize(
-    "volumes",
-    [
-        [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10],
-        [120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 10, 20],
-    ],
-    ids=["descending-bursts", "swapped-bursts"],
-)
-def test_layer_colour_gives_touching_layers_distinct_palette_steps(
-    js_page, theme, volumes
-):
-    """Keep touching layers separated in each theme's palette.
-
-    GIVEN: Twelve layers with either ordering of the two burst volumes.
-    WHEN: The layers receive colours and are ordered into the stack.
-    THEN: Every palette colour is used and touching layers differ by three steps.
-    """
-    steps = js_page.evaluate(
-        """([theme, volumes]) => {
-            const hooks = window.__scrobbleHeatmapTestHooks;
-            const order = hooks.streamOrder(volumes);
-            return order.map(rank => hooks.streamPalette[theme].indexOf(
-                hooks.layerColour(rank, theme)));
-        }""",
-        [theme, volumes],
-    )
-    assert sorted(steps) == list(range(12))
-    assert min(abs(a - b) for a, b in zip(steps, steps[1:], strict=False)) >= 3
+def test_layer_colour_keeps_ten_distinct_artist_identities(js_page, theme):
+    """Assign stable, distinct colours to all ten featured ranks in each theme."""
+    colours = [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
+    assert len(set(colours)) == 10
+    assert colours == [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
 
 
 def _stream_payload(cols=3, artists=2):
@@ -936,8 +1017,8 @@ def _no_other(p):
     del p["other"]
 
 
-def _thirteen_artists(p):
-    p["artists"] = _stream_payload(artists=13)["artists"]
+def _eleven_artists(p):
+    p["artists"] = _stream_payload(artists=11)["artists"]
 
 
 def _non_string_week(p):
@@ -956,66 +1037,45 @@ def _artists_not_a_list(p):
     ("payload", "valid"),
     [
         (_stream_case(), True),
-        (_stream_payload(artists=12), True),
+        (_stream_payload(artists=10), True),
         (_stream_case(lambda p: p.update(artists=[])), True),  # zero artists
         (_stream_case(_short_weeks), False),
         (_stream_case(_short_counts), False),
         (_stream_case(_set_count(-1)), False),
         (_stream_case(_set_count("3")), False),
         (_stream_case(_no_other), False),
-        (_stream_case(_thirteen_artists), False),
+        (_stream_case(_eleven_artists), False),
         (_stream_case(_non_string_week), False),
         (_stream_case(_non_string_name), False),
         (_stream_case(_artists_not_a_list), False),
-        (_stream_case(lambda p: p.update(hidden=[[]])), False),
-        (
-            _stream_case(
-                lambda p: p.update(hidden=[[{"name": 7, "count": 1}], [], []])
-            ),
-            False,
-        ),
-        (
-            _stream_case(
-                lambda p: p.update(hidden=[[{"name": "Hidden", "count": 0}], [], []])
-            ),
-            False,
-        ),
-        (
-            _stream_case(
-                lambda p: p.update(hidden=[[{"name": "Hidden", "count": "3"}], [], []])
-            ),
-            False,
-        ),
+        (_stream_case(lambda p: p.update(hidden=[[]])), True),  # legacy extra field
         (None, False),
         ("weekly", False),
     ],
     ids=[
         "valid",
-        "twelve-artists",
+        "ten-artists",
         "zero-artists",
         "weeks-length",
         "counts-length",
         "negative-count",
         "non-numeric-count",
         "other-missing",
-        "thirteen-artists",
+        "eleven-artists",
         "non-string-week",
         "non-string-name",
         "artists-not-a-list",
-        "hidden-weeks-length",
-        "hidden-non-string-name",
-        "hidden-zero-count",
-        "hidden-non-numeric-count",
+        "legacy-extra-field",
         "null",
         "string",
     ],
 )
 def test_stream_payload_valid(js_page, payload, valid):
-    """Accept drawable payloads up to twelve artist layers.
+    """Accept drawable payloads up to ten artist layers.
 
-    GIVEN: Valid payloads, including older results without hidden artists, and malformed variants.
+    GIVEN: Valid payloads, including an ignored legacy field, and malformed variants.
     WHEN: The stream validates the payload against the grid width.
-    THEN: Only drawable payloads with at most twelve layers and valid hidden entries are accepted.
+    THEN: Only drawable payloads with at most ten named layers are accepted.
     """
     assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
 
@@ -1079,33 +1139,6 @@ def _panel(js_page, week, hover, weeks=40):
         "other": [5] * weeks,
     }
     return _hook(js_page, "panelModel", payload, week, hover)
-
-
-@pytest.mark.parametrize(
-    "hidden",
-    [
-        [
-            {"name": "First", "count": 3},
-            {"name": "Second", "count": 2},
-            {"name": "Third", "count": 1},
-        ],
-        [],
-        None,
-    ],
-    ids=["three-hidden", "empty-week", "older-payload"],
-)
-def test_panel_model_hidden_artists_for_the_week(js_page, hidden):
-    """List the selected week's hidden artists when available.
-
-    GIVEN: A week with three hidden artists, none, or an older payload without the field.
-    WHEN: The panel model is built for that week.
-    THEN: It includes that week's entries or an empty list.
-    """
-    payload = _stream_payload()
-    if hidden is not None:
-        payload["hidden"] = [[], hidden, []]
-    model = _hook(js_page, "panelModel", payload, 1, None)
-    assert model["hidden"] == (hidden if hidden is not None else [])
 
 
 def test_panel_model_lists_the_stack_top_first_with_everything_else_last(js_page):

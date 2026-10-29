@@ -1,5 +1,8 @@
 # Streamgraph burst layers, hidden-artist tooltip and rocket palette -- design
 
+> Historical direction superseded by the owner's 2026-10-28 context-halo plan.
+> Earlier decisions below are retained as project history.
+
 Date: 2026-10-28. Status: approved by the owner in brainstorming (all three parts "Looks right"); to be
 committed as `docs/superpowers/specs/2026-10-28-streamgraph-bursts-design.md` on its own branch off `main`,
 a separate PR after #279. Continues the handoff's deferred "Everything else band" item (ruling U35).

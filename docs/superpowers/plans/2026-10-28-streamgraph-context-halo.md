@@ -1,0 +1,65 @@
+# Context halo streamgraph implementation plan
+
+Owner direction: the supplied A-double-prime mockup and
+`ScrobbleScope_A_DoublePrime_Context_Halo_Spec.md`, 2026-10-28. The owner
+supplied spec remains an untracked file in the primary checkout. The owner approved the T0 plan on 2026-10-28. Partial work started before
+that approval; it was paused and is being reviewed against the approved plan.
+This plan supersedes the earlier streamgraph follow-up plan. The ten-artist
+weekly payload and current main integration stay unchanged.
+
+**Goal:** Show true artist ribbons over a compressed, optional background halo
+for the rest of the listener's plays, with a bottom month axis and faithful export.
+
+**Scope:** Existing heatmap JS/CSS and its directly relevant tests and browser
+gate, plus product/design documentation. No new dependency, alternate baseline,
+extra artist series, unrelated backend change or new chart framework.
+
+## Steps
+
+- [x] Keep artist ordering, baseline and additive stack independent of residual
+  counts. Fit the full-year halo envelope in the existing chart domain, using
+  one global count scale shared by both visibility states. For each week extend
+  each side of the artist stack by 0.125 times its actual residual. Handle zero
+  and residual-only weeks, spikes and partial weeks without clipping.
+- [x] Draw the neutral filled halo and subtle outer contour behind the artist
+  paths. Add an accessible default-on Other listening control that only changes
+  halo visibility; it must not rebuild artist paths or alter counts or scale.
+  Resolve theme colours into SVG attributes and preserve the selected visibility
+  in the self-contained JPEG export.
+- [x] Put month labels on the bottom axis at actual calendar-aligned week positions;
+  keep heatmap months above. Put the 0.25x explanatory caption in the section
+  header, use circular tooltip markers and tabular right-aligned counts, and
+  separate the true residual row with a restrained divider. Preserve hover,
+  keyboard, touch, ring, guide, focus, reduced motion and responsive placement.
+- [x] Apply ten deterministic colours drawn from the supplied Extended Rocket +
+  Indigo candidates, with theme adjustments if rendered evidence warrants them.
+  Audit neighbouring colours, including zero-width contacts, in both themes;
+  report weak contrasts without asserting a universal 3:1 threshold. Leave the
+  heatmap colour ramp unchanged.
+- [x] Revise existing tests and browser checks for envelope geometry, exposed
+  halo-margin pixels, both visibility states, raw totals, fixed artist paths on
+  toggle, bottom month positions and export. Remove superseded assertions; retain
+  meaningful coverage and report the test-count change. No new test framework.
+- [x] Run focused checks, the full suite, existing hooks/docsync and locked browser
+  gate. Capture actual light/dark UI in both visibility states, review against
+  the supplied mockup, and record the colour audit and results.
+- [ ] Land the focused commit and complete the requested PR using the repo template.
+
+The artist baseline is computed without residuals; fitting includes the halo
+envelope so the common scale can shrink when necessary to prevent clipping.
+Visibility changes never change that scale or the artist path coordinates.
+
+## Execution notes
+
+- 2026-10-28: T0 approved by the owner after an earlier unauthorized start was paused. T1 uses an artist-only baseline and stack, with a shared fit enclosing the compressed halo. Focused spike, residual-only and between-week enclosure checks passed (5 cases). The global fit may shrink to contain the halo; toggling never changes it.
+- 2026-10-28: T4 audit in progress. For the stable ten-rank stack order 10, 8, 6, 4, 2, 1, 3, 5, 7, 9, the weakest measured adjacent luminance ratios are 1.31:1 light (ranks 10/8) and 1.06:1 dark (ranks 7/9). Adjacent OKLab differences fall to 0.154 light and 0.094 dark. Any pair can meet when intervening bands pinch out; the closest pairs have OKLab differences 0.052 light and 0.053 dark. These metrics do not establish accessibility; tooltip identity remains available. CVD simulation and final visual assessment remain open.
+- 2026-10-28: T2-T3: default-on halo, visibility control, tooltip and calendar axis implemented. Chromium exposed clipped label bounds in the full gate; a small axis allowance and raised baseline corrected it. Focused alignment, keyboard toggle and both-state saved-image checks passed in Chromium and Firefox.
+- 2026-10-28: A full-severity Machado-matrix approximation found the closest adjacent simulated pairs at OKLab differences 0.070 light and 0.060 dark under protan simulation, 0.123 light and 0.090 dark under deutan, and 0.146 light and 0.092 dark under tritan. These are numerical indications, not a validated visibility threshold or a substitute for users and contextual visual checks; pinched bands can bring still closer pairs together.
+- 2026-10-28: T3 reopened for an independent review finding: a month beginning in the last partial week may place its bottom label beyond the SVG edge. Verify the boundary and correct it if reproduced before closing T3 again.
+- 2026-10-28: T4 complete. Inspected the real-data ribbons in both themes and retained ten deterministic candidate-derived colours with dark-theme adjustments. The heatmap ramp is unchanged. Luminance, OKLab and numerical colour-vision approximation results and limitations are recorded above; several weak pairs remain, especially where bands pinch out.
+- 2026-10-28: T5 test impact: replaced twelve-rank/burst palette assertions with ten stable identities; removed hidden-contributor validation and panel cases because that payload is no longer consumed, retaining acceptance of legacy extra fields. Existing residual-only interaction and artist count checks remain. Added parametrized halo margin and between-week enclosure cases, and revised the existing gate for accessible toggle, bottom-axis alignment and exposed-margin image pixels. Full suite measured 3113 passed (previous verified head 3116); final gate and end-week check remain pending.
+- 2026-10-28: T3 reverified. A final partial week ending 2026-01-01 reproduced the clipped January label. The bottom label now anchors inward near the right edge while its calendar coordinate and gridline remain aligned with the heatmap. The existing alignment check covers this first/last partial-week fixture and passes at both widths in Chromium and Firefox; toggle and export checks also pass.
+- 2026-10-28: T5 complete. The focused geometry and integration checks pass, and the existing full browser gate passed 58 checks in 89 runs before the final partial-week correction. The final-week case extends the existing alignment check rather than introducing a new harness. A full final-state gate is running; T6 remains open.
+- 2026-10-28: T6 evidence in progress. Four matched Firefox application captures were made from the saved representative payload in sgb-proto/halo-{light,dark}-{on,off}.png in the session scratch directory. Reviewed all four against the supplied reference for hierarchy, halo, palette and bottom-axis structure. The full 3113-test suite passed before the final partial-week correction; focused browser checks passed after it. The final full browser gate, hooks and docsync remain pending.
+- 2026-10-28: The final-state frontend gate passed 58 checks in 89 runs across Chromium and Firefox, including the final partial-week case. Repository hooks and final docsync remain pending.
+- 2026-10-28: T6 verification: suite 3113 passed in three shards before the final partial-week correction; final locked browser gate passed 58 checks in 89 runs, and focused final checks passed in Chromium and Firefox. Pre-commit all-files and docsync check passed. Captures are halo-light-on.png, halo-light-off.png, halo-dark-on.png and halo-dark-off.png in the session scratch sgb-proto directory. WT003 is the known advisory side-task branch warning.

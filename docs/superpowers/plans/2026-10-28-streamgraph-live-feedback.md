@@ -1,5 +1,9 @@
 ﻿# Streamgraph live-review corrections implementation plan
 
+> Superseded on 2026-10-28 by the owner's context-halo direction. The completed
+> checkpoint history below remains historical; current work follows the
+> [context-halo plan](2026-10-28-streamgraph-context-halo.md).
+
 > **For agentic workers:** Use subagent-driven-development. Parallelize independent
 > code and browser-check files, review the integrated change and land atomically.
 > Tick steps only after evidence is available.

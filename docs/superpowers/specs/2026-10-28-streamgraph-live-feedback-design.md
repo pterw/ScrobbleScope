@@ -1,11 +1,16 @@
 ﻿# Streamgraph live-review corrections -- design
 
+> Superseded on 2026-10-28 by the owner's context-halo direction. See the
+> [context-halo plan](../plans/2026-10-28-streamgraph-context-halo.md) for
+> the current implementation contract. The decisions below record the earlier
+> live-review checkpoints.
+
 Date: 2026-10-28. Status: owner-directed revisions during live prototype review.
 Continues [the original design](2026-10-28-streamgraph-bursts-design.md).
 Original Tasks 1-4, spacing Task 5 and artist-only Task 8 are checkpoints.
-Task 9 restores the top ten. Task 10 layout and final approval remain pending.
+Task 9 restored the top ten. Task 10 and its approval were pending when superseded.
 
-## Current accepted direction
+## Former accepted direction
 
 - Keep original result spacing below the header and mono paragraph. The chart and
   tooltip must avoid internal vertical scrolling without hiding content.

@@ -155,19 +155,16 @@ next.
 - See total scrobbles, daily average, best day, and current streak.
 - Compare activity through the seven-stop `rocket_r` palette. Empty days remain
   distinct from the surrounding frame in both themes.
-- On desktop, see a streamgraph under the grid: weekly plays for the ten most
-  played artists in the 365-day window. Only these artists shape the ribbons.
-  Every other play is counted
-  numerically as "Everything else" in the scrubber, and the week's total
-  includes those plays. Its
-  weeks sit under the grid's columns. Hover or drag across it to open a panel
-  that lists the week's counts, or focus it and use the arrow keys, Home and
-  End. A vertical swipe still scrolls the page. Narrow screens, and results
-  stored before the streamgraph existed, show the grid alone.
-  Selecting the numeric residual row leaves the artist ribbons undimmed.
+- On desktop, see weekly plays for the ten most played artists in a
+  streamgraph beneath the grid. A subdued halo shows the remaining plays at
+  one quarter thickness; use Other listening to hide or show it. The scrubber
+  reports actual artist and Everything else counts and the complete weekly
+  total. Hover or drag, or focus the chart and use the arrow keys, Home and End.
+  Narrow screens and older results without weekly artist data show the grid alone.
 - Save the heatmap as a JPEG. This export uses a separate canvas layout rather
   than an exact screenshot of the page. When the page shows the streamgraph,
-  the image includes it under the grid, at rest.
+  the image includes it under the grid, at rest, with the halo in its selected
+  visibility state.
 
 ### Shared experience
 

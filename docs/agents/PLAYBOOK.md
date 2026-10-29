@@ -184,6 +184,31 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Add the streamgraph context halo
+
+Side task on `feat/streamgraph-bursts`. The owner replaced the earlier
+artist-only follow-up with the context-halo direction and approved its T0
+plan. Partial implementation started before that approval; it was paused,
+disclosed, and reviewed against the approved plan before continuing.
+
+Keep the ten featured artists' stack independent of the residual. Draw the
+remaining plays as a default-on symmetric halo at one quarter thickness,
+with a visibility control that preserves artist paths, counts and scale.
+Reuse heatmap month positions on the lower axis, add circular tooltip markers
+and a residual divider, and use ten deterministic candidate-derived colours.
+A final partial-week label is anchored inward to avoid clipping without
+moving its calendar gridline. Save Image keeps the selected halo state.
+
+Superseded burst and hidden-contributor test cases were replaced or removed;
+focused coverage checks geometry, empty and spike weeks, interaction, axis
+alignment and exposed halo pixels in both export states. The previous suite
+had 3116 tests; the fresh suite measured **3113 passed** in three shards.
+Focused Chromium and Firefox checks pass after the final-week fix. Four
+matched real-data captures and the colour audit are recorded in the context
+plan. The final-state browser gate passed 58 checks in 89 runs across
+Chromium and Firefox. All pre-commit hooks and the final docsync check pass.
+The alignment hook reports the known advisory WT003 side-task branch warning.
+
 ### 2026-10-28 - Integrate main before final streamgraph validation
 
 Side task, no batch tag: normal merge of origin/main at f94c490f into
@@ -269,25 +294,3 @@ Final owner approval, main integration and PR publication remain pending.
 Section 3 batch sequencing is unchanged. No history rewrite.
 
 Validation: `pytest -q` -- **3121 passed**.
-
-### 2026-10-28 - Plan an artist-only stream with numeric residual
-
-Side task, no batch tag: revise the live-review design and plan on
-`feat/streamgraph-bursts`. The owner wants Everything else excluded from
-SVG geometry, kept numerically in the scrubber, and the original rocket
-palette restored. This supersedes unlanded sandwich and navy experiments;
-Task 5 spacing and normal residual weight remain complete. Task 8 separates
-renderer/pure-test and browser-check ownership for parallel code work, then
-one integrated atomic landing. No product code changes in this checkpoint.
-
-Plan vs implementation: revised definition only; no Task 8 box is complete.
-Deviations: owner-directed replacement of Tasks 6-7 before either landed.
-Existing tests edited: none. Fresh full shards passed 702 + 1503 + 912.
-The guard reports WT003, WT010 and WT005; guards are advisory per owner.
-WT005 is real divergence, not the content-identical case. Normal reviewed
-main integration remains required, with no history rewrite. Section 3 batch
-sequencing is unchanged. Forward guidance: execute Task 8 in isolated
-worktrees, review and validate, refresh live review and obtain prototype
-approval before PR publication.
-
-Validation: `pytest -q` -- **3117 passed**.

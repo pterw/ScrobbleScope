@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Plan an artist-only stream with numeric residual
+
+Side task, no batch tag: revise the live-review design and plan on
+`feat/streamgraph-bursts`. The owner wants Everything else excluded from
+SVG geometry, kept numerically in the scrubber, and the original rocket
+palette restored. This supersedes unlanded sandwich and navy experiments;
+Task 5 spacing and normal residual weight remain complete. Task 8 separates
+renderer/pure-test and browser-check ownership for parallel code work, then
+one integrated atomic landing. No product code changes in this checkpoint.
+
+Plan vs implementation: revised definition only; no Task 8 box is complete.
+Deviations: owner-directed replacement of Tasks 6-7 before either landed.
+Existing tests edited: none. Fresh full shards passed 702 + 1503 + 912.
+The guard reports WT003, WT010 and WT005; guards are advisory per owner.
+WT005 is real divergence, not the content-identical case. Normal reviewed
+main integration remains required, with no history rewrite. Section 3 batch
+sequencing is unchanged. Forward guidance: execute Task 8 in isolated
+worktrees, review and validate, refresh live review and obtain prototype
+approval before PR publication.
+
+Validation: `pytest -q` -- **3117 passed**.
+
 ### 2026-10-28 - Restore stream result spacing and quiet the residual row
 
 Side task, no batch tag: restore stream result spacing and quiet the residual row, on `feat/streamgraph-bursts`, a branch off `main`.
