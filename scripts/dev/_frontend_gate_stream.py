@@ -133,7 +133,7 @@ _READ_ALIGNMENT_JS = """() => {
         const box = cell.getBoundingClientRect();
         const x = Math.round(box.left * 100) / 100;
         if (!centres.some((c) => c.left === x)) {
-            centres.push({ left: x, centre: box.left + box.width / 2 });
+            centres.push({ left: x, right: box.right, centre: box.left + box.width / 2 });
         }
     }
     centres.sort((a, b) => a.left - b.left);
@@ -147,6 +147,11 @@ _READ_ALIGNMENT_JS = """() => {
         gridWidth: grid.viewBox.baseVal.width,
         streamX: columns.map((x) => s.left + x * s.scale),
         cellX: centres.map((c) => c.centre),
+        cellEdges: [centres[0].left, centres.at(-1).right],
+        pathEdges: Array.from(stream.querySelectorAll('.stream-halo, path.stream-layer')).map(path => {
+            const bounds = path.getBBox();
+            return [s.left + bounds.x * s.scale, s.left + (bounds.x + bounds.width) * s.scale];
+        }),
         months: Array.from(stream.querySelectorAll('.stream-month-label')).map(label => {
             const bounds = label.getBoundingClientRect();
             return { text: label.textContent, x: Number(label.getAttribute('x')),
@@ -195,6 +200,14 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
         failures.append(
             f"stream weeks sit off their grid column centres at {width}px "
             f"(week, px off): {off[:3]}"
+        )
+    if any(
+        abs(actual - expected) > 1
+        for edges in reading["pathEdges"]
+        for actual, expected in zip(edges, reading["cellEdges"], strict=True)
+    ):
+        failures.append(
+            f"stream ribbons do not reach the outer heatmap edges at {width}px"
         )
     months = reading["months"]
     if len(months) != len(reading["gridMonths"]) or len(reading["lineX"]) != len(

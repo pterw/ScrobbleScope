@@ -319,14 +319,31 @@
     return d;
   }
 
-  /** Closed band path: top left to right, then bottom right to left. */
-  function smoothPath(top, bottom, topOffsets, bottomOffsets, safeSegments) {
+  /** Close a smooth band, optionally extending its end values to column edges. */
+  function smoothPath(top, bottom, topOffsets, bottomOffsets, safeSegments, edgePad) {
     if (!top.length || !bottom.length) return '';
     const back = bottom.slice().reverse();
     const backOffsets = bottomOffsets ? bottomOffsets.slice().reverse() : null;
     const backSafe = safeSegments ? safeSegments.slice().reverse() : null;
-    return 'M' + pathNum(top[0].x) + ' ' + pathNum(top[0].y + (topOffsets ? topOffsets[0] : 0)) + smoothSegments(top, topOffsets, safeSegments) +
-      'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y + (backOffsets ? backOffsets[0] : 0)) + smoothSegments(back, backOffsets, backSafe) + 'Z';
+    const startY = top[0].y + (topOffsets ? topOffsets[0] : 0);
+    const endY = back[0].y + (backOffsets ? backOffsets[0] : 0);
+    let path = 'M' + pathNum(top[0].x - (edgePad || 0)) + ' ' + pathNum(startY);
+    if (edgePad) path += 'L' + pathNum(top[0].x) + ' ' + pathNum(startY);
+    path += smoothSegments(top, topOffsets, safeSegments);
+    if (edgePad) {
+      const last = top.length - 1;
+      const topY = top[last].y + (topOffsets ? topOffsets[last] : 0);
+      path += 'L' + pathNum(top[last].x + edgePad) + ' ' + pathNum(topY);
+      path += 'L' + pathNum(back[0].x + edgePad) + ' ' + pathNum(endY);
+    }
+    path += 'L' + pathNum(back[0].x) + ' ' + pathNum(endY);
+    path += smoothSegments(back, backOffsets, backSafe);
+    if (edgePad) {
+      const last = back.length - 1;
+      const bottomY = back[last].y + (backOffsets ? backOffsets[last] : 0);
+      path += 'L' + pathNum(back[last].x - edgePad) + ' ' + pathNum(bottomY);
+    }
+    return path + 'Z';
   }
 
   /** Fill for the artist rank from the theme palette in a fixed order. */
@@ -1855,7 +1872,7 @@
     var margin = payload.other.map(function (count) { return count * STREAM_HALO_FACTOR / 2 * fit.scale; });
     var halo = streamNode('path', {
       'class': 'stream-halo stream-layer-other',
-      d: smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments),
+      d: smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments, CELL_SIZE / 2),
       fill: frameColour('--stream-halo-fill'), stroke: frameColour('--stream-halo-stroke'),
       'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
       'pointer-events': 'none', 'aria-hidden': 'true',
@@ -1871,7 +1888,7 @@
       svg.appendChild(streamNode('path', {
         'class': 'stream-layer',
         'data-rank': rank,
-        d: smoothPath(top, bottom, null, null, safeSegments),
+        d: smoothPath(top, bottom, null, null, safeSegments, CELL_SIZE / 2),
         fill: layerColour(rank, theme),
       }));
     });

@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Align streamgraph paths with the grid edges
+
+Side task on `feat/streamgraph-bursts`. The owner noticed a gap at the
+first column: stream ribbons began at the weekly centre, while the heatmap
+and month gridline begin at the cell edge. Extend the halo and artist paths
+horizontally at both ends, preserving every weekly centre and value. The
+existing browser alignment gate now checks both outer edges. Focused checks
+passed in Chromium and Firefox; the full suite measured **3113 passed**.
+The full frontend gate passed 58 checks in 89 Chromium and Firefox runs.
+
 ### 2026-10-28 - Map stream colours to artist rank
 
 Side task on `feat/streamgraph-bursts`. After comparing a local preview, the
@@ -230,30 +240,3 @@ matched real-data captures and the colour audit are recorded in the context
 plan. The final-state browser gate passed 58 checks in 89 runs across
 Chromium and Firefox. All pre-commit hooks and the final docsync check pass.
 The alignment hook reports the known advisory WT003 side-task branch warning.
-
-### 2026-10-28 - Integrate main before final streamgraph validation
-
-Side task, no batch tag: normal merge of origin/main at f94c490f into
-`feat/streamgraph-bursts`, after Task 9 while the owner layout choice waits.
-The plan had integration after Task 10; advancing this independent work is
-an order deviation, not a scope addition or history rewrite. Main brings
-PR #279's Deezer 403 handling, MusicBrainz spacing and operations record.
-No stream UI source changes are included in this merge.
-
-Five conflicts concern counts and dated documentation histories. Preserve
-both parents' log entries, retain Section 3 unchanged, then refresh the
-managed counts from a fresh run. Independent pre-rotation review proved
-658 HEAD and 653 main dated entries preserved exactly across PLAYBOOK and
-archive, and main's automatic source/test merges match its parent. Docsync
-performs the rotation; no log entry is discarded or moved across markers
-by hand. Fresh suite shards: 702 + 1509 + 905. Existing test changes are
-upstream provider/config cases, unchanged from main.
-
-Forward guidance: Task 10 UI/gate patches stay in isolated worktrees.
-The real-data top-ten preview preserves all 53 weekly totals, shows no
-contributors and passes both-theme numeric-row checks. Its short-window
-page sizing remains pending the owner's KPI/bottom-spacing choice. Run
-integrated frontend and results-behavior checks after that final UI patch;
-this merge makes no final browser or prototype-approval claim. No PR/push.
-
-Validation: `pytest -q` -- **3116 passed**.
