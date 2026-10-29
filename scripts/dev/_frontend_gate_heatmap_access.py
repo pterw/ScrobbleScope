@@ -1550,12 +1550,17 @@ _SCROLL_AND_READ_JS = """() => new Promise((resolve) => {
     const cell = document.activeElement;
     const tt = document.querySelector('.heatmap-tooltip');
     const before = window.scrollY;
-    window.addEventListener('scroll', () => {
+    const finish = (scrolled) => {
+        window.removeEventListener('scroll', onScroll);
+        clearTimeout(timer);
         const c = cell.getBoundingClientRect();
         const t = tt.getBoundingClientRect();
-        resolve({moved: window.scrollY - before, shown: tt.classList.contains('visible'),
+        resolve({moved: scrolled ? window.scrollY - before : 0, shown: tt.classList.contains('visible'),
                  above: c.top - t.bottom, below: t.top - c.bottom});
-    }, {once: true});
+    };
+    const onScroll = () => finish(true);
+    const timer = setTimeout(() => finish(false), 1500);
+    window.addEventListener('scroll', onScroll, {once: true});
     window.scrollBy(0, 40);
 })"""
 
@@ -1566,10 +1571,15 @@ def _keyboard_tooltip_follows_scroll_at_once(
     """A keyboard-focus tooltip is fixed, so a scroll moves it with its cell in
     the same frame; repositioned a frame late it visibly trails the cell."""
     _open_year(page, base_url, job_id, {"width": 1280, "height": 500})
-    if _tab_into_grid(page) is None:
-        return ["Tab never reaches a heatmap cell; no scroll-lag probe"]
-    wait_for_settled(page)
-    reading = page.evaluate(_SCROLL_AND_READ_JS)
+    # Scrolling is the fixture here; a correctly fitted result needs none.
+    scroll_room = page.add_style_tag(content="body { padding-bottom: 20rem; }")
+    try:
+        if _tab_into_grid(page) is None:
+            return ["Tab never reaches a heatmap cell; no scroll-lag probe"]
+        wait_for_settled(page)
+        reading = page.evaluate(_SCROLL_AND_READ_JS)
+    finally:
+        scroll_room.evaluate("node => node.remove()")
     if not reading["moved"]:
         return ["the page did not scroll; the scroll-lag probe proves nothing"]
     # The tooltip sits 8px above its cell, or 8px below when there is no room.
@@ -1613,8 +1623,9 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
             )
 
         # S2-7 (a): a scroll never moves a hover tooltip to the focused cell.
-        # A short window, so the page is sure to have somewhere to scroll.
+        # Explicit scroll space keeps this independent of result fitting.
         _open_year(page, base_url, job_id, {"width": 1280, "height": 500})
+        page.add_style_tag(content="body { padding-bottom: 20rem; }")
         cells = page.evaluate(_CELLS_IN_VIEW_JS)
         clicked = cells[len(cells) // 3]
         hovered = cells[2 * len(cells) // 3]
@@ -1628,7 +1639,7 @@ def check_heatmap_tooltip_has_one_owner(page, base_url: str) -> list[str]:
         wait_for_scroll_past(page, before)  # no scroll is reported below
         wait_for_settled(page)
         box = page.evaluate(_TOOLTIP_BOX_JS)
-        if box["scrollY"] == 0:
+        if box["scrollY"] <= before:
             failures.append(
                 "the wheel scrolled nothing; the scroll probe proves nothing"
             )

@@ -69,6 +69,18 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **Listening view side task:** Durable result and empty-state sizing is
+  complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
+  illustration refinement and requested mode-transition motion are complete.
+  Validation parity, the uncommitted-file audit and the close-out handoff
+  are complete. Listening already has blur validation; the existing browser
+  check now proves request blocking and corrected-profile submission. PR
+  #280 is ready for review after green CI and owner authorization. The bot-review
+  documentation correction and local validation are complete. Check current
+  remote CI/reviews before merge; independent F-SWE-8 work stays gated.
+  The execution record is
+  `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
   Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is
   deleted, so side-task PRs branch from `main` and run the guard against its default
@@ -184,54 +196,96 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-28 - Record the Deezer egress plan's execution
+### 2026-10-29 - Reconcile Listening design notes after bot review
 
-Side task, no batch tag: record in the Deezer egress plan (`docs/superpowers/plans/2026-10-28-deezer-egress-incident.md`) which tasks landed, in which commits and with which deviations, on `fix/deezer-egress-incident`, a branch off `main`.
+The owner authorized opening PR #280 after green CI and fixing bot concerns.
+Quality Gate run `40880774113` succeeded at 014c6d75; the PR left draft and the
+template checklist was updated. Codex completed without findings. Graphify's
+three inline coupling advisories were checked against source and the base;
+the shared fixture and interaction assertions remain cohesive. Replied with
+that evidence and resolved the threads without metric-driven refactoring.
+Its additional helper advisories concern residual-only coverage.
 
-Owner intent: plans must show their boxes ticked as work lands; several earlier plans lacked the ticks. The plan's 15 step boxes (Tasks 1-3) are ticked, each backed by its land report and an approving review. The plan gains an "Execution record (2026-10-28)" section: each task's commit and review result (T1 `3ed4aaec`, T2 `575d3412`, T3 `ab914965`; plan `80ce99ee`, approved after 2 fix rounds), the deviation rulings (C10, C12, C14-C17), the stacked landing with one gate-runner at the top, the final evidence (ALL_PASS at `ab914965`, CI run 40717261737 green) and the bot triage (qlty and Codacy findings rejected after measurement; Codex pending). Docs only; the plan is a point-in-time record, so no live prose changed.
+The documentation check found old Heatmap copy and a width-only result
+description in the current reconciliation table. Correct four current rows
+to reference source owners and the approved Listening follow-up. Preserve
+the frozen snapshots and dated sections. The full suite measured
+**3113 passed** in 145.79 seconds; no tests or runtime code changed. Repository
+hooks and final docsync passed before the focused documentation commit.
+After pushing, verify the new head's CI and bot feedback and fast-forward
+the owner preview. Qlty's status passes but its description reports 13
+blocking issues; the detailed list requires separate login and has not been
+validated. The execution record is
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
-Deviations: none. Existing tests edited: none.
+### 2026-10-29 - Verify Listening profile guards and prepare the handoff
 
-Validation: `pytest -q` -- **3101 passed**.
+The owner requested Listening blur verification, review of uncommitted files
+and a durable close-out handoff. Listening already uses the same validator
+endpoint as Top albums, sets custom validity for missing/private profiles,
+and checks it before AJAX submission. No production validation refactor was
+needed. Extend the existing profile gate to challenge Enter and button
+submission at the request boundary, then prove a corrected public name can
+submit. Chromium and Firefox pass against the feature server and actual
+owner preview; removing Listening's guard produces rejected POSTs and fails
+the check. The full suite measured **3113 passed** (2954 non-browser tests
+in three shards plus 159 browser tests). The frontend gate passed 58 checks
+in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
+were added.
 
-### 2026-10-28 - Record the Deezer egress block and its recovery
+The independent uncommitted-file audit is recorded in
+`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
+preview hashes match the pushed feature commit. Independent owner files and
+dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
+linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
+and was not staged or used as test evidence. The requested OS-temp handoff
+is written and receives the final pushed commit and validation checkpoint
+at close-out. Whole-file review found no material issue. Archive rotation
+was verified mechanically against dd69ddd7 without claiming a semantic
+reread of unrelated historical content.
 
-Side task, no batch tag: document the Deezer egress-address block and how to recover from it, on `fix/deezer-egress-incident`, a branch off `main`.
+### 2026-10-29 - Animate the transition into the Listening form
 
-Owner intent: the production machine's egress IP was blocked by Akamai, so every Deezer call returned 403; keep a runbook so the next occurrence is a probe and a machine clone, not a code hunt.
+Side task on `feat/streamgraph-bursts`. The owner requested an upward card
+collapse from Top albums to Listening, followed by the supporting illustration
+fading in. Reuse the existing capture listener and measured card geometry,
+reserve the destination panel height, and restore natural sizing after the
+CSS animation ends or is cancelled. Reduced motion and Pause animations both
+show the final state immediately, including preference changes mid-effect.
 
-What changed: `DEPLOY.md` gains the section "Deezer blocks the machine's egress address" (symptom, probe, free fix by machine clone, paid fix by static egress IP, why a restart or deploy does not help). `AGENTS.md` gains Anti-Pattern item 16 and the `OPS` source tag; `docs/agents/issue-tracker.md` lists `OPS`. Finding F-OPS-1 is written resolved and rotated to the findings archive in this commit. The static egress IP was released on the owner's word to test whether a restart would clear the block; it did not.
+Extend the existing entrance-motion gate rather than adding a test family.
+Focused Chromium and Firefox checks pass for actual geometry and opacity,
+rapid switches, subsequent content growth and preference cancellation. The
+existing display-scale gate also passes in both engines. Replacing the new
+CSS with the previous revision makes the motion check fail. The full suite
+measured **3113 passed**: 2954 non-browser tests in three shards plus 159
+browser tests. The complete browser gate passed 58 checks in 89 runs. Final
+Chromium/Firefox checks also pass with a saved pause choice and real keyboard
+switching. A stylesheet-contract failure required local auto defaults for the
+measured height properties; the 126 template checks and affected shard pass
+after that correction. Pre-commit and final docsync passed. The execution
+checklist and rationale are in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
-Deviations: new `OPS` tag for the F-ID (extended in `AGENTS.md` and `issue-tracker.md`); the finding is resolved and rotated in the same commit.
+### 2026-10-29 - Balance the Listening entry form with an output illustration
 
-Existing tests edited: none.
+Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
+of the empty desktop area below the Listening username card. Add an unboxed,
+decorative daily-grid and artist-ribbon schematic inside the existing mode
+panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
+and preserve the shared album-form height and submission path.
 
-Validation: `pytest -q` -- **3101 passed**.
-
-### 2026-10-28 - MusicBrainz request starts 1.2 seconds apart
-
-Side task, no batch tag: space MusicBrainz request starts 1.2 seconds apart instead of 1.1, on `fix/deezer-egress-incident`, a branch off `main`.
-
-Owner intent: add more delay between MusicBrainz requests, and note that MusicBrainz answers a rate limit with HTTP 503 rather than 429, so an occasional 503 is not unusual.
-
-What changed: `MUSICBRAINZ_MIN_INTERVAL_SECONDS` defaults to 1.2 in `scrobblescope/config.py`; every statement of the old 1.1 value is updated (`scrobblescope/utils.py` docstring, `static/js/results-release-checks.js` comment, README, `docs/architecture/runtime-system.md`, `.claude/SESSION_CONTEXT.md`). The README paragraph on provider log lines gains a sentence saying MusicBrainz uses 503 as its rate-limit answer, that the client retries it like a 429, and that an occasional `503` count is normal. No code path changes; `musicbrainz.py` already treats 429 and 503 alike.
-
-Deviations: none.
-
-Existing tests edited: `test_musicbrainz_spacing_is_the_interval_setting_and_the_old_rate_is_ignored` and `test_global_throttles_space_request_starts_by_their_interval` (expected value only, 1.1 to 1.2).
-
-Validation: `pytest -q` -- **3101 passed**.
-
-### 2026-10-28 - A Deezer 403 is one request, not three
-
-Side task, no batch tag: stop retrying a Deezer HTTP 403, on `fix/deezer-egress-incident`, a branch off `main`.
-
-Owner intent: a 403 from Deezer's CDN means the egress address is blocked, so a retry cannot cure it and only triples the traffic to a host that already refuses us.
-
-What changed: `scrobblescope/deezer.py` raises `deezer_unavailable` at once on a 403 (one request, no backoff sleep); 429, 5xx and quota responses are still retried. Both `retry_with_semaphore` calls now pass `reraise=(ProviderError,)`, which only silences a duplicate error log line (no test guards that decision).
-
-Deviations: none.
-
-Existing tests edited: `test_deezer_http_403_raises_unavailable_not_no_match` (re-pointed, parametrized over search, album details and album tracks; asserts the request count and that no sleep happens).
-
-Validation: `pytest -q` -- **3101 passed**.
+Independent spatial and source reviews found no material issue. After a local
+comparison, the owner requested removal of the caption and preferred the
+original straight ribbon ends over a tapered variant. Those preferences are
+applied. The existing page entrance remains the only fade; no animation or
+control was added. The full suite measured **3113 passed** (2954 non-browser
+tests in three shards plus 159 browser tests); the complete frontend gate
+passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
+stable mode-tab positions and no added page height. The existing home layout
+still scrolls at 1024x768 because of its left-column text; the example fits.
+Pre-commit and docsync passed. The optional design detector
+ran in degraded regex mode because its parser modules are unavailable; its
+findings concern existing styles, so it is not evidence of computed contrast.
+The execution checklist is in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.

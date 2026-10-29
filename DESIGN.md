@@ -134,7 +134,7 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Rocket Stop 5 (Tangerine)** (`#f0903a`): The single warm accent drawn from seaborn's `rocket_r` ramp, used exclusively for the Heatmap mode indicator mark.
 - **Heatmap Empty** (`#c8bfad` light / `#262230` dark): A warm neutral for zero-scrobble days, darker than the light frame so empty cells remain visible.
 - **Timeline Surfaces** (`.heatmap-frame` only): Inside the chart frame the surface is `#f0ebe0` light / `#1f1b28` dark and the empty cell is `#c8bfad` light / `#2e2939` dark. They are declared on the frame, not in the `:root` or `[data-theme="dark"]` blocks, so the page background and every other screen keep the global tokens above.
-- **Stream Layers** (`--stream-*` on the frame): The top-artists streamgraph colours its layers by rank from the `rocket_r` ramp, stops 0.95 for the largest artist down to 0.32 for the tenth. The light theme scales the whole ramp by 0.83/0.95 so its top stop is 0.83 and every rank stays distinct. "Everything else" is `#ddd5c5` light / `#3a3347` dark. Gridlines use `#e5dfd1` light / `#352e43` dark, the section label and panel header use `#6c6676` light / `#908a9a` dark, and the focus outline uses `#6a4baf` light / `#b39dde` dark. Layer fills, gridlines and the panel border are exempt from the 3:1 non-text floor (owner ruling U20) because the scrubber panel lists every value as text.
+- **Stream Layers**: Ten deterministic Rocket-derived colours distinguish featured artists by rank, from orange for the most played to purple for the least played. A neutral, theme-specific halo encloses the artist stack and compresses remaining plays to one quarter thickness. The Other listening control hides or shows it without moving the ribbons. Gridlines use `#e5dfd1` light / `#352e43` dark, labels use `#6c6676` light / `#908a9a` dark, and the focus outline uses `#6a4baf` light / `#b39dde` dark. The scrubber lists actual values as text.
 - **Good / Success** (`#2f7a4a` light / `#6fcf97` dark): Forest pine for successful cache hits and validated inputs.
 - **Bad / Error** (`#b03434` light / `#e07070` dark): Terracotta crimson for validation errors, private profile alerts, and failed jobs.
 
@@ -177,7 +177,7 @@ The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at
 - **Index Hero Strip:** Under the lede, each mode has a three-column strip: a display term with a line icon over one plain description, divided by hairline rules. One container query turns the strip into rows when its column is narrower than 26 term widths (`26em`). The strip is hidden below `860px`. The lede is capped at `48ch` and wrapped `pretty`.
 - **Loading Stats:** Scrobbles and Pages fetched, then Cache hits and Albums to search (together the albums that passed the thresholds). Each rises into place on arrival. The finished page replaces itself (`location.replace`), so Back reaches the form.
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
-- **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
+- **Heatmap Stage:** Centered desktop frame capped by viewport width and height so the heatmap and stream scale together and help leave room for the pause control. Mobile uses its own compact layout.
 - **Mobile Navigation:** At mobile viewports, destination pills organize in a single line across the header width with zero horizontal scrollbars, preserving the 44px minimum touch target height; the theme toggle sits below page content.
 - **Document Header:** The navbar scrolls out of view with the document. The Results side rail remains sticky with its own top gap (owner screenshot clarification, 2026-09-10).
 
@@ -248,8 +248,9 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
 
 ### Heatmap Streamgraph
-- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. Narrow screens and results stored without weekly artist data show the grid alone.
-- **Scrubber panel:** Opens beside the hovered column and lists every layer's count for that week as text, with the layer under the pointer or key marked and the other layers dimmed. It opens leftwards late in the year. It never takes the pointer. The chart is one Tab stop, moved with the arrow keys, Home and End.
+- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. The result uses the original page gaps and normal document flow, which may extend past a short viewport. The renderer fits the shared SVG width against the actual header, toolbar and footer, refitting on viewport and font changes. The chart reserves 20rem for its complete tooltip without an oversized empty tail. The legend and context control scale with the fitted result width. Narrow screens and results stored without weekly artist data show the grid alone.
+- **Geometry:** Featured artists alone determine the baseline and stack. The common linear scale fits the complete halo envelope. Each halo margin adds one eighth of the remaining plays in count units; residual-only weeks remain visible. An all-zero payload draws no stream. Month labels reuse the heatmap's calendar positions along the bottom axis.
+- **Scrubber panel:** Opens beside the hovered column and lists artists with plays that week, followed by a divider and the actual "Everything else" count. Circular markers identify the artists and the neutral residual. Selecting an artist marks its row and dims other ribbons; selecting the residual leaves them undimmed. The chart is one Tab stop, moved with arrow keys, Home and End.
 - **Motion:** The layer dimming fades over 150ms, which `prefers-reduced-motion: reduce` sets to zero.
 
 ## Do's and Don'ts
@@ -259,7 +260,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Do** author all font sizes, line heights, and layout spacing in `rem` units.
 - **Do** preserve 4.5:1 text contrast for all muted copy (`#6c6676` light, `#908a9a` dark).
 - **Do** keep cards and panels flat at rest with 1px hairline borders.
-- **Do** treat Top Albums and Heatmap as equal-standing peer modes on the index screen.
+- **Do** treat Top Albums and Listening as equal-standing peer modes on the index screen.
 
 ### Don't:
 - **Don't** use `font-weight: 500` or `font-weight: 600` anywhere in the interface.

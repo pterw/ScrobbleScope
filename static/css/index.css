@@ -358,9 +358,10 @@ html {
 /* Left column: the key under the strip                                */
 /* ------------------------------------------------------------------ */
 /* One key per mode, in the same grid track like the strip, so switching mode
-   changes paint and not geometry. The right column holds controls only; what a
-   mode does and counts is said here. Each key ends with a rule at the strip's
-   width; both keys stretch to the taller one, so the rule stays put. */
+   changes paint and not geometry. What a mode does and counts is said here;
+   the short Listening form also shows an illustrative output below its controls.
+   Each key ends with a rule at the strip's width; both keys stretch to the
+   taller one, so the rule stays put. */
 .index-hero__keys {
   display: grid;
   flex: 1 1 100%;
@@ -476,6 +477,74 @@ html {
   .index-form {
     padding-block: 2rem;
   }
+}
+
+/* The short Listening form leaves room within the shared album-height floor.
+   Show the result grammar there without a second card or extra mobile scroll. */
+.listening-example {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .listening-example {
+    display: block;
+    margin: calc(1.75rem * var(--index-scale, 1)) 0 0;
+  }
+
+  .listening-example svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    fill: var(--heatmap-empty);
+  }
+
+  .listening-example__halo {
+    fill: var(--heatmap-empty);
+    opacity: 0.5;
+  }
+}
+
+/* Only the selected Listening card changes size. Reserve the destination
+   panel height and reveal the illustration behind the shrinking card, keeping
+   the desktop height floor and mode switch fixed throughout the sequence. */
+.mode-panel {
+  --mode-from-height: auto;
+  --mode-to-height: auto;
+  --mode-panel-height: auto;
+}
+
+.mode-panel.is-mode-switching {
+  position: relative;
+  height: var(--mode-panel-height);
+}
+
+.is-mode-switching .ss-card {
+  position: relative;
+  z-index: 1;
+  overflow: clip;
+  animation: listening-card-collapse 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.is-mode-switching .listening-example {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  animation: listening-example-reveal 160ms ease-out 160ms backwards;
+}
+
+@keyframes listening-card-collapse {
+  from { height: var(--mode-from-height); }
+  to { height: var(--mode-to-height); }
+}
+
+@keyframes listening-example-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+[data-motion="still"] .is-mode-switching .ss-card,
+[data-motion="still"] .is-mode-switching .listening-example {
+  animation: none;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1276,6 +1345,11 @@ html {
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
+  .is-mode-switching .ss-card,
+  .is-mode-switching .listening-example {
+    animation: none;
+  }
+
   .index-grid {
     animation: none;
     opacity: 1;

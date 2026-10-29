@@ -1,6 +1,7 @@
 {#
   Heatmap mode: the form. Its preview key sits in the home page's left
-  column (templates/index.html, .hm-preview).
+  column (templates/index.html, .hm-preview). A desktop-only schematic
+  below the form shows the output without adding another control.
 
   The card collapses to a single line here. The heatmap endpoint takes a
   username and nothing else, so there is no year, no release filter and no
@@ -28,10 +29,11 @@
       </div>
     </div>
 
-    <p class="ss-card__note">Your listening heatmap covers the last 365 days.</p>
+    <p class="ss-card__note">Your last 365 days of listening, with artist trends on desktop.</p>
 
     <button type="submit" id="heatmap-submit-btn" class="ss-submit">
-      Generate heatmap<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
+      View listening history<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
     </button>
   </form>
+  {% include "partials/_listening_example.html" %}
 </section>

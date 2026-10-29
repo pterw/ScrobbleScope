@@ -5,6 +5,8 @@
   </picture>
 </h1>
 
+Last updated: 2026-10-28
+
 <p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
 
 [![Quality Gate](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml/badge.svg)](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml)
@@ -25,7 +27,8 @@ is wrong the next time anybody commits.
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
 ScrobbleScope turns your public Last.fm listening history into album rankings
-and a daily listening heatmap. Use it to build an Album of the Year list,
+and a Listening view combining a daily heatmap with weekly artist trends on
+desktop. Use it to build an Album of the Year list,
 compare albums by listening time, or explore your listening patterns.
 
 Choose **Top Albums** or **Heatmap** on Home. The shared navigation provides
@@ -153,15 +156,16 @@ next.
 - See total scrobbles, daily average, best day, and current streak.
 - Compare activity through the seven-stop `rocket_r` palette. Empty days remain
   distinct from the surrounding frame in both themes.
-- On desktop, see a streamgraph under the grid: weekly plays for the ten most
-  played artists, with every other artist in one "Everything else" layer. Its
-  weeks sit under the grid's columns. Hover or drag across it to open a panel
-  that lists the week's counts, or focus it and use the arrow keys, Home and
-  End. A vertical swipe still scrolls the page. Narrow screens, and results
-  stored before the streamgraph existed, show the grid alone.
+- On desktop, see weekly plays for the ten most played artists in a
+  streamgraph beneath the grid. A subdued halo shows the remaining plays at
+  one quarter thickness; use Other listening to hide or show it. The scrubber
+  reports actual artist and Everything else counts and the complete weekly
+  total. Hover or drag, or focus the chart and use the arrow keys, Home and End.
+  Narrow screens and older results without weekly artist data show the grid alone.
 - Save the heatmap as a JPEG. This export uses a separate canvas layout rather
   than an exact screenshot of the page. When the page shows the streamgraph,
-  the image includes it under the grid, at rest.
+  the image includes it under the grid, at rest, with the halo in its selected
+  visibility state.
 
 ### Shared experience
 
@@ -484,7 +488,7 @@ load-bearing:
 The streamgraph under the grid on desktop is hand-built SVG too, with no
 library. Its week positions come from the same Monday-first column geometry
 as the grid, so each week sits under its column; every length scales with the
-grid's column pitch. The server counts plays per week for the ten most played
+grid's column pitch. The server counts plays per week for the top ten
 artists and stores the counts with the job result; the browser stacks the
 layers and draws them as smooth paths.
 

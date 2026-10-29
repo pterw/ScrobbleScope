@@ -14,6 +14,7 @@ computation is tested here, one layout, one arrow and one edge at a time.
 
 from __future__ import annotations
 
+import colorsys
 import re
 from datetime import date
 
@@ -602,12 +603,15 @@ def _text(fragment: str) -> str:
 
 
 def _heatmap_lede() -> str:
-    """The heatmap-mode lede on the index page (the paragraph under its eyebrow)."""
+    """Read the listening-mode lede by its stable mode hook, not its wording."""
     source = INDEX_HTML.read_text(encoding="utf-8")
     match = re.search(
-        r'Listening heatmap</p>\s*<p class="index-hero__lede">(.*?)</p>', source, re.S
+        r'<div data-mode-hero="heatmap"[^>]*>.*?'
+        r'<p class="index-hero__lede">(.*?)</p>',
+        source,
+        re.S,
     )
-    assert match, "index.html has no heatmap-mode lede under its eyebrow"
+    assert match, "index.html has no heatmap-mode lede"
     return _text(match.group(1))
 
 
@@ -830,6 +834,110 @@ def test_stream_stack_stays_inside_the_band(js_page, layers, moved):
         assert fit["scale"] == _hook(js_page, "streamScale", totals)
 
 
+@pytest.mark.parametrize(
+    ("layers", "residual"),
+    [
+        ([[5, 0, 7], [2, 0, 1]], [0, 80, 10000]),
+        ([], [0, 30, 2]),
+        ([[0, 300, 0]], [0, 0, 0]),
+    ],
+    ids=["mixed-with-residual-spike", "residual-only", "zero-residual"],
+)
+def test_stream_fit_contains_symmetric_context_halo(js_page, layers, residual):
+    """Fit true artists and both compressed residual margins into the band.
+
+    GIVEN artist counts and residuals including zero and extreme weeks,
+    WHEN the shared fit and halo boundaries are computed,
+    THEN each halo margin is one eighth of the residual and stays in bounds.
+    """
+    baseline = (
+        _hook(js_page, "streamBaseline", layers) if layers else [0] * len(residual)
+    )
+    fit = _hook(js_page, "streamFit", layers, baseline, residual)
+    envelope = _hook(js_page, "streamEnvelope", layers, fit["baseline"], residual)
+    band = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_BAND")
+    assert fit["scale"] > 0
+    for week, bounds in enumerate(envelope):
+        total = sum(layer[week] for layer in layers)
+        margin = residual[week] / 8
+        assert bounds["lower"] == pytest.approx(fit["baseline"][week] - margin)
+        assert bounds["upper"] == pytest.approx(fit["baseline"][week] + total + margin)
+        assert bounds["lower"] * fit["scale"] >= -band / 2 - 1e-9
+        assert bounds["upper"] * fit["scale"] <= band / 2 + 1e-9
+
+
+def _stream_path_samples(path, weeks):
+    """Sample both sides of each cubic segment in left-to-right order."""
+    commands = re.findall(r"([MLC])([^MLCZ]*)", path)
+    values = [list(map(float, value.split())) for _, value in commands]
+    top = [values[0][1]] + [values[i][5] for i in range(1, weeks)]
+    bottom = [values[weeks][1]] + [values[i][5] for i in range(weeks + 1, len(values))]
+    samples = []
+    for segment in range(weeks - 1):
+        upper = [
+            top[segment],
+            values[segment + 1][1],
+            values[segment + 1][3],
+            top[segment + 1],
+        ]
+        reverse = weeks - 2 - segment
+        controls = values[weeks + 1 + reverse]
+        lower = [bottom[reverse + 1], controls[3], controls[1], bottom[reverse]]
+        for position in (0.25, 0.5, 0.75):
+            weights = [
+                (1 - position) ** 3,
+                3 * (1 - position) ** 2 * position,
+                3 * (1 - position) * position**2,
+                position**3,
+            ]
+            samples.append(
+                tuple(
+                    sum(y * weight for y, weight in zip(edge, weights, strict=True))
+                    for edge in (upper, lower)
+                )
+            )
+    return samples
+
+
+@pytest.mark.parametrize(
+    ("layers", "residual"),
+    [
+        ([[0, 800, 0, 0, 12], [7, 0, 0, 450, 0]], [0, 0, 9000, 0, 40]),
+        ([], [0, 2000, 0, 1, 0]),
+    ],
+    ids=["artist-and-residual-spikes", "residual-only"],
+)
+def test_smoothed_stream_encloses_artists_without_clipping(js_page, layers, residual):
+    """GIVEN spikes and empty bands, WHEN curves are drawn, THEN they stay valid."""
+    result = js_page.evaluate(
+        """([layers, residual]) => {
+        const h = window.__scrobbleHeatmapTestHooks;
+        const baseline = layers.length ? h.streamBaseline(layers) : residual.map(() => 0);
+        const fit = h.streamFit(layers, baseline, residual);
+        const stack = h.stackLayers(layers, fit.baseline, fit.scale);
+        const safe = h.streamSafeSegments(layers);
+        const lower = fit.baseline.map(n => n * fit.scale);
+        const upper = stack.length ? stack.at(-1).map(p => p.y1) : lower;
+        const points = values => values.map((y, x) => ({x: x * 27, y: -y}));
+        const margin = residual.map(n => n * fit.scale / 8);
+        return {
+            band: h.STREAM_BAND,
+            halo: h.smoothPath(points(upper), points(lower), margin.map(n => -n), margin, safe),
+            artists: stack.map(layer => h.smoothPath(
+                points(layer.map(p => p.y1)), points(layer.map(p => p.y0)), null, null, safe)),
+        };
+    }""",
+        [layers, residual],
+    )
+    halo = _stream_path_samples(result["halo"], len(residual))
+    artists = [_stream_path_samples(path, len(residual)) for path in result["artists"]]
+    for index, (top, bottom) in enumerate(halo):
+        assert -result["band"] / 2 - 0.02 <= top <= bottom <= result["band"] / 2 + 0.02
+        for layer in artists:
+            artist_top, artist_bottom = layer[index]
+            assert top - 0.02 <= artist_top <= artist_bottom + 0.02 <= bottom + 0.04
+
+
 SMOOTH_PATH_JS = """([top, bottom]) => {
     const d = window.__scrobbleHeatmapTestHooks.smoothPath(top, bottom);
     const points = [];
@@ -868,22 +976,20 @@ def test_smooth_path_tolerates_degenerate_input(js_page, top):
     assert out["closed"] or not top
 
 
-def test_layer_colour_follows_the_ramp_and_light_is_rescaled_not_clamped(js_page):
-    got = js_page.evaluate(
-        """() => {
-            const h = window.__scrobbleHeatmapTestHooks;
-            const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-            return {
-                dark0: [h.layerColour(0, 'dark'), h.rocketColor(.95)],
-                dark9: [h.layerColour(9, 'dark'), h.rocketColor(.32)],
-                light0: [h.layerColour(0, 'light'), h.rocketColor(.83)],
-                light: ranks.map((r) => h.layerColour(r, 'light')),
-            };
-        }"""
-    )
-    for key in ("dark0", "dark9", "light0"):
-        assert got[key][0] == got[key][1], key
-    assert len(set(got["light"])) == 10
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_layer_colour_keeps_ten_distinct_artist_identities(js_page, theme):
+    """GIVEN ranked artists, WHEN colors are assigned, THEN the endpoints follow the heatmap."""
+    colours = [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
+    assert len(set(colours)) == 10
+    assert colours == [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
+    hues = [
+        colorsys.rgb_to_hsv(*(int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)))[0]
+        for colour in colours
+    ]
+    assert 0 < hues[0] < 45 / 360  # highest rank is orange
+    assert 260 / 360 < hues[-1] < 310 / 360  # lowest rank is purple
+    ordered_hues = [hue - 1 if hue > 0.5 else hue for hue in hues]
+    assert all(a > b for a, b in zip(ordered_hues, ordered_hues[1:], strict=False))
 
 
 def _stream_payload(cols=3, artists=2):
@@ -943,6 +1049,7 @@ def _artists_not_a_list(p):
     ("payload", "valid"),
     [
         (_stream_case(), True),
+        (_stream_payload(artists=10), True),
         (_stream_case(lambda p: p.update(artists=[])), True),  # zero artists
         (_stream_case(_short_weeks), False),
         (_stream_case(_short_counts), False),
@@ -953,11 +1060,13 @@ def _artists_not_a_list(p):
         (_stream_case(_non_string_week), False),
         (_stream_case(_non_string_name), False),
         (_stream_case(_artists_not_a_list), False),
+        (_stream_case(lambda p: p.update(hidden=[[]])), True),  # legacy extra field
         (None, False),
         ("weekly", False),
     ],
     ids=[
         "valid",
+        "ten-artists",
         "zero-artists",
         "weeks-length",
         "counts-length",
@@ -968,11 +1077,18 @@ def _artists_not_a_list(p):
         "non-string-week",
         "non-string-name",
         "artists-not-a-list",
+        "legacy-extra-field",
         "null",
         "string",
     ],
 )
 def test_stream_payload_valid(js_page, payload, valid):
+    """Accept drawable payloads up to ten artist layers.
+
+    GIVEN: Valid payloads, including an ignored legacy field, and malformed variants.
+    WHEN: The stream validates the payload against the grid width.
+    THEN: Only drawable payloads with at most ten named layers are accepted.
+    """
     assert _hook(js_page, "streamPayloadValid", payload, 3) is valid
 
 
@@ -983,7 +1099,7 @@ def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
     assert got == [0, 0, 0, 1, 1, 2, 52, 52]
 
 
-STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], rank 7 [2,5]
+STACK_AT_WEEK = [  # bottom to top: rank 4 [0,2], empty rank 2 [2,2], rank 7 [2,5]
     [{"y0": 0, "y1": 2}],
     [{"y0": 2, "y1": 2}],
     [{"y0": 2, "y1": 5}],
@@ -991,24 +1107,37 @@ STACK_AT_WEEK = [  # bottom to top at one week: 'other' [0,2], rank 4 [2,2], ran
 
 
 @pytest.mark.parametrize(
-    ("y", "expected"),
+    ("stack", "week", "y", "order", "expected"),
     [
-        (1, "other"),
-        (3.5, 7),
-        (2, 7),  # a shared boundary belongs to the layer above
-        (5, 7),
-        (-0.1, None),
-        (5.1, None),
+        (STACK_AT_WEEK, 0, 1, [4, 2, 7], 4),
+        (STACK_AT_WEEK, 0, 3.5, [4, 2, 7], 7),
+        (STACK_AT_WEEK, 0, 2, [4, 2, 7], 7),  # shared edge belongs above
+        (STACK_AT_WEEK, 0, 5, [4, 2, 7], 7),
+        (STACK_AT_WEEK, 0, -0.1, [4, 2, 7], None),
+        (STACK_AT_WEEK, 0, 5.1, [4, 2, 7], None),
+        (STACK_AT_WEEK, 0, 0, None, 0),  # without order, return the stack slot
+        (STACK_AT_WEEK, 0, 3.5, None, 2),
+        ([], 0, 0, [], None),  # a globally residual-only chart has no bands
+        (
+            [[{"y0": 0, "y1": 2}, {"y0": 1, "y1": 1}]],
+            1,
+            1,
+            [4],
+            None,
+        ),  # a residual-only week cannot hit a zero-height artist band
     ],
 )
-def test_layer_at_y_finds_the_band_holding_the_pointer(js_page, y, expected):
-    # The empty band (rank 4) can never be hit; `order` maps stack slots to ranks.
-    got = js_page.evaluate(
-        "([stack, y, order]) => window.__scrobbleHeatmapTestHooks.layerAtY("
-        "stack, 0, y, order)",
-        [STACK_AT_WEEK, y, [4, 7]],
-    )
-    assert got == expected
+def test_layer_at_y_finds_the_band_holding_the_pointer(
+    js_page, stack, week, y, order, expected
+):
+    """Find the named artist at the pointer without hitting empty bands.
+
+    GIVEN: Artist-only stacks, optional rank order, boundaries and empty weeks.
+    WHEN: The pointer's height is resolved at the selected week.
+    THEN: It maps directly to the artist rank or slot, gives shared edges to
+    the band above, and returns no hit outside the stack or on empty bands.
+    """
+    assert _hook(js_page, "layerAtY", stack, week, y, order) == expected
 
 
 def _panel(js_page, week, hover, weeks=40):

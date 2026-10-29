@@ -236,7 +236,7 @@ def test_every_page_carries_the_shared_shell(app, template):
     # which control it drives.
     assert html.count("data-theme-toggle") == 1
     assert 'class="site-header__nav" aria-label="Pages"' in html
-    for label in ("Home", "Results", "Heatmap", "Unmatched"):
+    for label in ("Home", "Results", "Listening", "Unmatched"):
         assert f">{label}</a>" in html
     assert ">Index</a>" not in html
     assert ">Loading</a>" not in html

@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-10-28
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **3101 passing** across 104 tracked test modules |
+| Tests | **3113 passing** across 104 tracked test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -47,7 +47,7 @@ Last updated: 2026-10-28
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **3101 passed**.
+- Latest validated test count: **3113 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -97,7 +97,7 @@ scrobblescope/
     admission.py              # admit: expire, slot, create, start the thread with the job id only; Refused.CAPACITY / START_FAILED
 templates/                  # base, index, loading, results, unmatched, error, plus the empty states (heatmap_empty, results_empty, unmatched_empty)
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
-  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
+  partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _listening_example.html (decorative desktop preview), _heatmap_loading_details.html, _heatmap_result.html, _spotify_icon.html
 static/
   css/                      # index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
   js/                       # theme, page-motion, index, loading, loading-progress, results, results-release-checks, results-spotlight, unmatched, heatmap
@@ -303,7 +303,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (3101 tests)
+## 6. Test structure (3113 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

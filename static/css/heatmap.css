@@ -42,6 +42,20 @@
   .heatmap-stage {
     max-width: min(84vw, 120rem);
   }
+
+  /* The renderer fits this shared width against the actual page chrome.
+     Container units keep the summary proportional to the fitted charts. */
+  #heatmap-result {
+    container-type: inline-size;
+    max-width: min(84vw, 120rem, var(--heatmap-fit-width, 120rem));
+    padding-bottom: clamp(0.75rem, 2vh, 2rem);
+  }
+
+  body.heatmap-stage-active .page-footer-extras {
+    margin-top: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -301,13 +315,13 @@
 .heatmap-frame {
   --heatmap-surface: #f0ebe0;
   --heatmap-empty: #c8bfad;
-  --stream-other: #ddd5c5;
   --stream-line: #e5dfd1;
+  --stream-halo-fill: #ddd5c5;
+  --stream-halo-stroke: #c6bcaa;
   --stream-muted: #6c6676;
   --stream-accent: #6a4baf;
   --stream-panel-bg: #ffffff;
   --stream-panel-shadow: rgb(0 0 0 / 0.15);
-  --stream-swatch-other: #8a867e;
   width: 100%;
   box-sizing: border-box;
   padding: 1.25rem 1.75rem 1.5rem;
@@ -320,13 +334,13 @@
 [data-theme="dark"] .heatmap-frame {
   --heatmap-surface: #1f1b28;
   --heatmap-empty: #2e2939;
-  --stream-other: #3a3347;
   --stream-line: #352e43;
+  --stream-halo-fill: #3a3347;
+  --stream-halo-stroke: #685d72;
   --stream-muted: #908a9a;
   --stream-accent: #b39dde;
   --stream-panel-bg: #1f1b28;
   --stream-panel-shadow: rgb(0 0 0 / 0.4);
-  --stream-swatch-other: #8a867e;
 }
 
 .heatmap-frame-top {
@@ -335,6 +349,31 @@
   justify-content: space-between;
   gap: 1.5rem;
   margin-bottom: 1rem;
+}
+
+.heatmap-frame-top:has(.stream-context-toggle) {
+  flex-wrap: wrap;
+}
+
+.stream-context-toggle {
+  min-height: 2.75rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--stream-muted);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-base-content);
+  font-family: var(--font-mono);
+  font-size: var(--text-label-sm);
+  cursor: pointer;
+}
+
+.stream-context-toggle[aria-pressed="true"] {
+  background: var(--stream-halo-fill);
+}
+
+.stream-context-toggle:focus-visible {
+  outline: 2px solid var(--stream-accent);
+  outline-offset: 2px;
 }
 
 .heatmap-kpi-row {
@@ -377,6 +416,49 @@
   color: var(--ss-text-muted);
 }
 
+@media (min-width: 860px) {
+  .heatmap-headline {
+    font-size: clamp(1.625rem, 3cqw, 3rem);
+  }
+
+  .heatmap-frame {
+    padding: clamp(0.75rem, 1.2cqw, 1.5rem);
+  }
+
+  .heatmap-frame-top {
+    gap: clamp(0.5rem, 1cqw, 1rem);
+  }
+
+  .heatmap-frame-top .heatmap-legend {
+    margin-left: auto;
+  }
+
+  .heatmap-kpi-row {
+    gap: clamp(0.75rem, 1.4cqw, 1.5rem);
+  }
+
+  .heatmap-kpi-label,
+  .heatmap-kpi-sub {
+    font-size: clamp(0.6875rem, 0.85cqw, 0.875rem);
+  }
+
+  .heatmap-kpi-value {
+    font-size: clamp(1.5rem, 2.2cqw, 2.25rem);
+  }
+
+  .heatmap-frame-top .stream-context-toggle {
+    font-size: clamp(0.6875rem, 0.9cqw, 0.875rem);
+  }
+
+  .heatmap-frame-top .heatmap-legend__cap {
+    font-size: clamp(0.6875rem, 1cqw, 1rem);
+  }
+
+  .heatmap-frame-top .heatmap-legend-bar {
+    width: clamp(3rem, 5cqw, 5rem);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Grid                                                                */
 /* ------------------------------------------------------------------ */
@@ -417,6 +499,12 @@
     max-width: calc(100% + 16px);
     margin: -8px;
     padding: 8px;
+  }
+
+  /* Fit the complete tooltip without leaving a tall empty tail on narrow charts. */
+  #heatmap-grid:has(.stream-chart) {
+    min-height: 20rem;
+    overflow-y: hidden;
   }
 }
 
@@ -490,15 +578,24 @@
   opacity: 0.78;
 }
 
+.stream-panel-rule {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--stream-muted);
+}
+
 .stream-panel-row.is-hovered {
-  font-weight: 700;
   opacity: 1;
 }
 
+.stream-panel-row.is-hovered:not([data-rank="other"]) {
+  font-weight: 700;
+}
+
 .stream-panel-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
 /* A long artist name is cut with an ellipsis at the panel's width, so a row

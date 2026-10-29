@@ -1,5 +1,7 @@
 # Heatmap request and rendering sequence
 
+Last updated: 2026-10-28
+
 This diagram is the canonical owner of the heatmap pipeline sequence. Partial
 Last.fm data is a successful result with a warning, while terminal fetch
 failure produces an error.

@@ -631,7 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
    * margins cannot loop.
    */
   function positionForm() {
-    if (!matchMedia('(min-width: 860px)').matches) return;
+    if (!matchMedia('(min-width: 860px)').matches
+        || formComposition.querySelector('.is-mode-switching')) return;
     const height = formComposition.getBoundingClientRect().height;
     if (!height) return;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -700,7 +701,8 @@ document.addEventListener('DOMContentLoaded', () => {
       restoreFormMinHeight();
       positionForm();
       const delta = before - formComposition.getBoundingClientRect().top;
-      if (!delta || reducedMotion.matches) return;
+      if (!delta || reducedMotion.matches
+          || document.documentElement.dataset.motion === 'still') return;
       formComposition.animate(
         [{ transform: `translateY(${delta}px)` }, { transform: 'none' }],
         { duration: 220, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
@@ -708,12 +710,61 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // The mode switch and the thresholds summary change the layout after their
-  // click listeners (the mode handler lives in heatmap.js; the details element
-  // opens as the click's default action). A capture listener on the ancestor
-  // runs first, so it reads the old top.
+  let finishModeSwitch = null;
+  let modeSwitchRequest = 0;
+
+  /** Collapse the incoming Listening card from the outgoing album height.
+   * The mode owner changes visibility first. Measure the natural destination
+   * on the next frame, then let CSS resize only the card while the illustration
+   * fades at its final position. The desktop composition keeps its height floor.
+   * Finish or cancellation removes transient sizing; repeat switches cancel the
+   * previous effect, and CSS can cancel it when motion preferences change.
+   */
+  function collapseToListening(previousHeight, request) {
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('heatmap-form-section');
+      if (request !== modeSwitchRequest || panel.classList.contains('hidden')) return;
+      restoreFormMinHeight();
+      if (reducedMotion.matches || document.documentElement.dataset.motion === 'still') {
+        positionForm();
+        return;
+      }
+      const card = panel.querySelector('.ss-card');
+      panel.style.setProperty('--mode-from-height', `${previousHeight}px`);
+      panel.style.setProperty('--mode-to-height', `${card.getBoundingClientRect().height}px`);
+      panel.style.setProperty('--mode-panel-height', `${panel.getBoundingClientRect().height}px`);
+      const finish = (event) => {
+        if (event && event.target !== card) return;
+        card.removeEventListener('animationend', finish);
+        card.removeEventListener('animationcancel', finish);
+        panel.classList.remove('is-mode-switching');
+        ['--mode-from-height', '--mode-to-height', '--mode-panel-height']
+          .forEach((property) => panel.style.removeProperty(property));
+        finishModeSwitch = null;
+        playFlip(formTop());
+      };
+      finishModeSwitch = finish;
+      card.addEventListener('animationend', finish);
+      card.addEventListener('animationcancel', finish);
+      panel.classList.add('is-mode-switching');
+    });
+  }
+
+  // Capture the outgoing geometry before heatmap.js changes the active panel.
+  // Disclosure changes retain the existing position-only FLIP transition.
   formComposition.addEventListener('click', (event) => {
-    if (event.target.closest('.mode-pill, .disclosure__summary')) playFlip(formTop());
+    const pill = event.target.closest('.mode-pill');
+    if (pill) {
+      if (pill.getAttribute('aria-selected') === 'true') return;
+      const request = ++modeSwitchRequest;
+      const previousHeight = formComposition.querySelector('.mode-panel:not(.hidden) .ss-card')
+        .getBoundingClientRect().height;
+      if (finishModeSwitch) finishModeSwitch();
+      if (pill.dataset.mode === 'heatmap') collapseToListening(previousHeight, request);
+      else playFlip(formTop());
+    } else if (event.target.closest('.disclosure__summary')) {
+      playFlip(formTop());
+    }
   }, true);
 
   const placementObserver = new ResizeObserver(positionForm);

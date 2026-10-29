@@ -149,15 +149,20 @@
   const STREAM_PEAK    = 300 * STEP / 27;  // tallest week's total height
   const STREAM_BAND    = 380 * STEP / 27;  // plot height, centre line in the middle
   const STREAM_LABEL_H = 24 * STEP / 27;   // section-label strip above the plot
+  const STREAM_AXIS_H  = 32 * STEP / 27;   // month labels below the plot
+  const STREAM_HALO_FACTOR = 0.25;         // combined residual margin
   const STREAM_PANEL_RISE = 8 * STEP / 27; // the panel starts this far above the plot
   const STREAM_GUIDE_W = 1.5 * STEP / 27;  // guide stroke width
   const STREAM_RING_W  = 2 * STEP / 27;    // column marker stroke width
   const STREAM_RING_PAD = 4 * STEP / 27;   // marker offset and corner radius
 
-  // rocket_r stops by rank (0 = largest artist). The light theme scales the
-  // whole ramp so its top stop is 0.83, which keeps every rank distinct.
-  const STREAM_RAMP = [.95, .88, .81, .74, .67, .60, .53, .46, .39, .32];
-  const STREAM_LIGHT_SCALE = 0.83 / 0.95;
+  // Rank colours follow the heatmap from high-play orange to low-play purple.
+  const STREAM_PALETTE = {
+    light: ['#f1943e', '#e77a3c', '#dc613f', '#cf4b44', '#bf3e4e',
+      '#ae3257', '#9a2860', '#842066', '#6e196d', '#561464'],
+    dark: ['#f1943e', '#e77a3c', '#dc613f', '#d1524b', '#c44d5c',
+      '#b84b6b', '#aa4a79', '#9d4d85', '#915090', '#85568f'],
+  };
 
   /**
    * Layer order, bottom to top, as indices into volumes: the largest in the
@@ -217,23 +222,65 @@
     return max > 0 ? STREAM_PEAK / max : 0;
   }
 
+  /** Count-space outer bounds of the artist stack plus both halo margins. */
+  function streamEnvelope(layers, baseline, residual) {
+    return baseline.map(function (level, t) {
+      const total = layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
+      const margin = residual[t] * STREAM_HALO_FACTOR / 2;
+      return { lower: level - margin, upper: level + total + margin };
+    });
+  }
+
+  /** Find segments where ordinary Catmull-Rom controls would turn a band inside out. */
+  function streamSafeSegments(layers) {
+    const weeks = layers.length ? layers[0].length : 0;
+    return Array.from({ length: Math.max(0, weeks - 1) }, function (_, t) {
+      return layers.some(function (counts) {
+        const a = counts[Math.max(0, t - 1)], b = counts[t];
+        const c = counts[t + 1], d = counts[Math.min(weeks - 1, t + 2)];
+        return b + (c - a) / 6 < 0 || c - (d - b) / 6 < 0;
+      });
+    });
+  }
+
   /**
    * Scale and baseline that keep every layer inside the plot band. The scale
    * makes the tallest week STREAM_PEAK tall, or less when the wiggle swings
    * the stack's extent past STREAM_BAND; the baseline moves by the least
    * amount that brings the extent back inside (none for ordinary data).
    */
-  function streamFit(layers, baseline) {
+  function streamFit(layers, baseline, residual) {
     const weeks = baseline.length;
+    const other = residual || baseline.map(function () { return 0; });
+    const envelope = streamEnvelope(layers, baseline, other);
     const totals = [];
     for (let t = 0; t < weeks; t++) {
-      totals.push(layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0));
+      totals.push(envelope[t].upper - envelope[t].lower);
     }
     let low = Infinity;
     let high = -Infinity;
     for (let t = 0; t < weeks; t++) {
-      low = Math.min(low, baseline[t]);
-      high = Math.max(high, baseline[t] + totals[t]);
+      low = Math.min(low, envelope[t].lower);
+      high = Math.max(high, envelope[t].upper);
+    }
+    if (residual && weeks > 1) {
+      // Bounding the Bezier controls also contains the smoothed curves between
+      // sampled weeks, including a steep spike beside a zero-height week.
+      const upper = baseline.map(function (level, t) {
+        return level + layers.reduce(function (sum, layer) { return sum + layer[t]; }, 0);
+      });
+      const safe = streamSafeSegments(layers);
+      for (let t = 0; t < weeks - 1; t++) {
+        const before = Math.max(0, t - 1), after = Math.min(weeks - 1, t + 2);
+        const lowerA = safe[t] ? baseline[t] : baseline[t] + (baseline[t + 1] - baseline[before]) / 6;
+        const lowerB = safe[t] ? baseline[t + 1] : baseline[t + 1] - (baseline[after] - baseline[t]) / 6;
+        const upperA = safe[t] ? upper[t] : upper[t] + (upper[t + 1] - upper[before]) / 6;
+        const upperB = safe[t] ? upper[t + 1] : upper[t + 1] - (upper[after] - upper[t]) / 6;
+        const marginA = (2 * other[t] + other[t + 1]) * STREAM_HALO_FACTOR / 6;
+        const marginB = (other[t] + 2 * other[t + 1]) * STREAM_HALO_FACTOR / 6;
+        low = Math.min(low, lowerA - marginA, lowerB - marginB);
+        high = Math.max(high, upperA + marginA, upperB + marginB);
+      }
     }
     let scale = streamScale(totals);
     if (scale <= 0) return { scale: 0, baseline: baseline };
@@ -252,32 +299,56 @@
 
   // Catmull-Rom segments through pts as cubic Beziers (divisor 6), the first
   // and last point doubled so the ends are clamped. Excludes the start point.
-  function smoothSegments(pts) {
+  function smoothSegments(pts, offsets, safeSegments) {
     let d = '';
     for (let i = 0; i < pts.length - 1; i++) {
       const p0 = pts[Math.max(i - 1, 0)];
       const p1 = pts[i];
       const p2 = pts[i + 1];
       const p3 = pts[Math.min(i + 2, pts.length - 1)];
-      d += 'C' + pathNum(p1.x + (p2.x - p0.x) / 6) + ' ' + pathNum(p1.y + (p2.y - p0.y) / 6) +
-        ' ' + pathNum(p2.x - (p3.x - p1.x) / 6) + ' ' + pathNum(p2.y - (p3.y - p1.y) / 6) +
-        ' ' + pathNum(p2.x) + ' ' + pathNum(p2.y);
+      // Interpolate halo margins linearly in the Bezier controls, so a
+      // nonnegative margin cannot overshoot across the artist boundary.
+      const a = offsets ? offsets[i] : 0;
+      const b = offsets ? offsets[i + 1] : 0;
+      const firstY = safeSegments && safeSegments[i] ? p1.y : p1.y + (p2.y - p0.y) / 6;
+      const secondY = safeSegments && safeSegments[i] ? p2.y : p2.y - (p3.y - p1.y) / 6;
+      d += 'C' + pathNum(p1.x + (p2.x - p0.x) / 6) + ' ' + pathNum(firstY + (2 * a + b) / 3) +
+        ' ' + pathNum(p2.x - (p3.x - p1.x) / 6) + ' ' + pathNum(secondY + (a + 2 * b) / 3) +
+        ' ' + pathNum(p2.x) + ' ' + pathNum(p2.y + b);
     }
     return d;
   }
 
-  /** Closed band path: top left to right, then bottom right to left. */
-  function smoothPath(top, bottom) {
+  /** Close a smooth band, optionally extending its end values to column edges. */
+  function smoothPath(top, bottom, topOffsets, bottomOffsets, safeSegments, edgePad) {
     if (!top.length || !bottom.length) return '';
     const back = bottom.slice().reverse();
-    return 'M' + pathNum(top[0].x) + ' ' + pathNum(top[0].y) + smoothSegments(top) +
-      'L' + pathNum(back[0].x) + ' ' + pathNum(back[0].y) + smoothSegments(back) + 'Z';
+    const backOffsets = bottomOffsets ? bottomOffsets.slice().reverse() : null;
+    const backSafe = safeSegments ? safeSegments.slice().reverse() : null;
+    const startY = top[0].y + (topOffsets ? topOffsets[0] : 0);
+    const endY = back[0].y + (backOffsets ? backOffsets[0] : 0);
+    let path = 'M' + pathNum(top[0].x - (edgePad || 0)) + ' ' + pathNum(startY);
+    if (edgePad) path += 'L' + pathNum(top[0].x) + ' ' + pathNum(startY);
+    path += smoothSegments(top, topOffsets, safeSegments);
+    if (edgePad) {
+      const last = top.length - 1;
+      const topY = top[last].y + (topOffsets ? topOffsets[last] : 0);
+      path += 'L' + pathNum(top[last].x + edgePad) + ' ' + pathNum(topY);
+      path += 'L' + pathNum(back[0].x + edgePad) + ' ' + pathNum(endY);
+    }
+    path += 'L' + pathNum(back[0].x) + ' ' + pathNum(endY);
+    path += smoothSegments(back, backOffsets, backSafe);
+    if (edgePad) {
+      const last = back.length - 1;
+      const bottomY = back[last].y + (backOffsets ? backOffsets[last] : 0);
+      path += 'L' + pathNum(back[last].x - edgePad) + ' ' + pathNum(bottomY);
+    }
+    return path + 'Z';
   }
 
-  /** Fill for the artist of the given rank (rocket_r, theme-scaled). */
+  /** Fill for the artist rank from the theme palette in a fixed order. */
   function layerColour(rank, theme) {
-    const t = STREAM_RAMP[rank];
-    return rocketColor(theme === 'light' ? t * STREAM_LIGHT_SCALE : t);
+    return STREAM_PALETTE[theme][rank];
   }
 
   function isCountList(list, n) {
@@ -295,7 +366,8 @@
     if (!payload || typeof payload !== 'object') return false;
     if (!Array.isArray(payload.weeks) || payload.weeks.length !== numCols) return false;
     if (!payload.weeks.every(function (w) { return typeof w === 'string'; })) return false;
-    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_RAMP.length) {
+    // The server publishes at most ten featured artists.
+    if (!Array.isArray(payload.artists) || payload.artists.length > STREAM_PALETTE.light.length) {
       return false;
     }
     var artistsOk = payload.artists.every(function (a) {
@@ -319,16 +391,15 @@
 
   /**
    * The layer whose band holds y (signed, up positive) at the given week.
-   * stack runs bottom to top with "Everything else" first; order, when
-   * given, maps the artist slots to ranks. A boundary belongs to the layer
+   * stack runs bottom to top with named artists only; order, when given,
+   * maps stack slots to artist ranks. A boundary belongs to the layer
    * above, an empty band is never hit, and null means no band holds y.
    */
   function layerAtY(stack, week, y, order) {
     for (let k = stack.length - 1; k >= 0; k--) {
       const band = stack[k][week];
       if (band.y1 > band.y0 && y >= band.y0 && y <= band.y1) {
-        if (k === 0) return 'other';
-        return order ? order[k - 1] : k - 1;
+        return order ? order[k] : k;
       }
     }
     return null;
@@ -469,6 +540,7 @@
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       heatmapResult.classList.remove('heatmap-fade', 'fading-out', 'is-handing-off');
       hideElement(heatmapLoading);
+      fitHeatmapResult();
       return;
     }
 
@@ -476,6 +548,7 @@
     // crossfades from its painted loader; a cached job fades the result in
     // directly because restoration deliberately kept that loader hidden.
     heatmapResult.classList.add('heatmap-fade', 'fading-out', 'is-handing-off');
+    if (!loadingIsVisible) fitHeatmapResult();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         heatmapResult.classList.remove('fading-out');
@@ -486,6 +559,7 @@
           hideElement(heatmapLoading);
           heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
           heatmapResult.classList.remove('is-handing-off');
+          fitHeatmapResult();
         }, HEATMAP_HANDOFF_MS);
       });
     });
@@ -642,7 +716,7 @@
       node.removeAttribute('style');
       node.setAttribute('opacity', '1');
     });
-    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label'), function (node) {
+    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label, .stream-month-label'), function (node) {
       node.setAttribute('font-family', 'monospace');
     });
     return svgCloneAsImage(clone, width, height);
@@ -1008,10 +1082,12 @@
   var restoringSavedHeatmap = false;
   var lastRenderMobile = null;
   var resizeTimer = null;
+  var resultFitFrame = null;
   // What drawStream laid out for the grid on screen: the validated payload,
   // the layer order, the stacked bands and each week's plotted x. Reset on
   // every render, so nothing outlives the SVG it describes.
   var streamState = null;
+  var streamContextVisible = true;
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -1162,7 +1238,7 @@
     hideElement(errorContainer);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) hideElement(progressTrack);
-    progressText.textContent = 'Restoring your latest heatmap';
+    progressText.textContent = 'Restoring your listening history';
     resetLoadingDetails(lastUsername);
     restoringSavedHeatmap = true;
     hideElement(heatmapLoading);
@@ -1425,7 +1501,7 @@
         replaceCanonicalPath('/heatmap', '/heatmap');
         startPolling();
       } else {
-        showError(result.data.message || 'Failed to start heatmap.', result.data.retryable);
+        showError(result.data.message || 'Failed to load listening history.', result.data.retryable);
       }
     })
     .catch(function () {
@@ -1553,6 +1629,8 @@
     lastHeatmapData = data;
     lastRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
     clearWeek();
+    var oldToggle = document.getElementById('stream-context-toggle');
+    if (oldToggle) oldToggle.remove();
     streamState = null;
     if (lastRenderMobile) {
       renderHeatmapMobile(data);
@@ -1721,21 +1799,19 @@
     if (!svg) return;
     var theme = currentStreamTheme();
     svg.querySelectorAll('.stream-layer').forEach(function (layer) {
-      layer.setAttribute('fill', layer.classList.contains('stream-layer-other')
-        ? frameColour('--stream-other')
-        : layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
+      layer.setAttribute('fill', layerColour(parseInt(layer.getAttribute('data-rank'), 10), theme));
     });
+    var halo = svg.querySelector('.stream-halo');
+    if (halo) {
+      halo.setAttribute('fill', frameColour('--stream-halo-fill'));
+      halo.setAttribute('stroke', frameColour('--stream-halo-stroke'));
+    }
     var lineColour = frameColour('--stream-line');
     svg.querySelectorAll('.stream-gridline').forEach(function (line) {
       line.setAttribute('stroke', lineColour);
     });
-    var label = svg.querySelector('.stream-section-label');
-    if (label) label.setAttribute('fill', frameColour('--stream-muted'));
-  }
-
-  // True when the 1st of a month falls in the week that starts on `monday`.
-  function weekHoldsMonthStart(monday) {
-    return monday.getDate() === 1 || addDays(monday, 6).getMonth() !== monday.getMonth();
+    svg.querySelectorAll('.stream-section-label, .stream-month-label')
+      .forEach(function (label) { label.setAttribute('fill', frameColour('--stream-muted')); });
   }
 
   /**
@@ -1748,11 +1824,13 @@
     var order = streamOrder(artists.map(function (a) {
       return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
     }));
-    var layers = [payload.other].concat(order.map(function (i) { return artists[i].counts; }));
-    var fit = streamFit(layers, streamBaseline(layers));
+    var layers = order.map(function (i) { return artists[i].counts; });
+    var baseline = layers.length ? streamBaseline(layers) : payload.other.map(function () { return 0; });
+    var fit = streamFit(layers, baseline, payload.other);
     if (fit.scale <= 0) return;
 
     var stack = stackLayers(layers, fit.baseline, fit.scale);
+    var safeSegments = streamSafeSegments(layers);
     var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
     var centre = STREAM_LABEL_H + STREAM_BAND / 2;
     var theme = currentStreamTheme();
@@ -1761,7 +1839,7 @@
       id: 'stream-chart',
       'class': 'stream-chart',
       'data-layout': 'stream',
-      viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND),
+      viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H),
       width: '100%',
       'data-columns': xs.map(pathNum).join(' '),
       tabindex: '0',
@@ -1771,29 +1849,51 @@
     });
 
     var lineColour = frameColour('--stream-line');
-    payload.weeks.forEach(function (week, t) {
-      if (!weekHoldsMonthStart(parseLocalDate(week))) return;
+    // Reuse the heatmap's calendar positions, including partial first weeks.
+    gridContainer.querySelectorAll('.heatmap-month-label').forEach(function (heatmapLabel) {
+      var x = heatmapLabel.getAttribute('x');
       svg.appendChild(streamNode('line', {
-        'class': 'stream-gridline',
-        x1: xs[t], x2: xs[t],
+        'class': 'stream-gridline', x1: x, x2: x,
         y1: STREAM_LABEL_H, y2: STREAM_LABEL_H + STREAM_BAND,
-        stroke: lineColour,
-        'stroke-width': 1,
-        'aria-hidden': 'true',
+        stroke: lineColour, 'stroke-width': 1, 'aria-hidden': 'true',
       }));
+      // Keep a last-column label inside the SVG while its gridline stays aligned.
+      var monthLabel = streamNode('text', {
+        'class': 'stream-month-label', x: x,
+        y: STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H - 6,
+        'font-size': '9.5', 'font-family': LABEL_FONT_STACK,
+        'text-anchor': Number(x) > svgWidth - 24 ? 'end' : 'start',
+        fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
+      });
+      monthLabel.textContent = heatmapLabel.textContent;
+      svg.appendChild(monthLabel);
     });
 
-    // Bottom to top: "Everything else", then the artists in stack order.
+    var lower = fit.baseline.map(function (level) { return level * fit.scale; });
+    var upper = stack.length ? stack[stack.length - 1].map(function (band) { return band.y1; }) : lower;
+    var haloTop = upper.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var haloBottom = lower.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var margin = payload.other.map(function (count) { return count * STREAM_HALO_FACTOR / 2 * fit.scale; });
+    var halo = streamNode('path', {
+      'class': 'stream-halo stream-layer-other',
+      d: smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments, CELL_SIZE / 2),
+      fill: frameColour('--stream-halo-fill'), stroke: frameColour('--stream-halo-stroke'),
+      'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
+      'pointer-events': 'none', 'aria-hidden': 'true',
+      visibility: streamContextVisible ? 'visible' : 'hidden',
+    });
+    svg.appendChild(halo);
+
+    // Only named artists contribute to the foreground silhouette.
     stack.forEach(function (band, k) {
-      var isOther = k === 0;
-      var rank = isOther ? 'other' : order[k - 1];
+      var rank = order[k];
       var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
       var bottom = band.map(function (b, t) { return { x: xs[t], y: centre - b.y0 }; });
       svg.appendChild(streamNode('path', {
-        'class': isOther ? 'stream-layer stream-layer-other' : 'stream-layer',
+        'class': 'stream-layer',
         'data-rank': rank,
-        d: smoothPath(top, bottom),
-        fill: isOther ? frameColour('--stream-other') : layerColour(rank, theme),
+        d: smoothPath(top, bottom, null, null, safeSegments, CELL_SIZE / 2),
+        fill: layerColour(rank, theme),
       }));
     });
 
@@ -1811,6 +1911,20 @@
     svg.appendChild(label);
 
     gridContainer.appendChild(svg);
+
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'stream-context-toggle';
+    toggle.className = 'stream-context-toggle';
+    toggle.textContent = 'Other listening';
+    toggle.setAttribute('aria-pressed', streamContextVisible ? 'true' : 'false');
+    toggle.addEventListener('click', function () {
+      streamContextVisible = !streamContextVisible;
+      toggle.setAttribute('aria-pressed', streamContextVisible ? 'true' : 'false');
+      halo.setAttribute('visibility', streamContextVisible ? 'visible' : 'hidden');
+    });
+    var frameTop = document.querySelector('#heatmap-result-frame .heatmap-frame-top');
+    if (frameTop) frameTop.appendChild(toggle);
 
     var panel = document.createElement('div');
     panel.id = 'stream-panel';
@@ -1848,11 +1962,17 @@
   }
 
   function streamDims(state) {
-    return { weeks: state.xs.length, layers: state.positions.length };
+    var week = state.shown ? state.shown.week : state.cursor ? state.cursor.week
+      : Math.min(STREAM_START_WEEK, state.xs.length - 1);
+    return { weeks: state.xs.length, layers: panelModel(state.payload, week, null).rows.length };
   }
 
-  // Show the keyboard's week on the layer at its stack position.
+  // Silent artists have no panel row, so keys follow this week's rows.
   function showStreamCursor(state, cursor) {
+    state.positions = panelModel(state.payload, cursor.week, null).rows.map(function (row) {
+      return row.id;
+    });
+    cursor = { week: cursor.week, position: Math.min(cursor.position, state.positions.length - 1) };
     state.cursor = cursor;
     showWeek(cursor.week, state.positions[cursor.position]);
   }
@@ -1909,14 +2029,18 @@
     header.textContent = model.header;
     panel.appendChild(header);
     model.rows.forEach(function (row) {
+      if (row.id === 'other' && panel.querySelector('.stream-panel-row')) {
+        var rule = document.createElement('hr');
+        rule.className = 'stream-panel-rule';
+        panel.appendChild(rule);
+      }
       var line = document.createElement('div');
       line.className = row.hovered ? 'stream-panel-row is-hovered' : 'stream-panel-row';
       line.setAttribute('data-rank', row.id);
       var swatch = document.createElement('span');
       swatch.className = 'stream-panel-swatch';
       swatch.style.background = row.id === 'other'
-        ? frameColour('--stream-swatch-other')
-        : layerColour(row.id, theme);
+        ? frameColour('--stream-muted') : layerColour(row.id, theme);
       var name = document.createElement('span');
       name.className = 'stream-panel-name';
       name.textContent = row.name;
@@ -1931,7 +2055,7 @@
   }
 
   /**
-   * Show one week: dim the layers other than hoverId (none when it is null),
+   * Show one week: dim other layers only when a named artist is selected,
    * mark the column with a guide and a marker on the grid, and fill the panel
    * beside the column. The same call serves the pointer and the keys.
    */
@@ -1942,9 +2066,10 @@
     removeStreamMarks();
     state.shown = { week: week, hoverId: hoverId };
 
+    var artistSelected = typeof hoverId === 'number';
     state.svg.querySelectorAll('.stream-layer').forEach(function (layer) {
-      var dim = hoverId !== null && layer.getAttribute('data-rank') !== String(hoverId);
-      layer.style.opacity = hoverId === null ? '' : (dim ? '0.25' : '1');
+      var dim = artistSelected && layer.getAttribute('data-rank') !== String(hoverId);
+      layer.style.opacity = artistSelected ? (dim ? '0.25' : '1') : '';
     });
 
     var ink = frameColour('--color-base-content');
@@ -1977,6 +2102,7 @@
     }
 
     var model = panelModel(state.payload, week, hoverId);
+    state.positions = model.rows.map(function (row) { return row.id; });
     var panel = state.panel;
     fillStreamPanel(panel, model, currentStreamTheme());
     var box = state.svg.getBoundingClientRect();
@@ -2471,6 +2597,7 @@
         if (m.attributeName === 'data-theme') {
           updateZeroFills();
           recolourStream();
+          initPreviewRamp();
         }
       });
     });
@@ -2494,6 +2621,70 @@
     });
   }
 
+  /**
+   * Fit both SVGs as one composition within the current browser viewport.
+   *
+   * Measure the actual footer after headline and toolbar wrapping. A bounded
+   * width search avoids assuming fixed chrome heights or a physical screen
+   * resolution. The readable width floor yields to natural page scrolling
+   * when a very short window or large text cannot fit the full composition.
+   * No chart geometry, counts, focus targets or export attributes change.
+   */
+  function fitHeatmapResult() {
+    if (!heatmapResult || heatmapResult.classList.contains('hidden')) return;
+    if (heatmapResult.classList.contains('is-handing-off') &&
+        !heatmapLoading.classList.contains('hidden')) return;
+    var previousWidth = heatmapResult.getBoundingClientRect().width;
+    heatmapResult.style.removeProperty('--heatmap-fit-width');
+    if (window.innerWidth < MOBILE_MAX_WIDTH) return;
+    var footer = document.querySelector('.page-footer-extras');
+    if (!footer) return;
+    var naturalWidth = heatmapResult.getBoundingClientRect().width;
+    var minimum = Math.min(naturalWidth,
+      52 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    var low = minimum;
+    var high = naturalWidth;
+    var best = minimum;
+    // Account for scrolling while resizing: the budget is in document coordinates.
+    var fits = function () {
+      return footer.getBoundingClientRect().bottom + window.scrollY <= window.innerHeight;
+    };
+    if (!fits()) {
+      for (var i = 0; i < 10; i++) {
+        var width = (low + high) / 2;
+        heatmapResult.style.setProperty('--heatmap-fit-width', width + 'px');
+        if (fits()) {
+          best = width;
+          low = width;
+        } else {
+          high = width;
+        }
+      }
+      heatmapResult.style.setProperty('--heatmap-fit-width', best + 'px');
+    }
+    if (Math.abs(previousWidth - heatmapResult.getBoundingClientRect().width) > 0.5) {
+      clearWeek();
+      repositionTooltipOwner();
+    }
+  }
+
+  /** Coalesce font and chrome size changes into one fit per animation frame. */
+  function scheduleResultFit() {
+    if (resultFitFrame !== null) return;
+    resultFitFrame = requestAnimationFrame(function () {
+      resultFitFrame = null;
+      fitHeatmapResult();
+    });
+  }
+
+  /** Observe the text-bearing chrome so late fonts and wrapping refit the view. */
+  function initResultSizing() {
+    var observer = new ResizeObserver(scheduleResultFit);
+    document.querySelectorAll('.site-header, .heatmap-head, .heatmap-frame-top, .page-footer-extras')
+      .forEach(function (node) { observer.observe(node, { box: 'border-box' }); });
+    document.fonts.ready.then(scheduleResultFit);
+  }
+
   function handleResize() {
     if (resizeTimer) {
       window.clearTimeout(resizeTimer);
@@ -2509,6 +2700,7 @@
       if (shouldRenderMobile !== lastRenderMobile) {
         rerenderKeepingFocus();
       } else {
+        fitHeatmapResult();
         // Same layout, new width: the cells moved, and the tooltip follows
         // its owner or goes.
         repositionTooltipOwner();
@@ -2543,16 +2735,26 @@
   // Init on DOMContentLoaded
   // ----------------------------------------------------------------
   /**
-   * Paint the heatmap-mode preview ramp.
+   * Paint the home ramp and schematic from the live chart palettes.
    *
    * The ramp shows the reader the colour scale before there is any data. It
    * reads ROCKET_STOPS through the same helper the legend uses, so the two
    * cannot drift. The CSS deliberately does not carry the seven stops: one
-   * copy of the ramp, and this file owns it.
+   * copy of the ramp, and this file owns it. The decorative schematic uses the
+   * same daily colours and rank colours, including a repaint on theme changes.
+   * Zero-level cells inherit the theme token directly from CSS.
    */
   function initPreviewRamp() {
     var ramp = document.querySelector('.hm-preview__ramp');
     if (ramp) ramp.style.backgroundImage = legendGradient();
+    // Reuse the live palettes so the schematic cannot drift from the result.
+    document.querySelectorAll('[data-example-level]').forEach(function (cell) {
+      const level = Number(cell.dataset.exampleLevel);
+      if (level > 0) cell.setAttribute('fill', rocketColor(level / 6));
+    });
+    document.querySelectorAll('[data-example-rank]').forEach(function (band) {
+      band.setAttribute('fill', layerColour(Number(band.dataset.exampleRank), currentStreamTheme()));
+    });
   }
 
   // Module top level, not inside DOMContentLoaded: a harness that loads this
@@ -2575,8 +2777,11 @@
       stackLayers: stackLayers,
       streamScale: streamScale,
       streamFit: streamFit,
+      streamEnvelope: streamEnvelope,
+      streamSafeSegments: streamSafeSegments,
       smoothPath: smoothPath,
       layerColour: layerColour,
+      streamPalette: STREAM_PALETTE,
       streamPayloadValid: streamPayloadValid,
       weekFromX: weekFromX,
       layerAtY: layerAtY,
@@ -2598,6 +2803,7 @@
     initForm();
     initPills();
     initThemeObserver();
+    initResultSizing();
     // Read by the frontend gate, which saves an image and then compares what
     // the canvas drew with what the page shows.
     window.__scrobbleHeatmapDrawnHeader = function () { return drawnHeader; };

@@ -174,6 +174,7 @@ from scripts.dev._frontend_gate_stream import (  # noqa: E402, F401
     check_stream_absent_without_payload_or_on_mobile,
     check_stream_aligns_with_grid_columns,
     check_stream_colours_follow_theme_and_meet_contrast,
+    check_stream_context_toggle_preserves_artists,
     check_stream_hover_shows_panel_and_ring,
     check_stream_is_in_saved_image,
     check_stream_is_one_keyboard_tab_stop,
@@ -321,6 +322,12 @@ CHECKS = (
     (
         "stream hover shows panel and ring",
         check_stream_hover_shows_panel_and_ring,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "stream context toggle preserves artists",
+        check_stream_context_toggle_preserves_artists,
         (DESKTOP,),
         THEME_MOTION,
     ),

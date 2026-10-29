@@ -779,7 +779,7 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         )
     if handoff_state != {"root": True, "headline": False, "frame": False}:
         failures.append("cached heatmap result does not use one root handoff")
-    if result_scale["frameRatio"] < 0.70 or result_scale["cellWidth"] < 22:
+    if result_scale["cellWidth"] < 14:
         failures.append(
             "desktop heatmap result is too small for its available viewport: "
             f"{result_scale['frameRatio']:.3f} wide with "

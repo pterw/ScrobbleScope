@@ -41,7 +41,7 @@ _GRID_MOBILE = '#heatmap-result-frame svg[data-layout="mobile"]'
 
 
 def _weekly_artists(weeks: int, long_name: bool = False) -> dict:
-    """A valid weekly_artists payload: ten artists, largest total first.
+    """Ten featured artists and a residual-only third week.
 
     `long_name` gives the first artist a 60-character name."""
     artists = [
@@ -51,16 +51,20 @@ def _weekly_artists(weeks: int, long_name: bool = False) -> dict:
                 (10 - k) * (1 + (t * (k + 2) + k * 5) % 6) for t in range(weeks)
             ],
         }
-        for k in range(_ARTIST_COUNT)
+        for k in range(10)
     ]
     artists.sort(key=lambda a: -sum(a["counts"]))
+    if weeks > 2:
+        for artist in artists:
+            artist["counts"][2] = 0
     return {
         "weeks": [
             (_FIRST_MONDAY + datetime.timedelta(days=7 * t)).isoformat()
             for t in range(weeks)
         ],
         "artists": artists,
-        "other": [3 + t % 5 for t in range(weeks)],
+        # Enough exposed margin to verify halo pixels without sampling its contour.
+        "other": [80 + t % 5 + (160 if t % 3 == 0 else 0) for t in range(weeks)],
     }
 
 
@@ -75,20 +79,29 @@ def seed_stream_job(weeks: int = 53, payload: bool = True) -> tuple[str, str]:
 
 
 def _seed_job(
-    weeks: int, payload: bool, skip_days: int, long_name: bool = False
+    weeks: int,
+    payload: bool,
+    skip_days: int,
+    long_name: bool = False,
+    stream: dict | None = None,
+    end_early: int = 0,
 ) -> tuple[str, str]:
     """`seed_stream_job`, with the window starting `skip_days` after the first
     Monday so the first column is partial. Each week's plays then sit on the
-    window's first weekday, which every week has inside the window."""
+    window's first weekday, which every week has inside the window. An explicit
+    `stream` supplies degenerate payloads for the same real job lifecycle.
+    `end_early` excludes days at the end to exercise a partial last week."""
     job_id = jobs.create({"username": "frontend-gate", "mode": "heatmap"})
-    stream = _weekly_artists(weeks, long_name)
+    stream = _weekly_artists(weeks, long_name) if stream is None else stream
     counts = {}
     for t, monday in enumerate(stream["weeks"]):
         total = stream["other"][t] + sum(a["counts"][t] for a in stream["artists"])
         day = datetime.date.fromisoformat(monday) + datetime.timedelta(days=skip_days)
         counts[day.isoformat()] = total
-    last_day = (_FIRST_MONDAY + datetime.timedelta(days=7 * weeks - 1)).isoformat()
-    for day in range(skip_days, 7 * weeks):
+    last_day = (
+        _FIRST_MONDAY + datetime.timedelta(days=7 * weeks - end_early - 1)
+    ).isoformat()
+    for day in range(skip_days, 7 * weeks - end_early):
         counts.setdefault((_FIRST_MONDAY + datetime.timedelta(days=day)).isoformat(), 0)
     results = {
         "username": "frontend-gate",
@@ -120,16 +133,35 @@ _READ_ALIGNMENT_JS = """() => {
         const box = cell.getBoundingClientRect();
         const x = Math.round(box.left * 100) / 100;
         if (!centres.some((c) => c.left === x)) {
-            centres.push({ left: x, centre: box.left + box.width / 2 });
+            centres.push({ left: x, right: box.right, centre: box.left + box.width / 2 });
         }
     }
     centres.sort((a, b) => a.left - b.left);
+    const box = stream.getBoundingClientRect();
+    const lines = Array.from(stream.querySelectorAll('.stream-gridline'));
     return {
         layers: stream.querySelectorAll('path.stream-layer').length,
+        ranks: Array.from(stream.querySelectorAll('path.stream-layer'))
+            .map((path) => path.dataset.rank),
         streamWidth: stream.viewBox.baseVal.width,
         gridWidth: grid.viewBox.baseVal.width,
         streamX: columns.map((x) => s.left + x * s.scale),
         cellX: centres.map((c) => c.centre),
+        cellEdges: [centres[0].left, centres.at(-1).right],
+        pathEdges: Array.from(stream.querySelectorAll('.stream-halo, path.stream-layer')).map(path => {
+            const bounds = path.getBBox();
+            return [s.left + bounds.x * s.scale, s.left + (bounds.x + bounds.width) * s.scale];
+        }),
+        months: Array.from(stream.querySelectorAll('.stream-month-label')).map(label => {
+            const bounds = label.getBoundingClientRect();
+            return { text: label.textContent, x: Number(label.getAttribute('x')),
+                below: Number(label.getAttribute('y')) > Number(lines[0].getAttribute('y2')),
+                inside: bounds.left >= box.left - 0.5 && bounds.right <= box.right + 0.5
+                    && bounds.bottom <= box.bottom + 0.5 };
+        }),
+        lineX: lines.map(line => Number(line.getAttribute('x1'))),
+        gridMonths: Array.from(grid.querySelectorAll('.heatmap-month-label')).map(label =>
+            ({ text: label.textContent, x: Number(label.getAttribute('x')) })),
     };
 }"""
 
@@ -138,9 +170,14 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
     if reading is None:
         return [f"/heatmap draws no stream chart at {width}px"]
     failures = []
-    if reading["layers"] != _ARTIST_COUNT + 1:
+    if reading["layers"] != _ARTIST_COUNT:
         failures.append(
-            f"the stream has {reading['layers']} layers at {width}px, expected 11"
+            f"the stream has {reading['layers']} layers at {width}px, "
+            f"expected {_ARTIST_COUNT} named artist layers"
+        )
+    if set(reading["ranks"]) != {str(rank) for rank in range(_ARTIST_COUNT)}:
+        failures.append(
+            f"the stream's named artist ranks differ at {width}px: {reading['ranks']}"
         )
     if reading["streamWidth"] != reading["gridWidth"]:
         failures.append(
@@ -164,6 +201,35 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
             f"stream weeks sit off their grid column centres at {width}px "
             f"(week, px off): {off[:3]}"
         )
+    if any(
+        abs(actual - expected) > 1
+        for edges in reading["pathEdges"]
+        for actual, expected in zip(edges, reading["cellEdges"], strict=True)
+    ):
+        failures.append(
+            f"stream ribbons do not reach the outer heatmap edges at {width}px"
+        )
+    months = reading["months"]
+    if len(months) != len(reading["gridMonths"]) or len(reading["lineX"]) != len(
+        months
+    ):
+        failures.append(
+            f"bottom month labels or calendar gridlines differ at {width}px"
+        )
+    else:
+        for label, line_x, grid_month in zip(
+            months, reading["lineX"], reading["gridMonths"], strict=True
+        ):
+            if (
+                label["text"] != grid_month["text"]
+                or label["x"] != grid_month["x"]
+                or label["x"] != line_x
+                or not label["below"]
+                or not label["inside"]
+            ):
+                failures.append(
+                    f"bottom month is misplaced at {width}px: {label}, {grid_month}"
+                )
     return failures
 
 
@@ -174,21 +240,97 @@ def _open_heatmap(page, base_url: str, job_id: str, layout_selector: str) -> Non
 
 
 def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
-    """Every stream week sits under its heatmap column, at two widths."""
+    """Given weekly results, keep alignment and controls visible as layout changes.
+
+    When the viewport shrinks, grows, or the rendered header gains height,
+    then refit the shared charts without a scroll requirement or empty tail.
+    """
     failures = []
-    job_id, _last_day = seed_stream_job()
+    jobs_to_check = [_seed_job(53, True, 2), _seed_job(52, True, 2, end_early=3)]
     original = page.viewport_size
     try:
-        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
-        for width in (original["width"], _SECOND_WIDTH):
-            page.set_viewport_size({"width": width, "height": original["height"]})
+        for job_id, _last_day in jobs_to_check:
+            _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
+            sizes = [
+                (original["width"], original["height"]),
+                (_SECOND_WIDTH, original["height"]),
+                (1920, 1080),
+                (2560, 1300),
+                (1536, 780),
+                (1280, 720),
+                (1920, 900),
+                (2560, 1440),
+            ]
+            control_sizes = {}
+            for width, height in sizes:
+                page.set_viewport_size({"width": width, "height": height})
+                wait_for_settled(page)
+                reading = page.evaluate(_READ_ALIGNMENT_JS)
+                failures.extend(_alignment_failures(reading, width))
+                layout = page.evaluate("""() => {
+                    const pause = document.querySelector('.page-footer-extras .motion-toggle');
+                    const host = document.querySelector('#heatmap-grid');
+                    const chart = document.querySelector('#stream-chart');
+                    const legend = document.querySelector('.heatmap-legend__cap');
+                    const toggle = document.querySelector('#stream-context-toggle');
+                    return {
+                        pauseVisible: pause && pause.getBoundingClientRect().bottom <= innerHeight
+                            && document.documentElement.scrollHeight <= innerHeight,
+                        overhang: host.getBoundingClientRect().bottom
+                            - chart.getBoundingClientRect().bottom
+                            - parseFloat(getComputedStyle(host).paddingBottom),
+                        controls: [legend, toggle].map(node => parseFloat(getComputedStyle(node).fontSize)),
+                    };
+                }""")
+                if not layout["pauseVisible"]:
+                    failures.append(
+                        f"pause control is below the {width}x{height} viewport"
+                    )
+                if layout["overhang"] > 1:
+                    failures.append(
+                        f"chart leaves {layout['overhang']:.1f}px unused at {width}x{height}"
+                    )
+                control_sizes[(width, height)] = layout["controls"]
+                if _last_day == "2026-01-01" and (
+                    not reading["gridMonths"]
+                    or reading["gridMonths"][-1]["text"] != "Jan"
+                    or reading["gridWidth"] - reading["gridMonths"][-1]["x"] > 20
+                ):
+                    failures.append(
+                        "the partial end-week fixture does not reach January"
+                    )
+            if any(
+                large <= small
+                for large, small in zip(
+                    control_sizes[(2560, 1440)], control_sizes[(1536, 780)], strict=True
+                )
+            ):
+                failures.append(
+                    "legend or context control does not scale with the listening view"
+                )
+            # Padding changes border-box height without changing content-box
+            # height, challenging late chrome resizing after the initial fit.
+            page.set_viewport_size({"width": 1920, "height": 900})
             wait_for_settled(page)
-            failures.extend(
-                _alignment_failures(page.evaluate(_READ_ALIGNMENT_JS), width)
+            extra_chrome = page.add_style_tag(
+                content=".heatmap-head { padding-bottom: 3rem; }"
             )
+            try:
+                page.wait_for_function(
+                    """() =>
+                    document.documentElement.scrollHeight <= innerHeight
+                    && document.querySelector('.page-footer-extras .motion-toggle')
+                        .getBoundingClientRect().bottom <= innerHeight
+                """,
+                    timeout=3000,
+                )
+            finally:
+                extra_chrome.evaluate("node => node.remove()")
+                wait_for_settled(page)
     finally:
         page.set_viewport_size(original)
-        jobs.delete(job_id)
+        for job_id, _last_day in jobs_to_check:
+            jobs.delete(job_id)
     return failures
 
 
@@ -224,6 +366,11 @@ def _desktop_failures(page, base_url: str) -> list[str]:
     original = page.viewport_size
     with_payload, _last_day = seed_stream_job()
     without_payload, _last_day = seed_stream_job(payload=False)
+    residual = _weekly_artists(_WEEKS)
+    residual["artists"] = []
+    only_other, _last_day = _seed_job(_WEEKS, True, 0, stream=residual)
+    empty = {**residual, "other": [0] * _WEEKS}
+    all_zero, _last_day = _seed_job(_WEEKS, True, 0, stream=empty)
     try:
         # Control first: the stream is drawn when it should be.
         _open_heatmap(page, base_url, with_payload, _GRID_DESKTOP)
@@ -238,15 +385,37 @@ def _desktop_failures(page, base_url: str) -> list[str]:
 
         _open_heatmap(page, base_url, without_payload, _GRID_DESKTOP)
         failures.extend(_expect_streams(page, 0, "on desktop without a payload"))
+        _open_heatmap(page, base_url, only_other, _GRID_DESKTOP)
+        failures.extend(_expect_streams(page, 1, "with only residual plays"))
+        if _stream_count(page):
+            if page.locator(f"{_STREAM} path.stream-layer").count():
+                failures.append("a residual-only chart paints a named artist layer")
+            if page.locator(f"{_STREAM} path.stream-halo").count() != 1:
+                failures.append("residual-only listening has no contextual halo")
+            page.locator(_STREAM).focus()
+            page.keyboard.press("Home")
+            failures.extend(
+                _step_failures(
+                    page, 0, 0, "residual-only keyboard focus", residual["other"][0]
+                )
+            )
+            page.keyboard.press("ArrowRight")
+            failures.extend(
+                _step_failures(
+                    page, 1, 0, "residual-only next week", residual["other"][1]
+                )
+            )
+        _open_heatmap(page, base_url, all_zero, _GRID_DESKTOP)
+        failures.extend(_expect_streams(page, 0, "with an all-zero payload"))
     finally:
         page.set_viewport_size(original)
         jobs.delete(with_payload)
         jobs.delete(without_payload)
+        jobs.delete(only_other)
+        jobs.delete(all_zero)
     return failures
 
 
-#: What the frame's stream tokens resolve to in each theme (heatmap.css).
-_OTHER_HEX = {"dark": "#3a3347", "light": "#ddd5c5"}
 #: Layer fills are logged against the frame, not held to 3:1: the scrubber
 #: panel states every layer as text, so a fill is exempt (rulings S13, U20).
 _FLOOR_TEXT = 4.5
@@ -266,15 +435,25 @@ _READ_PAINT_JS = """(theme) => {
     const hooks = window.__scrobbleHeatmapTestHooks;
     const fills = {};
     const expected = {};
-    for (const path of stream.querySelectorAll('path.stream-layer:not(.stream-layer-other)')) {
+    for (const path of stream.querySelectorAll('path.stream-layer')) {
         const rank = path.dataset.rank;
+        if (!/^\\d+$/.test(rank)) continue;
         fills[rank] = path.getAttribute('fill');
         expected[rank] = hooks.layerColour(parseInt(rank, 10), theme);
     }
     return {
         fills: fills,
         expected: expected,
-        other: stream.querySelector('.stream-layer-other')?.getAttribute('fill'),
+        halo: stream.querySelector('.stream-halo') ? {
+            fill: stream.querySelector('.stream-halo').getAttribute('fill'),
+            stroke: stream.querySelector('.stream-halo').getAttribute('stroke'),
+            pointer: getComputedStyle(stream.querySelector('.stream-halo')).pointerEvents,
+            behind: Array.from(stream.querySelectorAll('.stream-layer')).every(path =>
+                !!(stream.querySelector('.stream-halo').compareDocumentPosition(path)
+                    & Node.DOCUMENT_POSITION_FOLLOWING)),
+        } : null,
+        haloFill: probe('--stream-halo-fill'),
+        haloStroke: probe('--stream-halo-stroke'),
         lines: Array.from(stream.querySelectorAll('.stream-gridline'))
             .map((line) => line.getAttribute('stroke')),
         lineToken: probe('--stream-line'),
@@ -286,6 +465,9 @@ _READ_PAINT_JS = """(theme) => {
 
 
 def _rgb(value: str | None) -> tuple[float, float, float]:
+    """Read a computed colour or a six-digit stream palette hex value."""
+    if value and value.startswith("#") and len(value) == 7:
+        return _hex_rgb(value)
     return _parse_rgb_string(value or "")[:3]
 
 
@@ -308,10 +490,16 @@ def _paint_failures(reading, theme: str) -> list[str]:
                 f"layer {rank} fill is {fill} in the {theme} theme, "
                 f"expected {reading['expected'][rank]}"
             )
-    if _rgb(reading["other"]) != _hex_rgb(_OTHER_HEX[theme]):
+    halo = reading["halo"]
+    if (
+        not halo
+        or _rgb(halo["fill"]) != _rgb(reading["haloFill"])
+        or _rgb(halo["stroke"]) != _rgb(reading["haloStroke"])
+        or halo["pointer"] != "none"
+        or not halo["behind"]
+    ):
         failures.append(
-            f"'Everything else' fill is {reading['other']} in the {theme} theme, "
-            f"expected {_OTHER_HEX[theme]}"
+            f"the {theme} halo paint, order or pointer behavior differs: {halo}"
         )
     for index, line in enumerate(reading["lines"]):
         if _rgb(line) != _rgb(reading["lineToken"]):
@@ -428,7 +616,7 @@ _READ_HOVER_JS = """([rank, week]) => {
     const grid = document.querySelector('#heatmap-result-frame svg[data-layout="desktop"]');
     const panel = document.querySelector('#stream-panel');
     const layers = Array.from(stream.querySelectorAll('path.stream-layer'));
-    const opacity = (el) => getComputedStyle(el).opacity;
+    const opacity = (el) => el ? getComputedStyle(el).opacity : null;
     const lefts = [];
     for (const cell of grid.querySelectorAll('.heatmap-cell')) {
         const box = cell.getBoundingClientRect();
@@ -443,8 +631,10 @@ _READ_HOVER_JS = """([rank, week]) => {
     const panelBox = panel.getBoundingClientRect();
     const sbox = stream.getBoundingClientRect();
     const hovered = panel.querySelectorAll('.stream-panel-row.is-hovered');
-    const visible = document.querySelector('#heatmap-grid').getBoundingClientRect();
-    const rows = Array.from(panel.querySelectorAll('.stream-panel-row'));
+    const host = document.querySelector('#heatmap-grid');
+    const visible = host.getBoundingClientRect();
+    const rows = Array.from(panel.querySelectorAll(
+        '.stream-panel-row, .stream-panel-hidden'));
     const outside = rows.filter((row) => {
         const box = row.getBoundingClientRect();
         return box.top < visible.top - 0.5 || box.bottom > visible.bottom + 0.5;
@@ -452,6 +642,8 @@ _READ_HOVER_JS = """([rank, week]) => {
     return {
         rowCount: rows.length,
         rowsOutside: outside.length,
+        verticalScroll: host.scrollHeight > host.clientHeight + 1
+            || panel.scrollHeight > panel.clientHeight + 1,
         siblings: layers.filter((l) => l.dataset.rank !== String(rank)).map(opacity),
         hovered: opacity(layers.find((l) => l.dataset.rank === String(rank))),
         panelShown: !panel.hidden && panelBox.width > 0,
@@ -533,6 +725,8 @@ def _hover_failures(
             f"{where}: {reading['rowsOutside']} of {reading['rowCount']} panel rows"
             " are outside the chart's visible box"
         )
+    if reading["verticalScroll"]:
+        failures.append(f"{where}: the chart or panel requires vertical scrolling")
     if (
         reading["panelLeft"] < reading["gridLeft"] - 0.5
         or reading["panelRight"] > reading["gridRight"] + 0.5
@@ -581,6 +775,84 @@ def _resize_failures(page, original: dict) -> list[str]:
     return failures
 
 
+_READ_CONTEXT_JS = """() => {
+    const svg = document.querySelector('#stream-chart');
+    const halo = svg.querySelector('.stream-halo');
+    const button = document.querySelector('#stream-context-toggle');
+    return {
+        pressed: button.getAttribute('aria-pressed'),
+        visibility: getComputedStyle(halo).visibility,
+        paths: Array.from(svg.querySelectorAll('path.stream-layer')).map(path =>
+            [path.dataset.rank, path.getAttribute('d')]),
+        sameNodes: window.__streamGateArtistNodes.every((path, i) =>
+            path === svg.querySelectorAll('path.stream-layer')[i]),
+        label: button.getAttribute('aria-label') || button.textContent.trim(),
+    };
+}"""
+
+
+def check_stream_context_toggle_preserves_artists(page, base_url: str) -> list[str]:
+    """GIVEN a context halo, WHEN keys toggle it, THEN only its visibility changes.
+
+    Actual weekly rows, artist nodes and path coordinates survive both states;
+    the control is reached by Tab and activates with Space and Enter.
+    """
+    failures = []
+    job_id, _last_day = seed_stream_job()
+    try:
+        _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
+        page.evaluate("""() => { window.__streamGateArtistNodes =
+            Array.from(document.querySelectorAll('#stream-chart path.stream-layer')); }""")
+        initial = page.evaluate(_READ_CONTEXT_JS)
+        if (
+            initial["pressed"] != "true"
+            or initial["visibility"] != "visible"
+            or not initial["label"]
+        ):
+            failures.append(f"the default-on context control differs: {initial}")
+        _hover(page, 6)
+        counts = page.evaluate(_PANEL_ROWS_JS)["counts"]
+        for key, pressed, visibility in (
+            ("Space", "false", "hidden"),
+            ("Enter", "true", "visible"),
+        ):
+            # Walk backwards from the grid so this proves a keyboard-reachable control.
+            page.locator(f"{_GRID_DESKTOP} .heatmap-cell[tabindex='0']").focus()
+            for _ in range(_MAX_TAB_PRESSES):
+                page.keyboard.press("Shift+Tab")
+                if page.locator("#stream-context-toggle").evaluate(
+                    "el => el === document.activeElement"
+                ):
+                    break
+            else:
+                failures.append("Tab traversal cannot reach Other listening")
+                break
+            outline = page.locator("#stream-context-toggle").evaluate(
+                "el => getComputedStyle(el).outlineStyle"
+            )
+            if outline == "none":
+                failures.append("the context toggle has no keyboard focus indicator")
+            page.keyboard.press(key)
+            current = page.evaluate(_READ_CONTEXT_JS)
+            if (
+                current["pressed"] != pressed
+                or current["visibility"] != visibility
+                or current["paths"] != initial["paths"]
+                or not current["sameNodes"]
+            ):
+                failures.append(
+                    f"{key} changes more than context visibility: {current}"
+                )
+            failures.extend(_hover_failures(_hover(page, 6), 6))
+            if page.evaluate(_PANEL_ROWS_JS)["counts"] != counts:
+                failures.append(f"{key} changes true weekly tooltip counts")
+            row = page.evaluate(_PANEL_ROWS_JS)["ranks"].index(str(_HOVER_RANK))
+            failures.extend(_step_failures(page, 6, row, f"after context {pressed}"))
+    finally:
+        jobs.delete(job_id)
+    return failures
+
+
 def check_stream_hover_shows_panel_and_ring(page, base_url: str) -> list[str]:
     """Hovering a layer dims the rest, shows the panel, guide and column
     ring, and leaving removes all of it; a re-render clears a shown week."""
@@ -594,7 +866,15 @@ def check_stream_hover_shows_panel_and_ring(page, base_url: str) -> list[str]:
         )
         page.set_viewport_size(_PANEL_VIEWPORT)
         for wide_fallback in (False, True):
-            failures.extend(_hover_pass(page, base_url, job_id, wide_fallback))
+            failures.extend(
+                _hover_pass(
+                    page,
+                    base_url,
+                    job_id,
+                    wide_fallback,
+                    reference_side=not wide_fallback,
+                )
+            )
         failures.extend(_resize_failures(page, original))
     finally:
         page.set_viewport_size(original)
@@ -644,6 +924,21 @@ def _hover_pass(
             page.mouse.move(*_OUTSIDE)
             wait_for_settled(page)
             failures.extend(_cleared_failures(page, f"leaving week {week}"))
+        # A week without featured plays still scrubs the real residual total.
+        point = page.locator(_STREAM).evaluate("""svg => {
+            const box = svg.getBoundingClientRect();
+            return { x: box.left + Number(svg.dataset.columns.split(' ')[2])
+                * box.width / svg.viewBox.baseVal.width, y: box.top + box.height / 2 };
+        }""")
+        page.mouse.move(point["x"], point["y"])
+        failures.extend(_step_failures(page, 2, -1, "residual-only pointer week"))
+        reading = page.evaluate(_READ_HOVER_JS, [_HOVER_RANK, 2])
+        if reading["guides"] != 1 or any(
+            opacity != "1" for opacity in reading["siblings"] + [reading["hovered"]]
+        ):
+            failures.append(
+                "a residual-only pointer week dims artists or loses its guide"
+            )
     finally:
         if wide_fallback:
             page.unroute(_is_kit_request)
@@ -772,9 +1067,30 @@ _REMOVE_SENTINEL_JS = """() => {
 
 _PANEL_ROWS_JS = """() => {
     const rows = Array.from(document.querySelectorAll('#stream-panel .stream-panel-row'));
+    const other = rows.find((row) => row.dataset.rank === 'other');
+    const rules = document.querySelectorAll('#stream-panel .stream-panel-rule');
+    const counts = rows.map(row => row.querySelector('.stream-panel-count'));
     return {
         ranks: rows.map((r) => r.dataset.rank),
+        counts: rows.map((row, i) => [row.dataset.rank,
+            Number(counts[i].textContent.replaceAll(',', ''))]),
         hovered: rows.findIndex((r) => r.classList.contains('is-hovered')),
+        otherCount: other ? Number(other.querySelector('.stream-panel-count').textContent.replaceAll(',', '')) : null,
+        otherWeight: other ? getComputedStyle(other).fontWeight : null,
+        circles: rows.every(row => {
+            const marker = row.querySelector('.stream-panel-swatch');
+            if (!marker) return false;
+            const css = getComputedStyle(marker);
+            const width = parseFloat(css.width);
+            return width >= 8 && width <= 10 && css.width === css.height
+                && (css.borderRadius === '50%' || parseFloat(css.borderRadius) >= width / 2);
+        }),
+        alignedCounts: counts.every(count =>
+            Math.abs(count.getBoundingClientRect().right - counts[0].getBoundingClientRect().right) <= 0.5
+            && getComputedStyle(count).fontVariantNumeric.includes('tabular-nums')),
+        rules: rules.length,
+        ruleBeforeOther: !!other && other.previousElementSibling?.classList.contains('stream-panel-rule'),
+        contributors: document.querySelectorAll('#stream-panel .stream-panel-hidden').length,
     };
 }"""
 
@@ -829,7 +1145,9 @@ def _tab_to_stream(page) -> list[str]:
     return []
 
 
-def _step_failures(page, week: int, row: int, when: str) -> list[str]:
+def _step_failures(
+    page, week: int, row: int, when: str, expected_total: int | None = None
+) -> list[str]:
     """The week, ring and panel row the stream shows right now."""
     wait_for_settled(page)
     reading = page.evaluate(_READ_HOVER_JS, [_HOVER_RANK, week])
@@ -837,8 +1155,16 @@ def _step_failures(page, week: int, row: int, when: str) -> list[str]:
     failures = []
     if not reading["panelShown"]:
         failures.append(f"{when}: the panel is not shown")
-    if not reading["header"].startswith(_week_header(week)):
-        failures.append(f"{when}: the panel header reads {reading['header']!r}")
+    payload = _weekly_artists(_WEEKS)
+    if expected_total is None:
+        expected_total = payload["other"][week] + sum(
+            artist["counts"][week] for artist in payload["artists"]
+        )
+    expected_header = f"{_week_header(week)}{expected_total:,} scrobbles"
+    if reading["header"] != expected_header:
+        failures.append(
+            f"{when}: the panel header reads {reading['header']!r}, expected {expected_header!r}"
+        )
     if reading["rings"] != 1:
         failures.append(f"{when}: {reading['rings']} column rings")
     elif abs(reading["ringCentre"] - reading["columnCentre"]) > 1:
@@ -847,6 +1173,40 @@ def _step_failures(page, week: int, row: int, when: str) -> list[str]:
         failures.append(
             f"{when}: panel row {rows['hovered']} is hovered, expected {row}"
         )
+    if rows["otherCount"] != payload["other"][week]:
+        failures.append(f"{when}: the residual count is {rows['otherCount']}")
+    if rows["otherWeight"] != "400" or not rows["circles"] or not rows["alignedCounts"]:
+        failures.append(
+            f"{when}: tooltip markers, numeric alignment or residual weight differ: {rows}"
+        )
+    expected_counts = (
+        {
+            str(rank): artist["counts"][week]
+            for rank, artist in enumerate(payload["artists"])
+            if artist["counts"][week] > 0
+        }
+        if expected_total != payload["other"][week]
+        else {}
+    )
+    expected_counts["other"] = payload["other"][week]
+    if dict(rows["counts"]) != expected_counts:
+        failures.append(
+            f"{when}: the tooltip changes actual artist or residual counts: {rows}"
+        )
+    if (
+        rows["rules"] != (1 if len(rows["ranks"]) > 1 else 0)
+        or (len(rows["ranks"]) > 1 and not rows["ruleBeforeOther"])
+        or rows["contributors"]
+    ):
+        failures.append(
+            f"{when}: the residual divider or removed contributor rows differ: {rows}"
+        )
+    if 0 <= row < len(rows["ranks"]) and rows["ranks"][row] == "other":
+        opacities = reading["siblings"] + [reading["hovered"]]
+        if any(o != "1" for o in opacities if o is not None):
+            failures.append(
+                f"{when}: selecting the residual dims artist paths: {opacities}"
+            )
     return failures
 
 
@@ -855,7 +1215,7 @@ def _walk_failures(page) -> list[str]:
     for key, week, row in _KEY_STEPS:
         page.keyboard.press(key)
         failures.extend(_step_failures(page, week, row, f"{key} to week {week}"))
-    # Down from the top reaches every layer and stops on "Everything else".
+    # Down from the top reaches every numeric row, ending on "Everything else".
     rows = page.evaluate(_PANEL_ROWS_JS)["ranks"]
     for _ in range(len(rows) + 1):
         page.keyboard.press("ArrowDown")
@@ -944,6 +1304,18 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
             return failures
         failures.extend(_outline_failures(page))
         failures.extend(_walk_failures(page))
+        page.keyboard.press("Home")
+        for _ in range(6):
+            page.keyboard.press("ArrowRight")
+        for _ in range(_ARTIST_COUNT + 1):
+            page.keyboard.press("ArrowDown")
+        failures.extend(_step_failures(page, 6, _ARTIST_COUNT, "dense week end"))
+        _hover(page, _START_WEEK)
+        page.mouse.move(*_OUTSIDE)
+        page.keyboard.press("ArrowUp")
+        failures.extend(
+            _step_failures(page, 6, _ARTIST_COUNT - 1, "after pointer leave")
+        )
         if page.evaluate(_STOPS_IN_STREAM_JS) != 1:
             failures.append("the stream holds more than one tab stop")
         # The sentinel is added only now: in flow, it would add height below
@@ -986,7 +1358,7 @@ _SAVED_WEEK = 30
 
 #: Where in the stream (viewBox units, found by testing the layers' own
 #: fills) to look in the saved file: the layer on the centre line at the
-#: tallest week, and the "Everything else" band at its widest.
+#: tallest week, and another named artist at its widest.
 _PLAN_JS = """([theme, week]) => {
     const svg = document.querySelector('#stream-chart');
     const hooks = window.__scrobbleHeatmapTestHooks;
@@ -1023,9 +1395,9 @@ _PLAN_JS = """([theme, week]) => {
     const x = xs[tallest];
     const onCentre = paths.find((p) => fills(p, x, centre))
         || paths.find((p) => band(p, x, 1));
-    const other = svg.querySelector('path.stream-layer-other');
+    const featured = paths.find((p) => p !== onCentre);
     const widths = xs.map((wx) => {
-        const b = band(other, wx, 0.5);
+        const b = band(featured, wx, 0.5);
         return b ? b.last - b.first : 0;
     });
     const widest = widths.indexOf(Math.max(...widths));
@@ -1034,11 +1406,27 @@ _PLAN_JS = """([theme, week]) => {
         return (b.first + b.last) / 2;
     };
     const rank = onCentre.dataset.rank;
-    const probe = document.createElement('div');
-    probe.style.color = 'var(--stream-other)';
-    document.querySelector('#heatmap-result-frame').appendChild(probe);
-    const otherColour = getComputedStyle(probe).color;
-    probe.remove();
+    // Find an exposed halo margin, not its artist-covered geometric centre.
+    const halo = svg.querySelector('.stream-halo');
+    let margin = null;
+    for (const wx of xs) {
+        let start = null;
+        for (let y = 0; y <= height + 0.5; y += 0.5) {
+            const exposed = y <= height && fills(halo, wx, y)
+                && !paths.some(path => fills(path, wx, y));
+            if (exposed && start === null) start = y;
+            if (!exposed && start !== null) {
+                const width = y - start;
+                if (!margin || width > margin.width) margin = { x: wx, y: start + width / 2, width };
+                start = null;
+            }
+        }
+    }
+    if (!margin || margin.width < 5) throw new Error('No exposed halo margin for export probe');
+    const surface = getComputedStyle(document.querySelector('#heatmap-result-frame'))
+        .getPropertyValue('--heatmap-surface').trim();
+    const expectedHalo = halo.getAttribute('visibility') === 'hidden'
+        ? surface : halo.getAttribute('fill');
     const box = svg.getBoundingClientRect();
     return {
         cssHeight: Math.round(box.height),
@@ -1048,10 +1436,12 @@ _PLAN_JS = """([theme, week]) => {
         column: { x: xs[week] * (Math.round(box.width) / svg.viewBox.baseVal.width),
                   step: (xs[1] - xs[0]) * (Math.round(box.width) / svg.viewBox.baseVal.width) },
         probes: [
+            { name: 'halo margin', x: margin.x, y: margin.y, expected: expectedHalo },
             { name: 'layer ' + rank + ' at week ' + tallest, x, y: mid(onCentre, x),
-              expected: rank === 'other' ? otherColour : hooks.layerColour(Number(rank), theme) },
-            { name: 'Everything else at week ' + widest, x: xs[widest],
-              y: mid(other, xs[widest]), expected: otherColour },
+              expected: hooks.layerColour(Number(rank), theme) },
+            { name: 'layer ' + featured.dataset.rank + ' at week ' + widest, x: xs[widest],
+              y: mid(featured, xs[widest]),
+              expected: hooks.layerColour(Number(featured.dataset.rank), theme) },
         ],
     };
 }"""
@@ -1188,45 +1578,63 @@ def check_stream_is_in_saved_image(page, base_url: str) -> list[str]:
     # The expected layer colour comes from the page's own ramp, which the
     # test seam exposes only when the flag is set before the script runs.
     probe = page.context.new_page()
+    baseline = page.context.new_page()
     probe.add_init_script("window.__scrobbleHeatmapTestMode = true")
     try:
-        _open_heatmap(probe, base_url, without_payload, _GRID_DESKTOP)
-        baseline_height = _decode(probe, _save_image(probe))["height"]
+        _open_heatmap(baseline, base_url, without_payload, _GRID_DESKTOP)
         for theme in ("dark", "light"):
             _open_heatmap(probe, base_url, with_payload, _GRID_DESKTOP)
             probe.evaluate(SET_THEME_EXPRESSION, theme)
             wait_for_settled(probe)
-            plan = probe.evaluate(_PLAN_JS, [theme, _SAVED_WEEK])
-            rest_bytes = _save_image(probe)
-            # A week on show must not reach the file: dimmed layers, the
-            # guide and the column ring are the pointer's state. The hover
-            # must really have shown, or the save below proves nothing.
-            failures.extend(_hover_failures(_hover(probe, _SAVED_WEEK), _SAVED_WEEK))
-            image_bytes = _save_image(probe)
-            drawn = probe.evaluate("() => window.__scrobbleHeatmapDrawnHeader?.()")
-            saved = _decode(
-                probe,
-                image_bytes,
-                plan,
-                ((drawn or {}).get("stream") or {}).get("height", 0),
+            # Compare additive export height at the same chart width. A grid
+            # alone can occupy more width than a viewport-fitted stream view.
+            stage_width = probe.locator("#heatmap-result").bounding_box()["width"]
+            matched_width = baseline.add_style_tag(
+                content=f"#heatmap-result {{ max-width: {stage_width}px !important; }}"
             )
-            failures.extend(
-                _saved_image_failures(theme, plan, drawn, saved, baseline_height)
-            )
-            diff = probe.evaluate(
-                _READ_COLUMN_DIFF_JS,
-                [
-                    b64encode(rest_bytes).decode("ascii"),
-                    b64encode(image_bytes).decode("ascii"),
+            try:
+                wait_for_settled(baseline)
+                baseline_height = _decode(baseline, _save_image(baseline))["height"]
+            finally:
+                matched_width.evaluate("node => node.remove()")
+            for state in ("on", "off"):
+                if state == "off":
+                    probe.locator("#stream-context-toggle").click()
+                plan = probe.evaluate(_PLAN_JS, [theme, _SAVED_WEEK])
+                rest_bytes = _save_image(probe)
+                # The live hover must not leak its ring, guide or dimming into the save.
+                failures.extend(
+                    _hover_failures(_hover(probe, _SAVED_WEEK), _SAVED_WEEK)
+                )
+                image_bytes = _save_image(probe)
+                drawn = probe.evaluate("() => window.__scrobbleHeatmapDrawnHeader?.()")
+                saved = _decode(
+                    probe,
+                    image_bytes,
                     plan,
-                    _EXPORT_SCALE,
-                    _EXPORT_PAD,
-                    plan["cssHeight"],
-                ],
-            )
-            failures.extend(_column_failures(theme, diff))
+                    ((drawn or {}).get("stream") or {}).get("height", 0),
+                )
+                label = f"{theme}, halo {state}"
+                failures.extend(
+                    _saved_image_failures(label, plan, drawn, saved, baseline_height)
+                )
+                diff = probe.evaluate(
+                    _READ_COLUMN_DIFF_JS,
+                    [
+                        b64encode(rest_bytes).decode("ascii"),
+                        b64encode(image_bytes).decode("ascii"),
+                        plan,
+                        _EXPORT_SCALE,
+                        _EXPORT_PAD,
+                        plan["cssHeight"],
+                    ],
+                )
+                failures.extend(_column_failures(label, diff))
+                probe.mouse.move(*_OUTSIDE)
+                wait_for_settled(probe)
     finally:
         probe.close()
+        baseline.close()
         jobs.delete(with_payload)
         jobs.delete(without_payload)
     return failures
