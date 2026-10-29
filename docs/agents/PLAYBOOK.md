@@ -69,6 +69,11 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **Listening view side task:** Durable result and empty-state sizing is
+  complete on `feat/streamgraph-bursts`, PR #280, awaiting owner review.
+  The execution record is
+  `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
   Branch: `feat/batch23-wp0-hygiene`. That branch merged into `main` as PR #245 on 2026-09-30 and `origin/test` is
   deleted, so side-task PRs branch from `main` and run the guard against its default
@@ -184,6 +189,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Fit listening and empty pages to the browser viewport
+
+Side task on `feat/streamgraph-bursts`, requested after the earlier viewport
+estimate still overflowed at desktop scaling. Fit the shared SVG width against
+actual rendered chrome, refit on viewport and font changes, scale the summary
+controls, and remove the oversized chart tail. Empty destinations share their
+viewport with the actual footer and mobile theme control in normal flow. The
+combined mode is now Listening, with copy describing daily plays and weekly
+artist trends on desktop; saved-job routes and identifiers remain stable.
+
+Extend existing layout checks rather than adding wording or duplicate tests.
+The old result overflow was reproduced at 1536x780, 1280x720 and 1024x768.
+Focused Chromium and Firefox probes now fit those viewports, 1080p and 1440p
+browser content boxes, with the complete tooltip visible. The full suite measured
+**3113 passed**: 2954 non-browser tests in three shards and 159 browser tests.
+Fresh-result and late-chrome checks pass in both engines and motion modes.
+The final frontend gate passed 58 checks in 89 Chromium and Firefox runs after
+correcting scroll and export fixtures whose fixed-layout assumptions no longer
+hold. Pre-commit and docsync passed before the final completion record. A review
+found that fitting must wait for the outgoing loader to leave; both motion
+paths now refit after that transition. Very short windows or enlarged text keep
+natural page scrolling instead of clipping controls.
+
 ### 2026-10-29 - Scale the heatmap result with viewport height
 
 Side task on `feat/streamgraph-bursts`. The owner requested the pause control
@@ -215,13 +243,3 @@ Focused Chromium and Firefox theme repaint, alignment, toggle and export
 checks pass. The full suite measured **3113 passed**. The palette audit and
 known weak adjacent colour pairs are recorded in the plan. The full browser
 gate passed 58 checks in 89 runs across Chromium and Firefox.
-
-### 2026-10-28 - Remove the streamgraph compression caption
-
-Side task on `feat/streamgraph-bursts`. Following a local review, the owner
-requested removal of the 0.25x header explanation because it was confusing.
-The halo, toggle, artist colours and actual tooltip counts stay unchanged.
-Remove the matching accessible-label wording and obsolete gate assertion.
-A separate local hue-grouped palette remains a preview pending owner review;
-it is not part of this commit. Focused alignment, toggle and export checks
-passed in Chromium and Firefox; the full suite measured **3113 passed**.

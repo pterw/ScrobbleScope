@@ -27,7 +27,8 @@ is wrong the next time anybody commits.
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
 ScrobbleScope turns your public Last.fm listening history into album rankings
-and a daily listening heatmap. Use it to build an Album of the Year list,
+and a Listening view combining a daily heatmap with weekly artist trends on
+desktop. Use it to build an Album of the Year list,
 compare albums by listening time, or explore your listening patterns.
 
 Choose **Top Albums** or **Heatmap** on Home. The shared navigation provides

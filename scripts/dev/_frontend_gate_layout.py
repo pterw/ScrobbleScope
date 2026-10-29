@@ -1632,7 +1632,13 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
 
 
 def check_destination_empty_states(page, base_url: str) -> list[str]:
-    """Clean destinations explain the next action without changing saved work."""
+    """Given clean destinations, keep the next action and motion control visible.
+
+    When the desktop viewport changes or the mobile theme control moves into
+    the footer, the empty state shares available space with those controls.
+    Check normal-flow visibility without constraining pages that need more
+    space for enlarged text.
+    """
     failures = []
     page.context.clear_cookies()
     expected = {
@@ -1676,6 +1682,46 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
             )
         if not details["actionUsable"]:
             failures.append(f"{path}: empty-state action link is not usable/visible")
+
+        original_viewport = page.viewport_size
+        viewports = (
+            ((1920, 900), (1920, 1080), (2560, 1300), (2560, 1440))
+            if original_viewport["width"] >= 860
+            else ((original_viewport["width"], original_viewport["height"]),)
+        )
+        try:
+            page.evaluate(FONTS_READY_EXPRESSION)
+            wait_for_settled(page)
+            for width, height in viewports:
+                page.set_viewport_size({"width": width, "height": height})
+                layout = page.evaluate(
+                    """() => {
+                        const pause = document.querySelector('.motion-toggle');
+                        const action = document.querySelector('.empty-state__action');
+                        const pauseRect = pause.getBoundingClientRect();
+                        const actionRect = action.getBoundingClientRect();
+                        return {
+                            documentHeight: document.documentElement.scrollHeight,
+                            pauseVisible: pauseRect.top >= 0 && pauseRect.bottom <= innerHeight
+                                && pauseRect.height >= 44,
+                            actionVisible: actionRect.top >= 0 && actionRect.bottom <= innerHeight,
+                            ordered: actionRect.bottom <= pauseRect.top,
+                        };
+                    }"""
+                )
+                if layout["documentHeight"] > height + 1:
+                    failures.append(
+                        f"{path} at {width}x{height}: empty page requires vertical scrolling"
+                    )
+                if not all(
+                    layout[key] for key in ("pauseVisible", "actionVisible", "ordered")
+                ):
+                    failures.append(
+                        f"{path} at {width}x{height}: action and motion control "
+                        "must remain visible in normal flow"
+                    )
+        finally:
+            page.set_viewport_size(original_viewport)
 
     page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
     fresh_state = page.evaluate(

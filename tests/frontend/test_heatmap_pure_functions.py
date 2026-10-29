@@ -603,12 +603,15 @@ def _text(fragment: str) -> str:
 
 
 def _heatmap_lede() -> str:
-    """The heatmap-mode lede on the index page (the paragraph under its eyebrow)."""
+    """Read the listening-mode lede by its stable mode hook, not its wording."""
     source = INDEX_HTML.read_text(encoding="utf-8")
     match = re.search(
-        r'Listening heatmap</p>\s*<p class="index-hero__lede">(.*?)</p>', source, re.S
+        r'<div data-mode-hero="heatmap"[^>]*>.*?'
+        r'<p class="index-hero__lede">(.*?)</p>',
+        source,
+        re.S,
     )
-    assert match, "index.html has no heatmap-mode lede under its eyebrow"
+    assert match, "index.html has no heatmap-mode lede"
     return _text(match.group(1))
 
 

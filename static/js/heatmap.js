@@ -540,6 +540,7 @@
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       heatmapResult.classList.remove('heatmap-fade', 'fading-out', 'is-handing-off');
       hideElement(heatmapLoading);
+      fitHeatmapResult();
       return;
     }
 
@@ -547,6 +548,7 @@
     // crossfades from its painted loader; a cached job fades the result in
     // directly because restoration deliberately kept that loader hidden.
     heatmapResult.classList.add('heatmap-fade', 'fading-out', 'is-handing-off');
+    if (!loadingIsVisible) fitHeatmapResult();
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         heatmapResult.classList.remove('fading-out');
@@ -557,6 +559,7 @@
           hideElement(heatmapLoading);
           heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
           heatmapResult.classList.remove('is-handing-off');
+          fitHeatmapResult();
         }, HEATMAP_HANDOFF_MS);
       });
     });
@@ -1079,6 +1082,7 @@
   var restoringSavedHeatmap = false;
   var lastRenderMobile = null;
   var resizeTimer = null;
+  var resultFitFrame = null;
   // What drawStream laid out for the grid on screen: the validated payload,
   // the layer order, the stacked bands and each week's plotted x. Reset on
   // every render, so nothing outlives the SVG it describes.
@@ -1234,7 +1238,7 @@
     hideElement(errorContainer);
     if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) hideElement(progressTrack);
-    progressText.textContent = 'Restoring your latest heatmap';
+    progressText.textContent = 'Restoring your listening history';
     resetLoadingDetails(lastUsername);
     restoringSavedHeatmap = true;
     hideElement(heatmapLoading);
@@ -1497,7 +1501,7 @@
         replaceCanonicalPath('/heatmap', '/heatmap');
         startPolling();
       } else {
-        showError(result.data.message || 'Failed to start heatmap.', result.data.retryable);
+        showError(result.data.message || 'Failed to load listening history.', result.data.retryable);
       }
     })
     .catch(function () {
@@ -2616,6 +2620,70 @@
     });
   }
 
+  /**
+   * Fit both SVGs as one composition within the current browser viewport.
+   *
+   * Measure the actual footer after headline and toolbar wrapping. A bounded
+   * width search avoids assuming fixed chrome heights or a physical screen
+   * resolution. The readable width floor yields to natural page scrolling
+   * when a very short window or large text cannot fit the full composition.
+   * No chart geometry, counts, focus targets or export attributes change.
+   */
+  function fitHeatmapResult() {
+    if (!heatmapResult || heatmapResult.classList.contains('hidden')) return;
+    if (heatmapResult.classList.contains('is-handing-off') &&
+        !heatmapLoading.classList.contains('hidden')) return;
+    var previousWidth = heatmapResult.getBoundingClientRect().width;
+    heatmapResult.style.removeProperty('--heatmap-fit-width');
+    if (window.innerWidth < MOBILE_MAX_WIDTH) return;
+    var footer = document.querySelector('.page-footer-extras');
+    if (!footer) return;
+    var naturalWidth = heatmapResult.getBoundingClientRect().width;
+    var minimum = Math.min(naturalWidth,
+      52 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    var low = minimum;
+    var high = naturalWidth;
+    var best = minimum;
+    // Account for scrolling while resizing: the budget is in document coordinates.
+    var fits = function () {
+      return footer.getBoundingClientRect().bottom + window.scrollY <= window.innerHeight;
+    };
+    if (!fits()) {
+      for (var i = 0; i < 10; i++) {
+        var width = (low + high) / 2;
+        heatmapResult.style.setProperty('--heatmap-fit-width', width + 'px');
+        if (fits()) {
+          best = width;
+          low = width;
+        } else {
+          high = width;
+        }
+      }
+      heatmapResult.style.setProperty('--heatmap-fit-width', best + 'px');
+    }
+    if (Math.abs(previousWidth - heatmapResult.getBoundingClientRect().width) > 0.5) {
+      clearWeek();
+      repositionTooltipOwner();
+    }
+  }
+
+  /** Coalesce font and chrome size changes into one fit per animation frame. */
+  function scheduleResultFit() {
+    if (resultFitFrame !== null) return;
+    resultFitFrame = requestAnimationFrame(function () {
+      resultFitFrame = null;
+      fitHeatmapResult();
+    });
+  }
+
+  /** Observe the text-bearing chrome so late fonts and wrapping refit the view. */
+  function initResultSizing() {
+    var observer = new ResizeObserver(scheduleResultFit);
+    document.querySelectorAll('.site-header, .heatmap-head, .heatmap-frame-top, .page-footer-extras')
+      .forEach(function (node) { observer.observe(node, { box: 'border-box' }); });
+    document.fonts.ready.then(scheduleResultFit);
+  }
+
   function handleResize() {
     if (resizeTimer) {
       window.clearTimeout(resizeTimer);
@@ -2631,6 +2699,7 @@
       if (shouldRenderMobile !== lastRenderMobile) {
         rerenderKeepingFocus();
       } else {
+        fitHeatmapResult();
         // Same layout, new width: the cells moved, and the tooltip follows
         // its owner or goes.
         repositionTooltipOwner();
@@ -2723,6 +2792,7 @@
     initForm();
     initPills();
     initThemeObserver();
+    initResultSizing();
     // Read by the frontend gate, which saves an image and then compares what
     // the canvas drew with what the page shows.
     window.__scrobbleHeatmapDrawnHeader = function () { return drawnHeader; };

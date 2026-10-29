@@ -248,7 +248,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
 
 ### Heatmap Streamgraph
-- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. The result uses the original page gaps and normal document flow, which may extend past a short viewport. The chart reserves 25rem from initial render so its tooltip fits without internal vertical scrolling in the grid or panel. Narrow screens and results stored without weekly artist data show the grid alone.
+- **Placement:** Desktop layout only (860px and up). It sits under the grid inside the frame and its week positions line up with the grid's columns. The result uses the original page gaps and normal document flow, which may extend past a short viewport. The renderer fits the shared SVG width against the actual header, toolbar and footer, refitting on viewport and font changes. The chart reserves 20rem for its complete tooltip without an oversized empty tail. The legend and context control scale with the fitted result width. Narrow screens and results stored without weekly artist data show the grid alone.
 - **Geometry:** Featured artists alone determine the baseline and stack. The common linear scale fits the complete halo envelope. Each halo margin adds one eighth of the remaining plays in count units; residual-only weeks remain visible. An all-zero payload draws no stream. Month labels reuse the heatmap's calendar positions along the bottom axis.
 - **Scrubber panel:** Opens beside the hovered column and lists artists with plays that week, followed by a divider and the actual "Everything else" count. Circular markers identify the artists and the neutral residual. Selecting an artist marks its row and dims other ribbons; selecting the residual leaves them undimmed. The chart is one Tab stop, moved with arrow keys, Home and End.
 - **Motion:** The layer dimming fades over 150ms, which `prefers-reduced-motion: reduce` sets to zero.
@@ -260,7 +260,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Do** author all font sizes, line heights, and layout spacing in `rem` units.
 - **Do** preserve 4.5:1 text contrast for all muted copy (`#6c6676` light, `#908a9a` dark).
 - **Do** keep cards and panels flat at rest with 1px hairline borders.
-- **Do** treat Top Albums and Heatmap as equal-standing peer modes on the index screen.
+- **Do** treat Top Albums and Listening as equal-standing peer modes on the index screen.
 
 ### Don't:
 - **Don't** use `font-weight: 500` or `font-weight: 600` anywhere in the interface.

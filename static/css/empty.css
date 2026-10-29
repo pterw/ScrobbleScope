@@ -1,7 +1,16 @@
-/* Route-specific empty states for the saved Results and Heatmap destinations. */
+/* Route-specific empty states for the saved destinations. */
+
+/* Share the viewport with the real footer and mobile theme control instead
+   of adding those controls after a viewport-height content area. Content can
+   still grow naturally when large text or a short window needs more room. */
+body:has(> .empty-page) {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
 
 .empty-page {
-  min-height: calc(100vh - var(--shell-height));
+  flex: 1 0 auto;
   display: grid;
   place-items: center;
   padding: clamp(2rem, 6vh, 4.5rem) 1.5rem;

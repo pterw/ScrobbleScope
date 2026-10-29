@@ -93,3 +93,63 @@ Visibility changes never change that scale or the artist path coordinates.
   updated to check a readable cell size and tooltip containment. The pause
   control fits at 1440x900 and 1920x1080 with the seeded result; shorter
   desktop viewports can still scroll as a page.
+
+## Durable responsive layout follow-up (2026-10-29)
+
+The owner reproduced footer scrolling after the first width-cap refinement and
+requested the same fix for all three empty destinations, responsive controls,
+less card overhang, and copy reflecting the artist streamgraph.
+
+- [x] Fit the chart to the rendered page chrome and rerun sizing when viewport,
+  fonts or toolbar wrapping change; retain alignment, tooltip room and export.
+- [x] Let the empty destinations share available height with their actual
+  footer and mobile theme control in normal document flow.
+- [x] Name the combined view Listening and describe daily plays plus the weekly
+  desktop artist streamgraph while preserving saved-job routes and identifiers.
+- [x] Extend the existing layout checks for browser-height viewports and resizing,
+  validate both engines and record measured limits before atomic commits.
+
+Keep the existing palette, fonts and hierarchy. Prefer measured available space
+to physical-screen assumptions. Keep controls reachable when unusually short
+windows or enlarged text cannot accommodate the full content.
+
+- 2026-10-29: Reproduced the old overflow at 1536x780 (920px page),
+  1280x720 (918px page), and 1024x768 (897px page). The result now measures
+  actual footer position and searches a bounded shared SVG width. Container
+  units scale headings, KPI values and controls. The tooltip reserve is 20rem
+  instead of 25rem, removing the empty tail. Both engines fit those viewports
+  and 1920x900/1080 and 2560x1300/1440; the 11-row tooltip stays within the
+  visible grid without internal scrolling. The existing alignment check now
+  covers shrinking and growing windows, control scaling and bottom overhang.
+- 2026-10-29: Empty-state content now shares viewport height with the real footer
+  and mobile theme control through normal-flow flex layout. Chromium and Firefox
+  probes fit the three empty destinations at desktop browser-height viewports
+  and 390x844. At 390x300 with enlarged text the page grows naturally.
+- 2026-10-29: The navbar and mode tab now read Listening. Entry, result and empty
+  copy describe the daily grid and desktop weekly artists; routes and saved-job
+  identifiers stay stable. Removed the semantic test helper's dependency on a
+  specific eyebrow phrase; no tests were added for wording.
+- 2026-10-29: Independent review identified that a fresh result could be fitted
+  while its outgoing loader still occupied space. Fitting now waits for the
+  loader's final removal, including reduced-motion rendering. Full validation
+  is in progress; no new dependencies or chart geometry changes.
+- 2026-10-29: A late-padding probe exposed that content-box observation misses
+  added chrome spacing. Observe border boxes instead. Fresh and cached results
+  now match in both engines, with normal and reduced motion; adding 3rem to the
+  header triggers a fit while keeping the pause control visible.
+- 2026-10-29: The full gate exposed two stale fixture assumptions. Its scroll
+  probe waited indefinitely for a page that now fits; explicit test scroll room
+  and a bounded event wait preserve the original tooltip tracking assertion.
+  The export comparison used different grid widths; matching the baseline width
+  preserves its additive image-height and pixel assertions. Focused checks pass;
+  the complete final gate is running.
+- 2026-10-29: The final display-size sweep found the new Weekly artists strip
+  label wrapping at 900px and 1100px. Shorten the label to Artists; retain the
+  weekly streamgraph explanation in its description. The existing wrap check
+  stays unchanged. All other checks passed; rerunning the complete final gate.
+- 2026-10-29: Final validation passed: 3113 tests total, the complete frontend
+  gate 58 checks in 89 Chromium/Firefox runs, and 116 focused gate-unit tests
+  after the fixture corrections. Both-engine fresh/cached and late-header probes
+  pass with normal and reduced motion. Reviewed the 1920x900 application capture.
+  Repository hooks and docsync passed; the final completion record is staged
+  for the responsive follow-up commit.

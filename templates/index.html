@@ -49,11 +49,11 @@
 
         <div data-mode-hero="heatmap" class="index-hero__mode-copy{% if initial_mode == 'heatmap' %} is-active{% endif %}"
              aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
-          <h1 class="index-hero__headline">A year of listening <em>by the day.</em></h1>
-          <p class="eyebrow">Listening heatmap</p>
-          <p class="index-hero__lede">See a year of listening at a glance: the weeks you played
-            most, the quiet stretches between them, and how long your current streak runs. Each
-            square is one day, brighter for more plays; hover over or tap one for the details.</p>
+          <h1 class="index-hero__headline">A year of listening <em>in view.</em></h1>
+          <p class="eyebrow">Listening history</p>
+          <p class="index-hero__lede">See your last 365 days of listening. Each square is one day,
+            brighter for more plays; hover over or tap one for details. On desktop, the
+            streamgraph traces your top artists week by week.</p>
         </div>
       </div>
 
@@ -69,8 +69,8 @@
             class="index-hero__marks{% if initial_mode == 'heatmap' %} is-active{% endif %}"
             aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
           <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="M3.5 9.17h17M3.5 14.83h17M9.17 3.5v17M14.83 3.5v17"/></svg>365 days</span><span class="index-hero__strip-desc">Every day since this date last year, one square each</span></li>
-          <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>No settings</span><span class="index-hero__strip-desc">Just a username; there are no dates to pick</span></li>
-          <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3.5h7.5l4.5 4.5v12.5h-12z"/><path d="M14 3.5V8h4.5M9.5 12.5h5M9.5 16h5"/></svg>Export</span><span class="index-hero__strip-desc">Save the grid as a JPEG</span></li>
+          <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Artists</span><span class="index-hero__strip-desc">Your top artists over time in the desktop streamgraph</span></li>
+          <li><span class="index-hero__strip-term"><svg class="index-hero__strip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.5 3.5h7.5l4.5 4.5v12.5h-12z"/><path d="M14 3.5V8h4.5M9.5 12.5h5M9.5 16h5"/></svg>Export</span><span class="index-hero__strip-desc">Save your listening view as a JPEG</span></li>
         </ul>
       </div>
 
@@ -90,7 +90,7 @@
         </div>
         <div data-mode-key="heatmap" class="index-key hm-preview{% if initial_mode == 'heatmap' %} is-active{% endif %}"
              aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
-          <p class="index-key__title hm-preview__key">One square for each of your last 365 days</p>
+          <p class="index-key__title hm-preview__key">Daily listening, weekly artist trends</p>
           <dl class="index-key__facts hm-preview__facts">
             <div><dt>Shade</dt><dd>Brighter squares mean more plays that day.</dd></div>
             <div><dt>Totals</dt><dd>Your scrobbles, daily average and current streak.</dd></div>
@@ -120,7 +120,7 @@
           <button type="button" id="mode-tab-heatmap" class="mode-pill{% if initial_mode == 'heatmap' %} active{% endif %}"
                   data-mode="heatmap" role="tab" aria-selected="{{ 'true' if initial_mode == 'heatmap' else 'false' }}"
                   aria-controls="heatmap-form-section">
-            <span class="mode-pill__mark mode-pill__mark--heatmap" aria-hidden="true"></span>Heatmap
+            <span class="mode-pill__mark mode-pill__mark--heatmap" aria-hidden="true"></span>Listening
           </button>
         </div>
 

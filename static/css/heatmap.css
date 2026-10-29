@@ -43,10 +43,11 @@
     max-width: min(84vw, 120rem);
   }
 
-  /* Both SVGs scale with their shared width. Leave room for the pause control
-     on shorter screens without squeezing the toolbar into unnecessary rows. */
+  /* The renderer fits this shared width against the actual page chrome.
+     Container units keep the summary proportional to the fitted charts. */
   #heatmap-result {
-    max-width: min(84vw, 120rem, max(58rem, calc(155dvh - 21rem)));
+    container-type: inline-size;
+    max-width: min(84vw, 120rem, var(--heatmap-fit-width, 120rem));
     padding-bottom: clamp(0.75rem, 2vh, 2rem);
   }
 
@@ -416,8 +417,16 @@
 }
 
 @media (min-width: 860px) {
+  .heatmap-headline {
+    font-size: clamp(1.625rem, 3cqw, 3rem);
+  }
+
+  .heatmap-frame {
+    padding: clamp(0.75rem, 1.2cqw, 1.5rem);
+  }
+
   .heatmap-frame-top {
-    gap: 1rem;
+    gap: clamp(0.5rem, 1cqw, 1rem);
   }
 
   .heatmap-frame-top .heatmap-legend {
@@ -425,11 +434,28 @@
   }
 
   .heatmap-kpi-row {
-    gap: clamp(0.75rem, 1.4vw, 1.5rem);
+    gap: clamp(0.75rem, 1.4cqw, 1.5rem);
+  }
+
+  .heatmap-kpi-label,
+  .heatmap-kpi-sub {
+    font-size: clamp(0.6875rem, 0.85cqw, 0.875rem);
   }
 
   .heatmap-kpi-value {
-    font-size: 1.75rem;
+    font-size: clamp(1.5rem, 2.2cqw, 2.25rem);
+  }
+
+  .heatmap-frame-top .stream-context-toggle {
+    font-size: clamp(0.6875rem, 0.9cqw, 0.875rem);
+  }
+
+  .heatmap-frame-top .heatmap-legend__cap {
+    font-size: clamp(0.6875rem, 1cqw, 1rem);
+  }
+
+  .heatmap-frame-top .heatmap-legend-bar {
+    width: clamp(3rem, 5cqw, 5rem);
   }
 }
 
@@ -475,9 +501,9 @@
     padding: 8px;
   }
 
-  /* Reserve room for the expanded panel without compressing the page's rhythm. */
+  /* Fit the complete tooltip without leaving a tall empty tail on narrow charts. */
   #heatmap-grid:has(.stream-chart) {
-    min-height: 25rem;
+    min-height: 20rem;
     overflow-y: hidden;
   }
 }

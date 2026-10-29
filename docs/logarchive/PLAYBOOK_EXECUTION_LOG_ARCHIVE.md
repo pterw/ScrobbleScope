@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Remove the streamgraph compression caption
+
+Side task on `feat/streamgraph-bursts`. Following a local review, the owner
+requested removal of the 0.25x header explanation because it was confusing.
+The halo, toggle, artist colours and actual tooltip counts stay unchanged.
+Remove the matching accessible-label wording and obsolete gate assertion.
+A separate local hue-grouped palette remains a preview pending owner review;
+it is not part of this commit. Focused alignment, toggle and export checks
+passed in Chromium and Firefox; the full suite measured **3113 passed**.
+
 ### 2026-10-28 - Add the streamgraph context halo
 
 Side task on `feat/streamgraph-bursts`. The owner replaced the earlier

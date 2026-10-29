@@ -240,7 +240,11 @@ def _open_heatmap(page, base_url: str, job_id: str, layout_selector: str) -> Non
 
 
 def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
-    """Keep weeks aligned and the pause control visible at desktop sizes."""
+    """Given weekly results, keep alignment and controls visible as layout changes.
+
+    When the viewport shrinks, grows, or the rendered header gains height,
+    then refit the shared charts without a scroll requirement or empty tail.
+    """
     failures = []
     jobs_to_check = [_seed_job(53, True, 2), _seed_job(52, True, 2, end_early=3)]
     original = page.viewport_size
@@ -250,24 +254,43 @@ def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
             sizes = [
                 (original["width"], original["height"]),
                 (_SECOND_WIDTH, original["height"]),
-                (1440, 900),
                 (1920, 1080),
+                (2560, 1300),
+                (1536, 780),
+                (1280, 720),
+                (1920, 900),
+                (2560, 1440),
             ]
+            control_sizes = {}
             for width, height in sizes:
                 page.set_viewport_size({"width": width, "height": height})
                 wait_for_settled(page)
                 reading = page.evaluate(_READ_ALIGNMENT_JS)
                 failures.extend(_alignment_failures(reading, width))
-                if (width, height) in ((1440, 900), (1920, 1080)):
-                    visible = page.evaluate("""() => {
-                        const pause = document.querySelector('.page-footer-extras .motion-toggle');
-                        return pause && pause.getBoundingClientRect().bottom <= innerHeight
-                            && document.documentElement.scrollHeight <= innerHeight;
-                    }""")
-                    if not visible:
-                        failures.append(
-                            f"pause control is below the {width}x{height} viewport"
-                        )
+                layout = page.evaluate("""() => {
+                    const pause = document.querySelector('.page-footer-extras .motion-toggle');
+                    const host = document.querySelector('#heatmap-grid');
+                    const chart = document.querySelector('#stream-chart');
+                    const legend = document.querySelector('.heatmap-legend__cap');
+                    const toggle = document.querySelector('#stream-context-toggle');
+                    return {
+                        pauseVisible: pause && pause.getBoundingClientRect().bottom <= innerHeight
+                            && document.documentElement.scrollHeight <= innerHeight,
+                        overhang: host.getBoundingClientRect().bottom
+                            - chart.getBoundingClientRect().bottom
+                            - parseFloat(getComputedStyle(host).paddingBottom),
+                        controls: [legend, toggle].map(node => parseFloat(getComputedStyle(node).fontSize)),
+                    };
+                }""")
+                if not layout["pauseVisible"]:
+                    failures.append(
+                        f"pause control is below the {width}x{height} viewport"
+                    )
+                if layout["overhang"] > 1:
+                    failures.append(
+                        f"chart leaves {layout['overhang']:.1f}px unused at {width}x{height}"
+                    )
+                control_sizes[(width, height)] = layout["controls"]
                 if _last_day == "2026-01-01" and (
                     not reading["gridMonths"]
                     or reading["gridMonths"][-1]["text"] != "Jan"
@@ -276,6 +299,34 @@ def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
                     failures.append(
                         "the partial end-week fixture does not reach January"
                     )
+            if any(
+                large <= small
+                for large, small in zip(
+                    control_sizes[(2560, 1440)], control_sizes[(1536, 780)], strict=True
+                )
+            ):
+                failures.append(
+                    "legend or context control does not scale with the listening view"
+                )
+            # Padding changes border-box height without changing content-box
+            # height, challenging late chrome resizing after the initial fit.
+            page.set_viewport_size({"width": 1920, "height": 900})
+            wait_for_settled(page)
+            extra_chrome = page.add_style_tag(
+                content=".heatmap-head { padding-bottom: 3rem; }"
+            )
+            try:
+                page.wait_for_function(
+                    """() =>
+                    document.documentElement.scrollHeight <= innerHeight
+                    && document.querySelector('.page-footer-extras .motion-toggle')
+                        .getBoundingClientRect().bottom <= innerHeight
+                """,
+                    timeout=3000,
+                )
+            finally:
+                extra_chrome.evaluate("node => node.remove()")
+                wait_for_settled(page)
     finally:
         page.set_viewport_size(original)
         for job_id, _last_day in jobs_to_check:
@@ -1527,14 +1578,25 @@ def check_stream_is_in_saved_image(page, base_url: str) -> list[str]:
     # The expected layer colour comes from the page's own ramp, which the
     # test seam exposes only when the flag is set before the script runs.
     probe = page.context.new_page()
+    baseline = page.context.new_page()
     probe.add_init_script("window.__scrobbleHeatmapTestMode = true")
     try:
-        _open_heatmap(probe, base_url, without_payload, _GRID_DESKTOP)
-        baseline_height = _decode(probe, _save_image(probe))["height"]
+        _open_heatmap(baseline, base_url, without_payload, _GRID_DESKTOP)
         for theme in ("dark", "light"):
             _open_heatmap(probe, base_url, with_payload, _GRID_DESKTOP)
             probe.evaluate(SET_THEME_EXPRESSION, theme)
             wait_for_settled(probe)
+            # Compare additive export height at the same chart width. A grid
+            # alone can occupy more width than a viewport-fitted stream view.
+            stage_width = probe.locator("#heatmap-result").bounding_box()["width"]
+            matched_width = baseline.add_style_tag(
+                content=f"#heatmap-result {{ max-width: {stage_width}px !important; }}"
+            )
+            try:
+                wait_for_settled(baseline)
+                baseline_height = _decode(baseline, _save_image(baseline))["height"]
+            finally:
+                matched_width.evaluate("node => node.remove()")
             for state in ("on", "off"):
                 if state == "off":
                     probe.locator("#stream-context-toggle").click()
@@ -1572,6 +1634,7 @@ def check_stream_is_in_saved_image(page, base_url: str) -> list[str]:
                 wait_for_settled(probe)
     finally:
         probe.close()
+        baseline.close()
         jobs.delete(with_payload)
         jobs.delete(without_payload)
     return failures

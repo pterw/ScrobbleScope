@@ -257,7 +257,7 @@ def inject_page_navigation():
                 "active": endpoint == "main.home",
             },
             {
-                "label": "Heatmap",
+                "label": "Listening",
                 "href": url_for("main.heatmap"),
                 "active": endpoint == "main.heatmap",
             },
