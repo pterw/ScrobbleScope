@@ -184,6 +184,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Map stream colours to artist rank
+
+Side task on `feat/streamgraph-bursts`. After comparing a local preview, the
+owner approved the heatmap convention: orange for the most-played artist,
+progressing through red to purple for the least-played artist. Keep ranks and
+counts stable, preserve the existing heatmap ramp, and use lighter purple
+shades for dark mode. Extend the existing palette test for rank progression.
+Focused Chromium and Firefox theme repaint, alignment, toggle and export
+checks pass. The full suite measured **3113 passed**. The palette audit and
+known weak adjacent colour pairs are recorded in the plan. The full browser
+gate passed 58 checks in 89 runs across Chromium and Firefox.
+
 ### 2026-10-28 - Remove the streamgraph compression caption
 
 Side task on `feat/streamgraph-bursts`. Following a local review, the owner
@@ -245,30 +257,3 @@ integrated frontend and results-behavior checks after that final UI patch;
 this merge makes no final browser or prototype-approval claim. No PR/push.
 
 Validation: `pytest -q` -- **3116 passed**.
-
-### 2026-10-28 - Return weekly artists to the top ten
-
-Side task, no batch tag: Task 9 on `feat/streamgraph-bursts`. The owner
-requested top ten only and no residual contributor list after live testing.
-Reverse this branch's own burst selection and contributor metadata in plays,
-job readback and their tests. The four files match origin/main exactly;
-none changed upstream since the original branch base. Original normalized
-ranking/ties, Monday columns, window filtering, empty-key residuals and
-nested-copy isolation coverage remain. README and the sequence diagram
-again describe top ten. No UI source changes in this checkpoint.
-
-Plan vs implementation: exact scoped reversal, no history rewrite. Tests
-solely for the removed feature are removed; original behavior tests return.
-Focused plays/jobs/heatmap: 114 passed. Independent spec/quality review
-approved. Fresh full shards: 702 + 1507 + 905. No browser gate is triggered
-by these backend-only paths; Task 10 runs the integrated UI gate.
-
-Forward guidance: Task 10 removes remaining contributor UI and unused
-styles, caps the client at ten and reduces the chart box. Measured short
-viewports cannot fit the original gaps and 268px tooltip together. Owner
-choice on compact KPI/bottom spacing is pending; page-scroll assertions
-remain strict. Final main integration, live approval and PR remain pending.
-Section 3 batch sequencing is unchanged. WT003/WT005/WT010/WT012 are
-advisory under the owner's instruction; no lineage repair is attempted.
-
-Validation: `pytest -q` -- **3114 passed**.

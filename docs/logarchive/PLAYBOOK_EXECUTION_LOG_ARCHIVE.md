@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Return weekly artists to the top ten
+
+Side task, no batch tag: Task 9 on `feat/streamgraph-bursts`. The owner
+requested top ten only and no residual contributor list after live testing.
+Reverse this branch's own burst selection and contributor metadata in plays,
+job readback and their tests. The four files match origin/main exactly;
+none changed upstream since the original branch base. Original normalized
+ranking/ties, Monday columns, window filtering, empty-key residuals and
+nested-copy isolation coverage remain. README and the sequence diagram
+again describe top ten. No UI source changes in this checkpoint.
+
+Plan vs implementation: exact scoped reversal, no history rewrite. Tests
+solely for the removed feature are removed; original behavior tests return.
+Focused plays/jobs/heatmap: 114 passed. Independent spec/quality review
+approved. Fresh full shards: 702 + 1507 + 905. No browser gate is triggered
+by these backend-only paths; Task 10 runs the integrated UI gate.
+
+Forward guidance: Task 10 removes remaining contributor UI and unused
+styles, caps the client at ten and reduces the chart box. Measured short
+viewports cannot fit the original gaps and 268px tooltip together. Owner
+choice on compact KPI/bottom spacing is pending; page-scroll assertions
+remain strict. Final main integration, live approval and PR remain pending.
+Section 3 batch sequencing is unchanged. WT003/WT005/WT010/WT012 are
+advisory under the owner's instruction; no lineage repair is attempted.
+
+Validation: `pytest -q` -- **3114 passed**.
+
 ### 2026-10-28 - Keep residual counts outside the artist stream
 
 Side task, no batch tag: Task 8 checkpoint on `feat/streamgraph-bursts`.

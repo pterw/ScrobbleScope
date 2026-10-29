@@ -31,8 +31,8 @@ extra artist series, unrelated backend change or new chart framework.
   right-aligned counts, and
   separate the true residual row with a restrained divider. Preserve hover,
   keyboard, touch, ring, guide, focus, reduced motion and responsive placement.
-- [x] Apply ten deterministic colours drawn from the supplied Extended Rocket +
-  Indigo candidates, with theme adjustments if rendered evidence warrants them.
+- [x] Apply ten deterministic rank colours, from orange for the most played to
+  purple for the least played, with theme adjustments for dark mode.
   Audit neighbouring colours, including zero-width contacts, in both themes;
   report weak contrasts without asserting a universal 3:1 threshold. Leave the
   heatmap colour ramp unchanged.
@@ -66,3 +66,8 @@ Visibility changes never change that scale or the artist path coordinates.
 - 2026-10-28: After live review, the owner requested removal of the 0.25x header caption because it was confusing. This supersedes the original caption requirement; the halo, counts and toggle remain unchanged. A hue-grouped palette is being previewed separately and is not approved for the PR.
 - 2026-10-28: Reopened timeline and verification steps for the owner-requested caption removal; focused Chromium and Firefox alignment, toggle and export checks pass. Full validation is running.
 - 2026-10-28: Caption removal verified with focused Chromium and Firefox alignment, toggle and export checks and a full suite of 3113 passed. The grouped-hue comparison is local only and awaits owner feedback.
+- 2026-10-28: The owner approved the local rank-based palette preview. Promote orange for the most-played featured artist through purple for the least played; re-audit and verify theme repaint, export and tests. This supersedes the earlier Extended Rocket + Indigo assignment.
+- 2026-10-28: Rank-palette audit: weakest normal-stack adjacent WCAG luminance ratios are 1.25:1 light (ranks 2/1) and 1.03:1 dark (ranks 10/8); minimum adjacent OKLab differences are 0.065 light and 0.047 dark. Pinched bands can produce lower separations. Full-severity Machado-matrix simulations found minimum adjacent OKLab differences of 0.068/0.057/0.055 light and 0.016/0.030/0.055 dark for protan/deutan/tritan respectively. These are approximate, not a visibility threshold. The owner reviewed and approved the rank-based preview; the tooltip supplies names and counts.
+- 2026-10-28: Rank palette audit and both-theme repaint checks passed; the measured weak pairs above remain a known tradeoff of the owner-approved sequence. Focused Chromium and Firefox alignment, toggle and export checks passed. Full suite and repository checks remain in progress.
+- 2026-10-28: T5 complete. Extended the existing palette test to verify stable, distinct rank colours and orange-to-purple progression in both themes. The full suite passed 3113 tests; final browser gate and repository checks remain running.
+- 2026-10-28: T6 verification: full suite 3113 passed; the complete locked frontend gate passed 58 checks in 89 runs across Chromium and Firefox, including theme, interaction and export. Screenshots of both themes are recorded locally. Final hooks and docsync are being run before the focused commit.

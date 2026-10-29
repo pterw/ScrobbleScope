@@ -14,6 +14,7 @@ computation is tested here, one layout, one arrow and one edge at a time.
 
 from __future__ import annotations
 
+import colorsys
 import re
 from datetime import date
 
@@ -974,10 +975,18 @@ def test_smooth_path_tolerates_degenerate_input(js_page, top):
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_layer_colour_keeps_ten_distinct_artist_identities(js_page, theme):
-    """Assign stable, distinct colours to all ten featured ranks in each theme."""
+    """GIVEN ranked artists, WHEN colors are assigned, THEN the endpoints follow the heatmap."""
     colours = [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
     assert len(set(colours)) == 10
     assert colours == [_hook(js_page, "layerColour", rank, theme) for rank in range(10)]
+    hues = [
+        colorsys.rgb_to_hsv(*(int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)))[0]
+        for colour in colours
+    ]
+    assert 0 < hues[0] < 45 / 360  # highest rank is orange
+    assert 260 / 360 < hues[-1] < 310 / 360  # lowest rank is purple
+    ordered_hues = [hue - 1 if hue > 0.5 else hue for hue in hues]
+    assert all(a > b for a, b in zip(ordered_hues, ordered_hues[1:], strict=False))
 
 
 def _stream_payload(cols=3, artists=2):

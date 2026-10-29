@@ -156,12 +156,12 @@
   const STREAM_RING_W  = 2 * STEP / 27;    // column marker stroke width
   const STREAM_RING_PAD = 4 * STEP / 27;   // marker offset and corner radius
 
-  // Categorical ink colours from the owner's Extended Rocket + Indigo direction.
+  // Rank colours follow the heatmap from high-play orange to low-play purple.
   const STREAM_PALETTE = {
-    light: ['#e85d44', '#4a235a', '#f4a259', '#6a4baf', '#c8335b',
-      '#e9c46a', '#3b336a', '#d97757', '#8e2d56', '#b39dde'],
-    dark: ['#e85d44', '#8a5a9b', '#f4a259', '#9574ce', '#c8335b',
-      '#e9c46a', '#7870b3', '#d97757', '#bb5d8d', '#b39dde'],
+    light: ['#f1943e', '#e77a3c', '#dc613f', '#cf4b44', '#bf3e4e',
+      '#ae3257', '#9a2860', '#842066', '#6e196d', '#561464'],
+    dark: ['#f1943e', '#e77a3c', '#dc613f', '#d1524b', '#c44d5c',
+      '#b84b6b', '#aa4a79', '#9d4d85', '#915090', '#85568f'],
   };
 
   /**
