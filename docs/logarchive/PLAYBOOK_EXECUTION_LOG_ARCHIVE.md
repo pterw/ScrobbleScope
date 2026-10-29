@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Fit listening and empty pages to the browser viewport
+
+Side task on `feat/streamgraph-bursts`, requested after the earlier viewport
+estimate still overflowed at desktop scaling. Fit the shared SVG width against
+actual rendered chrome, refit on viewport and font changes, scale the summary
+controls, and remove the oversized chart tail. Empty destinations share their
+viewport with the actual footer and mobile theme control in normal flow. The
+combined mode is now Listening, with copy describing daily plays and weekly
+artist trends on desktop; saved-job routes and identifiers remain stable.
+
+Extend existing layout checks rather than adding wording or duplicate tests.
+The old result overflow was reproduced at 1536x780, 1280x720 and 1024x768.
+Focused Chromium and Firefox probes now fit those viewports, 1080p and 1440p
+browser content boxes, with the complete tooltip visible. The full suite measured
+**3113 passed**: 2954 non-browser tests in three shards and 159 browser tests.
+Fresh-result and late-chrome checks pass in both engines and motion modes.
+The final frontend gate passed 58 checks in 89 Chromium and Firefox runs after
+correcting scroll and export fixtures whose fixed-layout assumptions no longer
+hold. Pre-commit and docsync passed before the final completion record. A review
+found that fitting must wait for the outgoing loader to leave; both motion
+paths now refit after that transition. Very short windows or enlarged text keep
+natural page scrolling instead of clipping controls.
+
 ### 2026-10-29 - Scale the heatmap result with viewport height
 
 Side task on `feat/streamgraph-bursts`. The owner requested the pause control

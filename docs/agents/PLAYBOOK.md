@@ -75,7 +75,9 @@ See FINDINGS F-DOCSYNC-3.
   Validation parity, the uncommitted-file audit and the close-out handoff
   are complete. Listening already has blur validation; the existing browser
   check now proves request blocking and corrected-profile submission. PR
-  #280 remains draft for owner review. Independent F-SWE-8 work stays gated.
+  #280 is ready for review after green CI and owner authorization. The bot-review
+  documentation correction and local validation are complete. Check current
+  remote CI/reviews before merge; independent F-SWE-8 work stays gated.
   The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
@@ -194,6 +196,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Reconcile Listening design notes after bot review
+
+The owner authorized opening PR #280 after green CI and fixing bot concerns.
+Quality Gate run `40880774113` succeeded at 014c6d75; the PR left draft and the
+template checklist was updated. Codex completed without findings. Graphify's
+three inline coupling advisories were checked against source and the base;
+the shared fixture and interaction assertions remain cohesive. Replied with
+that evidence and resolved the threads without metric-driven refactoring.
+Its additional helper advisories concern residual-only coverage.
+
+The documentation check found old Heatmap copy and a width-only result
+description in the current reconciliation table. Correct four current rows
+to reference source owners and the approved Listening follow-up. Preserve
+the frozen snapshots and dated sections. The full suite measured
+**3113 passed** in 145.79 seconds; no tests or runtime code changed. Repository
+hooks and final docsync passed before the focused documentation commit.
+After pushing, verify the new head's CI and bot feedback and fast-forward
+the owner preview. Qlty's status passes but its description reports 13
+blocking issues; the detailed list requires separate login and has not been
+validated. The execution record is
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Verify Listening profile guards and prepare the handoff
 
 The owner requested Listening blur verification, review of uncommitted files
@@ -265,26 +289,3 @@ ran in degraded regex mode because its parser modules are unavailable; its
 findings concern existing styles, so it is not evidence of computed contrast.
 The execution checklist is in
 `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
-
-### 2026-10-29 - Fit listening and empty pages to the browser viewport
-
-Side task on `feat/streamgraph-bursts`, requested after the earlier viewport
-estimate still overflowed at desktop scaling. Fit the shared SVG width against
-actual rendered chrome, refit on viewport and font changes, scale the summary
-controls, and remove the oversized chart tail. Empty destinations share their
-viewport with the actual footer and mobile theme control in normal flow. The
-combined mode is now Listening, with copy describing daily plays and weekly
-artist trends on desktop; saved-job routes and identifiers remain stable.
-
-Extend existing layout checks rather than adding wording or duplicate tests.
-The old result overflow was reproduced at 1536x780, 1280x720 and 1024x768.
-Focused Chromium and Firefox probes now fit those viewports, 1080p and 1440p
-browser content boxes, with the complete tooltip visible. The full suite measured
-**3113 passed**: 2954 non-browser tests in three shards and 159 browser tests.
-Fresh-result and late-chrome checks pass in both engines and motion modes.
-The final frontend gate passed 58 checks in 89 Chromium and Firefox runs after
-correcting scroll and export fixtures whose fixed-layout assumptions no longer
-hold. Pre-commit and docsync passed before the final completion record. A review
-found that fitting must wait for the outgoing loader to leave; both motion
-paths now refit after that transition. Very short windows or enlarged text keep
-natural page scrolling instead of clipping controls.

@@ -43,7 +43,7 @@ extra artist series, unrelated backend change or new chart framework.
 - [x] Run focused checks, the full suite, existing hooks/docsync and locked browser
   gate. Capture actual light/dark UI in both visibility states, review against
   the supplied mockup, and record the colour audit and results.
-- [ ] Land the focused commit and complete the requested PR using the repo template.
+- [x] Land the focused commit and complete the requested PR using the repo template.
 
 The artist baseline is computed without residuals; fitting includes the halo
 envelope so the common scale can shrink when necessary to prevent clipping.
@@ -278,3 +278,41 @@ working validation code. Keep independent owner tooling out of this PR.
   archive rotation was proved mechanically against dd69ddd7. The completed
   record is staged with the focused validation/close-out commit. The OS-temp
   handoff will carry its final pushed SHA and current CI state.
+
+## PR publication and bot review (2026-10-29)
+
+The owner authorized opening the draft after CI passed and addressing bot
+feedback. Keep fixes focused and preserve the accepted runtime behavior.
+
+- [x] Verify CI at the pushed head and mark PR #280 ready using the repo template.
+- [x] Wait for automatic reviews and verify their findings against source.
+- [x] Reconcile the current design table with Listening copy and actual sizing.
+- [x] Run required gates and record the focused documentation fix for publication.
+
+- 2026-10-29: Quality Gate run 40880774113 passed at 014c6d75. Marked PR #280
+  ready after owner authorization and updated the PR validation checklist.
+  Codex completed with no findings. Graphify's three inline coupling advisories
+  were checked against the base and current source; replied with the shared
+  test-helper responsibilities and resolved them without runtime refactoring.
+  Its two additional helper advisories concern residual-only coverage. The
+  current design table still carries old Heatmap copy and omits the fitted
+  result constraint; correct those current rows while preserving dated history.
+  Qlty passes but describes 13 blocking issues; its details require a separate
+  login, so no issue-level conclusion or suppression is made.
+- 2026-10-29: Updated four current rows in `docs/design/RECONCILIATION.md`
+  with current navigation, source-owned Listening copy and measured result
+  sizing. Read the whole reconciliation document and verified its dated
+  sections remain unchanged. No runtime code, frozen snapshot or test changed.
+  Required validation is running before the focused documentation commit.
+- 2026-10-29: Full suite measured 3113 passed in 145.79 seconds. All hooks
+  and docsync pass after preserving the declared stage-cap wording and quoting
+  the CI run ID so it cannot be parsed as a test count. This record accompanies
+  the focused documentation commit. Publish it, verify new-head CI and review
+  feedback, and sync the owner checkout; the OS-temp handoff records that final
+  remote and local checkpoint without adding another mutable design claim.
+- 2026-10-29: Graphify later reported a differential witness for the test
+  fixture `_weekly_artists(9, False)`. Reproduced it: the third week's named
+  total intentionally changes from 206 to zero, leaving 82 residual plays.
+  This is the planned residual-only browser scenario, not a production
+  behavior regression. Its browser-function abstentions are not proof of a
+  defect or of equivalence; the real browser gate supplies execution evidence.
