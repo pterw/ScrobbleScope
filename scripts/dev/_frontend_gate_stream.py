@@ -157,7 +157,6 @@ _READ_ALIGNMENT_JS = """() => {
         lineX: lines.map(line => Number(line.getAttribute('x1'))),
         gridMonths: Array.from(grid.querySelectorAll('.heatmap-month-label')).map(label =>
             ({ text: label.textContent, x: Number(label.getAttribute('x')) })),
-        caption: stream.querySelector('.stream-caption')?.textContent ?? '',
     };
 }"""
 
@@ -218,10 +217,6 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
                 failures.append(
                     f"bottom month is misplaced at {width}px: {label}, {grid_month}"
                 )
-    if "0.25" not in reading["caption"] or "other" not in reading["caption"].lower():
-        failures.append(
-            "the stream caption does not explain compressed other listening"
-        )
     return failures
 
 

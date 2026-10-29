@@ -184,6 +184,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-28 - Remove the streamgraph compression caption
+
+Side task on `feat/streamgraph-bursts`. Following a local review, the owner
+requested removal of the 0.25x header explanation because it was confusing.
+The halo, toggle, artist colours and actual tooltip counts stay unchanged.
+Remove the matching accessible-label wording and obsolete gate assertion.
+A separate local hue-grouped palette remains a preview pending owner review;
+it is not part of this commit. Focused alignment, toggle and export checks
+passed in Chromium and Firefox; the full suite measured **3113 passed**.
+
 ### 2026-10-28 - Add the streamgraph context halo
 
 Side task on `feat/streamgraph-bursts`. The owner replaced the earlier
@@ -262,35 +272,3 @@ Section 3 batch sequencing is unchanged. WT003/WT005/WT010/WT012 are
 advisory under the owner's instruction; no lineage repair is attempted.
 
 Validation: `pytest -q` -- **3114 passed**.
-
-### 2026-10-28 - Keep residual counts outside the artist stream
-
-Side task, no batch tag: Task 8 checkpoint on `feat/streamgraph-bursts`.
-Only named artist counts feed SVG baseline, fit, stack and hit mapping.
-Everything else stays numeric, normal-weight and without a painted swatch;
-keyboard selection leaves artist paths undimmed. Residual-only weeks and
-payloads remain scrubbable; all-zero data draws no stream. Original rocket
-arrays and permutation remain. Four unused residual colour tokens are removed.
-README, DESIGN and the original plan/spec distinguish named-only geometry
-from full weekly totals. No payload or server changes in this checkpoint.
-
-Existing pure hit-test cases were extended for direct slot/rank mapping,
-empty bands, boundaries, empty stack and residual-only weeks. Red: 6 failed,
-4 passed; green: 10 passed; whole file: 150 passed. Existing browser families
-now check named paths, numeric residual style/count, undimmed keyboard state,
-residual-only/all-zero jobs and named JPEG pixels. A metamorphic assertion
-proves 10,000x residual volume leaves artist geometry unchanged. Independent
-source/runtime review approved. Full locked gate: 58 checks in 89 runs across
-Chromium/Firefox. Fresh suite shards: 702 + 1507 + 912. Real-data Firefox
-captures pass data/geometry in both themes; the agent did not judge visuals.
-
-Deviations/forward guidance: the owner liked the artist-only preview, then
-requested removal of contributor rows, a smaller SVG box without vertical
-scrolling and a return to top ten only. This commit preserves Task 8's
-reviewed twelve-artist checkpoint; newly defined Tasks 9-10 supersede its
-retained contributor block and height reservation before final publication.
-Code phases may run in parallel; land backend Task 9 before UI Task 10.
-Final owner approval, main integration and PR publication remain pending.
-Section 3 batch sequencing is unchanged. No history rewrite.
-
-Validation: `pytest -q` -- **3121 passed**.

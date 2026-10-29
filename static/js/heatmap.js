@@ -696,7 +696,7 @@
       node.removeAttribute('style');
       node.setAttribute('opacity', '1');
     });
-    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label, .stream-caption, .stream-month-label'), function (node) {
+    Array.prototype.forEach.call(clone.querySelectorAll('.stream-section-label, .stream-month-label'), function (node) {
       node.setAttribute('font-family', 'monospace');
     });
     return svgCloneAsImage(clone, width, height);
@@ -1789,7 +1789,7 @@
     svg.querySelectorAll('.stream-gridline').forEach(function (line) {
       line.setAttribute('stroke', lineColour);
     });
-    svg.querySelectorAll('.stream-section-label, .stream-caption, .stream-month-label')
+    svg.querySelectorAll('.stream-section-label, .stream-month-label')
       .forEach(function (label) { label.setAttribute('fill', frameColour('--stream-muted')); });
   }
 
@@ -1889,14 +1889,6 @@
     label.textContent = 'TOP ARTISTS - PLAYS PER WEEK';
     svg.appendChild(label);
 
-    var caption = streamNode('text', {
-      'class': 'stream-caption', x: svgWidth - 4, y: STREAM_LABEL_H - 4,
-      'font-size': '9.5', 'font-family': LABEL_FONT_STACK, 'text-anchor': 'end',
-      fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
-    });
-    caption.textContent = 'Other plays: 0.25x thickness';
-    svg.appendChild(caption);
-
     gridContainer.appendChild(svg);
 
     var toggle = document.createElement('button');
@@ -1904,7 +1896,6 @@
     toggle.id = 'stream-context-toggle';
     toggle.className = 'stream-context-toggle';
     toggle.textContent = 'Other listening';
-    toggle.setAttribute('aria-label', 'Other listening, shown at one quarter thickness');
     toggle.setAttribute('aria-pressed', streamContextVisible ? 'true' : 'false');
     toggle.addEventListener('click', function () {
       streamContextVisible = !streamContextVisible;

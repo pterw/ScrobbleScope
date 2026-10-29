@@ -27,8 +27,8 @@ extra artist series, unrelated backend change or new chart framework.
   Resolve theme colours into SVG attributes and preserve the selected visibility
   in the self-contained JPEG export.
 - [x] Put month labels on the bottom axis at actual calendar-aligned week positions;
-  keep heatmap months above. Put the 0.25x explanatory caption in the section
-  header, use circular tooltip markers and tabular right-aligned counts, and
+  keep heatmap months above. Use circular tooltip markers and tabular
+  right-aligned counts, and
   separate the true residual row with a restrained divider. Preserve hover,
   keyboard, touch, ring, guide, focus, reduced motion and responsive placement.
 - [x] Apply ten deterministic colours drawn from the supplied Extended Rocket +
@@ -63,3 +63,6 @@ Visibility changes never change that scale or the artist path coordinates.
 - 2026-10-28: T6 evidence in progress. Four matched Firefox application captures were made from the saved representative payload in sgb-proto/halo-{light,dark}-{on,off}.png in the session scratch directory. Reviewed all four against the supplied reference for hierarchy, halo, palette and bottom-axis structure. The full 3113-test suite passed before the final partial-week correction; focused browser checks passed after it. The final full browser gate, hooks and docsync remain pending.
 - 2026-10-28: The final-state frontend gate passed 58 checks in 89 runs across Chromium and Firefox, including the final partial-week case. Repository hooks and final docsync remain pending.
 - 2026-10-28: T6 verification: suite 3113 passed in three shards before the final partial-week correction; final locked browser gate passed 58 checks in 89 runs, and focused final checks passed in Chromium and Firefox. Pre-commit all-files and docsync check passed. Captures are halo-light-on.png, halo-light-off.png, halo-dark-on.png and halo-dark-off.png in the session scratch sgb-proto directory. WT003 is the known advisory side-task branch warning.
+- 2026-10-28: After live review, the owner requested removal of the 0.25x header caption because it was confusing. This supersedes the original caption requirement; the halo, counts and toggle remain unchanged. A hue-grouped palette is being previewed separately and is not approved for the PR.
+- 2026-10-28: Reopened timeline and verification steps for the owner-requested caption removal; focused Chromium and Firefox alignment, toggle and export checks pass. Full validation is running.
+- 2026-10-28: Caption removal verified with focused Chromium and Firefox alignment, toggle and export checks and a full suite of 3113 passed. The grouped-hue comparison is local only and awaits owner feedback.
