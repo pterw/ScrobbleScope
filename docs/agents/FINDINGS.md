@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
 3113 tests across 104 tracked test modules.
@@ -564,6 +564,12 @@ treat the runner's output as evidence until its own defects are fixed.
 
 Source: docsync close-out side task, 2026-09-20. It is a future work package
 rather than a defect in shipped code.
+
+Fresh source review, 2026-10-29: the uncommitted-file audit records installed
+serialization mismatches, false-green exit paths, Windows interpreter quoting
+and safeguard gaps. Evidence and scope:
+`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. The existing
+owner gate and unadopted status remain unchanged.
 
 ### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
 

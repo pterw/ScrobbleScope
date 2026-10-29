@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Scale the heatmap result with viewport height
+
+Side task on `feat/streamgraph-bursts`. The owner requested the pause control
+be visible at 1080p, more prominent KPIs and a better placed legend. Limit the
+result width by viewport height so its two aligned SVGs scale together, group
+the legend beside the context control, and compact the result footer spacing.
+The heading and mobile layout remain intact. The full suite measured **3113 passed** in three shards. The browser gate passed 58 checks in 89 Chromium and Firefox runs after
+replacing two obsolete fixed-width assumptions with tooltip containment and a
+readable cell size check. Shorter desktop viewports can still require page scrolling.
+
 ### 2026-10-28 - Align streamgraph paths with the grid edges
 
 Side task on `feat/streamgraph-bursts`. The owner noticed a gap at the

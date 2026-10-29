@@ -14,7 +14,7 @@ from scripts.dev._frontend_gate_colour import (
     seg_contrast_failures,
     seg_hover_failures,
 )
-from scripts.dev._frontend_gate_shared import _reach_state
+from scripts.dev._frontend_gate_shared import _reach_state, wait_for_settled
 
 #: What must be invisible when a migrated page first loads. The scripts reveal
 #: each one later.
@@ -398,60 +398,105 @@ def _unmatched_help_contrast_failures(page) -> list[str]:
 
 
 def check_private_profile_is_blocked(page, base_url: str) -> list[str]:
-    """A private-profile verdict blocks both forms on the index before submit.
+    """Rejected blur verdicts block requests; correcting the name can submit.
 
-    The backend owns the Last.fm error-17 classification. This browser check
-    supplies that result at the network boundary and proves the shared index
-    validation UI turns it into an actionable message and native form block.
+    Both forms use the same validator endpoint. Supply private and missing
+    verdicts there, then challenge the real submit paths rather than trusting
+    field validity alone. Intercept job requests so no provider or job runs.
     """
     fields = (
-        ("/", "#username", ()),
-        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
-    )
-    message = (
-        "This Last.fm profile is private. Make recent listening public and try again."
-    )
-    failures = []
-    page.route(
-        "**/validate_user*",
-        lambda route: route.fulfill(
-            status=200,
-            content_type="application/json",
-            body=f'{{"valid": false, "message": "{message}"}}',
+        ("#username", "#submit-btn", "/results_loading", ()),
+        (
+            "#heatmap-username",
+            "#heatmap-submit-btn",
+            "/heatmap_loading",
+            (("click", "#mode-tab-heatmap"),),
         ),
     )
+    messages = (
+        "This Last.fm profile is private. Make recent listening public and try again.",
+        "Username not found on Last.fm.",
+    )
+    failures = []
+    submissions = []
+
+    def capture_submission(route):
+        """Record attempts without creating a job or contacting Last.fm."""
+        submissions.append(route.request.url)
+        route.fulfill(
+            status=400,
+            content_type="application/json",
+            body='{"error": true, "message": "Profile verification probe."}',
+        )
+
+    def validator_response(message):
+        """Bind one verdict in a one-argument Playwright route handler.
+
+        A second positional parameter receives Request from Playwright, so a
+        default argument cannot safely capture the loop's current message.
+        """
+        return lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"valid": true}'
+            if "username=verified_profile" in route.request.url
+            else f'{{"valid": false, "message": "{message}"}}',
+        )
+
+    page.route("**/*_loading", capture_submission)
     try:
-        for path, selector, actions in fields:
-            page.goto(f"{base_url}{path}", wait_until="load")
-            _reach_state(page, actions)
-            page.locator(selector).type("private_profile")
-            page.locator(selector).blur()
-            page.wait_for_function(
-                """(selector) => {
-                    const input = document.querySelector(selector);
-                    return input && !input.checkValidity();
-                }""",
-                arg=selector,
-            )
-            state = page.evaluate(
-                """(selector) => {
-                    const input = document.querySelector(selector);
-                    const error = input.parentNode.querySelector('.field__error');
-                    return {
-                        blocked: !input.checkValidity(),
-                        message: error ? error.textContent.trim() : '',
-                    };
-                }""",
-                selector,
-            )
-            if not state["blocked"]:
-                failures.append(f"{path} {selector}: private profile can submit")
-            if state["message"] != message:
-                failures.append(
-                    f"{path} {selector}: private-profile message is {state['message']!r}"
+        for selector, submit, endpoint, actions in fields:
+            for message in messages:
+                page.route("**/validate_user*", validator_response(message))
+                submissions.clear()
+                page.goto(f"{base_url}/", wait_until="load")
+                _reach_state(page, actions)
+                # Given a rejected blur verdict, both Enter and the button
+                # must leave the request boundary untouched.
+                field = page.locator(selector)
+                field.fill("rejected_profile")
+                field.blur()
+                page.wait_for_function(
+                    "selector => !document.querySelector(selector).checkValidity()",
+                    arg=selector,
                 )
+                feedback = field.locator("..").locator(".field__error").inner_text()
+                if feedback != message:
+                    failures.append(f"{selector}: rejection feedback is {feedback!r}")
+                field.press("Enter")
+                wait_for_settled(page)
+                if not submissions:
+                    page.locator(submit).click()
+                    wait_for_settled(page)
+                if submissions:
+                    failures.append(
+                        f"{selector}: rejected profile reached {submissions!r}"
+                    )
+                    continue
+                # When corrected to a public name, the same form must recover
+                # and actually submit; a permanently blocked form cannot pass.
+                field.fill("verified_profile")
+                field.blur()
+                page.wait_for_function(
+                    "selector => document.querySelector(selector).checkValidity()"
+                    " && document.querySelector(selector).classList.contains('is-valid')",
+                    arg=selector,
+                )
+                with page.expect_request(
+                    lambda request, endpoint=endpoint: (
+                        request.method == "POST" and request.url.endswith(endpoint)
+                    )
+                ):
+                    page.locator(submit).click()
+                wait_for_settled(page)
+                if len(submissions) != 1:
+                    failures.append(
+                        f"{selector}: corrected profile made {len(submissions)} requests"
+                    )
+                page.unroute("**/validate_user*")
     finally:
         page.unroute("**/validate_user*")
+        page.unroute("**/*_loading")
     return failures
 
 

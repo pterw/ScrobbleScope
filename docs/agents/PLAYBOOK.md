@@ -71,8 +71,11 @@ See FINDINGS F-DOCSYNC-3.
 
 - **Listening view side task:** Durable result and empty-state sizing is
   complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
-  illustration refinement and requested mode-transition motion are complete
-  and awaiting owner review.
+  illustration refinement and requested mode-transition motion are complete.
+  Validation parity, the uncommitted-file audit and the close-out handoff
+  are complete. Listening already has blur validation; the existing browser
+  check now proves request blocking and corrected-profile submission. PR
+  #280 remains draft for owner review. Independent F-SWE-8 work stays gated.
   The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
@@ -191,6 +194,32 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Verify Listening profile guards and prepare the handoff
+
+The owner requested Listening blur verification, review of uncommitted files
+and a durable close-out handoff. Listening already uses the same validator
+endpoint as Top albums, sets custom validity for missing/private profiles,
+and checks it before AJAX submission. No production validation refactor was
+needed. Extend the existing profile gate to challenge Enter and button
+submission at the request boundary, then prove a corrected public name can
+submit. Chromium and Firefox pass against the feature server and actual
+owner preview; removing Listening's guard produces rejected POSTs and fails
+the check. The full suite measured **3113 passed** (2954 non-browser tests
+in three shards plus 159 browser tests). The frontend gate passed 58 checks
+in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
+were added.
+
+The independent uncommitted-file audit is recorded in
+`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
+preview hashes match the pushed feature commit. Independent owner files and
+dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
+linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
+and was not staged or used as test evidence. The requested OS-temp handoff
+is written and receives the final pushed commit and validation checkpoint
+at close-out. Whole-file review found no material issue. Archive rotation
+was verified mechanically against dd69ddd7 without claiming a semantic
+reread of unrelated historical content.
+
 ### 2026-10-29 - Animate the transition into the Listening form
 
 Side task on `feat/streamgraph-bursts`. The owner requested an upward card
@@ -259,13 +288,3 @@ hold. Pre-commit and docsync passed before the final completion record. A review
 found that fitting must wait for the outgoing loader to leave; both motion
 paths now refit after that transition. Very short windows or enlarged text keep
 natural page scrolling instead of clipping controls.
-
-### 2026-10-29 - Scale the heatmap result with viewport height
-
-Side task on `feat/streamgraph-bursts`. The owner requested the pause control
-be visible at 1080p, more prominent KPIs and a better placed legend. Limit the
-result width by viewport height so its two aligned SVGs scale together, group
-the legend beside the context control, and compact the result footer spacing.
-The heading and mobile layout remain intact. The full suite measured **3113 passed** in three shards. The browser gate passed 58 checks in 89 Chromium and Firefox runs after
-replacing two obsolete fixed-width assumptions with tooltip containment and a
-readable cell size check. Shorter desktop viewports can still require page scrolling.

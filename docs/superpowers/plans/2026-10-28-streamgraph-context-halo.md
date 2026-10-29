@@ -241,3 +241,40 @@ the existing Pause animations choice show the final state immediately.
 - 2026-10-29: All repository hooks and final docsync passed. The local
   preview matches the reviewed motion implementation. The completed record
   is staged with this separate motion commit; PR #280 stays draft for review.
+
+## Listening validation and session close-out (2026-10-29)
+
+The owner requested the same blur verification as Top albums, a check of
+uncommitted files, and a durable handoff. Listening already calls the shared
+validation endpoint on blur and checks custom validity before starting a job.
+Verify actual rejected requests and correction recovery instead of copying
+working validation code. Keep independent owner tooling out of this PR.
+
+- [x] Extend the existing profile check for missing/private verdicts, actual
+  blocked submissions, and a corrected public profile that can submit.
+- [x] Verify both engines and backend prechecks; run the required gates.
+- [x] Record the uncommitted-file audit under existing F-SWE-8, update the
+  ledger, and write the requested OS-temp handoff with suggested skills.
+
+- 2026-10-29: Source inspection confirms Listening's existing blur validator,
+  stale-response protection and submission validity guard. The previous
+  browser check only observed field validity, so it could stay green if the
+  Listening submission guard were removed. Strengthen that existing check.
+- 2026-10-29: Both browsers pass rejected-profile blocking and corrected-name
+  submission in the feature server and the actual owner preview. The virtual
+  removal of Listening's custom-validity guard produces captured rejected
+  POSTs and fails the check. Outage recovery and stale-verdict checks also
+  pass. No production validation code changed. A one-argument route closure
+  binds each verdict without Playwright replacing it with Request.
+- 2026-10-29: The uncommitted-file audit reconciles eleven product previews
+  with dd69ddd7 and preserves thirteen independent owner files. Fresh source
+  evidence is linked under existing F-SWE-8 without adopting the tooling.
+  Other dirty worktree status is inventoried, with ownership/content review
+  explicitly left for a later cleanup. The requested OS-temp handoff exists.
+- 2026-10-29: Close-out verification passed: 3113 tests total (2954
+  non-browser in three shards plus 159 browser), frontend gate 58 checks in
+  89 runs, and all repository hooks. The backend precheck cases remain in
+  the full suite. Whole-file source/document review found no material issue;
+  archive rotation was proved mechanically against dd69ddd7. The completed
+  record is staged with the focused validation/close-out commit. The OS-temp
+  handoff will carry its final pushed SHA and current CI state.
