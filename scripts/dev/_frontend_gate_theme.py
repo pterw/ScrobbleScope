@@ -299,11 +299,13 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
 
 
 def check_index_entrance_motion(page, base_url: str) -> list[str]:
-    """The index composition enters once, while reduced motion stays visible."""
+    """The index and mode changes animate continuity without hiding content."""
     failures = []
+    saved_motion = page.evaluate("document.documentElement.getAttribute('data-motion')")
     try:
         page.emulate_media(reduced_motion="no-preference")
         page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate("document.documentElement.removeAttribute('data-motion')")
         standard = page.locator(".index-page").evaluate(
             """element => {
                 const style = getComputedStyle(element);
@@ -384,8 +386,74 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
                 };
             }"""
         )
-        page.locator("#mode-tab-heatmap").click()
+        # Given the album card, switching modes must change painted geometry,
+        # not merely declare an animation name or hide content behind a clip.
+        switching = page.evaluate(
+            """async () => {
+                const oldHeight = document.querySelector('#album-form-section .ss-card')
+                    .getBoundingClientRect().height;
+                document.querySelector('#mode-tab-heatmap').click();
+                await new Promise(requestAnimationFrame);
+                const card = document.querySelector('#heatmap-form');
+                const example = document.querySelector('.listening-example');
+                const resize = card.getAnimations().find(a => a.animationName === 'listening-card-collapse');
+                const reveal = example.getAnimations().find(a => a.animationName === 'listening-example-reveal');
+                if (!resize || !reveal) return null;
+                resize.pause();
+                reveal.pause();
+                const duration = resize.effect.getTiming().duration;
+                const phases = [0, duration / 2, duration * 0.75, duration].map(time => {
+                    resize.currentTime = time;
+                    reveal.currentTime = time;
+                    return {height: card.getBoundingClientRect().height,
+                        top: card.getBoundingClientRect().top,
+                        opacity: Number(getComputedStyle(example).opacity)};
+                });
+                resize.finish();
+                reveal.finish();
+                return {oldHeight, phases};
+            }"""
+        )
+        if not switching:
+            failures.append(
+                "Listening switch does not animate the card and illustration"
+            )
+        else:
+            start, middle, late, end = switching["phases"]
+            if not (
+                abs(start["height"] - switching["oldHeight"]) < 1
+                and start["height"] > middle["height"] > end["height"]
+                and abs(start["top"] - end["top"]) < 1
+                and start["opacity"] < late["opacity"] < end["opacity"]
+            ):
+                failures.append(
+                    f"Listening switch does not collapse and reveal: {switching!r}"
+                )
         wait_for_settled(page)
+        # When several choices arrive in one frame, the final choice must win
+        # and the completed card must still grow for validation/help content.
+        page.evaluate(
+            """() => {
+                for (const id of ['album', 'heatmap', 'album', 'heatmap'])
+                    document.querySelector('#mode-tab-' + id).click();
+            }"""
+        )
+        wait_for_settled(page)
+        restored = page.locator("#heatmap-form").evaluate(
+            """card => {
+                const before = card.getBoundingClientRect().height;
+                const note = card.querySelector('.ss-card__note');
+                const text = note.textContent;
+                note.textContent = text.repeat(12);
+                const grows = card.getBoundingClientRect().height > before;
+                note.textContent = text;
+                return grows && card.getClientRects().length > 0;
+            }"""
+        )
+        if not restored:
+            failures.append(
+                "Interrupted Listening transition leaves hidden or fixed-height content"
+            )
         switched_hero = page.evaluate(
             """() => {
                 const copy = document.querySelector('.index-hero__copy');
@@ -451,6 +519,48 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
         )
         if reduced != {"name": "none", "opacity": "1"}:
             failures.append(f"reduced-motion index entrance is {reduced!r}")
+        # Given an active switch, preferences must cancel it to the final state.
+        # When already selected, those preferences must prevent the next effect.
+        for preference in ("reduce", "pause"):
+            page.emulate_media(reduced_motion="no-preference")
+            page.evaluate("document.documentElement.removeAttribute('data-motion')")
+            page.locator("#mode-tab-album").click()
+            wait_for_settled(page)
+            active = page.evaluate(
+                """async () => {
+                    document.querySelector('#mode-tab-heatmap').click();
+                    await new Promise(requestAnimationFrame);
+                    const effect = document.querySelector('#heatmap-form').getAnimations()[0];
+                    if (!effect) return false;
+                    effect.pause();
+                    effect.currentTime = effect.effect.getTiming().duration / 2;
+                    return true;
+                }"""
+            )
+            if not active:
+                failures.append(
+                    f"{preference} cancellation had no active switch to challenge"
+                )
+            if preference == "reduce":
+                page.emulate_media(reduced_motion="reduce")
+            else:
+                page.evaluate("document.documentElement.dataset.motion = 'still'")
+            for phase in ("cancelled", "prevented"):
+                if phase == "prevented":
+                    page.locator("#mode-tab-album").click()
+                    page.locator("#mode-tab-heatmap").click()
+                still = page.locator("#heatmap-form-section").evaluate(
+                    """async panel => {
+                        await new Promise(requestAnimationFrame);
+                        return panel.getClientRects().length > 0
+                            && Number(getComputedStyle(panel.querySelector('.listening-example')).opacity) === 1
+                            && panel.getAnimations({subtree: true}).length === 0;
+                    }"""
+                )
+                if not still:
+                    failures.append(f"{preference} {phase} switch is moving or hidden")
+        page.evaluate("document.documentElement.removeAttribute('data-motion')")
+        page.emulate_media(reduced_motion="reduce")
         reduced_hero_duration = page.locator('[data-mode-hero="album"]').evaluate(
             "element => getComputedStyle(element).transitionDuration"
         )
@@ -460,6 +570,13 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
             )
     finally:
         page.emulate_media(reduced_motion="no-preference")
+        page.evaluate(
+            """saved => {
+                if (saved === null) document.documentElement.removeAttribute('data-motion');
+                else document.documentElement.setAttribute('data-motion', saved);
+            }""",
+            saved_motion,
+        )
     return failures
 
 

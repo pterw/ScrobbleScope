@@ -71,7 +71,8 @@ See FINDINGS F-DOCSYNC-3.
 
 - **Listening view side task:** Durable result and empty-state sizing is
   complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
-  illustration refinement is verified and awaiting owner review.
+  illustration refinement and requested mode-transition motion are complete
+  and awaiting owner review.
   The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
@@ -190,6 +191,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-29 - Animate the transition into the Listening form
+
+Side task on `feat/streamgraph-bursts`. The owner requested an upward card
+collapse from Top albums to Listening, followed by the supporting illustration
+fading in. Reuse the existing capture listener and measured card geometry,
+reserve the destination panel height, and restore natural sizing after the
+CSS animation ends or is cancelled. Reduced motion and Pause animations both
+show the final state immediately, including preference changes mid-effect.
+
+Extend the existing entrance-motion gate rather than adding a test family.
+Focused Chromium and Firefox checks pass for actual geometry and opacity,
+rapid switches, subsequent content growth and preference cancellation. The
+existing display-scale gate also passes in both engines. Replacing the new
+CSS with the previous revision makes the motion check fail. The full suite
+measured **3113 passed**: 2954 non-browser tests in three shards plus 159
+browser tests. The complete browser gate passed 58 checks in 89 runs. Final
+Chromium/Firefox checks also pass with a saved pause choice and real keyboard
+switching. A stylesheet-contract failure required local auto defaults for the
+measured height properties; the 126 template checks and affected shard pass
+after that correction. Pre-commit and final docsync passed. The execution
+checklist and rationale are in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Balance the Listening entry form with an output illustration
 
 Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
@@ -245,13 +269,3 @@ the legend beside the context control, and compact the result footer spacing.
 The heading and mobile layout remain intact. The full suite measured **3113 passed** in three shards. The browser gate passed 58 checks in 89 Chromium and Firefox runs after
 replacing two obsolete fixed-width assumptions with tooltip containment and a
 readable cell size check. Shorter desktop viewports can still require page scrolling.
-
-### 2026-10-28 - Align streamgraph paths with the grid edges
-
-Side task on `feat/streamgraph-bursts`. The owner noticed a gap at the
-first column: stream ribbons began at the weekly centre, while the heatmap
-and month gridline begin at the cell edge. Extend the halo and artist paths
-horizontally at both ends, preserving every weekly centre and value. The
-existing browser alignment gate now checks both outer edges. Focused checks
-passed in Chromium and Firefox; the full suite measured **3113 passed**.
-The full frontend gate passed 58 checks in 89 Chromium and Firefox runs.

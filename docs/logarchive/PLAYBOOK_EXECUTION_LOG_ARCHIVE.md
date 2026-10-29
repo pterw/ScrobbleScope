@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-28 - Align streamgraph paths with the grid edges
+
+Side task on `feat/streamgraph-bursts`. The owner noticed a gap at the
+first column: stream ribbons began at the weekly centre, while the heatmap
+and month gridline begin at the cell edge. Extend the halo and artist paths
+horizontally at both ends, preserving every weekly centre and value. The
+existing browser alignment gate now checks both outer edges. Focused checks
+passed in Chromium and Firefox; the full suite measured **3113 passed**.
+The full frontend gate passed 58 checks in 89 Chromium and Firefox runs.
+
 ### 2026-10-28 - Map stream colours to artist rank
 
 Side task on `feat/streamgraph-bursts`. After comparing a local preview, the

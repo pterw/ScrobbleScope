@@ -504,6 +504,49 @@ html {
   }
 }
 
+/* Only the selected Listening card changes size. Reserve the destination
+   panel height and reveal the illustration behind the shrinking card, keeping
+   the desktop height floor and mode switch fixed throughout the sequence. */
+.mode-panel {
+  --mode-from-height: auto;
+  --mode-to-height: auto;
+  --mode-panel-height: auto;
+}
+
+.mode-panel.is-mode-switching {
+  position: relative;
+  height: var(--mode-panel-height);
+}
+
+.is-mode-switching .ss-card {
+  position: relative;
+  z-index: 1;
+  overflow: clip;
+  animation: listening-card-collapse 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.is-mode-switching .listening-example {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  animation: listening-example-reveal 160ms ease-out 160ms backwards;
+}
+
+@keyframes listening-card-collapse {
+  from { height: var(--mode-from-height); }
+  to { height: var(--mode-to-height); }
+}
+
+@keyframes listening-example-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+[data-motion="still"] .is-mode-switching .ss-card,
+[data-motion="still"] .is-mode-switching .listening-example {
+  animation: none;
+}
+
 /* ------------------------------------------------------------------ */
 /* Mode tabs                                                           */
 /* ------------------------------------------------------------------ */
@@ -1302,6 +1345,11 @@ html {
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
+  .is-mode-switching .ss-card,
+  .is-mode-switching .listening-example {
+    animation: none;
+  }
+
   .index-grid {
     animation: none;
     opacity: 1;

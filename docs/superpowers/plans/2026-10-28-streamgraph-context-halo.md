@@ -160,7 +160,8 @@ The owner confirmed the index form when Listening is selected. Preserve the
 existing form and stable mode-tab position. Add one unboxed desktop-only
 illustration beneath the short form, showing daily cells, artist ribbons and
 a neutral context halo. Keep the schematic decorative and free of invented
-user statistics, controls, dependencies or new animation.
+user statistics, controls, dependencies or looping animation. The later
+Listening mode transition section records the owner-authorized switch motion.
 
 - [x] Add the compact example using existing palette owners and theme tokens.
 - [x] Inspect desktop themes, short windows and mobile; preserve submission
@@ -193,3 +194,50 @@ user statistics, controls, dependencies or new animation.
   record is staged with the focused illustration commit; local preview files
   match the reviewed source. The optional detector's degraded-mode limitation
   is recorded in PLAYBOOK. PR #280 remains draft for owner review.
+
+## Listening mode transition (2026-10-29)
+
+The owner requests an upward collapse when changing from Top albums to
+Listening, followed by a fade of the illustration. Preserve the form top and
+shared desktop height. Use one short CSS-driven card-height transition and
+a delayed illustration fade; add no loop or dependency. Reduced motion and
+the existing Pause animations choice show the final state immediately.
+
+- [x] Animate the measured card collapse and supporting illustration fade.
+- [x] Verify keyboard switching, repeat clicks, interruption, pause and reduced
+  motion; extend the existing motion check without a new test family.
+- [x] Record verification, update the local preview and commit separately.
+
+- 2026-10-29: Reuse index.js's capture listener and measured placement. Keep
+  the illustration at its final position during the collapse so it cannot
+  push the desktop composition down. CSS cancellation must leave natural
+  card height and visible content, including preference changes mid-motion.
+- 2026-10-29: Implemented a 320ms CSS card-height collapse and a 160ms
+  illustration fade starting halfway through. The destination panel reserves
+  its natural height, so the illustration cannot push the card or page down.
+  Natural sizing returns on completion or cancellation. A request counter
+  discards older switches queued in the same frame. Reverse switching retains
+  the existing placement behavior. The local preview is updated.
+- 2026-10-29: Extended the existing entrance-motion check to sample actual
+  top-anchored height change and illustration opacity, rapid interruption,
+  post-transition content growth, and both prevented and cancelled effects
+  for reduced motion and Pause animations. Chromium and Firefox pass, as do
+  the existing display-scale checks. Serving the pre-change CSS makes the
+  new behavior checks fail; no new test family or dependency was introduced.
+  Full validation is running.
+- 2026-10-29: A stylesheet-contract test required explicit defaults for the
+  measured height properties. Added local auto defaults; the 126 template
+  checks and the repeated affected suite shard pass. The final full browser
+  gate passed 58 checks in 89 runs. The motion probe clears a saved pause
+  state after navigation and restores it afterward, so diagnostic order cannot
+  suppress the normal-motion case.
+- 2026-10-29: Final verification measured 3113 passed (2954 non-browser in
+  three shards plus 159 browser tests). Full frontend gate: 58 checks in 89
+  runs. The final motion check also passes in both engines with a saved Pause
+  choice, restores that choice, and verifies arrow-key mode selection.
+  Independent whole-file review found no material product issue. The optional
+  design detector reports the existing untouched style advisories; repository
+  hooks and docsync are running before the focused commit.
+- 2026-10-29: All repository hooks and final docsync passed. The local
+  preview matches the reviewed motion implementation. The completed record
+  is staged with this separate motion commit; PR #280 stays draft for review.
