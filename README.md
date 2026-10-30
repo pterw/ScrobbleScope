@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-Last updated: 2026-10-28
+Last updated: 2026-10-30
 
 <p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
 
@@ -491,6 +491,11 @@ as the grid, so each week sits under its column; every length scales with the
 grid's column pitch. The server counts plays per week for the top ten
 artists and stores the counts with the job result; the browser stacks the
 layers and draws them as smooth paths.
+
+The pure chart calculation and pointer-selection seam stay inside that
+asset; the [weekly chart geometry design](docs/superpowers/specs/2026-10-30-weekly-chart-geometry-design.md)
+describes their interface and verification. Rendering, theme updates and
+the saved-image path keep their existing responsibilities.
 
 The JPEG export is not a screenshot. The live SVG is cloned, given explicit
 pixel dimensions, serialised to a data URI and drawn into a canvas at 2x

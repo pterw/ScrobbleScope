@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Verify Listening profile guards and prepare the handoff
+
+The owner requested Listening blur verification, review of uncommitted files
+and a durable close-out handoff. Listening already uses the same validator
+endpoint as Top albums, sets custom validity for missing/private profiles,
+and checks it before AJAX submission. No production validation refactor was
+needed. Extend the existing profile gate to challenge Enter and button
+submission at the request boundary, then prove a corrected public name can
+submit. Chromium and Firefox pass against the feature server and actual
+owner preview; removing Listening's guard produces rejected POSTs and fails
+the check. The full suite measured **3113 passed** (2954 non-browser tests
+in three shards plus 159 browser tests). The frontend gate passed 58 checks
+in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
+were added.
+
+The independent uncommitted-file audit is recorded in
+`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
+preview hashes match the pushed feature commit. Independent owner files and
+dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
+linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
+and was not staged or used as test evidence. The requested OS-temp handoff
+is written and receives the final pushed commit and validation checkpoint
+at close-out. Whole-file review found no material issue. Archive rotation
+was verified mechanically against dd69ddd7 without claiming a semantic
+reread of unrelated historical content.
+
 ### 2026-10-29 - Animate the transition into the Listening form
 
 Side task on `feat/streamgraph-bursts`. The owner requested an upward card

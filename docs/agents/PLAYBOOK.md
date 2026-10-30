@@ -74,10 +74,12 @@ See FINDINGS F-DOCSYNC-3.
   on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
   WT003 is owner-authorized advisory for this side task. The approved plan
   is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-  The stronger rendered-geometry and midpoint checks are protected against
-  the unchanged runtime. Next: make drawing, selection and composition
-  tests use the geometry module. The owner requested one independent
-  review after the definition of done, followed by a PR.
+  The stronger rendered-geometry and midpoint checks are committed.
+  Drawing, selection and composition tests now use the geometry module;
+  the full suite and frontend gate pass. The independent whole-branch review
+  is complete, with its sole README-date finding fixed. The branch is ready
+  for the implementation commit and template PR; publication state lives
+  in the PR.
 
 - **Listening view side task:** Complete and merged as PR #280, merge commit
   `c1ca5f18`. Independent F-SWE-8 work stays gated. The execution record is
@@ -198,6 +200,31 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-30 - Make weekly chart geometry own drawing and selection
+
+Extract the connected calculation into the approved in-file geometry model.
+Drawing, pointer selection and composition tests consume that model; its
+numeric stack and coordinate conversion stay private. Migrate existing
+behavior tests and remove superseded hooks and a constant-pin assertion.
+The suite drops five redundant cases, with no new test module or dependency.
+The developer README links to the interface owner. Scope and owner-approved
+exceptions remain those in the design; no further deviation is introduced.
+
+The focused harness passed 142 tests. The full suite measured **3108 passed**
+in 227.30 seconds; a later unused test-hook removal passed the focused
+harness again. Chromium and Firefox each matched the exact old runtime's
+paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
+seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
+both engines and desktop, mobile and wide-touch profiles. The frozen-source
+full suite then passed again in 205.55 seconds. Independent final code/spec
+and standards reviews completed whole-file reads and found only a stale
+README date, now corrected and re-reviewed. Archive rotation preserved
+existing dated entries exactly. All hooks and final docsync pass; the
+implementation commit is ready for a template PR. CI and publication state
+will be recorded there, without merging.
+The plan records final review and publication guidance:
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-30 - Protect weekly chart geometry before extraction
 
 Extend the existing browser alignment check with actual path extents,
@@ -254,29 +281,3 @@ the owner preview. Qlty's status passes but its description reports 13
 blocking issues; the detailed list requires separate login and has not been
 validated. The execution record is
 `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
-
-### 2026-10-29 - Verify Listening profile guards and prepare the handoff
-
-The owner requested Listening blur verification, review of uncommitted files
-and a durable close-out handoff. Listening already uses the same validator
-endpoint as Top albums, sets custom validity for missing/private profiles,
-and checks it before AJAX submission. No production validation refactor was
-needed. Extend the existing profile gate to challenge Enter and button
-submission at the request boundary, then prove a corrected public name can
-submit. Chromium and Firefox pass against the feature server and actual
-owner preview; removing Listening's guard produces rejected POSTs and fails
-the check. The full suite measured **3113 passed** (2954 non-browser tests
-in three shards plus 159 browser tests). The frontend gate passed 58 checks
-in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
-were added.
-
-The independent uncommitted-file audit is recorded in
-`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
-preview hashes match the pushed feature commit. Independent owner files and
-dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
-linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
-and was not staged or used as test evidence. The requested OS-temp handoff
-is written and receives the final pushed commit and validation checkpoint
-at close-out. Whole-file review found no material issue. Archive rotation
-was verified mechanically against dd69ddd7 without claiming a semantic
-reread of unrelated historical content.

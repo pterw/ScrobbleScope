@@ -22,9 +22,9 @@
 
 - [x] Commit this approved design and plan with a dated side-task record.
 - [x] Task 1: protect the production geometry before extraction.
-- [ ] Task 2: deepen the calculation and migrate its consumers/tests.
-- [ ] Meet the definition of done, run one independent whole-branch review,
-      address findings, then create the PR from the repository template.
+- [x] Task 2: deepen the calculation and migrate its consumers/tests.
+- [x] Complete validation and one independent whole-branch review,
+      address findings, then prepare the template PR for publication.
 
 ## Task 1: Protect the existing geometry
 
@@ -85,7 +85,7 @@ must remain intact.
 its exact `streamGeometry` model; use it in drawing, pointer selection and
 the composition test.
 
-- [ ] Add the pure `streamGeometry` function beside the geometry helpers.
+- [x] Add the pure `streamGeometry` function beside the geometry helpers.
       Preserve arithmetic, rounding and path command order while moving
       the connected calculation out of `drawStream`:
 
@@ -103,52 +103,54 @@ the composition test.
   the specified target. Document valid-input, null and coordinate behavior
   in the function's docstring. No options bag or adapter is needed.
 
-- [ ] Replace the calculation inside `drawStream` with one call. The
+- [x] Replace the calculation inside `drawStream` with one call. The
       renderer creates the same SVG nodes from returned path strings and
       artist ranks. Keep theme, halo visibility, labels and events there.
-- [ ] Store the geometry model in stream state. Change pointer selection
+- [x] Store the geometry model in stream state. Change pointer selection
       to the model's hit method after the existing browser-to-viewBox
       conversion. Update stream-state consumers of week centres/counts;
       derive initial keyboard identities from the model's artist order.
       Keep week-specific panel row selection unchanged.
-- [ ] Expose the new function only through the existing guarded test hook.
+- [x] Expose the new function only through the existing guarded test hook.
       Remove hooks that become unused, while retaining independent
       mathematical tests with distinct regression protection.
-- [ ] Replace the reconstruction in
+- [x] Replace the reconstruction in
       `test_smoothed_stream_encloses_artists_without_clipping` with the
       geometry model. Read `haloPath` and artist paths from it. Update
       `_stream_path_samples` to track the current point through M/L/C
       commands and pair forward/reverse cubic segments, so endpoint L
       extensions do not invalidate sampling.
-- [ ] Extend existing intended-behavior tests to exercise returned artist
+- [x] Extend existing intended-behavior tests to exercise returned artist
       ranks and paths, no-play/residual-only and one-week cases,
       nonmutation, midpoint/clamped weeks and upper-band/zero-band hit
       behavior. Use hand-derived expectations and independent geometric
       assertions. Replace superseded cases instead of adding a parallel
       suite or pinning module layout/constants/wording.
-- [ ] Run the focused suite and affected browser checks. Compare the old
+- [x] Run the focused suite and affected browser checks. Compare the old
       runtime served via browser asset interception with the new runtime
       using the same seeded jobs: artist order/ranks, exact path strings,
       columns and representative hover targets must agree. Keep this
       comparison in the plan workspace, not as a second permanent runtime.
-- [ ] Give the controller exact commands/results. The controller runs the
+- [x] Give the controller exact commands/results. The controller runs the
       full suite and full frontend gate, updates docs and measured docsync,
       stages named paths and runs hooks before committing
       `refactor(heatmap): Own weekly chart geometry`.
 
 ## Final review and PR
 
-- [ ] Read every changed file whole and sweep the cumulative branch diff
+- [x] Read every changed file whole and sweep the cumulative branch diff
       for sibling stale claims, unused geometry hooks and every asserted
       case. Preserve dated historical entries.
-- [ ] Run one independent whole-branch standards/spec review, with the
+- [x] Run one independent whole-branch standards/spec review, with the
       design, full cumulative diff and verification reports. Fix material
       findings and recheck affected behavior.
-- [ ] Confirm full-suite count, complete frontend gate, all hooks and final
+- [x] Confirm full-suite count, complete frontend gate, all hooks and final
       docsync on the final source. Record any actual limitation.
-- [ ] Push this side-task branch and open a PR against `main` using
+- [x] Prepare the side-task branch and PR body using
       `.github/PULL_REQUEST_TEMPLATE.md`. Keep gate checkboxes truthful and
-      include task commits and review state. No attribution footer or merge.
+      include task commits and review state. After the final commit, push
+      this branch and open the PR against `main`; record publication in the
+      PR itself. No attribution footer or merge.
 
 ## Execution record
 
@@ -171,3 +173,38 @@ the composition test.
   reject a deliberately out-of-band live halo; restoration passes. The
   full suite measured **3113 passed** in 210.85 seconds. Runtime calculation
   remains unchanged. Final hooks and docsync run before the test commit.
+- 2026-10-30: Task 2 uses the approved geometry interface for rendering,
+  selection and composition tests. The focused harness passed 142 tests;
+  consolidation removes five redundant cases without adding a test module.
+  The full suite measured **3108 passed** in 227.30 seconds. After that run
+  began, only one unused test-hook export was removed; the final focused
+  harness passed again. The full frontend gate passed 58 checks in 89 runs
+  across Chromium, Firefox and desktop/mobile/wide-touch profiles.
+- 2026-10-30: Exact baseline/new runtime comparisons passed all six fixtures
+  in each engine: regular and partial-calendar charts, sharp spikes,
+  residual-only, one-week/silent-artist and no-play data. Each engine
+  compared serialized artist/halo paths, ranks and columns, plus 51 pointer
+  and 30 keyboard outcomes. The temporary baseline asset's blob matches
+  `c1ca5f18`; no second runtime implementation is retained in tracked code.
+  Both engines also passed affected alignment, hover, keyboard-tab-stop
+  and context-toggle checks. No further implementation deviation arose.
+- 2026-10-30: Final frozen-source suite: **3108 passed** in 205.55 seconds;
+  the tracked test-module count remains 104. All-files hooks and final
+  docsync pass. WT003 remains owner-authorized advisory; existing DOC024
+  archive-size and active-root-batch warnings remain nonblocking.
+- 2026-10-30: One final independent review phase covered code/spec and
+  standards/docs in parallel. Initial reviewers could not start because
+  their model had reached its usage limit; available-model reviewers
+  completed the review. They read the three changed code files and current
+  changed documents/config whole, then swept cumulative changes and stale
+  geometry vocabulary. The archive check preserved all 670 baseline dated
+  entries and three rotated PLAYBOOK entries exactly. No code/spec finding
+  arose. The sole Minor was the README update date; the implementation
+  worker corrected it to 2026-10-30 and scoped re-review confirmed the fix.
+  No material or deferred finding remains. Final documentation bookkeeping
+  is followed by hooks and docsync before the implementation commit.
+- Publication: the implementation commit completes the prepared branch.
+  Push `refactor/weekly-chart-geometry`, open the template PR against `main`
+  as draft, and record its head and CI result in the PR. Check its gate boxes
+  and leave draft only after CI passes at that head. Keep the worktree for
+  review feedback; do not merge. The PR is the publication-state owner.
