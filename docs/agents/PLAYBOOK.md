@@ -74,20 +74,13 @@ See FINDINGS F-DOCSYNC-3.
   on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
   WT003 is owner-authorized advisory for this side task. The approved plan
   is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-  Next: protect current rendered geometry, then make drawing, selection
-  and composition tests use the geometry module. The owner requested one
-  independent review after the definition of done, followed by a PR.
+  The stronger rendered-geometry and midpoint checks are protected against
+  the unchanged runtime. Next: make drawing, selection and composition
+  tests use the geometry module. The owner requested one independent
+  review after the definition of done, followed by a PR.
 
-- **Listening view side task:** Durable result and empty-state sizing is
-  complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
-  illustration refinement and requested mode-transition motion are complete.
-  Validation parity, the uncommitted-file audit and the close-out handoff
-  are complete. Listening already has blur validation; the existing browser
-  check now proves request blocking and corrected-profile submission. PR
-  #280 is ready for review after green CI and owner authorization. The bot-review
-  documentation correction and local validation are complete. Check current
-  remote CI/reviews before merge; independent F-SWE-8 work stays gated.
-  The execution record is
+- **Listening view side task:** Complete and merged as PR #280, merge commit
+  `c1ca5f18`. Independent F-SWE-8 work stays gated. The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
@@ -205,6 +198,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-30 - Protect weekly chart geometry before extraction
+
+Extend the existing browser alignment check with actual path extents,
+plot bounds and one shifted-spike fixture. Extend the existing nearest-week
+test with the exact midpoint. No runtime, test module or permanent check
+family is added. The plan's first implementation step protects current
+behavior before its calculation moves.
+
+The pure harness passed 147 tests. Chromium and Firefox passed the affected
+alignment check; both rejected a temporary out-of-band halo and passed
+again after restoration. The full suite measured **3113 passed** in 210.85
+seconds. Final hooks and docsync run before the test-only commit. Also
+repoint the current Listening status to its observed merge, preserving the
+dated execution records. The owner-approved deviations stay
+as recorded in the design. The next step is the geometry module and test
+migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-30 - Approve the weekly chart geometry side task
 
 The owner selected the first architecture-review proposal and approved the
@@ -270,26 +280,3 @@ is written and receives the final pushed commit and validation checkpoint
 at close-out. Whole-file review found no material issue. Archive rotation
 was verified mechanically against dd69ddd7 without claiming a semantic
 reread of unrelated historical content.
-
-### 2026-10-29 - Animate the transition into the Listening form
-
-Side task on `feat/streamgraph-bursts`. The owner requested an upward card
-collapse from Top albums to Listening, followed by the supporting illustration
-fading in. Reuse the existing capture listener and measured card geometry,
-reserve the destination panel height, and restore natural sizing after the
-CSS animation ends or is cancelled. Reduced motion and Pause animations both
-show the final state immediately, including preference changes mid-effect.
-
-Extend the existing entrance-motion gate rather than adding a test family.
-Focused Chromium and Firefox checks pass for actual geometry and opacity,
-rapid switches, subsequent content growth and preference cancellation. The
-existing display-scale gate also passes in both engines. Replacing the new
-CSS with the previous revision makes the motion check fail. The full suite
-measured **3113 passed**: 2954 non-browser tests in three shards plus 159
-browser tests. The complete browser gate passed 58 checks in 89 runs. Final
-Chromium/Firefox checks also pass with a saved pause choice and real keyboard
-switching. A stylesheet-contract failure required local auto defaults for the
-measured height properties; the 126 template checks and affected shard pass
-after that correction. Pre-commit and final docsync passed. The execution
-checklist and rationale are in
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.

@@ -21,7 +21,7 @@
 ## Delivery sequence
 
 - [x] Commit this approved design and plan with a dated side-task record.
-- [ ] Task 1: protect the production geometry before extraction.
+- [x] Task 1: protect the production geometry before extraction.
 - [ ] Task 2: deepen the calculation and migrate its consumers/tests.
 - [ ] Meet the definition of done, run one independent whole-branch review,
       address findings, then create the PR from the repository template.
@@ -37,7 +37,7 @@ PLAYBOOK, dashboard and validation records. Do not edit runtime JS yet.
 hooks. Produce stronger checks against the unchanged runtime, without new
 test modules or a second composition implementation.
 
-- [ ] Extend `test_week_from_x_clamps_and_picks_the_nearest_week` in its
+- [x] Extend `test_week_from_x_clamps_and_picks_the_nearest_week` in its
       current test function, adding the exact midpoint to its input/output
       arrays:
 
@@ -46,7 +46,7 @@ test modules or a second composition implementation.
   assert got == [0, 0, 0, 1, 1, 1, 2, 52, 52]
   ```
 
-- [ ] Extend the existing rendered alignment check with a deterministic
+- [x] Extend the existing rendered alignment check with a deterministic
       53-week spike payload and actual path bounding boxes. Use ten artist
       arrays with zero weeks, sharp changes and a large residual spike:
 
@@ -64,12 +64,12 @@ test modules or a second composition implementation.
   rounding. Restore viewport and delete seeded jobs in `finally`. Avoid
   repeating the full viewport matrix for every spike fixture.
 
-- [ ] Prove the new containment check detects a deliberately out-of-band
+- [x] Prove the new containment check detects a deliberately out-of-band
       path in a temporary browser probe; do not retain a runtime mutation.
-- [ ] Run the focused pure suite and affected browser alignment check in
+- [x] Run the focused pure suite and affected browser alignment check in
       Chromium and Firefox. The unchanged production implementation must
       pass before Task 2 moves its calculation.
-- [ ] Give the controller a report with exact commands/results and any
+- [x] Give the controller a report with exact commands/results and any
       coverage concerns. The controller runs the full suite, updates the
       side-task log/docsync, stages named paths and runs all hooks before
       committing `test(heatmap): Protect weekly chart geometry`.
@@ -166,3 +166,8 @@ the composition test.
   **3113 passed** in 198.05 seconds. Baseline hooks passed with only the
   owner-authorized advisory WT003; final documentation sync and hooks run
   before the planning commit.
+- 2026-10-30: Task 1 focused checks passed: 147 pure-harness tests and the
+  complete affected alignment check in Chromium and Firefox. Both engines
+  reject a deliberately out-of-band live halo; restoration passes. The
+  full suite measured **3113 passed** in 210.85 seconds. Runtime calculation
+  remains unchanged. Final hooks and docsync run before the test commit.

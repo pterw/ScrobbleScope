@@ -1094,9 +1094,9 @@ def test_stream_payload_valid(js_page, payload, valid):
 
 def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
     # Week t sits at LEFT_PAD + t * STEP + CELL_SIZE / 2 = 39 + 16 t.
-    xs = [-500, 39, 46, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
+    xs = [-500, 39, 46, 47, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
     got = [_hook(js_page, "weekFromX", x, 53) for x in xs]
-    assert got == [0, 0, 0, 1, 1, 2, 52, 52]
+    assert got == [0, 0, 0, 1, 1, 1, 2, 52, 52]
 
 
 STACK_AT_WEEK = [  # bottom to top: rank 4 [0,2], empty rank 2 [2,2], rank 7 [2,5]

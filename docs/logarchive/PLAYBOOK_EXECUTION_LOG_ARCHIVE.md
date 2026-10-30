@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Animate the transition into the Listening form
+
+Side task on `feat/streamgraph-bursts`. The owner requested an upward card
+collapse from Top albums to Listening, followed by the supporting illustration
+fading in. Reuse the existing capture listener and measured card geometry,
+reserve the destination panel height, and restore natural sizing after the
+CSS animation ends or is cancelled. Reduced motion and Pause animations both
+show the final state immediately, including preference changes mid-effect.
+
+Extend the existing entrance-motion gate rather than adding a test family.
+Focused Chromium and Firefox checks pass for actual geometry and opacity,
+rapid switches, subsequent content growth and preference cancellation. The
+existing display-scale gate also passes in both engines. Replacing the new
+CSS with the previous revision makes the motion check fail. The full suite
+measured **3113 passed**: 2954 non-browser tests in three shards plus 159
+browser tests. The complete browser gate passed 58 checks in 89 runs. Final
+Chromium/Firefox checks also pass with a saved pause choice and real keyboard
+switching. A stylesheet-contract failure required local auto defaults for the
+measured height properties; the 126 template checks and affected shard pass
+after that correction. Pre-commit and final docsync passed. The execution
+checklist and rationale are in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Balance the Listening entry form with an output illustration
 
 Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
