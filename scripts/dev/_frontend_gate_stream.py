@@ -78,6 +78,23 @@ def seed_stream_job(weeks: int = 53, payload: bool = True) -> tuple[str, str]:
     return _seed_job(weeks, payload, 0)
 
 
+def _spike_weekly_artists() -> dict:
+    """A valid 53-week payload with isolated artist and residual spikes.
+
+    Shift each artist's peak so zero weeks and sharp changes challenge the
+    renderer's curve containment, including a much larger residual peak.
+    """
+    counts = [0] * 53
+    counts[25] = 800
+    residual = [0] * 53
+    residual[27] = 9000
+    stream = _weekly_artists(53)
+    for k, artist in enumerate(stream["artists"]):
+        artist["counts"] = counts[-k:] + counts[:-k] if k else counts.copy()
+    stream["other"] = residual
+    return stream
+
+
 def _seed_job(
     weeks: int,
     payload: bool,
@@ -152,6 +169,16 @@ _READ_ALIGNMENT_JS = """() => {
             const bounds = path.getBBox();
             return [s.left + bounds.x * s.scale, s.left + (bounds.x + bounds.width) * s.scale];
         }),
+        pathBounds: Array.from(stream.querySelectorAll('.stream-halo, path.stream-layer'))
+            .filter(path => path.getAttribute('d')).map(path => {
+                const bounds = path.getBBox();
+                return { name: path.classList.contains('stream-halo') ? 'halo' : 'rank ' + path.dataset.rank,
+                    top: bounds.y, bottom: bounds.y + bounds.height };
+            }),
+        plotBounds: [
+            Math.min(...lines.map(line => Number(line.getAttribute('y1')))),
+            Math.max(...lines.map(line => Number(line.getAttribute('y2')))),
+        ],
         months: Array.from(stream.querySelectorAll('.stream-month-label')).map(label => {
             const bounds = label.getBoundingClientRect();
             return { text: label.textContent, x: Number(label.getAttribute('x')),
@@ -209,6 +236,18 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
         failures.append(
             f"stream ribbons do not reach the outer heatmap edges at {width}px"
         )
+    if len(reading["pathBounds"]) != reading["layers"] + 1:
+        failures.append(f"stream ribbons have empty paths at {width}px")
+    plot_top, plot_bottom = reading["plotBounds"]
+    for bounds in reading["pathBounds"]:
+        # Path coordinates are serialized to two decimal places. Keep the
+        # allowance in viewBox units so viewport scaling cannot hide overshoot.
+        if bounds["top"] < plot_top - 0.01 or bounds["bottom"] > plot_bottom + 0.01:
+            failures.append(
+                f"stream {bounds['name']} extends outside the plot at {width}px: "
+                f"{bounds['top']:.3f}..{bounds['bottom']:.3f}, "
+                f"plot {plot_top:.3f}..{plot_bottom:.3f}"
+            )
     months = reading["months"]
     if len(months) != len(reading["gridMonths"]) or len(reading["lineX"]) != len(
         months
@@ -244,6 +283,7 @@ def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
 
     When the viewport shrinks, grows, or the rendered header gains height,
     then refit the shared charts without a scroll requirement or empty tail.
+    Isolated artist and residual spikes must remain inside the rendered plot.
     """
     failures = []
     jobs_to_check = [_seed_job(53, True, 2), _seed_job(52, True, 2, end_early=3)]
@@ -327,6 +367,16 @@ def check_stream_aligns_with_grid_columns(page, base_url: str) -> list[str]:
             finally:
                 extra_chrome.evaluate("node => node.remove()")
                 wait_for_settled(page)
+        # One rendered spike fixture challenges vertical containment without
+        # repeating the viewport matrix already covered by the regular jobs.
+        spike_job = _seed_job(53, True, 0, stream=_spike_weekly_artists())
+        jobs_to_check.append(spike_job)
+        _open_heatmap(page, base_url, spike_job[0], _GRID_DESKTOP)
+        failures.extend(
+            _alignment_failures(
+                page.evaluate(_READ_ALIGNMENT_JS), page.viewport_size["width"]
+            )
+        )
     finally:
         page.set_viewport_size(original)
         for job_id, _last_day in jobs_to_check:

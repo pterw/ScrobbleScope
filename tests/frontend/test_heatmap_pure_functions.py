@@ -736,8 +736,27 @@ def _hook(js_page, name, *args):
         ([], []),
     ],
 )
-def test_stream_order(js_page, volumes, expected):
-    assert _hook(js_page, "streamOrder", volumes) == expected
+def test_stream_geometry_preserves_rank_order_and_payload(js_page, volumes, expected):
+    """Return drawable ranked paths without changing the caller's nested payload."""
+    payload = {
+        "weeks": ["2025-01-06", "2025-01-13"],
+        "artists": [{"name": str(i), "counts": [n, n]} for i, n in enumerate(volumes)],
+        "other": [1, 2],
+    }
+    result = js_page.evaluate(
+        """payload => {
+            const before = JSON.stringify(payload);
+            const geometry = window.__scrobbleHeatmapTestHooks.streamGeometry(payload);
+            return { artists: geometry.artists, halo: geometry.haloPath,
+                unchanged: JSON.stringify(payload) === before };
+        }""",
+        payload,
+    )
+    assert result["unchanged"]
+    assert [artist["rank"] for artist in result["artists"]] == expected
+    for path in [result["halo"], *(artist["path"] for artist in result["artists"])]:
+        assert path.startswith("M") and path.endswith("Z")
+        assert len(_stream_path_samples(path, 2)) == 3
 
 
 def test_stream_baseline_and_stack_match_the_reference_wiggle(js_page):
@@ -783,7 +802,6 @@ def test_stream_stack_is_centred_and_each_week_has_its_total_height(js_page, lay
 )
 def test_stream_scale(js_page, totals, expected):
     peak = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_PEAK")
-    assert peak == pytest.approx(300 * STREAM_STEP / 27)
     want = peak / 5 if expected == "peak/5" else expected
     assert _hook(js_page, "streamScale", totals) == pytest.approx(want)
 
@@ -867,22 +885,21 @@ def test_stream_fit_contains_symmetric_context_halo(js_page, layers, residual):
 
 
 def _stream_path_samples(path, weeks):
-    """Sample both sides of each cubic segment in left-to-right order."""
-    commands = re.findall(r"([MLC])([^MLCZ]*)", path)
-    values = [list(map(float, value.split())) for _, value in commands]
-    top = [values[0][1]] + [values[i][5] for i in range(1, weeks)]
-    bottom = [values[weeks][1]] + [values[i][5] for i in range(weeks + 1, len(values))]
+    """Track M/L endpoints and pair forward/reverse cubic edges for sampling."""
+    curves = []
+    current = None
+    for command, value in re.findall(r"([MLC])([^MLCZ]*)", path):
+        values = list(map(float, value.split()))
+        if command == "C":
+            assert current is not None
+            curves.append([current[1], values[1], values[3], values[5]])
+        current = values[-2:]
+    assert len(curves) == 2 * (weeks - 1)
+    forward = curves[: weeks - 1]
+    reverse = curves[weeks - 1 :][::-1]
     samples = []
-    for segment in range(weeks - 1):
-        upper = [
-            top[segment],
-            values[segment + 1][1],
-            values[segment + 1][3],
-            top[segment + 1],
-        ]
-        reverse = weeks - 2 - segment
-        controls = values[weeks + 1 + reverse]
-        lower = [bottom[reverse + 1], controls[3], controls[1], bottom[reverse]]
+    for upper, back in zip(forward, reverse, strict=True):
+        lower = back[::-1]
         for position in (0.25, 0.5, 0.75):
             weights = [
                 (1 - position) ** 3,
@@ -909,30 +926,23 @@ def _stream_path_samples(path, weeks):
 )
 def test_smoothed_stream_encloses_artists_without_clipping(js_page, layers, residual):
     """GIVEN spikes and empty bands, WHEN curves are drawn, THEN they stay valid."""
-    result = js_page.evaluate(
-        """([layers, residual]) => {
-        const h = window.__scrobbleHeatmapTestHooks;
-        const baseline = layers.length ? h.streamBaseline(layers) : residual.map(() => 0);
-        const fit = h.streamFit(layers, baseline, residual);
-        const stack = h.stackLayers(layers, fit.baseline, fit.scale);
-        const safe = h.streamSafeSegments(layers);
-        const lower = fit.baseline.map(n => n * fit.scale);
-        const upper = stack.length ? stack.at(-1).map(p => p.y1) : lower;
-        const points = values => values.map((y, x) => ({x: x * 27, y: -y}));
-        const margin = residual.map(n => n * fit.scale / 8);
-        return {
-            band: h.STREAM_BAND,
-            halo: h.smoothPath(points(upper), points(lower), margin.map(n => -n), margin, safe),
-            artists: stack.map(layer => h.smoothPath(
-                points(layer.map(p => p.y1)), points(layer.map(p => p.y0)), null, null, safe)),
-        };
-    }""",
-        [layers, residual],
-    )
-    halo = _stream_path_samples(result["halo"], len(residual))
-    artists = [_stream_path_samples(path, len(residual)) for path in result["artists"]]
+    payload = {
+        "weeks": [f"2025-01-{6 + 7 * t:02d}" for t in range(len(residual))],
+        "artists": [
+            {"name": str(i), "counts": counts} for i, counts in enumerate(layers)
+        ],
+        "other": residual,
+    }
+    result = _hook(js_page, "streamGeometry", payload)
+    halo = _stream_path_samples(result["haloPath"], len(residual))
+    artists = [
+        _stream_path_samples(artist["path"], len(residual))
+        for artist in result["artists"]
+    ]
+    plot_top = 24 * STREAM_STEP / 27
+    plot_bottom = (24 + 380) * STREAM_STEP / 27
     for index, (top, bottom) in enumerate(halo):
-        assert -result["band"] / 2 - 0.02 <= top <= bottom <= result["band"] / 2 + 0.02
+        assert plot_top - 0.02 <= top <= bottom <= plot_bottom + 0.02
         for layer in artists:
             artist_top, artist_bottom = layer[index]
             assert top - 0.02 <= artist_top <= artist_bottom + 0.02 <= bottom + 0.04
@@ -1094,50 +1104,99 @@ def test_stream_payload_valid(js_page, payload, valid):
 
 def test_week_from_x_clamps_and_picks_the_nearest_week(js_page):
     # Week t sits at LEFT_PAD + t * STEP + CELL_SIZE / 2 = 39 + 16 t.
-    xs = [-500, 39, 46, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
-    got = [_hook(js_page, "weekFromX", x, 53) for x in xs]
-    assert got == [0, 0, 0, 1, 1, 2, 52, 52]
+    xs = [-500, 39, 46, 47, 48, 62.9, 63.1, 39 + 16 * 52, 5000]
+    got = js_page.evaluate(
+        """xs => {
+            const geometry = window.__scrobbleHeatmapTestHooks.streamGeometry({
+                weeks: Array(53).fill('2025-01-06'), artists: [], other: Array(53).fill(1),
+            });
+            return xs.map(x => geometry.hitAt(x, 0).week);
+        }""",
+        xs,
+    )
+    assert got == [0, 0, 0, 1, 1, 1, 2, 52, 52]
 
 
-STACK_AT_WEEK = [  # bottom to top: rank 4 [0,2], empty rank 2 [2,2], rank 7 [2,5]
-    [{"y0": 0, "y1": 2}],
-    [{"y0": 2, "y1": 2}],
-    [{"y0": 2, "y1": 5}],
-]
+def test_stream_geometry_one_week_paths_and_hits_use_viewbox_coordinates(js_page):
+    """Two equal bands share the centre; the silent top band cannot own an edge."""
+    centre = (24 + 190) * STREAM_STEP / 27
+    peak = 300 * STREAM_STEP / 27
+    payload = {
+        "weeks": ["2025-01-06"],
+        "artists": [
+            {"name": "Upper", "counts": [1]},
+            {"name": "Silent", "counts": [0]},
+            {"name": "Lower", "counts": [1]},
+        ],
+        "other": [0],
+    }
+    points = [
+        [-500, centre + peak / 4],
+        [39, centre - peak / 4],
+        [39, centre],  # the shared edge belongs to the upper positive band
+        [39, centre - peak / 2],  # the zero band above is excluded
+        [39, centre + peak / 2 + 0.1],
+        [5000, centre - peak / 2 - 0.1],
+    ]
+    result = js_page.evaluate(
+        """([payload, points]) => {
+            const g = window.__scrobbleHeatmapTestHooks.streamGeometry(payload);
+            return { xs: g.xs, artists: g.artists, halo: g.haloPath,
+                hits: points.map(([x, y]) => g.hitAt(x, y)) };
+        }""",
+        [payload, points],
+    )
+    assert result["xs"] == [39]
+    assert [artist["rank"] for artist in result["artists"]] == [2, 0, 1]
+    # One week extends horizontally to both cell edges, without cubic controls.
+    assert result["halo"] == ("M32 37.93L39 37.93L46 37.93L46 215.7L39 215.7L32 215.7Z")
+    assert result["artists"][0]["path"] == (
+        "M32 126.81L39 126.81L46 126.81L46 215.7L39 215.7L32 215.7Z"
+    )
+    assert result["hits"] == [
+        {"week": 0, "hoverId": rank} for rank in [2, 0, 0, 0, None, None]
+    ]
 
 
 @pytest.mark.parametrize(
-    ("stack", "week", "y", "order", "expected"),
+    ("counts", "residual", "expected"),
     [
-        (STACK_AT_WEEK, 0, 1, [4, 2, 7], 4),
-        (STACK_AT_WEEK, 0, 3.5, [4, 2, 7], 7),
-        (STACK_AT_WEEK, 0, 2, [4, 2, 7], 7),  # shared edge belongs above
-        (STACK_AT_WEEK, 0, 5, [4, 2, 7], 7),
-        (STACK_AT_WEEK, 0, -0.1, [4, 2, 7], None),
-        (STACK_AT_WEEK, 0, 5.1, [4, 2, 7], None),
-        (STACK_AT_WEEK, 0, 0, None, 0),  # without order, return the stack slot
-        (STACK_AT_WEEK, 0, 3.5, None, 2),
-        ([], 0, 0, [], None),  # a globally residual-only chart has no bands
-        (
-            [[{"y0": 0, "y1": 2}, {"y0": 1, "y1": 1}]],
-            1,
-            1,
-            [4],
-            None,
-        ),  # a residual-only week cannot hit a zero-height artist band
+        ([], [0, 0], None),
+        ([[0, 0]], [0, 0], None),
+        ([], [0, 8], []),
+        ([[1, 0]], [0, 8], [0]),
+    ],
+    ids=[
+        "no-artists-no-plays",
+        "silent-artists",
+        "residual-only",
+        "residual-only-week",
     ],
 )
-def test_layer_at_y_finds_the_band_holding_the_pointer(
-    js_page, stack, week, y, order, expected
+def test_stream_geometry_no_play_and_residual_selection(
+    js_page, counts, residual, expected
 ):
-    """Find the named artist at the pointer without hitting empty bands.
-
-    GIVEN: Artist-only stacks, optional rank order, boundaries and empty weeks.
-    WHEN: The pointer's height is resolved at the selected week.
-    THEN: It maps directly to the artist rank or slot, gives shared edges to
-    the band above, and returns no hit outside the stack or on empty bands.
-    """
-    assert _hook(js_page, "layerAtY", stack, week, y, order) == expected
+    """No extent returns null; residual extent paints context without artist hits."""
+    payload = {
+        "weeks": ["2025-01-06", "2025-01-13"],
+        "artists": [{"name": str(i), "counts": row} for i, row in enumerate(counts)],
+        "other": residual,
+    }
+    result = js_page.evaluate(
+        """payload => {
+            const g = window.__scrobbleHeatmapTestHooks.streamGeometry(payload);
+            if (!g) return null;
+            return { artists: g.artists.map(a => a.rank), halo: g.haloPath,
+                hits: [0, 100, 200, 300].map(y => g.hitAt(g.xs[1], y)) };
+        }""",
+        payload,
+    )
+    if expected is None:
+        assert result is None
+    else:
+        assert result["artists"] == expected
+        assert _stream_path_samples(result["halo"], 2)
+        assert result["hits"] == [{"week": 1, "hoverId": None}] * 4
 
 
 def _panel(js_page, week, hover, weeks=40):

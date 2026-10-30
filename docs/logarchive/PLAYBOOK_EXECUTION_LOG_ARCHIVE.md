@@ -9,6 +9,78 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Verify Listening profile guards and prepare the handoff
+
+The owner requested Listening blur verification, review of uncommitted files
+and a durable close-out handoff. Listening already uses the same validator
+endpoint as Top albums, sets custom validity for missing/private profiles,
+and checks it before AJAX submission. No production validation refactor was
+needed. Extend the existing profile gate to challenge Enter and button
+submission at the request boundary, then prove a corrected public name can
+submit. Chromium and Firefox pass against the feature server and actual
+owner preview; removing Listening's guard produces rejected POSTs and fails
+the check. The full suite measured **3113 passed** (2954 non-browser tests
+in three shards plus 159 browser tests). The frontend gate passed 58 checks
+in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
+were added.
+
+The independent uncommitted-file audit is recorded in
+`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
+preview hashes match the pushed feature commit. Independent owner files and
+dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
+linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
+and was not staged or used as test evidence. The requested OS-temp handoff
+is written and receives the final pushed commit and validation checkpoint
+at close-out. Whole-file review found no material issue. Archive rotation
+was verified mechanically against dd69ddd7 without claiming a semantic
+reread of unrelated historical content.
+
+### 2026-10-29 - Animate the transition into the Listening form
+
+Side task on `feat/streamgraph-bursts`. The owner requested an upward card
+collapse from Top albums to Listening, followed by the supporting illustration
+fading in. Reuse the existing capture listener and measured card geometry,
+reserve the destination panel height, and restore natural sizing after the
+CSS animation ends or is cancelled. Reduced motion and Pause animations both
+show the final state immediately, including preference changes mid-effect.
+
+Extend the existing entrance-motion gate rather than adding a test family.
+Focused Chromium and Firefox checks pass for actual geometry and opacity,
+rapid switches, subsequent content growth and preference cancellation. The
+existing display-scale gate also passes in both engines. Replacing the new
+CSS with the previous revision makes the motion check fail. The full suite
+measured **3113 passed**: 2954 non-browser tests in three shards plus 159
+browser tests. The complete browser gate passed 58 checks in 89 runs. Final
+Chromium/Firefox checks also pass with a saved pause choice and real keyboard
+switching. A stylesheet-contract failure required local auto defaults for the
+measured height properties; the 126 template checks and affected shard pass
+after that correction. Pre-commit and final docsync passed. The execution
+checklist and rationale are in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
+### 2026-10-29 - Balance the Listening entry form with an output illustration
+
+Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
+of the empty desktop area below the Listening username card. Add an unboxed,
+decorative daily-grid and artist-ribbon schematic inside the existing mode
+panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
+and preserve the shared album-form height and submission path.
+
+Independent spatial and source reviews found no material issue. After a local
+comparison, the owner requested removal of the caption and preferred the
+original straight ribbon ends over a tapered variant. Those preferences are
+applied. The existing page entrance remains the only fade; no animation or
+control was added. The full suite measured **3113 passed** (2954 non-browser
+tests in three shards plus 159 browser tests); the complete frontend gate
+passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
+stable mode-tab positions and no added page height. The existing home layout
+still scrolls at 1024x768 because of its left-column text; the example fits.
+Pre-commit and docsync passed. The optional design detector
+ran in degraded regex mode because its parser modules are unavailable; its
+findings concern existing styles, so it is not evidence of computed contrast.
+The execution checklist is in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Fit listening and empty pages to the browser viewport
 
 Side task on `feat/streamgraph-bursts`, requested after the earlier viewport

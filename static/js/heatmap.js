@@ -346,6 +346,52 @@
     return path + 'Z';
   }
 
+  /**
+   * Geometry for an already validated weekly payload, without mutating it.
+   * Returns null when the fitted extent is nonpositive; otherwise exposes
+   * read-only week centres and paths in bottom-to-top artist order.
+   * hitAt takes SVG viewBox coordinates (y positive down), selects the
+   * nearest clamped week and returns {week, hoverId}; hoverId is an artist
+   * rank, or null outside named bands, including residual-only weeks.
+   */
+  function streamGeometry(payload) {
+    var artists = payload.artists;
+    var order = streamOrder(artists.map(function (a) {
+      return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
+    }));
+    var layers = order.map(function (i) { return artists[i].counts; });
+    var baseline = layers.length ? streamBaseline(layers) : payload.other.map(function () { return 0; });
+    var fit = streamFit(layers, baseline, payload.other);
+    if (fit.scale <= 0) return null;
+
+    var stack = stackLayers(layers, fit.baseline, fit.scale);
+    var safeSegments = streamSafeSegments(layers);
+    var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
+    var centre = STREAM_LABEL_H + STREAM_BAND / 2;
+    var lower = fit.baseline.map(function (level) { return level * fit.scale; });
+    var upper = stack.length ? stack[stack.length - 1].map(function (band) { return band.y1; }) : lower;
+    var haloTop = upper.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var haloBottom = lower.map(function (y, t) { return { x: xs[t], y: centre - y }; });
+    var margin = payload.other.map(function (count) { return count * STREAM_HALO_FACTOR / 2 * fit.scale; });
+    var haloPath = smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments, CELL_SIZE / 2);
+    var artistPaths = stack.map(function (band, k) {
+      var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
+      var bottom = band.map(function (b, t) { return { x: xs[t], y: centre - b.y0 }; });
+      return {
+        rank: order[k],
+        path: smoothPath(top, bottom, null, null, safeSegments, CELL_SIZE / 2),
+      };
+    });
+
+    /** Select a sampled-week named band from downward-positive viewBox coordinates. */
+    function hitAt(x, y) {
+      var week = weekFromX(x, xs.length);
+      return { week: week, hoverId: layerAtY(stack, week, centre - y, order) };
+    }
+
+    return { xs: xs, haloPath: haloPath, artists: artistPaths, hitAt: hitAt };
+  }
+
   /** Fill for the artist rank from the theme palette in a fixed order. */
   function layerColour(rank, theme) {
     return STREAM_PALETTE[theme][rank];
@@ -1820,19 +1866,8 @@
    * when no week has a play.
    */
   function drawStream(payload, svgWidth) {
-    var artists = payload.artists;
-    var order = streamOrder(artists.map(function (a) {
-      return a.counts.reduce(function (sum, n) { return sum + n; }, 0);
-    }));
-    var layers = order.map(function (i) { return artists[i].counts; });
-    var baseline = layers.length ? streamBaseline(layers) : payload.other.map(function () { return 0; });
-    var fit = streamFit(layers, baseline, payload.other);
-    if (fit.scale <= 0) return;
-
-    var stack = stackLayers(layers, fit.baseline, fit.scale);
-    var safeSegments = streamSafeSegments(layers);
-    var xs = payload.weeks.map(function (_, t) { return LEFT_PAD + t * STEP + CELL_SIZE / 2; });
-    var centre = STREAM_LABEL_H + STREAM_BAND / 2;
+    var geometry = streamGeometry(payload);
+    if (!geometry) return;
     var theme = currentStreamTheme();
 
     var svg = streamNode('svg', {
@@ -1841,7 +1876,7 @@
       'data-layout': 'stream',
       viewBox: '0 0 ' + svgWidth + ' ' + (STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H),
       width: '100%',
-      'data-columns': xs.map(pathNum).join(' '),
+      'data-columns': geometry.xs.map(pathNum).join(' '),
       tabindex: '0',
       role: 'application',
       'aria-label': 'Top artists by week. Left and right arrows move between weeks, ' +
@@ -1869,14 +1904,9 @@
       svg.appendChild(monthLabel);
     });
 
-    var lower = fit.baseline.map(function (level) { return level * fit.scale; });
-    var upper = stack.length ? stack[stack.length - 1].map(function (band) { return band.y1; }) : lower;
-    var haloTop = upper.map(function (y, t) { return { x: xs[t], y: centre - y }; });
-    var haloBottom = lower.map(function (y, t) { return { x: xs[t], y: centre - y }; });
-    var margin = payload.other.map(function (count) { return count * STREAM_HALO_FACTOR / 2 * fit.scale; });
     var halo = streamNode('path', {
       'class': 'stream-halo stream-layer-other',
-      d: smoothPath(haloTop, haloBottom, margin.map(function (n) { return -n; }), margin, safeSegments, CELL_SIZE / 2),
+      d: geometry.haloPath,
       fill: frameColour('--stream-halo-fill'), stroke: frameColour('--stream-halo-stroke'),
       'stroke-width': 1, 'vector-effect': 'non-scaling-stroke',
       'pointer-events': 'none', 'aria-hidden': 'true',
@@ -1885,15 +1915,12 @@
     svg.appendChild(halo);
 
     // Only named artists contribute to the foreground silhouette.
-    stack.forEach(function (band, k) {
-      var rank = order[k];
-      var top = band.map(function (b, t) { return { x: xs[t], y: centre - b.y1 }; });
-      var bottom = band.map(function (b, t) { return { x: xs[t], y: centre - b.y0 }; });
+    geometry.artists.forEach(function (artist) {
       svg.appendChild(streamNode('path', {
         'class': 'stream-layer',
-        'data-rank': rank,
-        d: smoothPath(top, bottom, null, null, safeSegments, CELL_SIZE / 2),
-        fill: layerColour(rank, theme),
+        'data-rank': artist.rank,
+        d: artist.path,
+        fill: layerColour(artist.rank, theme),
       }));
     });
 
@@ -1934,9 +1961,9 @@
     gridContainer.appendChild(panel);
 
     streamState = {
-      payload: payload, order: order, stack: stack, xs: xs, centre: centre,
+      payload: payload, geometry: geometry,
       svg: svg, panel: panel, shown: null,
-      positions: streamPositions(order), cursor: null,
+      positions: streamPositions(geometry.artists.map(function (artist) { return artist.rank; })), cursor: null,
     };
     ['pointermove', 'pointerdown'].forEach(function (type) {
       svg.addEventListener(type, handleStreamPointer);
@@ -1956,15 +1983,14 @@
     var box = state.svg.getBoundingClientRect();
     if (!box.width) return;
     var unit = state.svg.viewBox.baseVal.width / box.width;
-    var week = weekFromX((event.clientX - box.left) * unit, state.xs.length);
-    var y = state.centre - (event.clientY - box.top) * unit;
-    showWeek(week, layerAtY(state.stack, week, y, state.order));
+    var target = state.geometry.hitAt((event.clientX - box.left) * unit, (event.clientY - box.top) * unit);
+    showWeek(target.week, target.hoverId);
   }
 
   function streamDims(state) {
     var week = state.shown ? state.shown.week : state.cursor ? state.cursor.week
-      : Math.min(STREAM_START_WEEK, state.xs.length - 1);
-    return { weeks: state.xs.length, layers: panelModel(state.payload, week, null).rows.length };
+      : Math.min(STREAM_START_WEEK, state.geometry.xs.length - 1);
+    return { weeks: state.geometry.xs.length, layers: panelModel(state.payload, week, null).rows.length };
   }
 
   // Silent artists have no panel row, so keys follow this week's rows.
@@ -2073,7 +2099,7 @@
     });
 
     var ink = frameColour('--color-base-content');
-    var x = state.xs[week];
+    var x = state.geometry.xs[week];
     state.svg.appendChild(streamNode('line', {
       'class': 'stream-guide',
       x1: x, x2: x,
@@ -2771,20 +2797,16 @@
       countToNorm: countToNorm,
       STREAM_PEAK: STREAM_PEAK,
       STREAM_BAND: STREAM_BAND,
-      STREAM_LABEL_H: STREAM_LABEL_H,
-      streamOrder: streamOrder,
+      streamGeometry: streamGeometry,
       streamBaseline: streamBaseline,
       stackLayers: stackLayers,
       streamScale: streamScale,
       streamFit: streamFit,
       streamEnvelope: streamEnvelope,
-      streamSafeSegments: streamSafeSegments,
       smoothPath: smoothPath,
       layerColour: layerColour,
       streamPalette: STREAM_PALETTE,
       streamPayloadValid: streamPayloadValid,
-      weekFromX: weekFromX,
-      layerAtY: layerAtY,
       panelModel: panelModel,
       streamKeyTarget: streamKeyTarget,
       streamStartTarget: streamStartTarget,

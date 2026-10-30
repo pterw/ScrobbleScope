@@ -69,16 +69,20 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **Listening view side task:** Durable result and empty-state sizing is
-  complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
-  illustration refinement and requested mode-transition motion are complete.
-  Validation parity, the uncommitted-file audit and the close-out handoff
-  are complete. Listening already has blur validation; the existing browser
-  check now proves request blocking and corrected-profile submission. PR
-  #280 is ready for review after green CI and owner authorization. The bot-review
-  documentation correction and local validation are complete. Check current
-  remote CI/reviews before merge; independent F-SWE-8 work stays gated.
-  The execution record is
+- **Weekly chart geometry side task:** The owner approved the in-file
+  geometry design and its bounded Rule 3 exception on 2026-10-30. Work runs
+  on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
+  WT003 is owner-authorized advisory for this side task. The approved plan
+  is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+  The stronger rendered-geometry and midpoint checks are committed.
+  Drawing, selection and composition tests now use the geometry module;
+  the full suite and frontend gate pass. The independent whole-branch review
+  is complete, with its sole README-date finding fixed. The branch is ready
+  for the implementation commit and template PR; publication state lives
+  in the PR.
+
+- **Listening view side task:** Complete and merged as PR #280, merge commit
+  `c1ca5f18`. Independent F-SWE-8 work stays gated. The execution record is
   `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
 
 - **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`.
@@ -196,6 +200,66 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-30 - Make weekly chart geometry own drawing and selection
+
+Extract the connected calculation into the approved in-file geometry model.
+Drawing, pointer selection and composition tests consume that model; its
+numeric stack and coordinate conversion stay private. Migrate existing
+behavior tests and remove superseded hooks and a constant-pin assertion.
+The suite drops five redundant cases, with no new test module or dependency.
+The developer README links to the interface owner. Scope and owner-approved
+exceptions remain those in the design; no further deviation is introduced.
+
+The focused harness passed 142 tests. The full suite measured **3108 passed**
+in 227.30 seconds; a later unused test-hook removal passed the focused
+harness again. Chromium and Firefox each matched the exact old runtime's
+paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
+seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
+both engines and desktop, mobile and wide-touch profiles. The frozen-source
+full suite then passed again in 205.55 seconds. Independent final code/spec
+and standards reviews completed whole-file reads and found only a stale
+README date, now corrected and re-reviewed. Archive rotation preserved
+existing dated entries exactly. All hooks and final docsync pass; the
+implementation commit is ready for a template PR. CI and publication state
+will be recorded there, without merging.
+The plan records final review and publication guidance:
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
+### 2026-10-30 - Protect weekly chart geometry before extraction
+
+Extend the existing browser alignment check with actual path extents,
+plot bounds and one shifted-spike fixture. Extend the existing nearest-week
+test with the exact midpoint. No runtime, test module or permanent check
+family is added. The plan's first implementation step protects current
+behavior before its calculation moves.
+
+The pure harness passed 147 tests. Chromium and Firefox passed the affected
+alignment check; both rejected a temporary out-of-band halo and passed
+again after restoration. The full suite measured **3113 passed** in 210.85
+seconds. Final hooks and docsync run before the test-only commit. Also
+repoint the current Listening status to its observed merge, preserving the
+dated execution records. The owner-approved deviations stay
+as recorded in the design. The next step is the geometry module and test
+migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
+### 2026-10-30 - Approve the weekly chart geometry side task
+
+The owner selected the first architecture-review proposal and approved the
+in-file geometry model. Record the design and two-step implementation plan
+before moving runtime calculation: protect the current rendered geometry,
+then deepen its calculation and migrate the consumers and composition test.
+This is a side task, not a new Batch 23 work package.
+
+The owner explicitly permits this two-copy consolidation as a bounded
+exception to global Rule 3, a clean worktree from main with WT003 advisory,
+and one final independent review rather than per-commit/task reviews.
+All other gates and the PR template still apply. The original preview and
+its unrelated owner files remain outside this branch. The clean-worktree
+suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
+final docsync and hooks are rerun after this entry is rendered. Forward
+guidance and execution checkboxes live in
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-29 - Reconcile Listening design notes after bot review
 
 The owner authorized opening PR #280 after green CI and fixing bot concerns.
@@ -216,76 +280,4 @@ After pushing, verify the new head's CI and bot feedback and fast-forward
 the owner preview. Qlty's status passes but its description reports 13
 blocking issues; the detailed list requires separate login and has not been
 validated. The execution record is
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
-
-### 2026-10-29 - Verify Listening profile guards and prepare the handoff
-
-The owner requested Listening blur verification, review of uncommitted files
-and a durable close-out handoff. Listening already uses the same validator
-endpoint as Top albums, sets custom validity for missing/private profiles,
-and checks it before AJAX submission. No production validation refactor was
-needed. Extend the existing profile gate to challenge Enter and button
-submission at the request boundary, then prove a corrected public name can
-submit. Chromium and Firefox pass against the feature server and actual
-owner preview; removing Listening's guard produces rejected POSTs and fails
-the check. The full suite measured **3113 passed** (2954 non-browser tests
-in three shards plus 159 browser tests). The frontend gate passed 58 checks
-in 89 runs. Pre-commit and docsync passed; no test modules or dependencies
-were added.
-
-The independent uncommitted-file audit is recorded in
-`docs/history/reports/UNCOMMITTED_WORKTREE_AUDIT_2026-10-29.md`. Its product
-preview hashes match the pushed feature commit. Independent owner files and
-dirty scratch worktrees remain preserved. Fresh unfinished-tool evidence is
-linked under existing F-SWE-8; that tooling remains owner-gated and unadopted,
-and was not staged or used as test evidence. The requested OS-temp handoff
-is written and receives the final pushed commit and validation checkpoint
-at close-out. Whole-file review found no material issue. Archive rotation
-was verified mechanically against dd69ddd7 without claiming a semantic
-reread of unrelated historical content.
-
-### 2026-10-29 - Animate the transition into the Listening form
-
-Side task on `feat/streamgraph-bursts`. The owner requested an upward card
-collapse from Top albums to Listening, followed by the supporting illustration
-fading in. Reuse the existing capture listener and measured card geometry,
-reserve the destination panel height, and restore natural sizing after the
-CSS animation ends or is cancelled. Reduced motion and Pause animations both
-show the final state immediately, including preference changes mid-effect.
-
-Extend the existing entrance-motion gate rather than adding a test family.
-Focused Chromium and Firefox checks pass for actual geometry and opacity,
-rapid switches, subsequent content growth and preference cancellation. The
-existing display-scale gate also passes in both engines. Replacing the new
-CSS with the previous revision makes the motion check fail. The full suite
-measured **3113 passed**: 2954 non-browser tests in three shards plus 159
-browser tests. The complete browser gate passed 58 checks in 89 runs. Final
-Chromium/Firefox checks also pass with a saved pause choice and real keyboard
-switching. A stylesheet-contract failure required local auto defaults for the
-measured height properties; the 126 template checks and affected shard pass
-after that correction. Pre-commit and final docsync passed. The execution
-checklist and rationale are in
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
-
-### 2026-10-29 - Balance the Listening entry form with an output illustration
-
-Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
-of the empty desktop area below the Listening username card. Add an unboxed,
-decorative daily-grid and artist-ribbon schematic inside the existing mode
-panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
-and preserve the shared album-form height and submission path.
-
-Independent spatial and source reviews found no material issue. After a local
-comparison, the owner requested removal of the caption and preferred the
-original straight ribbon ends over a tapered variant. Those preferences are
-applied. The existing page entrance remains the only fade; no animation or
-control was added. The full suite measured **3113 passed** (2954 non-browser
-tests in three shards plus 159 browser tests); the complete frontend gate
-passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
-stable mode-tab positions and no added page height. The existing home layout
-still scrolls at 1024x768 because of its left-column text; the example fits.
-Pre-commit and docsync passed. The optional design detector
-ran in degraded regex mode because its parser modules are unavailable; its
-findings concern existing styles, so it is not evidence of computed contrast.
-The execution checklist is in
 `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
