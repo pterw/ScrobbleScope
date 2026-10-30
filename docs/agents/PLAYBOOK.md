@@ -69,6 +69,15 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **Weekly chart geometry side task:** The owner approved the in-file
+  geometry design and its bounded Rule 3 exception on 2026-10-30. Work runs
+  on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
+  WT003 is owner-authorized advisory for this side task. The approved plan
+  is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+  Next: protect current rendered geometry, then make drawing, selection
+  and composition tests use the geometry module. The owner requested one
+  independent review after the definition of done, followed by a PR.
+
 - **Listening view side task:** Durable result and empty-state sizing is
   complete on `feat/streamgraph-bursts`, PR #280. The owner-requested index
   illustration refinement and requested mode-transition motion are complete.
@@ -196,6 +205,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-30 - Approve the weekly chart geometry side task
+
+The owner selected the first architecture-review proposal and approved the
+in-file geometry model. Record the design and two-step implementation plan
+before moving runtime calculation: protect the current rendered geometry,
+then deepen its calculation and migrate the consumers and composition test.
+This is a side task, not a new Batch 23 work package.
+
+The owner explicitly permits this two-copy consolidation as a bounded
+exception to global Rule 3, a clean worktree from main with WT003 advisory,
+and one final independent review rather than per-commit/task reviews.
+All other gates and the PR template still apply. The original preview and
+its unrelated owner files remain outside this branch. The clean-worktree
+suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
+final docsync and hooks are rerun after this entry is rendered. Forward
+guidance and execution checkboxes live in
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-29 - Reconcile Listening design notes after bot review
 
 The owner authorized opening PR #280 after green CI and fixing bot concerns.
@@ -265,27 +292,4 @@ switching. A stylesheet-contract failure required local auto defaults for the
 measured height properties; the 126 template checks and affected shard pass
 after that correction. Pre-commit and final docsync passed. The execution
 checklist and rationale are in
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
-
-### 2026-10-29 - Balance the Listening entry form with an output illustration
-
-Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
-of the empty desktop area below the Listening username card. Add an unboxed,
-decorative daily-grid and artist-ribbon schematic inside the existing mode
-panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
-and preserve the shared album-form height and submission path.
-
-Independent spatial and source reviews found no material issue. After a local
-comparison, the owner requested removal of the caption and preferred the
-original straight ribbon ends over a tapered variant. Those preferences are
-applied. The existing page entrance remains the only fade; no animation or
-control was added. The full suite measured **3113 passed** (2954 non-browser
-tests in three shards plus 159 browser tests); the complete frontend gate
-passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
-stable mode-tab positions and no added page height. The existing home layout
-still scrolls at 1024x768 because of its left-column text; the example fits.
-Pre-commit and docsync passed. The optional design detector
-ran in degraded regex mode because its parser modules are unavailable; its
-findings concern existing styles, so it is not evidence of computed contrast.
-The execution checklist is in
 `docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.

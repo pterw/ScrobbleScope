@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-29 - Balance the Listening entry form with an output illustration
+
+Side task on `feat/streamgraph-bursts`. The owner requested a restrained use
+of the empty desktop area below the Listening username card. Add an unboxed,
+decorative daily-grid and artist-ribbon schematic inside the existing mode
+panel. Reuse the chart palette helpers and theme tokens; keep it desktop-only
+and preserve the shared album-form height and submission path.
+
+Independent spatial and source reviews found no material issue. After a local
+comparison, the owner requested removal of the caption and preferred the
+original straight ribbon ends over a tapered variant. Those preferences are
+applied. The existing page entrance remains the only fade; no animation or
+control was added. The full suite measured **3113 passed** (2954 non-browser
+tests in three shards plus 159 browser tests); the complete frontend gate
+passed 58 checks in 89 runs. Focused Chromium/Firefox probes verify both themes,
+stable mode-tab positions and no added page height. The existing home layout
+still scrolls at 1024x768 because of its left-column text; the example fits.
+Pre-commit and docsync passed. The optional design detector
+ran in degraded regex mode because its parser modules are unavailable; its
+findings concern existing styles, so it is not evidence of computed contrast.
+The execution checklist is in
+`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
+
 ### 2026-10-29 - Fit listening and empty pages to the browser viewport
 
 Side task on `feat/streamgraph-bursts`, requested after the earlier viewport
