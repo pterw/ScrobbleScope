@@ -78,7 +78,11 @@ See FINDINGS F-DOCSYNC-3.
   (negative band thickness beside a one-week spike) is already fixed on
   `main` by PR #280's `streamSafeSegments`, with a curve-sampling test. The
   owner also asked for the streamgraph's bottom month labels to match the
-  heatmap's month labels in typeface and size.
+  heatmap's month labels in typeface and size. The owner accepted the triage
+  on 2026-10-31. The spec is
+  `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the plan
+  is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`; four of its
+  visual tasks land only after the owner sees before-and-after screenshots.
 
 - **Weekly chart geometry side task:** Complete and merged as PR #281, merge
   commit `18a4242d`. The execution record is
@@ -203,6 +207,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Plan the UI audit Minors bug fixes
+
+The deferred Minors from the 2026-10-27 UI audit's reviews were checked
+against `main` by a read-only audit. Of 79 rows, 43 were still true, and the
+owner accepted a triage of them on 2026-10-31. The spec records each chosen
+row with its evidence and lists the deferred and dropped rows. The plan
+slices the fixes into eleven atomic tasks: stream panel keyboard and
+screen-reader behaviour, gate-helper fixes, two CSS tidy-ups, and four
+visual changes that land only after the owner previews them (panel header
+size, key spacing, month labels, vertical centring). One plan review found
+two Important issues: a focus rule that also caught pointer focus, and a
+false claim about the saved image. Both were fixed with its eight Minors
+before this commit. Docs only.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass.
+
 ### 2026-10-31 - Record the merged chart work and open the UI Minors side task
 
 Section 3 still described the weekly chart geometry branch as awaiting its
@@ -259,21 +280,3 @@ repoint the current Listening status to its observed merge, preserving the
 dated execution records. The owner-approved deviations stay
 as recorded in the design. The next step is the geometry module and test
 migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-30 - Approve the weekly chart geometry side task
-
-The owner selected the first architecture-review proposal and approved the
-in-file geometry model. Record the design and two-step implementation plan
-before moving runtime calculation: protect the current rendered geometry,
-then deepen its calculation and migrate the consumers and composition test.
-This is a side task, not a new Batch 23 work package.
-
-The owner explicitly permits this two-copy consolidation as a bounded
-exception to global Rule 3, a clean worktree from main with WT003 advisory,
-and one final independent review rather than per-commit/task reviews.
-All other gates and the PR template still apply. The original preview and
-its unrelated owner files remain outside this branch. The clean-worktree
-suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
-final docsync and hooks are rerun after this entry is rendered. Forward
-guidance and execution checkboxes live in
-`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.

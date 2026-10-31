@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Approve the weekly chart geometry side task
+
+The owner selected the first architecture-review proposal and approved the
+in-file geometry model. Record the design and two-step implementation plan
+before moving runtime calculation: protect the current rendered geometry,
+then deepen its calculation and migrate the consumers and composition test.
+This is a side task, not a new Batch 23 work package.
+
+The owner explicitly permits this two-copy consolidation as a bounded
+exception to global Rule 3, a clean worktree from main with WT003 advisory,
+and one final independent review rather than per-commit/task reviews.
+All other gates and the PR template still apply. The original preview and
+its unrelated owner files remain outside this branch. The clean-worktree
+suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
+final docsync and hooks are rerun after this entry is rendered. Forward
+guidance and execution checkboxes live in
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-29 - Reconcile Listening design notes after bot review
 
 The owner authorized opening PR #280 after green CI and fixing bot concerns.
