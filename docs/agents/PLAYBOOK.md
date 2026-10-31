@@ -211,6 +211,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Point the side-task archive's read helpers at its directory
+
+Side task, no batch tag, branch `docs/paginate-archives`, after the archive
+split. `SIDE_ARCHIVE_PREFIX` in `scripts/docsync/renderer.py` is the canonical
+prologue DOC004 holds the side-task archive to. Its read helpers searched the
+archive file itself, which is now an index with no entries, so an agent
+following them found nothing. They now search `docs/logarchive/`, and the
+prologue says why. The `Get-Content` helper is gone: reading the whole
+archive is what the split exists to avoid. `--fix` rewrote the index's
+prologue from the new constant.
+
+Deviations: none. This is docsync control-plane code, so it lands as its own
+commit through the documented `SKIP=doc-state-sync-check` escape. No test
+changed: every test reads the constant by name.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Paginate the four archives past the page target
 
 Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for
@@ -269,28 +286,5 @@ intermittent gate failures that were re-run green. The spec gains a one-line
 outcome for Task 6's row. `results-behavior` is still owed at the final head.
 
 Deviations: none. Edited existing tests: none. Docs only.
-
-Validation: `pytest -q` -- **3113 passed**.
-
-### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
-
-Side task, no batch tag: `_request_spotlight_artist` in
-`scrobblescope/spotify.py` now takes the by-ID path only when the artist ID
-is 22 base-62 characters. Before, the ID was spliced straight into
-`https://api.spotify.com/v1/artists/{id}`, so a value carrying `/` or `..`
-could make the server call another GET route under the app's token. A
-malformed ID is now treated like any failed by-ID lookup: no request to the
-artists URL, then the existing name fallback, or None without a name. No
-client sends the parameter today. Closes F-B23-33 on branch
-`fix/spotify-artist-id`.
-
-An outside agent wrote the patch and an independent review approved it.
-One new parametrized test covers four malformed IDs and a well-formed one.
-Existing tests edited: `test_artist_spotlight_parses_details_and_missing_fields`,
-`test_artist_spotlight_falls_back_from_failed_id_lookup` and
-`test_artist_spotlight_id_lookup_skips_the_name_check` in
-`tests/services/test_spotify_service.py` now pass a well-formed ID instead
-of a short placeholder; no assertion changed beyond the ID value. No schema
-change, no new dependency.
 
 Validation: `pytest -q` -- **3113 passed**.

@@ -1,6 +1,29 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
+
+Side task, no batch tag: `_request_spotlight_artist` in
+`scrobblescope/spotify.py` now takes the by-ID path only when the artist ID
+is 22 base-62 characters. Before, the ID was spliced straight into
+`https://api.spotify.com/v1/artists/{id}`, so a value carrying `/` or `..`
+could make the server call another GET route under the app's token. A
+malformed ID is now treated like any failed by-ID lookup: no request to the
+artists URL, then the existing name fallback, or None without a name. No
+client sends the parameter today. Closes F-B23-33 on branch
+`fix/spotify-artist-id`.
+
+An outside agent wrote the patch and an independent review approved it.
+One new parametrized test covers four malformed IDs and a well-formed one.
+Existing tests edited: `test_artist_spotlight_parses_details_and_missing_fields`,
+`test_artist_spotlight_falls_back_from_failed_id_lookup` and
+`test_artist_spotlight_id_lookup_skips_the_name_check` in
+`tests/services/test_spotify_service.py` now pass a well-formed ID instead
+of a short placeholder; no assertion changed beyond the ID value. No schema
+change, no new dependency.
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-31 - Centre the streamgraph in its plot band
 
 `streamFit` in `static/js/heatmap.js` shifted the baseline only when the
