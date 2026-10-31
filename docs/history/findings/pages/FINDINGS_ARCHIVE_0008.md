@@ -1,6 +1,27 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # FINDINGS_ARCHIVE -- page 0008
 
+### F-B23-17: a Section 4 Validation line with no number passes --check -- RESOLVED
+
+Two landings on 2026-09-29 committed the entry template's placeholder,
+`` Validation: `pytest -q` -- **N passed**. ``, with the letter N in place of the count
+(36ade83 and 95973fd; filled in by 931828d). `doc_state_sync.py --check` exited 0 on both.
+DOC012 (`scripts/docsync/integrity.py`, `_check_unbolded_test_counts` and
+`_unpaired_result_issue`) looks only for digits: `_EXPLICIT_CLAIM_RE`, `TEST_COUNT_RE`,
+`_UNPAIRED_RESULT_RE` and `_UNBOLDED_COUNT_RE` all need one, so an entry whose only count is
+a letter records nothing and raises nothing. With the count pinned in
+`config/docsync.toml`, Section 4 is not re-scanned for the number, so the dashboards stay
+right; what is lost is the entry's own evidence, silently. Fix: DOC012 flags a
+Validation-trigger line whose bold count holds no digit.
+
+- [x] **Status:** RESOLVED
+  **Completed:** 2026-10-31
+  `_check_unbolded_test_counts` now raises DOC012 for a `` `pytest -q` `` line whose bold count
+  has no digit (`_PLACEHOLDER_CLAIM_RE`); covered by
+  `test_doc012_flags_a_validation_count_with_no_digit` (`**N passed**` flagged, a digit count clean).
+  Source: controller check of the 36ade83 and 95973fd landings
+  and the Task 9 sdd-reviewer, 2026-09-29.
+
 ### F-B23-65: a job slot leaks when `jobs.create` raises during admission -- RESOLVED
 
 `admit()` in `scrobblescope/routes/admission.py` takes a job slot with `_routes.acquire_job_slot()` (line 44) and then calls `jobs.create(params)` (line 47), outside its `try` (lines 49-54). Only a `start_job_thread` failure is caught: that path logs, deletes the job and returns `Refused.START_FAILED`, and `start_job_thread` has already released the slot (`scrobblescope/worker.py`). If `jobs.create` raises, nothing releases the slot, so the semaphore stays one short for the life of the process, and enough such failures would make the app refuse every job as at capacity until it restarts. What can raise there: `jobs.create` (`scrobblescope/jobs.py`, line 187) calls `_now()`, `uuid4()`, `_initial_progress()` and `_store.insert(...)`. With the in-memory store `insert` is a dict write under a lock, so in practice only something like `MemoryError` reaches the slot; `_store` is a protocol, though, so another store's `insert` could raise. What would close it: acquire the slot and create the job under one `try` that releases the slot on any exception, with a test that makes `jobs.create` raise and asserts the slot count is unchanged.

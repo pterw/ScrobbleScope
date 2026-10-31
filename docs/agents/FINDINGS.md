@@ -3,7 +3,7 @@
 Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3159 tests across 104 tracked test modules.
+3161 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -748,22 +748,6 @@ page's "Save image" JPEG export clips the artist line under each album
 title. Pre-existing, not Spotify-specific.
 
 - [ ] **Status:** open (P2). Source: Task 1 code report, 2026-09-28.
-
-### F-B23-17: a Section 4 Validation line with no number passes --check
-
-Two landings on 2026-09-29 committed the entry template's placeholder,
-`` Validation: `pytest -q` -- **N passed**. ``, with the letter N in place of the count
-(36ade83 and 95973fd; filled in by 931828d). `doc_state_sync.py --check` exited 0 on both.
-DOC012 (`scripts/docsync/integrity.py`, `_check_unbolded_test_counts` and
-`_unpaired_result_issue`) looks only for digits: `_EXPLICIT_CLAIM_RE`, `TEST_COUNT_RE`,
-`_UNPAIRED_RESULT_RE` and `_UNBOLDED_COUNT_RE` all need one, so an entry whose only count is
-a letter records nothing and raises nothing. With the count pinned in
-`config/docsync.toml`, Section 4 is not re-scanned for the number, so the dashboards stay
-right; what is lost is the entry's own evidence, silently. Fix: DOC012 flags a
-Validation-trigger line whose bold count holds no digit.
-
-- [ ] **Status:** open (P2). Source: controller check of the 36ade83 and 95973fd landings
-  and the Task 9 sdd-reviewer, 2026-09-29.
 
 ### F-B23-19: a non-square spotlight photo is letterboxed inside a rounded box, so the photo's own corners are square
 

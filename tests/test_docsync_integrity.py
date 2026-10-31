@@ -1538,6 +1538,29 @@ def test_doc012_flags_a_pass_claim_the_authority_cannot_read():
     assert _doc012_codes(lines) == ["DOC012"]
 
 
+@pytest.mark.parametrize(
+    ("count", "codes"),
+    [
+        ("**N passed**", ["DOC012"]),
+        ("**1154 passed**", []),
+    ],
+)
+def test_doc012_flags_a_validation_count_with_no_digit(count, codes):
+    """GIVEN a Validation line whose bold count is the template placeholder.
+
+    WHEN the log is checked THEN DOC012 names it, because the entry records no
+    evidence and the authority skips it in silence; a digit count stays clean.
+    """
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-29 - newest",
+        f"Validation: `pytest -q` -- {count}.",
+        "### 2026-09-28 - older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    assert _doc012_codes(lines) == codes
+
+
 def test_doc012_focused_bold_count_does_not_exempt_full_suite_claim():
     lines = [
         "## 4. Execution log",

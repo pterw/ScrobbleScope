@@ -541,6 +541,14 @@ _EXPLICIT_CLAIM_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: The entry template's placeholder: the full-suite command followed by a bold
+#: pass count that holds no digit (`**N passed**`). Every other count regex
+#: needs a digit, so such a line records nothing and raises nothing.
+_PLACEHOLDER_CLAIM_RE = re.compile(
+    r"`pytest(?:\.exe)?\s+-q`\s*(?:--)?\s*\*\*[^\d*]*pass(?:ed|ing)\*\*",
+    re.IGNORECASE,
+)
+
 #: Where the execution log starts. Counts above it are prose, not entries.
 _EXECUTION_LOG_HEADING = "## 4. Execution log"
 
@@ -619,6 +627,18 @@ def _check_unbolded_test_counts(
     for first, last in _entry_spans(playbook_lines, start):
         entry_lines = dict(prose_lines(playbook_lines[first:last]))
         ordered_lines = list(entry_lines.items())
+        issues.extend(
+            _issue(
+                "DOC012",
+                playbook_relative_path,
+                first + offset + 1,
+                "A full-suite pass claim carries a count with a digit.",
+                "Replace the placeholder with the measured count, "
+                "`**<digits> passed**`. As written the entry records no result.",
+            )
+            for offset, line in ordered_lines
+            if _PLACEHOLDER_CLAIM_RE.search(line)
+        )
         explicit_claims = [
             (offset, line, match)
             for offset, line in ordered_lines

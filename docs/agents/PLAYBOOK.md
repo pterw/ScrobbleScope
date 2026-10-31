@@ -224,6 +224,23 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Flag a Validation line whose count has no digit
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17): the
+entry template's Validation line, with the letter N for its count,
+was committed twice unfilled and `--check` exited 0, because every DOC012
+count regex needs a digit. `integrity.py` gains `_PLACEHOLDER_CLAIM_RE`
+(the full-suite command followed by a bold `passed` count holding no digit)
+and `_check_unbolded_test_counts` raises DOC012 for each such line, with the
+same code and severity. New parametrized test
+`test_doc012_flags_a_validation_count_with_no_digit` (`**N passed**` flagged,
+`**1154 passed**` clean); red on the unpatched code, green after. `--check`
+on the patched tree stays green: the live PLAYBOOK holds no digitless count.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3161 passed**.
+
 ### 2026-10-31 - Release the job slot when job creation fails
 
 Side task, no batch tag, branch `fix/admission-slot-leak` (F-B23-65):
@@ -292,23 +309,3 @@ Deviations: none. Docs only; no code or test changed.
 
 Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
 the suite was not re-run because no code changed).
-
-### 2026-10-31 - Record the CI parallel jobs execution
-
-Side task, no batch tag, branch `ci/parallel-jobs`: the plan
-`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` gets an Execution
-record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
-four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
-4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
-the plan once and then fixed in 2 rounds, the second without its own
-re-review, the split after 1 (`fbb6f449`), the docs sweep
-approved. Acceptance (b1) passed locally; (b2) stays open for the first
-documentation-only pull request after merge, because this PR changes the
-workflow and so runs `browser` on every head. Also: `development-cycle.md`,
-`documentation-tooling.md` and `README.md` point at `scripts/dev/ci_jobs.py`
-as the owner of the docs-only path list instead of paraphrasing it, and the
-README wrap around the docs-only note is fixed.
-
-Deviations: none. Docs only; no code or test changed.
-
-Validation: `pytest -q` -- **3157 passed**.

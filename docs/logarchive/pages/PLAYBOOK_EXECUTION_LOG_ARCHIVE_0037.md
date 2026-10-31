@@ -1,6 +1,26 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Record the CI parallel jobs execution
+
+Side task, no batch tag, branch `ci/parallel-jobs`: the plan
+`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` gets an Execution
+record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
+four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
+4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
+the plan once and then fixed in 2 rounds, the second without its own
+re-review, the split after 1 (`fbb6f449`), the docs sweep
+approved. Acceptance (b1) passed locally; (b2) stays open for the first
+documentation-only pull request after merge, because this PR changes the
+workflow and so runs `browser` on every head. Also: `development-cycle.md`,
+`documentation-tooling.md` and `README.md` point at `scripts/dev/ci_jobs.py`
+as the owner of the docs-only path list instead of paraphrasing it, and the
+README wrap around the docs-only note is fixed.
+
+Deviations: none. Docs only; no code or test changed.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Describe the parallel CI jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`: the documentation sweep
