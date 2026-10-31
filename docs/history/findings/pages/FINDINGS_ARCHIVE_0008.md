@@ -1,6 +1,14 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # FINDINGS_ARCHIVE -- page 0008
 
+### F-B23-65: a job slot leaks when `jobs.create` raises during admission -- RESOLVED
+
+`admit()` in `scrobblescope/routes/admission.py` takes a job slot with `_routes.acquire_job_slot()` (line 44) and then calls `jobs.create(params)` (line 47), outside its `try` (lines 49-54). Only a `start_job_thread` failure is caught: that path logs, deletes the job and returns `Refused.START_FAILED`, and `start_job_thread` has already released the slot (`scrobblescope/worker.py`). If `jobs.create` raises, nothing releases the slot, so the semaphore stays one short for the life of the process, and enough such failures would make the app refuse every job as at capacity until it restarts. What can raise there: `jobs.create` (`scrobblescope/jobs.py`, line 187) calls `_now()`, `uuid4()`, `_initial_progress()` and `_store.insert(...)`. With the in-memory store `insert` is a dict write under a lock, so in practice only something like `MemoryError` reaches the slot; `_store` is a protocol, though, so another store's `insert` could raise. What would close it: acquire the slot and create the job under one `try` that releases the slot on any exception, with a test that makes `jobs.create` raise and asserts the slot count is unchanged.
+
+- [x] **Status:** RESOLVED
+**Completed:** 2026-10-31
+`admit()` now wraps `jobs.create` in its own `try` and releases the slot with `release_job_slot()` before re-raising, so a failed create no longer holds a slot; `tests/test_admission.py::test_a_create_failure_frees_the_slot_once_and_propagates` proves the release count is one and the same error propagates. Source: review of the Fly idle-exit plan (reviewer note), 2026-10-27.
+
 ### F-B23-37: Deezer may answer a busy service with an HTTP 200 error body that `_deezer_request` reads as a terminal miss -- RESOLVED
 
 `scrobblescope/deezer.py` `_deezer_request` retries only error code 4 (quota) from a 200 body carrying `{"error": {"code": N}}`; every other code is a terminal miss, so the album is recorded as having no match on Deezer. The Task 18 review recalled that Deezer signals "service busy" with code 700 in such a body, which would be an outage read as "no match". UNVERIFIED: the code and its meaning come from memory and were not read at Deezer's documentation. Verify against Deezer's documented error codes before any fix; if 700 (or another code) means "try later", treat it as not-done so the retry helper raises `deezer_unavailable`, and add a test.

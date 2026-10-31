@@ -9,7 +9,8 @@ Each route keeps its own request parsing, session key and HTTP response.
 Slot ownership: ``admit`` takes the slot, and from the moment the thread is
 started the thread's ``run_coroutine_in_new_loop`` releases it. When the
 thread cannot be started, ``worker.start_job_thread`` releases it before
-re-raising, so ``admit`` must not release it again.
+re-raising, so ``admit`` must not release it again. When the job cannot be
+created at all, no thread exists to own the slot, so ``admit`` releases it.
 
 The slot and thread functions are read from the ``routes`` facade at call time
 (see ``scrobblescope/routes/__init__.py``), so the suite's patches at
@@ -21,6 +22,7 @@ import enum
 from scrobblescope import jobs
 from scrobblescope import routes as _routes
 from scrobblescope.utils import log_failure
+from scrobblescope.worker import release_job_slot
 
 
 class Refused(enum.Enum):
@@ -44,7 +46,12 @@ def admit(params, target, *, label):
     if not _routes.acquire_job_slot():
         return Refused.CAPACITY
 
-    job_id = jobs.create(params)
+    try:
+        job_id = jobs.create(params)
+    except Exception:
+        # No thread exists yet to own the slot, so hand it back here.
+        release_job_slot()
+        raise
 
     try:
         _routes.start_job_thread(target, args=(job_id,))

@@ -1,6 +1,22 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Describe the parallel CI jobs
+
+Side task, no batch tag, branch `ci/parallel-jobs`: the documentation sweep
+for the four-job workflow. `DEVELOPMENT.md` (the `tests/frontend/` paragraph),
+`docs/architecture/development-cycle.md` (the CI paragraph) and
+`docs/architecture/documentation-tooling.md` (the CI summary near the end)
+now name `changes`, `checks`, `browser` and the `quality-gate` aggregator, say
+which pull requests skip `browser`, and point at `scripts/dev/ci_jobs.py`. The
+run time reads about 1.5 minutes for a docs-only pull request and about 5
+minutes for any other. `README.md` notes the skip and the
+`tests/scripts/dev/test_frontend_gate.py` docstring says "CI browser job". No
+Mermaid node changed: "GitHub Actions Quality Gate" and its edges stay true.
+Point-in-time records are untouched.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Tighten the CI split tests after review
 
 Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
