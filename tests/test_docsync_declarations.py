@@ -1318,6 +1318,31 @@ def test_a_dated_log_entry_below_its_marker_is_left_alone(tmp_path: Path) -> Non
     assert issues[0].line == 1
 
 
+def test_an_allow_after_marker_matching_no_line_is_reported(tmp_path: Path) -> None:
+    """A dead marker must not silently drop the exemption it declares.
+
+    GIVEN an allow_after marker that no line of its file matches, because the
+    heading was renamed, WHEN the declaration is checked, THEN DOC011 names
+    the file and the marker. The matching marker beside it stays clean.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "plan.md": "clean\n",
+            "log.md": "## 4. Execution log\n- 2026-07-24: limit_results kept\n",
+        },
+    )
+    live = dict(RETIRED, allow_after={"log.md": "## 4. Execution log"})
+    dead = dict(RETIRED, allow_after={"log.md": "## 5. Renamed heading"})
+
+    assert check_retired(_files(root), [live]) == []
+    issues = check_retired(_files(root), [dead])
+
+    assert [(i.code, i.path) for i in issues] == [("DOC011", "log.md")]
+    assert "## 5. Renamed heading" in issues[0].invariant
+
+
 def test_a_struck_through_claim_is_left_alone(tmp_path: Path) -> None:
     """~~this~~ already says the claim is not current.
 

@@ -76,8 +76,8 @@ See FINDINGS F-DOCSYNC-3.
   when a pull request changes only documentation. The plan
   `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` is executed and its
   Execution record holds the CI evidence (four jobs green, 5 min 32 s). The
-  post-merge check (b2) remains: on the first documentation-only pull
-  request, `browser` is skipped and `quality-gate` succeeds. The findings
+  post-merge check (b2) is done: on docs-only PR #287, `browser` was skipped
+  and `quality-gate` succeeded (run 41227913325, 1 min 51 s). The findings
   triage follows this PR.
 
 - **Archive pagination side task:** Complete and merged as PR #284, merge
@@ -224,91 +224,57 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-31 - Release the job slot when job creation fails
+### 2026-10-31 - Correct an unsupported clause in F-B23-66
 
-Side task, no batch tag, branch `fix/admission-slot-leak` (F-B23-65):
-`admit()` in `scrobblescope/routes/admission.py` took a job slot and then
-called `jobs.create(params)` outside any `try`, so a raise there left the
-semaphore one permit short with no owner to return it. `jobs.create` now sits
-in its own small `try` that calls `release_job_slot()` (imported from
-`scrobblescope.worker`; the `routes` facade is untouched) and re-raises with a
-bare `raise`. It was not folded into the existing `try`, which answers
-`Refused.START_FAILED` and would release a second time. The module docstring's
-slot-ownership paragraph gains one sentence. New test
-`test_a_create_failure_frees_the_slot_once_and_propagates` in
-`tests/test_admission.py`. An outside agent (DeepSeek) wrote the patch under
-the strict-isolation prompt and the boundary held: only the two permitted files
-changed. Landing rulings: L1 the test keeps the raised error and asserts the
-propagated one is that same object, because the review's planted defect
-"re-raise a new RuntimeError" survived the first version (confirmed: with the
-bare `raise` replaced by `raise RuntimeError("x") from None` in a throwaway
-copy the test fails); L2 its empty-store assertion was dropped because the
-store cannot hold a job whose creation raised, so it could never fail.
-Forward guidance: anything acquired before a call that can raise needs a
-release on that call's own failure path.
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-66 wording):
+the finding claimed only archive pages open a line with `Final validation`,
+but no line under `docs/` does (`git grep -i "^Final validation" -- docs`
+finds nothing). The parenthetical now reads "(and DOC012 scans only the live
+PLAYBOOK)". Nothing else in the finding changed. Docs only.
 
 Deviations: none.
 
-Validation: `pytest -q` -- **3159 passed**.
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
 
-### 2026-10-31 - Pin the pip-audit action to its commit SHA
+### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
 
-Side task, no batch tag, branch `ci/pin-pip-audit-action`: the third-party
-action `pypa/gh-action-pip-audit` in `.github/workflows/test.yml` was
-referenced by the mutable tag `v1.1.0`, which its owner can move. zizmor (run
-by qlty on every PR) flags that as `unpinned-uses`, qlty's one blocking issue,
-and the 2026-09-14 code-review audit asked for the same pin. That one `uses:`
-line now names commit `1220774d901786e6f652ae159f7b6bc8fea6d266` with a
-`# v1.1.0` comment; the SHA was resolved with
-`gh api repos/pypa/gh-action-pip-audit/git/ref/tags/v1.1.0` (`type: commit`).
-The `actions/*` references stay on tags because zizmor allows them (owner
-ruling O33). No new test: `tests/test_ci_workflows.py` does not pin this
-reference, and a test pinning a SHA string would pin wording, not behaviour.
-Forward guidance: pin any new third-party action to a commit SHA with the tag
-in a trailing comment.
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
+the review of the DOC012 fix found that it flags a digitless bold count only
+on a line opening a Validation record or the line after a wrapped
+`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
+is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
+`_VALIDATION_LINE_RE` to both shapes. Docs only.
 
 Deviations: none.
 
-Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
-the full suite was not re-run because no Python changed; the workflow tests
-`tests/test_ci_workflows.py` and `tests/scripts/dev/test_ci_jobs.py` passed,
-46 tests).
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
 
-### 2026-10-31 - Write the canonical status line for 24 findings
+### 2026-10-31 - Word the manifest-count error to match DOC020
 
-Side task, no batch tag, branch `docs/canonical-finding-status`: 24 findings
-in `docs/agents/FINDINGS.md` stated their status only in prose
-(`Status: open (P2).`), so docsync's finding-lifecycle checks, which read only
-`- [ ] **Status:** <value>`, never saw them. Each now carries that line, in
-place, with the finding's own words as the value: F-B21-25, F-B23-11,
-F-B23-9, F-B22-4, F-B22-3, F-B23-1, F-B23-4, F-B23-13, F-B21-61, F-B21-54,
-F-DATA-1, F-DOCSYNC-2, F-DOCSYNC-3, F-B21-57, F-MAS-5, F-MAS-6, F-MAS-7,
-F-MAS-8, F-SWE-7, F-LOAD-3, F-LOAD-4, F-LOAD-5, F-DOCSYNC-14 and
-F-FEATURE-1 (whose inline sentence moved to its own line). The values are
-transcriptions, not verdicts, and no box was checked. Forward guidance: the
-24 are now visible to the lifecycle checks.
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
+fix round): the new count error told the reader not to hand-edit, while the
+DOC020 suffix allows a hand correction of the index. It now states only the
+fact and the rule and ends "so one of them was edited alone"; the suffix gives
+the remediation. Added the `page-entry-added` case (a page that gained an
+entry; red against a `>`-only comparison) and restored the consistent-store
+test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
 
-Deviations: none. Docs only; no code or test changed.
+Deviations: none.
 
-Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
-the suite was not re-run because no code changed).
+Validation: `pytest -q` -- **3169 passed**.
 
-### 2026-10-31 - Record the CI parallel jobs execution
+### 2026-10-31 - Record the CI split's docs-only check
 
-Side task, no batch tag, branch `ci/parallel-jobs`: the plan
-`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` gets an Execution
-record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
-four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
-4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
-the plan once and then fixed in 2 rounds, the second without its own
-re-review, the split after 1 (`fbb6f449`), the docs sweep
-approved. Acceptance (b1) passed locally; (b2) stays open for the first
-documentation-only pull request after merge, because this PR changes the
-workflow and so runs `browser` on every head. Also: `development-cycle.md`,
-`documentation-tooling.md` and `README.md` point at `scripts/dev/ci_jobs.py`
-as the owner of the docs-only path list instead of paraphrasing it, and the
-README wrap around the docs-only note is fixed.
+Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
+plan's open post-merge check (b2) is done. On docs-only PR #287 (head
+`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
+skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
+plan's delivery sequence, added a line to its Execution record, and updated the
+Section 3 bullet that still said the check remained. Docs only.
 
-Deviations: none. Docs only; no code or test changed.
+Deviations: none.
 
-Validation: `pytest -q` -- **3157 passed**.
+Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).

@@ -1,6 +1,70 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # FINDINGS_ARCHIVE -- page 0008
 
+### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line -- RESOLVED
+
+`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
+against a declared `allow_after` marker with `line.strip() == marker.strip()`
+-- exact equality, no prefix match -- and when nothing matches, `exempt_from`
+simply stays `None`: the declaration silently loses its whole history
+exemption for that file, with no warning that the marker itself is dead. The
+three `[[retired]]` declarations in `.docsync.toml` that predate this finding
+all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
+but the real `docs/agents/PLAYBOOK.md` heading is `## 4. Execution log (for agent
+handoff)`, so none of the three matched anything. Reproduced directly against
+`check_retired` with the real heading text: a claim placed below the heading
+was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
+for the new fourth declaration that task added).
+
+**Impact was latent, not live.** No dated Section 4 entry restated
+`limit_results ... thresholds disclosure`, `fonts self-hosted under
+static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
+never actually exercised the mismatch before it was caught. It would have
+surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
+one of those retired phrases as history.
+
+**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
+fix round) to the real heading text, matching the fourth declaration that
+task added, which used the correct text from the start. That corrects this
+one instance; the finding stays open because the mechanism -- a declared
+`allow_after` marker can silently match nothing, for any file, and nobody is
+told -- is still unchecked, so the next marker written this way fails the
+same way undetected.
+
+**Fix shape, not yet built:** a declaration check that errors when an
+`allow_after` marker matches no line in its named file (a new check; not
+built here).
+
+- [x] **Status:** RESOLVED
+  **Completed:** 2026-10-31
+  `check_retired` now reports DOC011 for an `allow_after` marker that matches no line of its
+  file, naming the file and the marker; covered by
+  `test_an_allow_after_marker_matching_no_line_is_reported` (a dead marker flagged, the
+  matching one clean).
+  Source: Batch 23 WP-0 foundation Task 5 live
+  probe, 2026-09-24.
+
+### F-B23-17: a Section 4 Validation line with no number passes --check -- RESOLVED
+
+Two landings on 2026-09-29 committed the entry template's placeholder,
+`` Validation: `pytest -q` -- **N passed**. ``, with the letter N in place of the count
+(36ade83 and 95973fd; filled in by 931828d). `doc_state_sync.py --check` exited 0 on both.
+DOC012 (`scripts/docsync/integrity.py`, `_check_unbolded_test_counts` and
+`_unpaired_result_issue`) looks only for digits: `_EXPLICIT_CLAIM_RE`, `TEST_COUNT_RE`,
+`_UNPAIRED_RESULT_RE` and `_UNBOLDED_COUNT_RE` all need one, so an entry whose only count is
+a letter records nothing and raises nothing. With the count pinned in
+`config/docsync.toml`, Section 4 is not re-scanned for the number, so the dashboards stay
+right; what is lost is the entry's own evidence, silently. Fix: DOC012 flags a
+Validation-trigger line whose bold count holds no digit.
+
+- [x] **Status:** RESOLVED
+  **Completed:** 2026-10-31
+  `_check_unbolded_test_counts` now raises DOC012 for a `` `pytest -q` `` line whose bold count
+  has no digit (`_PLACEHOLDER_CLAIM_RE`); covered by
+  `test_doc012_flags_a_validation_count_with_no_digit` (`**N passed**` flagged, a digit count clean).
+  Source: controller check of the 36ade83 and 95973fd landings
+  and the Task 9 sdd-reviewer, 2026-09-29.
+
 ### F-B23-65: a job slot leaks when `jobs.create` raises during admission -- RESOLVED
 
 `admit()` in `scrobblescope/routes/admission.py` takes a job slot with `_routes.acquire_job_slot()` (line 44) and then calls `jobs.create(params)` (line 47), outside its `try` (lines 49-54). Only a `start_job_thread` failure is caught: that path logs, deletes the job and returns `Refused.START_FAILED`, and `start_job_thread` has already released the slot (`scrobblescope/worker.py`). If `jobs.create` raises, nothing releases the slot, so the semaphore stays one short for the life of the process, and enough such failures would make the app refuse every job as at capacity until it restarts. What can raise there: `jobs.create` (`scrobblescope/jobs.py`, line 187) calls `_now()`, `uuid4()`, `_initial_progress()` and `_store.insert(...)`. With the in-memory store `insert` is a dict write under a lock, so in practice only something like `MemoryError` reaches the slot; `_store` is a protocol, though, so another store's `insert` could raise. What would close it: acquire the slot and create the job under one `try` that releases the slot on any exception, with a test that makes `jobs.create` raise and asserts the slot count is unchanged.

@@ -3,7 +3,7 @@
 Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3159 tests across 104 tracked test modules.
+3169 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -307,43 +307,6 @@ for the release-check check, measure the row positions after layout settles twic
 When: its own frontend-gate PR; not before the failures are seen again with the timing recorded.
 
 - [ ] **Status:** open (P2). Source: UI consistency round 2 gate runs (PR #268), 2026-10-23.
-
-### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
-
-`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
-against a declared `allow_after` marker with `line.strip() == marker.strip()`
--- exact equality, no prefix match -- and when nothing matches, `exempt_from`
-simply stays `None`: the declaration silently loses its whole history
-exemption for that file, with no warning that the marker itself is dead. The
-three `[[retired]]` declarations in `.docsync.toml` that predate this finding
-all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
-but the real `docs/agents/PLAYBOOK.md` heading is `## 4. Execution log (for agent
-handoff)`, so none of the three matched anything. Reproduced directly against
-`check_retired` with the real heading text: a claim placed below the heading
-was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
-for the new fourth declaration that task added).
-
-**Impact was latent, not live.** No dated Section 4 entry restated
-`limit_results ... thresholds disclosure`, `fonts self-hosted under
-static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
-never actually exercised the mismatch before it was caught. It would have
-surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
-one of those retired phrases as history.
-
-**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
-fix round) to the real heading text, matching the fourth declaration that
-task added, which used the correct text from the start. That corrects this
-one instance; the finding stays open because the mechanism -- a declared
-`allow_after` marker can silently match nothing, for any file, and nobody is
-told -- is still unchecked, so the next marker written this way fails the
-same way undetected.
-
-**Fix shape, not yet built:** a declaration check that errors when an
-`allow_after` marker matches no line in its named file (a new check; not
-built here).
-
-- [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
-  probe, 2026-09-24.
 
 ### F-DOCSYNC-20: the docsync close-out review's carried-over Minors, still true at HEAD
 
@@ -749,22 +712,6 @@ title. Pre-existing, not Spotify-specific.
 
 - [ ] **Status:** open (P2). Source: Task 1 code report, 2026-09-28.
 
-### F-B23-17: a Section 4 Validation line with no number passes --check
-
-Two landings on 2026-09-29 committed the entry template's placeholder,
-`` Validation: `pytest -q` -- **N passed**. ``, with the letter N in place of the count
-(36ade83 and 95973fd; filled in by 931828d). `doc_state_sync.py --check` exited 0 on both.
-DOC012 (`scripts/docsync/integrity.py`, `_check_unbolded_test_counts` and
-`_unpaired_result_issue`) looks only for digits: `_EXPLICIT_CLAIM_RE`, `TEST_COUNT_RE`,
-`_UNPAIRED_RESULT_RE` and `_UNBOLDED_COUNT_RE` all need one, so an entry whose only count is
-a letter records nothing and raises nothing. With the count pinned in
-`config/docsync.toml`, Section 4 is not re-scanned for the number, so the dashboards stay
-right; what is lost is the entry's own evidence, silently. Fix: DOC012 flags a
-Validation-trigger line whose bold count holds no digit.
-
-- [ ] **Status:** open (P2). Source: controller check of the 36ade83 and 95973fd landings
-  and the Task 9 sdd-reviewer, 2026-09-29.
-
 ### F-B23-19: a non-square spotlight photo is letterboxed inside a rounded box, so the photo's own corners are square
 
 `.spotlight-artist-photo` uses `object-fit: contain` inside `.spotlight-image-box`, which
@@ -820,6 +767,7 @@ Two P3 gaps in the archive store were left when the docsync publication fixes la
 Candidate for a second guard on CRLF checkouts (S3-7): a `.gitattributes` `eol=lf` rule for `docs/logarchive/**` and `docs/history/**`. It is optional, since `ArchiveStore._diff` now folds line endings.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S3-5 and S3-8.
+  S3-5 is done (commit "Check each archive page against its manifest counts" on `fix/docsync-quick-wins`, test `test_page_that_disagrees_with_its_manifest_counts_is_rejected`); S3-8 remains.
 
 ### F-B23-36: six small frontend-gate checks judge less than they name
 
@@ -915,6 +863,12 @@ The test in `tests/services/test_spotify_service.py` runs eight threads at a one
 The Results header's Top Artist is the artist of the first row in the run's ranking (`album_list[0].artist` in `templates/results.html`), so a run started in listening-time mode can name a different artist than the same run switched to listening time in the browser. `static/js/results.js` recomputes it from the first visible row only when Hide is toggled, not on a metric switch. The spotlight card below ranks artists by total scrobbles across albums (`select_spotlight_artists` in `scrobblescope/spotlight.py`), so the page holds three rules for "top artist". What would close it: the owner picks one rule, and the template, the script and the spotlight read it from one place.
 
 - [ ] **Status:** open (P3, low); the product rule is the owner's to decide; no fix in PR #269. Source: T11's agreement test (`tests/frontend/test_results_ranking_agreement.py`), whose fixture gives every album one artist for this reason; owner ruling RA21, 2026-10-25 ("File it, it's trivial for now").
+
+### F-B23-66: DOC012 misses a placeholder count on a Final validation or continuation line
+
+After F-B23-17's fix (commits `da7741e0` and `ef18f96b`), `scripts/docsync/integrity.py` flags a digitless bold count only on a line that opens a Validation record (`_VALIDATION_LINE_RE`, anchored at line start) or on the line after a wrapped `pytest -q --`, so a placeholder on a `Final validation:` line, or on a continuation line after an earlier count, is not flagged. Today's PLAYBOOK Section 4 uses neither shape (and DOC012 scans only the live PLAYBOOK), and the entry template writes `Validation:` on one line, so a miss needs a non-template shape and a left-in placeholder together. What would close it: widen `_VALIDATION_LINE_RE` to the two shapes, with two parametrize cases in the D1 test.
+
+- [ ] **Status:** open (P3). Source: `review-d1-fix` of the docsync quick-wins PR, 2026-10-31.
 
 ### F-DOCSYNC-24: the cross-reference list mixes promoted pointers with resolved records that no check reaches
 

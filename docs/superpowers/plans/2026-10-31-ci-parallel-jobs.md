@@ -47,7 +47,7 @@
 - [x] Task 3: execution record (docs only, last): this pull request's full-run evidence.
 - [x] Acceptance (a), on this pull request's CI: the head that changes the workflow runs all four jobs and `quality-gate` succeeds.
 - [x] Acceptance (b1), local: the docs-only truth table and the aggregator truth table pass (Task 1).
-- [ ] Acceptance (b2), after merge (controller): on the first docs-only pull request, `browser` is skipped and `quality-gate` succeeds; the controller records it. It cannot be observed on this pull request, because decision 2 diffs the whole pull request, which changes the workflow.
+- [x] Acceptance (b2), after merge (controller): on the first docs-only pull request, `browser` is skipped and `quality-gate` succeeds; the controller records it. It cannot be observed on this pull request, because decision 2 diffs the whole pull request, which changes the workflow.
 
 ## Task 1: Script, workflow split and tests
 
@@ -134,3 +134,5 @@ Pull request #285, branch `ci/parallel-jobs`, stacked on PR #284 (decision O27).
 **Acceptance (b1), local.** `tests/scripts/dev/test_ci_jobs.py` passes (37 tests): the `aggregate` truth table (the full product of `success`, `failure`, `cancelled` and `skipped` for the three jobs with `docs_only` `true`, `false` and empty, accepting only the two allowed shapes) and the `docs-only` table (including the near-miss paths and empty or NUL-only input). With `tests/test_ci_workflows.py` the two files hold 46 tests, all passing.
 
 **Acceptance (b2), open, the controller's post-merge check.** On the first docs-only pull request after merge, confirm `browser` is skipped and `quality-gate` succeeds, and record it here. It cannot be observed on this pull request.
+
+**Acceptance (b2), done.** On PR #287 (head `2d907c0c`, run 41227913325, a docs-only pull request) `changes` decided docs-only, `browser` was skipped, `quality-gate` passed, and the whole run took 1 min 51 s.

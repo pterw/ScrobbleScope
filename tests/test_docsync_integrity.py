@@ -1538,6 +1538,48 @@ def test_doc012_flags_a_pass_claim_the_authority_cannot_read():
     assert _doc012_codes(lines) == ["DOC012"]
 
 
+@pytest.mark.parametrize(
+    ("validation_lines", "codes"),
+    [
+        pytest.param(
+            ["Validation: `pytest -q` -- **N passed**."], ["DOC012"], id="same-line"
+        ),
+        pytest.param(
+            ["Validation: `pytest -q` --", "**N passed** with 3 warnings."],
+            ["DOC012"],
+            id="wrapped",
+        ),
+        pytest.param(
+            ["Validation: pytest -q -- **N passed**."], ["DOC012"], id="unquoted"
+        ),
+        pytest.param(
+            ["Note: the template reads `pytest -q` -- **N passed**."],
+            [],
+            id="prose-quote-not-validation",
+        ),
+        pytest.param(
+            ["Validation: `pytest -q` -- **1154 passed**."], [], id="digit-count"
+        ),
+    ],
+)
+def test_doc012_flags_a_validation_count_with_no_digit(validation_lines, codes):
+    """GIVEN a Validation line whose bold count is the template placeholder.
+
+    WHEN the log is checked THEN DOC012 names it, whether the count wraps to
+    the next line or the command has no backticks, because the entry records no
+    evidence and the authority skips it in silence. A digit count stays clean,
+    and so does a non-Validation line that merely quotes the template.
+    """
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-29 - newest",
+        *validation_lines,
+        "### 2026-09-28 - older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    assert _doc012_codes(lines) == codes
+
+
 def test_doc012_focused_bold_count_does_not_exempt_full_suite_claim():
     lines = [
         "## 4. Execution log",

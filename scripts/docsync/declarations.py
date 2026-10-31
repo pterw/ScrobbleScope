@@ -1380,6 +1380,19 @@ def check_retired(
                     if line.strip() == marker.strip() and index - 1 in candidates:
                         exempt_from = index
                         break
+                if exempt_from is None:
+                    issues.append(
+                        _issue(
+                            "DOC011",
+                            rel_path,
+                            1,
+                            f"{rel_path} has no line matching the allow_after "
+                            f"marker {marker!r} of retired {name!r}, so its "
+                            "history exemption silently covers nothing.",
+                            "Correct the marker in config/docsync.toml to the "
+                            "file's real line.",
+                        )
+                    )
 
             # Cross-line matches supplement, rather than replace, raw-line
             # matches. A phrase that wraps -- `limit_results` ending one line
