@@ -155,6 +155,13 @@ _READ_ALIGNMENT_JS = """() => {
     }
     centres.sort((a, b) => a.left - b.left);
     const box = stream.getBoundingClientRect();
+    const labelStyle = (label, svg) => {
+        const css = getComputedStyle(label);
+        return { fontFamily: css.fontFamily, fontVariant: css.fontVariant,
+            letterSpacing: css.letterSpacing,
+            fontPx: Math.round(parseFloat(css.fontSize) * svg.clientWidth
+                / svg.viewBox.baseVal.width * 100) / 100 };
+    };
     const lines = Array.from(stream.querySelectorAll('.stream-gridline'));
     return {
         layers: stream.querySelectorAll('path.stream-layer').length,
@@ -182,13 +189,15 @@ _READ_ALIGNMENT_JS = """() => {
         months: Array.from(stream.querySelectorAll('.stream-month-label')).map(label => {
             const bounds = label.getBoundingClientRect();
             return { text: label.textContent, x: Number(label.getAttribute('x')),
+                style: labelStyle(label, stream),
                 below: Number(label.getAttribute('y')) > Number(lines[0].getAttribute('y2')),
                 inside: bounds.left >= box.left - 0.5 && bounds.right <= box.right + 0.5
                     && bounds.bottom <= box.bottom + 0.5 };
         }),
         lineX: lines.map(line => Number(line.getAttribute('x1'))),
         gridMonths: Array.from(grid.querySelectorAll('.heatmap-month-label')).map(label =>
-            ({ text: label.textContent, x: Number(label.getAttribute('x')) })),
+            ({ text: label.textContent, x: Number(label.getAttribute('x')),
+                style: labelStyle(label, grid) })),
     };
 }"""
 
@@ -249,7 +258,9 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
                 f"plot {plot_top:.3f}..{plot_bottom:.3f}"
             )
     months = reading["months"]
-    if len(months) != len(reading["gridMonths"]) or len(reading["lineX"]) != len(
+    if not reading["gridMonths"]:
+        failures.append(f"the heatmap has no month labels to compare at {width}px")
+    elif len(months) != len(reading["gridMonths"]) or len(reading["lineX"]) != len(
         months
     ):
         failures.append(
@@ -269,6 +280,12 @@ def _alignment_failures(reading: dict | None, width: int) -> list[str]:
                 failures.append(
                     f"bottom month is misplaced at {width}px: {label}, {grid_month}"
                 )
+            if label["style"] != grid_month["style"]:
+                failures.append(
+                    f"stream month label style differs from the heatmap's at "
+                    f"{width}px: {label['style']}, {grid_month['style']}"
+                )
+                break
     return failures
 
 

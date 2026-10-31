@@ -46,7 +46,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
 - [x] Task 7: dismissible, focus-safe stream panel.
 - [x] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
-- [ ] Task 9 (PREVIEW): stream month labels match the heatmap's.
+- [x] Task 9 (PREVIEW): stream month labels match the heatmap's.
 - [ ] Task 10 (PREVIEW): centre the stream in its plot band.
 - [ ] Task 11: record the execution.
 
@@ -189,10 +189,10 @@ No test file exists for this module and none is added (C6, "no need to excessive
 
 **Extends:** the stream alignment reading (`_READ_ALIGNMENT_JS`, which already returns `months` and `gridMonths` per label) and `_alignment_failures` in `check_stream_aligns_with_grid_columns`. Add to the reading each label's `fontFamily`, `fontVariant`, `letterSpacing` and rendered font size in CSS px (computed `font-size` times the SVG's `clientWidth / viewBox width`), and fail when the stream's labels differ from the heatmap's on any of the four. The comparison fails closed: if `gridMonths` is empty, or the two label counts differ, it returns a named failure before comparing per label, never an index error.
 
-- [ ] RED: add the comparison, run the frontend gate against the unchanged `heatmap.js`; quote the failure (variant and tracking differ). GREEN: passes after the change. Quote the last line.
-- [ ] PREVIEW (R14): before and after Firefox screenshots, light and dark, of the heatmap with its stream at 1920x1080 and 1280x720, scratch suffix `-9`; report the rendered label size in CSS px at each width for both charts. State whether the end-anchored last label still sits inside the SVG (the existing `inside` field).
-- [ ] PREVIEW, saved image (C12): save the stream's image through the page's save control (or run `streamAsImage` the way `check_stream_is_in_saved_image` does), crop the month-label row, and save the crop, light and dark, before and after, at 1920x1080 (suffix `-9`). Report that the labels show small capitals and tracking and that the last label is not clipped at the image edge.
-- [ ] Acceptance: `frontend-gate` passes, including `check_stream_is_in_saved_image` (green, last label unclipped); `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word. If rejected, drop the task; Task 10 then starts from the head without it.
+- [x] RED: add the comparison, run the frontend gate against the unchanged `heatmap.js`; quote the failure (variant and tracking differ). GREEN: passes after the change. Quote the last line.
+- [x] PREVIEW (R14): before and after Firefox screenshots, light and dark, of the heatmap with its stream at 1920x1080 and 1280x720, scratch suffix `-9`; report the rendered label size in CSS px at each width for both charts. State whether the end-anchored last label still sits inside the SVG (the existing `inside` field).
+- [x] PREVIEW, saved image (C12): save the stream's image through the page's save control (or run `streamAsImage` the way `check_stream_is_in_saved_image` does), crop the month-label row, and save the crop, light and dark, before and after, at 1920x1080 (suffix `-9`). Report that the labels show small capitals and tracking and that the last label is not clipped at the image edge.
+- [x] Acceptance: `frontend-gate` passes, including `check_stream_is_in_saved_image` (green, last label unclipped); `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word. If rejected, drop the task; Task 10 then starts from the head without it.
 
 ## Task 10 (PREVIEW): Centre the stream in its plot band
 

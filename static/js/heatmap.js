@@ -1897,6 +1897,7 @@
         'class': 'stream-month-label', x: x,
         y: STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H - 6,
         'font-size': '9.5', 'font-family': LABEL_FONT_STACK,
+        'font-variant': 'small-caps', 'letter-spacing': '0.12em',
         'text-anchor': Number(x) > svgWidth - 24 ? 'end' : 'start',
         fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
       });
