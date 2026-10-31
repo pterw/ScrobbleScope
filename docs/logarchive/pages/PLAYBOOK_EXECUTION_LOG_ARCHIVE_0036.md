@@ -1,6 +1,31 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Repoint the archive pointers the split review found
+
+Side task, no batch tag, branch `docs/paginate-archives`: fixes from the
+independent review of the two archive commits. Section 4's own read guide
+above still sent agents to the side-task archive file, which is now an index;
+it now names the pages and says to search the directory.
+`docs/AGENT_DOC_MAP.md` said that file "holds content" and that the findings
+archive "holds the closed items"; both now say the entries are on the pages.
+`AGENTS.md` "Doc Sync Rules" no longer calls the side-task archive a monolith.
+The read-helper prologue in `scripts/docsync/renderer.py` no longer states
+the 500-line default, since the page target is a setting in
+`config/docsync.toml`; `--fix` rewrote the index prologue from it.
+
+One new test, `test_side_archive_read_helpers_reach_the_archive_pages` in
+`tests/test_docsync_renderer.py`, checks that every read helper searches a
+place that holds the archive's pages. It failed with a helper pointed back
+at the archive file and passed with the fix. The review found no gate would
+otherwise catch that.
+
+Deviations: none. This stages docsync control-plane code, so it lands alone
+through the documented `SKIP=doc-state-sync-check` escape. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3119 passed**.
+
 ### 2026-10-31 - Point the side-task archive's read helpers at its directory
 
 Side task, no batch tag, branch `docs/paginate-archives`, after the archive

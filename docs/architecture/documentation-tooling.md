@@ -551,5 +551,7 @@ so it needs no separately running app.
 Pre-commit runs the ten hooks above, including `doc-state-sync-check` (now
 the first hook in the file); CI runs the docsync preflight explicitly, then
 pre-commit with `worktree-alignment` skipped, since a runner has no
-developer worktree lineage to check, then pytest with coverage, then the
-frontend gate after installing both browsers, and advisory pip-audit last.
+developer worktree lineage to check, then pytest with coverage, and
+advisory pip-audit last, all in the `checks` job; the frontend gate runs in
+the parallel `browser` job after installing both browsers, and a docs-only
+pull request skips it.

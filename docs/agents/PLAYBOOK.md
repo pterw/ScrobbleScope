@@ -216,6 +216,22 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Describe the parallel CI jobs
+
+Side task, no batch tag, branch `ci/parallel-jobs`: the documentation sweep
+for the four-job workflow. `DEVELOPMENT.md` (the `tests/frontend/` paragraph),
+`docs/architecture/development-cycle.md` (the CI paragraph) and
+`docs/architecture/documentation-tooling.md` (the CI summary near the end)
+now name `changes`, `checks`, `browser` and the `quality-gate` aggregator, say
+which pull requests skip `browser`, and point at `scripts/dev/ci_jobs.py`. The
+run time reads about 1.5 minutes for a docs-only pull request and about 5
+minutes for any other. `README.md` notes the skip and the
+`tests/scripts/dev/test_frontend_gate.py` docstring says "CI browser job". No
+Mermaid node changed: "GitHub Actions Quality Gate" and its edges stay true.
+Point-in-time records are untouched.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Tighten the CI split tests after review
 
 Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
@@ -271,30 +287,5 @@ itself, it cannot show the browser job skipped; the first documentation-only
 PR after merge is the check for that.
 
 Deviations: none. Docs only; no code or test changed.
-
-Validation: `pytest -q` -- **3119 passed**.
-
-### 2026-10-31 - Repoint the archive pointers the split review found
-
-Side task, no batch tag, branch `docs/paginate-archives`: fixes from the
-independent review of the two archive commits. Section 4's own read guide
-above still sent agents to the side-task archive file, which is now an index;
-it now names the pages and says to search the directory.
-`docs/AGENT_DOC_MAP.md` said that file "holds content" and that the findings
-archive "holds the closed items"; both now say the entries are on the pages.
-`AGENTS.md` "Doc Sync Rules" no longer calls the side-task archive a monolith.
-The read-helper prologue in `scripts/docsync/renderer.py` no longer states
-the 500-line default, since the page target is a setting in
-`config/docsync.toml`; `--fix` rewrote the index prologue from it.
-
-One new test, `test_side_archive_read_helpers_reach_the_archive_pages` in
-`tests/test_docsync_renderer.py`, checks that every read helper searches a
-place that holds the archive's pages. It failed with a helper pointed back
-at the archive file and passed with the fix. The review found no gate would
-otherwise catch that.
-
-Deviations: none. This stages docsync control-plane code, so it lands alone
-through the documented `SKIP=doc-state-sync-check` escape. Existing tests
-edited: none.
 
 Validation: `pytest -q` -- **3119 passed**.
