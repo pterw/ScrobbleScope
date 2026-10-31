@@ -122,7 +122,7 @@ needs it. The findings/issues sync (item 2's other half) is not built:
 findings are not mirrored to GitHub (owner ruling, 2026-09-25). The
 remaining AGENTS.md origin-narrative defect stays open.
 
-Status: partly closed. The remaining items need an owner ruling, because
+- [ ] **Status:** partly closed. The remaining items need an owner ruling, because
 two of them edit `AGENTS.md`.
 Source: workflow review after the worktree retirement, 2026-08-26.
 
@@ -140,7 +140,7 @@ Fix shape: carry Spotify's album and artist names through `_results.py` and
 the cache for Spotify-sourced rows, and render them. Deezer rows follow
 Deezer's rules. More than a 20-line change.
 
-Status: open (P1). Filed 2026-09-28, not in the Part C set (filed after
+- [ ] **Status:** open (P1). Filed 2026-09-28, not in the Part C set (filed after
 F-B21-60 was fixed); owner to schedule. Source: F-B21-60 "To check", Task 1
 of the 2026-09-28 review workspace.
 
@@ -186,7 +186,7 @@ Origin: F-B21-18 (`docs/history/findings/FINDINGS_ARCHIVE.md`), archived
 closure. Joins WP-0 Part C's set by controller ruling 2026-09-26
 (`BATCH23_DEFINITION.md` Part C).
 
-Status: open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
+- [ ] **Status:** open (P1). Source: Batch 23 WP-0 frontend Task 1, fix round 1 code
 review, 2026-09-27.
 
 ## P2 -- Scaling roadmap
@@ -599,7 +599,7 @@ deezerbrand.com, a Frontify portal whose API needs a signed-in user and
 whose files are served from media.ffycdn.net, not a Deezer domain. The
 owner must supply the Deezer logo file.
 
-Status: open (P2), Deezer only. Source: Batch 22 WP-2 Task 6, 2026-09-13.
+- [ ] **Status:** open (P2), Deezer only. Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
 ### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
 
@@ -629,7 +629,7 @@ Owner ruling 2026-10-21 (Q1): Last.fm jobs keep the capability model -- the
 data. Export jobs from Batch 23 hold an uploaded private history, so WP-3
 binds them to the session that created them. Re-pointed to Batch 23 WP-3.
 
-Status: open (P2), re-pointed to Batch 23 WP-3 (owner ruling 2026-10-21).
+- [ ] **Status:** open (P2), re-pointed to Batch 23 WP-3 (owner ruling 2026-10-21).
 Source: Graphify bot review, PR #232, 2026-09-14.
 
 ### F-B23-1: album calculation writes its exclusions into the job instead of returning them
@@ -651,7 +651,7 @@ calculation, and keep `_build_results(cache_hits, job_id, ...)` as a thin
 wrapper that publishes its result. The existing `orchestrator.add_job_unmatched`
 patch target then still holds.
 
-Status: open (P2). Owner timing, 2026-09-23: settle it after WP-0's provider
+- [ ] **Status:** open (P2). Owner timing, 2026-09-23: settle it after WP-0's provider
 repairs and before WP-6's detailed design. Scheduling it inside Batch 23 needs
 an explicit scope amendment, and `BATCH23_DEFINITION.md` WP-6 carries that
 decision point. The threshold half landed in Task 23d (plays.select_albums returns the exclusions without a job and finish_album_job publishes them), the release-scope half in _build_results is still open. Source: card 01 of
@@ -683,7 +683,7 @@ reported to the page. The check measures straight after
 Not caused by the commit under test: that commit (reconcile Task 7) did not
 touch `error.css`, `templates/error.html` or the gate's layout checks.
 
-Status: open (P2). Non-blocking, by owner ruling 2026-09-23. Until it is
+- [ ] **Status:** open (P2). Non-blocking, by owner ruling 2026-09-23. Until it is
 fixed, a frontend-gate failure that the implementer's runs did not show is
 re-run once before anyone acts on it. The fix should make the check wait for
 the state it measures, not add a retry. Source: the gate-runner's run for
@@ -747,7 +747,7 @@ Seen during Task 1's export checks (F-B21-60 part 2 landing): the results
 page's "Save image" JPEG export clips the artist line under each album
 title. Pre-existing, not Spotify-specific.
 
-Status: open (P2). Source: Task 1 code report, 2026-09-28.
+- [ ] **Status:** open (P2). Source: Task 1 code report, 2026-09-28.
 
 ### F-B23-17: a Section 4 Validation line with no number passes --check
 
@@ -983,7 +983,7 @@ for this finding starts at the next free code named in
 are reserved by
 `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`.
 
-Status: open (P2). Not scheduled; it belongs with docsync work, not with
+- [ ] **Status:** open (P2). Not scheduled; it belongs with docsync work, not with
 Batch 21. Source: architecture review, 2026-09-13.
 
 ### F-B21-54: PR 227 still reports test assertions through a separate scanner
@@ -1002,7 +1002,7 @@ findings bundled in the same comment. The float and callback-comparison
 claims were checked separately in
 [PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
 
-Status: open, deferred. No scanner configuration changed in this priority pass.
+- [ ] **Status:** open, deferred. No scanner configuration changed in this priority pass.
 Source: PR #227 live comments and local scanner configuration, 2026-09-09.
 
 
@@ -1068,7 +1068,7 @@ suffix, or `total_tracks`. MusicBrainz does carry original release
 dates -- a lookup narrowed to that single field, cached, is far smaller
 than the full-enrichment attempt abandoned in 2025.
 
-Status: open (P2). Low user impact -- one recalled instance across ~14
+- [ ] **Status:** open (P2). Low user impact -- one recalled instance across ~14
 years of scrobbles, and `release_scope: all` bypasses date filtering
 entirely. Source: session 2026-07-31.
 
@@ -1080,7 +1080,7 @@ inside the CURRENT-BATCH markers, `renderer.py:85-86` falls back to
 the between-batches state. Transient: rotation self-corrects it when the
 next batch's WP-0 entry lands. Fix candidates: prefer the between-batches
 branch whenever the parse returns none, or make close-out tags parseable.
-Status: open (P2). Source: PR #162 review round 4.
+- [ ] **Status:** open (P2). Source: PR #162 review round 4.
 
 ### F-DOCSYNC-3: close-out entries route to the monolith, not the batch log
 
@@ -1106,7 +1106,7 @@ missing its Task 4 entry unless the routing is corrected first. The entry
 itself stays where the tool put it, per the declines above. What this adds
 is that the defect is not limited to the `(Batch N close-out)` suffix: any
 extra text inside the parentheses does it, and the tool reports nothing.
-Status: open (P2). Source: PR #163 review round 3; second instance
+- [ ] **Status:** open (P2). Source: PR #163 review round 3; second instance
 2026-09-20.
 
 ### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
@@ -1131,29 +1131,29 @@ declaration-shaped diagnostic into a line number, and a reader sent to the wrong
 line of a long TOML file is the cost. Renaming the inner target to
 `line_number` closes it.
 
-Status: open (P2). No behaviour change; the current message is correct.
+- [ ] **Status:** open (P2). No behaviour change; the current message is correct.
 Source: Task 7 fix round 1, 2026-09-11, from that task's implementer report.
 
 ### F-MAS-5: in-memory job store limits horizontal scaling
 
 The process-local `MemoryJobStore` (`scrobblescope/jobs.py`) breaks polling under multiple workers/machines;
 migration path is Redis or a Postgres-backed job table.
-Status: open (P2). Source: MULTI_AGENT_SWEEP.
+- [ ] **Status:** open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-6: Celery/Redis RQ for task queue
 
 **Owner decision:** out of scope until features complete.
-Status: open (P2, owner-gated). Source: MULTI_AGENT_SWEEP.
+- [ ] **Status:** open (P2, owner-gated). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-7: process-local Spotify token cache
 
 Redundant refreshes under multiple workers; acceptable at current scale.
-Status: open (P2). Source: MULTI_AGENT_SWEEP.
+- [ ] **Status:** open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-8: REQUEST_CACHE growth with always-on machines
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
-Status: open (P2). Source: MULTI_AGENT_SWEEP.
+- [ ] **Status:** open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-SWE-7: utils.py holds five unrelated concerns
 
@@ -1175,7 +1175,7 @@ A split into rate limiting, HTTP and caching, and formatting is a sibling
 of the F-B20-2 orchestrator decomposition, archived on 2026-09-21. It is a
 structural change with its own parity-test cost, so it wants a work
 package of its own rather than a side task.
-Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
+- [ ] **Status:** open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
@@ -1229,17 +1229,17 @@ Source: F-B21-25, re-graded by owner ruling 2026-09-23.
 ### F-LOAD-3: in-memory REQUEST_CACHE is intentional
 
 Avoids re-fetching Last.fm on re-searches; clears on machine sleep.
-Status: standing design decision. Source: load testing 2026-03-04.
+- [ ] **Status:** standing design decision. Source: load testing 2026-03-04.
 
 ### F-LOAD-4: Spotify cache TTL is ToS-compliant
 
 Hits do NOT refresh `updated_at`; 30-day expiry from last API call.
-Status: standing design decision. Source: cache verification 2026-03-04.
+- [ ] **Status:** standing design decision. Source: cache verification 2026-03-04.
 
 ### F-LOAD-5: pre-slicing reduces Spotify API load
 
 Playcount filter + 500-album playtime cap applied before cache lookup.
-Status: standing design decision. Source: load testing 2026-03-04.
+- [ ] **Status:** standing design decision. Source: load testing 2026-03-04.
 
 ### F-DOCSYNC-14: DOC023 fires on prose that quotes the outcome vocabulary
 
@@ -1283,7 +1283,7 @@ prevent. Blocking is the safe direction -- Rule 7's "a wrong green is worse
 than a red" -- and the cost is one reword by an author whose open finding
 happens to use the phrase.
 
-Status: standing design decision. Source: PR #234 advisory verification,
+- [ ] **Status:** standing design decision. Source: PR #234 advisory verification,
 2026-09-20.
 
 ---
@@ -1317,7 +1317,9 @@ audits; 2026-03-04 load-test data is in the findings archive.
 ### F-FEATURE-1: top songs feature
 
 Rank most-played tracks for a year (separate task type + loading/results
-flow). Status: deferred; on the README roadmap. Source: owner roadmap.
+flow).
+
+- [ ] **Status:** deferred; on the README roadmap. Source: owner roadmap.
 
 - F-FEATURE-2: listening heatmap -- shipped in Batches 18/19, archived;
   perf follow-ups continue as F-B18-11.
