@@ -9,6 +9,14 @@ Newest rotation first.
 
 ---
 
+### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path -- RESOLVED
+
+`routes/api.py` passes `request.args["artist_id"]` unvalidated into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`), so `../` segments make the server call any GET route under the app's token, though no client sends the parameter.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-31
+Source: third review of PR #245 (2026-09-29), S6-4. Resolved by the owner-directed fix on `fix/spotify-artist-id`: `_request_spotlight_artist` now takes the by-ID path only for a 22-character base-62 ID; a malformed one is ignored and the name fallback runs.
+
 ### F-OPS-1: Akamai blocked the app machine's egress address, so every Deezer call returned 403 -- RESOLVED
 
 Every Deezer call from the production machine got HTTP 403 from Akamai, because the machine's outbound IPv4 address was blocked.
