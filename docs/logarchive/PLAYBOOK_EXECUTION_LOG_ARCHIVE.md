@@ -9,6 +9,19 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
+
+The frontend gate's canvas font parser read `600 normal 26px x` as weight
+400, because the `normal` token reset the weight set just before it. The
+saved-image headline check could then report a wrong drawn weight. `normal`
+is no longer treated as a weight token, so a numeric weight stands, `bold`
+still maps to 700 and a string with no weight stays 400. This closes audit
+row 3 of the UI audit Minors. No deviations. Existing test edited:
+`test_a_saved_headline_drawn_at_another_weight_is_reported` (one case
+added, `600 normal 18px x`).
+
+Validation: `pytest -q` -- **3109 passed**.
+
 ### 2026-10-30 - Plan the UI audit Minors bug fixes
 
 The deferred Minors from the 2026-10-27 UI audit's reviews were checked

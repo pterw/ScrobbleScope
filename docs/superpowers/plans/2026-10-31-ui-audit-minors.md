@@ -40,7 +40,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 - [x] Task 1: keep a numeric font weight after `normal`.
 - [x] Task 2: clear the stored pause choice on every exit.
-- [ ] Task 3: reuse the `desktop` media query in `index.js`.
+- [x] Task 3: reuse the `desktop` media query in `index.js`.
 - [ ] Task 4: share the footer gap as one custom property.
 - [x] Task 5: stream gate reports an empty stream and always cleans up.
 - [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
@@ -89,8 +89,8 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 **Behaviour:** `positionForm` reads `desktop.matches` instead of building `matchMedia('(min-width: 860px)')` again. The `const desktop` declaration moves above `positionForm` so it is plainly initialised before any call (every call is at or after the `ResizeObserver` setup today, so this is for the reader, not a fix). No behaviour change, so no new test (R9, C6): the home layout checks of the frontend gate already cross 860px.
 
-- [ ] `git grep -n "min-width: 860px" static/js/index.js` shows the query once.
-- [ ] Acceptance: `frontend-gate` passes (record its last line); `suite-*`, `pre-commit`, `docsync-check` pass. No `results-behavior` run needed (the commit touches neither `results.html`, `results.js` nor the behaviour tests).
+- [x] `git grep -n "min-width: 860px" static/js/index.js` shows the query once.
+- [x] Acceptance: `frontend-gate` passes (record its last line); `suite-*`, `pre-commit`, `docsync-check` pass. No `results-behavior` run needed (the commit touches neither `results.html`, `results.js` nor the behaviour tests).
 
 ## Task 4: Share the footer gap as one custom property
 

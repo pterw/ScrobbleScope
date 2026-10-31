@@ -207,6 +207,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Reuse the desktop media query in index.js
+
+`positionForm` in `static/js/index.js` built the same 860px media query
+that the `desktop` const already holds. It now reads `desktop.matches`,
+and the const is declared above `positionForm` so it is plainly
+initialised before any call. No behaviour change. This closes audit row 13
+of the UI audit Minors. No deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Make the stream panel dismissible and focus-safe
 
 The stream panel was always a live region, so a pointer scrub announced
@@ -256,18 +266,5 @@ sequence, so a raising first step skipped the viewport restore and the job
 delete; each step now runs in a nested `finally` and the first error still
 surfaces. This closes audit rows 23 and 30 of the UI audit Minors. No
 deviations. Existing tests edited: none.
-
-Validation: `pytest -q` -- **3109 passed**.
-
-### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
-
-The frontend gate's canvas font parser read `600 normal 26px x` as weight
-400, because the `normal` token reset the weight set just before it. The
-saved-image headline check could then report a wrong drawn weight. `normal`
-is no longer treated as a weight token, so a numeric weight stands, `bold`
-still maps to 700 and a string with no weight stays 400. This closes audit
-row 3 of the UI audit Minors. No deviations. Existing test edited:
-`test_a_saved_headline_drawn_at_another_weight_is_reported` (one case
-added, `600 normal 18px x`).
 
 Validation: `pytest -q` -- **3109 passed**.
