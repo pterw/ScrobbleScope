@@ -75,8 +75,8 @@ with coverage, and advisory `pip-audit` last -- against both
 moved out of the production file. `browser` runs beside `checks`: every test
 carrying the `browser` marker (selected by marker across the whole tree, not
 by folder) and `scripts/dev/frontend_gate.py`, after installing both
-browsers. A pull request whose whole diff against its base is docs paths
-skips `browser`. `quality-gate`, the required check, aggregates the other
-three and fails on any failed, cancelled or unexpectedly skipped job. A
-docs-only pull request therefore takes about 1.5 minutes and any other about
-5 minutes.
+browsers. A pull request whose whole diff against its base is documentation
+only skips `browser`; `scripts/dev/ci_jobs.py` owns the path list.
+`quality-gate`, the required check, aggregates the other three and fails on
+any failed, cancelled or unexpectedly skipped job. A docs-only pull request
+therefore takes about 1.5 minutes and any other about 5 minutes.

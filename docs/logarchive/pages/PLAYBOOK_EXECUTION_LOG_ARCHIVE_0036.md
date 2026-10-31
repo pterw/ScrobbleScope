@@ -1,6 +1,25 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Plan the CI split into parallel jobs
+
+Side task, no batch tag, branch `ci/parallel-jobs`. The owner approved
+splitting the one CI job into parallel jobs with an aggregator, because the
+frontend gate takes about 4.5 of the job's 7 minutes and proves nothing
+about a documentation-only change. This commit adds the plan,
+`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md`, written by a plan
+task and reviewed: one review and two fix rounds. The rounds moved the
+docs-only and aggregator decisions out of inline workflow shell into a
+tested script, kept the docs-only decision on the whole pull request (a
+per-push diff could skip the browser job on a code PR), and added
+near-miss cases to its test table. Because this PR changes the workflow
+itself, it cannot show the browser job skipped; the first documentation-only
+PR after merge is the check for that.
+
+Deviations: none. Docs only; no code or test changed.
+
+Validation: `pytest -q` -- **3119 passed**.
+
 ### 2026-10-31 - Repoint the archive pointers the split review found
 
 Side task, no batch tag, branch `docs/paginate-archives`: fixes from the

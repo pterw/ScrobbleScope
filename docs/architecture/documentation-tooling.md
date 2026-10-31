@@ -554,4 +554,4 @@ pre-commit with `worktree-alignment` skipped, since a runner has no
 developer worktree lineage to check, then pytest with coverage, and
 advisory pip-audit last, all in the `checks` job; the frontend gate runs in
 the parallel `browser` job after installing both browsers, and a docs-only
-pull request skips it.
+pull request skips it (`scripts/dev/ci_jobs.py` owns the path list).

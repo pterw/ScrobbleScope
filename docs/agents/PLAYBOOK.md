@@ -69,14 +69,16 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **CI parallel-jobs side task (owner, 2026-10-31):** branch
+- **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
   `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
   job into `changes`, `checks` and `browser` jobs plus a `quality-gate`
   aggregator that keeps the required check's name, and skips the browser job
-  when a pull request changes only documentation. The plan is
-  `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md`: three serial
-  tasks, reviewed. Task 1 (the workflow, `scripts/dev/ci_jobs.py` and their
-  tests) is next. The findings triage follows this PR.
+  when a pull request changes only documentation. The plan
+  `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` is executed and its
+  Execution record holds the CI evidence (four jobs green, 5 min 32 s). The
+  post-merge check (b2) remains: on the first documentation-only pull
+  request, `browser` is skipped and `quality-gate` succeeds. The findings
+  triage follows this PR.
 
 - **Archive pagination side task:** Complete and merged as PR #284, merge
   commit `7f85bade`. The four archives past the page target are indexes with
@@ -216,6 +218,25 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Record the CI parallel jobs execution
+
+Side task, no batch tag, branch `ci/parallel-jobs`: the plan
+`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` gets an Execution
+record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
+four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
+4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
+the plan after 2 fix rounds, the split after 1 (`fbb6f449`), the docs sweep
+approved. Acceptance (b1) passed locally; (b2) stays open for the first
+documentation-only pull request after merge, because this PR changes the
+workflow and so runs `browser` on every head. Also: `development-cycle.md`,
+`documentation-tooling.md` and `README.md` point at `scripts/dev/ci_jobs.py`
+as the owner of the docs-only path list instead of paraphrasing it, and the
+README wrap around the docs-only note is fixed.
+
+Deviations: none. Docs only; no code or test changed.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Describe the parallel CI jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`: the documentation sweep
@@ -270,22 +291,3 @@ aggregator even when all three jobs succeeded (fail closed). `browser` has
 no Tailwind asset cache: nothing it runs reads `scripts/bin`.
 
 Validation: `pytest -q` -- **3347 passed**.
-
-### 2026-10-31 - Plan the CI split into parallel jobs
-
-Side task, no batch tag, branch `ci/parallel-jobs`. The owner approved
-splitting the one CI job into parallel jobs with an aggregator, because the
-frontend gate takes about 4.5 of the job's 7 minutes and proves nothing
-about a documentation-only change. This commit adds the plan,
-`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md`, written by a plan
-task and reviewed: one review and two fix rounds. The rounds moved the
-docs-only and aggregator decisions out of inline workflow shell into a
-tested script, kept the docs-only decision on the whole pull request (a
-per-push diff could skip the browser job on a code PR), and added
-near-miss cases to its test table. Because this PR changes the workflow
-itself, it cannot show the browser job skipped; the first documentation-only
-PR after merge is the check for that.
-
-Deviations: none. Docs only; no code or test changed.
-
-Validation: `pytest -q` -- **3119 passed**.
