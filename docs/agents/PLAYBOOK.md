@@ -225,7 +225,8 @@ Side task, no batch tag, branch `ci/parallel-jobs`: the plan
 record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
 four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
 4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
-the plan after 2 fix rounds, the split after 1 (`fbb6f449`), the docs sweep
+the plan once and then fixed in 2 rounds, the second without its own
+re-review, the split after 1 (`fbb6f449`), the docs sweep
 approved. Acceptance (b1) passed locally; (b2) stays open for the first
 documentation-only pull request after merge, because this PR changes the
 workflow and so runs `browser` on every head. Also: `development-cycle.md`,

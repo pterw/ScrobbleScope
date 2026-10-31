@@ -125,7 +125,7 @@ Pull request #285, branch `ci/parallel-jobs`, stacked on PR #284 (decision O27).
 
 | Commit | Subject | Review outcome |
 |--------|---------|----------------|
-| `47c2a9ba` | `docs(plan): Plan the CI split into parallel jobs` | Approved after 2 fix rounds |
+| `47c2a9ba` | `docs(plan): Plan the CI split into parallel jobs` | Reviewed once, then fixed in 2 rounds, the second without its own re-review |
 | `496e3651` | `ci: Run the quality gate as parallel jobs` | Approved after 1 fix round (`fbb6f449`, `test(ci): Tighten the CI split tests after review`) |
 | `3ca1f53b` | `docs(ci): Describe the parallel CI jobs` | Approved |
 
