@@ -543,9 +543,21 @@ _EXPLICIT_CLAIM_RE = re.compile(
 
 #: The entry template's placeholder: the full-suite command followed by a bold
 #: pass count that holds no digit (`**N passed**`). Every other count regex
-#: needs a digit, so such a line records nothing and raises nothing.
+#: needs a digit, so such a line records nothing and raises nothing. Backticks
+#: are optional, as in ``_EXPLICIT_CLAIM_RE``. Only a Validation line counts
+#: (``_VALIDATION_LINE_RE``): an entry that quotes the template in prose is not
+#: a placeholder.
 _PLACEHOLDER_CLAIM_RE = re.compile(
-    r"`pytest(?:\.exe)?\s+-q`\s*(?:--)?\s*\*\*[^\d*]*pass(?:ed|ing)\*\*",
+    r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*\*\*[^\d*]*pass(?:ed|ing)\*\*",
+    re.IGNORECASE,
+)
+
+#: A line that opens a Validation record, optionally after a bullet or bold.
+_VALIDATION_LINE_RE = re.compile(r"^[\s\-*>]*Validation\b", re.IGNORECASE)
+
+#: The placeholder on the line after a wrapped ``pytest -q`` --`` trigger.
+_WRAPPED_PLACEHOLDER_RE = re.compile(
+    r"^\s*(?:--\s*)?\*\*[^\d*]*pass(?:ed|ing)\*\*",
     re.IGNORECASE,
 )
 
@@ -627,6 +639,21 @@ def _check_unbolded_test_counts(
     for first, last in _entry_spans(playbook_lines, start):
         entry_lines = dict(prose_lines(playbook_lines[first:last]))
         ordered_lines = list(entry_lines.items())
+        placeholder_offsets = [
+            offset
+            for offset, line in ordered_lines
+            if _VALIDATION_LINE_RE.search(line) and _PLACEHOLDER_CLAIM_RE.search(line)
+        ]
+        # The wrapped form: the trigger ends one line, the placeholder opens
+        # the next.
+        placeholder_offsets.extend(
+            next_offset
+            for (_offset, line), (next_offset, next_line) in zip(
+                ordered_lines, ordered_lines[1:], strict=False
+            )
+            if _VALIDATION_TRIGGER_RE.search(line)
+            and _WRAPPED_PLACEHOLDER_RE.match(next_line)
+        )
         issues.extend(
             _issue(
                 "DOC012",
@@ -636,8 +663,7 @@ def _check_unbolded_test_counts(
                 "Replace the placeholder with the measured count, "
                 "`**<digits> passed**`. As written the entry records no result.",
             )
-            for offset, line in ordered_lines
-            if _PLACEHOLDER_CLAIM_RE.search(line)
+            for offset in placeholder_offsets
         )
         explicit_claims = [
             (offset, line, match)

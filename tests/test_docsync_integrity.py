@@ -1539,22 +1539,41 @@ def test_doc012_flags_a_pass_claim_the_authority_cannot_read():
 
 
 @pytest.mark.parametrize(
-    ("count", "codes"),
+    ("validation_lines", "codes"),
     [
-        ("**N passed**", ["DOC012"]),
-        ("**1154 passed**", []),
+        pytest.param(
+            ["Validation: `pytest -q` -- **N passed**."], ["DOC012"], id="same-line"
+        ),
+        pytest.param(
+            ["Validation: `pytest -q` --", "**N passed** with 3 warnings."],
+            ["DOC012"],
+            id="wrapped",
+        ),
+        pytest.param(
+            ["Validation: pytest -q -- **N passed**."], ["DOC012"], id="unquoted"
+        ),
+        pytest.param(
+            ["Note: the template reads `pytest -q` -- **N passed**."],
+            [],
+            id="prose-quote-not-validation",
+        ),
+        pytest.param(
+            ["Validation: `pytest -q` -- **1154 passed**."], [], id="digit-count"
+        ),
     ],
 )
-def test_doc012_flags_a_validation_count_with_no_digit(count, codes):
+def test_doc012_flags_a_validation_count_with_no_digit(validation_lines, codes):
     """GIVEN a Validation line whose bold count is the template placeholder.
 
-    WHEN the log is checked THEN DOC012 names it, because the entry records no
-    evidence and the authority skips it in silence; a digit count stays clean.
+    WHEN the log is checked THEN DOC012 names it, whether the count wraps to
+    the next line or the command has no backticks, because the entry records no
+    evidence and the authority skips it in silence. A digit count stays clean,
+    and so does a non-Validation line that merely quotes the template.
     """
     lines = [
         "## 4. Execution log",
         "### 2026-09-29 - newest",
-        f"Validation: `pytest -q` -- {count}.",
+        *validation_lines,
         "### 2026-09-28 - older",
         "Validation: `pytest -q` -- **1153 passed**.",
     ]

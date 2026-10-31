@@ -224,6 +224,21 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Catch a wrapped or unquoted placeholder count
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 fix round):
+the DOC012 placeholder check missed a Validation line whose command ends one
+line and whose bold count opens the next, and one written without backticks.
+It now reads the wrapped form through the trigger helper, makes the backticks
+optional, and flags only a line that opens a Validation record, so prose
+quoting the template is clean. The `test_doc012_flags_a_validation_count_with_no_digit`
+cases `wrapped`, `unquoted` and `prose-quote-not-validation` were red on the
+unpatched code, green after.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3165 passed**.
+
 ### 2026-10-31 - Report an allow_after marker that matches no line
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-DOCSYNC-16):
@@ -283,26 +298,3 @@ release on that call's own failure path.
 Deviations: none.
 
 Validation: `pytest -q` -- **3159 passed**.
-
-### 2026-10-31 - Pin the pip-audit action to its commit SHA
-
-Side task, no batch tag, branch `ci/pin-pip-audit-action`: the third-party
-action `pypa/gh-action-pip-audit` in `.github/workflows/test.yml` was
-referenced by the mutable tag `v1.1.0`, which its owner can move. zizmor (run
-by qlty on every PR) flags that as `unpinned-uses`, qlty's one blocking issue,
-and the 2026-09-14 code-review audit asked for the same pin. That one `uses:`
-line now names commit `1220774d901786e6f652ae159f7b6bc8fea6d266` with a
-`# v1.1.0` comment; the SHA was resolved with
-`gh api repos/pypa/gh-action-pip-audit/git/ref/tags/v1.1.0` (`type: commit`).
-The `actions/*` references stay on tags because zizmor allows them (owner
-ruling O33). No new test: `tests/test_ci_workflows.py` does not pin this
-reference, and a test pinning a SHA string would pin wording, not behaviour.
-Forward guidance: pin any new third-party action to a commit SHA with the tag
-in a trailing comment.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
-the full suite was not re-run because no Python changed; the workflow tests
-`tests/test_ci_workflows.py` and `tests/scripts/dev/test_ci_jobs.py` passed,
-46 tests).
