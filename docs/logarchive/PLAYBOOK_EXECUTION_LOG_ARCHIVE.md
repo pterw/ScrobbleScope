@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-31 - Clear the stored pause choice on every exit
+
+The spotlight photo gate's paused-hold probe stores `ss-motion=still`
+through an init script, and only the Play click removed it, so an early
+return left the choice in the shared browser context. The probe's `finally`
+now removes the `ss-motion` key before it closes the page. The removal is
+wrapped in `contextlib.suppress(PlaywrightError)` (shorter than tracking
+navigation state), so a page that never navigated cannot hide the original
+failure. This closes audit row 40 of the UI audit Minors. No deviations.
+Existing tests edited: none (one test added,
+`test_an_early_return_leaves_no_stored_pause_choice`).
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-30 - Report an empty stream and always run its cleanup
 
 The stream gate's paint check called `min()` on the contrast ratios before

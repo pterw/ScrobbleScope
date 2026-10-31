@@ -45,7 +45,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [x] Task 5: stream gate reports an empty stream and always cleans up.
 - [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
 - [x] Task 7: dismissible, focus-safe stream panel.
-- [ ] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
+- [x] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
 - [ ] Task 9 (PREVIEW): stream month labels match the heatmap's.
 - [ ] Task 10 (PREVIEW): centre the stream in its plot band.
 - [ ] Task 11: record the execution.
@@ -175,8 +175,8 @@ No test file exists for this module and none is added (C6, "no need to excessive
 
 **Tests:** none new (C6). The home layout checks of the frontend gate must still pass; the key's height changes by about 14px and the album key (`data-mode-key="album"`) shares the grid track, so the gate's stable-height checks are the guard.
 
-- [ ] PREVIEW (R14): before and after Firefox screenshots of the home page in heatmap mode, light and dark, at 1920x1080 and 1280x720; scratch suffix `-8`. Report the measured pixel gap between the last key row and the ramp (before about 28px and after about 12.9px at 1920).
-- [ ] Acceptance: `frontend-gate` passes; `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word.
+- [x] PREVIEW (R14): before and after Firefox screenshots of the home page in heatmap mode, light and dark, at 1920x1080 and 1280x720; scratch suffix `-8`. Report the measured pixel gap between the last key row and the ramp (before about 28px and after about 12.9px at 1920).
+- [x] Acceptance: `frontend-gate` passes; `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word.
 
 ## Task 9 (PREVIEW): Stream month labels match the heatmap's
 

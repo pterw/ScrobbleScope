@@ -207,6 +207,19 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Tighten the heatmap key's ramp spacing
+
+`.hm-preview__ramp` in `static/css/heatmap.css` carried its own
+`margin-top` of 0.875rem on top of the `.index-key` grid gap, leaving
+about 28px under the last key row at 1920. The margin is removed, so the
+gap alone (0.75rem times `--index-scale`) remains: 12.9px at 1920, 12px
+at scale 1, matching the reference's 12px grid gap. The ramp's height is
+unchanged. The owner previewed the change and kept it (C15). This closes
+audit row 5 of the UI audit Minors. No deviations. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Share the footer gap as one custom property
 
 The footer gap was two 1.5rem literals, the footer row's bottom padding in
@@ -250,19 +263,5 @@ Minors. Deviation: Escape calls `preventDefault` only when it dismissed a
 panel. Existing tests edited: the gate check
 `check_stream_is_one_keyboard_tab_stop` (its "after pointer leave"
 expectation changed from week 6 to week 26 as the brief requires).
-
-Validation: `pytest -q` -- **3111 passed**.
-
-### 2026-10-31 - Clear the stored pause choice on every exit
-
-The spotlight photo gate's paused-hold probe stores `ss-motion=still`
-through an init script, and only the Play click removed it, so an early
-return left the choice in the shared browser context. The probe's `finally`
-now removes the `ss-motion` key before it closes the page. The removal is
-wrapped in `contextlib.suppress(PlaywrightError)` (shorter than tracking
-navigation state), so a page that never navigated cannot hide the original
-failure. This closes audit row 40 of the UI audit Minors. No deviations.
-Existing tests edited: none (one test added,
-`test_an_early_return_leaves_no_stored_pause_choice`).
 
 Validation: `pytest -q` -- **3111 passed**.
