@@ -76,8 +76,8 @@ See FINDINGS F-DOCSYNC-3.
   when a pull request changes only documentation. The plan
   `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` is executed and its
   Execution record holds the CI evidence (four jobs green, 5 min 32 s). The
-  post-merge check (b2) remains: on the first documentation-only pull
-  request, `browser` is skipped and `quality-gate` succeeds. The findings
+  post-merge check (b2) is done: on docs-only PR #287, `browser` was skipped
+  and `quality-gate` succeeded (run 41227913325, 1 min 51 s). The findings
   triage follows this PR.
 
 - **Archive pagination side task:** Complete and merged as PR #284, merge
@@ -224,6 +224,20 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Record the CI split's docs-only check
+
+Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
+plan's open post-merge check (b2) is done. On docs-only PR #287 (head
+`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
+skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
+plan's delivery sequence, added a line to its Execution record, and updated the
+Section 3 bullet that still said the check remained. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Check each archive page against its manifest counts
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):
@@ -272,20 +286,3 @@ patched tree stays green: the four live markers all match.
 Deviations: none.
 
 Validation: `pytest -q` -- **3162 passed**.
-
-### 2026-10-31 - Flag a Validation line whose count has no digit
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17): the
-entry template's Validation line, with the letter N for its count,
-was committed twice unfilled and `--check` exited 0, because every DOC012
-count regex needs a digit. `integrity.py` gains `_PLACEHOLDER_CLAIM_RE`
-(the full-suite command followed by a bold `passed` count holding no digit)
-and `_check_unbolded_test_counts` raises DOC012 for each such line, with the
-same code and severity. New parametrized test
-`test_doc012_flags_a_validation_count_with_no_digit` (`**N passed**` flagged,
-`**1154 passed**` clean); red on the unpatched code, green after. `--check`
-on the patched tree stays green: the live PLAYBOOK holds no digitless count.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3161 passed**.

@@ -1,6 +1,23 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Flag a Validation line whose count has no digit
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17): the
+entry template's Validation line, with the letter N for its count,
+was committed twice unfilled and `--check` exited 0, because every DOC012
+count regex needs a digit. `integrity.py` gains `_PLACEHOLDER_CLAIM_RE`
+(the full-suite command followed by a bold `passed` count holding no digit)
+and `_check_unbolded_test_counts` raises DOC012 for each such line, with the
+same code and severity. New parametrized test
+`test_doc012_flags_a_validation_count_with_no_digit` (`**N passed**` flagged,
+`**1154 passed**` clean); red on the unpatched code, green after. `--check`
+on the patched tree stays green: the live PLAYBOOK holds no digitless count.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3161 passed**.
+
 ### 2026-10-31 - Release the job slot when job creation fails
 
 Side task, no batch tag, branch `fix/admission-slot-leak` (F-B23-65):
