@@ -406,9 +406,20 @@ async def test_search_deezer_album_raises_when_throttled_not_no_match():
 
 
 @pytest.mark.asyncio
-async def test_deezer_search_5xx_on_every_attempt_raises_unavailable_not_no_match():
+@pytest.mark.parametrize(
+    "status, body",
+    [
+        (500, None),
+        (200, {"error": {"type": "Exception", "message": "busy", "code": 700}}),
+    ],
+    ids=["http_500", "http_200_service_busy_700"],
+)
+async def test_deezer_search_refused_on_every_attempt_raises_unavailable_not_no_match(
+    status, body
+):
     """
-    GIVEN Deezer answers HTTP 500 on every attempt
+    GIVEN Deezer refuses every attempt, either with HTTP 500 or with HTTP 200
+    and a body of error code 700 (SERVICE_BUSY, an outage not an answer)
     WHEN the album is searched
     THEN ProviderError deezer_unavailable is raised after every retry, not
     None: an outage must not read as "no match" (the album is then recorded
@@ -416,7 +427,9 @@ async def test_deezer_search_5xx_on_every_attempt_raises_unavailable_not_no_matc
     """
     session = MagicMock()
     resp = AsyncMock()
-    resp.status = 500
+    resp.status = status
+    if body is not None:
+        resp.json = AsyncMock(return_value=body)
     session.get.return_value = make_response_context(resp)
 
     with (

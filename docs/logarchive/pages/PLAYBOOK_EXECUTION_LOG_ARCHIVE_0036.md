@@ -1,6 +1,21 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Retry a busy Deezer service instead of reading it as no match
+
+Side task, no batch tag, branch `fix/deezer-service-busy`; closes F-B23-37.
+Deezer's documented error table (read by the owner on 2026-10-31) lists code
+700 as SERVICE_BUSY. `_deezer_request` now retries a 200 body carrying code
+700 like an HTTP 5xx, so the retry helper raises `deezer_unavailable` instead
+of recording a terminal miss. The existing test
+`test_deezer_search_5xx_on_every_attempt_raises_unavailable_not_no_match` is
+parametrized over the HTTP 500 and HTTP 200 code 700 cases and renamed
+`test_deezer_search_refused_on_every_attempt_raises_unavailable_not_no_match`.
+An outside agent (DeepSeek) wrote the patch and an independent review
+approved it.
+
+Validation: `pytest -q` -- **3120 passed**.
+
 ### 2026-10-31 - Plan the CI split into parallel jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`. The owner approved

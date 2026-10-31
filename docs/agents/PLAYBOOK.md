@@ -85,6 +85,12 @@ See FINDINGS F-DOCSYNC-3.
   numbered pages. F-B23-35 (page manifests are never checked) is ranked in
   the findings triage.
 
+- **Deezer busy-service side task (owner, 2026-10-31):** branch
+  `fix/deezer-service-busy`. A DeepSeek patch, approved by a typed review;
+  it closes F-B23-37 (a Deezer HTTP 200 body of error code 700 is retried
+  and raised as `deezer_unavailable`, not read as "no match"). The findings
+  triage comes next.
+
 - **UI audit Minors side task:** Complete and merged as PR #283, merge commit
   `fe2de3f7`. The spec is
   `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the
