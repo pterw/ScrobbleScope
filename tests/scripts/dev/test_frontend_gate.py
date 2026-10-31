@@ -1,7 +1,7 @@
 """Tests for the repository-owned frontend gate runtime.
 
 Every test here is unit level and starts no browser. The browser behaviour is
-covered by running the gate itself, which is what the Quality Gate does.
+covered by running the gate itself, which is what the CI browser job does.
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-Last updated: 2026-10-30
+Last updated: 2026-10-31
 
 <p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
 
@@ -20,9 +20,10 @@ Last updated: 2026-10-30
 
 The Quality Gate badge tracks real gates rather than a snapshot of them: it
 runs the Python suite, a coverage floor, Ruff, the documentation-integrity
-checks and the browser gate on every push. Nothing on this page carries a
-hand-maintained test or coverage number, because a number typed into a README
-is wrong the next time anybody commits.
+checks and the browser gate on every push (a documentation-only pull request
+skips the browser gate; `scripts/dev/ci_jobs.py` owns that rule). Nothing on
+this page carries a hand-maintained test or coverage number, because a number
+typed into a README is wrong the next time anybody commits.
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
 

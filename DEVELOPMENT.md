@@ -593,10 +593,14 @@ regression in `tests/test_routes.py` covers it.
 served page. Its cases carry the `browser` marker registered in
 `pyproject.toml`. A local `pytest -q` runs them with everything else, so a
 local run needs the same Playwright Chromium build as the gate. CI's coverage
-step runs `pytest -m "not browser"` instead. It runs the marked tests in the
-"Run frontend gate" job step, after installing both browsers. See
-`.github/workflows/test.yml` for the exact invocations. Advisory `pip-audit`
-scans both `requirements.txt` and `requirements-dev.txt`.
+step, in the `checks` job, runs `pytest -m "not browser"` instead. The marked
+tests run in the "Run frontend gate" step of the separate `browser` job, after
+it installs both browsers. A pull request whose whole diff against its base is
+documentation paths skips the `browser` job; `scripts/dev/ci_jobs.py` holds
+that rule and the aggregation rule behind the required `quality-gate` check.
+See `.github/workflows/test.yml` for the exact invocations. Advisory
+`pip-audit`, a step of `checks`, scans both `requirements.txt` and
+`requirements-dev.txt`.
 
 **`scripts/dev/frontend_gate.py`** is the full-page gate. Install the browsers
 once, after the pinned development requirements:

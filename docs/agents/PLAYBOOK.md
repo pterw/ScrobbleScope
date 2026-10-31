@@ -69,14 +69,27 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
+  `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
+  job into `changes`, `checks` and `browser` jobs plus a `quality-gate`
+  aggregator that keeps the required check's name, and skips the browser job
+  when a pull request changes only documentation. The plan
+  `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` is executed and its
+  Execution record holds the CI evidence (four jobs green, 5 min 32 s). The
+  post-merge check (b2) remains: on the first documentation-only pull
+  request, `browser` is skipped and `quality-gate` succeeds. The findings
+  triage follows this PR.
+
+- **Archive pagination side task:** Complete and merged as PR #284, merge
+  commit `7f85bade`. The four archives past the page target are indexes with
+  numbered pages. F-B23-35 (page manifests are never checked) is ranked in
+  the findings triage.
+
 - **Deezer busy-service side task (owner, 2026-10-31):** branch
   `fix/deezer-service-busy`. A DeepSeek patch, approved by a typed review;
   it closes F-B23-37 (a Deezer HTTP 200 body of error code 700 is retried
   and raised as `deezer_unavailable`, not read as "no match"). The findings
   triage comes next.
-
-- **Archive pagination side task:** Complete and merged as PR #284, merge
-  commit `7f85bade`.
 
 - **UI audit Minors side task:** Complete and merged as PR #283, merge commit
   `fe2de3f7`. The spec is
@@ -211,89 +224,77 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-31 - Retry a busy Deezer service instead of reading it as no match
+### 2026-10-31 - Record the CI parallel jobs execution
 
-Side task, no batch tag, branch `fix/deezer-service-busy`; closes F-B23-37.
-Deezer's documented error table (read by the owner on 2026-10-31) lists code
-700 as SERVICE_BUSY. `_deezer_request` now retries a 200 body carrying code
-700 like an HTTP 5xx, so the retry helper raises `deezer_unavailable` instead
-of recording a terminal miss. The existing test
-`test_deezer_search_5xx_on_every_attempt_raises_unavailable_not_no_match` is
-parametrized over the HTTP 500 and HTTP 200 code 700 cases and renamed
-`test_deezer_search_refused_on_every_attempt_raises_unavailable_not_no_match`.
-An outside agent (DeepSeek) wrote the patch and an independent review
-approved it.
+Side task, no batch tag, branch `ci/parallel-jobs`: the plan
+`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md` gets an Execution
+record and its done boxes ticked. Run 41223708194 at head `3ca1f53b` ran all
+four jobs green: `changes` 7 s, `checks` 74 s, `browser` 313 s, `quality-gate`
+4 s, 5 min 32 s in all against 6 min 47 s for PR #284's single job. Reviews:
+the plan once and then fixed in 2 rounds, the second without its own
+re-review, the split after 1 (`fbb6f449`), the docs sweep
+approved. Acceptance (b1) passed locally; (b2) stays open for the first
+documentation-only pull request after merge, because this PR changes the
+workflow and so runs `browser` on every head. Also: `development-cycle.md`,
+`documentation-tooling.md` and `README.md` point at `scripts/dev/ci_jobs.py`
+as the owner of the docs-only path list instead of paraphrasing it, and the
+README wrap around the docs-only note is fixed.
 
-Validation: `pytest -q` -- **3120 passed**.
+Deviations: none. Docs only; no code or test changed.
 
-### 2026-10-31 - Repoint the archive pointers the split review found
+Validation: `pytest -q` -- **3157 passed**.
 
-Side task, no batch tag, branch `docs/paginate-archives`: fixes from the
-independent review of the two archive commits. Section 4's own read guide
-above still sent agents to the side-task archive file, which is now an index;
-it now names the pages and says to search the directory.
-`docs/AGENT_DOC_MAP.md` said that file "holds content" and that the findings
-archive "holds the closed items"; both now say the entries are on the pages.
-`AGENTS.md` "Doc Sync Rules" no longer calls the side-task archive a monolith.
-The read-helper prologue in `scripts/docsync/renderer.py` no longer states
-the 500-line default, since the page target is a setting in
-`config/docsync.toml`; `--fix` rewrote the index prologue from it.
+### 2026-10-31 - Describe the parallel CI jobs
 
-One new test, `test_side_archive_read_helpers_reach_the_archive_pages` in
-`tests/test_docsync_renderer.py`, checks that every read helper searches a
-place that holds the archive's pages. It failed with a helper pointed back
-at the archive file and passed with the fix. The review found no gate would
-otherwise catch that.
+Side task, no batch tag, branch `ci/parallel-jobs`: the documentation sweep
+for the four-job workflow. `DEVELOPMENT.md` (the `tests/frontend/` paragraph),
+`docs/architecture/development-cycle.md` (the CI paragraph) and
+`docs/architecture/documentation-tooling.md` (the CI summary near the end)
+now name `changes`, `checks`, `browser` and the `quality-gate` aggregator, say
+which pull requests skip `browser`, and point at `scripts/dev/ci_jobs.py`. The
+run time reads about 1.5 minutes for a docs-only pull request and about 5
+minutes for any other. `README.md` notes the skip and the
+`tests/scripts/dev/test_frontend_gate.py` docstring says "CI browser job". No
+Mermaid node changed: "GitHub Actions Quality Gate" and its edges stay true.
+Point-in-time records are untouched.
 
-Deviations: none. This stages docsync control-plane code, so it lands alone
-through the documented `SKIP=doc-state-sync-check` escape. Existing tests
-edited: none.
+Validation: `pytest -q` -- **3157 passed**.
 
-Validation: `pytest -q` -- **3119 passed**.
+### 2026-10-31 - Tighten the CI split tests after review
 
-### 2026-10-31 - Point the side-task archive's read helpers at its directory
+Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
+the split commit, tests only. In `tests/scripts/dev/test_ci_jobs.py` the
+192-row `aggregate` table and its `_allowed` oracle are replaced by one test
+that loops the full product against a hand-written set of accepted tuples
+and lists every mismatch; `test_aggregate_rejects_an_empty_or_unknown_docs_only_value`
+and the duplicate `()` row are removed; the misnamed
+`test_main_aggregate_accepts_an_empty_docs_only_value` is replaced by
+`test_main_aggregate_rejects_an_empty_docs_only_given_as_a_separate_argument`;
+`test_main_aggregate_exits_nonzero_when_a_required_flag_is_missing` is added;
+the docs-only table gains `.superpowers-old/x.py`, `build.cmd`,
+`src/my file.py` and `my notes.md`. In `tests/test_ci_workflows.py` the
+parametrized app-jobs test is split into
+`test_app_jobs_set_flask_env` and
+`test_the_workflow_passes_no_secret_outside_a_step_env`, so the whole-file
+secret scan runs once. No script or workflow change.
 
-Side task, no batch tag, branch `docs/paginate-archives`, after the archive
-split. `SIDE_ARCHIVE_PREFIX` in `scripts/docsync/renderer.py` is the canonical
-prologue DOC004 holds the side-task archive to. Its read helpers searched the
-archive file itself, which is now an index with no entries, so an agent
-following them found nothing. They now search `docs/logarchive/`, and the
-prologue says why. The `Get-Content` helper is gone: reading the whole
-archive is what the split exists to avoid. `--fix` rewrote the index's
-prologue from the new constant.
+Validation: `pytest -q` -- **3157 passed**.
 
-Deviations: none. This is docsync control-plane code, so it lands as its own
-commit through the documented `SKIP=doc-state-sync-check` escape. No test
-changed: every test reads the constant by name.
+### 2026-10-31 - Run the quality gate as parallel jobs
 
-Validation: `pytest -q` -- **3118 passed**.
+Side task, no batch tag, branch `ci/parallel-jobs`. The one CI job took about
+7 minutes, 4.5 of them in the browser gate. `.github/workflows/test.yml` now
+has four jobs: `changes` (is the pull request docs-only), `checks` (install,
+preflight, pre-commit, pytest with coverage, pip-audit), `browser` (Playwright
+and the frontend gate) and `quality-gate`, the one required context, which
+aggregates the other three. `scripts/dev/ci_jobs.py` holds the two decisions
+(`docs-only` path classification and `aggregate`), with truth-table tests in
+`tests/scripts/dev/test_ci_jobs.py`; `tests/test_ci_workflows.py` reads
+per-job blocks. A docs-only pull request skips `browser`; any other skip, or
+a failed or cancelled job, turns `quality-gate` red.
 
-### 2026-10-31 - Paginate the four archives past the page target
+Deviations: an empty or unrecognised `--docs-only` value fails the
+aggregator even when all three jobs succeeded (fail closed). `browser` has
+no Tailwind asset cache: nothing it runs reads `scripts/bin`.
 
-Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for
-the split because a 17,000-line archive is hard for an agent to grep or read.
-`doc_state_sync.py --paginate-archives` turned four archives into indexes with
-numbered pages under a `pages/` folder beside each: the side-task log archive
-(36 pages), the findings archive (8), the Batch 21 log (2) and the Batch 22 log
-(3). Every page is under 500 lines and none is oversized. The four DOC024
-page-target warnings are gone. Two new informational DOC024 warnings name
-findings pages 0001 and 0002, whose undated entries can never age into cold
-storage. No `--cold-storage` run: that needs an explicit date from the owner.
-
-The split was checked independently of the tool's own verification. Every
-non-blank line of each old file is still present across its index and pages,
-the only new lines are page headers and index lines, and all 687 dated
-entries and 141 F-ID headings are on the pages.
-
-Live instructions that searched an archive file by name now search its
-directory: `AGENTS.md` "What to update after a WP or side-task commit",
-`docs/logarchive/README.md`, `docs/AGENT_DOC_MAP.md` (a new trap entry),
-`docs/SWE_AUDIT_CHARTER.md`, `DEVELOPMENT.md` (the archive section, the search
-step and the sample `--check` output) and the cloud kit's expected docsync
-warnings. Point-in-time records keep the old paths, which still resolve to
-the indexes. The side-task archive's built-in read helpers are control-plane
-text and change in the next commit (owner ruling, 2026-10-31).
-
-Deviations: none. No code or test changed.
-
-Validation: `pytest -q` -- **3118 passed**.
+Validation: `pytest -q` -- **3347 passed**.

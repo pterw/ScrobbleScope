@@ -67,11 +67,16 @@ session: force-pushes, history rewrites, and anything targeting `main`. A
 Copilot session that has been authorized to push uses the platform progress
 tool rather than shell `git` or `gh`.
 
-`CI` (the `Quality Gate` workflow) runs the docsync preflight, then
+`CI` (the `Quality Gate` workflow) runs four jobs. `changes` decides whether
+the pull request is docs-only. `checks` runs the docsync preflight, then
 pre-commit with `worktree-alignment` skipped, then `pytest -m "not browser"`
-with coverage, then every test carrying the `browser` marker (selected by
-marker across the whole tree, not by folder) and
-`scripts/dev/frontend_gate.py` after installing both browsers, and advisory
-`pip-audit` last -- against both `requirements.txt` and
-`requirements-dev.txt` now that the dev-only pins moved out of the
-production file.
+with coverage, and advisory `pip-audit` last -- against both
+`requirements.txt` and `requirements-dev.txt` now that the dev-only pins
+moved out of the production file. `browser` runs beside `checks`: every test
+carrying the `browser` marker (selected by marker across the whole tree, not
+by folder) and `scripts/dev/frontend_gate.py`, after installing both
+browsers. A pull request whose whole diff against its base is documentation
+only skips `browser`; `scripts/dev/ci_jobs.py` owns the path list.
+`quality-gate`, the required check, aggregates the other three and fails on
+any failed, cancelled or unexpectedly skipped job. A docs-only pull request
+therefore takes about 1.5 minutes and any other about 5 minutes.
