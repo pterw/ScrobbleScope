@@ -224,6 +224,29 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Pin the pip-audit action to its commit SHA
+
+Side task, no batch tag, branch `ci/pin-pip-audit-action`: the third-party
+action `pypa/gh-action-pip-audit` in `.github/workflows/test.yml` was
+referenced by the mutable tag `v1.1.0`, which its owner can move. zizmor (run
+by qlty on every PR) flags that as `unpinned-uses`, qlty's one blocking issue,
+and the 2026-09-14 code-review audit asked for the same pin. That one `uses:`
+line now names commit `1220774d901786e6f652ae159f7b6bc8fea6d266` with a
+`# v1.1.0` comment; the SHA was resolved with
+`gh api repos/pypa/gh-action-pip-audit/git/ref/tags/v1.1.0` (`type: commit`).
+The `actions/*` references stay on tags because zizmor allows them (owner
+ruling O33). No new test: `tests/test_ci_workflows.py` does not pin this
+reference, and a test pinning a SHA string would pin wording, not behaviour.
+Forward guidance: pin any new third-party action to a commit SHA with the tag
+in a trailing comment.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
+the full suite was not re-run because no Python changed; the workflow tests
+`tests/test_ci_workflows.py` and `tests/scripts/dev/test_ci_jobs.py` passed,
+46 tests).
+
 ### 2026-10-31 - Write the canonical status line for 24 findings
 
 Side task, no batch tag, branch `docs/canonical-finding-status`: 24 findings
@@ -276,25 +299,5 @@ minutes for any other. `README.md` notes the skip and the
 `tests/scripts/dev/test_frontend_gate.py` docstring says "CI browser job". No
 Mermaid node changed: "GitHub Actions Quality Gate" and its edges stay true.
 Point-in-time records are untouched.
-
-Validation: `pytest -q` -- **3157 passed**.
-
-### 2026-10-31 - Tighten the CI split tests after review
-
-Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
-the split commit, tests only. In `tests/scripts/dev/test_ci_jobs.py` the
-192-row `aggregate` table and its `_allowed` oracle are replaced by one test
-that loops the full product against a hand-written set of accepted tuples
-and lists every mismatch; `test_aggregate_rejects_an_empty_or_unknown_docs_only_value`
-and the duplicate `()` row are removed; the misnamed
-`test_main_aggregate_accepts_an_empty_docs_only_value` is replaced by
-`test_main_aggregate_rejects_an_empty_docs_only_given_as_a_separate_argument`;
-`test_main_aggregate_exits_nonzero_when_a_required_flag_is_missing` is added;
-the docs-only table gains `.superpowers-old/x.py`, `build.cmd`,
-`src/my file.py` and `my notes.md`. In `tests/test_ci_workflows.py` the
-parametrized app-jobs test is split into
-`test_app_jobs_set_flask_env` and
-`test_the_workflow_passes_no_secret_outside_a_step_env`, so the whole-file
-secret scan runs once. No script or workflow change.
 
 Validation: `pytest -q` -- **3157 passed**.
