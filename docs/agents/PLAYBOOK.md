@@ -224,6 +224,19 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Correct an unsupported clause in F-B23-66
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-66 wording):
+the finding claimed only archive pages open a line with `Final validation`,
+but no line under `docs/` does (`git grep -i "^Final validation" -- docs`
+finds nothing). The parenthetical now reads "(and DOC012 scans only the live
+PLAYBOOK)". Nothing else in the finding changed. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
@@ -265,21 +278,3 @@ Deviations: none.
 
 Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
 was not re-run, docs only).
-
-### 2026-10-31 - Check each archive page against its manifest counts
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):
-`ArchiveStore._load` never read a paginated archive's per-page `entries` and
-`lines`, so a page with an entry deleted was ratified by `--fix`. It now
-compares both with the page as read and raises the existing `SyncError`
-(reported as DOC020); its message says page and manifest change together and
-only through `--fix`. New cases `page-entry-deleted` and
-`manifest-lines-edited` plus a consistent-store load test; the two failing
-cases were red on the unpatched code, green after. `--check` stays green on
-both live paginated archives. Also reworded the `config/docsync.toml` comment
-that said an unmatched `allow_after` marker is silently ignored (ruling D3a;
-D2 made it DOC011). F-B23-35 stays open: S3-8 remains.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3168 passed**.
