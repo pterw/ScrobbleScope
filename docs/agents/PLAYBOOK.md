@@ -207,6 +207,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Centre the streamgraph in its plot band
+
+`streamFit` in `static/js/heatmap.js` shifted the baseline only when the
+stack's outer envelope overflowed the plot band, so ordinary data sat
+about 10px low. It now always shifts by half the sum of the envelope's
+high and low edges (halo and Bezier-control margins included), so the
+envelope is centred on the band's centre line. The scale rule is
+unchanged. The owner viewed this build on their own data and kept it
+(C18); it closes audit owner ruling C3 of the UI audit Minors. One review
+fix round added a case where a Bezier control point overshoots the
+envelope, checked against an independent Python oracle, so a shift that
+ignores the control margins fails. No deviations. Existing tests edited:
+`test_stream_stack_stays_inside_the_band` (the `moved` flag became
+`capped`, every case now asserts `low + high` is zero, and ids were
+renamed).
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-31 - Match the stream month labels to the heatmap's
 
 The stream's bottom month labels, created in `drawStream` in
@@ -248,15 +266,5 @@ The footer gap was two 1.5rem literals, the footer row's bottom padding in
 now feeds both, and the `index.css` comment names it. Computed values are
 unchanged. This closes audit row 17 of the UI audit Minors. No
 deviations. Existing tests edited: none.
-
-Validation: `pytest -q` -- **3111 passed**.
-
-### 2026-10-31 - Reuse the desktop media query in index.js
-
-`positionForm` in `static/js/index.js` built the same 860px media query
-that the `desktop` const already holds. It now reads `desktop.matches`,
-and the const is declared above `positionForm` so it is plainly
-initialised before any call. No behaviour change. This closes audit row 13
-of the UI audit Minors. No deviations. Existing tests edited: none.
 
 Validation: `pytest -q` -- **3111 passed**.

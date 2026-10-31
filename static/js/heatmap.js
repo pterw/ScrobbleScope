@@ -246,8 +246,8 @@
   /**
    * Scale and baseline that keep every layer inside the plot band. The scale
    * makes the tallest week STREAM_PEAK tall, or less when the wiggle swings
-   * the stack's extent past STREAM_BAND; the baseline moves by the least
-   * amount that brings the extent back inside (none for ordinary data).
+   * the stack's extent past STREAM_BAND; the baseline always moves so the
+   * outer envelope (halo and Bezier margins included) is centred on the band.
    */
   function streamFit(layers, baseline, residual) {
     const weeks = baseline.length;
@@ -285,8 +285,7 @@
     let scale = streamScale(totals);
     if (scale <= 0) return { scale: 0, baseline: baseline };
     scale = Math.min(scale, STREAM_BAND / (high - low));
-    const half = STREAM_BAND / 2 / scale;
-    const shift = high > half ? half - high : Math.max(0, -half - low);
+    const shift = -(high + low) / 2;
     return {
       scale: scale,
       baseline: baseline.map(function (g) { return g + shift; }),

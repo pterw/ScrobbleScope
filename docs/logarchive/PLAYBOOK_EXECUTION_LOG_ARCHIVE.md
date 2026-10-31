@@ -9,6 +9,16 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-31 - Reuse the desktop media query in index.js
+
+`positionForm` in `static/js/index.js` built the same 860px media query
+that the `desktop` const already holds. It now reads `desktop.matches`,
+and the const is declared above `positionForm` so it is plainly
+initialised before any call. No behaviour change. This closes audit row 13
+of the UI audit Minors. No deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Make the stream panel dismissible and focus-safe
 
 The stream panel was always a live region, so a pointer scrub announced

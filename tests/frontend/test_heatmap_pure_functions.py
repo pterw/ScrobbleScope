@@ -809,11 +809,45 @@ def test_stream_scale(js_page, totals, expected):
 CODEX_LAYERS = [[1000 if t == 26 else 0 for t in range(53)]] + [[20] * 53] * 10
 
 
+def _bezier_control_extent(layers, baseline, residual):
+    """Count-space bounds of the smoothed band's Catmull-Rom control points."""
+    weeks = len(baseline)
+    total = [sum(layer[t] for layer in layers) for t in range(weeks)]
+    upper = [baseline[t] + total[t] for t in range(weeks)]
+    lows, highs = [], []
+    for t in range(weeks - 1):
+        before, after = max(0, t - 1), min(weeks - 1, t + 2)
+        safe = any(
+            c[t] + (c[t + 1] - c[before]) / 6 < 0
+            or c[t + 1] - (c[after] - c[t]) / 6 < 0
+            for c in layers
+        )
+        lows += [
+            baseline[t]
+            if safe
+            else baseline[t] + (baseline[t + 1] - baseline[before]) / 6,
+            baseline[t + 1]
+            if safe
+            else baseline[t + 1] - (baseline[after] - baseline[t]) / 6,
+        ]
+        highs += [
+            upper[t] if safe else upper[t] + (upper[t + 1] - upper[before]) / 6,
+            upper[t + 1] if safe else upper[t + 1] - (upper[after] - upper[t]) / 6,
+        ]
+        margins = [
+            (2 * residual[t] + residual[t + 1]) / 24,
+            (residual[t] + 2 * residual[t + 1]) / 24,
+        ]
+        lows = lows[:-2] + [lows[-2] - margins[0], lows[-1] - margins[1]]
+        highs = highs[:-2] + [highs[-2] + margins[0], highs[-1] + margins[1]]
+    return min(lows), max(highs)
+
+
 @pytest.mark.parametrize(
-    ("layers", "moved"),
+    ("layers", "capped", "residual"),
     [
-        (STREAM_LAYER_SETS[0], False),
-        (CODEX_LAYERS, True),
+        (STREAM_LAYER_SETS[0], False, None),
+        (CODEX_LAYERS, False, None),
         (
             [
                 [0, 30],
@@ -827,29 +861,50 @@ CODEX_LAYERS = [[1000 if t == 26 else 0 for t in range(53)]] + [[20] * 53] * 10
                 [217, 381],
             ],
             True,
+            None,
         ),
-        ([[0, 35, 34], [50, 0, 18]], True),
+        ([[0, 35, 34], [50, 0, 18]], False, None),
+        ([[5, 0, 7], [2, 0, 1]], True, [0, 80, 10000]),
+        (
+            [[22, 0, 49, 32, 0], [46, 0, 0, 37, 0], [36, 0, 19, 35, 0]],
+            True,
+            [14, 9, 16, 6, 0],
+        ),
     ],
     ids=[
-        "ordinary-data-keeps-its-look",
-        "sharp-mix-change-stays-in-band",
+        "ordinary-data-is-centred",
+        "sharp-mix-change-is-centred",
         "scale-capped-by-the-stack-extent",
-        "stack-pushed-off-the-top-shifts-down",
+        "stack-pushed-off-the-top-is-centred",
+        "halo-margins-count-toward-the-centre",
+        "bezier-control-overshoot-counts-toward-the-centre",
     ],
 )
-def test_stream_stack_stays_inside_the_band(js_page, layers, moved):
+def test_stream_stack_stays_inside_the_band(js_page, layers, capped, residual):
+    """Centre the stack's outer envelope in the plot band.
+
+    GIVEN artist counts, with and without a residual halo,
+    WHEN the stream is fitted to the band,
+    THEN the envelope sits inside the band with equal room above and below.
+    """
     band = js_page.evaluate("() => window.__scrobbleHeatmapTestHooks.STREAM_BAND")
     plain = _hook(js_page, "streamBaseline", layers)
-    fit = _hook(js_page, "streamFit", layers, plain)
-    stack = _hook(js_page, "stackLayers", layers, fit["baseline"], fit["scale"])
-    low = min(band_[t]["y0"] for band_ in stack for t in range(len(plain)))
-    high = max(band_[t]["y1"] for band_ in stack for t in range(len(plain)))
+    fit = _hook(js_page, "streamFit", layers, plain, residual)
+    totals = [sum(layer[t] for layer in layers) for t in range(len(plain))]
+    assert (fit["scale"] != _hook(js_page, "streamScale", totals)) == capped
+    if residual is None:
+        stack = _hook(js_page, "stackLayers", layers, fit["baseline"], fit["scale"])
+        low = min(band_[t]["y0"] for band_ in stack for t in range(len(plain)))
+        high = max(band_[t]["y1"] for band_ in stack for t in range(len(plain)))
+    else:
+        envelope = _hook(js_page, "streamEnvelope", layers, fit["baseline"], residual)
+        low = min(bounds["lower"] for bounds in envelope) * fit["scale"]
+        high = max(bounds["upper"] for bounds in envelope) * fit["scale"]
+        c_low, c_high = _bezier_control_extent(layers, fit["baseline"], residual)
+        low, high = min(low, c_low * fit["scale"]), max(high, c_high * fit["scale"])
     print(f"extent {low:.2f}..{high:.2f} against +-{band / 2:.2f}")
     assert -band / 2 - 1e-9 <= low and high <= band / 2 + 1e-9
-    assert (fit["baseline"] != plain) == moved
-    if not moved:
-        totals = [sum(layer[t] for layer in layers) for t in range(len(plain))]
-        assert fit["scale"] == _hook(js_page, "streamScale", totals)
+    assert low + high == pytest.approx(0, abs=1e-9)
 
 
 @pytest.mark.parametrize(

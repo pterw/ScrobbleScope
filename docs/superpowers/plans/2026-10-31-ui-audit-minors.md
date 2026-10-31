@@ -47,7 +47,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [x] Task 7: dismissible, focus-safe stream panel.
 - [x] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
 - [x] Task 9 (PREVIEW): stream month labels match the heatmap's.
-- [ ] Task 10 (PREVIEW): centre the stream in its plot band.
+- [x] Task 10 (PREVIEW): centre the stream in its plot band.
 - [ ] Task 11: record the execution.
 
 ## Task 1: Keep a numeric font weight after `normal`
@@ -205,10 +205,10 @@ No test file exists for this module and none is added (C6, "no need to excessive
 
 **Extends (edits, not adds):** `test_stream_stack_stays_inside_the_band`. Its `moved` flag and the `ordinary-data-keeps-its-look` id assert that ordinary data is left unmoved; under C3 that is the defect. Replace the `moved` parameter with a `capped` flag (the scale is the extent cap, not the peak scale) and assert, for every case, that the extent is centred (`low + high` is zero within 1e-9) as well as inside the band. `capped=True` is for the case whose scale is the extent cap: `scale-capped-by-the-stack-extent` for certain. For the other three, the implementer reads `fit["scale"]` against `streamScale(totals)` once on the unchanged code (the shift does not change the scale) and sets `capped` where they differ, naming the result in the report; the plan does not guess it. Add `residual` to the test's `streamFit` call for one case (the existing `test_stream_fit_contains_symmetric_context_halo` parametrization shows a residual that exercises the halo), or add that residual case to the centring assertion, so a shift computed without the halo and Bezier margins fails. Rename the ids to match. `test_stream_fit_contains_symmetric_context_halo` already asserts the halo bounds stay inside the band and must pass unchanged. Other pure tests that hard-code a baseline (`test_smoothed_stream_encloses_artists_without_clipping`, the `hitAt` tests) are run and, where the shift moves a hand-derived number, corrected from first principles, never by copying the new output.
 
-- [ ] RED: edit the test first and run `"<PY>" -m pytest -q -p no:cacheprovider tests/frontend/test_heatmap_pure_functions.py -k "inside_the_band"`; it fails on the ordinary-data case (extent not centred). GREEN: passes after the change. Quote both.
-- [ ] Run the whole file `tests/frontend/test_heatmap_pure_functions.py`; list any other test that needed a corrected number and why.
-- [ ] PREVIEW (R14): before and after Firefox screenshots, light and dark, of the stream on the owner's data shape (the gate's seeded 53-week job is the stand-in unless the controller supplies the real payload) at 1920x1080; scratch suffix `-10`. Report the measured vertical offset of the stack's centre from the band centre, before (about 10px low expected) and after (0).
-- [ ] Acceptance: `frontend-gate` passes (the alignment check's plot-band containment holds); `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word; if rejected, drop it.
+- [x] RED: edit the test first and run `"<PY>" -m pytest -q -p no:cacheprovider tests/frontend/test_heatmap_pure_functions.py -k "inside_the_band"`; it fails on the ordinary-data case (extent not centred). GREEN: passes after the change. Quote both.
+- [x] Run the whole file `tests/frontend/test_heatmap_pure_functions.py`; list any other test that needed a corrected number and why.
+- [x] PREVIEW (R14): before and after Firefox screenshots, light and dark, of the stream on the owner's data shape (the gate's seeded 53-week job is the stand-in unless the controller supplies the real payload) at 1920x1080; scratch suffix `-10`. Report the measured vertical offset of the stack's centre from the band centre, before (about 10px low expected) and after (0).
+- [x] Acceptance: `frontend-gate` passes (the alignment check's plot-band containment holds); `suite-*`, `pre-commit`, `docsync-check` pass. Lands only on the owner's word; if rejected, drop it.
 
 ## Task 11: Record the UI audit Minors execution
 
