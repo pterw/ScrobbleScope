@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from scrobblescope import jobs
 from scrobblescope.routes.admission import Refused, admit
 
@@ -79,6 +81,31 @@ def test_a_real_thread_start_failure_frees_the_slot_once_and_removes_the_job(
 
     assert result is Refused.START_FAILED
     assert fresh_job_store.ids() == []
+    semaphore.acquire.assert_called_once()
+    semaphore.release.assert_called_once()
+
+
+def test_a_create_failure_frees_the_slot_once_and_propagates(fresh_job_store):
+    """
+    GIVEN a slot already taken and a job store whose create raises
+    WHEN a job is admitted
+    THEN the very same error reaches the caller and the
+    slot is released exactly once instead of being held until a restart.
+
+    Mutation: remove the release around `jobs.create` and the release count is
+    0, so every failed create keeps one slot for the life of the process.
+    """
+    error = RuntimeError("store is down")
+    semaphore = MagicMock()
+    semaphore.acquire.return_value = True
+    with (
+        patch("scrobblescope.worker._active_jobs_semaphore", semaphore),
+        patch("scrobblescope.routes.admission.jobs.create", side_effect=error),
+    ):
+        with pytest.raises(RuntimeError) as excinfo:
+            admit(PARAMS, _target, label="album task")
+
+    assert excinfo.value is error
     semaphore.acquire.assert_called_once()
     semaphore.release.assert_called_once()
 
