@@ -131,6 +131,7 @@ def test_a_canvas_font_with_style_weight_and_size_matches_on_family(
         ("26px degular, sans-serif", "degular, sans-serif", "400"),
         ("bold 18px x", "x", "700"),
         ("normal 18px x", "x", "400"),
+        ("600 normal 18px x", "x", "600"),
         ('italic 600 18px/1.2 "a b"', '"a b"', "600"),
         ("bold 600 18px x", "x", "600"),
         ("x, serif", "x, serif", None),

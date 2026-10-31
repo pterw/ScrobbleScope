@@ -38,7 +38,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 ## Delivery sequence
 
-- [ ] Task 1: keep a numeric font weight after `normal`.
+- [x] Task 1: keep a numeric font weight after `normal`.
 - [ ] Task 2: clear the stored pause choice on every exit.
 - [ ] Task 3: reuse the `desktop` media query in `index.js`.
 - [ ] Task 4: share the footer gap as one custom property.
@@ -61,9 +61,9 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 **Extends:** the parametrized `test_a_saved_headline_drawn_at_another_weight_is_reported` (the `("drawn", "family", "drawn_weight")` cases).
 
-- [ ] Add the case `("600 normal 18px x", "x", "600")` to that parametrize list. Keep `("normal 18px x", "x", "400")` as the neutral check (it cannot fail alone, which is why the new case carries the defect).
-- [ ] RED: `"<PY>" -m pytest -q -p no:cacheprovider tests/scripts/dev/test_frontend_gate_theme.py -k "another_weight"` fails on the new case with `400 != 600` (or the weight reported as 400). GREEN: the same command passes after the change. Quote both lines.
-- [ ] Acceptance: the whole file `tests/scripts/dev/test_frontend_gate_theme.py` passes; the three `suite-*` gates, `pre-commit` and `docsync-check` pass (this commit changes only `scripts/dev` and `tests`, so `frontend-gate` is not required).
+- [x] Add the case `("600 normal 18px x", "x", "600")` to that parametrize list. Keep `("normal 18px x", "x", "400")` as the neutral check (it cannot fail alone, which is why the new case carries the defect).
+- [x] RED: `"<PY>" -m pytest -q -p no:cacheprovider tests/scripts/dev/test_frontend_gate_theme.py -k "another_weight"` fails on the new case with `400 != 600` (or the weight reported as 400). GREEN: the same command passes after the change. Quote both lines.
+- [x] Acceptance: the whole file `tests/scripts/dev/test_frontend_gate_theme.py` passes; the three `suite-*` gates, `pre-commit` and `docsync-check` pass (this commit changes only `scripts/dev` and `tests`, so `frontend-gate` is not required).
 
 ## Task 2: Clear the stored pause choice on every exit
 

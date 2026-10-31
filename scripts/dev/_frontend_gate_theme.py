@@ -954,7 +954,7 @@ def _plain_family(value: str | None) -> str:
     return (value or "").replace('"', "").replace("'", "").replace(" ", "")
 
 
-_NAMED_WEIGHTS = {"bold": "700", "normal": "400"}
+_NAMED_WEIGHTS = {"bold": "700"}
 
 
 def _is_size_token(token: str) -> bool:

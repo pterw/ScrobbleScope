@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Protect weekly chart geometry before extraction
+
+Extend the existing browser alignment check with actual path extents,
+plot bounds and one shifted-spike fixture. Extend the existing nearest-week
+test with the exact midpoint. No runtime, test module or permanent check
+family is added. The plan's first implementation step protects current
+behavior before its calculation moves.
+
+The pure harness passed 147 tests. Chromium and Firefox passed the affected
+alignment check; both rejected a temporary out-of-band halo and passed
+again after restoration. The full suite measured **3113 passed** in 210.85
+seconds. Final hooks and docsync run before the test-only commit. Also
+repoint the current Listening status to its observed merge, preserving the
+dated execution records. The owner-approved deviations stay
+as recorded in the design. The next step is the geometry module and test
+migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-30 - Approve the weekly chart geometry side task
 
 The owner selected the first architecture-review proposal and approved the

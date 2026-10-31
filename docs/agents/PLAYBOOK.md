@@ -69,7 +69,7 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **UI audit Minors side task (owner, 2026-10-31):** branch
+- **UI audit Minors side task (owner, 2026-10-30):** branch
   `fix/ui-audit-minors`, cut from `main` at `18a4242d`. It bundles the minor
   findings that the 2026-10-27 UI audit's reviews deferred into one bug-fix
   PR: collect them, check each against current `main`, triage each row with
@@ -79,7 +79,7 @@ See FINDINGS F-DOCSYNC-3.
   `main` by PR #280's `streamSafeSegments`, with a curve-sampling test. The
   owner also asked for the streamgraph's bottom month labels to match the
   heatmap's month labels in typeface and size. The owner accepted the triage
-  on 2026-10-31. The spec is
+  on 2026-10-30. The spec is
   `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the plan
   is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`; four of its
   visual tasks land only after the owner sees before-and-after screenshots.
@@ -207,11 +207,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-10-31 - Plan the UI audit Minors bug fixes
+### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
+
+The frontend gate's canvas font parser read `600 normal 26px x` as weight
+400, because the `normal` token reset the weight set just before it. The
+saved-image headline check could then report a wrong drawn weight. `normal`
+is no longer treated as a weight token, so a numeric weight stands, `bold`
+still maps to 700 and a string with no weight stays 400. This closes audit
+row 3 of the UI audit Minors. No deviations. Existing test edited:
+`test_a_saved_headline_drawn_at_another_weight_is_reported` (one case
+added, `600 normal 18px x`).
+
+Validation: `pytest -q` -- **3109 passed**.
+
+### 2026-10-30 - Plan the UI audit Minors bug fixes
 
 The deferred Minors from the 2026-10-27 UI audit's reviews were checked
 against `main` by a read-only audit. Of 79 rows, 43 were still true, and the
-owner accepted a triage of them on 2026-10-31. The spec records each chosen
+owner accepted a triage of them on 2026-10-30. The spec records each chosen
 row with its evidence and lists the deferred and dropped rows. The plan
 slices the fixes into eleven atomic tasks: stream panel keyboard and
 screen-reader behaviour, gate-helper fixes, two CSS tidy-ups, and four
@@ -224,12 +237,12 @@ before this commit. Docs only.
 Validation: the full suite measured **3108 passed**; pre-commit on all
 files and the final docsync check pass.
 
-### 2026-10-31 - Record the merged chart work and open the UI Minors side task
+### 2026-10-30 - Record the merged chart work and open the UI Minors side task
 
 Section 3 still described the weekly chart geometry branch as awaiting its
 PR, although PR #281 merged on 2026-10-30 (merge commit `18a4242d`). This
 entry records that merge and opens the UI audit Minors side task on
-`fix/ui-audit-minors`, which the owner approved on 2026-10-31. Docs only: no
+`fix/ui-audit-minors`, which the owner approved on 2026-10-30. Docs only: no
 runtime, test or dependency change. The smoothing defect that headed the
 deferred list was checked against `main` first. Codex's case (53 weeks, one
 artist with 100 plays in week 26 only) now gives a minimum band thickness of
@@ -263,20 +276,3 @@ implementation commit is ready for a template PR. CI and publication state
 will be recorded there, without merging.
 The plan records final review and publication guidance:
 `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-30 - Protect weekly chart geometry before extraction
-
-Extend the existing browser alignment check with actual path extents,
-plot bounds and one shifted-spike fixture. Extend the existing nearest-week
-test with the exact midpoint. No runtime, test module or permanent check
-family is added. The plan's first implementation step protects current
-behavior before its calculation moves.
-
-The pure harness passed 147 tests. Chromium and Firefox passed the affected
-alignment check; both rejected a temporary out-of-band halo and passed
-again after restoration. The full suite measured **3113 passed** in 210.85
-seconds. Final hooks and docsync run before the test-only commit. Also
-repoint the current Listening status to its observed merge, preserving the
-dated execution records. The owner-approved deviations stay
-as recorded in the design. The next step is the geometry module and test
-migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
