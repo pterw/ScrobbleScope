@@ -1,6 +1,24 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Record the UI audit Minors execution
+
+Side task, no batch tag: close the UI audit Minors plan
+(`docs/superpowers/plans/2026-10-31-ui-audit-minors.md`) on
+`fix/ui-audit-minors`. Nine tasks landed in nine commits, each approved in
+review (the plan had one fix round, and Task 10 had one). The owner dropped
+Task 6 (the 13px panel header, "I was not seeing a difference"), kept
+Tasks 8, 9 and 10 after previews, and added then dropped Task 9b (the label
+colour already matched). The plan ticks its boxes and gains an Execution
+record with each task's commit, review outcome, preview decision, the
+gate-script landings that went alone, the stack of Tasks 3, 4 and 8, and the
+intermittent gate failures that were re-run green. The spec gains a one-line
+outcome for Task 6's row. `results-behavior` is still owed at the final head.
+
+Deviations: none. Edited existing tests: none. Docs only.
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
 
 Side task, no batch tag: `_request_spotlight_artist` in

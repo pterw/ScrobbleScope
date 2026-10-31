@@ -172,9 +172,10 @@ states the same rule for the diagrams.
 
 ## 6. How to read the findings
 
-`docs/agents/FINDINGS.md` holds the open items. `docs/history/findings/FINDINGS_ARCHIVE.md`
-holds the closed items. Nothing is deleted. The archive keeps the search
-history.
+`docs/agents/FINDINGS.md` holds the open items. The closed items are on the
+pages that `docs/history/findings/FINDINGS_ARCHIVE.md` lists, so search the
+`docs/history/findings/` directory. Nothing is deleted. The archive keeps the
+search history.
 
 Read the identifier first. The format is `F-<context>-<number>`. The context
 is a batch tag, such as `B21`, or a source tag, such as `SWE` or `DOCSYNC`.
@@ -199,8 +200,9 @@ rules for writing one, and a finding that skips them costs a review round.
 
 These are navigation hazards. Each one has caught an agent before.
 
-**Three paths hold the same archive name.** Only one holds content:
-`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. The two paths under
+**Three paths hold the same archive name.** Only one is the live archive:
+`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, an index whose entries
+are on the pages beside it (see the next trap). The two paths under
 `docs/history/` are pointer stubs. They exist so that old references still
 resolve. Read `docs/logarchive/README.md` for the lookup map.
 

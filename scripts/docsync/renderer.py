@@ -22,8 +22,8 @@ SIDE_ARCHIVE_PREFIX = (
     "- Store dated execution-log entries rotated out of PLAYBOOK Section 4.",
     "- Keep entries in reverse-chronological order (newest first).",
     "",
-    "Read helpers (search the directory: past 500 lines this file is an index",
-    "and the entries are on the numbered pages in its pages folder):",
+    "Read helpers (search the directory: once this archive outgrows its page",
+    "target, this file is an index and the entries are on its numbered pages):",
     '- `rg -n "^### 20" docs/logarchive/`',
     '- `rg -n "<keyword>" docs/logarchive/`',
 )

@@ -286,7 +286,7 @@ the *written function*; each test costs suite time):
 `scripts/doc_state_sync.py` keeps PLAYBOOK, SESSION_CONTEXT, and the archive
 consistent so every agent starts from identical state. It rotates overflow
 dated entries from PLAYBOOK Section 4 into per-batch log files
-(`docs/history/logs/BATCHN_LOG.md`, tagged entries) or the monolith archive
+(`docs/history/logs/BATCHN_LOG.md`, tagged entries) or the side-task archive
 (`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, untagged side-task
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and

@@ -195,12 +195,13 @@ See FINDINGS F-DOCSYNC-3.
 ## 4. Execution log (for agent handoff)
 
 Keep only the active window here: current batch entries plus the latest 4
-non-current operational logs. Older dated entries live in
-`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+non-current operational logs. Older dated entries live on the numbered pages
+listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
+`docs/logarchive/` directory, not that index.
 
 **How to read dated entries:**
 - Each heading `YYYY-MM-DD - ...` is a completion/addendum log.
-- Untagged side-task history: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+- Untagged side-task history: the pages under `docs/logarchive/`.
 - Tagged batch history: per-batch logs under `docs/history/logs/`.
 - Batch scope/acceptance criteria: definitions under `docs/history/definitions/`.
 - Current-batch boundaries are machine-managed (do not move entries manually):
@@ -210,6 +211,31 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-10-31 - Repoint the archive pointers the split review found
+
+Side task, no batch tag, branch `docs/paginate-archives`: fixes from the
+independent review of the two archive commits. Section 4's own read guide
+above still sent agents to the side-task archive file, which is now an index;
+it now names the pages and says to search the directory.
+`docs/AGENT_DOC_MAP.md` said that file "holds content" and that the findings
+archive "holds the closed items"; both now say the entries are on the pages.
+`AGENTS.md` "Doc Sync Rules" no longer calls the side-task archive a monolith.
+The read-helper prologue in `scripts/docsync/renderer.py` no longer states
+the 500-line default, since the page target is a setting in
+`config/docsync.toml`; `--fix` rewrote the index prologue from it.
+
+One new test, `test_side_archive_read_helpers_reach_the_archive_pages` in
+`tests/test_docsync_renderer.py`, checks that every read helper searches a
+place that holds the archive's pages. It failed with a helper pointed back
+at the archive file and passed with the fix. The review found no gate would
+otherwise catch that.
+
+Deviations: none. This stages docsync control-plane code, so it lands alone
+through the documented `SKIP=doc-state-sync-check` escape. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3119 passed**.
 
 ### 2026-10-31 - Point the side-task archive's read helpers at its directory
 
@@ -270,21 +296,3 @@ branch's merged one. The archive keeps this branch's side, which already
 holds the one entry `main` added. No code conflicts.
 
 Validation: `pytest -q` -- **3118 passed**.
-
-### 2026-10-31 - Record the UI audit Minors execution
-
-Side task, no batch tag: close the UI audit Minors plan
-(`docs/superpowers/plans/2026-10-31-ui-audit-minors.md`) on
-`fix/ui-audit-minors`. Nine tasks landed in nine commits, each approved in
-review (the plan had one fix round, and Task 10 had one). The owner dropped
-Task 6 (the 13px panel header, "I was not seeing a difference"), kept
-Tasks 8, 9 and 10 after previews, and added then dropped Task 9b (the label
-colour already matched). The plan ticks its boxes and gains an Execution
-record with each task's commit, review outcome, preview decision, the
-gate-script landings that went alone, the stack of Tasks 3, 4 and 8, and the
-intermittent gate failures that were re-run green. The spec gains a one-line
-outcome for Task 6's row. `results-behavior` is still owed at the final head.
-
-Deviations: none. Edited existing tests: none. Docs only.
-
-Validation: `pytest -q` -- **3113 passed**.
