@@ -224,6 +224,20 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
+the review of the DOC012 fix found that it flags a digitless bold count only
+on a line opening a Validation record or the line after a wrapped
+`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
+is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
+`_VALIDATION_LINE_RE` to both shapes. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Word the manifest-count error to match DOC020
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
@@ -269,18 +283,3 @@ D2 made it DOC011). F-B23-35 stays open: S3-8 remains.
 Deviations: none.
 
 Validation: `pytest -q` -- **3168 passed**.
-
-### 2026-10-31 - Catch a wrapped or unquoted placeholder count
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 fix round):
-the DOC012 placeholder check missed a Validation line whose command ends one
-line and whose bold count opens the next, and one written without backticks.
-It now reads the wrapped form through the trigger helper, makes the backticks
-optional, and flags only a line that opens a Validation record, so prose
-quoting the template is clean. The `test_doc012_flags_a_validation_count_with_no_digit`
-cases `wrapped`, `unquoted` and `prose-quote-not-validation` were red on the
-unpatched code, green after.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3165 passed**.

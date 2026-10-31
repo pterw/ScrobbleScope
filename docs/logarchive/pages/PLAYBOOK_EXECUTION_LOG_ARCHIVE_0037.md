@@ -1,6 +1,21 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Catch a wrapped or unquoted placeholder count
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 fix round):
+the DOC012 placeholder check missed a Validation line whose command ends one
+line and whose bold count opens the next, and one written without backticks.
+It now reads the wrapped form through the trigger helper, makes the backticks
+optional, and flags only a line that opens a Validation record, so prose
+quoting the template is clean. The `test_doc012_flags_a_validation_count_with_no_digit`
+cases `wrapped`, `unquoted` and `prose-quote-not-validation` were red on the
+unpatched code, green after.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3165 passed**.
+
 ### 2026-10-31 - Report an allow_after marker that matches no line
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-DOCSYNC-16):

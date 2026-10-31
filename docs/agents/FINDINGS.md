@@ -864,6 +864,12 @@ The Results header's Top Artist is the artist of the first row in the run's rank
 
 - [ ] **Status:** open (P3, low); the product rule is the owner's to decide; no fix in PR #269. Source: T11's agreement test (`tests/frontend/test_results_ranking_agreement.py`), whose fixture gives every album one artist for this reason; owner ruling RA21, 2026-10-25 ("File it, it's trivial for now").
 
+### F-B23-66: DOC012 misses a placeholder count on a Final validation or continuation line
+
+After F-B23-17's fix (commits `da7741e0` and `ef18f96b`), `scripts/docsync/integrity.py` flags a digitless bold count only on a line that opens a Validation record (`_VALIDATION_LINE_RE`, anchored at line start) or on the line after a wrapped `pytest -q --`, so a placeholder on a `Final validation:` line, or on a continuation line after an earlier count, is not flagged. Today's PLAYBOOK Section 4 uses neither shape (only archive pages do, and DOC012 scans the live PLAYBOOK), and the entry template writes `Validation:` on one line, so a miss needs a non-template shape and a left-in placeholder together. What would close it: widen `_VALIDATION_LINE_RE` to the two shapes, with two parametrize cases in the D1 test.
+
+- [ ] **Status:** open (P3). Source: `review-d1-fix` of the docsync quick-wins PR, 2026-10-31.
+
 ### F-DOCSYNC-24: the cross-reference list mixes promoted pointers with resolved records that no check reaches
 
 "Deferred / future-batch candidates" is where AGENTS.md "Finding-Writing Rules" item 4 keeps one-line pointers for promoted or absorbed findings. Several of its bullets state a terminal outcome: F-B18-1 (promoted to F-B20-2), F-B18-7 and F-MAS-2 (absorbed), F-B18-12 (resolved), and, in "Feature preparation notes", F-FEATURE-2 ("shipped in Batches 18/19, archived"). Item 4 names only promoted and absorbed findings, not resolved or shipped ones. docsync parses only `### F-...` headings, so DOC023 and rotation never see these bullets, and nothing checks that a pointer's target heading exists in the active file or the archive. (The F-B18-12 case was fixed on 2026-10-27: its entry now sits in `docs/history/findings/FINDINGS_ARCHIVE.md` and its bullet points there.) What would close it: give a pointer a checkable format, or add a docsync check that each pointer's target heading exists in the active file or the archive, and let item 4 say which outcomes a pointer may carry.
