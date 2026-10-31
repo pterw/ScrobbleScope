@@ -243,6 +243,13 @@ The plan states the gate traps (the README window sentence declared in
 `config/docsync.toml`, DOC001, DOC010, `Last updated:` lines, the
 PostgreSQL badge wording). Docs only; no file is rewritten yet.
 
+Fix round after review (same branch): Task 3 writes its own
+`cache-measurement.md` and runs on a local database only; the screenshots stay
+in the workspace and land with the README as a binary patch; a Wave 0 review
+is added; the tool list names tracked tools only; every browser run takes the
+lock; reports are named per task; the README carries no changelog and no
+"very".
+
 Deviations: none.
 
 Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
