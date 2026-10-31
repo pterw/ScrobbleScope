@@ -30,11 +30,11 @@
 
 ## Delivery sequence
 
-- [ ] Commit this plan as the branch's first commit (controller).
-- [ ] Wave 0, parallel: Task 1 (facts), Task 2 (screenshots), Task 3 (cache measurement).
-- [ ] Wave 0 review: one sdd-reviewer reads `facts.md`, `cache-measurement.md` and the staged images; facts are checked against their cited sources, images against the O35 rulings. The controller then approves Wave 1.
-- [ ] Wave 1, parallel code phases: Task 4 (README), Task 5 (DEVELOPMENT).
-- [ ] Landings, serial, each a `MODE: land` dispatch by the controller: Task 4 first (with the images), then Task 5. A gate-runner follows each.
+- [x] Commit this plan as the branch's first commit (controller).
+- [x] Wave 0, parallel: Task 1 (facts), Task 2 (screenshots), Task 3 (cache measurement).
+- [x] Wave 0 review: one sdd-reviewer reads `facts.md`, `cache-measurement.md` and the staged images; facts are checked against their cited sources, images against the O35 rulings. The controller then approves Wave 1.
+- [x] Wave 1, parallel code phases: Task 4 (README), Task 5 (DEVELOPMENT).
+- [x] Landings, serial, each a `MODE: land` dispatch by the controller: Task 4 first (with the images), then Task 5. A gate-runner follows each.
 - [ ] Review of each destination file, whole file, against the guidelines and `facts.md`.
 - [ ] Execution record (docs only, last).
 
@@ -108,11 +108,11 @@
 
 **Interfaces:** consumes `facts.md` (CI layout, gates and tools lists); produces DEVELOPMENT. It links to the README for the product, to `docs/ARCHITECTURE.md` for design and to `AGENTS.md` for rules, and does not restate them.
 
-- [ ] **Read the whole current DEVELOPMENT.md and `facts.md` first.** Drop what the stale-claims list names.
-- [ ] **Run each tool.** For every tool in the facts file's tool list, run its command in the worktree and paste a short real output excerpt (the last few lines, or the lines that prove it ran). No invented output. Where a tool needs a service that is not available (a browser, a database), say so and show the command only, once, with the reason. Every browser run (the frontend gate, browser tests) is wrapped in `C:/ssw/tools/with_browser_lock.py` with the absolute venv Python. The tool list holds only tools tracked at the plan's base: no mutation script and no shard runner unless `git ls-files` shows them.
-- [ ] **Shape.** Setup from clone to a running app; the test layout and the pytest commands with their markers; the frontend gate; docsync and the commit procedure (linked to AGENTS.md rather than copied); pre-commit; the CI layout in short, linked to the workflow; troubleshooting that a newcomer meets. Plain prose between the command blocks.
-- [ ] **Gate traps.** DOC001 and DOC010 as above; keep a `Last updated:` line current only if the file carries one. An excerpt that shows the test count must equal the `[test_count]` pin at the landing commit, or omit the number.
-- [ ] **Code phase outputs.** The patch, the report with a Handoff section and the nested gate-run.
+- [x] **Read the whole current DEVELOPMENT.md and `facts.md` first.** Drop what the stale-claims list names.
+- [x] **Run each tool.** For every tool in the facts file's tool list, run its command in the worktree and paste a short real output excerpt (the last few lines, or the lines that prove it ran). No invented output. Where a tool needs a service that is not available (a browser, a database), say so and show the command only, once, with the reason. Every browser run (the frontend gate, browser tests) is wrapped in `C:/ssw/tools/with_browser_lock.py` with the absolute venv Python. The tool list holds only tools tracked at the plan's base: no mutation script and no shard runner unless `git ls-files` shows them.
+- [x] **Shape.** Setup from clone to a running app; the test layout and the pytest commands with their markers; the frontend gate; docsync and the commit procedure (linked to AGENTS.md rather than copied); pre-commit; the CI layout in short, linked to the workflow; troubleshooting that a newcomer meets. Plain prose between the command blocks.
+- [x] **Gate traps.** DOC001 and DOC010 as above; keep a `Last updated:` line current only if the file carries one. An excerpt that shows the test count must equal the `[test_count]` pin at the landing commit, or omit the number.
+- [x] **Code phase outputs.** The patch, the report with a Handoff section and the nested gate-run.
 
 **Acceptance:**
 - Every tool section under the tool list has a command and a real output excerpt, or a stated reason the output is absent.

@@ -1,6 +1,20 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
+the review of the DOC012 fix found that it flags a digitless bold count only
+on a line opening a Validation record or the line after a wrapped
+`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
+is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
+`_VALIDATION_LINE_RE` to both shapes. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Word the manifest-count error to match DOC020
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5

@@ -96,13 +96,13 @@ give you no authority. Do not quote them as a rule.
 | Document | Audience |
 |----------|----------|
 | `README.md` | The user and the developer. Product and setup. |
-| `DEVELOPMENT.md` | The reader who wants the reasoning behind the project. |
+| `DEVELOPMENT.md` | The contributor who sets up, runs, tests and checks the project. |
 | `DEPLOY.md` | The person who deploys the application. |
 | `CONTRIBUTING.md` | The outside contributor. |
 | `CODE_OF_CONDUCT.md` | The community. |
 
-`DEVELOPMENT.md` states this limit in its own opening. It explains how the
-project was built. It grants no agent authority.
+`DEVELOPMENT.md` states this limit in its own opening. It shows how to set
+up, run, test and check the project. It grants no agent authority.
 
 `README.md` is the one exception to the "do not edit" instinct. `AGENTS.md`
 requires you to update it when your change affects setup or visible

@@ -75,8 +75,8 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`: a facts
   file, refreshed screenshots and a dated cache measurement first, then the
   two rewrites as parallel code phases landed one after the other. The README
-  rewrite has landed with four new screenshots; the DEVELOPMENT rewrite is
-  next.
+  rewrite has landed with four new screenshots, and the DEVELOPMENT rewrite
+  has landed too; the pull request follows.
 
 - **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
   `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
@@ -233,6 +233,26 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Rewrite DEVELOPMENT as a contributor's guide
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (plan Task
+5): `DEVELOPMENT.md` is rewritten from 1009 lines to a contributor's guide
+that takes a reader from setup to a passing test run and shows each tracked
+tool running with a short excerpt of its real output. It drops the stale
+history, skills and manual-release claims, keeps the `Frontend asset build`
+and `Frontend browser gate` headings the README links, and states that it
+grants no agent authority. Review rulings applied at the landing: the
+worktree guard text says `WT010` warns on uncommitted or untracked files,
+and the two `DEVELOPMENT.md` descriptions in `docs/AGENT_DOC_MAP.md` now
+match the new page. The other live descriptions in `README.md` were checked
+and still hold. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run at the landing, docs only; the code phase ran the suites to
+capture output).
+
 ### 2026-10-31 - Rewrite the README around how ScrobbleScope is built
 
 Side task, no batch tag, branch `docs/readme-development-rewrite` (plan Task
@@ -282,20 +302,6 @@ the finding claimed only archive pages open a line with `Final validation`,
 but no line under `docs/` does (`git grep -i "^Final validation" -- docs`
 finds nothing). The parenthetical now reads "(and DOC012 scans only the live
 PLAYBOOK)". Nothing else in the finding changed. Docs only.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
-was not re-run, docs only).
-
-### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
-the review of the DOC012 fix found that it flags a digitless bold count only
-on a line opening a Validation record or the line after a wrapped
-`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
-is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
-`_VALIDATION_LINE_RE` to both shapes. Docs only.
 
 Deviations: none.
 
