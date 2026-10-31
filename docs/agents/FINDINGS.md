@@ -3,7 +3,7 @@
 Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3161 tests across 104 tracked test modules.
+3162 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -307,43 +307,6 @@ for the release-check check, measure the row positions after layout settles twic
 When: its own frontend-gate PR; not before the failures are seen again with the timing recorded.
 
 - [ ] **Status:** open (P2). Source: UI consistency round 2 gate runs (PR #268), 2026-10-23.
-
-### F-DOCSYNC-16: docsync silently ignores an `allow_after` marker that matches no line
-
-`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
-against a declared `allow_after` marker with `line.strip() == marker.strip()`
--- exact equality, no prefix match -- and when nothing matches, `exempt_from`
-simply stays `None`: the declaration silently loses its whole history
-exemption for that file, with no warning that the marker itself is dead. The
-three `[[retired]]` declarations in `.docsync.toml` that predate this finding
-all declared `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`,
-but the real `docs/agents/PLAYBOOK.md` heading is `## 4. Execution log (for agent
-handoff)`, so none of the three matched anything. Reproduced directly against
-`check_retired` with the real heading text: a claim placed below the heading
-was still reported, not exempted (confirmed 2026-09-24, Task 5's live probe
-for the new fourth declaration that task added).
-
-**Impact was latent, not live.** No dated Section 4 entry restated
-`limit_results ... thresholds disclosure`, `fonts self-hosted under
-static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus
-never actually exercised the mismatch before it was caught. It would have
-surfaced as a false-positive DOC011 the day a dated entry legitimately quoted
-one of those retired phrases as history.
-
-**The three markers are corrected in `.docsync.toml`** (2026-09-24, Task 5
-fix round) to the real heading text, matching the fourth declaration that
-task added, which used the correct text from the start. That corrects this
-one instance; the finding stays open because the mechanism -- a declared
-`allow_after` marker can silently match nothing, for any file, and nobody is
-told -- is still unchecked, so the next marker written this way fails the
-same way undetected.
-
-**Fix shape, not yet built:** a declaration check that errors when an
-`allow_after` marker matches no line in its named file (a new check; not
-built here).
-
-- [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
-  probe, 2026-09-24.
 
 ### F-DOCSYNC-20: the docsync close-out review's carried-over Minors, still true at HEAD
 

@@ -208,7 +208,8 @@ is repository-independent and only the declarations are local. Three kinds:
 - **DOC011 -- retired.** A claim that is no longer true must not survive in
   a document that still prescribes behaviour. Dated log entries are exempt
   below a declared marker, and struck-through text is exempt everywhere --
-  an author who wrote `~~this~~` has already said it is not current.
+  an author who wrote `~~this~~` has already said it is not current. A
+  marker that matches no line of its file is itself reported.
 
 **DOC012 is not declared.** It is implemented directly in
 `scripts/docsync/integrity.py` and enforces a shape rather than a declared

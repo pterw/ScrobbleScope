@@ -224,6 +224,22 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Report an allow_after marker that matches no line
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-DOCSYNC-16):
+`check_retired` left `exempt_from` unset when a `[retired.allow_after]`
+marker matched no line of its file, so a renamed heading silently dropped the
+history exemption. It now reports DOC011 (no new code) naming the file and the
+marker, with a remediation to correct the marker to the file's real line.
+New test `test_an_allow_after_marker_matching_no_line_is_reported` (dead marker
+flagged, matching marker clean); red on the unpatched code, green after.
+`documentation-tooling.md`'s DOC011 row gains one clause. `--check` on the
+patched tree stays green: the four live markers all match.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3162 passed**.
+
 ### 2026-10-31 - Flag a Validation line whose count has no digit
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17): the
@@ -290,22 +306,3 @@ Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
 the full suite was not re-run because no Python changed; the workflow tests
 `tests/test_ci_workflows.py` and `tests/scripts/dev/test_ci_jobs.py` passed,
 46 tests).
-
-### 2026-10-31 - Write the canonical status line for 24 findings
-
-Side task, no batch tag, branch `docs/canonical-finding-status`: 24 findings
-in `docs/agents/FINDINGS.md` stated their status only in prose
-(`Status: open (P2).`), so docsync's finding-lifecycle checks, which read only
-`- [ ] **Status:** <value>`, never saw them. Each now carries that line, in
-place, with the finding's own words as the value: F-B21-25, F-B23-11,
-F-B23-9, F-B22-4, F-B22-3, F-B23-1, F-B23-4, F-B23-13, F-B21-61, F-B21-54,
-F-DATA-1, F-DOCSYNC-2, F-DOCSYNC-3, F-B21-57, F-MAS-5, F-MAS-6, F-MAS-7,
-F-MAS-8, F-SWE-7, F-LOAD-3, F-LOAD-4, F-LOAD-5, F-DOCSYNC-14 and
-F-FEATURE-1 (whose inline sentence moved to its own line). The values are
-transcriptions, not verdicts, and no box was checked. Forward guidance: the
-24 are now visible to the lifecycle checks.
-
-Deviations: none. Docs only; no code or test changed.
-
-Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
-the suite was not re-run because no code changed).
