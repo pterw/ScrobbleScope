@@ -69,17 +69,20 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **Weekly chart geometry side task:** The owner approved the in-file
-  geometry design and its bounded Rule 3 exception on 2026-10-30. Work runs
-  on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
-  WT003 is owner-authorized advisory for this side task. The approved plan
-  is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-  The stronger rendered-geometry and midpoint checks are committed.
-  Drawing, selection and composition tests now use the geometry module;
-  the full suite and frontend gate pass. The independent whole-branch review
-  is complete, with its sole README-date finding fixed. The branch is ready
-  for the implementation commit and template PR; publication state lives
-  in the PR.
+- **UI audit Minors side task (owner, 2026-10-31):** branch
+  `fix/ui-audit-minors`, cut from `main` at `18a4242d`. It bundles the minor
+  findings that the 2026-10-27 UI audit's reviews deferred into one bug-fix
+  PR: collect them, check each against current `main`, triage each row with
+  the owner (fix, defer with a finding id, or drop), then plan and land the
+  accepted fixes. The streamgraph smoothing defect that headed the list
+  (negative band thickness beside a one-week spike) is already fixed on
+  `main` by PR #280's `streamSafeSegments`, with a curve-sampling test. The
+  owner also asked for the streamgraph's bottom month labels to match the
+  heatmap's month labels in typeface and size.
+
+- **Weekly chart geometry side task:** Complete and merged as PR #281, merge
+  commit `18a4242d`. The execution record is
+  `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
 
 - **Listening view side task:** Complete and merged as PR #280, merge commit
   `c1ca5f18`. Independent F-SWE-8 work stays gated. The execution record is
@@ -200,6 +203,21 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Record the merged chart work and open the UI Minors side task
+
+Section 3 still described the weekly chart geometry branch as awaiting its
+PR, although PR #281 merged on 2026-10-30 (merge commit `18a4242d`). This
+entry records that merge and opens the UI audit Minors side task on
+`fix/ui-audit-minors`, which the owner approved on 2026-10-31. Docs only: no
+runtime, test or dependency change. The smoothing defect that headed the
+deferred list was checked against `main` first. Codex's case (53 weeks, one
+artist with 100 plays in week 26 only) now gives a minimum band thickness of
+0 rather than -11.11, so it is not part of this side task's work.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass. Next: collect and triage the deferred
+Minors, then write the plan.
+
 ### 2026-10-30 - Make weekly chart geometry own drawing and selection
 
 Extract the connected calculation into the approved in-file geometry model.
@@ -259,25 +277,3 @@ suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
 final docsync and hooks are rerun after this entry is rendered. Forward
 guidance and execution checkboxes live in
 `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-29 - Reconcile Listening design notes after bot review
-
-The owner authorized opening PR #280 after green CI and fixing bot concerns.
-Quality Gate run `40880774113` succeeded at 014c6d75; the PR left draft and the
-template checklist was updated. Codex completed without findings. Graphify's
-three inline coupling advisories were checked against source and the base;
-the shared fixture and interaction assertions remain cohesive. Replied with
-that evidence and resolved the threads without metric-driven refactoring.
-Its additional helper advisories concern residual-only coverage.
-
-The documentation check found old Heatmap copy and a width-only result
-description in the current reconciliation table. Correct four current rows
-to reference source owners and the approved Listening follow-up. Preserve
-the frozen snapshots and dated sections. The full suite measured
-**3113 passed** in 145.79 seconds; no tests or runtime code changed. Repository
-hooks and final docsync passed before the focused documentation commit.
-After pushing, verify the new head's CI and bot feedback and fast-forward
-the owner preview. Qlty's status passes but its description reports 13
-blocking issues; the detailed list requires separate login and has not been
-validated. The execution record is
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.
