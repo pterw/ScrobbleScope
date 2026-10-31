@@ -27,6 +27,9 @@
     --shell-selected-outline: #775ab5;
     --shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);
     --shell-control-gap: 0.75rem;
+    /* Space under the footer row; the home hero reads it too, so the home
+       button and the footer button sit equally far above the viewport. */
+    --shell-footer-gap: 1.5rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
        unmigrated page never loads the compiled sheet and would resolve
        var(--font-sans) to nothing. This file already duplicates the palette
@@ -617,7 +620,7 @@ body {
     justify-content: center;
     align-items: center;
     gap: 0.75rem;
-    padding: 1rem 1rem 1.5rem;
+    padding: 1rem 1rem var(--shell-footer-gap);
     margin-top: 0.5rem;
     opacity: 0;
     animation: ss-footer-extras-in 1.2s ease 0.6s forwards;

@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Report an empty stream and always run its cleanup
+
+The stream gate's paint check called `min()` on the contrast ratios before
+reporting a stream with no drawn layers, so an empty stream raised a
+ValueError instead of the named failure. The contrast line is now skipped
+when there are no ratios, and the failure "the stream draws no artist
+layers" is returned. The keyboard check's cleanup ran its three steps in
+sequence, so a raising first step skipped the viewport restore and the job
+delete; each step now runs in a nested `finally` and the first error still
+surfaces. This closes audit rows 23 and 30 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3109 passed**.
+
 ### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
 
 The frontend gate's canvas font parser read `600 normal 26px x` as weight

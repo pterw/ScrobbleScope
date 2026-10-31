@@ -207,6 +207,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Share the footer gap as one custom property
+
+The footer gap was two 1.5rem literals, the footer row's bottom padding in
+`static/css/shell.css` and the home hero's `padding-bottom` in
+`static/css/index.css`, kept equal only by a gate equality check. One
+`--shell-footer-gap` property, declared once in `shell.css`'s `:root`,
+now feeds both, and the `index.css` comment names it. Computed values are
+unchanged. This closes audit row 17 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Reuse the desktop media query in index.js
 
 `positionForm` in `static/js/index.js` built the same 860px media query
@@ -254,17 +266,3 @@ Existing tests edited: none (one test added,
 `test_an_early_return_leaves_no_stored_pause_choice`).
 
 Validation: `pytest -q` -- **3111 passed**.
-
-### 2026-10-30 - Report an empty stream and always run its cleanup
-
-The stream gate's paint check called `min()` on the contrast ratios before
-reporting a stream with no drawn layers, so an empty stream raised a
-ValueError instead of the named failure. The contrast line is now skipped
-when there are no ratios, and the failure "the stream draws no artist
-layers" is returned. The keyboard check's cleanup ran its three steps in
-sequence, so a raising first step skipped the viewport restore and the job
-delete; each step now runs in a nested `finally` and the first error still
-surfaces. This closes audit rows 23 and 30 of the UI audit Minors. No
-deviations. Existing tests edited: none.
-
-Validation: `pytest -q` -- **3109 passed**.

@@ -135,12 +135,12 @@ html {
 
   /* The button's own 2.75rem box stands in for the column's bottom padding
      (the more specific selector keeps the scaled padding below from
-     restoring it). What remains is the footer row's bottom padding in
-     static/css/shell.css (.page-footer-extras, 1.5rem), so the button sits
+     restoring it). What remains is the footer row's bottom padding, the
+     --shell-footer-gap property in static/css/shell.css, so the button sits
      as far above the viewport's foot as the footer button does on the
      results page. The gate compares the two. */
   .index-grid .index-hero {
-    padding-bottom: 1.5rem;
+    padding-bottom: var(--shell-footer-gap);
   }
 
   .index-hero__motion {

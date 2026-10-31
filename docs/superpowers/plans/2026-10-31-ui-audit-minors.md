@@ -41,7 +41,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [x] Task 1: keep a numeric font weight after `normal`.
 - [x] Task 2: clear the stored pause choice on every exit.
 - [x] Task 3: reuse the `desktop` media query in `index.js`.
-- [ ] Task 4: share the footer gap as one custom property.
+- [x] Task 4: share the footer gap as one custom property.
 - [x] Task 5: stream gate reports an empty stream and always cleans up.
 - [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
 - [x] Task 7: dismissible, focus-safe stream panel.
@@ -101,8 +101,8 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 **Behaviour:** Declare one custom property for the 1.5rem footer gap in `shell.css`'s `:root` block. `.page-footer-extras` (bottom padding) and `.index-grid .index-hero` (`padding-bottom`) both read it; the comment in `index.css` that names "`static/css/shell.css` (.page-footer-extras, 1.5rem)" now names the property. The computed values do not change (1.5rem = 24px at the root size). No new test: the gate's existing equality check (`footerGap` against the pause button's `gap` in `_measure_home_pause`) is the guard and stays untouched.
 
-- [ ] The two footer-gap declarations (`.page-footer-extras` bottom padding, `.index-grid .index-hero` `padding-bottom`) read the custom property, and the property is declared once. `git grep -n "1.5rem"` still shows unrelated uses, and `shell.css` repeats `1.5rem` in the mobile theme slot's `padding: 1rem 1rem 1.5rem`; those are left alone, so the check is by reading those two declarations, not by counting hits.
-- [ ] Acceptance: `frontend-gate` passes and its layout section reports the same pause gap as before (quote the line); `suite-*`, `pre-commit` (re-stage any `tailwind.css` rewrite), `docsync-check` pass.
+- [x] The two footer-gap declarations (`.page-footer-extras` bottom padding, `.index-grid .index-hero` `padding-bottom`) read the custom property, and the property is declared once. `git grep -n "1.5rem"` still shows unrelated uses, and `shell.css` repeats `1.5rem` in the mobile theme slot's `padding: 1rem 1rem 1.5rem`; those are left alone, so the check is by reading those two declarations, not by counting hits.
+- [x] Acceptance: `frontend-gate` passes and its layout section reports the same pause gap as before (quote the line); `suite-*`, `pre-commit` (re-stage any `tailwind.css` rewrite), `docsync-check` pass.
 
 ## Task 5: Stream gate reports an empty stream and always cleans up
 
