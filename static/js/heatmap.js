@@ -246,8 +246,8 @@
   /**
    * Scale and baseline that keep every layer inside the plot band. The scale
    * makes the tallest week STREAM_PEAK tall, or less when the wiggle swings
-   * the stack's extent past STREAM_BAND; the baseline moves by the least
-   * amount that brings the extent back inside (none for ordinary data).
+   * the stack's extent past STREAM_BAND; the baseline always moves so the
+   * outer envelope (halo and Bezier margins included) is centred on the band.
    */
   function streamFit(layers, baseline, residual) {
     const weeks = baseline.length;
@@ -285,8 +285,7 @@
     let scale = streamScale(totals);
     if (scale <= 0) return { scale: 0, baseline: baseline };
     scale = Math.min(scale, STREAM_BAND / (high - low));
-    const half = STREAM_BAND / 2 / scale;
-    const shift = high > half ? half - high : Math.max(0, -half - low);
+    const shift = -(high + low) / 2;
     return {
       scale: scale,
       baseline: baseline.map(function (g) { return g + shift; }),
@@ -1897,6 +1896,7 @@
         'class': 'stream-month-label', x: x,
         y: STREAM_LABEL_H + STREAM_BAND + STREAM_AXIS_H - 6,
         'font-size': '9.5', 'font-family': LABEL_FONT_STACK,
+        'font-variant': 'small-caps', 'letter-spacing': '0.12em',
         'text-anchor': Number(x) > svgWidth - 24 ? 'end' : 'start',
         fill: frameColour('--stream-muted'), 'aria-hidden': 'true',
       });
@@ -1956,7 +1956,6 @@
     var panel = document.createElement('div');
     panel.id = 'stream-panel';
     panel.className = 'stream-panel';
-    panel.setAttribute('aria-live', 'polite');
     panel.hidden = true;
     gridContainer.appendChild(panel);
 
@@ -1972,8 +1971,30 @@
     svg.addEventListener('blur', handleStreamBlur);
     svg.addEventListener('keydown', handleStreamKey);
     ['pointerleave', 'pointercancel'].forEach(function (type) {
-      svg.addEventListener(type, clearWeek);
+      svg.addEventListener(type, handleStreamLeave);
     });
+  }
+
+  // Keyboard focus, as :focus-visible draws it: the svg is a tab stop, so a
+  // click or tap focuses it too, and that is not keyboard focus.
+  function streamHasKeyboardFocus(state) {
+    return document.activeElement === state.svg && state.svg.matches(':focus-visible');
+  }
+
+  // The panel announces its rewrites only while the keys drive it, so a
+  // pointer scrub says nothing. Set before the panel is filled.
+  function syncStreamLive(state) {
+    if (streamHasKeyboardFocus(state)) {
+      state.panel.setAttribute('aria-live', 'polite');
+    } else {
+      state.panel.removeAttribute('aria-live');
+    }
+  }
+
+  // With keyboard focus the shown week stays, so the keys continue from it.
+  function handleStreamLeave() {
+    if (streamState && streamHasKeyboardFocus(streamState)) return;
+    clearWeek();
   }
 
   // Map the pointer to a week and the layer under it, then show them.
@@ -2020,6 +2041,7 @@
   function handleStreamFocus() {
     var state = streamState;
     if (!state) return;
+    syncStreamLive(state);
     if (state.shown) {
       state.cursor = streamKeyState(state);
     } else {
@@ -2028,7 +2050,10 @@
   }
 
   function handleStreamBlur() {
-    if (streamState) streamState.cursor = null;
+    if (streamState) {
+      streamState.cursor = null;
+      streamState.panel.removeAttribute('aria-live');
+    }
     clearWeek();
   }
 
@@ -2036,6 +2061,17 @@
   function handleStreamKey(event) {
     var state = streamState;
     if (!state || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === 'Escape') {
+      // Keep the keyboard position, so the next arrow key shows it again.
+      if (!state.shown) return;
+      state.cursor = streamKeyState(state);
+      event.preventDefault();
+      clearWeek();
+      return;
+    }
+    // Chromium turns :focus-visible on for a clicked svg at the first key,
+    // without a focus event.
+    syncStreamLive(state);
     var target = streamKeyTarget(event.key, streamKeyState(state), streamDims(state));
     if (!target) return;
     event.preventDefault();
@@ -2088,7 +2124,7 @@
   function showWeek(week, hoverId) {
     var state = streamState;
     if (!state) return;
-    if (state.shown &&state.shown.week === week && state.shown.hoverId === hoverId) return;
+    if (state.shown && state.shown.week === week && state.shown.hoverId === hoverId) return;
     removeStreamMarks();
     state.shown = { week: week, hoverId: hoverId };
 

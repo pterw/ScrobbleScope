@@ -617,6 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const formWell = document.querySelector('.index-form');
   const formComposition = document.querySelector('.index-form__inner');
   const header = document.querySelector('.site-header');
+  const desktop = matchMedia('(min-width: 860px)');
 
   /** Lift the centred composition by up to 2.5rem, bounded below the header.
    * The lift gives way first as space runs out: it never takes the gap above
@@ -631,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
    * margins cannot loop.
    */
   function positionForm() {
-    if (!matchMedia('(min-width: 860px)').matches
+    if (!desktop.matches
         || formComposition.querySelector('.is-mode-switching')) return;
     const height = formComposition.getBoundingClientRect().height;
     if (!height) return;
@@ -648,8 +649,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const albumSection = document.getElementById('album-form-section');
   const thresholds = document.querySelector('.disclosure');
-
-  const desktop = matchMedia('(min-width: 860px)');
 
   /** Hold the composition at the default album form's height (desktop only).
    * The heatmap form is shorter; without a floor the centred composition

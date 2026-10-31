@@ -9,6 +9,217 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-31 - Match the stream month labels to the heatmap's
+
+The stream's bottom month labels, created in `drawStream` in
+`static/js/heatmap.js`, carried only font-size and the font stack. They
+now also take the heatmap labels' `font-variant` small-caps and
+`letter-spacing` 0.12em, so the two charts' month rows read the same
+(rendered size was already equal: both SVGs share `svgWidth` at
+`width: 100%`). The saved image gains the same styling, because
+`streamAsImage` already copies those two attributes; the export code is
+unedited and the last label stays inside the image. The stream alignment
+check in `scripts/dev/_frontend_gate_stream.py` now reads each label's
+family, variant, tracking and rendered size, and fails when the stream
+differs from the heatmap, failing closed on empty or mismatched label
+sets. The owner previewed and kept the change (C16). This closes audit
+owner ruling C2 of the UI audit Minors. No deviations. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Tighten the heatmap key's ramp spacing
+
+`.hm-preview__ramp` in `static/css/heatmap.css` carried its own
+`margin-top` of 0.875rem on top of the `.index-key` grid gap, leaving
+about 28px under the last key row at 1920. The margin is removed, so the
+gap alone (0.75rem times `--index-scale`) remains: 12.9px at 1920, 12px
+at scale 1, matching the reference's 12px grid gap. The ramp's height is
+unchanged. The owner previewed the change and kept it (C15). This closes
+audit row 5 of the UI audit Minors. No deviations. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Share the footer gap as one custom property
+
+The footer gap was two 1.5rem literals, the footer row's bottom padding in
+`static/css/shell.css` and the home hero's `padding-bottom` in
+`static/css/index.css`, kept equal only by a gate equality check. One
+`--shell-footer-gap` property, declared once in `shell.css`'s `:root`,
+now feeds both, and the `index.css` comment names it. Computed values are
+unchanged. This closes audit row 17 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Reuse the desktop media query in index.js
+
+`positionForm` in `static/js/index.js` built the same 860px media query
+that the `desktop` const already holds. It now reads `desktop.matches`,
+and the const is declared above `positionForm` so it is plainly
+initialised before any call. No behaviour change. This closes audit row 13
+of the UI audit Minors. No deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Make the stream panel dismissible and focus-safe
+
+The stream panel was always a live region, so a pointer scrub announced
+every week. Escape did not dismiss it, a pointer leave dropped the week
+while the keys were driving it, and the gate never checked that arrow keys
+were consumed. `aria-live` is now set only while the stream has keyboard
+focus (`:focus-visible`, so a click or tap does not count), decided on
+focus and again at the first key, because Chromium turns `:focus-visible`
+on after a click without a focus event. Escape hides the panel, ring,
+guide and dimming, keeps focus and stores the position so the next arrow
+resumes from it. Pointer leave and cancel clear the week only without
+keyboard focus. `showWeek`'s guard lost its missing space. The keyboard
+check now watches `window` for each arrow key reaching it with
+`defaultPrevented`, and gained the click-then-leave, Escape and
+unfocused-hover cases. The gate's three `.focus()` calls already match
+`:focus-visible` in Chromium (the only engine the stream checks run on), so
+they stay. This closes audit rows 1, 26, 27, 28 and 29 of the UI audit
+Minors. Deviation: Escape calls `preventDefault` only when it dismissed a
+panel. Existing tests edited: the gate check
+`check_stream_is_one_keyboard_tab_stop` (its "after pointer leave"
+expectation changed from week 6 to week 26 as the brief requires).
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Clear the stored pause choice on every exit
+
+The spotlight photo gate's paused-hold probe stores `ss-motion=still`
+through an init script, and only the Play click removed it, so an early
+return left the choice in the shared browser context. The probe's `finally`
+now removes the `ss-motion` key before it closes the page. The removal is
+wrapped in `contextlib.suppress(PlaywrightError)` (shorter than tracking
+navigation state), so a page that never navigated cannot hide the original
+failure. This closes audit row 40 of the UI audit Minors. No deviations.
+Existing tests edited: none (one test added,
+`test_an_early_return_leaves_no_stored_pause_choice`).
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-30 - Report an empty stream and always run its cleanup
+
+The stream gate's paint check called `min()` on the contrast ratios before
+reporting a stream with no drawn layers, so an empty stream raised a
+ValueError instead of the named failure. The contrast line is now skipped
+when there are no ratios, and the failure "the stream draws no artist
+layers" is returned. The keyboard check's cleanup ran its three steps in
+sequence, so a raising first step skipped the viewport restore and the job
+delete; each step now runs in a nested `finally` and the first error still
+surfaces. This closes audit rows 23 and 30 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3109 passed**.
+
+### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
+
+The frontend gate's canvas font parser read `600 normal 26px x` as weight
+400, because the `normal` token reset the weight set just before it. The
+saved-image headline check could then report a wrong drawn weight. `normal`
+is no longer treated as a weight token, so a numeric weight stands, `bold`
+still maps to 700 and a string with no weight stays 400. This closes audit
+row 3 of the UI audit Minors. No deviations. Existing test edited:
+`test_a_saved_headline_drawn_at_another_weight_is_reported` (one case
+added, `600 normal 18px x`).
+
+Validation: `pytest -q` -- **3109 passed**.
+
+### 2026-10-30 - Plan the UI audit Minors bug fixes
+
+The deferred Minors from the 2026-10-27 UI audit's reviews were checked
+against `main` by a read-only audit. Of 79 rows, 43 were still true, and the
+owner accepted a triage of them on 2026-10-30. The spec records each chosen
+row with its evidence and lists the deferred and dropped rows. The plan
+slices the fixes into eleven atomic tasks: stream panel keyboard and
+screen-reader behaviour, gate-helper fixes, two CSS tidy-ups, and four
+visual changes that land only after the owner previews them (panel header
+size, key spacing, month labels, vertical centring). One plan review found
+two Important issues: a focus rule that also caught pointer focus, and a
+false claim about the saved image. Both were fixed with its eight Minors
+before this commit. Docs only.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass.
+
+### 2026-10-30 - Record the merged chart work and open the UI Minors side task
+
+Section 3 still described the weekly chart geometry branch as awaiting its
+PR, although PR #281 merged on 2026-10-30 (merge commit `18a4242d`). This
+entry records that merge and opens the UI audit Minors side task on
+`fix/ui-audit-minors`, which the owner approved on 2026-10-30. Docs only: no
+runtime, test or dependency change. The smoothing defect that headed the
+deferred list was checked against `main` first. Codex's case (53 weeks, one
+artist with 100 plays in week 26 only) now gives a minimum band thickness of
+0 rather than -11.11, so it is not part of this side task's work.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass. Next: collect and triage the deferred
+Minors, then write the plan.
+
+### 2026-10-30 - Make weekly chart geometry own drawing and selection
+
+Extract the connected calculation into the approved in-file geometry model.
+Drawing, pointer selection and composition tests consume that model; its
+numeric stack and coordinate conversion stay private. Migrate existing
+behavior tests and remove superseded hooks and a constant-pin assertion.
+The suite drops five redundant cases, with no new test module or dependency.
+The developer README links to the interface owner. Scope and owner-approved
+exceptions remain those in the design; no further deviation is introduced.
+
+The focused harness passed 142 tests. The full suite measured **3108 passed**
+in 227.30 seconds; a later unused test-hook removal passed the focused
+harness again. Chromium and Firefox each matched the exact old runtime's
+paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
+seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
+both engines and desktop, mobile and wide-touch profiles. The frozen-source
+full suite then passed again in 205.55 seconds. Independent final code/spec
+and standards reviews completed whole-file reads and found only a stale
+README date, now corrected and re-reviewed. Archive rotation preserved
+existing dated entries exactly. All hooks and final docsync pass; the
+implementation commit is ready for a template PR. CI and publication state
+will be recorded there, without merging.
+The plan records final review and publication guidance:
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
+### 2026-10-30 - Protect weekly chart geometry before extraction
+
+Extend the existing browser alignment check with actual path extents,
+plot bounds and one shifted-spike fixture. Extend the existing nearest-week
+test with the exact midpoint. No runtime, test module or permanent check
+family is added. The plan's first implementation step protects current
+behavior before its calculation moves.
+
+The pure harness passed 147 tests. Chromium and Firefox passed the affected
+alignment check; both rejected a temporary out-of-band halo and passed
+again after restoration. The full suite measured **3113 passed** in 210.85
+seconds. Final hooks and docsync run before the test-only commit. Also
+repoint the current Listening status to its observed merge, preserving the
+dated execution records. The owner-approved deviations stay
+as recorded in the design. The next step is the geometry module and test
+migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
+### 2026-10-30 - Approve the weekly chart geometry side task
+
+The owner selected the first architecture-review proposal and approved the
+in-file geometry model. Record the design and two-step implementation plan
+before moving runtime calculation: protect the current rendered geometry,
+then deepen its calculation and migrate the consumers and composition test.
+This is a side task, not a new Batch 23 work package.
+
+The owner explicitly permits this two-copy consolidation as a bounded
+exception to global Rule 3, a clean worktree from main with WT003 advisory,
+and one final independent review rather than per-commit/task reviews.
+All other gates and the PR template still apply. The original preview and
+its unrelated owner files remain outside this branch. The clean-worktree
+suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
+final docsync and hooks are rerun after this entry is rendered. Forward
+guidance and execution checkboxes live in
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-29 - Reconcile Listening design notes after bot review
 
 The owner authorized opening PR #280 after green CI and fixing bot concerns.

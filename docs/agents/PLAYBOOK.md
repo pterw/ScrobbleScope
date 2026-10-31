@@ -69,21 +69,29 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **Spotify artist ID side task:** Branch `fix/spotify-artist-id`, cut from
-  `main`; closes F-B23-33 (a malformed artist ID no longer reaches the
-  Spotify artists URL). Publication state lives in the PR.
+- **UI audit Minors side task (owner, 2026-10-30):** branch
+  `fix/ui-audit-minors`, cut from `main` at `18a4242d`. It bundles the minor
+  findings that the 2026-10-27 UI audit's reviews deferred into one bug-fix
+  PR: collect them, check each against current `main`, triage each row with
+  the owner (fix, defer with a finding id, or drop), then plan and land the
+  accepted fixes. The streamgraph smoothing defect that headed the list
+  (negative band thickness beside a one-week spike) is already fixed on
+  `main` by PR #280's `streamSafeSegments`, with a curve-sampling test. The
+  owner also asked for the streamgraph's bottom month labels to match the
+  heatmap's month labels in typeface and size. The owner accepted the triage
+  on 2026-10-30. The spec is
+  `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the plan
+  is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`. The plan is
+  fully executed (nine commits; the owner dropped the panel-header task) and
+  the PR is ready for review; the execution record is in the plan.
 
-- **Weekly chart geometry side task:** The owner approved the in-file
-  geometry design and its bounded Rule 3 exception on 2026-10-30. Work runs
-  on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
-  WT003 is owner-authorized advisory for this side task. The approved plan
-  is `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-  The stronger rendered-geometry and midpoint checks are committed.
-  Drawing, selection and composition tests now use the geometry module;
-  the full suite and frontend gate pass. The independent whole-branch review
-  is complete, with its sole README-date finding fixed. The branch is ready
-  for the implementation commit and template PR; publication state lives
-  in the PR.
+- **Spotify artist ID side task:** Complete and merged as PR #282, merge
+  commit `708fb48b`; it closed F-B23-33 (a malformed artist ID no longer
+  reaches the Spotify artists URL).
+
+- **Weekly chart geometry side task:** Complete and merged as PR #281, merge
+  commit `18a4242d`. The execution record is
+  `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
 
 - **Listening view side task:** Complete and merged as PR #280, merge commit
   `c1ca5f18`. Independent F-SWE-8 work stays gated. The execution record is
@@ -204,6 +212,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
+
+Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into
+`fix/ui-audit-minors`, so the branch carries the F-B23-33 fix and its
+bookkeeping. Owner ruling 2026-10-31: a merge commit, not a rebase. Only
+PLAYBOOK and the log archive conflicted. Both sides' Section 3 bullets and
+Section 4 entries are kept, with PR #282 recorded as merged; `main`'s
+pre-merge copy of the weekly chart geometry bullet is superseded by this
+branch's merged one. The archive keeps this branch's side, which already
+holds the one entry `main` added. No code conflicts.
+
+Validation: `pytest -q` -- **3118 passed**.
+
+### 2026-10-31 - Record the UI audit Minors execution
+
+Side task, no batch tag: close the UI audit Minors plan
+(`docs/superpowers/plans/2026-10-31-ui-audit-minors.md`) on
+`fix/ui-audit-minors`. Nine tasks landed in nine commits, each approved in
+review (the plan had one fix round, and Task 10 had one). The owner dropped
+Task 6 (the 13px panel header, "I was not seeing a difference"), kept
+Tasks 8, 9 and 10 after previews, and added then dropped Task 9b (the label
+colour already matched). The plan ticks its boxes and gains an Execution
+record with each task's commit, review outcome, preview decision, the
+gate-script landings that went alone, the stack of Tasks 3, 4 and 8, and the
+intermittent gate failures that were re-run green. The spec gains a one-line
+outcome for Task 6's row. `results-behavior` is still owed at the final head.
+
+Deviations: none. Edited existing tests: none. Docs only.
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
 
 Side task, no batch tag: `_request_spotlight_artist` in
@@ -227,62 +266,20 @@ change, no new dependency.
 
 Validation: `pytest -q` -- **3113 passed**.
 
-### 2026-10-30 - Make weekly chart geometry own drawing and selection
+### 2026-10-31 - Centre the streamgraph in its plot band
 
-Extract the connected calculation into the approved in-file geometry model.
-Drawing, pointer selection and composition tests consume that model; its
-numeric stack and coordinate conversion stay private. Migrate existing
-behavior tests and remove superseded hooks and a constant-pin assertion.
-The suite drops five redundant cases, with no new test module or dependency.
-The developer README links to the interface owner. Scope and owner-approved
-exceptions remain those in the design; no further deviation is introduced.
+`streamFit` in `static/js/heatmap.js` shifted the baseline only when the
+stack's outer envelope overflowed the plot band, so ordinary data sat
+about 10px low. It now always shifts by half the sum of the envelope's
+high and low edges (halo and Bezier-control margins included), so the
+envelope is centred on the band's centre line. The scale rule is
+unchanged. The owner viewed this build on their own data and kept it
+(C18); it closes audit owner ruling C3 of the UI audit Minors. One review
+fix round added a case where a Bezier control point overshoots the
+envelope, checked against an independent Python oracle, so a shift that
+ignores the control margins fails. No deviations. Existing tests edited:
+`test_stream_stack_stays_inside_the_band` (the `moved` flag became
+`capped`, every case now asserts `low + high` is zero, and ids were
+renamed).
 
-The focused harness passed 142 tests. The full suite measured **3108 passed**
-in 227.30 seconds; a later unused test-hook removal passed the focused
-harness again. Chromium and Firefox each matched the exact old runtime's
-paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
-seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
-both engines and desktop, mobile and wide-touch profiles. The frozen-source
-full suite then passed again in 205.55 seconds. Independent final code/spec
-and standards reviews completed whole-file reads and found only a stale
-README date, now corrected and re-reviewed. Archive rotation preserved
-existing dated entries exactly. All hooks and final docsync pass; the
-implementation commit is ready for a template PR. CI and publication state
-will be recorded there, without merging.
-The plan records final review and publication guidance:
-`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-30 - Protect weekly chart geometry before extraction
-
-Extend the existing browser alignment check with actual path extents,
-plot bounds and one shifted-spike fixture. Extend the existing nearest-week
-test with the exact midpoint. No runtime, test module or permanent check
-family is added. The plan's first implementation step protects current
-behavior before its calculation moves.
-
-The pure harness passed 147 tests. Chromium and Firefox passed the affected
-alignment check; both rejected a temporary out-of-band halo and passed
-again after restoration. The full suite measured **3113 passed** in 210.85
-seconds. Final hooks and docsync run before the test-only commit. Also
-repoint the current Listening status to its observed merge, preserving the
-dated execution records. The owner-approved deviations stay
-as recorded in the design. The next step is the geometry module and test
-migration in `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-30 - Approve the weekly chart geometry side task
-
-The owner selected the first architecture-review proposal and approved the
-in-file geometry model. Record the design and two-step implementation plan
-before moving runtime calculation: protect the current rendered geometry,
-then deepen its calculation and migrate the consumers and composition test.
-This is a side task, not a new Batch 23 work package.
-
-The owner explicitly permits this two-copy consolidation as a bounded
-exception to global Rule 3, a clean worktree from main with WT003 advisory,
-and one final independent review rather than per-commit/task reviews.
-All other gates and the PR template still apply. The original preview and
-its unrelated owner files remain outside this branch. The clean-worktree
-suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
-final docsync and hooks are rerun after this entry is rendered. Forward
-guidance and execution checkboxes live in
-`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+Validation: `pytest -q` -- **3113 passed**.
