@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from docsync.archives import HOT_DIRECTORY
+from docsync.cli import ARCHIVE_PATH
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import CURRENT_BATCH_END_MARKER, CURRENT_BATCH_START_MARKER
 from docsync.renderer import (
@@ -442,6 +446,19 @@ class TestRenderArchive:
         prefix = ["# Batch 11 Execution Log", "", "Batch-specific history."]
 
         assert _render_archive(prefix, []) == prefix
+
+    def test_side_archive_read_helpers_reach_the_archive_pages(self):
+        """GIVEN the side-task archive's prologue, WHEN each read helper's search
+        target is taken from its command, THEN the archive's pages folder lies
+        inside that target, so the search reaches the entries once the archive
+        is an index; a helper aimed at the archive file itself finds nothing."""
+        pages = ARCHIVE_PATH.parent / HOT_DIRECTORY
+        helpers = [line for line in SIDE_ARCHIVE_PREFIX if line.startswith("- `")]
+
+        assert helpers
+        for helper in helpers:
+            target = Path(helper.rstrip("`").split()[-1])
+            assert pages.is_relative_to(target), helper
 
 
 # ---------------------------------------------------------------------------

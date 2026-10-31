@@ -286,7 +286,7 @@ the *written function*; each test costs suite time):
 `scripts/doc_state_sync.py` keeps PLAYBOOK, SESSION_CONTEXT, and the archive
 consistent so every agent starts from identical state. It rotates overflow
 dated entries from PLAYBOOK Section 4 into per-batch log files
-(`docs/history/logs/BATCHN_LOG.md`, tagged entries) or the monolith archive
+(`docs/history/logs/BATCHN_LOG.md`, tagged entries) or the side-task archive
 (`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, untagged side-task
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
@@ -346,10 +346,11 @@ found in the log, exactly as before.
 
 ### What to update after a WP or side-task commit
 
-Before appending a new dated entry, search
-`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
-`docs/history/logs/*.md` (`rg -n "^### 20"`) to avoid re-describing a
-recorded decision or a date collision. Then update:
+Before appending a new dated entry, search the `docs/logarchive/` and
+`docs/history/logs/` directories (`rg -n "^### 20"`) to avoid re-describing a
+recorded decision or a date collision. Search the directories, not the
+archive files: an archive past 500 lines is an index, and its entries live on
+the numbered pages in the `pages/` folder beside it. Then update:
 
 - PLAYBOOK Section 3 + Section 4 (inside markers for batch work, after the
   end marker for side-tasks; see Side-Task Handling).

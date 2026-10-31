@@ -12,6 +12,9 @@ from docsync.parser import (
     _collect_wp_numbers,
 )
 
+# The read helpers search the directory, not this file: once the archive
+# outgrows its page target it becomes an index whose entries live on numbered
+# pages beside it, and a search of the file alone would find nothing.
 SIDE_ARCHIVE_PREFIX = (
     "# PLAYBOOK Execution Log Archive",
     "",
@@ -19,10 +22,10 @@ SIDE_ARCHIVE_PREFIX = (
     "- Store dated execution-log entries rotated out of PLAYBOOK Section 4.",
     "- Keep entries in reverse-chronological order (newest first).",
     "",
-    "Read helpers:",
-    "- `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`",
-    '- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`',
-    '- `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`',
+    "Read helpers (search the directory: once this archive outgrows its page",
+    "target, this file is an index and the entries are on its numbered pages):",
+    '- `rg -n "^### 20" docs/logarchive/`',
+    '- `rg -n "<keyword>" docs/logarchive/`',
 )
 
 

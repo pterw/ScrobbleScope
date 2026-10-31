@@ -1,0 +1,98 @@
+<!-- DOCSYNC:ARCHIVE-PAGE v1 -->
+# FINDINGS_ARCHIVE -- page 0008
+
+### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path -- RESOLVED
+
+`routes/api.py` passes `request.args["artist_id"]` unvalidated into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`), so `../` segments make the server call any GET route under the app's token, though no client sends the parameter.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-31
+Source: third review of PR #245 (2026-09-29), S6-4. Resolved by the owner-directed fix on `fix/spotify-artist-id`: `_request_spotlight_artist` now takes the by-ID path only for a 22-character base-62 ID; a malformed one is ignored and the name fallback runs.
+
+### F-OPS-1: Akamai blocked the app machine's egress address, so every Deezer call returned 403 -- RESOLVED
+
+Every Deezer call from the production machine got HTTP 403 from Akamai, because the machine's outbound IPv4 address was blocked.
+
+Symptom: the Results page said "Deezer could not be reached for some albums" on every production run. Fly logs on machine `807339f1595248` showed `Deezer: 51 calls over 5.0s (1.1s in calls) -- 51x403` and, after a redeploy, `Deezer: 72 calls over 7.2s (4.2s in calls) -- 72x403`. Local runs were fine.
+
+Diagnosis: the same request from the machine got 403 from `AkamaiGHost` for any User-Agent and any client (urllib and aiohttp). From the owner's PC (AS577 Bell Canada) it got 200. The machine's egress was `185.156.47.129` (AS60068 Datacamp, Toronto). Fly's default egress is the host's address and can change. api.deezer.com has no AAAA record, so Deezer traffic is IPv4 only.
+
+Tried: a static egress IP (`209.71.99.215`, $3.60/month) made Deezer return 200 and was released on the owner's word. A restart and a `fly deploy` did not help: the machine id, host and IP stayed the same, because a deploy updates the machine in place.
+
+Fix applied: `fly machine clone 807339f1595248 --region yyz` made `8e762ec1ed4538` with egress `185.156.47.130` (same /24), and Deezer answered 200. The old machine was destroyed. So Akamai blocked one address, not the range. The clone kept `IDLE_EXIT_MINUTES=20`, autostop off, autostart on, restart on-failure. The fix was operational: no code change resolved the block.
+
+Unknown: why Akamai blocked `185.156.47.129`; and why the machine was recreated at 2026-10-27T17:49:55Z, about four minutes after the first idle exit stopped the old one at 17:45:54Z.
+
+MusicBrainz 503s the same day (`87 calls ... 60x200, 27x503`) were MusicBrainz-side: 12 requests at 1.1s spacing from the owner's PC got 4x503, from Fly 2x503, at the same moment. MusicBrainz answers a rate limit or busy state with 503, not 429 (an older convention). The client treats 429 and 503 alike (`_RATE_LIMIT_STATUS` in `scrobblescope/musicbrainz.py`) and retries.
+
+Code changes that came with it: a Deezer 403 is now one request, raised as `deezer_unavailable`; MusicBrainz request starts are spaced 1.2s.
+
+Recurrence risk: any move of the machine to another host changes the egress IP, and the idle exit (PR #276) makes stop and start frequent. The remedy is the `DEPLOY.md` section "Deezer blocks the machine's egress address". The finding is resolved because the incident is over; the risk is carried as a possible issue in `AGENTS.md` and `DEPLOY.md`, not as an open finding. Out of scope: a per-job Deezer circuit breaker, Spotify 403 handling, the static egress IP.
+
+RESOLVED 2026-10-28 by an operational fix (machine clone), with code follow-ups in this PR.
+
+- [x] **Status:** RESOLVED
+- **Completed:** 2026-10-28
+
+Source: production incident, 2026-10-28 (owner session).
+
+### F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`) -- RESOLVED
+
+The "Album Filtering" pill is wider than "Heatmap" due to different text
+lengths and no `min-width` constraint. Owner flagged this after testing.
+CSS fix: add `min-width` to `.mode-pill` in `heatmap.css` so both pills
+are the same width. To be fixed in a Phase 2 WP.
+
+RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
+elements in a two-column grid, which also closes the `span[role="button"]`
+item in F-B21-5.
+
+- [x] **Status:** RESOLVED
+- **Completed:** 2026-08-25
+
+Source: `FINDINGS.md` before `494f2c7` ("pill tabs mismatched in width");
+the RESOLVED paragraph is the pointer bullet's own text, moved here.
+
+### F-B23-59: Spotify album search takes the first result without checking the artist or title -- RESOLVED
+
+`search_for_spotify_album_id` (`scrobblescope/spotify.py`) sends `limit: 3` and returns `items[0].get("id")` with no artist or title check, where `search_deezer_album` (`scrobblescope/deezer.py`) accepts a candidate only when `normalize_name` of its artist and title equals that of the request. Real cases from the owner's runs: an album Spotify lacks got another album (Xiu Xiu "A Promise" got Captain Beefheart's "Safe As Milk", 1967), and a sibling ranked higher won ("audio stars" got "audio stars 2", "Basspunk" got "Basspunk 2", bassvictim's "?" got "Forever"). The wrong track list matches no scrobble, so `aggregate_albums` totals 0 seconds and the album shows "0 secs".
+
+Fix direction: ask for five candidates and accept one only when any credited artist and the title both equal the request under `normalize_name`; no match falls to Deezer.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by `search_for_spotify_album_id` asking Spotify for five candidates and
+accepting one only when the title and one credited artist both equal the
+request under `normalize_name` (`matching_credit`); no match falls to Deezer.
+Fixed by `2561e4cd`. A wrong match already in the cache clears on read: the
+provider's own names are stored (`f546a0bf`), `AlbumCache.lookup` drops a row
+naming another album as a miss (`4892ca8a`), and an older row without names is
+checked once by its cached Spotify ID, kept and stamped if it fits, otherwise
+a miss (`1cc4d33d`).
+Source: owner's real runs, 2026-10-25
+
+### F-B23-60: two albums that resolve to one Spotify ID overwrite each other in the search phase -- RESOLVED
+
+`_run_spotify_search_phase` (`scrobblescope/orchestrator/_search.py`) writes `spotify_id_to_key[spotify_id] = key` and `spotify_id_to_original_data[spotify_id] = data`, so a second key with the same ID replaces the first silently and the loser falls to Deezer. It stays reachable once D1 is fixed: a collaboration album credited to [A, B] matches key (A, title) and key (B, title), so a Last.fm library that holds scrobbles under both artist names sends two keys to one ID.
+
+Fix direction: log one warning (operation and count only) when an ID is shared, never drop a key, and build the metadata once per requesting key so each key's stored provider artist is the credit that matched it.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by building the metadata once per requesting key, so two keys
+sharing a Spotify ID each get their own metadata and the stored provider
+artist is the credit that matched that key. Fixed by `3c2694c3`.
+Source: owner's real runs, 2026-10-25
+
+### F-B23-61: an album named "?" or "EP" normalizes to an empty key -- RESOLVED
+
+`normalize_name` (`scrobblescope/domain.py`) replaces ASCII punctuation with spaces and strips the album edition words (including "ep") from the album only, so the albums "?" and "EP" both normalize to `""`. Matching on `""` would accept any other empty-normalizing title by that artist, and two such albums by one artist share one key in the cache, the grouping and the wire key. Real case: bassvictim's "?" (see F-B23-59).
+
+Fix direction: when the cleaned album text is empty, key on the title's NFKC-lowercased text with whitespace collapsed and `|` written `%7c`; every existing non-empty key stays unchanged, and rows stored under the empty key age out by the TTL.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-25
+Resolved by `normalize_name` keying an empty-normalizing album on its
+NFKC-lowercased title; every existing non-empty key is unchanged, and rows
+stored under the empty key age out by the TTL. Fixed by `0237a840`.
+Source: owner's real runs, 2026-10-25

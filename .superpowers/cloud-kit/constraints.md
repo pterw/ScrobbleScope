@@ -169,7 +169,7 @@ it is a step in R5, not a gate here. Edit gates here and nowhere else.
   run: .venv/bin/python scripts/doc_state_sync.py --check
   pass: exit 0
   quote: last line
-  expected: "WARNING: Root BATCH file detected: BATCH23_DEFINITION.md" ; "WARNING DOC024 docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md" ; "WARNING DOC024 docs/history/findings/FINDINGS_ARCHIVE.md" ; "WARNING DOC024 docs/history/logs/BATCH21_LOG.md" ; "WARNING DOC024 docs/history/logs/BATCH22_LOG.md" (each with its Remediation line; standing since Task 4 until the real archives are paginated)
+  expected: "WARNING: Root BATCH file detected: BATCH23_DEFINITION.md" ; "WARNING DOC024 docs/history/findings/FINDINGS_ARCHIVE.md" twice (findings pages 0001 and 0002 hold undated entries, so they never age into cold storage), each with its Remediation line. The four page-target warnings ended when the real archives were paginated on 2026-10-31.
 ```
 
 ## 3. Lessons
@@ -198,7 +198,9 @@ plan's workspace:
   BATCH21_LOG.md, BATCH22_LOG.md are unpaginated and over the 500-line page
   target) and still exits 0. They are expected (section 2b) until the owner
   rules on paginating the real archives. Never run `--paginate-archives` or
-  `--cold-storage` on the real worktree unless a brief says so.
+  `--cold-storage` on the real worktree unless a brief says so. (2026-10-31:
+  the owner ruled the split; the real archives are paginated. `--cold-storage`
+  still needs a brief.)
 - L8 (after foundation Task 4): `tests/test_docsync_integrity.py::
   test_stated_docsync_range_matches_the_highest_code_raised` requires
   `AGENTS.md` to state the DOC range and it must equal the highest code the
