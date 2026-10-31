@@ -1,6 +1,20 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Record the CI split's docs-only check
+
+Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
+plan's open post-merge check (b2) is done. On docs-only PR #287 (head
+`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
+skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
+plan's delivery sequence, added a line to its Execution record, and updated the
+Section 3 bullet that still said the check remained. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Check each archive page against its manifest counts
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):

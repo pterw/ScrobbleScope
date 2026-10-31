@@ -866,7 +866,7 @@ The Results header's Top Artist is the artist of the first row in the run's rank
 
 ### F-B23-66: DOC012 misses a placeholder count on a Final validation or continuation line
 
-After F-B23-17's fix (commits `da7741e0` and `ef18f96b`), `scripts/docsync/integrity.py` flags a digitless bold count only on a line that opens a Validation record (`_VALIDATION_LINE_RE`, anchored at line start) or on the line after a wrapped `pytest -q --`, so a placeholder on a `Final validation:` line, or on a continuation line after an earlier count, is not flagged. Today's PLAYBOOK Section 4 uses neither shape (only archive pages do, and DOC012 scans the live PLAYBOOK), and the entry template writes `Validation:` on one line, so a miss needs a non-template shape and a left-in placeholder together. What would close it: widen `_VALIDATION_LINE_RE` to the two shapes, with two parametrize cases in the D1 test.
+After F-B23-17's fix (commits `da7741e0` and `ef18f96b`), `scripts/docsync/integrity.py` flags a digitless bold count only on a line that opens a Validation record (`_VALIDATION_LINE_RE`, anchored at line start) or on the line after a wrapped `pytest -q --`, so a placeholder on a `Final validation:` line, or on a continuation line after an earlier count, is not flagged. Today's PLAYBOOK Section 4 uses neither shape (and DOC012 scans only the live PLAYBOOK), and the entry template writes `Validation:` on one line, so a miss needs a non-template shape and a left-in placeholder together. What would close it: widen `_VALIDATION_LINE_RE` to the two shapes, with two parametrize cases in the D1 test.
 
 - [ ] **Status:** open (P3). Source: `review-d1-fix` of the docsync quick-wins PR, 2026-10-31.
 

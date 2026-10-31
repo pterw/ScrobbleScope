@@ -255,6 +255,19 @@ Deviations: none.
 Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
 was not re-run, docs only).
 
+### 2026-10-31 - Correct an unsupported clause in F-B23-66
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-66 wording):
+the finding claimed only archive pages open a line with `Final validation`,
+but no line under `docs/` does (`git grep -i "^Final validation" -- docs`
+finds nothing). The parenthetical now reads "(and DOC012 scans only the live
+PLAYBOOK)". Nothing else in the finding changed. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
@@ -282,17 +295,3 @@ test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
 Deviations: none.
 
 Validation: `pytest -q` -- **3169 passed**.
-
-### 2026-10-31 - Record the CI split's docs-only check
-
-Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
-plan's open post-merge check (b2) is done. On docs-only PR #287 (head
-`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
-skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
-plan's delivery sequence, added a line to its Execution record, and updated the
-Section 3 bullet that still said the check remained. Docs only.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
-was not re-run, docs only).
