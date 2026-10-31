@@ -1,6 +1,19 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
+
+Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into
+`fix/ui-audit-minors`, so the branch carries the F-B23-33 fix and its
+bookkeeping. Owner ruling 2026-10-31: a merge commit, not a rebase. Only
+PLAYBOOK and the log archive conflicted. Both sides' Section 3 bullets and
+Section 4 entries are kept, with PR #282 recorded as merged; `main`'s
+pre-merge copy of the weekly chart geometry bullet is superseded by this
+branch's merged one. The archive keeps this branch's side, which already
+holds the one entry `main` added. No code conflicts.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Record the UI audit Minors execution
 
 Side task, no batch tag: close the UI audit Minors plan

@@ -3,7 +3,7 @@
 Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3119 tests across 104 tracked test modules.
+3120 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -835,12 +835,6 @@ Small gaps the third review of PR #245 (S4) found in the gate's checks, left ope
 - Flake, fixed by inference: `heatmap cells keyboard access [mobile]` failed once at ccc2c921 (ring 0% on all four sides) and passed on an immediate re-run; it did not reproduce on the unfixed tree. Task 17 makes the reading deterministic (the cell's box is read before and after the shot and the shot is retaken if the page moved, after a scroll nudge and a fonts-and-frames wait). The cause is inferred, so watch the next gate runs. It recurred at dce6f148 with no other browser run on the machine (F-B23-39), so the inferred cause is at most part of it. The 250 ms fixed sleeps in the heatmap-access checks are now waits for the page's transitions to finish (F-B23-39); whether that ends the ring flake is not yet shown.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S4-3, S4-4, S4-7, S4-8, S4-9 and S4-11.
-
-### F-B23-37: Deezer may answer a busy service with an HTTP 200 error body that `_deezer_request` reads as a terminal miss
-
-`scrobblescope/deezer.py` `_deezer_request` retries only error code 4 (quota) from a 200 body carrying `{"error": {"code": N}}`; every other code is a terminal miss, so the album is recorded as having no match on Deezer. The Task 18 review recalled that Deezer signals "service busy" with code 700 in such a body, which would be an outage read as "no match". UNVERIFIED: the code and its meaning come from memory and were not read at Deezer's documentation. Verify against Deezer's documented error codes before any fix; if 700 (or another code) means "try later", treat it as not-done so the retry helper raises `deezer_unavailable`, and add a test.
-
-- [ ] **Status:** open (P3). Source: Task 18 review (2026-09-30), Minor 2.
 
 ### F-B23-38: leftovers of F-B23-29 that no commit has done
 
