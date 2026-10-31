@@ -449,13 +449,31 @@ class ArchiveStore:
             if not path.is_file():
                 raise SyncError(f"Indexed archive page is missing: {path}")
             number = self._page_number(index_path.stem, name, position)
-            pages.append(
-                _Page(number, name, location, oversized, self._read_page(path))
-            )
+            page_entries = self._read_page(path)
+            self._check_counts(path, record, page_entries)
+            pages.append(_Page(number, name, location, oversized, page_entries))
 
         self._reject_orphans(index_path, seen)
         prologue = tuple(_strip_trailing_blank(head.split("\n")))
         return _Layout(paginated=True, prologue=prologue, pages=tuple(pages))
+
+    def _check_counts(
+        self,
+        path: Path,
+        record: Mapping[str, object],
+        entries: Sequence[Sequence[str]],
+    ) -> None:
+        """Refuse a page whose entry or line count differs from its manifest."""
+        found = {"entries": len(entries), "lines": _page_line_count(entries)}
+        for key, actual in found.items():
+            if record.get(key) != actual:
+                raise SyncError(
+                    f"Archive page {path} holds {actual} {key} but its index "
+                    f"manifest records {record.get(key)!r}. A page and its "
+                    f"index manifest must change together and only through "
+                    f"`doc_state_sync.py --fix`; restore the edited page or "
+                    f"index from git history rather than hand-editing either."
+                )
 
     def _page_number(self, stem: str, name: str, fallback: int) -> int:
         match = re.fullmatch(rf"{re.escape(stem)}_(\d{{4}})\.md", name)

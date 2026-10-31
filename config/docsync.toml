@@ -711,9 +711,9 @@ scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLAUDE.md"]
 
 # The exemption compares the raw line verbatim (declarations.py
-# check_retired), so it needs docs/agents/PLAYBOOK.md's real heading text. F-DOCSYNC-16
-# records that an unmatched allow_after marker is silently ignored rather
-# than erroring.
+# check_retired), so it needs docs/agents/PLAYBOOK.md's real heading text. An
+# unmatched allow_after marker is an error (DOC011), fixed in 7baedf11
+# (F-DOCSYNC-16).
 [retired.allow_after]
 "docs/agents/PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
 
@@ -739,4 +739,4 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLA
 grandfathered = []
 
 [test_count]
-pinned = 3165
+pinned = 3168

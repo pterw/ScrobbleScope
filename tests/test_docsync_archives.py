@@ -432,6 +432,53 @@ def test_orphaned_managed_page_is_rejected(tmp_path):
         store.read(index)
 
 
+def test_a_consistent_paginated_store_loads(tmp_path):
+    """GIVEN pages exactly as `plan` wrote them, WHEN read, THEN they load."""
+    store, index, _ = _paginate(tmp_path)
+
+    assert store.read(index).count("### ") == 30
+
+
+def _delete_last_entry(page: Path) -> None:
+    body = page.read_text(encoding="utf-8")
+    page.write_text(body[: body.rindex("### ")].rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _bump_manifest_lines(store: ArchiveStore, index: Path) -> None:
+    manifest = _manifest(index)
+    manifest["pages"][0]["lines"] += 1
+    _rewrite_manifest(index, manifest)
+
+
+@pytest.mark.parametrize(
+    ("tamper", "count"),
+    [
+        pytest.param(
+            lambda store, index: _delete_last_entry(
+                store.page_path(index, _manifest(index)["pages"][0])
+            ),
+            "entries",
+            id="page-entry-deleted",
+        ),
+        pytest.param(_bump_manifest_lines, "lines", id="manifest-lines-edited"),
+    ],
+)
+def test_page_that_disagrees_with_its_manifest_counts_is_rejected(
+    tmp_path, tamper, count
+):
+    """GIVEN a page and manifest edited apart, WHEN read, THEN the count drifts.
+
+    A deleted entry changes the page's entry count (and its line count); an
+    edited `lines` value changes only the manifest. Either way the page and
+    its manifest record no longer agree, which must be reported (DOC020).
+    """
+    store, index, _ = _paginate(tmp_path)
+    tamper(store, index)
+
+    with pytest.raises(SyncError, match=rf"holds \d+ {count} but its index"):
+        store.read(index)
+
+
 def test_managed_pages_beside_a_legacy_monolith_are_rejected(tmp_path):
     store, index = _store(tmp_path, max_lines=40)
     text = _corpus([_entry(f"F-{n}", body=6) for n in range(3)])

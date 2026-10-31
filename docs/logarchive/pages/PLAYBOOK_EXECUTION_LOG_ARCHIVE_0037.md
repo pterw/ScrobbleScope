@@ -1,6 +1,33 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Release the job slot when job creation fails
+
+Side task, no batch tag, branch `fix/admission-slot-leak` (F-B23-65):
+`admit()` in `scrobblescope/routes/admission.py` took a job slot and then
+called `jobs.create(params)` outside any `try`, so a raise there left the
+semaphore one permit short with no owner to return it. `jobs.create` now sits
+in its own small `try` that calls `release_job_slot()` (imported from
+`scrobblescope.worker`; the `routes` facade is untouched) and re-raises with a
+bare `raise`. It was not folded into the existing `try`, which answers
+`Refused.START_FAILED` and would release a second time. The module docstring's
+slot-ownership paragraph gains one sentence. New test
+`test_a_create_failure_frees_the_slot_once_and_propagates` in
+`tests/test_admission.py`. An outside agent (DeepSeek) wrote the patch under
+the strict-isolation prompt and the boundary held: only the two permitted files
+changed. Landing rulings: L1 the test keeps the raised error and asserts the
+propagated one is that same object, because the review's planted defect
+"re-raise a new RuntimeError" survived the first version (confirmed: with the
+bare `raise` replaced by `raise RuntimeError("x") from None` in a throwaway
+copy the test fails); L2 its empty-store assertion was dropped because the
+store cannot hold a job whose creation raised, so it could never fail.
+Forward guidance: anything acquired before a call that can raise needs a
+release on that call's own failure path.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3159 passed**.
+
 ### 2026-10-31 - Pin the pip-audit action to its commit SHA
 
 Side task, no batch tag, branch `ci/pin-pip-audit-action`: the third-party

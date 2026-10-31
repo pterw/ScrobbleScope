@@ -3,7 +3,7 @@
 Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3165 tests across 104 tracked test modules.
+3168 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -767,6 +767,7 @@ Two P3 gaps in the archive store were left when the docsync publication fixes la
 Candidate for a second guard on CRLF checkouts (S3-7): a `.gitattributes` `eol=lf` rule for `docs/logarchive/**` and `docs/history/**`. It is optional, since `ArchiveStore._diff` now folds line endings.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S3-5 and S3-8.
+  S3-5 is done (commit "Check each archive page against its manifest counts" on `fix/docsync-quick-wins`, test `test_page_that_disagrees_with_its_manifest_counts_is_rejected`); S3-8 remains.
 
 ### F-B23-36: six small frontend-gate checks judge less than they name
 
