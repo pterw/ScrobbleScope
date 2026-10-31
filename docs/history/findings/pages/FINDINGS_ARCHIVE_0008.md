@@ -1,6 +1,14 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # FINDINGS_ARCHIVE -- page 0008
 
+### F-B23-37: Deezer may answer a busy service with an HTTP 200 error body that `_deezer_request` reads as a terminal miss -- RESOLVED
+
+`scrobblescope/deezer.py` `_deezer_request` retries only error code 4 (quota) from a 200 body carrying `{"error": {"code": N}}`; every other code is a terminal miss, so the album is recorded as having no match on Deezer. The Task 18 review recalled that Deezer signals "service busy" with code 700 in such a body, which would be an outage read as "no match". UNVERIFIED: the code and its meaning come from memory and were not read at Deezer's documentation. Verify against Deezer's documented error codes before any fix; if 700 (or another code) means "try later", treat it as not-done so the retry helper raises `deezer_unavailable`, and add a test.
+
+- [x] **Status:** resolved
+**Completed:** 2026-10-31
+Code 700 (SERVICE_BUSY in Deezer's documented error table, read by the owner on 2026-10-31) is now retried like an HTTP 5xx and raised as `deezer_unavailable`, on branch `fix/deezer-service-busy`. Source: Task 18 review (2026-09-30), Minor 2.
+
 ### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path -- RESOLVED
 
 `routes/api.py` passes `request.args["artist_id"]` unvalidated into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`), so `../` segments make the server call any GET route under the app's token, though no client sends the parameter.

@@ -6,7 +6,8 @@ date). No API key is required.
 Deezer reports errors with HTTP 200 and a body of
 ``{"error": {"type": ..., "message": ..., "code": N}}``: 800 means "no
 data" (a terminal miss), 4 means the request quota was exceeded and is
-worth retrying after a short wait.
+worth retrying after a short wait, and 700 means the service is busy: an
+outage, retried like a 5xx.
 
 Attribution: read https://developers.deezer.com/guidelines before
 rendering any Deezer-sourced result. Task 6 owns that gate; this module
@@ -24,6 +25,7 @@ from scrobblescope.utils import (
 )
 
 _DEEZER_ERROR_QUOTA = 4
+_DEEZER_ERROR_SERVICE_BUSY = 700
 
 
 def _deezer_error_code(data):
@@ -41,10 +43,11 @@ async def _deezer_request(session, url, params, limiter, null_body=None):
     reads, carrying the decoded body only when the request both succeeded and
     came back without an error code. Deezer reports failures with HTTP 200 and
     a code in the body, so a status check alone cannot separate a success from
-    a quota refusal: code 4 is the retryable one and every other code is a
-    terminal miss. Callers that need more than the raw body -- a search picking
-    a candidate out of it -- inspect the body only when it is not None, so the
-    two failure shapes pass straight through unchanged. A 200 whose body is
+    a quota refusal: code 4 is retried after a wait, code 700 (service busy)
+    gets the 5xx treatment, and every other code is a terminal miss. Callers
+    that need more than the raw body -- a search picking a candidate out of
+    it -- inspect the body only when it is not None, so the two failure
+    shapes pass straight through unchanged. A 200 whose body is
     JSON ``null`` was read, but says nothing: it returns *null_body* in its
     place, so a caller that keeps a partial answer can tell it from a terminal
     error (both give None otherwise).
@@ -72,6 +75,10 @@ async def _deezer_request(session, url, params, limiter, null_body=None):
             code = _deezer_error_code(data)
             if code == _DEEZER_ERROR_QUOTA:
                 return None, 1, False
+            if code == _DEEZER_ERROR_SERVICE_BUSY:
+                # A busy service is an outage, not an answer: the same outcome
+                # as a 5xx, so it is retried and then raised, never a miss.
+                return None, None, False
             if code is not None:
                 return None, None, True
             return data, None, True
@@ -92,8 +99,8 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
     built from *artist*/*album* -- this never returns "the first result"
     as a guess. Returns None if no candidate matches. Raises ``ProviderError``
     when Deezer could not be read: throttled past the Retry-After cap or
-    through every retry, a 5xx (retried), a timeout, or a 403 (raised at
-    once, not retried). That is not "no match", and the
+    through every retry, a 5xx or a 200 code 700 (both retried), a timeout,
+    or a 403 (raised at once, not retried). That is not "no match", and the
     caller records the album as unavailable instead.
     """
     key = normalize_name(artist, album)
