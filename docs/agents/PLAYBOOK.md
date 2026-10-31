@@ -85,6 +85,10 @@ See FINDINGS F-DOCSYNC-3.
   fully executed (nine commits; the owner dropped the panel-header task) and
   the PR is ready for review; the execution record is in the plan.
 
+- **Spotify artist ID side task:** Complete and merged as PR #282, merge
+  commit `708fb48b`; it closed F-B23-33 (a malformed artist ID no longer
+  reaches the Spotify artists URL).
+
 - **Weekly chart geometry side task:** Complete and merged as PR #281, merge
   commit `18a4242d`. The execution record is
   `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
@@ -208,6 +212,19 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
+
+Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into
+`fix/ui-audit-minors`, so the branch carries the F-B23-33 fix and its
+bookkeeping. Owner ruling 2026-10-31: a merge commit, not a rebase. Only
+PLAYBOOK and the log archive conflicted. Both sides' Section 3 bullets and
+Section 4 entries are kept, with PR #282 recorded as merged; `main`'s
+pre-merge copy of the weekly chart geometry bullet is superseded by this
+branch's merged one. The archive keeps this branch's side, which already
+holds the one entry `main` added. No code conflicts.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Record the UI audit Minors execution
 
 Side task, no batch tag: close the UI audit Minors plan
@@ -223,6 +240,29 @@ intermittent gate failures that were re-run green. The spec gains a one-line
 outcome for Task 6's row. `results-behavior` is still owed at the final head.
 
 Deviations: none. Edited existing tests: none. Docs only.
+
+Validation: `pytest -q` -- **3113 passed**.
+
+### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
+
+Side task, no batch tag: `_request_spotlight_artist` in
+`scrobblescope/spotify.py` now takes the by-ID path only when the artist ID
+is 22 base-62 characters. Before, the ID was spliced straight into
+`https://api.spotify.com/v1/artists/{id}`, so a value carrying `/` or `..`
+could make the server call another GET route under the app's token. A
+malformed ID is now treated like any failed by-ID lookup: no request to the
+artists URL, then the existing name fallback, or None without a name. No
+client sends the parameter today. Closes F-B23-33 on branch
+`fix/spotify-artist-id`.
+
+An outside agent wrote the patch and an independent review approved it.
+One new parametrized test covers four malformed IDs and a well-formed one.
+Existing tests edited: `test_artist_spotlight_parses_details_and_missing_fields`,
+`test_artist_spotlight_falls_back_from_failed_id_lookup` and
+`test_artist_spotlight_id_lookup_skips_the_name_check` in
+`tests/services/test_spotify_service.py` now pass a well-formed ID instead
+of a short placeholder; no assertion changed beyond the ID value. No schema
+change, no new dependency.
 
 Validation: `pytest -q` -- **3113 passed**.
 
@@ -243,35 +283,3 @@ ignores the control margins fails. No deviations. Existing tests edited:
 renamed).
 
 Validation: `pytest -q` -- **3113 passed**.
-
-### 2026-10-31 - Match the stream month labels to the heatmap's
-
-The stream's bottom month labels, created in `drawStream` in
-`static/js/heatmap.js`, carried only font-size and the font stack. They
-now also take the heatmap labels' `font-variant` small-caps and
-`letter-spacing` 0.12em, so the two charts' month rows read the same
-(rendered size was already equal: both SVGs share `svgWidth` at
-`width: 100%`). The saved image gains the same styling, because
-`streamAsImage` already copies those two attributes; the export code is
-unedited and the last label stays inside the image. The stream alignment
-check in `scripts/dev/_frontend_gate_stream.py` now reads each label's
-family, variant, tracking and rendered size, and fails when the stream
-differs from the heatmap, failing closed on empty or mismatched label
-sets. The owner previewed and kept the change (C16). This closes audit
-owner ruling C2 of the UI audit Minors. No deviations. Existing tests
-edited: none.
-
-Validation: `pytest -q` -- **3111 passed**.
-
-### 2026-10-31 - Tighten the heatmap key's ramp spacing
-
-`.hm-preview__ramp` in `static/css/heatmap.css` carried its own
-`margin-top` of 0.875rem on top of the `.index-key` grid gap, leaving
-about 28px under the last key row at 1920. The margin is removed, so the
-gap alone (0.75rem times `--index-scale`) remains: 12.9px at 1920, 12px
-at scale 1, matching the reference's 12px grid gap. The ramp's height is
-unchanged. The owner previewed the change and kept it (C15). This closes
-audit row 5 of the UI audit Minors. No deviations. Existing tests
-edited: none.
-
-Validation: `pytest -q` -- **3111 passed**.

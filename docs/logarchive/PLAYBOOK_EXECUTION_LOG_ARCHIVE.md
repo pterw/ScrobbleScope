@@ -9,6 +9,38 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-31 - Match the stream month labels to the heatmap's
+
+The stream's bottom month labels, created in `drawStream` in
+`static/js/heatmap.js`, carried only font-size and the font stack. They
+now also take the heatmap labels' `font-variant` small-caps and
+`letter-spacing` 0.12em, so the two charts' month rows read the same
+(rendered size was already equal: both SVGs share `svgWidth` at
+`width: 100%`). The saved image gains the same styling, because
+`streamAsImage` already copies those two attributes; the export code is
+unedited and the last label stays inside the image. The stream alignment
+check in `scripts/dev/_frontend_gate_stream.py` now reads each label's
+family, variant, tracking and rendered size, and fails when the stream
+differs from the heatmap, failing closed on empty or mismatched label
+sets. The owner previewed and kept the change (C16). This closes audit
+owner ruling C2 of the UI audit Minors. No deviations. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
+### 2026-10-31 - Tighten the heatmap key's ramp spacing
+
+`.hm-preview__ramp` in `static/css/heatmap.css` carried its own
+`margin-top` of 0.875rem on top of the `.index-key` grid gap, leaving
+about 28px under the last key row at 1920. The margin is removed, so the
+gap alone (0.75rem times `--index-scale`) remains: 12.9px at 1920, 12px
+at scale 1, matching the reference's 12px grid gap. The ramp's height is
+unchanged. The owner previewed the change and kept it (C15). This closes
+audit row 5 of the UI audit Minors. No deviations. Existing tests
+edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Share the footer gap as one custom property
 
 The footer gap was two 1.5rem literals, the footer row's bottom padding in

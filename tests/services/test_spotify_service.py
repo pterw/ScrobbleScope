@@ -539,6 +539,10 @@ async def test_search_succeeds_on_first_try():
     assert mock_sleep.await_count == 0
 
 
+#: A well-formed Spotify artist ID: exactly 22 base-62 characters.
+_ARTIST_ID = "0123456789abcdefghijAB"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("by_id", [True, False])
 @pytest.mark.parametrize(
@@ -566,11 +570,11 @@ async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist)
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
     ):
         result = await fetch_spotify_artist_spotlight(
-            session, requested, "requested-id" if by_id else None, "token"
+            session, requested, _ARTIST_ID if by_id else None, "token"
         )
     assert result == {
         "name": requested,
-        "artist_id": artist.get("id", "requested-id" if by_id else None),
+        "artist_id": artist.get("id", _ARTIST_ID if by_id else None),
         "image_url": "photo" if artist else None,
         "spotify_url": "link" if artist else None,
     }
@@ -592,7 +596,7 @@ async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
     ):
         result = await fetch_spotify_artist_spotlight(
-            session, "Requested", "missing", "token"
+            session, "Requested", _ARTIST_ID, "token"
         )
     assert result == (
         {
@@ -642,14 +646,61 @@ async def test_artist_spotlight_name_search_checks_the_returned_name(
 async def test_artist_spotlight_id_lookup_skips_the_name_check():
     """An explicit artist ID returns its hit whatever the artist is called."""
     response = AsyncMock(status=200)
-    response.json.return_value = {"id": "x", "name": "Other"}
+    response.json.return_value = {"id": _ARTIST_ID, "name": "Other"}
     session = MagicMock()
     session.get.return_value = make_response_context(response)
     with patch(
         "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
     ):
-        result = await fetch_spotify_artist_spotlight(session, "Requested", "x", "t")
+        result = await fetch_spotify_artist_spotlight(
+            session, "Requested", _ARTIST_ID, "t"
+        )
     assert result["name"] == "Other"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("artist_id", "expected_artist_url"),
+    [
+        ("../me", None),
+        ("abc", None),
+        ("0123456789abcdefghij/m", None),
+        ("0123456789abcdefghijABC", None),
+        (_ARTIST_ID, f"https://api.spotify.com/v1/artists/{_ARTIST_ID}"),
+    ],
+    ids=["path-traversal", "too-short", "slash-in-id", "too-long", "well-formed"],
+)
+async def test_artist_spotlight_requests_the_artists_url_only_for_a_well_formed_id(
+    artist_id, expected_artist_url
+):
+    """
+    GIVEN a name and an artist ID that is malformed, or exactly 22 base-62
+    characters
+    WHEN fetch_spotify_artist_spotlight runs
+    THEN a malformed ID sends no request to the artists URL, so the name
+    search runs; a well-formed ID requests its own artists URL and no search.
+    """
+    by_id = AsyncMock(status=200)
+    by_id.json.return_value = {"id": _ARTIST_ID, "name": "By ID"}
+    search = AsyncMock(status=200)
+    search.json.return_value = {
+        "artists": {"items": [{"id": _ARTIST_ID, "name": "Requested"}]}
+    }
+    session = MagicMock()
+    session.get.side_effect = lambda url, **kwargs: make_response_context(
+        search if url.endswith("/search") else by_id
+    )
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        await fetch_spotify_artist_spotlight(session, "Requested", artist_id, "token")
+
+    urls = [call.args[0] for call in session.get.call_args_list]
+    artist_urls = [url for url in urls if "/artists/" in url]
+    assert artist_urls == ([expected_artist_url] if expected_artist_url else [])
+    assert ("https://api.spotify.com/v1/search" in urls) is (
+        expected_artist_url is None
+    )
 
 
 @pytest.mark.asyncio

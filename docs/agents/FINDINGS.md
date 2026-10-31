@@ -1,9 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-10-30
+Last updated: 2026-10-31
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-3113 tests across 104 tracked test modules.
+3118 tests across 104 tracked test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at the next
 `doc_state_sync.py --fix` once their lifecycle record is checked (the
@@ -803,12 +803,6 @@ to this finding.
 Provider-supplied album, Spotify and image URLs (`spotify.py`, `deezer.py`, `enrichment.py` `AlbumMetadata.from_row` (the one place a cached link enters), `_results.py`, `results-spotlight.js`, `results.html`, `unmatched.html`) are rendered as link and image targets with no scheme or host check, so a spoofed provider or a poisoned cache row could deliver a `javascript:` or attacker URL.
 
 - [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-3.
-
-### F-B23-33: /api/artist_spotlight splices a raw artist_id into a Spotify path
-
-`routes/api.py` passes `request.args["artist_id"]` unvalidated into `https://api.spotify.com/v1/artists/{artist_id}` (`spotify.py`), so `../` segments make the server call any GET route under the app's token, though no client sends the parameter.
-
-- [ ] **Status:** open (P3). Source: third review of PR #245 (2026-09-29), S6-4.
 
 ### F-B23-34: html2canvas loads from cdnjs without Subresource Integrity
 
