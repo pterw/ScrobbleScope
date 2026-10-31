@@ -1,6 +1,22 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Report an allow_after marker that matches no line
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-DOCSYNC-16):
+`check_retired` left `exempt_from` unset when a `[retired.allow_after]`
+marker matched no line of its file, so a renamed heading silently dropped the
+history exemption. It now reports DOC011 (no new code) naming the file and the
+marker, with a remediation to correct the marker to the file's real line.
+New test `test_an_allow_after_marker_matching_no_line_is_reported` (dead marker
+flagged, matching marker clean); red on the unpatched code, green after.
+`documentation-tooling.md`'s DOC011 row gains one clause. `--check` on the
+patched tree stays green: the four live markers all match.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3162 passed**.
+
 ### 2026-10-31 - Flag a Validation line whose count has no digit
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17): the

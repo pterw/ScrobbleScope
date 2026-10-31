@@ -471,8 +471,7 @@ class ArchiveStore:
                     f"Archive page {path} holds {actual} {key} but its index "
                     f"manifest records {record.get(key)!r}. A page and its "
                     f"index manifest must change together and only through "
-                    f"`doc_state_sync.py --fix`; restore the edited page or "
-                    f"index from git history rather than hand-editing either."
+                    f"`doc_state_sync.py --fix`, so one of them was edited alone."
                 )
 
     def _page_number(self, stem: str, name: str, fallback: int) -> int:

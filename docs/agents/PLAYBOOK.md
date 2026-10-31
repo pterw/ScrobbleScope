@@ -224,6 +224,20 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Word the manifest-count error to match DOC020
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
+fix round): the new count error told the reader not to hand-edit, while the
+DOC020 suffix allows a hand correction of the index. It now states only the
+fact and the rule and ends "so one of them was edited alone"; the suffix gives
+the remediation. Added the `page-entry-added` case (a page that gained an
+entry; red against a `>`-only comparison) and restored the consistent-store
+test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed**.
+
 ### 2026-10-31 - Record the CI split's docs-only check
 
 Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
@@ -270,19 +284,3 @@ unpatched code, green after.
 Deviations: none.
 
 Validation: `pytest -q` -- **3165 passed**.
-
-### 2026-10-31 - Report an allow_after marker that matches no line
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-DOCSYNC-16):
-`check_retired` left `exempt_from` unset when a `[retired.allow_after]`
-marker matched no line of its file, so a renamed heading silently dropped the
-history exemption. It now reports DOC011 (no new code) naming the file and the
-marker, with a remediation to correct the marker to the file's real line.
-New test `test_an_allow_after_marker_matching_no_line_is_reported` (dead marker
-flagged, matching marker clean); red on the unpatched code, green after.
-`documentation-tooling.md`'s DOC011 row gains one clause. `--check` on the
-patched tree stays green: the four live markers all match.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3162 passed**.

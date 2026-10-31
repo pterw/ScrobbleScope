@@ -434,14 +434,20 @@ def test_orphaned_managed_page_is_rejected(tmp_path):
 
 def test_a_consistent_paginated_store_loads(tmp_path):
     """GIVEN pages exactly as `plan` wrote them, WHEN read, THEN they load."""
-    store, index, _ = _paginate(tmp_path)
+    store, index, text = _paginate(tmp_path)
 
-    assert store.read(index).count("### ") == 30
+    assert store.read(index) == normalize(text)
 
 
 def _delete_last_entry(page: Path) -> None:
     body = page.read_text(encoding="utf-8")
     page.write_text(body[: body.rindex("### ")].rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _append_copied_entry(page: Path) -> None:
+    body = page.read_text(encoding="utf-8")
+    entry = body[body.rindex("### ") :].rstrip("\n")
+    page.write_text(body.rstrip("\n") + "\n\n" + entry + "\n", encoding="utf-8")
 
 
 def _bump_manifest_lines(store: ArchiveStore, index: Path) -> None:
@@ -460,6 +466,13 @@ def _bump_manifest_lines(store: ArchiveStore, index: Path) -> None:
             "entries",
             id="page-entry-deleted",
         ),
+        pytest.param(
+            lambda store, index: _append_copied_entry(
+                store.page_path(index, _manifest(index)["pages"][0])
+            ),
+            "entries",
+            id="page-entry-added",
+        ),
         pytest.param(_bump_manifest_lines, "lines", id="manifest-lines-edited"),
     ],
 )
@@ -468,8 +481,9 @@ def test_page_that_disagrees_with_its_manifest_counts_is_rejected(
 ):
     """GIVEN a page and manifest edited apart, WHEN read, THEN the count drifts.
 
-    A deleted entry changes the page's entry count (and its line count); an
-    edited `lines` value changes only the manifest. Either way the page and
+    A deleted entry changes the page's entry count (and its line count), and
+    so does an entry appended by hand (the manifest then records fewer than
+    the page holds); an edited `lines` value changes only the manifest. Either way the page and
     its manifest record no longer agree, which must be reported (DOC020).
     """
     store, index, _ = _paginate(tmp_path)
