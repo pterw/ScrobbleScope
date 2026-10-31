@@ -207,6 +207,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-30 - Report an empty stream and always run its cleanup
+
+The stream gate's paint check called `min()` on the contrast ratios before
+reporting a stream with no drawn layers, so an empty stream raised a
+ValueError instead of the named failure. The contrast line is now skipped
+when there are no ratios, and the failure "the stream draws no artist
+layers" is returned. The keyboard check's cleanup ran its three steps in
+sequence, so a raising first step skipped the viewport restore and the job
+delete; each step now runs in a nested `finally` and the first error still
+surfaces. This closes audit rows 23 and 30 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3109 passed**.
+
 ### 2026-10-30 - Keep a numeric font weight after `normal` in the gate
 
 The frontend gate's canvas font parser read `600 normal 26px x` as weight
@@ -251,28 +265,3 @@ artist with 100 plays in week 26 only) now gives a minimum band thickness of
 Validation: the full suite measured **3108 passed**; pre-commit on all
 files and the final docsync check pass. Next: collect and triage the deferred
 Minors, then write the plan.
-
-### 2026-10-30 - Make weekly chart geometry own drawing and selection
-
-Extract the connected calculation into the approved in-file geometry model.
-Drawing, pointer selection and composition tests consume that model; its
-numeric stack and coordinate conversion stay private. Migrate existing
-behavior tests and remove superseded hooks and a constant-pin assertion.
-The suite drops five redundant cases, with no new test module or dependency.
-The developer README links to the interface owner. Scope and owner-approved
-exceptions remain those in the design; no further deviation is introduced.
-
-The focused harness passed 142 tests. The full suite measured **3108 passed**
-in 227.30 seconds; a later unused test-hook removal passed the focused
-harness again. Chromium and Firefox each matched the exact old runtime's
-paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
-seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
-both engines and desktop, mobile and wide-touch profiles. The frozen-source
-full suite then passed again in 205.55 seconds. Independent final code/spec
-and standards reviews completed whole-file reads and found only a stale
-README date, now corrected and re-reviewed. Archive rotation preserved
-existing dated entries exactly. All hooks and final docsync pass; the
-implementation commit is ready for a template PR. CI and publication state
-will be recorded there, without merging.
-The plan records final review and publication guidance:
-`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.

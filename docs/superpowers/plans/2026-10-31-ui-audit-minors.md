@@ -42,7 +42,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [ ] Task 2: clear the stored pause choice on every exit.
 - [ ] Task 3: reuse the `desktop` media query in `index.js`.
 - [ ] Task 4: share the footer gap as one custom property.
-- [ ] Task 5: stream gate reports an empty stream and always cleans up.
+- [x] Task 5: stream gate reports an empty stream and always cleans up.
 - [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
 - [ ] Task 7: dismissible, focus-safe stream panel.
 - [ ] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
@@ -117,9 +117,9 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 No test file exists for this module and none is added (C6, "no need to excessively guard every UI element"). The evidence is a temporary probe, not retained:
 
-- [ ] RED/GREEN for row 23: call `_paint_failures` with a hand-built reading whose `fills` is empty (a one-off script in the scratch directory): it raises `ValueError` before the change and returns the named failure after. Quote both.
-- [ ] Row 30: read the changed `finally` against the three steps; show with the same kind of probe (a stub page whose first evaluate raises) that the viewport restore and `jobs.delete` still run after the change. Quote the probe output.
-- [ ] Acceptance: `frontend-gate` passes (its `[stream ...]` lines unchanged); `suite-*`, `pre-commit`, `docsync-check` pass.
+- [x] RED/GREEN for row 23: call `_paint_failures` with a hand-built reading whose `fills` is empty (a one-off script in the scratch directory): it raises `ValueError` before the change and returns the named failure after. Quote both.
+- [x] Row 30: read the changed `finally` against the three steps; show with the same kind of probe (a stub page whose first evaluate raises) that the viewport restore and `jobs.delete` still run after the change. Quote the probe output.
+- [x] Acceptance: `frontend-gate` passes (its `[stream ...]` lines unchanged); `suite-*`, `pre-commit`, `docsync-check` pass.
 
 ## Task 6 (PREVIEW): Scrubber panel header at 13px
 

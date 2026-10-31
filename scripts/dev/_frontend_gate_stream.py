@@ -565,10 +565,11 @@ def _paint_failures(reading, theme: str) -> list[str]:
     frame = _rgb(reading["frame"])
     ratios = [_contrast_ratio(_rgb(fill), frame) for fill in reading["fills"].values()]
     label_ratio = _contrast_ratio(_rgb(reading["label"]), frame)
-    print(
-        f"[stream colours] {theme}: layer vs frame min {min(ratios):.2f} "
-        f"max {max(ratios):.2f}, label vs frame {label_ratio:.2f}"
-    )
+    if ratios:
+        print(
+            f"[stream colours] {theme}: layer vs frame min {min(ratios):.2f} "
+            f"max {max(ratios):.2f}, label vs frame {label_ratio:.2f}"
+        )
     if label_ratio < _FLOOR_TEXT:
         failures.append(
             f"the section label is {label_ratio:.2f}:1 against the frame in the "
@@ -1387,9 +1388,13 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
         failures.extend(_cleared_after(page, "after blur"))
         failures.extend(_blur_resize_failures(page, original))
     finally:
-        page.evaluate(_REMOVE_SENTINEL_JS)
-        page.set_viewport_size(original)
-        jobs.delete(job_id)
+        try:
+            page.evaluate(_REMOVE_SENTINEL_JS)
+        finally:
+            try:
+                page.set_viewport_size(original)
+            finally:
+                jobs.delete(job_id)
     return failures
 
 

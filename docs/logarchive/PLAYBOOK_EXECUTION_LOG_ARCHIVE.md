@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Make weekly chart geometry own drawing and selection
+
+Extract the connected calculation into the approved in-file geometry model.
+Drawing, pointer selection and composition tests consume that model; its
+numeric stack and coordinate conversion stay private. Migrate existing
+behavior tests and remove superseded hooks and a constant-pin assertion.
+The suite drops five redundant cases, with no new test module or dependency.
+The developer README links to the interface owner. Scope and owner-approved
+exceptions remain those in the design; no further deviation is introduced.
+
+The focused harness passed 142 tests. The full suite measured **3108 passed**
+in 227.30 seconds; a later unused test-hook removal passed the focused
+harness again. Chromium and Firefox each matched the exact old runtime's
+paths, ranks, columns, 51 pointer cases and 30 keyboard outcomes across six
+seeded fixtures. The full frontend gate passed 58 checks in 89 runs across
+both engines and desktop, mobile and wide-touch profiles. The frozen-source
+full suite then passed again in 205.55 seconds. Independent final code/spec
+and standards reviews completed whole-file reads and found only a stale
+README date, now corrected and re-reviewed. Archive rotation preserved
+existing dated entries exactly. All hooks and final docsync pass; the
+implementation commit is ready for a template PR. CI and publication state
+will be recorded there, without merging.
+The plan records final review and publication guidance:
+`docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
+
 ### 2026-10-30 - Protect weekly chart geometry before extraction
 
 Extend the existing browser alignment check with actual path extents,
