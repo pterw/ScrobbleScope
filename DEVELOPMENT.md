@@ -176,6 +176,11 @@ Its subdirectories:
 - `docs/logarchive/`: the tool-managed archive for side-task entries that
   belong to no batch.
 
+An archive that outgrows 500 lines is split into numbered pages by
+`python scripts/doc_state_sync.py --paginate-archives`. The archive file stays
+where it was and becomes an index; its pages sit in a `pages/` folder beside it.
+Search the directory, not the index file.
+
 A tool or a documented procedure writes into every subdirectory except
 `reports/`. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` stays at the top
 level on purpose. It is a tombstone that resolves references to the legacy
@@ -232,8 +237,8 @@ refused before it reaches CI.
 
 ```text
 $ python scripts/doc_state_sync.py --check
-WARNING DOC024 docs/history/logs/BATCH22_LOG.md -- An archive under its page target of 500 lines stays a single file; ...
-Remediation: docs/history/logs/BATCH22_LOG.md has grown past the 500-line page target. Run `python scripts/doc_state_sync.py --paginate-archives` to split it into indexed, numbered pages. This warning writes nothing on its own.
+WARNING DOC024 docs/history/findings/FINDINGS_ARCHIVE.md -- A finalized page moves to cold storage only when every entry on it carries a date before the cutoff; ...
+Remediation: Page FINDINGS_ARCHIVE_0001.md holds at least one entry with no explicit date, so it can never age into cold storage. This is informational only: add an explicit date to every entry on the page if it should become cold-storage eligible.
 ...
 WARNING: Root BATCH file detected: BATCH23_DEFINITION.md should be archived under docs/history/definitions/.
 doc_state_sync check passed (current_batch_entries=0, kept_non_current=4, rotated=0).
@@ -982,9 +987,9 @@ To understand any decision in this repository:
 
 1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md`. It shows
    the acceptance criteria from before the work started.
-2. Search `docs/agents/PLAYBOOK.md` Section 4 and
-   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries in the
-   relevant date range.
+2. Search `docs/agents/PLAYBOOK.md` Section 4 and the `docs/logarchive/`
+   directory (the archive file is an index; its entries are on its pages) for
+   dated entries in the relevant date range.
 3. Search `docs/history/logs/` and `docs/logarchive/` for older entries.
 4. Read `AGENTS.md` for how a session should start and which rules govern
    commits, tests and documentation.

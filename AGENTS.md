@@ -346,10 +346,11 @@ found in the log, exactly as before.
 
 ### What to update after a WP or side-task commit
 
-Before appending a new dated entry, search
-`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
-`docs/history/logs/*.md` (`rg -n "^### 20"`) to avoid re-describing a
-recorded decision or a date collision. Then update:
+Before appending a new dated entry, search the `docs/logarchive/` and
+`docs/history/logs/` directories (`rg -n "^### 20"`) to avoid re-describing a
+recorded decision or a date collision. Search the directories, not the
+archive files: an archive past 500 lines is an index, and its entries live on
+the numbered pages in the `pages/` folder beside it. Then update:
 
 - PLAYBOOK Section 3 + Section 4 (inside markers for batch work, after the
   end marker for side-tasks; see Side-Task Handling).

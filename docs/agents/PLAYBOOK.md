@@ -69,21 +69,20 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **UI audit Minors side task (owner, 2026-10-30):** branch
-  `fix/ui-audit-minors`, cut from `main` at `18a4242d`. It bundles the minor
-  findings that the 2026-10-27 UI audit's reviews deferred into one bug-fix
-  PR: collect them, check each against current `main`, triage each row with
-  the owner (fix, defer with a finding id, or drop), then plan and land the
-  accepted fixes. The streamgraph smoothing defect that headed the list
-  (negative band thickness beside a one-week spike) is already fixed on
-  `main` by PR #280's `streamSafeSegments`, with a curve-sampling test. The
-  owner also asked for the streamgraph's bottom month labels to match the
-  heatmap's month labels in typeface and size. The owner accepted the triage
-  on 2026-10-30. The spec is
-  `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the plan
-  is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`. The plan is
-  fully executed (nine commits; the owner dropped the panel-header task) and
-  the PR is ready for review; the execution record is in the plan.
+- **Archive pagination side task (owner, 2026-10-31):** branch
+  `docs/paginate-archives`, cut from `main` at `fe2de3f7`. It splits the four
+  archives past the 500-line page target (the side-task log archive, the
+  findings archive, and the Batch 21 and 22 logs) into numbered pages with
+  `doc_state_sync.py --paginate-archives`, and repoints every live
+  instruction that searched an archive file by name. A second commit points
+  the side-task archive's built-in read helpers at the directory. The gap
+  F-B23-35 records (page manifests are never checked) is ranked in the
+  findings triage, which comes next.
+
+- **UI audit Minors side task:** Complete and merged as PR #283, merge commit
+  `fe2de3f7`. The spec is
+  `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the
+  execution record is in `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`.
 
 - **Spotify artist ID side task:** Complete and merged as PR #282, merge
   commit `708fb48b`; it closed F-B23-33 (a malformed artist ID no longer
@@ -212,6 +211,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Paginate the four archives past the page target
+
+Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for
+the split because a 17,000-line archive is hard for an agent to grep or read.
+`doc_state_sync.py --paginate-archives` turned four archives into indexes with
+numbered pages under a `pages/` folder beside each: the side-task log archive
+(36 pages), the findings archive (8), the Batch 21 log (2) and the Batch 22 log
+(3). Every page is under 500 lines and none is oversized. The four DOC024
+page-target warnings are gone. Two new informational DOC024 warnings name
+findings pages 0001 and 0002, whose undated entries can never age into cold
+storage. No `--cold-storage` run: that needs an explicit date from the owner.
+
+The split was checked independently of the tool's own verification. Every
+non-blank line of each old file is still present across its index and pages,
+the only new lines are page headers and index lines, and all 687 dated
+entries and 141 F-ID headings are on the pages.
+
+Live instructions that searched an archive file by name now search its
+directory: `AGENTS.md` "What to update after a WP or side-task commit",
+`docs/logarchive/README.md`, `docs/AGENT_DOC_MAP.md` (a new trap entry),
+`docs/SWE_AUDIT_CHARTER.md`, `DEVELOPMENT.md` (the archive section, the search
+step and the sample `--check` output) and the cloud kit's expected docsync
+warnings. Point-in-time records keep the old paths, which still resolve to
+the indexes. The side-task archive's built-in read helpers are control-plane
+text and change in the next commit (owner ruling, 2026-10-31).
+
+Deviations: none. No code or test changed.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
 
 Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into
@@ -263,23 +292,5 @@ Existing tests edited: `test_artist_spotlight_parses_details_and_missing_fields`
 `tests/services/test_spotify_service.py` now pass a well-formed ID instead
 of a short placeholder; no assertion changed beyond the ID value. No schema
 change, no new dependency.
-
-Validation: `pytest -q` -- **3113 passed**.
-
-### 2026-10-31 - Centre the streamgraph in its plot band
-
-`streamFit` in `static/js/heatmap.js` shifted the baseline only when the
-stack's outer envelope overflowed the plot band, so ordinary data sat
-about 10px low. It now always shifts by half the sum of the envelope's
-high and low edges (halo and Bezier-control margins included), so the
-envelope is centred on the band's centre line. The scale rule is
-unchanged. The owner viewed this build on their own data and kept it
-(C18); it closes audit owner ruling C3 of the UI audit Minors. One review
-fix round added a case where a Bezier control point overshoots the
-envelope, checked against an independent Python oracle, so a shift that
-ignores the control margins fails. No deviations. Existing tests edited:
-`test_stream_stack_stays_inside_the_band` (the `moved` flag became
-`capped`, every case now asserts `low + high` is zero, and ids were
-renamed).
 
 Validation: `pytest -q` -- **3113 passed**.

@@ -140,7 +140,8 @@ not a list to memorise -- it is a corpus to read:
 
 1. **All of `docs/agents/FINDINGS.md`.** Every open item, whatever its severity.
 2. **All of `docs/history/findings/FINDINGS_ARCHIVE.md`.** Resolved and
-   no-action items stay part of the baseline and must not be re-raised.
+   no-action items stay part of the baseline and must not be re-raised. The
+   file is an index: read every page it lists, in the `pages/` folder beside it.
 3. **These five reports, and only these five.** `docs/history/reports/` holds
    25 files and roughly 5,600 lines, but most are changelogs, refactor plans
    and implementation summaries that carry no findings; reading them is

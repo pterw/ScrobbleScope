@@ -204,6 +204,12 @@ These are navigation hazards. Each one has caught an agent before.
 `docs/history/` are pointer stubs. They exist so that old references still
 resolve. Read `docs/logarchive/README.md` for the lookup map.
 
+**A large archive is an index, not the entries.** An archive that outgrows
+500 lines is split into numbered pages in a `pages/` folder beside it, and the
+file itself keeps only a page list. The side-task log archive, the findings
+archive and the Batch 21 and 22 logs are split this way. Grepping the file
+finds nothing, so search its directory: `rg -n "F-B21-18" docs/history/findings/`.
+
 **Dated entries are records.** A dated entry in `docs/agents/PLAYBOOK.md` Section 4, and
 a dated report under `docs/history/`, both describe one moment. Do not
 correct them when the facts change. Correct the live document instead.
