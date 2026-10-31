@@ -207,6 +207,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Clear the stored pause choice on every exit
+
+The spotlight photo gate's paused-hold probe stores `ss-motion=still`
+through an init script, and only the Play click removed it, so an early
+return left the choice in the shared browser context. The probe's `finally`
+now removes the `ss-motion` key before it closes the page. The removal is
+wrapped in `contextlib.suppress(PlaywrightError)` (shorter than tracking
+navigation state), so a page that never navigated cannot hide the original
+failure. This closes audit row 40 of the UI audit Minors. No deviations.
+Existing tests edited: none (one test added,
+`test_an_early_return_leaves_no_stored_pause_choice`).
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-30 - Report an empty stream and always run its cleanup
 
 The stream gate's paint check called `min()` on the contrast ratios before
@@ -250,18 +264,3 @@ before this commit. Docs only.
 
 Validation: the full suite measured **3108 passed**; pre-commit on all
 files and the final docsync check pass.
-
-### 2026-10-30 - Record the merged chart work and open the UI Minors side task
-
-Section 3 still described the weekly chart geometry branch as awaiting its
-PR, although PR #281 merged on 2026-10-30 (merge commit `18a4242d`). This
-entry records that merge and opens the UI audit Minors side task on
-`fix/ui-audit-minors`, which the owner approved on 2026-10-30. Docs only: no
-runtime, test or dependency change. The smoothing defect that headed the
-deferred list was checked against `main` first. Codex's case (53 weeks, one
-artist with 100 plays in week 26 only) now gives a minimum band thickness of
-0 rather than -11.11, so it is not part of this side task's work.
-
-Validation: the full suite measured **3108 passed**; pre-commit on all
-files and the final docsync check pass. Next: collect and triage the deferred
-Minors, then write the plan.

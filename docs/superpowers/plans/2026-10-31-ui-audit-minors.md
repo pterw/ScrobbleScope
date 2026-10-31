@@ -39,7 +39,7 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 ## Delivery sequence
 
 - [x] Task 1: keep a numeric font weight after `normal`.
-- [ ] Task 2: clear the stored pause choice on every exit.
+- [x] Task 2: clear the stored pause choice on every exit.
 - [ ] Task 3: reuse the `desktop` media query in `index.js`.
 - [ ] Task 4: share the footer gap as one custom property.
 - [x] Task 5: stream gate reports an empty stream and always cleans up.
@@ -76,9 +76,9 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 
 **Extends:** `test_the_hold_check_focuses_then_hovers_and_counts_the_periods`, whose mock page already records `add_init_script`, `click` and `evaluate` calls. Add one new test beside it, `test_an_early_return_leaves_no_stored_pause_choice`, because the existing test drives the full path (Play clicked) and the early return is a different scenario that cannot be a parametrization of it without hiding which assertion guards what.
 
-- [ ] New test, GIVEN `_open_spotlight_card` returns an error string, WHEN `_pause_hold_failures` runs on the mock page, THEN it returns that error and the page evaluated a removal of `ss-motion` (found by the key name in the mock's `evaluate` calls, without pinning the script text) before closing.
-- [ ] RED against the unchanged helper: the removal call is absent. GREEN after the change. Quote both. The existing test still passes unchanged.
-- [ ] Acceptance: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` passes; `suite-*`, `pre-commit`, `docsync-check` pass. This commit touches `scripts/dev/_frontend_gate*`, so `frontend-gate` also passes.
+- [x] New test, GIVEN `_open_spotlight_card` returns an error string, WHEN `_pause_hold_failures` runs on the mock page, THEN it returns that error and the page evaluated a removal of `ss-motion` (found by the key name in the mock's `evaluate` calls, without pinning the script text) before closing.
+- [x] RED against the unchanged helper: the removal call is absent. GREEN after the change. Quote both. The existing test still passes unchanged.
+- [x] Acceptance: `tests/scripts/dev/test_frontend_gate_spotlight_photo.py` passes; `suite-*`, `pre-commit`, `docsync-check` pass. This commit touches `scripts/dev/_frontend_gate*`, so `frontend-gate` also passes.
 
 ## Task 3: Reuse the `desktop` media query in `index.js`
 

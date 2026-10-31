@@ -11,6 +11,7 @@ answers every artist at once with the same photo (or none).
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 from scripts.dev._frontend_gate_shared import MIGRATED_PAGES
@@ -843,6 +844,9 @@ def spotlight_remeasure_failures(state: dict) -> list[str]:
 #: from a paused home page would have it.
 _STORE_PAUSE_JS = "localStorage.setItem('ss-motion', 'still');"
 
+#: Clears that choice so no exit path leaves it in the shared context.
+_CLEAR_PAUSE_JS = "localStorage.removeItem('ss-motion');"
+
 #: The animation names on the header bars, which a paused page must rest.
 _BAR_NAMES_JS = """() => [
     ...document.querySelectorAll(
@@ -857,6 +861,7 @@ def _pause_hold_failures(page, url: str) -> list[str]:
     the header bars rest; clicking Play animations resumes the rotation from
     the card shown (U29). Runs on a page of its own so the stored choice
     cannot leak into the other phases."""
+    from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
     probe = page.context.new_page()
@@ -895,6 +900,9 @@ def _pause_hold_failures(page, url: str) -> list[str]:
             failures.append("spotlight did not resume after Play animations")
         return failures
     finally:
+        # Tolerates a page that never navigated, which has no storage to clear.
+        with contextlib.suppress(PlaywrightError):
+            probe.evaluate(_CLEAR_PAUSE_JS)
         probe.close()
 
 

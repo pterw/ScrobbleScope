@@ -523,6 +523,26 @@ def test_the_hold_check_focuses_then_hovers_and_counts_the_periods() -> None:
     page.click.assert_called_once_with(".motion-toggle")
 
 
+def test_an_early_return_leaves_no_stored_pause_choice() -> None:
+    """GIVEN the card cannot be opened on the paused probe page, WHEN the
+    pause check returns that error, THEN the stored motion choice was removed
+    before the page closed."""
+    page = _hold_mock_page()
+    with patch(
+        "scripts.dev._frontend_gate_spotlight_photo._open_spotlight_card",
+        return_value="no card",
+    ):
+        failures = _frontend_gate_spotlight_photo._pause_hold_failures(page, "u")
+    assert failures == ["no card"]
+    names = [c[0] for c in page.method_calls]
+    removal = [
+        i
+        for i, c in enumerate(page.method_calls)
+        if c[0] == "evaluate" and "ss-motion" in str(c.args)
+    ]
+    assert removal and removal[-1] < names.index("close")
+
+
 def test_a_window_with_a_swap_and_steady_opacity_passes() -> None:
     assert (
         _frontend_gate_spotlight_photo.spotlight_fade_failures(_steady_samples()) == []

@@ -9,6 +9,21 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Record the merged chart work and open the UI Minors side task
+
+Section 3 still described the weekly chart geometry branch as awaiting its
+PR, although PR #281 merged on 2026-10-30 (merge commit `18a4242d`). This
+entry records that merge and opens the UI audit Minors side task on
+`fix/ui-audit-minors`, which the owner approved on 2026-10-30. Docs only: no
+runtime, test or dependency change. The smoothing defect that headed the
+deferred list was checked against `main` first. Codex's case (53 weeks, one
+artist with 100 plays in week 26 only) now gives a minimum band thickness of
+0 rather than -11.11, so it is not part of this side task's work.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass. Next: collect and triage the deferred
+Minors, then write the plan.
+
 ### 2026-10-30 - Make weekly chart geometry own drawing and selection
 
 Extract the connected calculation into the approved in-file geometry model.
