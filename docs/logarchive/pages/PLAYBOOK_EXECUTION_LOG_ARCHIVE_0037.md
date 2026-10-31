@@ -1,6 +1,48 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
+the review of the DOC012 fix found that it flags a digitless bold count only
+on a line opening a Validation record or the line after a wrapped
+`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
+is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
+`_VALIDATION_LINE_RE` to both shapes. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
+### 2026-10-31 - Word the manifest-count error to match DOC020
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
+fix round): the new count error told the reader not to hand-edit, while the
+DOC020 suffix allows a hand correction of the index. It now states only the
+fact and the rule and ends "so one of them was edited alone"; the suffix gives
+the remediation. Added the `page-entry-added` case (a page that gained an
+entry; red against a `>`-only comparison) and restored the consistent-store
+test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed**.
+
+### 2026-10-31 - Record the CI split's docs-only check
+
+Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
+plan's open post-merge check (b2) is done. On docs-only PR #287 (head
+`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
+skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
+plan's delivery sequence, added a line to its Execution record, and updated the
+Section 3 bullet that still said the check remained. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Check each archive page against its manifest counts
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):

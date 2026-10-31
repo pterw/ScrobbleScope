@@ -69,6 +69,15 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **README and DEVELOPMENT rewrite side task (owner, 2026-10-31):** branch
+  `docs/readme-development-rewrite`, cut from the docsync PR head
+  `bde173bf`. The plan is
+  `docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`: a facts
+  file, refreshed screenshots and a dated cache measurement first, then the
+  two rewrites as parallel code phases landed one after the other. The README
+  rewrite has landed with four new screenshots, and the DEVELOPMENT rewrite
+  has landed too; the pull request follows.
+
 - **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
   `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
   job into `changes`, `checks` and `browser` jobs plus a `quality-gate`
@@ -224,6 +233,68 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Rewrite DEVELOPMENT as a contributor's guide
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (plan Task
+5): `DEVELOPMENT.md` is rewritten from 1009 lines to a contributor's guide
+that takes a reader from setup to a passing test run and shows each tracked
+tool running with a short excerpt of its real output. It drops the stale
+history, skills and manual-release claims, keeps the `Frontend asset build`
+and `Frontend browser gate` headings the README links, and states that it
+grants no agent authority. Review rulings applied at the landing: the
+worktree guard text says `WT010` warns on uncommitted or untracked files,
+and the two `DEVELOPMENT.md` descriptions in `docs/AGENT_DOC_MAP.md` now
+match the new page. The other live descriptions in `README.md` were checked
+and still hold. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run at the landing, docs only; the code phase ran the suites to
+capture output).
+
+### 2026-10-31 - Rewrite the README around how ScrobbleScope is built
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (plan Task
+4): `README.md` is rewritten from the reviewed facts file and the dated cache
+measurement. It covers the three pipelines, graceful degradation, the cache,
+the Fly.io cost ceiling and the tech stack, and drops the changelog, the
+September section and the roadmap. Four new screenshots are added under
+`docs/images/`. The six older images are no longer referenced but are not
+deleted; the owner decides. Review rulings applied at the landing: the
+Charts row states only how the charts are built, ragged lines are rewrapped
+and the author contacts use the `**Term**: description` form. The plan now
+quotes the owner's "very stale" and says the raw cache figures live in
+`cache-measurement.md`, and its Task 1 to 4 boxes are ticked. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
+### 2026-10-31 - Plan the README and DEVELOPMENT rewrite
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (owner
+brief, "Docs rewrite"): added
+`docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`. Wave 0 is a
+facts file, screenshots and a cold-against-warm cache measurement; Wave 1 is
+the README and DEVELOPMENT rewrites as parallel code phases, landed in turn.
+The plan states the gate traps (the README window sentence declared in
+`config/docsync.toml`, DOC001, DOC010, `Last updated:` lines, the
+PostgreSQL badge wording). Docs only; no file is rewritten yet.
+
+Fix round after review (same branch): Task 3 writes its own
+`cache-measurement.md` and runs on a local database only; the screenshots stay
+in the workspace and land with the README as a binary patch; a Wave 0 review
+is added; the tool list names tracked tools only; every browser run takes the
+lock; reports are named per task; the README carries no changelog and no
+"very".
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Correct an unsupported clause in F-B23-66
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-66 wording):
@@ -235,46 +306,4 @@ PLAYBOOK)". Nothing else in the finding changed. Docs only.
 Deviations: none.
 
 Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
-was not re-run, docs only).
-
-### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
-the review of the DOC012 fix found that it flags a digitless bold count only
-on a line opening a Validation record or the line after a wrapped
-`pytest -q --`, so a placeholder on a `Final validation:` or continuation line
-is missed. Filed as F-B23-66 (open, P3) with the fix shape: widen
-`_VALIDATION_LINE_RE` to both shapes. Docs only.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
-was not re-run, docs only).
-
-### 2026-10-31 - Word the manifest-count error to match DOC020
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
-fix round): the new count error told the reader not to hand-edit, while the
-DOC020 suffix allows a hand correction of the index. It now states only the
-fact and the rule and ends "so one of them was edited alone"; the suffix gives
-the remediation. Added the `page-entry-added` case (a page that gained an
-entry; red against a `>`-only comparison) and restored the consistent-store
-test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3169 passed**.
-
-### 2026-10-31 - Record the CI split's docs-only check
-
-Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs
-plan's open post-merge check (b2) is done. On docs-only PR #287 (head
-`2d907c0c`, run 41227913325) `changes` decided docs-only, `browser` was
-skipped, `quality-gate` passed and the run took 1 min 51 s. Ticked (b2) in the
-plan's delivery sequence, added a line to its Execution record, and updated the
-Section 3 bullet that still said the check remained. Docs only.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
 was not re-run, docs only).
