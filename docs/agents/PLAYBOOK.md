@@ -69,6 +69,14 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **README and DEVELOPMENT rewrite side task (owner, 2026-10-31):** branch
+  `docs/readme-development-rewrite`, cut from the docsync PR head
+  `bde173bf`. The plan is
+  `docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`: a facts
+  file, refreshed screenshots and a dated cache measurement first, then the
+  two rewrites as parallel code phases landed one after the other. Nothing is
+  rewritten yet.
+
 - **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
   `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
   job into `changes`, `checks` and `browser` jobs plus a `quality-gate`
@@ -224,6 +232,22 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Plan the README and DEVELOPMENT rewrite
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (owner
+brief, "Docs rewrite"): added
+`docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`. Wave 0 is a
+facts file, screenshots and a cold-against-warm cache measurement; Wave 1 is
+the README and DEVELOPMENT rewrites as parallel code phases, landed in turn.
+The plan states the gate traps (the README window sentence declared in
+`config/docsync.toml`, DOC001, DOC010, `Last updated:` lines, the
+PostgreSQL badge wording). Docs only; no file is rewritten yet.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - File the DOC012 placeholder residual as F-B23-66
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 residual):
@@ -265,21 +289,3 @@ Deviations: none.
 
 Validation: `pytest -q` -- **3168 passed** (the `[test_count]` pin; the suite
 was not re-run, docs only).
-
-### 2026-10-31 - Check each archive page against its manifest counts
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):
-`ArchiveStore._load` never read a paginated archive's per-page `entries` and
-`lines`, so a page with an entry deleted was ratified by `--fix`. It now
-compares both with the page as read and raises the existing `SyncError`
-(reported as DOC020); its message says page and manifest change together and
-only through `--fix`. New cases `page-entry-deleted` and
-`manifest-lines-edited` plus a consistent-store load test; the two failing
-cases were red on the unpatched code, green after. `--check` stays green on
-both live paginated archives. Also reworded the `config/docsync.toml` comment
-that said an unmatched `allow_after` marker is silently ignored (ruling D3a;
-D2 made it DOC011). F-B23-35 stays open: S3-8 remains.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3168 passed**.

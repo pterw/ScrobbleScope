@@ -1,6 +1,24 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Check each archive page against its manifest counts
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5):
+`ArchiveStore._load` never read a paginated archive's per-page `entries` and
+`lines`, so a page with an entry deleted was ratified by `--fix`. It now
+compares both with the page as read and raises the existing `SyncError`
+(reported as DOC020); its message says page and manifest change together and
+only through `--fix`. New cases `page-entry-deleted` and
+`manifest-lines-edited` plus a consistent-store load test; the two failing
+cases were red on the unpatched code, green after. `--check` stays green on
+both live paginated archives. Also reworded the `config/docsync.toml` comment
+that said an unmatched `allow_after` marker is silently ignored (ruling D3a;
+D2 made it DOC011). F-B23-35 stays open: S3-8 remains.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3168 passed**.
+
 ### 2026-10-31 - Catch a wrapped or unquoted placeholder count
 
 Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-17 fix round):
