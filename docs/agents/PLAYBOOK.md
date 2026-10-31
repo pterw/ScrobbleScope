@@ -69,15 +69,19 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
-- **Archive pagination side task (owner, 2026-10-31):** branch
-  `docs/paginate-archives`, cut from `main` at `fe2de3f7`. It splits the four
-  archives past the 500-line page target (the side-task log archive, the
-  findings archive, and the Batch 21 and 22 logs) into numbered pages with
-  `doc_state_sync.py --paginate-archives`, and repoints every live
-  instruction that searched an archive file by name. A second commit points
-  the side-task archive's built-in read helpers at the directory. The gap
-  F-B23-35 records (page manifests are never checked) is ranked in the
-  findings triage, which comes next.
+- **CI parallel-jobs side task (owner, 2026-10-31):** branch
+  `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
+  job into `changes`, `checks` and `browser` jobs plus a `quality-gate`
+  aggregator that keeps the required check's name, and skips the browser job
+  when a pull request changes only documentation. The plan is
+  `docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md`: three serial
+  tasks, reviewed. Task 1 (the workflow, `scripts/dev/ci_jobs.py` and their
+  tests) is next. The findings triage follows this PR.
+
+- **Archive pagination side task:** Complete and merged as PR #284, merge
+  commit `7f85bade`. The four archives past the page target are indexes with
+  numbered pages. F-B23-35 (page manifests are never checked) is ranked in
+  the findings triage.
 
 - **UI audit Minors side task:** Complete and merged as PR #283, merge commit
   `fe2de3f7`. The spec is
@@ -212,6 +216,25 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Plan the CI split into parallel jobs
+
+Side task, no batch tag, branch `ci/parallel-jobs`. The owner approved
+splitting the one CI job into parallel jobs with an aggregator, because the
+frontend gate takes about 4.5 of the job's 7 minutes and proves nothing
+about a documentation-only change. This commit adds the plan,
+`docs/superpowers/plans/2026-10-31-ci-parallel-jobs.md`, written by a plan
+task and reviewed: one review and two fix rounds. The rounds moved the
+docs-only and aggregator decisions out of inline workflow shell into a
+tested script, kept the docs-only decision on the whole pull request (a
+per-push diff could skip the browser job on a code PR), and added
+near-miss cases to its test table. Because this PR changes the workflow
+itself, it cannot show the browser job skipped; the first documentation-only
+PR after merge is the check for that.
+
+Deviations: none. Docs only; no code or test changed.
+
+Validation: `pytest -q` -- **3119 passed**.
+
 ### 2026-10-31 - Repoint the archive pointers the split review found
 
 Side task, no batch tag, branch `docs/paginate-archives`: fixes from the
@@ -281,18 +304,5 @@ the indexes. The side-task archive's built-in read helpers are control-plane
 text and change in the next commit (owner ruling, 2026-10-31).
 
 Deviations: none. No code or test changed.
-
-Validation: `pytest -q` -- **3118 passed**.
-
-### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
-
-Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into
-`fix/ui-audit-minors`, so the branch carries the F-B23-33 fix and its
-bookkeeping. Owner ruling 2026-10-31: a merge commit, not a rebase. Only
-PLAYBOOK and the log archive conflicted. Both sides' Section 3 bullets and
-Section 4 entries are kept, with PR #282 recorded as merged; `main`'s
-pre-merge copy of the weekly chart geometry bullet is superseded by this
-branch's merged one. The archive keeps this branch's side, which already
-holds the one entry `main` added. No code conflicts.
 
 Validation: `pytest -q` -- **3118 passed**.
