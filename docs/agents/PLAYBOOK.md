@@ -69,6 +69,10 @@ See FINDINGS F-DOCSYNC-3.
 
 ## 3. Active batch + next action
 
+- **Spotify artist ID side task:** Branch `fix/spotify-artist-id`, cut from
+  `main`; closes F-B23-33 (a malformed artist ID no longer reaches the
+  Spotify artists URL). Publication state lives in the PR.
+
 - **Weekly chart geometry side task:** The owner approved the in-file
   geometry design and its bounded Rule 3 exception on 2026-10-30. Work runs
   on `refactor/weekly-chart-geometry` in a clean worktree from `main`;
@@ -200,6 +204,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Ignore a malformed artist ID in the spotlight lookup
+
+Side task, no batch tag: `_request_spotlight_artist` in
+`scrobblescope/spotify.py` now takes the by-ID path only when the artist ID
+is 22 base-62 characters. Before, the ID was spliced straight into
+`https://api.spotify.com/v1/artists/{id}`, so a value carrying `/` or `..`
+could make the server call another GET route under the app's token. A
+malformed ID is now treated like any failed by-ID lookup: no request to the
+artists URL, then the existing name fallback, or None without a name. No
+client sends the parameter today. Closes F-B23-33 on branch
+`fix/spotify-artist-id`.
+
+An outside agent wrote the patch and an independent review approved it.
+One new parametrized test covers four malformed IDs and a well-formed one.
+Existing tests edited: `test_artist_spotlight_parses_details_and_missing_fields`,
+`test_artist_spotlight_falls_back_from_failed_id_lookup` and
+`test_artist_spotlight_id_lookup_skips_the_name_check` in
+`tests/services/test_spotify_service.py` now pass a well-formed ID instead
+of a short placeholder; no assertion changed beyond the ID value. No schema
+change, no new dependency.
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-30 - Make weekly chart geometry own drawing and selection
 
 Extract the connected calculation into the approved in-file geometry model.
@@ -259,25 +286,3 @@ suite measured **3113 passed** in 198.05 seconds. Baseline hooks passed;
 final docsync and hooks are rerun after this entry is rendered. Forward
 guidance and execution checkboxes live in
 `docs/superpowers/plans/2026-10-30-weekly-chart-geometry.md`.
-
-### 2026-10-29 - Reconcile Listening design notes after bot review
-
-The owner authorized opening PR #280 after green CI and fixing bot concerns.
-Quality Gate run `40880774113` succeeded at 014c6d75; the PR left draft and the
-template checklist was updated. Codex completed without findings. Graphify's
-three inline coupling advisories were checked against source and the base;
-the shared fixture and interaction assertions remain cohesive. Replied with
-that evidence and resolved the threads without metric-driven refactoring.
-Its additional helper advisories concern residual-only coverage.
-
-The documentation check found old Heatmap copy and a width-only result
-description in the current reconciliation table. Correct four current rows
-to reference source owners and the approved Listening follow-up. Preserve
-the frozen snapshots and dated sections. The full suite measured
-**3113 passed** in 145.79 seconds; no tests or runtime code changed. Repository
-hooks and final docsync passed before the focused documentation commit.
-After pushing, verify the new head's CI and bot feedback and fast-forward
-the owner preview. Qlty's status passes but its description reports 13
-blocking issues; the detailed list requires separate login and has not been
-validated. The execution record is
-`docs/superpowers/plans/2026-10-28-streamgraph-context-halo.md`.

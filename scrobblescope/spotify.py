@@ -3,6 +3,7 @@ import base64
 import contextlib
 import contextvars
 import logging
+import re
 import threading
 import time
 import weakref
@@ -704,15 +705,21 @@ def _artist_spotlight_details(artist, artist_name=None, artist_id=None):
     }
 
 
+#: A Spotify ID is 22 base-62 characters. The artist path splices the ID into
+#: the URL, where a "/" or ".." segment would name a different GET endpoint.
+_SPOTIFY_ID_RE = re.compile(r"[0-9A-Za-z]{22}")
+
+
 async def _request_spotlight_artist(session, headers, artist_name, artist_id):
     """Look up by ID, falling back to name after an unsuccessful HTTP response.
 
+    An artist ID that is not a well-formed Spotify ID is ignored.
     A name search accepts the first of five hits whose normalized name equals
     the requested one; a name that normalizes to "" matches nothing.
     Return None for unsuccessful or unmatched searches. Transport and decoding
     exceptions propagate to the caller's shared logging and fallback boundary.
     """
-    if artist_id:
+    if artist_id and _SPOTIFY_ID_RE.fullmatch(artist_id):
         url = f"https://api.spotify.com/v1/artists/{artist_id}"
         async with session.get(url, headers=headers) as response:
             if response.status == 200:
