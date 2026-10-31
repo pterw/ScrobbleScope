@@ -148,7 +148,7 @@ jobs:
           retention-days: 14
 
       - name: Security audit (pip-audit)
-        uses: pypa/gh-action-pip-audit@v1.1.0
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
           inputs: requirements.txt requirements-dev.txt
         continue-on-error: true

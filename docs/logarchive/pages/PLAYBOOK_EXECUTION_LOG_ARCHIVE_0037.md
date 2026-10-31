@@ -1,6 +1,26 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Tighten the CI split tests after review
+
+Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
+the split commit, tests only. In `tests/scripts/dev/test_ci_jobs.py` the
+192-row `aggregate` table and its `_allowed` oracle are replaced by one test
+that loops the full product against a hand-written set of accepted tuples
+and lists every mismatch; `test_aggregate_rejects_an_empty_or_unknown_docs_only_value`
+and the duplicate `()` row are removed; the misnamed
+`test_main_aggregate_accepts_an_empty_docs_only_value` is replaced by
+`test_main_aggregate_rejects_an_empty_docs_only_given_as_a_separate_argument`;
+`test_main_aggregate_exits_nonzero_when_a_required_flag_is_missing` is added;
+the docs-only table gains `.superpowers-old/x.py`, `build.cmd`,
+`src/my file.py` and `my notes.md`. In `tests/test_ci_workflows.py` the
+parametrized app-jobs test is split into
+`test_app_jobs_set_flask_env` and
+`test_the_workflow_passes_no_secret_outside_a_step_env`, so the whole-file
+secret scan runs once. No script or workflow change.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Run the quality gate as parallel jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`. The one CI job took about
