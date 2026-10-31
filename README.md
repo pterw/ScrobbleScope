@@ -14,557 +14,253 @@ Last updated: 2026-10-31
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000.svg)](https://flask.palletsprojects.com/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-38bdf8.svg)](https://tailwindcss.com/)
 [![daisyUI](https://img.shields.io/badge/daisyUI-5-5a0ef8.svg)](https://daisyui.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-optional%20cache-336791.svg)](https://www.postgresql.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-metadata%20cache-336791.svg)](https://www.postgresql.org/)
 [![Deployed on Fly.io](https://img.shields.io/badge/deployed-fly.io-8b5cf6.svg)](https://scrobblescope.fly.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-The Quality Gate badge tracks real gates rather than a snapshot of them: it
-runs the Python suite, a coverage floor, Ruff, the documentation-integrity
-checks and the browser gate on every push (a documentation-only pull request
-skips the browser gate; `scripts/dev/ci_jobs.py` owns that rule). Nothing on
-this page carries a hand-maintained test or coverage number, because a number
-typed into a README is wrong the next time anybody commits.
-
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
-ScrobbleScope turns your public Last.fm listening history into album rankings
-and a Listening view combining a daily heatmap with weekly artist trends on
-desktop. Use it to build an Album of the Year list,
-compare albums by listening time, or explore your listening patterns.
+ScrobbleScope reads a public Last.fm listening history and turns it into three
+views: a ranking of the albums you played most, a heatmap of every day of the
+last year, and a streamgraph of your top artists week by week. Use it to build
+an Album of the Year list, to compare albums by listening time, or to see when
+you listen.
 
-Choose **Top Albums** or **Heatmap** on Home. The shared navigation provides
-Home, Heatmap, Results, and Unmatched; report destinations recover your latest
-available run in the same browser session.
+A search is not a database query. Last.fm stores individual plays, not albums,
+so an album does not exist upstream: the app builds it by grouping a year of
+plays on a normalized artist and album name, then applying the thresholds you
+chose. The same plays give a different album list for different thresholds.
 
-## In brief
+The app runs on one small Fly.io machine, so it keeps a bounded set of
+background jobs and holds job state in memory, with no queue broker. Below are
+the pipelines, what happens when a provider fails, the cache, the cost ceiling
+and the stack. The details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+[DEPLOY.md](DEPLOY.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
 
-ScrobbleScope takes anyone's public Last.fm listening history and turns it
-into a ranked list of the albums they played most, plus a heatmap of every day
-of the last year. It suits a listener building an Album of the Year list or
-looking for patterns in their own habits. It is live at
-[scrobblescope.fly.dev](https://scrobblescope.fly.dev).
-
-The engineering is larger than the interface suggests. A search is an ETL
-pass over an event stream: the app pulls thousands of scrobbles, normalizes
-them, then enriches each album from three providers (Spotify, Deezer and
-MusicBrainz) that sit behind an anti-corruption layer, so no provider's
-quirks leak into the rest of the code. The work runs on a background thread
-with its own event loop, and a process-wide rate limiter keeps every provider
-happy.
-
-Three things are unusual for a project this size. A browser gate serves the
-real app and measures the real interface at phone, laptop and 4K sizes, and
-it is tested so that it can fail on the defects it names. A documentation
-control plane machine-checks the repository's own citations and counts and
-rotates its own history, so the documents cannot quietly go stale. And the
-work is done by a multi-agent workflow with the human as reviewer: agents
-write plans and code, and the owner reads every plan, diff and review finding
-before it lands.
-
-The app runs on a single small Fly.io machine with an optional PostgreSQL
-cache. What is happening now is in
-[Current Status & Roadmap](#current-status--roadmap): an extensive
-round of foundation work is about to land, and the Spotify history import is
-next.
-
-## Table of Contents
-
-- [In brief](#in-brief)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Architecture](#architecture)
-  - [A search is an ETL pass over an event stream, not a query](#a-search-is-an-etl-pass-over-an-event-stream-not-a-query)
-  - [How a search runs, end to end](#how-a-search-runs-end-to-end)
-  - [The shared infrastructure in `utils.py`](#the-shared-infrastructure-in-utilspy)
-  - [What each module owns](#what-each-module-owns)
-- [Key Implementation Highlights](#key-implementation-highlights)
-- [Owned Interface Components](#owned-interface-components)
-  - [The heatmap is a hand-built SVG](#the-heatmap-is-a-hand-built-svg)
-  - [The pinwheel is an owned component](#the-pinwheel-is-an-owned-component)
-  - [The results export renders desktop on purpose](#the-results-export-renders-desktop-on-purpose)
-  - [The artist spotlight shows only a confirmed photo, or stays hidden](#the-artist-spotlight-shows-only-a-confirmed-photo-or-stays-hidden)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
-  - [Running the App](#running-the-app)
-  - [Local Development with DB Cache](#local-development-with-db-cache)
-  - [Running Tests](#running-tests)
-- [Project Structure](#project-structure)
-- [Deployment](#deployment)
-- [Current Status & Roadmap](#current-status--roadmap)
-  - [Incoming: foundation work before the Spotify import](#incoming-foundation-work-before-the-spotify-import)
-  - [Shipped in September](#shipped-in-september)
-  - [Next: importing a Spotify listening history](#next-importing-a-spotify-listening-history)
-  - [Known limitations](#known-limitations)
-- [Contributing](#contributing)
-- [Development Methodology](#development-methodology)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Author & Contact](#author--contact)
-
-## Features
-
-### Top Albums
-
-- Fetch scrobbles for a listening year and enrich albums with release dates,
-  artwork, and track runtimes from Spotify. Spotify's match is exact: its
-  title and one credited artist must equal the request, so a missing album is
-  never swapped for a neighbour. Deezer covers whatever Spotify cannot match
-  or detail. Each album links to its own
-  provider's page. Spotify content is attributed with Spotify's official
-  icon on the Results and Unmatched pages and on the artist spotlight; a
-  row from any other provider carries a small text badge naming it.
-- Include all release years, the listening year, the previous year, a decade,
-  or a specific release year.
-- Choose minimum track plays and unique tracks per album; the defaults are
-  10 plays and 3 unique tracks. Limit the number of albums returned.
-- Switch the leaderboard between track plays and estimated listening time
-  without submitting another search. Ranking by listening time leaves out
-  albums with no listening time, and a note under the leaderboard says how
-  many; ranking by track plays shows them again.
-- Keep the albums Spotify and Deezer cannot match with the "Unmatched albums"
-  choice beside "Show" on the search form (Hide or Include), so your total
-  plays are counted whether or not an album could be identified. Those albums
-  are ranked by play count only, so Play time is dimmed while Include is
-  chosen.
-- On Results, an included album shows a plain "Not Found" or "Unavailable"
-  marker under its artist, a coloured wash instead of a cover, no link, and a
-  release date that reads "unknown" until MusicBrainz finds the album's original
-  release, which then shows as year and month. An "Unmatched albums" choice under the sort control
-  (Hide or Include) hides those rows, renumbers the rest and recounts the
-  totals, so the leaderboard can be ranked by listening time; choosing Include
-  brings them
-  back, ranked by play count again. The CSV and the saved image follow what is
-  on the page.
-- Explore Artist Spotlight, which samples up to five artists from the ten
-  highest-scrobbled artists across your filtered results.
-- Open an album on Spotify from its title; a delayed tooltip explains the link.
-- Export CSV with the current ordering and full release dates, or save the
-  complete leaderboard as a JPEG, including from a mobile viewport.
-- Open the Unmatched report to see every album left out of your results, in
-  up to four groups: not enough listening, a release outside your filter, no
-  match on Spotify or Deezer, and albums that could not be checked because a
-  provider was not answering. Each album says why it was left out, and each
-  group names the change that would include its albums. After an include run
-  the report also says which albums the results already list without a match.
-
-### Scrobble Heatmap
-
-- Display the last 365 days of daily scrobbles, aggregated in UTC. Heatmap uses
-  Last.fm only and needs no listening-year selection.
-- Read a seven-row weekly calendar on desktop or a sequential grid with larger
-  cells on narrow screens. Hover or tap a cell for its date and play count.
-- See total scrobbles, daily average, best day, and current streak.
-- Compare activity through the seven-stop `rocket_r` palette. Empty days remain
-  distinct from the surrounding frame in both themes.
-- On desktop, see weekly plays for the ten most played artists in a
-  streamgraph beneath the grid. A subdued halo shows the remaining plays at
-  one quarter thickness; use Other listening to hide or show it. The scrubber
-  reports actual artist and Everything else counts and the complete weekly
-  total. Hover or drag, or focus the chart and use the arrow keys, Home and End.
-  Narrow screens and older results without weekly artist data show the grid alone.
-- Save the heatmap as a JPEG. This export uses a separate canvas layout rather
-  than an exact screenshot of the page. When the page shows the streamgraph,
-  the image includes it under the grid, at rest, with the halo in its selected
-  visibility state.
-
-### Shared experience
-
-- Light and dark themes, with the selection stored in the browser.
-- Responsive typography and layouts, keyboard-accessible controls, and
-  reduced-motion support for the page transitions and animated marks.
-- A navbar that scrolls with the document; Results keeps its sorting controls
-  and Top shortcut in the desktop side rail.
-- Username validation, registration-year hints, and a public-listening-history
-  check before processing starts.
-- An animated pinwheel, a slim progress bar, and live operation labels with
-  counts when the pipeline provides them. Album processing also shows pipeline
-  statistics; Heatmap avoids repeating the same counts in a second panel.
-- Recovery of recent results through the clean report routes. In-memory runs
-  expire after two idle hours and do not survive an application restart.
-
-## Tech Stack
-
-| Layer | Technology | What it does here |
-| --- | --- | --- |
-| Backend | Python 3.13, Flask, Gunicorn | An application factory builds the app; Gunicorn serves it with one worker and four threads, because job state lives in that process's memory |
-| Background work | `threading`, `asyncio` | Each search runs on a daemon thread with its own event loop, so a slow provider never blocks a request |
-| Frontend | Jinja templates, vanilla JavaScript, Tailwind CSS 4, daisyUI 5 | No frontend framework and no build step to run the app: the compiled stylesheet is committed |
-| Typography | Adobe Fonts: Akzidenz-Grotesk Next, Degular (600, for headings), Gotham, Input Mono, Input Mono Narrow | Loaded from a kit in the page shell; the wordmark itself is outline geometry in an inline SVG |
-| Music data | Last.fm, Spotify, Deezer, MusicBrainz | Last.fm supplies listening history; Spotify then Deezer supply album metadata; MusicBrainz corrects release years |
-| Async HTTP | `aiohttp`, `aiolimiter` | One pooled session per pipeline run, with a process-wide rate limiter and a retry helper per provider |
-| Database | PostgreSQL through `asyncpg`, optional | Caches album metadata and original-release findings between runs; the app works without it |
-| Validation | pytest, Playwright, Ruff, pre-commit | Unit, service and route tests, plus a real-browser gate that serves the app and drives Chromium and Firefox |
-| Documentation checks | A typed integrity gate over the repository's own documents | Blocks a commit whose documents contradict each other or the code |
-| CI | GitHub Actions | The Quality Gate runs the suite with a coverage floor, the linters, the documentation checks and an advisory dependency audit |
-| Hosting | Fly.io ([fly.toml](fly.toml), [Dockerfile](Dockerfile)) | A single small shared-CPU machine that stops itself when idle and starts on the next request; the release command initializes the cache schema |
-
-Exact pinned versions are in [requirements.txt](requirements.txt) and
-[requirements-dev.txt](requirements-dev.txt); every dependency is pinned with
-`==` so a fresh checkout resolves to the versions CI ran.
+<table>
+  <tr>
+    <td><img src="docs/images/results_light_top_albums.png" alt="Top Albums results for flounder14, ranked by track plays, with the Artist Spotlight beside the list" width="400"></td>
+    <td><img src="docs/images/unmatched_light_reasons.png" alt="The Unmatched report, grouping the albums left out of the results by reason" width="400"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/listening_light_export.jpg" alt="The saved heatmap and streamgraph for flounder14: a year of daily plays above weekly plays for the top ten artists" width="400"></td>
+    <td><img src="docs/images/loading_light_albums.png" alt="The loading page while Last.fm pages arrive, with a progress bar and the search settings" width="400"></td>
+  </tr>
+</table>
 
 ## Architecture
 
-ScrobbleScope is a Flask and Jinja monolith with two background pipelines,
-in-memory job state, and an optional PostgreSQL cache. There is no queue
-broker, no worker fleet and no client-side framework. That is a deliberate
-fit to the workload: a search is one user's minute-long burst of rate-limited
-API calls, and the machine it runs on is a single small Fly.io instance.
-
-Flask accepts a search and starts a bounded background job for it; the
-browser polls progress while the job runs, and a completed job's results
-stay in server memory for the life of that run. A Top Albums job pulls a
-year of scrobbles from Last.fm, then enriches each album with a release
-date, artwork, and track runtimes: Spotify answers first, and Deezer
-covers whatever Spotify cannot match or detail, so one provider's outage
-no longer empties a result. Both providers date a remaster by its reissue,
-so a separate MusicBrainz pass corrects release years to the original --
-slowly, about 1.2 seconds apart, and therefore after the results are
-already on screen rather than before. A Heatmap job aggregates Last.fm
-history directly and skips enrichment. An optional PostgreSQL cache
-remembers provider metadata and every correction across restarts, so the
-same album is never re-fetched once any user has searched for it.
+Both forms start the same way. The form is checked first: Last.fm is asked
+whether the user exists and whether their recent listening is public, and a
+refusal costs no job. Then the app takes one of five job slots without waiting
+(if none is free the request is refused, not queued) and starts a background
+thread with its own asyncio event loop. The browser polls progress until the job
+finishes.
 
 ```mermaid
 flowchart TB
-    Form["Home form<br/>username, year, filters"] -->|POST| Flask[Flask route]
-    Flask -->|take a slot, or refuse| Slot{{Job semaphore}}
-    Slot -->|slot taken| Job[Background job thread]
+    subgraph Albums["Top Albums form: username, year, filters"]
+        direction TB
+        F1[Form] -->|POST| S1{{Take a job slot, or refuse}}
+        S1 --> J1[Background job thread]
+        J1 --> Fetch1["Last.fm: pages of the year's plays, throttled"]
+        Fetch1 --> Group[Group plays into albums]
+        Group --> Cache[(Metadata cache)]
+        Cache -->|miss| Providers["Spotify, then Deezer"]
+        Cache -->|hit| Results[[Top Albums results]]
+        Providers --> Results
+        Results -.->|after the page is shown| MB["MusicBrainz original release dates"]
+    end
 
-    Job --> Scrobbles[Fetch a year of scrobbles<br/>Last.fm, paged and throttled]
-    Scrobbles --> Group[Group into albums<br/>on normalized names]
-    Group --> Threshold{Meets your play and<br/>track minimums?}
-    Threshold -->|no| Unmatched[[Unmatched report]]
-    Threshold -->|yes| Cache[(Metadata cache<br/>PostgreSQL, optional)]
-    Cache -->|miss| Spotify[Spotify]
-    Spotify -->|no match or no detail| Deezer[Deezer]
-    Spotify -->|match| Build
-    Deezer -->|match| Build[Build, filter and rank results]
-    Deezer -->|no match| Unmatched
-    Cache -->|hit| Build
-    Build --> Results[[Results page]]
-
-    Build -.->|queued, never awaited| Checks[Correction worker<br/>about 1.2 seconds apart]
-    Checks -.-> MusicBrainz[MusicBrainz<br/>original release date]
-    MusicBrainz -.-> Cache
-    Checks -.->|marks rows in place| Results
-
-    Browser([Your browser]) -.->|polls progress, then corrections| Flask
+    subgraph Listening["Listening form: username only"]
+        direction TB
+        F2[Form] -->|POST| S2{{Take a job slot, or refuse}}
+        S2 --> J2[Background job thread]
+        J2 --> Fetch2["Last.fm: pages of the last 365 days, throttled"]
+        Fetch2 --> Daily["Daily counts, UTC"]
+        Fetch2 --> Weekly["Weekly counts, top 10 artists"]
+        Daily --> Heat[[Heatmap]]
+        Weekly --> Stream[[Streamgraph]]
+    end
 ```
 
-Dotted edges are the fallback path, the correction pass that runs after the
-results are on screen, and the browser's progress polling -- none of them the
-primary request flow.
+### Top Albums
 
-### A search is an ETL pass over an event stream, not a query
+The job fetches the year's plays from Last.fm, 200 per page. Page one goes
+first and the rest fan out under a concurrency limit and a rate limit of 10
+requests a second. Plays are grouped into albums, and albums below your minimum
+plays or unique tracks go straight to the Unmatched report without reaching a
+provider. At most 500 albums continue.
 
-This framing matters more than it sounds, because it is the reason the
-codebase does not look like a CRUD app.
+Each remaining album gets its metadata (release date, cover art, track
+lengths). The cache answers first. For a miss, Spotify answers when its title
+and credited artist match exactly; Deezer answers for what Spotify cannot match
+or detail. An album that neither provider knows is listed in the Unmatched report
+with the reason, and the "Include" choice keeps it in the ranking by play count
+only.
 
-Last.fm stores **scrobbles**: an unbounded event stream of individual track
-timestamps. It has no concept of the album a listener played. An "album" does
-not exist upstream to be fetched -- it is *produced*, by grouping the stream on
-a normalized `(artist, album)` key, then partitioning and threshold-gating the
-groups on criteria the user chose. The same stream yields different album sets
-depending on those thresholds, so the album is a function of the query rather
-than a row in a table.
+Both providers date a remaster by its reissue, so a separate worker corrects
+release years to the original through MusicBrainz. MusicBrainz allows about one
+request a second, so the app starts requests at least 1.2s apart and does this
+after the results are on screen. A corrected row is marked in place and nothing
+re-sorts while you read.
 
-That has three consequences visible throughout the architecture:
+### Heatmap
 
-- **Identity is resolved, not looked up.** Two providers name the same album
-  differently, and Last.fm's own spelling varies. The normalized key is the
-  join, so album identity is computed once and reused by the cache, every
-  provider match, and every live correction.
-- **PostgreSQL is a cache, not the domain's home.** It is a read-through layer
-  with a 30-day TTL, and its purpose is to protect upstream rate limits and cut
-  latency, not to hold the model. The application is correct with the database
-  absent; `DATABASE_URL` blank is a supported configuration, and a search
-  simply does every lookup live.
-- **A job is a pipeline stage, not a transaction.** Progress is published per
-  phase, failures are classified per provider, and the correction pass is
-  queued after the results are already on screen rather than awaited. Holding a
-  result set behind a one-request-per-second lookup would make the page slower
-  than the API it is waiting on.
+The Listening form needs only a username and starts its own job, separate from
+a Top Albums search, with its own Last.fm fetch. It reads the last 365 days of
+Last.fm plays (UTC), counts plays per day, and fills every day in the window,
+with zero for a quiet day. It also computes the current streak, best day, daily
+average and total. No Spotify, no Deezer and no database cache are involved.
 
-### How a search runs, end to end
+The chart is hand-built SVG: no charting library and no canvas on the page.
+Cell colour comes from a seven-stop ramp on a log scale of the daily count.
+Narrow screens get a separate grid with larger cells, since a 53-week grid does
+not fit a phone.
 
-1. **The form posts to Flask.** The username has already been checked while
-   you typed: a small endpoint confirms the account exists, reports the year
-   it was registered, and refuses a profile whose recent listening is private,
-   because the pipeline cannot read one.
-2. **A job slot is taken before a job exists.** A semaphore caps how many
-   searches run at once. If every slot is busy the request is refused
-   immediately rather than queued behind a minute of work, and the job is
-   never created. The job gets a UUID, an entry in the in-memory store, and a
-   daemon thread with its own asyncio event loop.
-3. **Last.fm pages in.** The scrobbles for the chosen year arrive page by
-   page, concurrently but under a global throttle, and are grouped into
-   albums by normalized artist and album name. Every counter the loading page
-   shows is published from here as the job's progress.
-4. **The cheap exclusions happen before any money is spent.** Albums under
-   your minimum play count or unique-track count are partitioned out and
-   written straight to the unmatched report, and a hard cap of 500 albums
-   applies to every sort mode. Neither ever reaches a metadata provider.
-5. **The cache answers first.** Each remaining album is looked up in
-   PostgreSQL by its normalized key. A hit is free and does not renew its own
-   expiry, so a cached album is refetched 30 days after it was fetched rather
-   than 30 days after it was last read.
-6. **Spotify enriches the misses, then Deezer enriches Spotify's misses.**
-   Both return the same provider-neutral record -- provider name, album id,
-   album URL, release date, artwork, track durations -- so nothing downstream
-   knows which one answered. Deezer needs no key. An album neither provider
-   can identify produces exactly one unmatched entry, not two. A provider
-   that cannot answer at all is not read as "no match": the album moves on to
-   the other provider, and if none answers it is listed as one that could not
-   be checked.
-7. **Results are built, filtered and stored.** Release-year filtering,
-   sorting by play count or estimated listening time, and the artist
-   spotlight sample all happen here. Any original-release correction already
-   in the cache is applied at this point, so it costs nothing and is visible
-   in the first render.
-8. **The page renders, and the corrections keep arriving.** A single
-   process-wide worker asks MusicBrainz for the original release date of each
-   album the cache does not know yet, about 1.2 seconds apart, capped per
-   job. The results page polls for its findings and marks corrected rows in
-   place. Nothing re-sorts while you are reading; albums that now qualify are
-   announced with a reload link. Every finding is written to the cache,
-   including "checked, nothing found", so the next search skips it.
+### Streamgraph
 
-A job's results live in memory for two idle hours and do not survive a
-restart. Only the metadata cache is durable, and it holds facts about albums
--- never anything about you.
+The streamgraph comes from the same job as the heatmap, with no extra Last.fm
+call. The server counts plays per calendar week for the ten most played artists
+in the window and groups every other play as "other". The browser stacks the
+layers and draws smooth SVG paths, with the largest artist in the middle and a
+faint halo showing the remaining plays. Hover, drag or use the arrow keys to
+read a week. It shows on wide screens; narrow screens show the grid alone.
 
-### The shared infrastructure in `utils.py`
+## Graceful degradation
 
-Most of what makes the pipelines survive a bad provider day lives in one
-module, so the clients stay thin:
+The rule is that a provider that cannot answer is never read as "no match". A
+"no match" is an answer. An outage is not. Each case has its own outcome that
+the page can show:
 
-- **A two-level rate limiter per provider.** A process-wide throttle
-  serializes reservations across threads, and a per-event-loop limiter shapes
-  the burst inside one job. Both are needed: the throttle alone cannot pace a
-  burst, and the limiter alone would let four threads each run at the full
-  rate. Last.fm and Spotify are held at 10 requests a second, Deezer at 10,
-  MusicBrainz at 1 -- which is MusicBrainz's published limit per IP, and the
-  reason the correction pass cannot be made faster.
-- **A retry helper that understands the provider.** It honours `Retry-After`
-  up to `MAX_RETRY_AFTER_SECONDS` (30s by default; a longer wait is treated as
-  a failed attempt), backs off with jitter, asks the limiter again on every
-  attempt rather than only the first, and can hold a semaphore for the
-  duration. A Last.fm page
-  that is not well-formed, such as an error payload served as a 200, counts
-  as a failed attempt: it is retried, never cached, and reported as dropped
-  if it stays bad.
-- **One pooled `aiohttp` session per run**, with connection limits, timeouts
-  and a shared header set, instead of a session per call.
-- **A short-lived in-memory response cache**, so re-running the same year with
-  different thresholds does not refetch a year of scrobbles.
-- **`run_async_in_thread`**, which lets a synchronous Flask view await a
-  coroutine on a private event loop without touching the request thread's
-  state, and the duration formatters the results page and its CSV share.
+- **Spotify fails for an album**: that album goes to Deezer and the page says
+  so. If Spotify refuses repeatedly, a per-job breaker stops sending it
+  requests and the rest go to Deezer.
+- **Spotify removes an endpoint**: the batch details call answers 403, 404 or
+  410, and the app falls back to one request per album.
+- **Deezer cannot be read for an album**: it is listed as "could not be
+  checked", not "no match".
+- **A Last.fm page fails after its retries**: the run finishes and says how many
+  pages were lost and that the results may be incomplete.
+- **Last.fm is down at the start**: the form shows a retryable "try again"
+  message and no job starts.
+- **MusicBrainz or its contact setting is missing**: the results stay as they
+  are and the page says the corrections were skipped.
+- **The database is unreachable**: the run succeeds with every album treated as
+  a miss, and the loading stats show a cache warning.
+- **A bug no code classifies**: the page says the search stopped on our side
+  and shows no exception text. Errors are classified by type, never by message.
 
-### What each module owns
+Provider calls retry with backoff, honour `Retry-After` up to 30s, and ask the
+rate limiter again on every attempt. Logs never carry a listener's artist,
+album or track name, and the Last.fm API key is redacted from every line.
 
-| Module | Responsibility |
-| --- | --- |
-| `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret and API-key validation |
-| `routes/` | One blueprint split by concern -- the home page, the album flow, the heatmap flow, and the small JSON endpoints. Handlers parse the request, start or read a job, and render |
-| `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
-| `jobs.py` | The job module: the lifecycle of one search (create, advance, record, succeed or fail, reset, read, expire) and the rules that keep a job coherent, over a storage seam whose one adapter today is an in-memory store under one lock |
-| `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
-| `plays.py` | The `Play` record both sources emit, the `Window`, and the pure aggregation of plays into albums (with the threshold selection), into daily counts and into weekly counts for the top ten artists |
-| `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, plus the weekly artist counts stored with the result, with no enrichment step |
-| `lastfm.py`, `spotify.py`, `deezer.py`, `musicbrainz.py` | One module per external API, each owning that provider's quirks and nothing else |
-| `enrichment.py` | The provider-neutral album record both metadata providers return |
-| `release_status.py` | The release-check wire strings (`CHECK_*`, `STATUS_*`): the worker writes them, `/api/release_checks` and the Results page read them |
-| `release_checks.py` | The correction worker: one thread, a FIFO queue of jobs, and the rules for which albums are worth a lookup |
-| `cache.py` | Every asyncpg call, with batch lookups, batch writes and connection retry |
-| `domain.py` | Name normalization -- the keys everything else joins on -- and the release-window rule both the album filter and the correction worker apply |
-| `unmatched.py` | The stable exclusion reason codes, the threshold partition and each threshold row's shortfall note |
-| `spotlight.py` | Artist sampling for the results side rail |
-| `utils.py` | The shared limiters, sessions, retries, caches and formatters described above |
-| `api_logging.py` | One log line per provider call and a per-provider summary when a session closes, attached where `utils.py` builds every session |
-| `config.py` | Provider credentials; the environment-tunable provider rates, concurrency and retries, job and correction caps and cache TTLs, each with its default; and the application's User-Agent |
-| `errors.py` | Classified, user-facing error codes with their retryability |
+## The metadata cache
 
-## Key Implementation Highlights
+The cache is a PostgreSQL table of album metadata: cover art, release date,
+track lengths, and the provider's album id and link. It never holds a listening
+fact, so one row serves every user. The key is the normalized artist and album
+name that every provider match and correction also uses. A second table holds
+MusicBrainz findings, including "checked, nothing found".
 
-- **Job isolation.** Every search is a UUID-keyed entry in one dictionary,
-  and every read and write to it happens under a single lock. A bounded
-  semaphore caps how many run at once; the cap is 5, chosen because a load
-  test at 10 never completed while 2, 3 and 5 all ran clean.
-- **Two caches, for two different problems.** An in-memory response cache
-  removes repeated HTTP work inside a session. The optional PostgreSQL cache
-  remembers album metadata and original-release findings across restarts and
-  across users. Neither stores a result set: those are ephemeral by design.
-- **The cache talks to Postgres in arrays, not rows.** A job's albums are
-  looked up and written in single statements built on `unnest($1::text[], ...)`,
-  so five hundred albums cost one round trip rather than five hundred. This is
-  a hand-written primitive layer rather than an ORM saving records one at a
-  time, and it is the reason a cold cache does not dominate a run.
-- **A stale schema names itself.** A missing column or table answers with a
-  PostgreSQL SQLSTATE (`42703`, `42P01`), and the cache reads that code
-  specifically instead of treating every failure as network turbulence. The
-  difference matters: an unmigrated database and a dropped connection look
-  identical to a generic handler, and the first one needs a migration rather
-  than a retry. Startup prints the exact `init_db.py` command to run.
-- **A provider endpoint that disappears degrades instead of failing.** Spotify
-  removed Get Several Albums for Development Mode apps, which answers with
-  `403`, `404` or `410`. The batch fetch recognises those three statuses and
-  falls back to one request per album, gathered concurrently, so album details
-  keep arriving under the same rate limit instead of emptying the result.
-- **Normalization is the join key.** Artist, album and track names are
-  normalized once -- Unicode-normalized, punctuation flattened, release-noise
-  words such as "deluxe" and "remastered" dropped from album titles only, so
-  a band called New Edition survives. Every cache row, every provider match
-  and every live correction is keyed on that pair.
-- **Matching compares identity, not score.** Deezer's filtered search ranks a
-  tribute single above the real album, and MusicBrainz will happily return a
-  high-scoring wrong artist, so both clients require the normalized artist and
-  title to match before accepting a candidate.
-- **The provider's date is kept even when it is corrected.** A corrected album
-  carries the original release date for filtering and display and the
-  provider's own date beside it, because the latter is still right for the
-  page the row links to.
-- **Failure is a state, not an exception.** Missing credentials, provider
-  errors, an unreachable cache and "checked, nothing found" each have an
-  explicit outcome that the page can render. A correction pass that cannot run
-  reports `skipped`; an album MusicBrainz cannot date is recorded as such so
-  nobody looks it up again.
-- **Request protection.** Flask-WTF protects every POST. Template data reaches
-  JavaScript through Jinja's `tojson` filter as JSON in a script tag, and the
-  results page builds dynamic text with DOM text nodes rather than HTML
-  strings.
-- **Secret validation.** Production startup rejects a missing, short or known
-  placeholder `SECRET_KEY`, and a missing Last.fm or Spotify key, in the
-  factory itself -- `gunicorn app:app` never runs a `__main__` block, so a
-  check there would never fire. Development logs a warning instead of
-  refusing to start.
-- **Canonical navigation.** `/heatmap`, `/results` and `/unmatched` recover
-  the latest run for the current browser session, so a reader who closes a tab
-  can come back. Explicit job IDs still work, and the JSON endpoints
-  (`/progress`, `/api/unmatched`, `/api/release_checks`,
-  `/api/artist_spotlight`) are separate from the pages.
+On a run, one query looks up every album key at once (a single round trip, using
+`unnest` arrays rather than a query per album). A hit supplies metadata with no
+provider call. Misses go through Spotify and Deezer, and one upsert writes the
+new metadata back. Rows older than 30 days are ignored and removed, and a hit
+does not renew its row. If every album hits, the run makes no Spotify or Deezer
+call. The Heatmap never touches the cache.
 
-## Owned Interface Components
+Measured on 2026-10-31, with the app on a development machine, a local
+PostgreSQL database and the live providers, for the Last.fm user `flounder14`
+and the listening year 2025 with default options: three cold runs (cache table
+emptied) took a median of 42.2s, and three warm runs took a median of 13.9s,
+about three times faster. A cold run made 260 Spotify and 26 Deezer calls; a
+warm run made 5 of each, because 243 of the 248 albums were hits. The remaining
+time is mostly Last.fm: a warm run still fetches all 102 Last.fm pages of the
+year. This is one machine on one day, not a guarantee, and provider latency
+moves the numbers.
 
-Three of the interface elements are built from scratch rather than pulled from
-a library. That is not minimalism for its own sake: each one is a place where a
-charting or animation dependency would have cost more than it saved, and each
-had to satisfy a constraint a generic library does not know about.
+The app still runs without a database (a blank `DATABASE_URL` is a supported
+setting), but then every search does every lookup live.
 
-### The heatmap is a hand-built SVG
+## Built for under $5 a month
 
-There is no charting library and no `<canvas>` on the page. `static/js/heatmap.js`
-constructs the grid as SVG nodes with `createElementNS`: a Monday-first weekly
-calendar on desktop (`mondayIndex` normalises `getDay()` so week one does not
-depend on the locale), 7 rows of days against 53 week columns, with month
-labels tracking the column offsets. Narrow screens get a **separate sequential
-grid** with larger cells rather than a squeezed copy of the weekly one, because
-a 53-week grid is roughly 880px and cannot be made to work in a phone column.
+The constraint is that the machine and the cache together stay under $5
+a month on Fly.io. That is a ceiling, not a measured bill. It shaped the
+engineering in these ways:
 
-Cell intensity is log-normalised, not linear:
+- **Slim image**: the Docker image starts from `python:3.13-slim` and installs
+  only the runtime dependencies. The compiled stylesheet is committed, so the
+  image needs no Node and no CSS build.
+- **One worker, four threads, 512 MB**: the machine is a shared-CPU instance
+  with 512 MB. Job state lives in one process's memory, so there is one
+  Gunicorn worker; threads suit the I/O-bound work. Five job slots came from a
+  load test where 2, 3 and 5 concurrent users ran clean and 10 never finished.
+- **Scale to zero**: a watchdog thread stops the machine after 20 minutes with
+  no request, no running job and no pending release check. The next request
+  starts it again.
+- **Fly's autostop is off**: a background job holds no inbound connection, and
+  Fly's docs do not say whether that counts as load.
+- **Lost state on exit**: results and the in-memory request cache are gone
+  after a stop. A revisit shows "We couldn't find your results" rather than an
+  error.
+- **A durable cache in a separate app**: the Postgres cache is its own Fly app,
+  so it survives the web machine stopping. The connection code retries with
+  backoff, which tolerates a database that is still waking up.
+- **Schema init as the release command**: the release command runs
+  `init_db.py`, which creates the cache tables idempotently with retries. If it
+  exits with an error, Fly rolls the deploy back.
+- **Rate limits as a budget**: one machine shares every provider's limit across
+  all jobs, so each provider has a process-wide throttle plus a per-job
+  limiter. That is why corrections run after the results, not before.
 
-```js
-Math.log10(count + 1) / Math.log10(maxCount + 1)
-```
+Merging to `main` deploys to Fly.io. See [DEPLOY.md](DEPLOY.md) for the
+commands, the MusicBrainz contact, the idle exit and the Deezer egress
+incident.
 
-A heavy listener's year is dominated by a handful of huge days. On a linear
-scale almost every cell lands in the first stop of the ramp and the map reads
-as blank. The logarithm is what makes the mid-range visible.
+## Tech stack
 
-The colour comes from a seven-stop ramp (`ROCKET_STOPS`, sampled from
-matplotlib's `rocket_r`) interpolated by `rocketColor(t)`. Two details are
-load-bearing:
+| Layer | Choice | Why |
+| --- | --- | --- |
+| Backend | Python 3.13, Flask, Gunicorn | An application factory builds the app. One worker with four threads fits in-memory job state on a 512 MB machine |
+| Background work | `threading` and `asyncio` | Each search runs on its own thread with its own event loop, so a slow provider never blocks a request |
+| HTTP clients | `aiohttp`, `aiolimiter` | One pooled session per run, with a rate limiter and a retry helper per provider |
+| Database | PostgreSQL through `asyncpg`, hand-written SQL | Batch reads and writes run as single statements using `unnest` |
+| Frontend | Jinja templates, vanilla JavaScript, Tailwind CSS 4, daisyUI 5 | No framework and no JS build step; the compiled stylesheet is committed and a pre-commit hook fails on drift |
+| Charts | Hand-built SVG | The heatmap and streamgraph are drawn as SVG by the app's own code, with no charting library |
+| Data | Last.fm, Spotify, Deezer, MusicBrainz | Last.fm for history; Spotify then Deezer for album metadata; MusicBrainz for original release dates |
+| Tests | pytest, Playwright, Ruff, pre-commit | Unit, service and route tests, plus a browser gate that serves the app and drives Chromium, with Firefox running only the static-assets checks |
+| CI | GitHub Actions | The Quality Gate runs the suite with a coverage floor, linters, the documentation checks and an advisory dependency audit |
+| Hosting | Fly.io | See the cost section above |
 
-- **Zero-count cells are repainted from the active theme.** A cell carries its
-  colour as an SVG `fill` *presentation attribute*, and a presentation
-  attribute does not resolve a CSS custom property -- so the token is read and
-  resolved in JavaScript before being assigned. Without that, the grid keeps
-  its light-theme empties on a dark page, which is exactly the failure the
-  browser gate later grew a check for.
-- **The palette has one owner.** `heatmap.js` holds all seven stops;
-  `tailwind.src.css` and `heatmap.css` derive from them rather than
-  re-declaring them, so the tab accent and the grid cannot disagree.
+Every dependency is pinned with `==` in [requirements.txt](requirements.txt) and
+[requirements-dev.txt](requirements-dev.txt), so a fresh checkout resolves to
+the versions CI ran.
 
-The streamgraph under the grid on desktop is hand-built SVG too, with no
-library. Its week positions come from the same Monday-first column geometry
-as the grid, so each week sits under its column; every length scales with the
-grid's column pitch. The server counts plays per week for the top ten
-artists and stores the counts with the job result; the browser stacks the
-layers and draws them as smooth paths.
+## How the repository stays honest
 
-The pure chart calculation and pointer-selection seam stay inside that
-asset; the [weekly chart geometry design](docs/superpowers/specs/2026-10-30-weekly-chart-geometry-design.md)
-describes their interface and verification. Rendering, theme updates and
-the saved-image path keep their existing responsibilities.
+The Quality Gate runs on every pull request and on pushes to `main`. A
+documentation-only pull request skips the browser job. Each commit runs
+pre-commit, including a documentation integrity check that refuses documents
+that contradict each other or the code. The browser gate serves the real app and
+measures the real interface at phone, laptop and 4K sizes. The README carries
+no test or coverage number on purpose: a number typed into a document is wrong
+the next time anyone commits. [DEVELOPMENT.md](DEVELOPMENT.md) shows each tool
+running.
 
-The JPEG export is not a screenshot. The live SVG is cloned, given explicit
-pixel dimensions, serialised to a data URI and drawn into a canvas at 2x
-(`EXPORT_SCALE`), with a header laid out from named geometry constants. Two
-problems this solves: an SVG carries no stylesheet, so the fonts and tokens
-have to be inlined; and the export header is *read from the page* rather than
-written into the export code, so the image cannot state something the page
-does not.
-
-### The pinwheel is an owned component
-
-`scrobblescope_pinwheel.svg` with its animation in `shell.css` -- an inline
-vector mark rather than a loader GIF or a JavaScript animation library, so it
-inherits theme tokens, respects `prefers-reduced-motion`, and stays crisp at
-any density.
-
-### The results export renders desktop on purpose
-
-The JPEG export of the results table forces the **desktop** markup visible
-inside the clone (`html2canvas`'s `onclone` hook swaps the `.desktop-val` and
-`.mobile-val` families), at `scale: 3`. A phone therefore produces a
-desktop-faithful image. That is intentional: a table of album rows is far more
-readable at full width, and an export is something a person keeps or shares
-rather than reads in place.
-
-Two constraints are handled explicitly. `html2canvas` 1.4 cannot parse the
-`color()` function that `color-mix()` emits, so the page surface is rasterised
-to an `rgb()` string first. And the CSV export reads a `data-export` attribute
-rather than the cell's text, because the table rounds and the file should not.
-
-### The artist spotlight shows only a confirmed photo, or stays hidden
-
-`spotlight.py` aggregates the results by artist, ranks by play count and play
-time, takes the top ten, and samples **five** -- seeded on the job id, so
-re-running the same search does not reshuffle the panel under the user while a
-fresh search does. It issues a separate request scoped to that sample, each bounded by its own
-8-second timeout that covers the request, its response body and the photo's
-own preload together, so one hung request or one hung photo cannot keep the
-card hidden; the client preloads and waits for every response (and its
-photo) to settle, then rotates only the candidates whose Spotify artist
-photo was confirmed and actually loaded. The artist Spotify returns must
-match the requested name, or the card stays hidden for that artist. A
-candidate with no confirmed photo, a request that times out, or a photo that fails to load or never
-finishes loading within that same budget is dropped, and if none is
-confirmed the card stays hidden -- there is no album-art fallback and no
-faked photo. The photo itself is shown whole (`object-fit: contain`,
-letterboxed on the card's surface if it is not square) rather than cropped to
-fill the box, and text and photo swap together on rotation, so the photo
-never lags a name change under a stale image. Beside the name, Spotify's
-official icon (black in the light theme, white in the dark theme, 24px with
-its clear space) links to the artist on Spotify.
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
 - Python 3.13 and Git.
 - A [Last.fm API key](https://www.last.fm/api/account/create).
 - A [Spotify Developer app](https://developer.spotify.com/dashboard) for album
-  and artist enrichment. Deezer, the fallback provider, needs no key; its
-  terms permit non-commercial use only, which binds any future change to how
-  this app is run.
-- Optionally, a contact for [MusicBrainz](https://musicbrainz.org/), which
-  corrects a reissue date to the album's original release date. Its policy
-  requires a contact -- an email address or a URL -- in every request's
-  User-Agent, so without `MUSICBRAINZ_CONTACT` the correction pass stays off
-  and everything else behaves exactly as before.
-- Docker only if you want the optional local PostgreSQL cache.
+  and artist enrichment. Deezer needs no key; its terms permit non-commercial
+  use only.
+- Optionally, a contact (email or URL) for [MusicBrainz](https://musicbrainz.org/).
+  Its policy requires one in every request's User-Agent, so without
+  `MUSICBRAINZ_CONTACT` the correction pass stays off.
+- Docker, only for the local PostgreSQL cache.
 
 ### Setup
 
@@ -575,397 +271,99 @@ its clear space) links to the artist on Spotify.
    cd ScrobbleScope
    ```
 
-2. Create the primary checkout's virtual environment:
+2. Create a virtual environment and activate it:
 
    ```bash
    python -m venv .venv
    ```
 
-   Activate it with `.\.venv\Scripts\Activate.ps1` in PowerShell,
-   `.venv\Scripts\activate` in Command Prompt, or
-   `source .venv/bin/activate` on macOS/Linux.
+   Use `.\.venv\Scripts\Activate.ps1` in PowerShell, `.venv\Scripts\activate` in
+   Command Prompt, or `source .venv/bin/activate` on macOS or Linux. Linked Git
+   worktrees reuse this environment; see
+   [AGENTS.md](AGENTS.md#session-bootstrap-in-order).
 
-   Linked Git worktrees reuse this primary environment. Follow the worktree
-   check in [AGENTS.md](AGENTS.md#session-bootstrap-in-order) to locate it;
-   do not create a second environment in a linked worktree.
-
-3. Install dependencies using the environment's pip:
-
-   ```powershell
-   # Windows
-   .\.venv\Scripts\pip.exe install -r requirements-dev.txt
-   ```
+3. Install dependencies (use `requirements.txt` for a runtime-only install):
 
    ```bash
-   # macOS/Linux
-   .venv/bin/pip install -r requirements-dev.txt
+   pip install -r requirements-dev.txt
    ```
 
-   For a runtime-only installation, substitute `requirements.txt`.
-
-4. Copy [.env.example](.env.example) to `.env`, fill in your API credentials,
-   and replace the placeholder secret. Generate a secret in the activated
-   environment with:
+4. Copy [.env.example](.env.example) to `.env`, add your API credentials and
+   replace the placeholder secret. Generate one with:
 
    ```bash
    python -c "import secrets; print(secrets.token_hex(32))"
    ```
 
-   Set `DEBUG_MODE=1` for local development. Leave `DATABASE_URL` blank to run
-   without PostgreSQL. Set `MUSICBRAINZ_CONTACT` to an email address or a
-   URL you can be reached at to enable original-release corrections. Never commit `.env` or
-   reuse its secret in a public example.
+   Set `DEBUG_MODE=1` for local development and leave `DATABASE_URL` blank to
+   run without PostgreSQL. Rate limits, retry counts, caps and cache lifetimes
+   have defaults in [scrobblescope/config.py](scrobblescope/config.py); set one
+   in `.env` only to override it.
 
-   The tuning variables -- per-provider rate limits, concurrency and retry
-   counts, the active-job and per-job correction caps, and the cache TTLs --
-   are read from the environment as well.
-   [scrobblescope/config.py](scrobblescope/config.py) owns every name and its
-   default; set one in `.env` only to override it.
-
-### Running the App
-
-Commands below assume the primary environment is activated. In a linked
-worktree, use its qualified Python and tool paths as described in `AGENTS.md`.
+### Run the app
 
 ```bash
 python app.py
 ```
 
-Open `http://127.0.0.1:5000/`. Alternatively, `python run.py` starts the app
-and opens the browser.
+Open `http://127.0.0.1:5000/`. The compiled stylesheet is committed, so running
+the app needs no Node project.
 
-The compiled stylesheet is already committed, so running the app requires no
-Node project or frontend build. For CSS or template changes, use the
-[frontend asset build procedure](DEVELOPMENT.md#frontend-asset-build).
+### Run with the local cache
 
-### Local Development with DB Cache
-
-Start Docker and create the local container once:
+Create the container once:
 
 ```bash
 docker run -d --name ss-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=scrobblescope -p 5432:5432 -v ss-postgres-data:/var/lib/postgresql/data postgres:17
 ```
 
-Set this value in `.env`:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scrobblescope
-```
-
-Initialize the schema once. `init_db.py` does not load `.env`, so pass the
-connection string through the shell as well:
-
-```powershell
-# Windows PowerShell
-$env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/scrobblescope"
-python init_db.py
-```
+Set `DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scrobblescope`
+in `.env`. Then create the tables once. `init_db.py` does not read `.env`, so
+pass the URL through the shell:
 
 ```bash
-# macOS/Linux
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope" python init_db.py
 ```
 
-For subsequent starts:
+On Windows PowerShell, set `$env:DATABASE_URL` to the same value first. After
+that, `python scripts/dev/dev_start.py` starts the container if it is stopped
+and launches Flask.
 
-```bash
-python scripts/dev/dev_start.py
-```
-
-The helper starts the existing `ss-postgres` container if needed and then
-launches Flask. [scripts/testing](scripts/testing) contains cache smoke checks
-and concurrent-request probes for a running local instance.
-
-### Running Tests
+### Run the tests
 
 ```bash
 pytest -q
-pytest --cov=scrobblescope --cov-report=term
 pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
-`pytest -q` includes a Chromium-backed harness under `tests/frontend/`,
-marked `browser` in `pyproject.toml`, so a local run needs the Playwright
-Chromium build installed (see below). CI's coverage step deselects those
-cases with `pytest -m "not browser"` and runs them separately in the
-frontend-gate job step, after installing both browsers.
+`pytest -q` includes browser tests under `tests/frontend/`, so a local run needs
+the Playwright Chromium build. DEVELOPMENT.md covers browser setup, the
+frontend gate and the other tools.
 
-Browser setup and execution are documented in the
-[frontend browser gate procedure](DEVELOPMENT.md#frontend-browser-gate).
-The automated gate runs the complete Chromium matrix and a Firefox static
-asset canary. Cross-browser visual review remains part of UI acceptance.
+## Where to go next
 
-## Project Structure
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, request flow and the
+  sequence diagrams.
+- [DEPLOY.md](DEPLOY.md): Fly.io deployment, the idle exit and the Deezer
+  egress incident.
+- [DEVELOPMENT.md](DEVELOPMENT.md): how the project is built and which tools
+  guard it.
+- [CONTRIBUTING.md](CONTRIBUTING.md) and the
+  [Code of Conduct](CODE_OF_CONDUCT.md): sending a change.
+- [GitHub issues](https://github.com/pterw/ScrobbleScope/issues): bug reports
+  and suggestions.
 
-```text
-app.py                  Flask application factory and startup configuration
-run.py                  Browser-launching development wrapper
-init_db.py              PostgreSQL schema initialization
-scrobblescope/          Routes, jobs, pipelines, API clients, cache and Spotlight
-templates/              Page templates, empty states, shared partials and SVGs
-static/css/             Theme source, generated Tailwind CSS and page styles
-static/js/              Forms, progress, navigation, results, Spotlight and Heatmap
-scripts/dev/            Local startup, asset builds, browser gate and worktree checks
-scripts/testing/        Cache and concurrency probes
-scripts/docsync/        Documentation synchronization and integrity checks
-tests/                  Unit, service, route and tooling regression tests
-docs/architecture/      Detailed request and dependency diagrams
-docs/design/            Design snapshot and recorded implementation overrides
-.github/workflows/      CI configuration
-```
+## Known limitations
 
-The `tests/` tree mirrors the package: `tests/services/` covers the API
-clients and the pipeline phases, `tests/scripts/dev/` covers the developer
-tooling itself, and the rest covers routes, templates and the job module. The
-listing above omits generated and machine-local files -- the compiled
-stylesheet's inputs, the browser binaries the gate downloads, and the local
-virtual environment.
-
-## Deployment
-
-The repository includes a Fly.io configuration and Dockerfile. The configured
-release command runs `init_db.py` before deployment to initialize the cache
-schema, and retries while the database wakes, waiting about 23 seconds in
-total between attempts.
-Credentials are supplied through deployment secrets.
-
-See [DEPLOY.md](DEPLOY.md) for the deployment commands, the MusicBrainz
-contact setting and where the configuration lives. Changes to the repository
-are not automatically a release of the live site.
-
-## Current Status & Roadmap
-
-### Incoming: foundation work before the Spotify import
-
-*Under review ahead of merge (late September 2026).*
-
-This is about a hundred and thirty commits over a week (24 to 30 September), and
-it adds almost no feature. It makes the base solid so that the Spotify import
-can be built on it. Written plans drove it, and three whole-branch reviews found
-and closed every serious problem they raised, the third by reading the code more
-deeply than the first two.
-
-**What a listener notices**
-
-- **Every heatmap cell is reachable by keyboard.** The grid is one Tab stop,
-  arrow keys move by layout, each cell is announced with its date and play
-  count, and the focus ring stays visible. On a phone, a swipe across the
-  heatmap scrolls the page instead of being caught by the grid. The
-  streamgraph under it is one more Tab stop, moved with the arrow keys.
-- **The Unmatched report was rebuilt.** Each row was rebuilt: artist portraits
-  show whole instead of cropped, and every album names the provider that
-  answered for it. Album links keep their full focus ring. A fourth group
-  lists the albums that could not be checked because a provider was not
-  answering.
-- **A busy provider is no longer read as "no match".** When Spotify or Deezer
-  is throttled or down, the album moves on to the other provider, and if
-  neither answers it is listed as one that could not be checked. A run fails
-  only when every provider fails, and then it says so and offers a retry.
-- **Spotify content is attributed with the official Spotify icon** on the
-  Results and Unmatched pages, on the artist spotlight, and in the saved
-  image; rows from Deezer carry a text badge, and each provider link says
-  which provider it leads to.
-- **The search form can keep unmatched albums in.** An "Unmatched albums"
-  choice beside "Show" (Hide or Include) lists the albums Spotify and Deezer
-  could not find alongside the rest, so every play you made is counted. They
-  are ranked by play count only, so Play time is dimmed while Include is
-  chosen. On Results they are marked "Not Found" or "Unavailable", and the
-  "Unmatched albums" choice there (Hide or Include) hides them again to rank by
-  listening time.
-- **The artist spotlight stopped faking photos.** It shows a confirmed photo
-  or stays hidden, without cropping or overlays, and it holds still while you
-  hover over it or tab into it.
-
-**What an engineer notices**
-
-- **Last.fm is harder to break.** The user is checked before anything else, and
-  only a public profile is remembered. The page cache stores only well-formed
-  pages, and orphaned fetches are cancelled and drained when a run ends. Every
-  provider call is logged, with a per-session summary.
-- **Failures are classified by type, and the unknown is ours.** An error no
-  code recognises is reported as an internal error with no exception text
-  shown, and a traceback is logged at debug level only.
-- **Logs no longer carry what you listened to.** A failed provider call logs
-  the provider and the status, never the album, artist or track name, and the
-  Last.fm API key is redacted from every line.
-- **A job has one owner.** One module holds the life of a search, from
-  creation to success or failure, behind a small storage interface, so callers
-  never assemble job state by hand.
-- **The frontend gate can fail on the defects it names.** Its checks are
-  selected from a manifest rather than hard-coded, and every check the work
-  changed was proved against a live probe of the defect it targets.
-- **The documentation control plane got safer.** docsync refuses a declared
-  path that leaves the repository, even through a junction, and it verifies
-  the test-count pin before rewriting it.
-- **The repository root was cleaned up,** and an automated repository-assistant
-  workflow was removed; the test job no longer receives real provider keys. The four agent
-  documents now live under `docs/agents/` and the configuration files under
-  `config/`.
-- **The worktree guard warns about missing essentials.** It reports a file the
-  repository declares essential when that file is missing or untracked.
-- **The suite runs the album pipeline end to end** on a real thread and
-  checks provider response shapes against their documentation. A malformed
-  page served as a 200 is retried and counted as dropped instead of cached,
-  and a `Retry-After` header is capped so a provider cannot park a run for as
-  long as it likes.
-
-Saving jobs to a database so they survive a restart, and restructuring how the
-app talks to Last.fm, come next, in a later change. The Spotify import
-described below follows them.
-
-### Shipped in September
-
-Two batches reached the live site earlier in the month.
-
-**The interface is entirely Tailwind and daisyUI.** Home, Heatmap, loading,
-Results, Unmatched, the error page and every empty state render on it.
-Bootstrap is gone, and one theme signal remains, `data-theme` on the root
-element.
-
-**The Unmatched report groups on reason codes, not prose.** Three reasons
-have shipped: albums under your minimum play or unique-track count, albums
-outside the release window, and albums neither provider could identify. A
-fourth, albums that could not be checked because a provider was not
-answering, comes with the work above. Each gets its own panel; long lists start at ten
-rows and open 25 at a time.
-
-**Album enrichment no longer depends on one company.** Spotify answers first
-and Deezer answers for whatever Spotify cannot match or detail, so one
-provider's outage no longer empties a result. Spotify withdrew the
-batch-album endpoint from development-mode apps in February 2026 and
-postponed the removal for existing apps with no new date, which is the only
-reason the old single-provider pipeline still worked.
-
-**Release years are corrected to the original.** Spotify and Deezer date a
-remaster by its reissue, while a year filter means the year the album first
-came out. MusicBrainz carries the original on the release group, and a
-background pass applies it about 1.2 seconds apart (MusicBrainz asks for
-one request per second, and the gap leaves headroom), so it never delays a
-result. A corrected row stays where it is, marked, and nothing re-sorts under
-you. Every finding is cached, including "checked, nothing found".
-
-**Every call to a provider identifies the app and is logged.** Every
-request to Last.fm, Spotify, Deezer and MusicBrainz carries a ScrobbleScope
-User-Agent instead of the HTTP library's anonymous default, which Last.fm
-asks for. Each call writes one log line -- provider, endpoint, status and
-time; debug level for a success, a warning for a 429 or a server error --
-and each provider gets a summary when its session closes, such as
-`MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`: the
-span and the time actually spent waiting differ because calls are throttled
-apart or run in parallel. MusicBrainz answers a rate limit or a busy
-moment with HTTP 503, not 429 (an older convention); the client retries it
-like a 429, so an occasional `503` count there is normal. These lines
-never carry a query string, a request body or an artist or album name;
-the one exception is Last.fm's `method`
-value (for example `user.getrecenttracks`), which says which call it was. Everywhere else the log formatter redacts the
-value of `api_key` (query string or cache key) from every line, exception
-text included.
-
-### Next: importing a Spotify listening history
-
-ScrobbleScope only works for Last.fm users today, and the work after the
-foundation above changes that. Spotify's API cannot supply lifetime history -- it returns the
-last 50 plays and unranked "top items" with no counts or dates -- and full
-API access has been restricted to registered businesses since May 2025, with
-development-mode apps capped at five allowlisted users. A login would
-therefore buy almost nothing, and it was rejected.
-
-Instead, Spotify listeners will upload the **Extended Streaming History**
-export they can request from their account's privacy page: a zip of JSON,
-one row per stream since the account opened. The design is already settled:
-
-- **No login; listening history stays transient.** The uploaded
-  history is never stored; only catalog metadata (release dates, genres and
-  the like) is cached, and that cache holds nothing about the listener.
-- **One switch on the existing form**, with a separate page explaining how to
-  request the export. Both album rankings and the heatmap work from either
-  source.
-- **A play counts when it ran 30 seconds or longer**, is music rather than a
-  podcast, and is not from a private session.
-- **Everything after aggregation is already source-agnostic**, because the
-  pipeline joins on normalized artist and album names and has no Last.fm
-  dependency past that point. That is what makes this feasible without a
-  second pipeline.
-
-The same work adds statistics that need no new API calls, for both kinds of
-user: album completion ("9 of 12 tracks"), your most-played track on each
-album and when you first heard it that year, a breakdown of how old the music
-you listened to was, hours listened, and longest and current listening
-streaks with your busiest weekday and hour.
-
-### Known limitations
-
-- A result set lives in server memory for two idle hours and does not survive
-  a restart or a redeploy. The metadata cache is the only durable store.
-- Estimated listening time depends on track durations a provider supplied;
-  ranking by listening time leaves out an album with none, and a note says
-  how many. Ranking by track plays shows it.
-- A cached Spotify match is re-checked against the album it was stored for;
-  one that names a different album is discarded and searched again.
-- The heatmap covers the last 365 days in UTC, including today. It is bounded
-  by Last.fm's rate limit rather than by anything in this application, which
-  is why it takes as long as it does.
-- The correction pass is disabled unless a MusicBrainz contact is configured,
-  because MusicBrainz's policy requires one in every request's User-Agent.
-- Deezer's terms permit non-commercial use only. That binds any future change
-  to how this application is run, not just to the code.
-
-[GitHub issues](https://github.com/pterw/ScrobbleScope/issues) are the public
-place to propose or discuss changes.
-
-## Contributing
-
-Bug reports and suggestions are welcome through
-[GitHub issues](https://github.com/pterw/ScrobbleScope/issues).
-For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md), and follow the
-[Code of Conduct](CODE_OF_CONDUCT.md).
-
-## Development Methodology
-
-**Why this project is built this way.** ScrobbleScope is developed across many
-short sessions, by a human and by AI agents working from written plans. That
-only stays safe if the paperwork is machine-checked and every change is
-reviewed, so the repository invests in both. [DEVELOPMENT.md](DEVELOPMENT.md)
-gives the full account of the process, its tooling and its tradeoffs.
-
-
-ScrobbleScope is built in numbered batches of work packages, each with written
-acceptance criteria agreed before any code is written, and each landing with
-its own log entry explaining what was planned, what was actually built, and
-where the two differed. Human and AI-assisted contributions share that same
-paperwork.
-
-The repository checks its own documentation the way it checks its code. A
-typed integrity gate runs on every commit: it refuses a document set that
-contradicts itself, a citation that no longer resolves, a claim the code has
-outgrown, or a batch closed without the steps its own procedure requires.
-That is unusual enough to be worth saying plainly -- it exists because this
-project is developed across many short sessions, and a document that quietly
-went stale costs more than a failing test.
-
-**The tooling is larger than the application on purpose.** Rotation,
-deduplication and cross-file consistency are *mechanisms* rather than rules an
-agent is trusted to follow, because they were left unfollowed three times and
-each lapse left a stale claim in the corpus. Around that sit a browser gate
-that serves the real application across its viewport profiles in CI, and a
-worktree guard whose diagnostics are typed rather than prose. None of it is
-in-house for its own sake; each piece replaced a class of failure that review
-alone had already failed to catch.
-
-**It is also built to be lifted.** The guards, the documentation package, the
-browser gate and the batch discipline are intended to leave this repository and
-serve the next one, which is why the checks read their facts from a
-declarations file instead of hard-coding them, prefer the standard library,
-and fail with a path, a line and a remediation. That extraction is a scheduled
-body of work rather than a side effect, and it is deliberately unfinished --
-parts of it still name ScrobbleScope files, and making the rest generic before
-there is a second consumer would buy abstraction rather than reuse.
-[DEVELOPMENT.md](DEVELOPMENT.md) reports which parts are generic today, which
-are still tied to this repository, and why.
-
-[DEVELOPMENT.md](DEVELOPMENT.md) covers the tooling and its tradeoffs;
-[CONTRIBUTING.md](CONTRIBUTING.md) covers sending a change.
+- A result set lives in server memory for 2 hours after its last write, and
+  sooner when the machine stops from idleness. It does not survive a restart or
+  a deploy. The metadata cache is the only durable store.
+- Ranking by listening time depends on track durations a provider supplied; an
+  album with none is left out, and a note says how many.
+- The Heatmap covers the last 365 days in UTC, including today, and takes as
+  long as Last.fm's rate limit allows.
+- Deezer's terms permit non-commercial use only.
 
 ## License
 
@@ -974,18 +372,18 @@ MIT License -- see [LICENSE](LICENSE).
 ## Acknowledgements
 
 - [Last.fm](https://www.last.fm/) for listening history.
-- [Spotify](https://developer.spotify.com/) for music metadata.
-- [Deezer](https://developers.deezer.com/) for fallback music metadata.
-- [Flask](https://flask.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/),
-  and [daisyUI](https://daisyui.com/) for the application UI foundations, and
-  Bootstrap, which carried the interface before the Tailwind migration.
+- [Spotify](https://developer.spotify.com/) and [Deezer](https://developers.deezer.com/)
+  for album metadata, and [MusicBrainz](https://musicbrainz.org/) for original
+  release dates.
+- [Flask](https://flask.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/)
+  and [daisyUI](https://daisyui.com/) for the application foundations.
 - The maintainers of the Python libraries and developer tools used here.
 
-## Author & Contact
+## Author and contact
 
 **Peter Wiercioch** (pterw)
 
-- **GitHub:** [pterw](https://github.com/pterw)
-- **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/)
-- **LinkedIn:** [pter-w](https://www.linkedin.com/in/pter-w/)
-- **Email:** hello@peterwiercioch.com
+- **GitHub**: [pterw](https://github.com/pterw)
+- **Portfolio**: [peterwiercioch.com](https://peterwiercioch.com/)
+- **LinkedIn**: [pter-w](https://www.linkedin.com/in/pter-w/)
+- **Email**: hello@peterwiercioch.com

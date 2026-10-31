@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Owner brief, verbatim, section "Docs rewrite" of `.superpowers/sdd/2026-10-31-ui-bugfix/owner-brief-later-work.md` (workspace file, untracked): the README is "stale", DEVELOPMENT.md "is stale"; both are re-written with screenshots, the graceful degradation, "the intentional architechtural constraints of the fly.io cost of <$5 and how that shaped engineering", the streamgraph and heatmap pipelines "along the top albums at a high-level", "a better tech stack explanation, more human prose, less clutter, but still focusing on technical and engineering achivements and choices". The cache is not "optional" in the sense that undersells it: say what it does for speed, how it works, and the delta without it. "What shipped in september" and "what is planned" go.
+- Owner brief, verbatim, section "Docs rewrite" of `.superpowers/sdd/2026-10-31-ui-bugfix/owner-brief-later-work.md` (workspace file, untracked): the README is "very stale", DEVELOPMENT.md "is stale"; both are re-written with screenshots, the graceful degradation, "the intentional architechtural constraints of the fly.io cost of <$5 and how that shaped engineering", the streamgraph and heatmap pipelines "along the top albums at a high-level", "a better tech stack explanation, more human prose, less clutter, but still focusing on technical and engineering achivements and choices". The cache is not "optional" in the sense that undersells it: say what it does for speed, how it works, and the delta without it. "What shipped in september" and "what is planned" go.
 - Owner rulings 2026-10-31. O34: "make sure to use /writing-guidelines when doing so". O35: screenshots "small-sized and side-by side", taken with agent-browser from production (`https://scrobblescope.fly.dev`) with the Last.fm user `flounder14`, plus the owner's light-mode streamgraph and heatmap export `C:/Users/peter/Downloads/scrobblescope_flounder14_heatmap.jpg` (3018x1710, 789 KB; downscale it). The cache speed is measured once, cold against warm, same account and period, and stated once in prose with its date. It is not a docsync-declared value. O27: the branch `docs/readme-development-rewrite` is cut from the docsync PR head `bde173bf`.
 - Owner preferences (memory, 2026-10): the README is recruiter-friendly but technical and carries no machine-checked numbers; DEVELOPMENT shows each tool running (a command plus a short real output excerpt). The older preference for visible updates in the README is superseded for this rewrite by the owner's explicit answer (O35, 2026-10-31): "Remove both entirely". The README has no changelog and no "Recent changes" list. It shows maturity with concrete facts (users, uptime design, gates), not adjectives; the word "very" is banned.
 - Writing rules. Every writing task and its review apply the guidelines copy `.superpowers/sdd/2026-10-31-docs-rewrite/writing-guidelines.md` (workspace). Some rules are for Vercel's docs site and do not apply to a GitHub README: `meta.contentType` and the page-plan metadata. The rest apply: plain words, short active sentences, one idea each, the banned words. AGENTS.md "Markdown Authoring Rules" wins on conflict: ASCII only (`--` not an em-dash, straight quotes) and ISO dates.
@@ -44,14 +44,14 @@
 
 **Interfaces:** consumes the sources under Global Constraints; produces the frozen interface both writers read. Each fact carries its source path (and line or heading); a fact with no source is not written.
 
-- [ ] **Stack.** Language, framework, server, database, cache store, front end, charting and test tooling, each as a one-line fact.
-- [ ] **Three pipelines, high level.** Top albums, the heatmap and the streamgraph: input, provider calls, aggregation, output. Check each against source and the diagrams in `docs/architecture/`; where a diagram disagrees with source, record the source's answer and note the diagram as stale.
-- [ ] **Graceful degradation.** Each path a provider or the cache can fail on, what the user sees, and what is retried or skipped (Last.fm, Spotify, Deezer, the cache, job expiry).
-- [ ] **Cache mechanics.** What is cached, the key, the expiry, how a hit and a miss flow, and what the app does with the cache unavailable. Do not write the measurement; Task 3 records it in its own file `cache-measurement.md`.
-- [ ] **Fly.io constraints and their effect on the engineering.** For each constraint under Global Constraints, the design choice it caused, with the source.
-- [ ] **CI layout.** The four jobs and what each runs, from `.github/workflows/test.yml`.
-- [ ] **Gates and tools DEVELOPMENT must show.** Each tool, its exact command, and where its configuration lives. Name only tools tracked at the plan's base (`git ls-files` decides): pytest and its markers (CI runs `pytest -m "not browser"`), pre-commit and its hooks, `scripts/doc_state_sync.py`, the frontend gate, the Tailwind build, the worktree guard, CI and formatters. No mutation script and no shard runner unless `git ls-files` shows them. The writer runs the commands; this list says which.
-- [ ] **Stale-claims list.** Every claim in the current README and DEVELOPMENT that source contradicts (a section name, a path, a command, a count), so the writers know what not to carry over.
+- [x] **Stack.** Language, framework, server, database, cache store, front end, charting and test tooling, each as a one-line fact.
+- [x] **Three pipelines, high level.** Top albums, the heatmap and the streamgraph: input, provider calls, aggregation, output. Check each against source and the diagrams in `docs/architecture/`; where a diagram disagrees with source, record the source's answer and note the diagram as stale.
+- [x] **Graceful degradation.** Each path a provider or the cache can fail on, what the user sees, and what is retried or skipped (Last.fm, Spotify, Deezer, the cache, job expiry).
+- [x] **Cache mechanics.** What is cached, the key, the expiry, how a hit and a miss flow, and what the app does with the cache unavailable. Do not write the measurement; Task 3 records it in its own file `cache-measurement.md`.
+- [x] **Fly.io constraints and their effect on the engineering.** For each constraint under Global Constraints, the design choice it caused, with the source.
+- [x] **CI layout.** The four jobs and what each runs, from `.github/workflows/test.yml`.
+- [x] **Gates and tools DEVELOPMENT must show.** Each tool, its exact command, and where its configuration lives. Name only tools tracked at the plan's base (`git ls-files` decides): pytest and its markers (CI runs `pytest -m "not browser"`), pre-commit and its hooks, `scripts/doc_state_sync.py`, the frontend gate, the Tailwind build, the worktree guard, CI and formatters. No mutation script and no shard runner unless `git ls-files` shows them. The writer runs the commands; this list says which.
+- [x] **Stale-claims list.** Every claim in the current README and DEVELOPMENT that source contradicts (a section name, a path, a command, a count), so the writers know what not to carry over.
 
 **Acceptance:** every fact has a source path that exists at HEAD (`git ls-files` check); no section copies a paragraph from the README or DEVELOPMENT; the cache mechanics section carries no timing figure (Task 3 owns that); the file is ASCII only. Report: `task-1-code-report.md`.
 
@@ -61,10 +61,10 @@
 
 **Interfaces:** produces the final, downscaled image files in the workspace folder `images/`, which Task 4 copies into `docs/images/`; consumes production with the account `flounder14`.
 
-- [ ] **Capture.** With agent-browser, in Firefox where it works (the owner browses with Firefox only), capture the results page for a fixed period, the heatmap, the streamgraph, the loading state and one degraded state if reachable without harm. Every browser run is wrapped in `C:/ssw/tools/with_browser_lock.py` with the absolute venv Python. Never write to production beyond loading pages and submitting the `flounder14` form.
-- [ ] **Owner export.** Downscale `scrobblescope_flounder14_heatmap.jpg` to the same display size family as the captures.
-- [ ] **Size and layout.** Choose one display width so two images sit side by side in a README table row; keep each file under 200 KB (the export under 150 KB); record each file's pixel size and bytes in the report. Reuse an existing image only if it still matches the live UI.
-- [ ] **Alt text.** Draft one plain alt text per image in the report for the README writer.
+- [x] **Capture.** With agent-browser, in Firefox where it works (the owner browses with Firefox only), capture the results page for a fixed period, the heatmap, the streamgraph, the loading state and one degraded state if reachable without harm. Every browser run is wrapped in `C:/ssw/tools/with_browser_lock.py` with the absolute venv Python. Never write to production beyond loading pages and submitting the `flounder14` form.
+- [x] **Owner export.** Downscale `scrobblescope_flounder14_heatmap.jpg` to the same display size family as the captures.
+- [x] **Size and layout.** Choose one display width so two images sit side by side in a README table row; keep each file under 200 KB (the export under 150 KB); record each file's pixel size and bytes in the report. Reuse an existing image only if it still matches the live UI.
+- [x] **Alt text.** Draft one plain alt text per image in the report for the README writer.
 
 **Acceptance:** each new image opens and shows the page named; none shows a username other than `flounder14`; every file is under its stated size; names are lower snake case beside the existing ones; the report lists which existing images in `docs/images/` stay referenced and which become unreferenced (the README task decides on removal). Report: `task-2-code-report.md`.
 
@@ -74,10 +74,10 @@
 
 **Interfaces:** produces one dated measurement. The method is controller-approved before the run; the controller reads the proposed method in the first report and replies.
 
-- [ ] **Local only.** The task refuses to start unless `DATABASE_URL` points at `localhost` or `127.0.0.1`. It never reads Fly secrets, never runs `fly` and never connects to the production database. It uses the provider keys from the local `.env`.
-- [ ] **Preconditions.** A local Postgres is reachable. If none is available the task stops with NEEDS_CONTEXT; do not substitute SQLite or a fake.
-- [ ] **Measure.** The same account (`flounder14`) and period twice: cold, then warm. For the cold run, empty only the local cache table (named in `init_db.py`) in that local database. Record wall-clock time for each run, the run count (at least three of each, report the median and range), the date, the machine class, and the network state. Say what is cached on a warm run and what is not (provider calls that still happen).
-- [ ] **Record.** Write `cache-measurement.md` with the account, the period, both timings, the date in ISO form and the method in two sentences. State that the figure is a single-machine reading, not a guarantee.
+- [x] **Local only.** The task refuses to start unless `DATABASE_URL` points at `localhost` or `127.0.0.1`. It never reads Fly secrets, never runs `fly` and never connects to the production database. It uses the provider keys from the local `.env`.
+- [x] **Preconditions.** A local Postgres is reachable. If none is available the task stops with NEEDS_CONTEXT; do not substitute SQLite or a fake.
+- [x] **Measure.** The same account (`flounder14`) and period twice: cold, then warm. For the cold run, empty only the local cache table (named in `init_db.py`) in that local database. Record wall-clock time for each run, the run count (at least three of each, report the median and range), the date, the machine class, and the network state. Say what is cached on a warm run and what is not (provider calls that still happen).
+- [x] **Record.** Write `cache-measurement.md` with the account, the period, both timings, the date in ISO form and the method in two sentences. State that the figure is a single-machine reading, not a guarantee.
 
 **Acceptance:** the raw timings, the median and the date are in the report (`task-3-code-report.md`) and in `cache-measurement.md`; the section says which calls the cache removes; the measurement is not added to `config/docsync.toml` and appears in no gate.
 
@@ -87,12 +87,12 @@
 
 **Interfaces:** consumes `facts.md`, `cache-measurement.md` and the Task 2 images; produces the README. It links to `docs/ARCHITECTURE.md`, `DEPLOY.md` and `DEVELOPMENT.md` for depth and does not repeat them.
 
-- [ ] **Read the whole current README and `facts.md` first.** Keep what source still supports; drop the rest. Do not paste from either; write from the facts.
-- [ ] **Shape.** One short opening that says what the app does and for whom; the screenshots side by side near the top; the three pipelines at a high level (top albums, heatmap, streamgraph); graceful degradation; the cache (role, how it works, the dated speed figure, once); the Fly.io cost ceiling and how it shaped the engineering; the tech stack with the reason for each choice; where to go next (links). No changelog and no "Recent changes" list (O35, "Remove both entirely"). Show maturity with concrete facts (users, uptime design, gates), not adjectives; do not use "very".
-- [ ] **Remove.** The "what shipped in September" section, the "what is planned" section and every forward-looking line about Spotify import.
-- [ ] **Badges and gate traps.** Apply the Gate traps above: keep the declared `last N days` sentence, fix the PostgreSQL badge wording, update any `Last updated:` line.
-- [ ] **Self-check against the guidelines.** Recruiter-friendly but technical; plain words; no clutter; the banned words absent.
-- [ ] **Code phase outputs.** The patch (docs only, with the images), the report with a Handoff section (commit subject and draft body, the PLAYBOOK Section 3 and 4 text), and the nested gate-run.
+- [x] **Read the whole current README and `facts.md` first.** Keep what source still supports; drop the rest. Do not paste from either; write from the facts.
+- [x] **Shape.** One short opening that says what the app does and for whom; the screenshots side by side near the top; the three pipelines at a high level (top albums, heatmap, streamgraph); graceful degradation; the cache (role, how it works, the dated speed figure, once); the Fly.io cost ceiling and how it shaped the engineering; the tech stack with the reason for each choice; where to go next (links). No changelog and no "Recent changes" list (O35, "Remove both entirely"). Show maturity with concrete facts (users, uptime design, gates), not adjectives; do not use "very".
+- [x] **Remove.** The "what shipped in September" section, the "what is planned" section and every forward-looking line about Spotify import.
+- [x] **Badges and gate traps.** Apply the Gate traps above: keep the declared `last N days` sentence, fix the PostgreSQL badge wording, update any `Last updated:` line.
+- [x] **Self-check against the guidelines.** Recruiter-friendly but technical; plain words; no clutter; the banned words absent.
+- [x] **Code phase outputs.** The patch (docs only, with the images), the report with a Handoff section (commit subject and draft body, the PLAYBOOK Section 3 and 4 text), and the nested gate-run.
 
 **Acceptance:**
 - No heading or sentence mentions "shipped in September" or a planned-features list; `grep -in "september\|planned\|roadmap" README.md` has no hit, or each hit is listed in the report and cleared.
@@ -150,6 +150,6 @@ Each writing task's review reads the WHOLE destination file, not only the diff (
 
 - Both files are rewritten, landed and gate-clean; every image referenced exists.
 - No September changelog or roadmap remains in the README.
-- The cache measurement is stated once, dated, in the README; `facts.md` holds the raw figures.
+- The cache measurement is stated once, dated, in the README; `cache-measurement.md` holds the raw figures.
 - DEVELOPMENT shows each tool with a real excerpt.
 - The execution record is added to this plan as a last docs-only commit.

@@ -1,6 +1,20 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0037
 
+### 2026-10-31 - Word the manifest-count error to match DOC020
+
+Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
+fix round): the new count error told the reader not to hand-edit, while the
+DOC020 suffix allows a hand correction of the index. It now states only the
+fact and the rule and ends "so one of them was edited alone"; the suffix gives
+the remediation. Added the `page-entry-added` case (a page that gained an
+entry; red against a `>`-only comparison) and restored the consistent-store
+test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed**.
+
 ### 2026-10-31 - Record the CI split's docs-only check
 
 Side task, no batch tag, branch `fix/docsync-quick-wins`: the CI parallel-jobs

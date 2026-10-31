@@ -74,8 +74,9 @@ See FINDINGS F-DOCSYNC-3.
   `bde173bf`. The plan is
   `docs/superpowers/plans/2026-10-31-readme-development-rewrite.md`: a facts
   file, refreshed screenshots and a dated cache measurement first, then the
-  two rewrites as parallel code phases landed one after the other. Nothing is
-  rewritten yet.
+  two rewrites as parallel code phases landed one after the other. The README
+  rewrite has landed with four new screenshots; the DEVELOPMENT rewrite is
+  next.
 
 - **CI parallel-jobs side task (owner, 2026-10-31):** PR #285, branch
   `ci/parallel-jobs`, cut from `main` at `7f85bade`. It splits the single CI
@@ -232,6 +233,25 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Rewrite the README around how ScrobbleScope is built
+
+Side task, no batch tag, branch `docs/readme-development-rewrite` (plan Task
+4): `README.md` is rewritten from the reviewed facts file and the dated cache
+measurement. It covers the three pipelines, graceful degradation, the cache,
+the Fly.io cost ceiling and the tech stack, and drops the changelog, the
+September section and the roadmap. Four new screenshots are added under
+`docs/images/`. The six older images are no longer referenced but are not
+deleted; the owner decides. Review rulings applied at the landing: the
+Charts row states only how the charts are built, ragged lines are rewrapped
+and the author contacts use the `**Term**: description` form. The plan now
+quotes the owner's "very stale" and says the raw cache figures live in
+`cache-measurement.md`, and its Task 1 to 4 boxes are ticked. Docs only.
+
+Deviations: none.
+
+Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
+was not re-run, docs only).
+
 ### 2026-10-31 - Plan the README and DEVELOPMENT rewrite
 
 Side task, no batch tag, branch `docs/readme-development-rewrite` (owner
@@ -281,17 +301,3 @@ Deviations: none.
 
 Validation: `pytest -q` -- **3169 passed** (the `[test_count]` pin; the suite
 was not re-run, docs only).
-
-### 2026-10-31 - Word the manifest-count error to match DOC020
-
-Side task, no batch tag, branch `fix/docsync-quick-wins` (F-B23-35 slice S3-5
-fix round): the new count error told the reader not to hand-edit, while the
-DOC020 suffix allows a hand correction of the index. It now states only the
-fact and the rule and ends "so one of them was edited alone"; the suffix gives
-the remediation. Added the `page-entry-added` case (a page that gained an
-entry; red against a `>`-only comparison) and restored the consistent-store
-test's exact `== normalize(text)` assertion. F-B23-35 stays open: S3-8 remains.
-
-Deviations: none.
-
-Validation: `pytest -q` -- **3169 passed**.
