@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-31 - Share the footer gap as one custom property
+
+The footer gap was two 1.5rem literals, the footer row's bottom padding in
+`static/css/shell.css` and the home hero's `padding-bottom` in
+`static/css/index.css`, kept equal only by a gate equality check. One
+`--shell-footer-gap` property, declared once in `shell.css`'s `:root`,
+now feeds both, and the `index.css` comment names it. Computed values are
+unchanged. This closes audit row 17 of the UI audit Minors. No
+deviations. Existing tests edited: none.
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Reuse the desktop media query in index.js
 
 `positionForm` in `static/js/index.js` built the same 860px media query

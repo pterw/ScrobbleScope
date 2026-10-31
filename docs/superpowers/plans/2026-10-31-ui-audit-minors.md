@@ -43,12 +43,14 @@ Gates: see the `## Gates` block in the workspace `constraints.md` (`suite-*`, `p
 - [x] Task 3: reuse the `desktop` media query in `index.js`.
 - [x] Task 4: share the footer gap as one custom property.
 - [x] Task 5: stream gate reports an empty stream and always cleans up.
-- [ ] Task 6 (PREVIEW): scrubber panel header at 13px.
+- [ ] Task 6 (PREVIEW): scrubber panel header at 13px. Dropped on the owner's word, 2026-10-30 (C14); its boxes below stay unticked.
 - [x] Task 7: dismissible, focus-safe stream panel.
 - [x] Task 8 (PREVIEW): heatmap key ramp spacing at the reference's 12px.
 - [x] Task 9 (PREVIEW): stream month labels match the heatmap's.
 - [x] Task 10 (PREVIEW): centre the stream in its plot band.
-- [ ] Task 11: record the execution.
+- [x] Task 11: record the execution.
+
+Task 9b (added by the owner, then dropped): after keeping Task 9 the owner asked that the stream's month labels also take the heatmap's label colour (C17). Task 9b was cut and a code phase run, then dropped without landing: both colours already resolve to the same value, `#6c6676` in the light theme and `#908a9a` in the dark theme (C19), so there was no change to make and no RED to write. There is no commit and no box for it.
 
 ## Task 1: Keep a numeric font weight after `normal`
 
@@ -217,6 +219,36 @@ No test file exists for this module and none is added (C6, "no need to excessive
 **Commit:** `docs(plan): Record the UI audit Minors execution`.
 
 - [ ] Tick each delivery-sequence box whose task landed. For a dropped PREVIEW task, leave the box unticked and write "dropped on the owner's word, <date>" beside it.
-- [ ] Add a short "Execution record" section: one line per task with its commit short SHA and subject, the PREVIEW decisions with the date, and the final head's gate results (`frontend-gate` and `results-behavior` last lines, the `pytest -q` count).
-- [ ] The landing's own bookkeeping (R1 Section 4 entry, `doc_state_sync.py --fix`, Validation line) follows the constraints; this commit edits only the plan.
-- [ ] Acceptance: the Gates block passes at the final head, with `frontend-gate` and `results-behavior` both run.
+- [x] Add a short "Execution record" section: one line per task with its commit short SHA and subject, the PREVIEW decisions with the date, and the final head's gate results (`frontend-gate` and `results-behavior` last lines, the `pytest -q` count). Done below; `results-behavior` was not run at the final head (see the record).
+- [x] The landing's own bookkeeping (R1 Section 4 entry, `doc_state_sync.py --fix`, Validation line) follows the constraints; this commit edits only the plan.
+- [ ] Acceptance: the Gates block passes at the final head, with `frontend-gate` and `results-behavior` both run. `frontend-gate`, `suite-*`, `pre-commit` and `docsync-check` passed at `122a06bd`; `results-behavior` has not been run, so this box stays open until it is.
+
+## Execution record (2026-10-31)
+
+Branch `fix/ui-audit-minors`, nine commits from `8dc99ba4` to `122a06bd`. Reviews are in the SDD workspace `reviews/`; every landed task was approved. Dates are local.
+
+| Task | Commit | Subject | Review | Owner preview |
+|---|---|---|---|---|
+| 1 | `b0b58267` | fix(gate): Keep a numeric font weight when normal follows it | approved | not a preview task |
+| 2 | `9929f348` | fix(gate): Clear the stored pause choice on every exit | approved | not a preview task |
+| 3 | `95115818` | refactor(ui): Reuse the desktop media query in index.js | approved | not a preview task |
+| 4 | `d278349c` | refactor(css): Share the footer gap as one custom property | approved | not a preview task |
+| 5 | `a6764f88` | fix(gate): Report an empty stream and always run its cleanup | approved | not a preview task |
+| 6 | none | scrubber panel header at 13px | not landed | dropped, 2026-10-30 (C14) |
+| 7 | `b2a5f600` | fix(ui): Make the stream panel dismissible and focus-safe | approved | not a preview task |
+| 8 | `c1e00655` | fix(ui): Tighten the heatmap key's ramp spacing | approved | kept (C15) |
+| 9 | `e463f22e` | fix(ui): Match the stream month labels to the heatmap's | approved | kept (C16) |
+| 9b | none | stream label colour | not landed | dropped, already satisfied (C17, C19) |
+| 10 | `122a06bd` | fix(ui): Centre the streamgraph in its plot band | round 1 needs fixes (the Bezier-control guard was missing), round 2 approved | kept after the owner viewed it on their own data (C18) |
+| 11 | this commit | docs(plan): Record the UI audit Minors execution | n/a | n/a |
+
+Plan review: the plan itself had one fix round (`review-plan.md`: the row 28 and 26 focus rule had to key on keyboard focus, the spec's saved-image claim was wrong, and the Minors were folded in; C11 to C13). T6's owner quote: "side-by-side I was not seeing a difference", and its 13px header also widened the panel enough to flip it at week 33 in the stream gate; its patch stays in `task-6-code.patch`.
+
+Deviations and incidents:
+
+- T1 and T5, the gate-script landings, went alone, one gate run each.
+- T3, T4 and T8 landed as a stack with one gate run at the top (`gates/land-stack`).
+- Two intermittent frontend-gate failures (`ERR_NO_BUFFER_SPACE` and F-B23-58) and one intermittent `test_importing_the_app_runs_no_shell_command` failure were re-run green; the runs are kept as evidence for the findings triage.
+- A session restart cut short T10's code phase and T9's gate run; both were resumed.
+
+Gate results at `122a06bd` (`gates/land-10`): `frontend-gate` last line `58 checks passed in 89 runs across chromium, firefox (static assets & tokens canary on firefox); profiles: desktop, mobile, wide touch`; `pytest -q` 905 + 702 + 1506 = 3113 passed across the three suites; `pre-commit` and `docsync-check` as expected. `results-behavior` was not run: no commit touched `results.html`, `results.js` or the behaviour tests, and the gate runs listed no result for it at the final head, so the Gates block's "and the final head" clause is still owed. This commit changes docs only, so the count stays 3113.

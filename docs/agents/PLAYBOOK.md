@@ -81,8 +81,9 @@ See FINDINGS F-DOCSYNC-3.
   heatmap's month labels in typeface and size. The owner accepted the triage
   on 2026-10-30. The spec is
   `docs/superpowers/specs/2026-10-31-ui-audit-minors-design.md` and the plan
-  is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`; four of its
-  visual tasks land only after the owner sees before-and-after screenshots.
+  is `docs/superpowers/plans/2026-10-31-ui-audit-minors.md`. The plan is
+  fully executed (nine commits; the owner dropped the panel-header task) and
+  the PR is ready for review; the execution record is in the plan.
 
 - **Weekly chart geometry side task:** Complete and merged as PR #281, merge
   commit `18a4242d`. The execution record is
@@ -207,6 +208,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Record the UI audit Minors execution
+
+Side task, no batch tag: close the UI audit Minors plan
+(`docs/superpowers/plans/2026-10-31-ui-audit-minors.md`) on
+`fix/ui-audit-minors`. Nine tasks landed in nine commits, each approved in
+review (the plan had one fix round, and Task 10 had one). The owner dropped
+Task 6 (the 13px panel header, "I was not seeing a difference"), kept
+Tasks 8, 9 and 10 after previews, and added then dropped Task 9b (the label
+colour already matched). The plan ticks its boxes and gains an Execution
+record with each task's commit, review outcome, preview decision, the
+gate-script landings that went alone, the stack of Tasks 3, 4 and 8, and the
+intermittent gate failures that were re-run green. The spec gains a one-line
+outcome for Task 6's row. `results-behavior` is still owed at the final head.
+
+Deviations: none. Edited existing tests: none. Docs only.
+
+Validation: `pytest -q` -- **3113 passed**.
+
 ### 2026-10-31 - Centre the streamgraph in its plot band
 
 `streamFit` in `static/js/heatmap.js` shifted the baseline only when the
@@ -254,17 +273,5 @@ at scale 1, matching the reference's 12px grid gap. The ramp's height is
 unchanged. The owner previewed the change and kept it (C15). This closes
 audit row 5 of the UI audit Minors. No deviations. Existing tests
 edited: none.
-
-Validation: `pytest -q` -- **3111 passed**.
-
-### 2026-10-31 - Share the footer gap as one custom property
-
-The footer gap was two 1.5rem literals, the footer row's bottom padding in
-`static/css/shell.css` and the home hero's `padding-bottom` in
-`static/css/index.css`, kept equal only by a gate equality check. One
-`--shell-footer-gap` property, declared once in `shell.css`'s `:root`,
-now feeds both, and the `index.css` comment names it. Computed values are
-unchanged. This closes audit row 17 of the UI audit Minors. No
-deviations. Existing tests edited: none.
 
 Validation: `pytest -q` -- **3111 passed**.

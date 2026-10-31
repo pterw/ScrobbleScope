@@ -157,6 +157,8 @@ header is `white-space: nowrap; width: max-content`, so the panel's measured
 need in `showWeek` grows with it; the stream gate's panel checks must still
 pass.
 
+Outcome (2026-10-30): dropped on the owner's word (C14); the header stays at 12px.
+
 **Row 5.** The heatmap key's ramp keeps `margin-top: calc(0.875rem *
 var(--index-scale, 1))` (`heatmap.css:201`) and is also a grid child of
 `.index-key`, whose `gap` is `calc(0.75rem * var(--index-scale, 1))`
