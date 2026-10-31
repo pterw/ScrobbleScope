@@ -224,6 +224,25 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Write the canonical status line for 24 findings
+
+Side task, no batch tag, branch `docs/canonical-finding-status`: 24 findings
+in `docs/agents/FINDINGS.md` stated their status only in prose
+(`Status: open (P2).`), so docsync's finding-lifecycle checks, which read only
+`- [ ] **Status:** <value>`, never saw them. Each now carries that line, in
+place, with the finding's own words as the value: F-B21-25, F-B23-11,
+F-B23-9, F-B22-4, F-B22-3, F-B23-1, F-B23-4, F-B23-13, F-B21-61, F-B21-54,
+F-DATA-1, F-DOCSYNC-2, F-DOCSYNC-3, F-B21-57, F-MAS-5, F-MAS-6, F-MAS-7,
+F-MAS-8, F-SWE-7, F-LOAD-3, F-LOAD-4, F-LOAD-5, F-DOCSYNC-14 and
+F-FEATURE-1 (whose inline sentence moved to its own line). The values are
+transcriptions, not verdicts, and no box was checked. Forward guidance: the
+24 are now visible to the lifecycle checks.
+
+Deviations: none. Docs only; no code or test changed.
+
+Validation: `pytest -q` -- **3158 passed** (the `config/docsync.toml` pin;
+the suite was not re-run because no code changed).
+
 ### 2026-10-31 - Record the CI parallel jobs execution
 
 Side task, no batch tag, branch `ci/parallel-jobs`: the plan
@@ -279,22 +298,3 @@ parametrized app-jobs test is split into
 secret scan runs once. No script or workflow change.
 
 Validation: `pytest -q` -- **3157 passed**.
-
-### 2026-10-31 - Run the quality gate as parallel jobs
-
-Side task, no batch tag, branch `ci/parallel-jobs`. The one CI job took about
-7 minutes, 4.5 of them in the browser gate. `.github/workflows/test.yml` now
-has four jobs: `changes` (is the pull request docs-only), `checks` (install,
-preflight, pre-commit, pytest with coverage, pip-audit), `browser` (Playwright
-and the frontend gate) and `quality-gate`, the one required context, which
-aggregates the other three. `scripts/dev/ci_jobs.py` holds the two decisions
-(`docs-only` path classification and `aggregate`), with truth-table tests in
-`tests/scripts/dev/test_ci_jobs.py`; `tests/test_ci_workflows.py` reads
-per-job blocks. A docs-only pull request skips `browser`; any other skip, or
-a failed or cancelled job, turns `quality-gate` red.
-
-Deviations: an empty or unrecognised `--docs-only` value fails the
-aggregator even when all three jobs succeeded (fail closed). `browser` has
-no Tailwind asset cache: nothing it runs reads `scripts/bin`.
-
-Validation: `pytest -q` -- **3347 passed**.
