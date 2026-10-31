@@ -216,6 +216,25 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Run the quality gate as parallel jobs
+
+Side task, no batch tag, branch `ci/parallel-jobs`. The one CI job took about
+7 minutes, 4.5 of them in the browser gate. `.github/workflows/test.yml` now
+has four jobs: `changes` (is the pull request docs-only), `checks` (install,
+preflight, pre-commit, pytest with coverage, pip-audit), `browser` (Playwright
+and the frontend gate) and `quality-gate`, the one required context, which
+aggregates the other three. `scripts/dev/ci_jobs.py` holds the two decisions
+(`docs-only` path classification and `aggregate`), with truth-table tests in
+`tests/scripts/dev/test_ci_jobs.py`; `tests/test_ci_workflows.py` reads
+per-job blocks. A docs-only pull request skips `browser`; any other skip, or
+a failed or cancelled job, turns `quality-gate` red.
+
+Deviations: an empty or unrecognised `--docs-only` value fails the
+aggregator even when all three jobs succeeded (fail closed). `browser` has
+no Tailwind asset cache: nothing it runs reads `scripts/bin`.
+
+Validation: `pytest -q` -- **3347 passed**.
+
 ### 2026-10-31 - Plan the CI split into parallel jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`. The owner approved
@@ -274,35 +293,5 @@ prologue from the new constant.
 Deviations: none. This is docsync control-plane code, so it lands as its own
 commit through the documented `SKIP=doc-state-sync-check` escape. No test
 changed: every test reads the constant by name.
-
-Validation: `pytest -q` -- **3118 passed**.
-
-### 2026-10-31 - Paginate the four archives past the page target
-
-Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for
-the split because a 17,000-line archive is hard for an agent to grep or read.
-`doc_state_sync.py --paginate-archives` turned four archives into indexes with
-numbered pages under a `pages/` folder beside each: the side-task log archive
-(36 pages), the findings archive (8), the Batch 21 log (2) and the Batch 22 log
-(3). Every page is under 500 lines and none is oversized. The four DOC024
-page-target warnings are gone. Two new informational DOC024 warnings name
-findings pages 0001 and 0002, whose undated entries can never age into cold
-storage. No `--cold-storage` run: that needs an explicit date from the owner.
-
-The split was checked independently of the tool's own verification. Every
-non-blank line of each old file is still present across its index and pages,
-the only new lines are page headers and index lines, and all 687 dated
-entries and 141 F-ID headings are on the pages.
-
-Live instructions that searched an archive file by name now search its
-directory: `AGENTS.md` "What to update after a WP or side-task commit",
-`docs/logarchive/README.md`, `docs/AGENT_DOC_MAP.md` (a new trap entry),
-`docs/SWE_AUDIT_CHARTER.md`, `DEVELOPMENT.md` (the archive section, the search
-step and the sample `--check` output) and the cloud kit's expected docsync
-warnings. Point-in-time records keep the old paths, which still resolve to
-the indexes. The side-task archive's built-in read helpers are control-plane
-text and change in the next commit (owner ruling, 2026-10-31).
-
-Deviations: none. No code or test changed.
 
 Validation: `pytest -q` -- **3118 passed**.

@@ -1,6 +1,36 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Paginate the four archives past the page target
+
+Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for
+the split because a 17,000-line archive is hard for an agent to grep or read.
+`doc_state_sync.py --paginate-archives` turned four archives into indexes with
+numbered pages under a `pages/` folder beside each: the side-task log archive
+(36 pages), the findings archive (8), the Batch 21 log (2) and the Batch 22 log
+(3). Every page is under 500 lines and none is oversized. The four DOC024
+page-target warnings are gone. Two new informational DOC024 warnings name
+findings pages 0001 and 0002, whose undated entries can never age into cold
+storage. No `--cold-storage` run: that needs an explicit date from the owner.
+
+The split was checked independently of the tool's own verification. Every
+non-blank line of each old file is still present across its index and pages,
+the only new lines are page headers and index lines, and all 687 dated
+entries and 141 F-ID headings are on the pages.
+
+Live instructions that searched an archive file by name now search its
+directory: `AGENTS.md` "What to update after a WP or side-task commit",
+`docs/logarchive/README.md`, `docs/AGENT_DOC_MAP.md` (a new trap entry),
+`docs/SWE_AUDIT_CHARTER.md`, `DEVELOPMENT.md` (the archive section, the search
+step and the sample `--check` output) and the cloud kit's expected docsync
+warnings. Point-in-time records keep the old paths, which still resolve to
+the indexes. The side-task archive's built-in read helpers are control-plane
+text and change in the next commit (owner ruling, 2026-10-31).
+
+Deviations: none. No code or test changed.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Take main into the UI audit Minors branch after PR #282
 
 Side task, no batch tag: merge `main` (`708fb48b`, PR #282) into

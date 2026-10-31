@@ -1,4 +1,4 @@
-"""The CI quality-gate job must hold no provider secrets.
+"""Every job in the CI workflow must hold no provider secrets.
 
 conftest.py and frontend_gate.py supply placeholder keys, and no step reads a
 real one. A secret set at workflow or job level reaches every step and every
@@ -18,7 +18,7 @@ WORKFLOW = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "t
 SECRET_REFERENCE = re.compile(r"\$\{\{\s*secrets\.")
 
 #: A step's own ``env:`` key sits at this indent (``      - name:`` is six, the
-#: step's keys are eight); the workflow ``env:`` is at 0 and the job's at 4.
+#: step's keys are eight); a job's own ``env:`` is at 4.
 STEP_ENV_INDENT = 8
 
 
@@ -30,14 +30,24 @@ def _indent(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
 
-def _job_level_env(workflow_text: str) -> list[str]:
-    """Return the lines of the job-level ``env:`` block (six-space indent)."""
+def _job_lines(workflow_text: str, job: str) -> list[str]:
+    """Return the lines of the named job (two-space ``jobs:`` child)."""
     lines = _lines(workflow_text)
-    start = next(
-        (i for i, line in enumerate(lines) if line == "    env:"),
-        None,
-    )
-    assert start is not None, "no job-level env block in test.yml"
+    start = next((i for i, line in enumerate(lines) if line == f"  {job}:"), None)
+    assert start is not None, f"no job {job!r} in test.yml"
+    block = []
+    for line in lines[start + 1 :]:
+        if line.strip() and _indent(line) <= 2:
+            break
+        block.append(line)
+    return block
+
+
+def _job_level_env(workflow_text: str, job: str) -> list[str]:
+    """Return the lines of the job's own ``env:`` block (four-space indent)."""
+    lines = _job_lines(workflow_text, job)
+    start = next((i for i, line in enumerate(lines) if line == "    env:"), None)
+    assert start is not None, f"no job-level env block in job {job!r}"
     block = []
     for line in lines[start + 1 :]:
         if line.strip() and not line.startswith("      "):
@@ -67,9 +77,10 @@ def _secret_lines_outside_step_env(workflow_text: str) -> list[str]:
     return leaked
 
 
-def test_test_job_env_passes_no_secret():
+@pytest.mark.parametrize("job", ["checks", "browser"])
+def test_app_jobs_set_flask_env_and_the_workflow_passes_no_secret(job):
     text = WORKFLOW.read_text(encoding="utf-8")
-    block = _job_level_env(text)
+    block = _job_level_env(text, job)
     assert any("FLASK_ENV" in line for line in block), "env block not read"
     leaked = _secret_lines_outside_step_env(text)
     assert not leaked, f"the workflow passes secrets outside a step env: {leaked}"
@@ -77,10 +88,12 @@ def test_test_job_env_passes_no_secret():
 
 def test_env_reader_flags_a_secret_and_a_missing_block():
     text = "jobs:\n  a:\n    env:\n      K: ${{ secrets.K }}\n      FLASK_ENV: x\n"
-    block = _job_level_env(text)
+    block = _job_level_env(text, "a")
     assert [line for line in block if SECRET_REFERENCE.search(line)]
     with pytest.raises(AssertionError, match="no job-level env"):
-        _job_level_env("jobs:\n  a:\n    steps: []\n")
+        _job_level_env("jobs:\n  a:\n    steps: []\n", "a")
+    with pytest.raises(AssertionError, match="no job 'b'"):
+        _job_level_env(text, "b")
 
 
 STEP = "jobs:\n  a:\n    steps:\n      - name: s\n"
@@ -112,11 +125,11 @@ SAVE_STEP = "Save Playwright system packages"
 APT_ARCHIVES = "/var/cache/apt/archives"
 
 
-def _steps(workflow_text: str) -> dict[str, list[str]]:
-    """Return each step's lines, keyed by its name, in file order."""
+def _steps(workflow_text: str, job: str) -> dict[str, list[str]]:
+    """Return each step's lines in the named job, keyed by name, in file order."""
     steps: dict[str, list[str]] = {}
     current = None
-    for line in _lines(workflow_text):
+    for line in _job_lines(workflow_text, job):
         stripped = line.strip()
         if line.startswith("      - name: "):
             current = stripped.removeprefix("- name: ")
@@ -166,7 +179,7 @@ def test_playwright_packages_are_restored_seeded_and_saved_around_the_install():
     """The packages are restored before the install, copied into apt's cache
     directory before it, copied back after it and saved even when a later
     step fails, so a slow mirror is paid for at most once (F-B23-57)."""
-    steps = _steps(WORKFLOW.read_text(encoding="utf-8"))
+    steps = _steps(WORKFLOW.read_text(encoding="utf-8"), "browser")
     names = list(steps)
     for name in (IMAGE_STEP, RESTORE_STEP, INSTALL_STEP, SAVE_STEP):
         assert name in names, f"step {name!r} is missing from {names}"
