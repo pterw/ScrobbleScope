@@ -9,45 +9,26 @@ import pytest
 from scripts.dev.ci_jobs import aggregate, docs_only, main
 
 RESULTS = ("success", "failure", "cancelled", "skipped")
-DOCS_ONLY_VALUES = ("true", "false", "")
+DOCS_ONLY_VALUES = ("true", "false", "", "maybe", "True", "1")
+# Written by hand, not derived from the code: the only shapes quality-gate accepts.
+ACCEPTED = {
+    ("success", "success", "success", "true"),
+    ("success", "success", "success", "false"),
+    ("success", "success", "skipped", "true"),
+}
 
 
-def _allowed(changes: str, checks: str, browser: str, flag: str) -> bool:
-    # An empty docs_only is never a pass, even for three green jobs (O-brief 8).
-    if flag not in ("true", "false"):
-        return False
-    if changes != "success" or checks != "success":
-        return False
-    return browser == "success" or (browser == "skipped" and flag == "true")
-
-
-AGGREGATE_CASES = [
-    (c, k, b, f, _allowed(c, k, b, f))
-    for c, k, b, f in itertools.product(RESULTS, RESULTS, RESULTS, DOCS_ONLY_VALUES)
-]
-
-
-@pytest.mark.parametrize("changes, checks, browser, flag, ok", AGGREGATE_CASES)
-def test_aggregate_passes_only_for_the_two_allowed_shapes(
-    changes, checks, browser, flag, ok
-):
-    """GIVEN the three job results and the docs_only output
+def test_aggregate_passes_only_for_the_accepted_shapes():
+    """GIVEN every combination of the three job results and the docs_only output
     WHEN aggregate decides
-    THEN it passes only for all-success or a docs-only browser skip.
+    THEN it passes exactly for the accepted tuples and fails for all others.
     """
-    code, message = aggregate(changes, checks, browser, flag)
-    assert (code == 0) is ok, message
-
-
-@pytest.mark.parametrize("flag", ["", "maybe", "True", "1"])
-def test_aggregate_rejects_an_empty_or_unknown_docs_only_value(flag):
-    """GIVEN a skipped browser and a docs_only value that is not true or false
-    WHEN aggregate decides
-    THEN it fails rather than treating the value as docs-only.
-    """
-    code, message = aggregate("success", "success", "skipped", flag)
-    assert code == 1
-    assert "docs_only" in message
+    wrong = []
+    for combo in itertools.product(RESULTS, RESULTS, RESULTS, DOCS_ONLY_VALUES):
+        code, _ = aggregate(*combo)
+        if (code == 0) != (combo in ACCEPTED):
+            wrong.append((combo, code))
+    assert wrong == []
 
 
 @pytest.mark.parametrize(
@@ -58,6 +39,8 @@ def test_aggregate_rejects_an_empty_or_unknown_docs_only_value(flag):
         (("success", "failure", "success", "false"), "checks"),
         (("success", "success", "failure", "false"), "browser"),
         (("success", "success", "skipped", "false"), "browser"),
+        (("success", "success", "skipped", "maybe"), "docs_only"),
+        (("success", "success", "success", ""), "docs_only"),
     ],
 )
 def test_aggregate_failure_message_names_the_offending_job(args, culprit):
@@ -81,7 +64,7 @@ DOCS_ONLY_CASES = [
     (("a/b/c/notes.md",), True),
     ((".superpowers/sdd/x/progress.json",), True),
     (("config/docsync.toml",), True),
-    (("docs/my file.txt",), True),
+    (("my notes.md",), True),
     (("docs/a.md", "README.md", "config/docsync.toml"), True),
     (("docs/a.md", "scrobblescope/app.py"), False),
     (("README.md", "scripts/dev/x.py"), False),
@@ -92,9 +75,11 @@ DOCS_ONLY_CASES = [
     (("docs_tools/x.py",), False),
     (("app/docs/x.py",), False),
     (("notes.mdx",), False),
+    ((".superpowers-old/x.py",), False),
+    (("build.cmd",), False),
+    (("src/my file.py",), False),
     (("sub/config/docsync.toml",), False),
     (("config/docsync.toml.bak",), False),
-    ((), False),
 ]
 
 
@@ -146,16 +131,31 @@ def test_main_aggregate_returns_one_and_names_the_failure(capsys):
     assert "checks" in capsys.readouterr().out
 
 
-def test_main_aggregate_accepts_an_empty_docs_only_value(capsys):
-    """GIVEN an empty --docs-only (changes failed, so no output)
+def test_main_aggregate_rejects_an_empty_docs_only_given_as_a_separate_argument(
+    capsys,
+):
+    """GIVEN three green jobs and an empty docs_only (the workflow's separated form)
     WHEN the aggregate command runs
-    THEN it returns 1 instead of failing argument parsing.
+    THEN it returns 1 instead of failing argument parsing or passing.
     """
     argv = [
         "aggregate",
-        "--changes=failure",
+        "--changes=success",
         "--checks=success",
-        "--browser=skipped",
-        "--docs-only=",
+        "--browser=success",
+        "--docs-only",
+        "",
     ]
     assert main(argv) == 1
+    assert "docs_only" in capsys.readouterr().out
+
+
+def test_main_aggregate_exits_nonzero_when_a_required_flag_is_missing():
+    """GIVEN an aggregate call that omits --browser
+    WHEN the arguments are parsed
+    THEN the command exits non-zero rather than assuming a result.
+    """
+    argv = ["aggregate", "--changes=success", "--checks=success", "--docs-only=true"]
+    with pytest.raises(SystemExit) as exit_info:
+        main(argv)
+    assert exit_info.value.code != 0

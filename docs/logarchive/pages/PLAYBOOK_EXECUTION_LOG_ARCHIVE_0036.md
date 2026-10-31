@@ -1,6 +1,23 @@
 <!-- DOCSYNC:ARCHIVE-PAGE v1 -->
 # PLAYBOOK_EXECUTION_LOG_ARCHIVE -- page 0036
 
+### 2026-10-31 - Point the side-task archive's read helpers at its directory
+
+Side task, no batch tag, branch `docs/paginate-archives`, after the archive
+split. `SIDE_ARCHIVE_PREFIX` in `scripts/docsync/renderer.py` is the canonical
+prologue DOC004 holds the side-task archive to. Its read helpers searched the
+archive file itself, which is now an index with no entries, so an agent
+following them found nothing. They now search `docs/logarchive/`, and the
+prologue says why. The `Get-Content` helper is gone: reading the whole
+archive is what the split exists to avoid. `--fix` rewrote the index's
+prologue from the new constant.
+
+Deviations: none. This is docsync control-plane code, so it lands as its own
+commit through the documented `SKIP=doc-state-sync-check` escape. No test
+changed: every test reads the constant by name.
+
+Validation: `pytest -q` -- **3118 passed**.
+
 ### 2026-10-31 - Paginate the four archives past the page target
 
 Side task, no batch tag, branch `docs/paginate-archives`. The owner asked for

@@ -77,12 +77,15 @@ def _secret_lines_outside_step_env(workflow_text: str) -> list[str]:
     return leaked
 
 
-@pytest.mark.parametrize("job", ["checks", "browser"])
-def test_app_jobs_set_flask_env_and_the_workflow_passes_no_secret(job):
+def test_app_jobs_set_flask_env():
     text = WORKFLOW.read_text(encoding="utf-8")
-    block = _job_level_env(text, job)
-    assert any("FLASK_ENV" in line for line in block), "env block not read"
-    leaked = _secret_lines_outside_step_env(text)
+    for job in ("checks", "browser"):
+        block = _job_level_env(text, job)
+        assert any("FLASK_ENV" in line for line in block), f"{job}: env block not read"
+
+
+def test_the_workflow_passes_no_secret_outside_a_step_env():
+    leaked = _secret_lines_outside_step_env(WORKFLOW.read_text(encoding="utf-8"))
     assert not leaked, f"the workflow passes secrets outside a step env: {leaked}"
 
 

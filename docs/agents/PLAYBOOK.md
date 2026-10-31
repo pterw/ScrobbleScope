@@ -216,6 +216,26 @@ listed by `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; search the
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Tighten the CI split tests after review
+
+Side task, no batch tag, branch `ci/parallel-jobs`: fixes from the review of
+the split commit, tests only. In `tests/scripts/dev/test_ci_jobs.py` the
+192-row `aggregate` table and its `_allowed` oracle are replaced by one test
+that loops the full product against a hand-written set of accepted tuples
+and lists every mismatch; `test_aggregate_rejects_an_empty_or_unknown_docs_only_value`
+and the duplicate `()` row are removed; the misnamed
+`test_main_aggregate_accepts_an_empty_docs_only_value` is replaced by
+`test_main_aggregate_rejects_an_empty_docs_only_given_as_a_separate_argument`;
+`test_main_aggregate_exits_nonzero_when_a_required_flag_is_missing` is added;
+the docs-only table gains `.superpowers-old/x.py`, `build.cmd`,
+`src/my file.py` and `my notes.md`. In `tests/test_ci_workflows.py` the
+parametrized app-jobs test is split into
+`test_app_jobs_set_flask_env` and
+`test_the_workflow_passes_no_secret_outside_a_step_env`, so the whole-file
+secret scan runs once. No script or workflow change.
+
+Validation: `pytest -q` -- **3157 passed**.
+
 ### 2026-10-31 - Run the quality gate as parallel jobs
 
 Side task, no batch tag, branch `ci/parallel-jobs`. The one CI job took about
@@ -278,20 +298,3 @@ through the documented `SKIP=doc-state-sync-check` escape. Existing tests
 edited: none.
 
 Validation: `pytest -q` -- **3119 passed**.
-
-### 2026-10-31 - Point the side-task archive's read helpers at its directory
-
-Side task, no batch tag, branch `docs/paginate-archives`, after the archive
-split. `SIDE_ARCHIVE_PREFIX` in `scripts/docsync/renderer.py` is the canonical
-prologue DOC004 holds the side-task archive to. Its read helpers searched the
-archive file itself, which is now an index with no entries, so an agent
-following them found nothing. They now search `docs/logarchive/`, and the
-prologue says why. The `Get-Content` helper is gone: reading the whole
-archive is what the split exists to avoid. `--fix` rewrote the index's
-prologue from the new constant.
-
-Deviations: none. This is docsync control-plane code, so it lands as its own
-commit through the documented `SKIP=doc-state-sync-check` escape. No test
-changed: every test reads the constant by name.
-
-Validation: `pytest -q` -- **3118 passed**.
