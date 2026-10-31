@@ -1956,7 +1956,6 @@
     var panel = document.createElement('div');
     panel.id = 'stream-panel';
     panel.className = 'stream-panel';
-    panel.setAttribute('aria-live', 'polite');
     panel.hidden = true;
     gridContainer.appendChild(panel);
 
@@ -1972,8 +1971,30 @@
     svg.addEventListener('blur', handleStreamBlur);
     svg.addEventListener('keydown', handleStreamKey);
     ['pointerleave', 'pointercancel'].forEach(function (type) {
-      svg.addEventListener(type, clearWeek);
+      svg.addEventListener(type, handleStreamLeave);
     });
+  }
+
+  // Keyboard focus, as :focus-visible draws it: the svg is a tab stop, so a
+  // click or tap focuses it too, and that is not keyboard focus.
+  function streamHasKeyboardFocus(state) {
+    return document.activeElement === state.svg && state.svg.matches(':focus-visible');
+  }
+
+  // The panel announces its rewrites only while the keys drive it, so a
+  // pointer scrub says nothing. Set before the panel is filled.
+  function syncStreamLive(state) {
+    if (streamHasKeyboardFocus(state)) {
+      state.panel.setAttribute('aria-live', 'polite');
+    } else {
+      state.panel.removeAttribute('aria-live');
+    }
+  }
+
+  // With keyboard focus the shown week stays, so the keys continue from it.
+  function handleStreamLeave() {
+    if (streamState && streamHasKeyboardFocus(streamState)) return;
+    clearWeek();
   }
 
   // Map the pointer to a week and the layer under it, then show them.
@@ -2020,6 +2041,7 @@
   function handleStreamFocus() {
     var state = streamState;
     if (!state) return;
+    syncStreamLive(state);
     if (state.shown) {
       state.cursor = streamKeyState(state);
     } else {
@@ -2028,7 +2050,10 @@
   }
 
   function handleStreamBlur() {
-    if (streamState) streamState.cursor = null;
+    if (streamState) {
+      streamState.cursor = null;
+      streamState.panel.removeAttribute('aria-live');
+    }
     clearWeek();
   }
 
@@ -2036,6 +2061,17 @@
   function handleStreamKey(event) {
     var state = streamState;
     if (!state || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === 'Escape') {
+      // Keep the keyboard position, so the next arrow key shows it again.
+      if (!state.shown) return;
+      state.cursor = streamKeyState(state);
+      event.preventDefault();
+      clearWeek();
+      return;
+    }
+    // Chromium turns :focus-visible on for a clicked svg at the first key,
+    // without a focus event.
+    syncStreamLive(state);
     var target = streamKeyTarget(event.key, streamKeyState(state), streamDims(state));
     if (!target) return;
     event.preventDefault();
@@ -2088,7 +2124,7 @@
   function showWeek(week, hoverId) {
     var state = streamState;
     if (!state) return;
-    if (state.shown &&state.shown.week === week && state.shown.hoverId === hoverId) return;
+    if (state.shown && state.shown.week === week && state.shown.hoverId === hoverId) return;
     removeStreamMarks();
     state.shown = { week: week, hoverId: hoverId };
 

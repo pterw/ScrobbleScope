@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-10-30 - Plan the UI audit Minors bug fixes
+
+The deferred Minors from the 2026-10-27 UI audit's reviews were checked
+against `main` by a read-only audit. Of 79 rows, 43 were still true, and the
+owner accepted a triage of them on 2026-10-30. The spec records each chosen
+row with its evidence and lists the deferred and dropped rows. The plan
+slices the fixes into eleven atomic tasks: stream panel keyboard and
+screen-reader behaviour, gate-helper fixes, two CSS tidy-ups, and four
+visual changes that land only after the owner previews them (panel header
+size, key spacing, month labels, vertical centring). One plan review found
+two Important issues: a focus rule that also caught pointer focus, and a
+false claim about the saved image. Both were fixed with its eight Minors
+before this commit. Docs only.
+
+Validation: the full suite measured **3108 passed**; pre-commit on all
+files and the final docsync check pass.
+
 ### 2026-10-30 - Record the merged chart work and open the UI Minors side task
 
 Section 3 still described the weekly chart geometry branch as awaiting its

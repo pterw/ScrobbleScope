@@ -207,6 +207,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-10-31 - Make the stream panel dismissible and focus-safe
+
+The stream panel was always a live region, so a pointer scrub announced
+every week. Escape did not dismiss it, a pointer leave dropped the week
+while the keys were driving it, and the gate never checked that arrow keys
+were consumed. `aria-live` is now set only while the stream has keyboard
+focus (`:focus-visible`, so a click or tap does not count), decided on
+focus and again at the first key, because Chromium turns `:focus-visible`
+on after a click without a focus event. Escape hides the panel, ring,
+guide and dimming, keeps focus and stores the position so the next arrow
+resumes from it. Pointer leave and cancel clear the week only without
+keyboard focus. `showWeek`'s guard lost its missing space. The keyboard
+check now watches `window` for each arrow key reaching it with
+`defaultPrevented`, and gained the click-then-leave, Escape and
+unfocused-hover cases. The gate's three `.focus()` calls already match
+`:focus-visible` in Chromium (the only engine the stream checks run on), so
+they stay. This closes audit rows 1, 26, 27, 28 and 29 of the UI audit
+Minors. Deviation: Escape calls `preventDefault` only when it dismissed a
+panel. Existing tests edited: the gate check
+`check_stream_is_one_keyboard_tab_stop` (its "after pointer leave"
+expectation changed from week 6 to week 26 as the brief requires).
+
+Validation: `pytest -q` -- **3111 passed**.
+
 ### 2026-10-31 - Clear the stored pause choice on every exit
 
 The spotlight photo gate's paused-hold probe stores `ss-motion=still`
@@ -247,20 +271,3 @@ row 3 of the UI audit Minors. No deviations. Existing test edited:
 added, `600 normal 18px x`).
 
 Validation: `pytest -q` -- **3109 passed**.
-
-### 2026-10-30 - Plan the UI audit Minors bug fixes
-
-The deferred Minors from the 2026-10-27 UI audit's reviews were checked
-against `main` by a read-only audit. Of 79 rows, 43 were still true, and the
-owner accepted a triage of them on 2026-10-30. The spec records each chosen
-row with its evidence and lists the deferred and dropped rows. The plan
-slices the fixes into eleven atomic tasks: stream panel keyboard and
-screen-reader behaviour, gate-helper fixes, two CSS tidy-ups, and four
-visual changes that land only after the owner previews them (panel header
-size, key spacing, month labels, vertical centring). One plan review found
-two Important issues: a focus rule that also caught pointer focus, and a
-false claim about the saved image. Both were fixed with its eight Minors
-before this commit. Docs only.
-
-Validation: the full suite measured **3108 passed**; pre-commit on all
-files and the final docsync check pass.

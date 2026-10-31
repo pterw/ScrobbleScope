@@ -1175,6 +1175,65 @@ _STOPS_IN_STREAM_JS = """() => {
 _FADE_MS = 300
 
 
+#: Every keydown that reaches window, and whether it was consumed.
+_WATCH_KEYS_JS = """() => {
+    window.__streamGateKeys = [];
+    window.addEventListener('keydown', (event) => {
+        window.__streamGateKeys.push([event.key, event.defaultPrevented]);
+    });
+}"""
+
+_NAV_KEYS = ("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End")
+
+_READ_LIVE_JS = (
+    "() => document.querySelector('#stream-panel').getAttribute('aria-live')"
+)
+
+
+def _live_failures(page, polite: bool, when: str) -> list[str]:
+    """The panel is a polite live region only while the stream has keyboard focus."""
+    live = page.evaluate(_READ_LIVE_JS)
+    if (live == "polite") != polite:
+        return [f"{when}: the panel's aria-live is {live!r}, polite expected: {polite}"]
+    return []
+
+
+def _unconsumed_key_failures(page) -> list[str]:
+    keys = page.evaluate("() => window.__streamGateKeys")
+    unconsumed = dict.fromkeys(
+        key for key, prevented in keys if key in _NAV_KEYS and not prevented
+    )
+    return [
+        f"{key} reached window without defaultPrevented, so the page may scroll"
+        for key in unconsumed
+    ]
+
+
+def _pointer_failures(page) -> list[str]:
+    """Hover and a click then a leave, with the stream blurred, announce nothing."""
+    failures = []
+    _hover(page, _START_WEEK)
+    failures.extend(_live_failures(page, False, "hovering the unfocused stream"))
+    point = _point_in_layer(page, _START_WEEK)
+    page.mouse.click(point["x"], point["y"])
+    page.mouse.move(*_OUTSIDE)
+    failures.extend(_cleared_after(page, "after a click and a pointer leave"))
+    failures.extend(_live_failures(page, False, "after a click and a pointer leave"))
+    return failures
+
+
+def _escape_failures(page) -> list[str]:
+    """Escape hides the panel and keeps focus; the next arrow resumes from there."""
+    page.keyboard.press("Escape")
+    wait_for_settled(page)
+    failures = _cleared_failures(page, "after Escape")
+    if not page.evaluate(_ACTIVE_JS)["isStream"]:
+        failures.append("Escape moved focus off the stream")
+    page.keyboard.press("ArrowRight")
+    failures.extend(_step_failures(page, 7, _ARTIST_COUNT, "ArrowRight after Escape"))
+    return failures
+
+
 def _cleared_after(page, when: str) -> list[str]:
     wait_for_settled(page)
     page.wait_for_timeout(_FADE_MS)
@@ -1350,9 +1409,12 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
     try:
         _open_heatmap(page, base_url, job_id, _GRID_DESKTOP)
         page.mouse.move(*_OUTSIDE)
-        failures = _tab_to_stream(page)
-        if failures:
-            return failures
+        page.evaluate(_WATCH_KEYS_JS)
+        failures = _pointer_failures(page)
+        tab_failures = _tab_to_stream(page)
+        if tab_failures:
+            return failures + tab_failures
+        failures.extend(_live_failures(page, True, "after Tab into the stream"))
         failures.extend(_outline_failures(page))
         failures.extend(_walk_failures(page))
         page.keyboard.press("Home")
@@ -1361,12 +1423,17 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
         for _ in range(_ARTIST_COUNT + 1):
             page.keyboard.press("ArrowDown")
         failures.extend(_step_failures(page, 6, _ARTIST_COUNT, "dense week end"))
+        failures.extend(_escape_failures(page))
         _hover(page, _START_WEEK)
+        pointer_row = page.evaluate(_PANEL_ROWS_JS)["hovered"]
         page.mouse.move(*_OUTSIDE)
         page.keyboard.press("ArrowUp")
         failures.extend(
-            _step_failures(page, 6, _ARTIST_COUNT - 1, "after pointer leave")
+            _step_failures(
+                page, _START_WEEK, max(pointer_row - 1, 0), "after pointer leave"
+            )
         )
+        failures.extend(_unconsumed_key_failures(page))
         if page.evaluate(_STOPS_IN_STREAM_JS) != 1:
             failures.append("the stream holds more than one tab stop")
         # The sentinel is added only now: in flow, it would add height below
@@ -1384,8 +1451,10 @@ def check_stream_is_one_keyboard_tab_stop(page, base_url: str) -> list[str]:
             )
         failures.extend(_cleared_after(page, "after Shift+Tab left the stream"))
         page.locator(_STREAM).focus()
+        failures.extend(_live_failures(page, True, "after focusing the stream"))
         page.locator(_STREAM).blur()
         failures.extend(_cleared_after(page, "after blur"))
+        failures.extend(_live_failures(page, False, "after blur"))
         failures.extend(_blur_resize_failures(page, original))
     finally:
         try:
