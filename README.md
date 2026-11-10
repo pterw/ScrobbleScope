@@ -5,9 +5,15 @@
   </picture>
 </h1>
 
-Last updated: 2026-10-31
+<p align="center"><em>Last updated: 2026-11-10</em></p>
 
-<p align="center"><strong>Your Last.fm listening habits, visualized.</strong></p>
+<p align="center"><strong>Your Last.fm listening habits visualized the way you want.</strong></p>
+
+<p align="center">
+  <strong><a href="https://scrobblescope.fly.dev">Try it live -&gt;</a></strong>
+</p>
+
+<div align="center">
 
 [![Quality Gate](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml/badge.svg)](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml)
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
@@ -18,26 +24,34 @@ Last updated: 2026-10-31
 [![Deployed on Fly.io](https://img.shields.io/badge/deployed-fly.io-8b5cf6.svg)](https://scrobblescope.fly.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Try it live ->](https://scrobblescope.fly.dev)**
+</div>
+
+
 
 ScrobbleScope reads a public Last.fm listening history and turns it into three
 views: a ranking of the albums you played most, a heatmap of every day of the
-last year, and a streamgraph of your top artists week by week. Use it to build
-an Album of the Year list, to compare albums by listening time, or to see when
-you listen.
+last year, and a streamgraph of your top artists week by week. You can use it to build
+an Album of the Year list, to compare albums by listening time, or to see your
+listening habits for the last 365 days.
 
-A search is not a database query. Last.fm stores individual plays, not albums,
-so an album does not exist upstream: the app builds it by grouping a year of
-plays on a normalized artist and album name, then applying the thresholds you
-chose. The same plays give a different album list for different thresholds.
+With ScrobbleScope, a search is not a database query. Last.fm stores your individual plays reliably, but not so much when it comes to albums.
+Instead of trusting last.fm's album plays, the app relies on your own track plays to give you more granular control on what you want to see in 
+your top albums filter. What counts as an album is done by grouping a year of plays, on a normalized artist and album name, then applying the thresholds you
+chose. (Default is a minimum of 10 track plays on an album, with a minimum of three unique tracks for it to count). 
+
+The same plays give a different album list for different thresholds.
 
 The app runs on one small Fly.io machine, so it keeps a bounded set of
 background jobs and holds job state in memory, with no queue broker. Below are
 the pipelines, what happens when a provider fails, the cache, the cost ceiling
-and the stack. The details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+and the stack. 
+
+The details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [DEPLOY.md](DEPLOY.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
 
-<table>
+<h2 align="center">Screenshots</h2>
+
+<table align="center">
   <tr>
     <td><img src="docs/images/results_light_top_albums.png" alt="Top Albums results for flounder14, ranked by track plays, with the Artist Spotlight beside the list" width="400"></td>
     <td><img src="docs/images/unmatched_light_reasons.png" alt="The Unmatched report, grouping the albums left out of the results by reason" width="400"></td>
@@ -48,7 +62,7 @@ and the stack. The details are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
   </tr>
 </table>
 
-## Architecture
+<h2 align="center">Architecture</h2>
 
 Both forms start the same way. The form is checked first: Last.fm is asked
 whether the user exists and whether their recent listening is public, and a
